@@ -7,8 +7,14 @@ REM Command file for Sphinx documentation
 if "%SPHINXBUILD%" == "" (
 	set SPHINXBUILD=sphinx-build
 )
+if "%SPHINXAPIDOC%" == "" (
+	set SPHINXAPIDOC=sphinx-apidoc
+)
 set SOURCEDIR=.
 set BUILDDIR=.
+set POREPYDIR=../src/porepy/
+set POREPYDOCSRC=./docsrc/porepy/
+set SPHINXOPTS="-E"
 
 %SPHINXBUILD% >NUL 2>NUL
 if errorlevel 9009 (
@@ -24,8 +30,14 @@ if errorlevel 9009 (
 )
 
 if "%1" == "" goto help
+if "%1" == "complete" goto complete
 
 %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+goto end
+
+:complete
+%SPHINXAPIDOC% -f -e -M -d 1 --implicit-namespaces -o %POREPYDOCSRC% %POREPYDIR%
+%SPHINXBUILD% -M %2 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
 goto end
 
 :help

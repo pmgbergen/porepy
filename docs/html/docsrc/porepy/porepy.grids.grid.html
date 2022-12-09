@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.grids.grid module &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.grid.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="porepy.grids.grid_extrusion module" href="porepy.grids.grid_extrusion.html" />
+    <link rel="prev" title="porepy.grids.coarsening module" href="porepy.grids.coarsening.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
+          <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
+      <li class="breadcrumb-item active">porepy.grids.grid module</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-porepy.grids.grid">
+<span id="porepy-grids-grid-module"></span><h1>porepy.grids.grid module<a class="headerlink" href="#module-porepy.grids.grid" title="Permalink to this heading"></a></h1>
+<p>Module containing the parent class for all grids.</p>
+<p>See documentation of the Grid class for further details.</p>
+<dl class="simple">
+<dt>Acknowledgements:</dt><dd><p>The data structure for the grid is inspired by that used in the Matlab
+Reservoir Simulation Toolbox (MRST) developed by SINTEF ICT, see
+www.sintef.no/projectweb/mrst/ . Some of the methods, in particular
+compute_geometry() and its subfunctions is to a large degree translations
+of the corresponding functions in MRST.</p>
+</dd>
+</dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Parent class for all grids.</p>
+<p>The grid stores topological information, as well as geometric
+information (after a call to self.compute_geometry().</p>
+<p>As of yet, there is no structure for tags (face or cell) is the grid.
+This will be introduced later.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">Comes</span> <span class="pre">in</span> <span class="pre">three</span> <span class="pre">classes.</span> <span class="pre">Topological</span> <span class="pre">information,</span> <span class="pre">defined</span> <span class="pre">at</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">construction</span> <span class="pre">time</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.dim">
+<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.dim" title="Permalink to this definition"></a></dt>
+<dd><p>dimension. Should be 0 or 1 or 2 or 3</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.nodes">
+<span class="sig-name descname"><span class="pre">nodes</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.nodes" title="Permalink to this definition"></a></dt>
+<dd><p>node coordinates. size: dim x num_nodes</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.face_nodes">
+<span class="sig-name descname"><span class="pre">face_nodes</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.face_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Face-node relationships. Matrix size:
+num_nodes x num_facess. To use compute_geometry() later, the field
+face_nodes.indices should store the nodes of each face sorted.
+For more information, see information on compute_geometry()
+below.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">sps.csc-matrix</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_faces">
+<span class="sig-name descname"><span class="pre">cell_faces</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.cell_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Cell-face relationships. Matrix size:
+num_faces x num_cells. Matrix elements have value +-1, where +
+corresponds to the face normal vector being outwards.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">sps.csc-matrix</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.name">
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.name" title="Permalink to this definition"></a></dt>
+<dd><p>Name assigned to this grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.history">
+<span class="sig-name descname"><span class="pre">history</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.history" title="Permalink to this definition"></a></dt>
+<dd><p>Information on the formation of the grid, such as the
+constructor, computations of geometry etc.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">str</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.num_nodes">
+<span class="sig-name descname"><span class="pre">num_nodes</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.num_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Number of nodes in the grid</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.num_faces">
+<span class="sig-name descname"><span class="pre">num_faces</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.num_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Number of faces in the grid</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.num_cells">
+<span class="sig-name descname"><span class="pre">num_cells</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.num_cells" title="Permalink to this definition"></a></dt>
+<dd><p>Number of cells in the grid</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">---</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">Geometric</span> <span class="pre">information,</span> <span class="pre">obtained</span> <span class="pre">by</span> <span class="pre">call</span> <span class="pre">to</span> <span class="pre">compute_geometry()</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">Assumes</span> <span class="pre">the</span> <span class="pre">nodes</span> <span class="pre">of</span> <span class="pre">each</span> <span class="pre">face</span> <span class="pre">are</span> <span class="pre">ordered</span> <span class="pre">according</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">right-</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">hand</span> <span class="pre">rule.</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">face_nodes.indices[face_nodes.indptr[i]</span></span></dt>
+<dd><p>face_nodes.indptr[i+1]]</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">are</span> <span class="pre">the</span> <span class="pre">nodes</span> <span class="pre">of</span> <span class="pre">face</span> <span class="pre">i,</span> <span class="pre">which</span> <span class="pre">should</span> <span class="pre">be</span> <span class="pre">ordered</span> <span class="pre">counter-clockwise.</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">By</span> <span class="pre">counter-clockwise</span> <span class="pre">we</span> <span class="pre">mean</span> <span class="pre">as</span> <span class="pre">seen</span> <span class="pre">from</span> <span class="pre">cell</span> <span class="pre">cell_faces[i,</span></span></dt>
+<dd><p>] == -1.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">Equivalently</span> <span class="pre">the</span> <span class="pre">nodes</span> <span class="pre">will</span> <span class="pre">be</span> <span class="pre">clockwise</span> <span class="pre">as</span> <span class="pre">seen</span> <span class="pre">from</span> <span class="pre">cell</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">cell_faces[i,</span></span></dt>
+<dd><p>] == 1. Note that operations on the face_nodes matrix</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">(such</span> <span class="pre">as</span> <span class="pre">converting</span> <span class="pre">it</span> <span class="pre">to</span> <span class="pre">a</span> <span class="pre">csr-matrix)</span> <span class="pre">may</span> <span class="pre">change</span> <span class="pre">the</span> <span class="pre">ordering</span> <span class="pre">of</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">the</span> <span class="pre">nodes</span></span></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">face_nodes.indices),</span> <span class="pre">which</span> <span class="pre">will</span> <span class="pre">break</span> <span class="pre">compute_geometry(</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">Geometric</span> <span class="pre">information,</span> <span class="pre">available</span> <span class="pre">after</span> <span class="pre">compute_geometry()</span> <span class="pre">has</span> <span class="pre">been</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">called</span> <span class="pre">on</span> <span class="pre">the</span> <span class="pre">object</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.face_areas">
+<span class="sig-name descname"><span class="pre">face_areas</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.face_areas" title="Permalink to this definition"></a></dt>
+<dd><p>Areas of all faces</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.face_centers">
+<span class="sig-name descname"><span class="pre">face_centers</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.face_centers" title="Permalink to this definition"></a></dt>
+<dd><p>Centers of all faces. Dimensions dim x
+num_faces</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.face_normals">
+<span class="sig-name descname"><span class="pre">face_normals</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.face_normals" title="Permalink to this definition"></a></dt>
+<dd><p>Normal vectors of all faces. Dimensions
+dim x num_faces. See also cell_faces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_centers">
+<span class="sig-name descname"><span class="pre">cell_centers</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.cell_centers" title="Permalink to this definition"></a></dt>
+<dd><p>Centers of all cells. Dimensions dim x
+num_cells</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_volumes">
+<span class="sig-name descname"><span class="pre">cell_volumes</span></span><a class="headerlink" href="#porepy.grids.grid.Grid.cell_volumes" title="Permalink to this definition"></a></dt>
+<dd><p>Volumes of all cells</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">----</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">Other</span> <span class="pre">fields</span></span></dt>
+<dd><dl class="simple">
+<dt>frac_num (int): Index of the fracture the grid corresponds to. Take</dt><dd><p>value (0, 1, …) if the grid corresponds to a fracture, -1 if not.</p>
+</dd>
+<dt>parent_cell_ind (np.ndarray): For grids that have refined or are subgrids</dt><dd><p>of larger grids, index of parent the cell in the parent grid.
+Defaults to a mapping to its own index.</p>
+</dd>
+<dt>global_point_ind (np.ndarray): Index of each point, assigned during processing</dt><dd><p>of mixed-dimensional grids created by gmsh. Used to identify points that
+are geometrically equal, though on different grids. Could potentially be
+used to identify such geometrically equal points at a later stage, but
+there is no guarantee that this will work.</p>
+</dd>
+<dt>_physical_name_index (int): Used to keep track of processing of grids generated</dt><dd><p>by gmsh.</p>
+</dd>
+<dt>frac_pairs (np.ndarray): indices of faces that are geometrically coinciding, but</dt><dd><p>lay on different side of a lower-dimensional grid.</p>
+</dd>
+<dt>well_num (int): Index of the well associated to the grid. Take value in</dt><dd><p>(0, 1, ..) if the grid corresponds to a well, -1 if not.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">these</span> <span class="pre">may</span> <span class="pre">only</span> <span class="pre">be</span> <span class="pre">assigned</span> <span class="pre">to</span> <span class="pre">certain</span> <span class="pre">grids,</span> <span class="pre">use</span> <span class="pre">with</span> <span class="pre">caution</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_connection_map">
+<span class="sig-name descname"><span class="pre">cell_connection_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_connection_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_connection_map" title="Permalink to this definition"></a></dt>
+<dd><p>Get a matrix representation of cell-cell connections, as defined by
+two cells sharing a face.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>Boolean</dt><dd><p>matrix, element (i,j) is true if cells i and j share a face.
+The matrix is thus symmetric.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.9.3)">scipy.sparse.csr_matrix</a>, size num_cells * num_cells</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_diameters">
+<span class="sig-name descname"><span class="pre">cell_diameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_diameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_diameters" title="Permalink to this definition"></a></dt>
+<dd><p>Compute the cell diameters. If self.dim == 0, return 0</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cn</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – cell nodes map, previously already computed.</p></li>
+<li><p><strong>Otherwise</strong> – </p></li>
+<li><p><strong>provided.</strong> (<em>a call to self.cell_nodes is</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>values of the cell diameter for each cell</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.array, num_cells</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_face_as_dense">
+<span class="sig-name descname"><span class="pre">cell_face_as_dense</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_face_as_dense"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_face_as_dense" title="Permalink to this definition"></a></dt>
+<dd><p>Obtain the cell-face relation in the form of two rows, rather than a
+sparse matrix. This alternative format can be useful in some cases.</p>
+<p>Each column in the array corresponds to a face, and the elements in
+that column refers to cell indices. The value -1 signifies a boundary.
+The normal vector of the face points from the first to the second row.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>Array representation of face-cell</dt><dd><p>relations</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>np.ndarray, 2 x num_faces</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_nodes">
+<span class="sig-name descname"><span class="pre">cell_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Obtain mapping between cells and nodes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>Value 1 indicates a</dt><dd><p>connection between cell and node.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>sps.csc_matrix, size num_nodes x num_cells</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.closest_cell">
+<span class="sig-name descname"><span class="pre">closest_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_distance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.closest_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.closest_cell" title="Permalink to this definition"></a></dt>
+<dd><p>For a set of points, find closest cell by cell center.</p>
+<p>If several centers have the same distance, one of them will be
+returned.</p>
+<p>For dim &lt; 3, no checks are made if the point is in the plane / line
+of the grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">3xn</span></code>) – Point coordinates. If p.shape[0] &lt; 3,
+additional points will be treated as zeros.</p></li>
+<li><p><strong>return_distance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>For each point, index of the cell with center</dt><dd><p>closest to the point.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray of ints</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.compute_geometry">
+<span class="sig-name descname"><span class="pre">compute_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.compute_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.compute_geometry" title="Permalink to this definition"></a></dt>
+<dd><p>Compute geometric quantities for the grid.</p>
+<p>This method initializes class variables describing the grid
+geometry, see class documentation for details.</p>
+<p>The method could have been called from the constructor, however,
+in cases where the grid is modified after the initial construction (
+say, grid refinement), this may lead to costly, unnecessary computations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.copy" title="Permalink to this definition"></a></dt>
+<dd><p>Create a new instance with some attributes deep-copied from the grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>A deep copy of self. Some predefined attributes are also copied.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>grid</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_all_boundary_faces">
+<span class="sig-name descname"><span class="pre">get_all_boundary_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_all_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_all_boundary_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Get indices of all faces tagged as either fractures, domain boundary or
+tip.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Index of all boundary faces.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_all_boundary_nodes">
+<span class="sig-name descname"><span class="pre">get_all_boundary_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_all_boundary_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_all_boundary_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Get indices of all nodes tagged as either fractures, domain boundary or
+tip.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Index of all boundary nodes.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_boundary_faces">
+<span class="sig-name descname"><span class="pre">get_boundary_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_boundary_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Get indices of all faces tagged as domain boundary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Index of all domain boundary faces.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_boundary_nodes">
+<span class="sig-name descname"><span class="pre">get_boundary_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_boundary_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_boundary_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Get nodes on the boundary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>np.ndarray (1d), index of nodes on the boundary</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_internal_faces">
+<span class="sig-name descname"><span class="pre">get_internal_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_internal_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_internal_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Get internal face ids of the grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>np.ndarray (1d), index of internal faces.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_internal_nodes">
+<span class="sig-name descname"><span class="pre">get_internal_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_internal_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_internal_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Get internal node ids of the grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>np.ndarray (1D), index of internal nodes.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.initiate_face_tags">
+<span class="sig-name descname"><span class="pre">initiate_face_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.initiate_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.initiate_face_tags" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.initiate_node_tags">
+<span class="sig-name descname"><span class="pre">initiate_node_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.initiate_node_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.initiate_node_tags" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.num_cell_nodes">
+<span class="sig-name descname"><span class="pre">num_cell_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.num_cell_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.num_cell_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Number of nodes per cell.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Number of nodes per cell.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>np.ndarray, size num_cells</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.set_periodic_map">
+<span class="sig-name descname"><span class="pre">set_periodic_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">periodic_face_map</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.set_periodic_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.set_periodic_map" title="Permalink to this definition"></a></dt>
+<dd><p>Set the index map between periodic boundary faces. The mapping assumes
+a one to one mapping between the periodic boundary faces (i.e., matching
+faces).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>periodic_face_map</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">int,</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">#</span> <span class="pre">periodic</span> <span class="pre">faces</span></code>) – Defines the
+periodic faces. Face index periodic_face_map[0, i] is periodic with face
+index periodic_face_map[1, i]. The given map is stored to the attribute
+periodic_face_map.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>New attributes:</dt><dd><dl class="simple">
+<dt>periodic_face_map (np.ndarray, int, 2 x # periodic faces): See</dt><dd><p>periodic_face_map in Args.</p>
+</dd>
+</dl>
+</dd>
+<dt>Changes attributes:</dt><dd><dl class="simple">
+<dt>tags[“domain_boundary_faces”]: The domain boundary tags are set to False</dt><dd><p>for all faces in periodic_face_map.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.signs_and_cells_of_boundary_faces">
+<span class="sig-name descname"><span class="pre">signs_and_cells_of_boundary_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">faces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.signs_and_cells_of_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.signs_and_cells_of_boundary_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Get the direction of the normal vector (inward or outwards from a cell)
+and the cell neighbour of _boundary_ faces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>faces</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a>) – (ndarray) indices of faces that you want to know the sign for. The
+faces must be boundary faces.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The sign of the faces. Will be +1 if the face normal vector</dt><dd><p>points out of the cell, -1 if the normal vector is pointing inwards.</p>
+</dd>
+</dl>
+<p>np.ndarray: For each face, index of the cell next to the boundary.</p>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueError if a target face is internal.</strong> – </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.update_boundary_face_tag">
+<span class="sig-name descname"><span class="pre">update_boundary_face_tag</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.update_boundary_face_tag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.update_boundary_face_tag" title="Permalink to this definition"></a></dt>
+<dd><p>Tag faces on the boundary of the grid with boundary tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.update_boundary_node_tag">
+<span class="sig-name descname"><span class="pre">update_boundary_node_tag</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.update_boundary_node_tag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.update_boundary_node_tag" title="Permalink to this definition"></a></dt>
+<dd><p>Tag nodes on the boundary of the grid with boundary tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="porepy.grids.grid.Grid.id">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.id" title="Permalink to this definition"></a></dt>
+<dd><p>Grid ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Integer id.</p>
+</dd>
+</dl>
+<p>The returned attribute should not be changed. This may severely compromise other parts
+of the code, such as sorting in md grids.
+The attribute is set in __new__. This avoids calls to super().__init__ in subclasses.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="porepy.grids.coarsening.html" class="btn btn-neutral float-left" title="porepy.grids.coarsening module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="porepy.grids.grid_extrusion.html" class="btn btn-neutral float-right" title="porepy.grids.grid_extrusion module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

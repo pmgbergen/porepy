@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.interface_laws.contact_mechanics_interface_laws &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.interface_laws.contact_mechanics_interface_laws</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.interface_laws.contact_mechanics_interface_laws</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Implementation of contact conditions for fracture mechanics, using a primal formulation.</span>
+
+<span class="sd">We provide a class for coupling the higher-dimensional mechanical discretization to the</span>
+<span class="sd">tractions on the fractures. Also, in the case of coupled physics (Biot and the like),</span>
+<span class="sd">classes handling the arising coupling terms are provided.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">warnings</span> <span class="kn">import</span> <span class="n">warn</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span> <span class="nn">porepy.numerics.interface_laws.abstract_interface_law</span>
+<span class="kn">from</span> <span class="nn">porepy.numerics.interface_laws.abstract_interface_law</span> <span class="kn">import</span> <span class="n">AbstractInterfaceLaw</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="PrimalContactCoupling"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling">[docs]</a><span class="k">class</span> <span class="nc">PrimalContactCoupling</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Implement the coupling conditions for the pure mechanics problem.</span>
+
+<span class="sd">    The primary variables for this formulation are displacement in the ambient dimension,</span>
+<span class="sd">    displacements at the boundary of the highest dimensional grid (represented as mortar</span>
+<span class="sd">    variables), and contact forces on grids of co-dimension 1.</span>
+
+<span class="sd">    The conditions represented here are</span>
+<span class="sd">        1) KKT condition for the traction / displacement in the normal direction.</span>
+<span class="sd">        2) Conditions for the tangential traction / displacement, according</span>
+<span class="sd">           to whether the fracture is sliding, sticking or free.</span>
+<span class="sd">        3) Linear elasticity on the surface displacements, with the tangential contact</span>
+<span class="sd">           force as a driving force.</span>
+<span class="sd">        4) The mortar displacements act as Dirichlet boundary conditions for the</span>
+<span class="sd">           higher-dimensional domain.</span>
+
+<span class="sd">    When solving contact problems, the sought fracture displacement (jumps) are defined</span>
+<span class="sd">    relative to an initial state. For transient problems, this initial state is the</span>
+<span class="sd">    solution at the previous time step. The state should be available in</span>
+<span class="sd">        d[pp.STATE][self.mortar_displacement_variable],</span>
+<span class="sd">    and may usually be set to zero for stationary problems.</span>
+<span class="sd">    See also contact_conditions.py</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">discr_primary</span><span class="p">,</span>
+        <span class="n">discr_secondary</span><span class="p">,</span>
+        <span class="n">use_surface_discr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;This class is deprecated and will be removed, most likely in the</span>
+<span class="s2">        second half of 2022.</span>
+
+<span class="s2">        To assemble mixed-dimensional contact problems, the recommended solution is</span>
+<span class="s2">        either to use the models, or to use the automatic differentiation framework</span>
+<span class="s2">        directly.</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+        <span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">PrimalContactCoupling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mortar_displacement_variable</span> <span class="o">=</span> <span class="s2">&quot;mortar_u&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span> <span class="o">=</span> <span class="n">discr_primary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span> <span class="o">=</span> <span class="n">discr_secondary</span>
+
+        <span class="c1"># Account for interaction between different, but intersecting, mortar grids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">intf_coupling_via_high_dim</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="PrimalContactCoupling.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get the number of dof for this coupling.</span>
+
+<span class="sd">        It is assumed that this method will only be called for mortar grids of</span>
+<span class="sd">        co-dimension 1. If the assumption is broken, this will not work.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">intf</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">num_cells</span></div>
+
+<div class="viewcode-block" id="PrimalContactCoupling.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_h</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_l</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Discretize contact mechanics interface law&quot;</span><span class="p">)</span>
+        <span class="c1"># Discretize the surface PDE</span>
+        <span class="n">matrix_dictionary_edge</span> <span class="o">=</span> <span class="n">intf_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
+
+        <span class="c1"># Tangential_normal projection</span>
+        <span class="n">tangential_normal_projection</span> <span class="o">=</span> <span class="n">data_l</span><span class="p">[</span><span class="s2">&quot;tangential_normal_projection&quot;</span><span class="p">]</span>
+
+        <span class="n">normal_projection</span> <span class="o">=</span> <span class="n">tangential_normal_projection</span><span class="o">.</span><span class="n">project_normal</span><span class="p">()</span>
+
+        <span class="c1"># The right hand side of the normal diffusion considers only the tangential part</span>
+        <span class="c1"># of the normal forces.</span>
+        <span class="n">matrix_dictionary_edge</span><span class="p">[</span><span class="s2">&quot;contact_force_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">normal_projection</span>
+
+        <span class="c1"># Discretization of the contact mechanics is done by a ColumbContact</span>
+        <span class="c1"># object.</span>
+        <span class="c1"># The resulting equations are located at the lower-dimensional grid,</span>
+        <span class="c1"># however, the discretization is inherently linked to the mortar grid.</span>
+        <span class="c1"># It is therefore constructed here.</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span><span class="o">.</span><span class="n">discretize</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">intf</span><span class="p">,</span> <span class="n">data_h</span><span class="p">,</span> <span class="n">data_l</span><span class="p">,</span> <span class="n">intf_data</span>
+        <span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Done. Elapsed time </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="PrimalContactCoupling.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">sd_data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+
+        <span class="sd">&quot;&quot;&quot;Assemble the dicretization of the interface law, and its impact on</span>
+<span class="sd">        the neighboring domains.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary: Grid on the other neighboring subdomain.</span>
+<span class="sd">            sd_data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            sd_data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            intf_data: Data dictionary for the edge between the subdomains</span>
+<span class="sd">            matrix: original discretization matrix, to which the coupling terms will be</span>
+<span class="sd">                added.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ambient_dimension</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span>
+
+        <span class="n">primary_ind</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">secondary_ind</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">mortar_ind</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="c1"># Generate matrix for the coupling. This can probably be generalized</span>
+        <span class="c1"># once we have decided on a format for the general variables</span>
+        <span class="n">projection</span> <span class="o">=</span> <span class="n">sd_data_secondary</span><span class="p">[</span><span class="s2">&quot;tangential_normal_projection&quot;</span><span class="p">]</span>
+
+        <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_define_local_block_matrix</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># IMPLEMENTATION NOTE: The current implementation is geared towards</span>
+        <span class="c1"># using mpsa for the mechanics problem. A more general approach would</span>
+        <span class="c1"># be possible - for an example see the flow problem with the RobinCoupling</span>
+        <span class="c1"># and EllipticDiscretization and its subclasses. However, at present such a general</span>
+        <span class="c1"># framework currently seems over the top, hence this more mundane approach.</span>
+
+        <span class="c1">### Equation for the primary side</span>
+        <span class="c1"># The mortar variable acts as a Dirichlet boundary condition for the primary.</span>
+        <span class="n">primary_bound_stress</span> <span class="o">=</span> <span class="n">sd_data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="o">.</span><span class="n">keyword</span>
+        <span class="p">][</span><span class="s2">&quot;bound_stress&quot;</span><span class="p">]</span>
+        <span class="n">primary_stress</span> <span class="o">=</span> <span class="n">sd_data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="o">.</span><span class="n">keyword</span>
+        <span class="p">][</span><span class="s2">&quot;stress&quot;</span><span class="p">]</span>
+        <span class="n">primary_bc_values</span> <span class="o">=</span> <span class="n">sd_data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span>
+            <span class="s2">&quot;bc_values&quot;</span>
+        <span class="p">]</span>
+        <span class="n">primary_divergence</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">vector_divergence</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">)</span>
+
+        <span class="c1"># The mortar variable (boundary displacement) takes the form of a Dirichlet</span>
+        <span class="c1"># condition for the primary side. The MPSA convention is to have</span>
+        <span class="c1"># - div * bound_stress * bc_values</span>
+        <span class="c1"># on the rhs. Accordingly, the contribution from the mortar variable (boundary</span>
+        <span class="c1"># displacement) on the left hand side is positive:</span>
+        <span class="c1"># div * bound_stress * u_mortar</span>
+        <span class="n">cc</span><span class="p">[</span><span class="n">primary_ind</span><span class="p">,</span> <span class="n">mortar_ind</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">primary_divergence</span>
+            <span class="o">*</span> <span class="n">primary_bound_stress</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_primary_avg</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1">### Equation for the secondary side</span>
+        <span class="c1">#</span>
+        <span class="c1"># These are the contact conditions, which dictate relations between</span>
+        <span class="c1"># the contact forces on the secondary, and the displacement jumps.</span>
+        <span class="c1">#</span>
+        <span class="c1"># NOTE: Both the contact conditions and the contact stresses are defined in the</span>
+        <span class="c1"># local coordinate system of the surface. The displacements must therefore</span>
+        <span class="c1"># be rotated to this local coordinate system during assembly.</span>
+        <span class="p">(</span>
+            <span class="n">traction_discr</span><span class="p">,</span>
+            <span class="n">displacement_jump_discr</span><span class="p">,</span>
+            <span class="n">rhs_secondary</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span><span class="o">.</span><span class="n">assemble_matrix_rhs</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="n">sd_data_primary</span><span class="p">,</span>
+            <span class="n">sd_data_secondary</span><span class="p">,</span>
+            <span class="n">intf_data</span><span class="p">,</span>
+            <span class="n">cc</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># The contact forces. Can be applied directly, these are in their own</span>
+        <span class="c1"># local coordinate systems.</span>
+        <span class="n">cc</span><span class="p">[</span><span class="n">secondary_ind</span><span class="p">,</span> <span class="n">secondary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">traction_discr</span>
+
+        <span class="c1"># The contact condition discretization gives coefficients for the mortar</span>
+        <span class="c1"># variables. To finalize the relation with the contact conditions, we</span>
+        <span class="c1"># (from the right) 1) assign +- signs to the two sides of the mortar, so that</span>
+        <span class="c1"># summation in reality is a difference, 2) project to the mortar grid</span>
+        <span class="c1"># 3) project to the local coordinates of the fracture, 4) assign the</span>
+        <span class="c1"># coefficients of the displacement jump.</span>
+        <span class="n">cc</span><span class="p">[</span><span class="n">secondary_ind</span><span class="p">,</span> <span class="n">mortar_ind</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">displacement_jump_discr</span>
+            <span class="o">*</span> <span class="n">projection</span><span class="o">.</span><span class="n">project_tangential_normal</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Right hand side system. In the local (surface) coordinate system.</span>
+        <span class="c1"># For transient simulations where the tangential velocity, not displacement, is</span>
+        <span class="c1"># considered, a term arises on the rhs from the previous time step.</span>
+        <span class="n">previous_time_step_displacements</span> <span class="o">=</span> <span class="n">intf_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mortar_displacement_variable</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">rotated_jumps</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">projection</span><span class="o">.</span><span class="n">project_tangential_normal</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">previous_time_step_displacements</span>
+        <span class="p">)</span>
+        <span class="n">rhs_u</span> <span class="o">=</span> <span class="n">displacement_jump_discr</span> <span class="o">*</span> <span class="n">rotated_jumps</span>
+        <span class="c1"># Only tangential velocity is considered. Zero out all normal components, as we</span>
+        <span class="c1"># operate on absolute, not relative, normal jumps.</span>
+        <span class="n">rhs_u</span><span class="p">[(</span><span class="n">ambient_dimension</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="p">::</span> <span class="n">ambient_dimension</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">secondary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">rhs_secondary</span> <span class="o">+</span> <span class="n">rhs_u</span>
+
+        <span class="c1">### Equation for the mortar rows</span>
+
+        <span class="c1"># This is first a stress balance: stress from the higher dimensional</span>
+        <span class="c1"># domain (both interior and bound_stress) should match with the contact stress:</span>
+        <span class="c1">#</span>
+        <span class="c1">#     traction_secondary + traction_primary = 0</span>
+        <span class="c1">#</span>
+        <span class="c1"># Optionally, a diffusion term can be added in the tangential direction</span>
+        <span class="c1"># of the stresses, this is currently under implementation.</span>
+
+        <span class="c1"># A diagonal operator is needed to switch the sign of vectors on</span>
+        <span class="c1"># higher-dimensional faces that point into the fracture surface. The effect is to</span>
+        <span class="c1"># switch direction of the stress on boundary for the higher dimensional domain: The</span>
+        <span class="c1"># contact forces are defined as negative in contact, whereas the sign of the higher</span>
+        <span class="c1"># dimensional stresses are defined according to the direction of the normal vector.</span>
+        <span class="n">faces_on_fracture_surface</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">()</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span><span class="o">.</span><span class="n">indices</span>
+        <span class="n">sign_switcher</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">grid_utils</span><span class="o">.</span><span class="n">switch_sign_if_inwards_normal</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="p">,</span> <span class="n">faces_on_fracture_surface</span>
+        <span class="p">)</span>
+
+        <span class="c1">## First, we obtain T_primary = stress * u_primary + bound_stress * u_mortar</span>
+        <span class="c1"># Stress contribution from the higher dimensional domain, projected onto</span>
+        <span class="c1"># the mortar grid</span>
+        <span class="c1"># Switch the direction of the vectors to obtain the traction as defined</span>
+        <span class="c1"># by the outwards pointing normal vector.</span>
+        <span class="n">traction_from_primary</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">sign_switcher</span>
+            <span class="o">*</span> <span class="n">primary_stress</span>
+        <span class="p">)</span>
+        <span class="n">cc</span><span class="p">[</span><span class="n">mortar_ind</span><span class="p">,</span> <span class="n">primary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">traction_from_primary</span>
+        <span class="c1"># Stress contribution from boundary conditions.</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">mortar_ind</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">sign_switcher</span>
+            <span class="o">*</span> <span class="n">primary_bound_stress</span>
+            <span class="o">*</span> <span class="n">primary_bc_values</span>
+        <span class="p">)</span>
+        <span class="c1"># The stress contribution from the mortar variables, mapped to the higher</span>
+        <span class="c1"># dimensional domain via a boundary condition, and back again by a</span>
+        <span class="c1"># projection operator.</span>
+        <span class="c1"># Switch the direction of the vectors, so that for all faces, a positive</span>
+        <span class="c1"># force points into the fracture surface.</span>
+        <span class="n">traction_from_mortar</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">sign_switcher</span>
+            <span class="o">*</span> <span class="n">primary_bound_stress</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_primary_avg</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">cc</span><span class="p">[</span><span class="n">mortar_ind</span><span class="p">,</span> <span class="n">mortar_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">traction_from_mortar</span>
+
+        <span class="c1">## Second, the contact stress is mapped to the mortar grid.</span>
+        <span class="c1"># We have for the positive (first) and negative (second) side of the mortar that</span>
+        <span class="c1"># T_secondary = T_primary_j = -T_primary_k,</span>
+        <span class="c1"># so we need to map the secondary traction with the corresponding signs to match the</span>
+        <span class="c1"># mortar tractions.</span>
+
+        <span class="c1"># The contact forces are defined in the surface coordinate system.</span>
+        <span class="c1"># Map to the mortar grid, and rotate back again to the global coordinates</span>
+        <span class="c1"># (note the inverse rotation is given by a transpose).</span>
+        <span class="c1"># Finally, the contact stresses will be felt in different directions by</span>
+        <span class="c1"># the two sides of the mortar grids (Newton&#39;s third law), hence</span>
+        <span class="c1"># adjust the signs: sign_of_mortar_sides gives a minus for the j side and</span>
+        <span class="c1"># plus for the k side, yielding the two equations</span>
+        <span class="c1"># - T_secondary + T_primary_j = 0    and T_secondary + T_primary_k = 0</span>
+        <span class="n">contact_traction_to_mortar</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">secondary_to_mortar_int</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">projection</span><span class="o">.</span><span class="n">project_tangential_normal</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="p">)</span>
+        <span class="n">cc</span><span class="p">[</span><span class="n">mortar_ind</span><span class="p">,</span> <span class="n">secondary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">contact_traction_to_mortar</span>
+
+        <span class="n">matrix</span> <span class="o">+=</span> <span class="n">cc</span>
+
+        <span class="k">return</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span></div>
+
+<div class="viewcode-block" id="PrimalContactCoupling.assemble_intf_coupling_via_high_dim"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.assemble_intf_coupling_via_high_dim">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_intf_coupling_via_high_dim</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">g_between</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">data_between</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_pair_primary</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">intf_data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_pair_secondary</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">intf_data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">assemble_matrix</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">assemble_rhs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble the stress contribution from the mortar displacement on one edge</span>
+<span class="sd">        on the stress balance on a neighboring edge, in the sense that the two edges</span>
+<span class="sd">        share a node located at the corner.</span>
+
+<span class="sd">        The impact of the boundary condition gives an additional term in the stress</span>
+<span class="sd">        balance on the primary mortar.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            g_between (pp.Grid): Grid of the higher dimensional neighbor to the</span>
+<span class="sd">                main interface</span>
+<span class="sd">            data_between (dict): Data dictionary of the intermediate grid.</span>
+<span class="sd">            intf_primary (tuple of grids): The grids of the primary edge</span>
+<span class="sd">            intf_data_primary (dict): Data dictionary of the primary interface.</span>
+<span class="sd">            intf_secondary (tuple of grids): The grids of the secondary edge.</span>
+<span class="sd">            intf_data_secondary (dict): Data dictionary of the secondary interface.</span>
+<span class="sd">            matrix: original discretization.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array: Block matrix of size 3 x 3, whwere each block represents</span>
+<span class="sd">                coupling between variables on this interface. Index 0, 1 and 2</span>
+<span class="sd">                represent the primary grid, the primary and secondary interface,</span>
+<span class="sd">                respectively.</span>
+<span class="sd">            np.array: Block matrix of size 3 x 1, representing the right hand</span>
+<span class="sd">                side of this coupling. Index 0, 1 and 2 represent the primary grid,</span>
+<span class="sd">                the primary and secondary interface, respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Initialize matrices of the correct sizes</span>
+        <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_define_local_block_matrix_intf_coupling</span><span class="p">(</span>
+            <span class="n">g_between</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="p">,</span> <span class="n">intf_primary</span><span class="p">,</span> <span class="n">intf_secondary</span><span class="p">,</span> <span class="n">matrix</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Ambient dimension.</span>
+        <span class="n">Nd</span> <span class="o">=</span> <span class="n">g_between</span><span class="o">.</span><span class="n">dim</span>
+
+        <span class="n">faces_on_fracture_surface</span> <span class="o">=</span> <span class="n">intf_primary</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">()</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span><span class="o">.</span><span class="n">indices</span>
+        <span class="n">sign_switcher</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">grid_utils</span><span class="o">.</span><span class="n">switch_sign_if_inwards_normal</span><span class="p">(</span>
+            <span class="n">g_between</span><span class="p">,</span> <span class="n">Nd</span><span class="p">,</span> <span class="n">faces_on_fracture_surface</span>
+        <span class="p">)</span>
+
+        <span class="n">proj_prim</span> <span class="o">=</span> <span class="n">intf_primary</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">Nd</span><span class="p">)</span>
+        <span class="n">proj_sec</span> <span class="o">=</span> <span class="n">intf_secondary</span><span class="o">.</span><span class="n">mortar_to_primary_avg</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">Nd</span><span class="p">)</span>
+
+        <span class="c1"># Discretization of boundary conditions</span>
+        <span class="n">bound_stress</span> <span class="o">=</span> <span class="n">data_between</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="o">.</span><span class="n">keyword</span>
+        <span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="o">.</span><span class="n">bound_stress_matrix_key</span><span class="p">]</span>
+
+        <span class="c1"># The term to be discretized is the mapping of the induced stress down to the</span>
+        <span class="c1"># primary mortar grid. The term should be exactly equivalent to the expression</span>
+        <span class="c1"># for c[mortar_ind, mortar_ind] in assemble_matrix_rhs() above.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Only the impact from secondary onto primary edge is assembled. There is a</span>
+        <span class="c1"># corresponding term from primary to secondary, but the assembler will switch</span>
+        <span class="c1"># roles of the two edges, and thus take care of this automatically.</span>
+        <span class="n">cc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">proj_prim</span> <span class="o">*</span> <span class="n">sign_switcher</span> <span class="o">*</span> <span class="n">bound_stress</span> <span class="o">*</span> <span class="n">proj_sec</span>
+
+        <span class="n">matrix</span> <span class="o">+=</span> <span class="n">cc</span>
+        <span class="k">return</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span></div></div>
+
+
+<div class="viewcode-block" id="MatrixScalarToForceBalance"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance">[docs]</a><span class="k">class</span> <span class="nc">MatrixScalarToForceBalance</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class adds the matrix scalar (pressure) contribution to the force balance posed</span>
+<span class="sd">    on the mortar grid by PrimalContactCoupling.</span>
+
+<span class="sd">    We account for the scalar variable contribution to the forces on the higher-dimensional</span>
+<span class="sd">    internal boundary, i.e. the last term of:</span>
+
+<span class="sd">        boundary_traction_hat = stress * u_hat + bound_stress * u_mortar + gradP * p_hat</span>
+
+<span class="sd">    Note that with this approach to discretization of the boundary pressure force, it</span>
+<span class="sd">    will only be included for nonzero values of the biot_alpha coefficient.</span>
+
+<span class="sd">    If the scalar is e.g. pressure, subtraction of the pressure contribution is needed:</span>
+
+<span class="sd">        T_contact - p_check I \dot n = boundary_traction_hat</span>
+
+<span class="sd">    This is taken care of by FracturePressureToForceBalance.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">discr_primary</span><span class="p">,</span>
+        <span class="n">discr_secondary</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            keyword used for storage of the gradP discretization. If the GradP class is</span>
+<span class="sd">                used, this is the keyword associated with the mechanical parameters.</span>
+<span class="sd">            discr_primary and</span>
+<span class="sd">            discr_secondary are the discretization objects operating on the primary and</span>
+<span class="sd">                secondary pressure, respectively. Used for #DOFs. In FV, one cell</span>
+<span class="sd">                variable is expected.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;This class is deprecated and will be removed, most likely in the</span>
+<span class="s2">        second half of 2022.</span>
+
+<span class="s2">        To assemble mixed-dimensional contact problems, the recommended solution is</span>
+<span class="s2">        either to use the models, or to use the automatic differentiation framework</span>
+<span class="s2">        directly.</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+        <span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">MatrixScalarToForceBalance</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
+        <span class="c1"># Set node discretizations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span> <span class="o">=</span> <span class="n">discr_primary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span> <span class="o">=</span> <span class="n">discr_secondary</span>
+        <span class="c1"># Keyword used to retrieve gradP discretization.</span>
+
+<div class="viewcode-block" id="MatrixScalarToForceBalance.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="c1"># Assume the interface law is defined only on mortar grids next to the</span>
+        <span class="c1"># ambient dimension</span>
+        <span class="n">ambient_dimension</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">ambient_dimension</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">num_cells</span></div>
+
+<div class="viewcode-block" id="MatrixScalarToForceBalance.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_h</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_l</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Nothing to do</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="MatrixScalarToForceBalance.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">sd_data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Assemble the pressure contributions of the interface force balance law.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary (pp.Grid): Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary (pp.Grid): Grid on the other neighboring subdomain.</span>
+<span class="sd">            intf (pp.MortarGrid): interface between subdomains</span>
+<span class="sd">            sd_data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            sd_data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            intf_data: Data dictionary for the edge between the subdomains</span>
+<span class="sd">            matrix: original discretization matrix, to which the coupling terms will be</span>
+<span class="sd">                added.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">ambient_dimension</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span>
+
+        <span class="n">primary_ind</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">mortar_ind</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="c1"># Generate matrix for the coupling. This can probably be generalized</span>
+        <span class="c1"># once we have decided on a format for the general variables</span>
+        <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_define_local_block_matrix</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">primary_scalar_gradient</span> <span class="o">=</span> <span class="n">sd_data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span>
+        <span class="p">][</span><span class="s2">&quot;grad_p&quot;</span><span class="p">]</span>
+
+        <span class="c1"># We want to modify the stress balance posed on the edge to account for the</span>
+        <span class="c1"># scalar (usually pressure) contribution.</span>
+        <span class="c1"># In the purely mechanical case, stress from the higher dimensional</span>
+        <span class="c1"># domain (both interior and bound_stress) should match the contact stress:</span>
+        <span class="c1"># -T_secondary + T_primary = 0,</span>
+        <span class="c1"># see PrimalContactCoupling.</span>
+        <span class="c1"># The following modification is needed:</span>
+        <span class="c1"># Add the scalar gradient contribution to the traction on the primary</span>
+        <span class="c1"># boundary.</span>
+
+        <span class="c1"># A diagonal operator is needed to switch the sign of vectors on</span>
+        <span class="c1"># higher-dimensional faces that point into the fracture surface, see</span>
+        <span class="c1"># PrimalContactCoupling.</span>
+        <span class="n">faces_on_fracture_surface</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">()</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span><span class="o">.</span><span class="n">indices</span>
+        <span class="n">sign_switcher</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">grid_utils</span><span class="o">.</span><span class="n">switch_sign_if_inwards_normal</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="p">,</span> <span class="n">faces_on_fracture_surface</span>
+        <span class="p">)</span>
+
+        <span class="c1"># i) Obtain pressure stress contribution from the higher dimensional domain.</span>
+        <span class="c1"># ii) Switch the direction of the vectors, so that for all faces, a positive</span>
+        <span class="c1"># force points into the fracture surface (along the outwards normal on the</span>
+        <span class="c1"># boundary).</span>
+        <span class="c1"># iii) Map to the mortar grid.</span>
+        <span class="c1"># iv) Minus according to - alpha grad p already in the discretization matrix</span>
+        <span class="n">primary_scalar_to_primary_traction</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="n">ambient_dimension</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">sign_switcher</span>
+            <span class="o">*</span> <span class="n">primary_scalar_gradient</span>
+        <span class="p">)</span>
+        <span class="n">cc</span><span class="p">[</span><span class="n">mortar_ind</span><span class="p">,</span> <span class="n">primary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">primary_scalar_to_primary_traction</span>
+
+        <span class="n">matrix</span> <span class="o">+=</span> <span class="n">cc</span>
+
+        <span class="c1">## Reference pressure contribution</span>
+        <span class="c1"># Rhs contribution of GradP, typically for nonzero reference temperature.</span>
+        <span class="n">p_reference</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">sd_data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span>
+            <span class="s2">&quot;p_reference&quot;</span>
+        <span class="p">]</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">mortar_ind</span><span class="p">]</span> <span class="o">+=</span> <span class="n">primary_scalar_to_primary_traction</span> <span class="o">*</span> <span class="n">p_reference</span>
+
+        <span class="k">return</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span></div></div>
+
+
+<div class="viewcode-block" id="FractureScalarToForceBalance"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance">[docs]</a><span class="k">class</span> <span class="nc">FractureScalarToForceBalance</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class adds the fracture pressure contribution to the force balance posed on the</span>
+<span class="sd">    mortar grid by PrimalContactCoupling and modified to account for matrix pressure by</span>
+<span class="sd">    MatrixPressureToForceBalance.</span>
+
+<span class="sd">    For the contact mechanics, we only want to consider the _contact_ traction. Thus, we</span>
+<span class="sd">    have to subtract the pressure contribution, i.e.</span>
+
+<span class="sd">        T_contact - p_check I \dot n = boundary_traction_hat,</span>
+
+<span class="sd">    since the full tractions experienced by a fracture surface are the sum of the</span>
+<span class="sd">    contact forces and the fracture pressure force.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">discr_primary</span><span class="p">,</span>
+        <span class="n">discr_secondary</span><span class="p">,</span>
+        <span class="n">keyword</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize fracture scalar to force balance interface law.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            discr_primary (Discretization): discretization object operating on the primary</span>
+<span class="sd">                pressure. Used for #DOFs. In FV, one cell variable is expected.</span>
+<span class="sd">            discr_secondary (Discretization):  discretization objects operating on the</span>
+<span class="sd">                secondary pressure. Used for #DOFs. In FV, one cell variable is expected.</span>
+<span class="sd">            keyword (str): used for storage of the gradP discretization. If the GradP</span>
+<span class="sd">                class is used, this is the keyword associated with the mechanical</span>
+<span class="sd">                parameters.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;This class is deprecated and will be removed, most likely in the</span>
+<span class="s2">        second half of 2022.</span>
+
+<span class="s2">        To assemble mixed-dimensional contact problems, the recommended solution is</span>
+<span class="s2">        either to use the models, or to use the automatic differentiation framework</span>
+<span class="s2">        directly.</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+        <span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">FractureScalarToForceBalance</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
+        <span class="c1"># Set node discretizations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span> <span class="o">=</span> <span class="n">discr_primary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span> <span class="o">=</span> <span class="n">discr_secondary</span>
+
+<div class="viewcode-block" id="FractureScalarToForceBalance.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="c1"># Assume the interface law is defined only on mortar grids next to the</span>
+        <span class="c1"># ambient dimension</span>
+        <span class="n">ambient_dimension</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">ambient_dimension</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">num_cells</span></div>
+
+<div class="viewcode-block" id="FractureScalarToForceBalance.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_h</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_l</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Nothing to do</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="FractureScalarToForceBalance.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">sd_data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Assemble the pressure contributions of the interface force balance law.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary: Grid on the other neighboring subdomain.</span>
+<span class="sd">            sd_data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            sd_data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            intf_data: Data dictionary for the edge between the subdomains</span>
+<span class="sd">            matrix: original discretization matrix, to which the coupling terms will be</span>
+<span class="sd">                added.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">ambient_dimension</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span>
+
+        <span class="n">secondary_ind</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">mortar_ind</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="c1"># Generate matrix for the coupling. This can probably be generalized</span>
+        <span class="c1"># once we have decided on a format for the general variables</span>
+        <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_define_local_block_matrix</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1">## Ensure that the contact variable is only the force from the contact of the</span>
+        <span class="c1"># two sides of the fracture. This requires subtraction of the pressure force.</span>
+
+        <span class="c1"># Construct the dot product between normals on fracture faces and the identity</span>
+        <span class="c1"># matrix. Similar sign switching as above is needed (this one operating on</span>
+        <span class="c1"># fracture faces only).</span>
+
+        <span class="n">faces_on_fracture_surface</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">()</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span><span class="o">.</span><span class="n">indices</span>
+        <span class="n">sgn</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">signs_and_cells_of_boundary_faces</span><span class="p">(</span><span class="n">faces_on_fracture_surface</span><span class="p">)</span>
+        <span class="n">fracture_normals</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_normals</span><span class="p">[</span>
+            <span class="p">:</span><span class="n">ambient_dimension</span><span class="p">,</span> <span class="n">faces_on_fracture_surface</span>
+        <span class="p">]</span>
+        <span class="n">outwards_fracture_normals</span> <span class="o">=</span> <span class="n">sgn</span> <span class="o">*</span> <span class="n">fracture_normals</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="n">outwards_fracture_normals</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">intf</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+        <span class="n">n_dot_I</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">)))</span>
+        <span class="c1"># i) The scalar contribution to the contact stress is mapped to the mortar grid</span>
+        <span class="c1"># and multiplied by n \dot I, with n being the outwards normals on the two sides.</span>
+        <span class="c1"># Note that by using different normals for the two sides, we do not need to</span>
+        <span class="c1"># adjust the secondary pressure with the corresponding signs by applying</span>
+        <span class="c1"># sign_of_mortar_sides as done in PrimalContactCoupling.</span>
+        <span class="c1"># iii) The contribution should be subtracted so that we balance the primary</span>
+        <span class="c1"># forces by</span>
+        <span class="c1"># T_contact - n dot I p,</span>
+        <span class="c1"># hence the minus.</span>
+        <span class="n">secondary_pressure_to_contact_traction</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span>
+            <span class="n">n_dot_I</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">secondary_to_mortar_int</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Minus to obtain -T_secondary + T_primary = 0, i.e. from placing the two</span>
+        <span class="c1"># terms on the same side of the equation, as also done in PrimalContactCoupling.</span>
+        <span class="n">cc</span><span class="p">[</span><span class="n">mortar_ind</span><span class="p">,</span> <span class="n">secondary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">secondary_pressure_to_contact_traction</span>
+
+        <span class="n">matrix</span> <span class="o">+=</span> <span class="n">cc</span>
+
+        <span class="k">return</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span></div></div>
+
+
+<div class="viewcode-block" id="DivUCoupling"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling">[docs]</a><span class="k">class</span> <span class="nc">DivUCoupling</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Coupling conditions for DivU term.</span>
+
+<span class="sd">    For mixed-dimensional flow in coupled to matrix mechanics, i.e. Biot in the matrix</span>
+<span class="sd">    and conservation of a scalar quantity (usually fluid mass) in matrix and fractures.</span>
+<span class="sd">    We have assumed a primal displacement mortar variable, which will contribute</span>
+<span class="sd">    to the div u term in fracture (&quot;div aperture&quot;) and matrix.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">,</span>
+        <span class="n">discr_primary</span><span class="p">,</span>
+        <span class="n">discr_secondary</span><span class="p">,</span>
+        <span class="n">keyword</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;This class is deprecated and will be removed, most likely in the</span>
+<span class="s2">        second half of 2022.</span>
+
+<span class="s2">        To assemble mixed-dimensional contact problems, the recommended solution is</span>
+<span class="s2">        either to use the models, or to use the automatic differentiation framework</span>
+<span class="s2">        directly.</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+        <span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
+        <span class="c1"># Set variable names for the vector variable on the nodes (displacement), used</span>
+        <span class="c1"># to access solutions from previous time steps.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">variable</span> <span class="o">=</span> <span class="n">variable</span>
+        <span class="c1"># The terms are added by calls to assemble methods of DivU discretizations,</span>
+        <span class="c1"># namely assemble_int_bound_displacement_trace for the primary and</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span> <span class="o">=</span> <span class="n">discr_primary</span>
+        <span class="c1"># assemble_int_bound_displacement_source for the secondary.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span> <span class="o">=</span> <span class="n">discr_secondary</span>
+
+<div class="viewcode-block" id="DivUCoupling.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="c1"># Assume the interface law is defined only on mortar grids next to the</span>
+        <span class="c1"># ambient dimension</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">intf</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">num_cells</span></div>
+
+<div class="viewcode-block" id="DivUCoupling.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">sd_data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Nothing to do</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="DivUCoupling.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">sd_data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Assemble the mortar displacement&#39;s contribution as a internal Dirichlet</span>
+<span class="sd">        contribution for the higher dimension, and source term for the lower dimension.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary: Grid on the other neighboring subdomain.</span>
+<span class="sd">            sd_data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            sd_data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            intf_data: Data dictionary for the edge between the subdomains</span>
+<span class="sd">            matrix: original discretization matrix, to which the coupling terms will be</span>
+<span class="sd">                added.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">primary_ind</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">secondary_ind</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># Generate matrix for the coupling. This can probably be generalized</span>
+        <span class="c1"># once we have decided on a format for the general variables</span>
+        <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_define_local_block_matrix</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">grid_swap</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="c1"># Let the DivU class assemble the contribution from mortar to primary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_primary</span><span class="o">.</span><span class="n">assemble_int_bound_displacement_trace</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_data_primary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="n">intf_data</span><span class="p">,</span>
+            <span class="n">grid_swap</span><span class="p">,</span>
+            <span class="n">cc</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+            <span class="n">rhs</span><span class="p">,</span>
+            <span class="n">primary_ind</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># and from mortar to secondary.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_secondary</span><span class="o">.</span><span class="n">assemble_int_bound_displacement_source</span><span class="p">(</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">sd_data_secondary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="n">intf_data</span><span class="p">,</span>
+            <span class="n">cc</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+            <span class="n">rhs</span><span class="p">,</span>
+            <span class="n">secondary_ind</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">matrix</span> <span class="o">+=</span> <span class="n">cc</span>
+
+        <span class="k">return</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

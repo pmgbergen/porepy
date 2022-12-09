@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.grids.mortar_grid module &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.mortar_grid.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="porepy.grids.partition module" href="porepy.grids.partition.html" />
+    <link rel="prev" title="porepy.grids.md_grid module" href="porepy.grids.md_grid.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
+          <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
+      <li class="breadcrumb-item active">porepy.grids.mortar_grid module</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-porepy.grids.mortar_grid">
+<span id="porepy-grids-mortar-grid-module"></span><h1>porepy.grids.mortar_grid module<a class="headerlink" href="#module-porepy.grids.mortar_grid" title="Permalink to this heading"></a></h1>
+<p>Module containing the class for the mortar grid.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MortarGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Parent class for mortar grids it contains two grids representing the left
+and right part of the mortar grid and the weighted mapping from the primary
+grid to the mortar grids and from the secondary grid to the mortar grids.
+The two mortar grids can be different. The primary grid is assumed to be one
+dimension higher than the mortar grids, while the secondary grid can either one
+dimension higher or the same dimension as the mortar grids.</p>
+<p>NOTE: The mortar class is mostly tested for the case when the secondary grid has
+the same dimension as the mortar grid. Especially, the updating of any grid
+should not be expected to work and will most likely throw an error.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.dim">
+<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.dim" title="Permalink to this definition"></a></dt>
+<dd><p>dimension. Should be 0 or 1 or 2.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.side_grids">
+<span class="sig-name descname"><span class="pre">side_grids</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.side_grids" title="Permalink to this definition"></a></dt>
+<dd><p>grid for each side. The key is an integer
+with value {0, 1, 2}, and the value is a Grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span> <span class="pre">of</span> <span class="pre">Grid</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.sides">
+<span class="sig-name descname"><span class="pre">sides</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.sides" title="Permalink to this definition"></a></dt>
+<dd><p>ordering of the sides.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">array</span> <span class="pre">of</span> <span class="pre">integers</span> <span class="pre">with</span> <span class="pre">values</span> <span class="pre">in</span> <span class="pre">{0,</span> <span class="pre">1,</span> <span class="pre">2}</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid._primary_to_mortar_int">
+<span class="sig-name descname"><span class="pre">_primary_to_mortar_int</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid._primary_to_mortar_int" title="Permalink to this definition"></a></dt>
+<dd><p>Face-cell relationships between the
+primary (often higher-dimensional) grid and the mortar grids. Matrix size:
+num_faces x num_cells. In the beginning we assume matching grids,
+but it can be modified by calling refine_mortar(). The matrix
+elements represent the ratio between the geometrical objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">sps.csc-matrix</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid._secondary_to_mortar_int">
+<span class="sig-name descname"><span class="pre">_secondary_to_mortar_int</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid._secondary_to_mortar_int" title="Permalink to this definition"></a></dt>
+<dd><p>Cell-cell relationships between the
+mortar grids and the secondary (often lower-dimensional) grid. Matrix size:
+num_cells_secondary x num_cells_mortar. Matrix elements represent the ratio
+between the geometrical objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">sps.csc-matrix</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.name">
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.name" title="Permalink to this definition"></a></dt>
+<dd><p>Information on the formation of the grid, such as the
+constructor, computations of geometry etc.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.tol">
+<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.tol" title="Permalink to this definition"></a></dt>
+<dd><p>Tolerance used when matching grids during update of mortar or
+primary / secondary grids.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.cell_diameters">
+<span class="sig-name descname"><span class="pre">cell_diameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.cell_diameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.cell_diameters" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.compute_geometry">
+<span class="sig-name descname"><span class="pre">compute_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.compute_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.compute_geometry" title="Permalink to this definition"></a></dt>
+<dd><p>Compute the geometry of the mortar grids.
+We assume that they are not aligned with x (1d) or x, y (2d).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_avg">
+<span class="sig-name descname"><span class="pre">mortar_to_primary_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_primary_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_avg" title="Permalink to this definition"></a></dt>
+<dd><p>Project values from the mortar to faces of primary, by averaging
+quantities from the mortar side.</p>
+<p>The projection matrix is scaled so that the row sum is unity, that is, values
+on the primary side are computed as averages of values from the mortar side,
+according to the overlap between, general several, mortar cell and a primary
+face.</p>
+<p>This mapping is intended for intensive properties, e.g. pressures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Projection matrix with row sum unity.</dt><dd><p>Size: mortar_grid.num_cells x g_primary.num_faces.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_int">
+<span class="sig-name descname"><span class="pre">mortar_to_primary_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_primary_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_int" title="Permalink to this definition"></a></dt>
+<dd><p>Project values from the mortar to faces of primary, by summing quantities
+from the mortar side.</p>
+<p>The projection matrix is scaled so that the column sum is unity, that is, values
+on the mortar side are distributed to the primary according to the overlap
+between a mortar cell and, generally several primary faces.</p>
+<p>This mapping is intended for extensive properties, e.g. fluxes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Projection matrix with column sum unity.</dt><dd><p>Size: mortar_grid.num_cells x g_primary.num_faces.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_avg">
+<span class="sig-name descname"><span class="pre">mortar_to_secondary_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_secondary_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_avg" title="Permalink to this definition"></a></dt>
+<dd><p>Project values from the mortar to secondary, by averaging quantities from the
+mortar side.</p>
+<p>The projection matrix is scaled so that the row sum is unity, that is, values
+on the secondary side are computed as averages of values from the mortar side,
+according to the overlap between, general several, mortar cell and a secondary
+cell.</p>
+<p>This mapping is intended for intensive properties, e.g. pressures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Projection matrix with row sum unity.</dt><dd><p>Size: mortar_grid.num_cells x g_secondary.num_faces.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_int">
+<span class="sig-name descname"><span class="pre">mortar_to_secondary_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_secondary_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_int" title="Permalink to this definition"></a></dt>
+<dd><p>Project values from the mortar to cells at the secondary, by summing quantities
+from the mortar side.</p>
+<p>The projection matrix is scaled so that the column sum is unity, that is, values
+on the mortar side are distributed to the secondary according to the overlap
+between a mortar cell and, generally several secondary cells.</p>
+<p>This mapping is intended for extensive properties, e.g. fluxes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Projection matrix with column sum unity.</dt><dd><p>Size: mortar_grid.num_cells x g_secondary.num_faces.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.num_sides">
+<span class="sig-name descname"><span class="pre">num_sides</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.num_sides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.num_sides" title="Permalink to this definition"></a></dt>
+<dd><p>Shortcut to compute the number of sides, it has to be 2 or 1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Number of sides.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_avg">
+<span class="sig-name descname"><span class="pre">primary_to_mortar_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.primary_to_mortar_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_avg" title="Permalink to this definition"></a></dt>
+<dd><p>Project values from faces of primary to the mortar, by averaging quantities
+from the primary side.</p>
+<p>The projection matrix is scaled so that the row sum is unity, that is, values
+on the mortar side are computed as averages of values from the primary side,
+according to the overlap between, general several, primary faces and a mortar
+cell.</p>
+<p>This mapping is intended for intensive properties, e.g. pressures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Projection matrix with row sum unity.</dt><dd><p>Size: g_primary.num_faces x mortar_grid.num_cells.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_int">
+<span class="sig-name descname"><span class="pre">primary_to_mortar_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.primary_to_mortar_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_int" title="Permalink to this definition"></a></dt>
+<dd><p>Project values from faces of primary to the mortar, by summing quantities
+from the primary side.</p>
+<p>The projection matrix is scaled so that the column sum is unity, that is, values
+on the primary side are distributed to the mortar according to the overlap
+between a primary face and generally several mortar cells.</p>
+<p>This mapping is intended for extensive properties, e.g. fluxes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Projection matrix with column sum unity.</dt><dd><p>Size: g_primary.num_faces x mortar_grid.num_cells.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.project_to_side_grids">
+<span class="sig-name descname"><span class="pre">project_to_side_grids</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.project_to_side_grids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.project_to_side_grids" title="Permalink to this definition"></a></dt>
+<dd><p>Generator for the side grids (pp.Grid) representation of the mortar
+cells, and projection operators from the mortar cells, combining cells on all
+the sides, to the specific side grids.</p>
+<dl class="field-list">
+<dt class="field-odd">Yields</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code> –</p>
+<dl class="simple">
+<dt>PorePy grid representing one of the sides of the</dt><dd><p>mortar grid. Can be used for standard discretizations.</p>
+</dd>
+<dt>sps.csc_matrix: Projection from the mortar cells to this</dt><dd><p>side grid.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.11)"><em>Generator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)">scipy.sparse._base.spmatrix</a>, <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>], None, None]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_avg">
+<span class="sig-name descname"><span class="pre">secondary_to_mortar_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.secondary_to_mortar_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_avg" title="Permalink to this definition"></a></dt>
+<dd><p>Project values from cells at the secondary to the mortar, by averaging
+quantities from the secondary side.</p>
+<p>The projection matrix is scaled so that the row sum is unity, that is, values
+on the mortar side are computed as averages of values from the secondary side,
+according to the overlap between, generally several primary cells and the mortar
+cells.</p>
+<p>This mapping is intended for intensive properties, e.g. pressures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Projection matrix with row sum unity.</dt><dd><p>Size: g_secondary.num_cells x mortar_grid.num_cells.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_int">
+<span class="sig-name descname"><span class="pre">secondary_to_mortar_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.secondary_to_mortar_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_int" title="Permalink to this definition"></a></dt>
+<dd><p>Project values from cells on the secondary side to the mortar, by
+summing quantities from the secondary side.</p>
+<p>The projection matrix is scaled so that the column sum is unity, that is, values
+on the secondary side are distributed to the mortar according to the overlap
+between a secondary cell and generally several mortar cells.</p>
+<p>This mapping is intended for extensive properties, e.g. sources.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Projection matrix with column sum unity.</dt><dd><p>Size: g_secondary.num_cells x mortar_grid.num_cells.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.sign_of_mortar_sides">
+<span class="sig-name descname"><span class="pre">sign_of_mortar_sides</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.sign_of_mortar_sides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.sign_of_mortar_sides" title="Permalink to this definition"></a></dt>
+<dd><p>Assign positive or negative weight to the two sides of a mortar grid.</p>
+<p>This is needed e.g. to make projection operators into signed projections,
+for variables that have no particular defined sign conventions.</p>
+<p>This function defines a convention for what is a positive jump between
+the mortar sides.</p>
+<p>Example: Take the difference between right and left variables, and
+project to the secondary grid by</p>
+<blockquote>
+<div><p>mortar_to_secondary_avg() * sign_of_mortar_sides()</p>
+</div></blockquote>
+<p>NOTE: The flux variables in flow and transport equations are defined as
+positive from primary to secondary. Hence, the two sides have different
+conventions, and there is no need to adjust the signs further.</p>
+<p>IMPLEMENTATION NOTE: This method will probably not be meaningful if
+applied to mortar grids where the two side grids are non-matching.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Spatial dimension of the projected quantity.
+Defaults to 1 (mapping for scalar quantities).</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Diagonal matrix with positive signs on variables</dt><dd><p>belonging to the first of the side_grids.
+Size: mortar_grid.num_cells x mortar_grid.num_cells</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>sps.diag_matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.update_mortar">
+<span class="sig-name descname"><span class="pre">update_mortar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_side_grids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_mortar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_mortar" title="Permalink to this definition"></a></dt>
+<dd><p>Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
+are changed.</p>
+<dl class="simple">
+<dt>Parameter:</dt><dd><dl class="simple">
+<dt>side_matrix (dict): for each side (identified with values {0, 1, 2}, as</dt><dd><p>used when this MortarGrid was defined) a matrix representing the
+new mapping between the old and new mortar grids.</p>
+</dd>
+<dt>tol (double, optional): Tolerance used for matching the new and old grids.</dt><dd><p>Defaults to self.tol.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>new_side_grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference internal" href="#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><em>porepy.grids.mortar_grid.MortarSides</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.update_primary">
+<span class="sig-name descname"><span class="pre">update_primary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g_new</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_old</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_primary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_primary" title="Permalink to this definition"></a></dt>
+<dd><p>Update the _primary_to_mortar_int map when the primary (higher-dimensional) grid is
+changed.</p>
+<dl>
+<dt>Parameter:</dt><dd><p>g_new (pp.Grid): The new primary grid.
+g_old (pp.Grid): The old primary grid.
+tol (double, optional): Tolerance used for matching the new and old grids.</p>
+<blockquote>
+<div><p>Defaults to self.tol.</p>
+</div></blockquote>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>g_new</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>g_old</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.update_secondary">
+<span class="sig-name descname"><span class="pre">update_secondary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_secondary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_secondary" title="Permalink to this definition"></a></dt>
+<dd><p>Update the mappings between Mortar and secondary grid when the latter is changed.</p>
+<p>NOTE: This function assumes that the secondary grid is only updated once: A change
+from matching to non-matching between the mortar and secondary grids is okay,
+but replacing a non-matching secondary grid with another one will not work.</p>
+<dl>
+<dt>Parameter:</dt><dd><p>new_g (pp.Grid): The new secondary grid.
+tol (double, optional): Tolerance used for matching the new and old grids.</p>
+<blockquote>
+<div><p>Defaults to self.tol.</p>
+</div></blockquote>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>new_g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.id">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">id</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.id" title="Permalink to this definition"></a></dt>
+<dd><p>Grid ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Integer id.</p>
+</dd>
+</dl>
+<p>The returned attribute should not be changed. This may severely compromise other parts
+of the code, such as sorting in md grids.
+The attribute is set in __new__. This avoids calls to super().__init__ in subclasses.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarSides">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MortarSides</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarSides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>An enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarSides.LEFT_SIDE">
+<span class="sig-name descname"><span class="pre">LEFT_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.LEFT_SIDE" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarSides.NONE_SIDE">
+<span class="sig-name descname"><span class="pre">NONE_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.NONE_SIDE" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarSides.RIGHT_SIDE">
+<span class="sig-name descname"><span class="pre">RIGHT_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.RIGHT_SIDE" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="porepy.grids.md_grid.html" class="btn btn-neutral float-left" title="porepy.grids.md_grid module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="porepy.grids.partition.html" class="btn btn-neutral float-right" title="porepy.grids.partition module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

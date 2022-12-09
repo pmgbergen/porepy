@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.grids.mortar_grid &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/mortar_grid.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.grids.mortar_grid</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.grids.mortar_grid</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Module containing the class for the mortar grid.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">count</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+
+<div class="viewcode-block" id="MortarSides"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarSides">[docs]</a><span class="k">class</span> <span class="nc">MortarSides</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="c1"># Enum of constants used to identify the grids on each side of the mortar</span>
+    <span class="n">NONE_SIDE</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">LEFT_SIDE</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">RIGHT_SIDE</span> <span class="o">=</span> <span class="mi">2</span></div>
+
+
+<div class="viewcode-block" id="MortarGrid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid">[docs]</a><span class="k">class</span> <span class="nc">MortarGrid</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parent class for mortar grids it contains two grids representing the left</span>
+<span class="sd">    and right part of the mortar grid and the weighted mapping from the primary</span>
+<span class="sd">    grid to the mortar grids and from the secondary grid to the mortar grids.</span>
+<span class="sd">    The two mortar grids can be different. The primary grid is assumed to be one</span>
+<span class="sd">    dimension higher than the mortar grids, while the secondary grid can either one</span>
+<span class="sd">    dimension higher or the same dimension as the mortar grids.</span>
+
+<span class="sd">    NOTE: The mortar class is mostly tested for the case when the secondary grid has</span>
+<span class="sd">    the same dimension as the mortar grid. Especially, the updating of any grid</span>
+<span class="sd">    should not be expected to work and will most likely throw an error.</span>
+
+<span class="sd">    Attributes:</span>
+
+<span class="sd">        dim (int): dimension. Should be 0 or 1 or 2.</span>
+<span class="sd">        side_grids (dictionary of Grid): grid for each side. The key is an integer</span>
+<span class="sd">            with value {0, 1, 2}, and the value is a Grid.</span>
+<span class="sd">        sides (array of integers with values in {0, 1, 2}): ordering of the sides.</span>
+<span class="sd">        _primary_to_mortar_int (sps.csc-matrix): Face-cell relationships between the</span>
+<span class="sd">            primary (often higher-dimensional) grid and the mortar grids. Matrix size:</span>
+<span class="sd">            num_faces x num_cells. In the beginning we assume matching grids,</span>
+<span class="sd">            but it can be modified by calling refine_mortar(). The matrix</span>
+<span class="sd">            elements represent the ratio between the geometrical objects.</span>
+<span class="sd">        _secondary_to_mortar_int (sps.csc-matrix): Cell-cell relationships between the</span>
+<span class="sd">            mortar grids and the secondary (often lower-dimensional) grid. Matrix size:</span>
+<span class="sd">            num_cells_secondary x num_cells_mortar. Matrix elements represent the ratio</span>
+<span class="sd">            between the geometrical objects.</span>
+<span class="sd">        name (list): Information on the formation of the grid, such as the</span>
+<span class="sd">            constructor, computations of geometry etc.</span>
+<span class="sd">        tol (double): Tolerance used when matching grids during update of mortar or</span>
+<span class="sd">            primary / secondary grids.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_counter</span> <span class="o">=</span> <span class="n">count</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;Counter of instantiated grids. See __new__ and id.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make object and set id according to class counter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *args:</span>
+<span class="sd">            **kwargs:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">__id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">_counter</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">obj</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">side_grids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">MortarSides</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">primary_secondary</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">codim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">face_duplicate_ind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize the mortar grid</span>
+
+<span class="sd">        See class documentation for further description of parameters.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim (int): grid dimension</span>
+<span class="sd">            side_grids (dictionary of Grid): grid on each side.</span>
+<span class="sd">            primary_secondary (sps.csc_matrix): Cell-face relations between the higher</span>
+<span class="sd">                dimensional grid and the lower dimensional grid. It is possible to not</span>
+<span class="sd">                give the projection to create only the grid.</span>
+<span class="sd">            codim (int): dimension difference between the primary grid secondary grid.</span>
+<span class="sd">            name (str): Name of the grid. Can also be used to set various information on</span>
+<span class="sd">                the grid.</span>
+<span class="sd">            face_duplicate_ind (np.ndarray, optional): Which faces should be considered</span>
+<span class="sd">                duplicates, and mapped to the second of the side_grids. If not provided,</span>
+<span class="sd">                duplicate faces will be inferred from the indices of the faces. Will</span>
+<span class="sd">                only be used if len(side_Grids) == 2.</span>
+<span class="sd">            tol (double, optional): Tolerance used in geometric computations. Defaults</span>
+<span class="sd">                to 1e-6.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A mortar grid cannot be 3d&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">dim</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All the mortar grids have to have the same dimension&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">codim</span> <span class="o">=</span> <span class="n">codim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">MortarSides</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="n">side_grids</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sides</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The number of sides have to be 1 or 2&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">face_duplicate_ind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Co-dimension 2 interfaces have no faces to duplicate&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;mortar_grid&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tol</span> <span class="o">=</span> <span class="n">tol</span>
+
+        <span class="c1"># easy access attributes with a fixed ordering of the side grids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+            <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_volumes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+        <span class="p">)</span>
+        <span class="c1"># Set projections</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">primary_secondary</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_init_projections</span><span class="p">(</span><span class="n">primary_secondary</span><span class="p">,</span> <span class="n">face_duplicate_ind</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Grid ID.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Integer id.</span>
+
+<span class="sd">        The returned attribute should not be changed. This may severely compromise other parts</span>
+<span class="sd">        of the code, such as sorting in md grids.</span>
+<span class="sd">        The attribute is set in __new__. This avoids calls to super().__init__ in subclasses.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__id</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Implementation of __repr__</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Mortar grid with history &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Dimension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2"> and codimension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">codim</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Number of cells </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Number of sides </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;Number of cells in lower-dimensional neighbor &quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_secondary_int</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">codim</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="s2">&quot;Number of faces in higher-dimensional neighbor &quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_primary_int</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="s2">&quot;Number of cells in higher-dimensional neighbor &quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_primary_int</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Implementation of __str__&quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Mortar grid with history &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Dimension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2"> and codimension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">codim</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Number of cells </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+<div class="viewcode-block" id="MortarGrid.compute_geometry"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.compute_geometry">[docs]</a>    <span class="k">def</span> <span class="nf">compute_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the geometry of the mortar grids.</span>
+<span class="sd">        We assume that they are not aligned with x (1d) or x, y (2d).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Update the actual side grids</span>
+        <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+
+        <span class="c1"># Update the attributes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+            <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+        <span class="p">)</span></div>
+
+    <span class="c1">### Methods to update the mortar grid, or the neighboring grids.</span>
+
+<div class="viewcode-block" id="MortarGrid.update_mortar"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_mortar">[docs]</a>    <span class="k">def</span> <span class="nf">update_mortar</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">new_side_grids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">MortarSides</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids</span>
+<span class="sd">        are changed.</span>
+
+<span class="sd">        Parameter:</span>
+<span class="sd">            side_matrix (dict): for each side (identified with values {0, 1, 2}, as</span>
+<span class="sd">                used when this MortarGrid was defined) a matrix representing the</span>
+<span class="sd">                new mapping between the old and new mortar grids.</span>
+<span class="sd">            tol (double, optional): Tolerance used for matching the new and old grids.</span>
+<span class="sd">                Defaults to self.tol.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">tol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
+
+        <span class="c1"># Build mappings for integrated and averaged quantities separately.</span>
+        <span class="n">split_matrix_int</span><span class="p">,</span> <span class="n">split_matrix_avg</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
+
+        <span class="c1"># For each side we compute the mapping between the old and the new mortar</span>
+        <span class="c1"># grids, we store them in a dictionary with SideTag as key.</span>
+        <span class="k">for</span> <span class="n">side</span><span class="p">,</span> <span class="n">new_g</span> <span class="ow">in</span> <span class="n">new_side_grids</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">[</span><span class="n">side</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="n">new_g</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Grid dimension has to be the same&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Nothing to do</span>
+                <span class="k">return</span>
+            <span class="k">elif</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># The mapping between grids will be left-multiplied by the existing</span>
+                <span class="c1"># mapping from primary to mortar. Therefore, we construct mappings</span>
+                <span class="c1"># from the old to the new grid.</span>
+                <span class="n">mat_avg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_1d</span><span class="p">(</span><span class="n">new_g</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;averaged&quot;</span><span class="p">)</span>
+                <span class="n">mat_int</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_1d</span><span class="p">(</span><span class="n">new_g</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;integrated&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">mat_avg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_2d</span><span class="p">(</span><span class="n">new_g</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;averaged&quot;</span><span class="p">)</span>
+                <span class="n">mat_int</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_2d</span><span class="p">(</span><span class="n">new_g</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;integrated&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># No 3d mortar grid</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span>
+
+            <span class="c1"># Store values</span>
+            <span class="n">split_matrix_avg</span><span class="p">[</span><span class="n">side</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat_avg</span>
+            <span class="n">split_matrix_int</span><span class="p">[</span><span class="n">side</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat_int</span>
+
+        <span class="c1"># In the case of different side ordering between the input data and the</span>
+        <span class="c1"># stored we need to remap it. The resulting matrix will be a block</span>
+        <span class="c1"># diagonal matrix, where in each block we have the mapping between the</span>
+        <span class="c1"># (relative to side) old grid and the new one.</span>
+        <span class="n">matrix_blocks_avg</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span>
+        <span class="p">)</span>
+        <span class="n">matrix_blocks_int</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Loop on all the side grids, if not given an identity matrix is</span>
+        <span class="c1"># considered</span>
+        <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="n">matrix_blocks_avg</span><span class="p">[</span><span class="n">pos</span><span class="p">,</span> <span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_matrix_avg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">side</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">matrix_blocks_int</span><span class="p">[</span><span class="n">pos</span><span class="p">,</span> <span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_matrix_int</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">side</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Once the global matrix is constructed the new primary_to_mortar_int and</span>
+        <span class="c1"># secondary_to_mortar_int maps are updated.</span>
+        <span class="n">matrix_avg</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span><span class="n">matrix_blocks_avg</span><span class="p">)</span>
+        <span class="n">matrix_int</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span><span class="n">matrix_blocks_int</span><span class="p">)</span>
+
+        <span class="c1"># We need to update mappings from both primary and secondary.</span>
+        <span class="c1"># Use optimized storage to minimize memory consumption.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                <span class="n">matrix_avg</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                <span class="n">matrix_int</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                <span class="n">matrix_avg</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                <span class="n">matrix_int</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Also update the other mappings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">()</span>
+
+        <span class="c1"># Update the side grids</span>
+        <span class="k">for</span> <span class="n">side</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">new_side_grids</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">[</span><span class="n">side</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># update the geometry</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_mappings</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MortarGrid.update_secondary"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_secondary">[docs]</a>    <span class="k">def</span> <span class="nf">update_secondary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Update the mappings between Mortar and secondary grid when the latter is changed.</span>
+
+<span class="sd">        NOTE: This function assumes that the secondary grid is only updated once: A change</span>
+<span class="sd">        from matching to non-matching between the mortar and secondary grids is okay,</span>
+<span class="sd">        but replacing a non-matching secondary grid with another one will not work.</span>
+
+<span class="sd">        Parameter:</span>
+<span class="sd">            new_g (pp.Grid): The new secondary grid.</span>
+<span class="sd">            tol (double, optional): Tolerance used for matching the new and old grids.</span>
+<span class="sd">                Defaults to self.tol.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">tol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="n">new_g</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="sd">&quot;&quot;&quot;update_secondary() is only implemented when the secondary</span>
+<span class="sd">                grid has the same dimension as the mortar grid&quot;&quot;&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Build mappings for integrated and averaged quantities separately.</span>
+        <span class="n">split_matrix_avg</span><span class="p">,</span> <span class="n">split_matrix_int</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
+
+        <span class="c1"># For each side we compute the mapping between the new lower dimensional</span>
+        <span class="c1"># grid and the mortar grid, we store them in a dictionary with MortarSide as key.</span>
+        <span class="c1"># IMPLEMENTATION NOTE: The loop, and some of the complexity below, is necessary</span>
+        <span class="c1"># to allow for different grids on the mortar sides (if more than one). It is</span>
+        <span class="c1"># not clear that our full implementation supports this (no obvious weak points),</span>
+        <span class="c1"># but AFAIK, it has never been tested, but we will keep the generality for now.</span>
+        <span class="k">for</span> <span class="n">side</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="n">new_g</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Grid dimension has to be the same&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Nothing to do, all 0d grids are matching</span>
+                <span class="k">return</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># We need to map from the new to the old grid.</span>
+                <span class="c1"># See below for ideas of how to allow for updating the secondary grid</span>
+                <span class="c1"># more than once.</span>
+                <span class="n">mat_avg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_1d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">new_g</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;averaged&quot;</span><span class="p">)</span>
+                <span class="n">mat_int</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_1d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">new_g</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;integrated&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">mat_avg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_2d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">new_g</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;averaged&quot;</span><span class="p">)</span>
+                <span class="n">mat_int</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_2d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">new_g</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;integrated&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># No 3d mortar grid</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span>
+
+            <span class="n">split_matrix_avg</span><span class="p">[</span><span class="n">side</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat_avg</span>
+            <span class="n">split_matrix_int</span><span class="p">[</span><span class="n">side</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat_int</span>
+        <span class="c1"># In the case of different side ordering between the input data and the</span>
+        <span class="c1"># stored we need to remap it. The resulting matrix will be a block</span>
+        <span class="c1"># matrix, where in each block we have the mapping between the</span>
+        <span class="c1"># (relative to side) the new grid and the mortar grid.</span>
+        <span class="n">matrix_avg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">(),</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+        <span class="n">matrix_int</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">(),</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="n">matrix_avg</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_matrix_avg</span><span class="p">[</span><span class="n">side</span><span class="p">]</span>
+            <span class="n">matrix_int</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_matrix_int</span><span class="p">[</span><span class="n">side</span><span class="p">]</span>
+
+        <span class="c1"># IMPLEMENTATION NOTE: To allow for replacing the secondary grid more than once,</span>
+        <span class="c1"># it is necessary to replace the line above into an update of the mapping from</span>
+        <span class="c1"># secondary (not only overwriting as we do now). That should be possible, but</span>
+        <span class="c1"># requires more thinking.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span><span class="n">matrix_avg</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span><span class="n">matrix_int</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Update other mappings to and from secondary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">(</span><span class="n">primary</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_mappings</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MortarGrid.update_primary"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_primary">[docs]</a>    <span class="k">def</span> <span class="nf">update_primary</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">g_new</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">g_old</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Update the _primary_to_mortar_int map when the primary (higher-dimensional) grid is</span>
+<span class="sd">        changed.</span>
+
+<span class="sd">        Parameter:</span>
+<span class="sd">            g_new (pp.Grid): The new primary grid.</span>
+<span class="sd">            g_old (pp.Grid): The old primary grid.</span>
+<span class="sd">            tol (double, optional): Tolerance used for matching the new and old grids.</span>
+<span class="sd">                Defaults to self.tol.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># IMPLEMENTATION NOTE: The signature of this method is different from</span>
+        <span class="c1"># update_secondary(), since the latter must also take care of for the side grids.</span>
+
+        <span class="k">if</span> <span class="n">tol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+
+            <span class="c1"># retrieve the old faces and the corresponding coordinates</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">old_faces</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span><span class="p">)</span>
+            <span class="n">old_nodes</span> <span class="o">=</span> <span class="n">g_old</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">old_faces</span><span class="p">]</span>
+
+            <span class="c1"># retrieve the boundary faces and the corresponding coordinates</span>
+            <span class="n">new_faces</span> <span class="o">=</span> <span class="n">g_new</span><span class="o">.</span><span class="n">get_all_boundary_faces</span><span class="p">()</span>
+            <span class="n">new_nodes</span> <span class="o">=</span> <span class="n">g_new</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">new_faces</span><span class="p">]</span>
+
+            <span class="c1"># we assume only one old node</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">old_nodes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">is_same</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">point_pointset</span><span class="p">(</span><span class="n">old_nodes</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">old_nodes</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">tol</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">is_same</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;0d-&gt;1d mappings must map to the same physical point&quot;</span>
+                    <span class="p">)</span>
+            <span class="n">old_nodes</span> <span class="o">=</span> <span class="n">old_nodes</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">point_pointset</span><span class="p">(</span><span class="n">old_nodes</span><span class="p">,</span> <span class="n">new_nodes</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span>
+            <span class="n">new_faces</span> <span class="o">=</span> <span class="n">new_faces</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+            <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">g_old</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">g_new</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
+            <span class="n">matrix_DIJ</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">old_faces</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="p">(</span><span class="n">old_faces</span><span class="p">,</span> <span class="n">new_faces</span><span class="p">))</span>
+            <span class="n">split_matrix_int</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span><span class="n">matrix_DIJ</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">split_matrix_avg</span> <span class="o">=</span> <span class="n">split_matrix_int</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># The case is conceptually similar to 0d, but quite a bit more technical,</span>
+            <span class="c1"># (see implementation of the called function).</span>
+            <span class="c1"># Separate mappings for averaged and integrated quantities.</span>
+            <span class="n">split_matrix_avg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_grids_along_1d_mortar</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span> <span class="n">g_new</span><span class="p">,</span> <span class="n">g_old</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;averaged&quot;</span>
+            <span class="p">)</span>
+            <span class="n">split_matrix_int</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">match_grids</span><span class="o">.</span><span class="n">match_grids_along_1d_mortar</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span> <span class="n">g_new</span><span class="p">,</span> <span class="n">g_old</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s2">&quot;integrated&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># should be mg.dim == 2</span>
+            <span class="c1"># It should be possible to use essentially the same approach as in 1d,</span>
+            <span class="c1"># but this is not yet covered.</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Have not yet implemented this.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Update mappings to and from the primary grid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span> <span class="o">*</span> <span class="n">split_matrix_int</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span> <span class="o">*</span> <span class="n">split_matrix_avg</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">(</span><span class="n">secondary</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_mappings</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MortarGrid.num_sides"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.num_sides">[docs]</a>    <span class="k">def</span> <span class="nf">num_sides</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Shortcut to compute the number of sides, it has to be 2 or 1.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: Number of sides.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MortarGrid.project_to_side_grids"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.project_to_side_grids">[docs]</a>    <span class="k">def</span> <span class="nf">project_to_side_grids</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Generator for the side grids (pp.Grid) representation of the mortar</span>
+<span class="sd">        cells, and projection operators from the mortar cells, combining cells on all</span>
+<span class="sd">        the sides, to the specific side grids.</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            pp.Grid: PorePy grid representing one of the sides of the</span>
+<span class="sd">                mortar grid. Can be used for standard discretizations.</span>
+<span class="sd">            sps.csc_matrix: Projection from the mortar cells to this</span>
+<span class="sd">                side grid.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">grid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">nc</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">num_cells</span>
+            <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nc</span><span class="p">)</span>
+            <span class="n">cols</span> <span class="o">=</span> <span class="n">rows</span> <span class="o">+</span> <span class="n">counter</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nc</span><span class="p">)</span>
+            <span class="n">proj</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">nc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+
+            <span class="n">counter</span> <span class="o">+=</span> <span class="n">nc</span>
+            <span class="k">yield</span> <span class="n">proj</span><span class="p">,</span> <span class="n">grid</span></div>
+
+    <span class="c1">## Methods to construct projection matrices</span>
+<div class="viewcode-block" id="MortarGrid.primary_to_mortar_int"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_int">[docs]</a>    <span class="k">def</span> <span class="nf">primary_to_mortar_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Project values from faces of primary to the mortar, by summing quantities</span>
+<span class="sd">        from the primary side.</span>
+
+<span class="sd">        The projection matrix is scaled so that the column sum is unity, that is, values</span>
+<span class="sd">        on the primary side are distributed to the mortar according to the overlap</span>
+<span class="sd">        between a primary face and generally several mortar cells.</span>
+
+<span class="sd">        This mapping is intended for extensive properties, e.g. fluxes.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.matrix: Projection matrix with column sum unity.</span>
+<span class="sd">                Size: g_primary.num_faces x mortar_grid.num_cells.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MortarGrid.secondary_to_mortar_int"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_int">[docs]</a>    <span class="k">def</span> <span class="nf">secondary_to_mortar_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Project values from cells on the secondary side to the mortar, by</span>
+<span class="sd">        summing quantities from the secondary side.</span>
+
+<span class="sd">        The projection matrix is scaled so that the column sum is unity, that is, values</span>
+<span class="sd">        on the secondary side are distributed to the mortar according to the overlap</span>
+<span class="sd">        between a secondary cell and generally several mortar cells.</span>
+
+<span class="sd">        This mapping is intended for extensive properties, e.g. sources.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.matrix: Projection matrix with column sum unity.</span>
+<span class="sd">                Size: g_secondary.num_cells x mortar_grid.num_cells.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MortarGrid.primary_to_mortar_avg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_avg">[docs]</a>    <span class="k">def</span> <span class="nf">primary_to_mortar_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Project values from faces of primary to the mortar, by averaging quantities</span>
+<span class="sd">        from the primary side.</span>
+
+<span class="sd">        The projection matrix is scaled so that the row sum is unity, that is, values</span>
+<span class="sd">        on the mortar side are computed as averages of values from the primary side,</span>
+<span class="sd">        according to the overlap between, general several, primary faces and a mortar</span>
+<span class="sd">        cell.</span>
+
+<span class="sd">        This mapping is intended for intensive properties, e.g. pressures.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.matrix: Projection matrix with row sum unity.</span>
+<span class="sd">                Size: g_primary.num_faces x mortar_grid.num_cells.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MortarGrid.secondary_to_mortar_avg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_avg">[docs]</a>    <span class="k">def</span> <span class="nf">secondary_to_mortar_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Project values from cells at the secondary to the mortar, by averaging</span>
+<span class="sd">        quantities from the secondary side.</span>
+
+<span class="sd">        The projection matrix is scaled so that the row sum is unity, that is, values</span>
+<span class="sd">        on the mortar side are computed as averages of values from the secondary side,</span>
+<span class="sd">        according to the overlap between, generally several primary cells and the mortar</span>
+<span class="sd">        cells.</span>
+
+<span class="sd">        This mapping is intended for intensive properties, e.g. pressures.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.matrix: Projection matrix with row sum unity.</span>
+<span class="sd">                Size: g_secondary.num_cells x mortar_grid.num_cells.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MortarGrid.mortar_to_primary_int"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_int">[docs]</a>    <span class="k">def</span> <span class="nf">mortar_to_primary_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Project values from the mortar to faces of primary, by summing quantities</span>
+<span class="sd">        from the mortar side.</span>
+
+<span class="sd">        The projection matrix is scaled so that the column sum is unity, that is, values</span>
+<span class="sd">        on the mortar side are distributed to the primary according to the overlap</span>
+<span class="sd">        between a mortar cell and, generally several primary faces.</span>
+
+<span class="sd">        This mapping is intended for extensive properties, e.g. fluxes.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.matrix: Projection matrix with column sum unity.</span>
+<span class="sd">                Size: mortar_grid.num_cells x g_primary.num_faces.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_primary_int</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MortarGrid.mortar_to_secondary_int"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_int">[docs]</a>    <span class="k">def</span> <span class="nf">mortar_to_secondary_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Project values from the mortar to cells at the secondary, by summing quantities</span>
+<span class="sd">        from the mortar side.</span>
+
+<span class="sd">        The projection matrix is scaled so that the column sum is unity, that is, values</span>
+<span class="sd">        on the mortar side are distributed to the secondary according to the overlap</span>
+<span class="sd">        between a mortar cell and, generally several secondary cells.</span>
+
+<span class="sd">        This mapping is intended for extensive properties, e.g. fluxes.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.matrix: Projection matrix with column sum unity.</span>
+<span class="sd">                Size: mortar_grid.num_cells x g_secondary.num_faces.</span>
+
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_secondary_int</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MortarGrid.mortar_to_primary_avg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_avg">[docs]</a>    <span class="k">def</span> <span class="nf">mortar_to_primary_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Project values from the mortar to faces of primary, by averaging</span>
+<span class="sd">        quantities from the mortar side.</span>
+
+<span class="sd">        The projection matrix is scaled so that the row sum is unity, that is, values</span>
+<span class="sd">        on the primary side are computed as averages of values from the mortar side,</span>
+<span class="sd">        according to the overlap between, general several, mortar cell and a primary</span>
+<span class="sd">        face.</span>
+
+<span class="sd">        This mapping is intended for intensive properties, e.g. pressures.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.matrix: Projection matrix with row sum unity.</span>
+<span class="sd">                Size: mortar_grid.num_cells x g_primary.num_faces.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_primary_avg</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MortarGrid.mortar_to_secondary_avg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_avg">[docs]</a>    <span class="k">def</span> <span class="nf">mortar_to_secondary_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Project values from the mortar to secondary, by averaging quantities from the</span>
+<span class="sd">        mortar side.</span>
+
+<span class="sd">        The projection matrix is scaled so that the row sum is unity, that is, values</span>
+<span class="sd">        on the secondary side are computed as averages of values from the mortar side,</span>
+<span class="sd">        according to the overlap between, general several, mortar cell and a secondary</span>
+<span class="sd">        cell.</span>
+
+<span class="sd">        This mapping is intended for intensive properties, e.g. pressures.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.matrix: Projection matrix with row sum unity.</span>
+<span class="sd">                Size: mortar_grid.num_cells x g_secondary.num_faces.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_secondary_avg</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_convert_to_vector_variable</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert the scalar projection to a vector quantity. If the prescribed</span>
+<span class="sd">        dimension is 1 (default for all the above methods), the projection matrix</span>
+<span class="sd">        will in effect not be altered.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">nd</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># No need to do expansion for 1d variables.</span>
+            <span class="k">return</span> <span class="n">matrix</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nd</span><span class="p">))</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+
+<div class="viewcode-block" id="MortarGrid.sign_of_mortar_sides"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.sign_of_mortar_sides">[docs]</a>    <span class="k">def</span> <span class="nf">sign_of_mortar_sides</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Assign positive or negative weight to the two sides of a mortar grid.</span>
+
+<span class="sd">        This is needed e.g. to make projection operators into signed projections,</span>
+<span class="sd">        for variables that have no particular defined sign conventions.</span>
+
+<span class="sd">        This function defines a convention for what is a positive jump between</span>
+<span class="sd">        the mortar sides.</span>
+
+<span class="sd">        Example: Take the difference between right and left variables, and</span>
+<span class="sd">        project to the secondary grid by</span>
+
+<span class="sd">            mortar_to_secondary_avg() * sign_of_mortar_sides()</span>
+
+<span class="sd">        NOTE: The flux variables in flow and transport equations are defined as</span>
+<span class="sd">        positive from primary to secondary. Hence, the two sides have different</span>
+<span class="sd">        conventions, and there is no need to adjust the signs further.</span>
+
+<span class="sd">        IMPLEMENTATION NOTE: This method will probably not be meaningful if</span>
+<span class="sd">        applied to mortar grids where the two side grids are non-matching.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nd (int, optional): Spatial dimension of the projected quantity.</span>
+<span class="sd">                Defaults to 1 (mapping for scalar quantities).</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.diag_matrix: Diagonal matrix with positive signs on variables</span>
+<span class="sd">                belonging to the first of the side_grids.</span>
+<span class="sd">                Size: mortar_grid.num_cells x mortar_grid.num_cells</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Is it really meaningful to ask for signs of a one sided mortar grid?&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">dia_matrix</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nc</span> <span class="o">*</span> <span class="n">nd</span><span class="p">),</span> <span class="mi">0</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">nd</span> <span class="o">*</span> <span class="n">nc</span><span class="p">,</span> <span class="n">nd</span> <span class="o">*</span> <span class="n">nc</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># By the ordering of the mortar cells, we know that all cells on the one</span>
+            <span class="c1"># side are put first, then the other side. Set + and - accordingly.</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">[</span><span class="n">MortarSides</span><span class="o">.</span><span class="n">LEFT_SIDE</span><span class="p">]</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="n">nd</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">[</span><span class="n">MortarSides</span><span class="o">.</span><span class="n">RIGHT_SIDE</span><span class="p">]</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="n">nd</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">dia_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">nd</span> <span class="o">*</span> <span class="n">nc</span><span class="p">,</span> <span class="n">nd</span> <span class="o">*</span> <span class="n">nc</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MortarGrid.cell_diameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.cell_diameters">[docs]</a>    <span class="k">def</span> <span class="nf">cell_diameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">diams</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="n">diams</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_diameters</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">diams</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_mappings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">row_sum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">row_sum</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Check not satisfied for the primary grid&quot;</span><span class="p">)</span>
+
+        <span class="n">row_sum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">row_sum</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Check not satisfied for the secondary grid&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_init_projections</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">primary_secondary</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">face_duplicate_ind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize projections from primary and secondary to mortar.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            primary_secondary (sps.spmatrix): projection from the primary to the secondary.</span>
+<span class="sd">                It is assumed that the primary, secondary and mortar grids are all matching.</span>
+<span class="sd">            face_duplicate_ind (np.ndarray, optional): Which faces should be considered</span>
+<span class="sd">                    duplicates, and mapped to the second of the side_grids. If not provided,</span>
+<span class="sd">                    duplicate faces will be inferred from the indices of the faces. Will</span>
+<span class="sd">                    only be used if len(side_Grids) == 2.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># primary_secondary is a mapping from the cells (faces if secondary.dim == primary.dim)</span>
+        <span class="c1"># of the secondary grid to the of the primary grid.</span>
+        <span class="n">secondary_f</span><span class="p">,</span> <span class="n">primary_f</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">primary_secondary</span><span class="p">)</span>
+
+        <span class="c1"># If the face_duplicate_ind is given we have to reorder the primary face indices</span>
+        <span class="c1"># such that the original faces comes first, then the duplicate faces.</span>
+        <span class="c1"># If the face_duplicate_ind is not given, we then assume that the primary side faces</span>
+        <span class="c1"># already have this ordering. If the grid is created using the pp.split_grid.py</span>
+        <span class="c1"># module this should be the case.</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="n">face_duplicate_ind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">codim</span> <span class="o">&lt;</span> <span class="mi">2</span>
+        <span class="p">):</span>
+            <span class="n">is_second_side</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">primary_f</span><span class="p">,</span> <span class="n">face_duplicate_ind</span><span class="p">)</span>
+            <span class="n">secondary_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span>
+                <span class="n">secondary_f</span><span class="p">[</span><span class="o">~</span><span class="n">is_second_side</span><span class="p">],</span> <span class="n">secondary_f</span><span class="p">[</span><span class="n">is_second_side</span><span class="p">]</span>
+            <span class="p">]</span>
+            <span class="n">primary_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">primary_f</span><span class="p">[</span><span class="o">~</span><span class="n">is_second_side</span><span class="p">],</span> <span class="n">primary_f</span><span class="p">[</span><span class="n">is_second_side</span><span class="p">]]</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="o">~</span><span class="n">is_second_side</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="n">is_second_side</span><span class="p">]]</span>
+
+        <span class="c1"># Store index of the faces on the &#39;other&#39; side of the mortar grid.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># After the above sorting, we know that the faces on the other side is in the</span>
+            <span class="c1"># second half of primary_f, also if face_duplicate_ind is given.</span>
+            <span class="c1"># ASSUMPTION: The mortar grids on the two sides should match each other, or</span>
+            <span class="c1"># else, the below indexing is wrong. This also means that the size of primary_f</span>
+            <span class="c1"># is an even number.</span>
+            <span class="n">sz</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">primary_f</span><span class="o">.</span><span class="n">size</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ind_face_on_other_side</span> <span class="o">=</span> <span class="n">primary_f</span><span class="p">[</span><span class="n">sz</span><span class="p">:]</span>
+
+        <span class="c1"># We assumed that the cells of the given side grid(s) is(are) ordered</span>
+        <span class="c1"># by the secondary side index. In other words: cell &quot;n&quot; of the side grid(s) should</span>
+        <span class="c1"># correspond to the element with the n&#39;th lowest index in secondary_f. We therefore</span>
+        <span class="c1"># sort secondary_f to obtaint the side grid ordering. The primary faces should now be</span>
+        <span class="c1"># sorted such that the left side comes first, then the right side. We use stable</span>
+        <span class="c1"># sort to not mix up the ordering if there is two sides.</span>
+        <span class="n">ix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">secondary_f</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;stable&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">codim</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># If there are two sides we are in the case of a secondary grid of equal</span>
+            <span class="c1"># dimension as the mortar grid. The mapping primary_secondary is then a mapping</span>
+            <span class="c1"># from faces-cells, and we assume the higher dimensional grid is split and</span>
+            <span class="c1"># there is exactly two primary faces mapping to each secondary cell. Check this:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">secondary_f</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;Each face in the higher dimensional grid must map to</span>
+<span class="sd">                exactly two lower dimensional cells&quot;&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="c1"># The mortar grid cells are ordered as first all cells on side 1 then all</span>
+            <span class="c1"># cells on side 2. We there have to reorder ix to account for this:</span>
+            <span class="n">ix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">ix</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Reorder mapping to fit with mortar cell ordering.</span>
+        <span class="n">secondary_f</span> <span class="o">=</span> <span class="n">secondary_f</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span>
+        <span class="n">primary_f</span> <span class="o">=</span> <span class="n">primary_f</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span>
+
+        <span class="c1"># Define mappings</span>
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">secondary_f</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">==</span> <span class="n">cells</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sd">&quot;&quot;&quot;In the construction of MortarGrid it is assumed</span>
+<span class="sd">            to be a one to one mapping between the mortar grid and the secondary mapping&quot;&quot;&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">shape_primary</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">primary_secondary</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">shape_secondary</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">primary_secondary</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1"># IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+            <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">primary_f</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape_primary</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">secondary_f</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape_secondary</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_set_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">primary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">secondary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set projections to and from primary from the current state of</span>
+<span class="sd">        self._primary_to_mortar_int and self._secondary_to_mortar_int.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.</span>
+        <span class="k">if</span> <span class="n">primary</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_primary_int</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span><span class="o">.</span><span class="n">T</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_primary_avg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span><span class="o">.</span><span class="n">T</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">secondary</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_secondary_int</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span><span class="o">.</span><span class="n">T</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_secondary_avg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span><span class="o">.</span><span class="n">T</span>
+                <span class="p">)</span>
+            <span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

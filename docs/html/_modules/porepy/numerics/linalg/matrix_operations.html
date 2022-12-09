@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.linalg.matrix_operations &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/linalg/matrix_operations.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.linalg.matrix_operations</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.linalg.matrix_operations</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">module for operations on sparse matrices</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span> <span class="nn">porepy.utils.mcolon</span> <span class="kn">import</span> <span class="n">mcolon</span>
+
+
+<div class="viewcode-block" id="zero_columns"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.zero_columns">[docs]</a><span class="k">def</span> <span class="nf">zero_columns</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to zero out columns in matrix A. Note that this function does not</span>
+<span class="sd">    change the sparcity structure of the matrix, it only changes the column</span>
+<span class="sd">    values to 0.</span>
+
+<span class="sd">    The matrix is modified in place.</span>
+
+<span class="sd">    Parameter</span>
+<span class="sd">    ---------</span>
+<span class="sd">    A (scipy.sparse.spmatrix): A sparce matrix</span>
+<span class="sd">    cols (ndarray): A numpy array of columns that should be zeroed</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    None</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;csc&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need a csc matrix&quot;</span><span class="p">)</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span>
+    <span class="n">col_indptr</span> <span class="o">=</span> <span class="n">mcolon</span><span class="p">(</span><span class="n">indptr</span><span class="p">[</span><span class="n">cols</span><span class="p">],</span> <span class="n">indptr</span><span class="p">[</span><span class="n">cols</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">col_indptr</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="zero_rows"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.zero_rows">[docs]</a><span class="k">def</span> <span class="nf">zero_rows</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to zero out rows in matrix A. Note that this function does not</span>
+<span class="sd">    change the sparcity structure of the matrix, it only changes the row</span>
+<span class="sd">    values to 0.</span>
+
+<span class="sd">    The matrix is modified in place.</span>
+
+<span class="sd">    Parameter</span>
+<span class="sd">    ---------</span>
+<span class="sd">    A (scipy.sparse.spmatrix): A sparce matrix</span>
+<span class="sd">    rows (ndarray): A numpy array of columns that should be zeroed</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    None</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;csr&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need a csr matrix&quot;</span><span class="p">)</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span>
+    <span class="n">row_indptr</span> <span class="o">=</span> <span class="n">mcolon</span><span class="p">(</span><span class="n">indptr</span><span class="p">[</span><span class="n">rows</span><span class="p">],</span> <span class="n">indptr</span><span class="p">[</span><span class="n">rows</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">row_indptr</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="merge_matrices"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.merge_matrices">[docs]</a><span class="k">def</span> <span class="nf">merge_matrices</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+    <span class="n">B</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+    <span class="n">lines_to_replace</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">matrix_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;csr&quot;</span><span class="p">,</span> <span class="s2">&quot;csc&quot;</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Replace rows/coloms of matrix A with rows/cols of matrix B.</span>
+
+<span class="sd">    If the matrix format is csc, this function is equivalent with</span>
+
+<span class="sd">        A[:, lines_to_replace] = B</span>
+
+<span class="sd">    If the matrix format is csr, this funciton is equivalent iwth</span>
+
+<span class="sd">        A[lines_to_replace, :] = B</span>
+
+<span class="sd">    Replacement is done in place.</span>
+
+<span class="sd">    Parameter</span>
+<span class="sd">    ---------</span>
+<span class="sd">    A (scipy.sparse.spmatrix): A sparse matrix</span>
+<span class="sd">    B (scipy.sparse.spmatrix): A sparse matrix</span>
+<span class="sd">    lines_to_replace (ndarray): Lines of A to be replaced by B.</span>
+<span class="sd">    matrix_format (str): Should be either &#39;csr&#39; or &#39;csc&#39;. Both A and B should adhere</span>
+<span class="sd">        to the respective format.</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    None</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Run a set of checks on the input, it easy to get this wrong.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">((</span><span class="n">s</span> <span class="o">==</span> <span class="n">matrix_format</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">(),</span> <span class="n">B</span><span class="o">.</span><span class="n">getformat</span><span class="p">()))):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Both matrices should be of the specified format </span><span class="si">{</span><span class="n">matrix_format</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">matrix_format</span> <span class="o">==</span> <span class="s2">&quot;csr&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unequal number of matrix columns: </span><span class="si">{</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">lines_to_replace</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;B.shape[0] must equal size of lines&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">matrix_format</span> <span class="o">==</span> <span class="s2">&quot;csc&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unequal number of matrix columns: </span><span class="si">{</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">lines_to_replace</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;B.shape[1] must equal size of lines&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">lines_to_replace</span><span class="p">)</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">lines_to_replace</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can only merge unique lines&quot;</span><span class="p">)</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indices</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">data</span>
+
+    <span class="n">ind_ix</span> <span class="o">=</span> <span class="n">mcolon</span><span class="p">(</span><span class="n">indptr</span><span class="p">[</span><span class="n">lines_to_replace</span><span class="p">],</span> <span class="n">indptr</span><span class="p">[</span><span class="n">lines_to_replace</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># First we remove the old data</span>
+    <span class="n">num_rem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">indptr</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">num_rem</span><span class="p">[</span><span class="n">lines_to_replace</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">indptr</span><span class="p">[</span><span class="n">lines_to_replace</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">indptr</span><span class="p">[</span><span class="n">lines_to_replace</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">num_rem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">num_rem</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">num_rem</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">indptr</span> <span class="o">-</span> <span class="n">num_rem</span>
+
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">keep</span><span class="p">[</span><span class="n">ind_ix</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+
+    <span class="c1"># Then we add the new</span>
+    <span class="n">b_indptr</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">indptr</span>
+    <span class="n">b_indices</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">indices</span>
+    <span class="n">b_data</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">data</span>
+
+    <span class="n">num_added</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">indptr</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">num_added</span><span class="p">[</span><span class="n">lines_to_replace</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_indptr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">b_indptr</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">num_added</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">num_added</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">num_added</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="n">rep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">b_indptr</span><span class="p">)</span>
+    <span class="n">indPos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">indptr</span><span class="p">[</span><span class="n">lines_to_replace</span><span class="p">],</span> <span class="n">rep</span><span class="p">)</span>
+
+    <span class="n">A</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">indPos</span><span class="p">,</span> <span class="n">b_indices</span><span class="p">)</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">indPos</span><span class="p">,</span> <span class="n">b_data</span><span class="p">)</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">indptr</span> <span class="o">=</span> <span class="n">indptr</span> <span class="o">+</span> <span class="n">num_added</span></div>
+
+
+<div class="viewcode-block" id="stack_mat"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.stack_mat">[docs]</a><span class="k">def</span> <span class="nf">stack_mat</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Stack matrix B at the end of matrix A.</span>
+<span class="sd">    If A and B are csc matrices this function is equivalent to</span>
+<span class="sd">        A = scipy.sparse.hstack((A, B))</span>
+<span class="sd">    If A and B are csr matrices this function is equivalent to</span>
+<span class="sd">        A = scipy.sparse.vstack((A, B))</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    A (scipy.sparse.spmatrix): A sparse matrix</span>
+<span class="sd">    B (scipy.sparse.spmatrix): A sparse matrix</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    None</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;csc&quot;</span> <span class="ow">and</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;csr&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need a csc or csr matrix&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="n">B</span><span class="o">.</span><span class="n">getformat</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A and B must be of same matrix type&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csc&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A.shape[0] must equal B.shape[0]&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csr&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A.shape[0] must equal B.shape[0]&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">B</span><span class="o">.</span><span class="n">indptr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csc&quot;</span><span class="p">:</span>
+        <span class="n">A</span><span class="o">.</span><span class="n">_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csr&quot;</span><span class="p">:</span>
+        <span class="n">A</span><span class="o">.</span><span class="n">_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="copy"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.copy">[docs]</a><span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a new matrix C that is a copy of matrix A</span>
+<span class="sd">    This function is equivalent to</span>
+<span class="sd">    A.copy(), but does not change the ordering</span>
+<span class="sd">    of the A.indices for csc and csr matrices</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    A (scipy.sparse.spmatrix): A sparce matrix</span>
+
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">        A (scipy.sparse.spmatrix): A sparce matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csc&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csr&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="stack_diag"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.stack_diag">[docs]</a><span class="k">def</span> <span class="nf">stack_diag</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a new matrix C that contains matrix A and B at the diagonal:</span>
+<span class="sd">    C = [[A, 0], [0, B]]</span>
+<span class="sd">    This function is equivalent to</span>
+<span class="sd">    sps.block_diag((A, B), format=A.format), but does not change the ordering</span>
+<span class="sd">    of the A.indices or B.indices</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    A (scipy.sparse.spmatrix): A sparce matrix</span>
+<span class="sd">    B (scipy.sparse.spmatrix): A sparce matrix</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    None</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;csc&quot;</span> <span class="ow">and</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;csr&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need a csc or csr matrix&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="n">B</span><span class="o">.</span><span class="n">getformat</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A and B must be of same matrix type&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">B</span><span class="o">.</span><span class="n">indptr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">A</span>
+    <span class="n">C</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csc&quot;</span><span class="p">:</span>
+        <span class="n">indices_offset</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">indices_offset</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">C</span><span class="o">.</span><span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">C</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">indices</span> <span class="o">+</span> <span class="n">indices_offset</span><span class="p">)</span>
+    <span class="n">C</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="n">C</span><span class="o">.</span><span class="n">_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">C</span></div>
+
+
+<div class="viewcode-block" id="slice_indices"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.slice_indices">[docs]</a><span class="k">def</span> <span class="nf">slice_indices</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">slice_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">return_array_ind</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">slice</span><span class="p">]]]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function for slicing sparse matrix along rows or columns.</span>
+<span class="sd">    If A is a csc_matrix A will be sliced along columns, while if A is a</span>
+<span class="sd">    csr_matrix A will be sliced along the rows.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A (scipy.sparse.csc/csr_matrix): A sparse matrix.</span>
+<span class="sd">    slice_ind (np.ndarray): Array containing indices to be sliced</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    indices (np.ndarray): If A is csc_matrix:</span>
+<span class="sd">                            The nonzero row indices or columns slice_ind</span>
+<span class="sd">                          If A is csr_matrix:</span>
+<span class="sd">                            The nonzero columns indices or rows slice_ind</span>
+<span class="sd">    array_ind (np.ndarray or slice): The indices in the compressed storage format (csc</span>
+<span class="sd">                            or csr) corresponding to the slice; so that, if A is csr,</span>
+<span class="sd">                            A.indices[array_ind] gives the columns of the slice</span>
+<span class="sd">                            (represented in indices), and the corresponding data can be</span>
+<span class="sd">                            accessed as A.data[array_ind]. Only returned if</span>
+<span class="sd">                            return_array_ind is True.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    A = sps.csc_matrix(np.eye(10))</span>
+<span class="sd">    rows = slice_indices(A, np.array([0,2,3]))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csc&quot;</span> <span class="ow">or</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csr&quot;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">slice_ind</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="s2">&quot;bool&quot;</span><span class="p">:</span>
+        <span class="c1"># convert to indices.</span>
+        <span class="c1"># First check for dimension</span>
+        <span class="k">if</span> <span class="n">slice_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="s2">&quot;boolean index did not match indexed array&quot;</span><span class="p">)</span>
+        <span class="n">slice_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">slice_ind</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slice_ind</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">array_ind</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">slice_ind</span><span class="p">)],</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">slice_ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span>
+        <span class="n">indices</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">array_ind</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">slice_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">array_ind</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">slice_ind</span><span class="p">)],</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">slice_ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">array_ind</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">array_ind</span> <span class="o">=</span> <span class="n">mcolon</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">slice_ind</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">slice_ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">array_ind</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">return_array_ind</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">indices</span><span class="p">,</span> <span class="n">array_ind</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">indices</span></div>
+
+
+<div class="viewcode-block" id="slice_mat"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.slice_mat">[docs]</a><span class="k">def</span> <span class="nf">slice_mat</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function for slicing sparse matrix along rows or columns.</span>
+<span class="sd">    If A is a csc_matrix A will be sliced along columns, while if A is a</span>
+<span class="sd">    csr_matrix A will be sliced along the rows.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A (scipy.sparse.csc/csr_matrix): A sparse matrix.</span>
+<span class="sd">    ind (np.array): Array containing indices to be sliced.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A_sliced (scipy.sparse.csc/csr_matrix): The sliced matrix</span>
+<span class="sd">        if A is a csc_matrix A_sliced = A[:, ind]</span>
+<span class="sd">        if A is a csr_matrix A_slice = A[ind, :]</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    A = sps.csc_matrix(np.eye(10))</span>
+<span class="sd">    rows = slice_mat(A, np.array([0,2,3]))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csc&quot;</span> <span class="ow">or</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csr&quot;</span>
+
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="s2">&quot;bool&quot;</span><span class="p">:</span>
+        <span class="c1"># convert to indices.</span>
+        <span class="c1"># First check for dimension</span>
+        <span class="k">if</span> <span class="n">ind</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="s2">&quot;boolean index did not match indexed array&quot;</span><span class="p">)</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ind</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">ind_slice</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">ind</span><span class="p">)],</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span>
+    <span class="k">elif</span> <span class="n">ind</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">ind_slice</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">ind</span><span class="p">)],</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">ind</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ind</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">ind_slice</span> <span class="o">=</span> <span class="n">mcolon</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">ind</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">ind_slice</span><span class="p">]</span>
+    <span class="n">indptr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">ind</span><span class="p">])</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">ind_slice</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csc&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">N</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">A</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;csr&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span></div>
+
+
+<div class="viewcode-block" id="optimized_compressed_storage"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.optimized_compressed_storage">[docs]</a><span class="k">def</span> <span class="nf">optimized_compressed_storage</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Choose an optimal storage format (csr or csc) for a sparse matrix.</span>
+
+<span class="sd">    The format is chosen depending on whether A.shape[0] &gt; A.shape[1] or not.</span>
+
+<span class="sd">    For very sparse matrices where the number of rows and columns differs significantly</span>
+<span class="sd">    (e.g., projection matrices), there can be substantial memory gains by choosing the</span>
+<span class="sd">    right storage format, by reducing the number of equal</span>
+
+<span class="sd">    As an illustration, consider a matrix with shape 1 x N with 1 element: If stored in</span>
+<span class="sd">    csc format, this will require an indptr array of size N, while csr format requires</span>
+<span class="sd">    only size 2.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        A (sps.spmatrix): Matrix to be reformatted.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sps.spmatrix: The matrix represented in optimal storage format.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="csr_matrix_from_blocks"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.csr_matrix_from_blocks">[docs]</a><span class="k">def</span> <span class="nf">csr_matrix_from_blocks</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a csr representation of a block diagonal matrix of uniform block size.</span>
+
+<span class="sd">    The function is equivalent to, but orders of magnitude faster than, the call</span>
+
+<span class="sd">        sps.block_diag(blocks)</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        data (np.array): Matrix values, sorted column-wise.</span>
+<span class="sd">        block_size (int): The size of *all* the blocks.</span>
+<span class="sd">        num_blocks (int): Number of blocks to be added.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sps.csr_matrix: csr representation of the block matrix.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the size of the data does not match the blocks size and number</span>
+<span class="sd">            of blocks.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; data = np.array([1, 2, 3, 4, 5, 6, 7, 8])</span>
+<span class="sd">        &gt;&gt;&gt; block_size, num_blocks = 2, 2</span>
+<span class="sd">        &gt;&gt;&gt; csr_matrix_from_blocks(data, block_size, num_blocks).toarray()</span>
+<span class="sd">        array([[1, 2, 0, 0],</span>
+<span class="sd">               [3, 4, 0, 0],</span>
+<span class="sd">               [0, 0, 5, 6],</span>
+<span class="sd">               [0, 0, 7, 8]])</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_csx_matrix_from_blocks</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">block_size</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="csc_matrix_from_blocks"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.csc_matrix_from_blocks">[docs]</a><span class="k">def</span> <span class="nf">csc_matrix_from_blocks</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a csc representation of a block diagonal matrix of uniform block size.</span>
+
+<span class="sd">    The function is equivalent to, but orders of magnitude faster than, the call</span>
+
+<span class="sd">        sps.block_diag(blocks)</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        data (np.array): Matrix values, sorted column-wise.</span>
+<span class="sd">        block_size (int): The size of *all* the blocks.</span>
+<span class="sd">        num_blocks (int): Number of blocks to be added.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sps.csc_matrix: csr representation of the block matrix.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the size of the data does not match the blocks size and number</span>
+<span class="sd">            of blocks.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; data = np.array([1, 2, 3, 4, 5, 6, 7, 8])</span>
+<span class="sd">        &gt;&gt;&gt; block_size, num_blocks = 2, 2</span>
+<span class="sd">        &gt;&gt;&gt; csc_matrix_from_blocks(data, block_size, num_blocks).toarray()</span>
+<span class="sd">        array([[1, 3, 0, 0],</span>
+<span class="sd">               [2, 4, 0, 0],</span>
+<span class="sd">               [0, 0, 5, 7],</span>
+<span class="sd">               [0, 0, 6, 8]])</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_csx_matrix_from_blocks</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">block_size</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_csx_matrix_from_blocks</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">matrix_format</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a csr representation of a block diagonal matrix of uniform block size.</span>
+
+<span class="sd">    The function is equivalent to, but orders of magnitude faster than, the call</span>
+
+<span class="sd">        sps.block_diag(blocks)</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        data (np.array): Matrix values, sorted column-wise.</span>
+<span class="sd">        block_size (int): The size of *all* the blocks.</span>
+<span class="sd">        num_blocks (int): Number of blocks to be added.</span>
+<span class="sd">        matrix_format: type of matrix to be created. Should be either sps.csc_matrix</span>
+<span class="sd">            or sps.csr_matrix</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sps.csr_matrix: csr representation of the block matrix.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the size of the data does not match the blocks size and number</span>
+<span class="sd">            of blocks.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">block_size</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_blocks</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Incompatible input to generate block matrix&quot;</span><span class="p">)</span>
+    <span class="c1"># The block structure of the matrix allows for a unified construction of compressed</span>
+    <span class="c1"># column and row matrices. The difference will simply be in how the data is</span>
+    <span class="c1"># interpreted</span>
+
+    <span class="c1"># The new columns or rows start with intervals of block_size</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">block_size</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_blocks</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">block_size</span><span class="p">)</span>
+
+    <span class="c1"># To get the indices in the compressed storage format requires some more work</span>
+    <span class="k">if</span> <span class="n">block_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># First create indices for each of the blocks</span>
+        <span class="c1">#  The inner tile creates arrays</span>
+        <span class="c1">#   [0, 1, ..., block_size-1, 0, 1, ... block_size-1, ... ]</span>
+        <span class="c1">#   The size of the inner tile is block_size^2, and forms the indices of a</span>
+        <span class="c1"># single block</span>
+        <span class="c1">#  The outer tile repeats the inner tile, num_blocks times</span>
+        <span class="c1">#  The size of base is thus block_size^2 * num_blocks</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">block_size</span><span class="p">),</span> <span class="p">(</span><span class="n">block_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)),</span> <span class="n">num_blocks</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Next, increase the index in base, so as to create a block diagonal matrix</span>
+        <span class="c1"># the first block_size^2 elements (e.g. the elemnets of the first block are</span>
+        <span class="c1"># unperturbed.</span>
+        <span class="c1"># the next block_size elements are increased by block_size^2 etc.</span>
+        <span class="n">block_increase</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_blocks</span><span class="p">),</span> <span class="p">(</span><span class="n">block_size</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="o">*</span> <span class="n">block_size</span>
+        <span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">block_increase</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_blocks</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">mat</span> <span class="o">=</span> <span class="n">matrix_format</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span>
+        <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_blocks</span> <span class="o">*</span> <span class="n">block_size</span><span class="p">,</span> <span class="n">num_blocks</span> <span class="o">*</span> <span class="n">block_size</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">mat</span>
+
+
+<div class="viewcode-block" id="invert_diagonal_blocks"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.invert_diagonal_blocks">[docs]</a><span class="k">def</span> <span class="nf">invert_diagonal_blocks</span><span class="p">(</span>
+    <span class="n">mat</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Invert block diagonal matrix.</span>
+
+<span class="sd">    Three implementations are available, either pure numpy, or a speedup using</span>
+<span class="sd">    numba or cython. If none is specified, the function will try to use numba,</span>
+<span class="sd">    then cython. The python option will only be invoked if explicitly asked</span>
+<span class="sd">    for; it will be very slow for general problems.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mat: sps.csr matrix to be inverted.</span>
+<span class="sd">    s: block size. Must be int64 for the numba acceleration to work</span>
+<span class="sd">    method: Choice of method. Either numba (default), cython or &#39;python&#39;.</span>
+<span class="sd">        Defaults to None, in which case first numba, then cython is tried.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    imat: Inverse matrix</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    -------</span>
+<span class="sd">    ImportError: If numba or cython implementation is invoked without numba or</span>
+<span class="sd">        cython being available on the system.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">invert_diagonal_blocks_python</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">sz</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Invert block diagonal matrix using pure python code.</span>
+
+<span class="sd">        The implementation is slow for large matrices, consider to use the</span>
+<span class="sd">        numba-accelerated method invert_invert_diagagonal_blocks_numba instead</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        a: sps.crs-matrix, to be inverted</span>
+<span class="sd">        sz: size of the individual blocks</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        inv_a inverse matrix</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">sz</span><span class="p">)))</span>
+        <span class="n">p1</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">p2</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sz</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">sz</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+            <span class="n">n2</span> <span class="o">=</span> <span class="n">n</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">p1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># Picking out the sub-matrices here takes a lot of time.</span>
+            <span class="n">v</span><span class="p">[</span><span class="n">p2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n2</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span>
+                <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">i</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">i</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">A</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">p1</span> <span class="o">=</span> <span class="n">p1</span> <span class="o">+</span> <span class="n">n</span>
+            <span class="n">p2</span> <span class="o">=</span> <span class="n">p2</span> <span class="o">+</span> <span class="n">n2</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+    <span class="k">def</span> <span class="nf">invert_diagonal_blocks_numba</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Invert block diagonal matrix by invoking numba acceleration of a simple</span>
+<span class="sd">        for-loop based algorithm.</span>
+
+<span class="sd">        This approach should be more efficient than the related method</span>
+<span class="sd">        invert_diagonal_blocks_python for larger problems.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        a : sps.csr matrix</span>
+<span class="sd">        size : Size of individual blocks</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ia: inverse of a</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">numba</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Numba not available on the system&quot;</span><span class="p">)</span>
+        <span class="c1"># Sort matrix storage before pulling indices and data</span>
+        <span class="n">a</span><span class="o">.</span><span class="n">sorted_indices</span><span class="p">()</span>
+        <span class="n">ptr</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">indptr</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">indices</span>
+        <span class="n">dat</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">data</span>
+
+        <span class="c1"># Just in time compilation</span>
+        <span class="nd">@numba</span><span class="o">.</span><span class="n">njit</span><span class="p">(</span><span class="s2">&quot;f8[:](i4[:],i4[:],f8[:],i8[:])&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">inv_python</span><span class="p">(</span><span class="n">indptr</span><span class="p">,</span> <span class="n">ind</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">sz</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Invert block matrices by explicitly forming local matrices. The code</span>
+<span class="sd">            in itself is not efficient, but it is hopefully well suited for</span>
+<span class="sd">            speeding up with numba.</span>
+
+<span class="sd">            IMPLEMENTATION NOTES BELOW</span>
+
+<span class="sd">            The code consists of a loop over the blocks. For each block, a local square</span>
+<span class="sd">            matrix is formed, the inverse is computed using numpy (which again will</span>
+<span class="sd">            invoke LAPACK), and the inverse is stored in an (raveled) array. The most</span>
+<span class="sd">            complex part of the code is the formation of the local matrix: Since the</span>
+<span class="sd">            original matrix is sparse, there may be zero elements in the blocks</span>
+<span class="sd">            which may not be explicitly represented in the data, and the order of the</span>
+<span class="sd">            columns in the sparse format may not be linear. To deal with this, we do a</span>
+<span class="sd">            double loop to fill in the local matrix.</span>
+
+<span class="sd">            Profiling (June 2022) showed that the overhead in filling in the local</span>
+<span class="sd">            matrix by for-loops was minimal; specifically, attempts at speeding up the</span>
+<span class="sd">            computations by forcing a full block structure of the matrices (with</span>
+<span class="sd">            explicit zeros and linear ordering of columns), so that the local matrix</span>
+<span class="sd">            could be formed by a reshape, failed.</span>
+
+<span class="sd">            &quot;&quot;&quot;</span>
+
+            <span class="c1"># Index of where the rows start for each block.</span>
+            <span class="n">block_row_starts_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sz</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+            <span class="n">block_row_starts_ind</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">sz</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+            <span class="c1"># Number of columns per row. Will change from one column to the</span>
+            <span class="c1"># next</span>
+            <span class="n">num_cols_per_row</span> <span class="o">=</span> <span class="n">indptr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">indptr</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="c1"># Index to where the columns start for each row (NOT blocks)</span>
+            <span class="n">row_cols_start_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_cols_per_row</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+            <span class="n">row_cols_start_ind</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">num_cols_per_row</span><span class="p">)</span>
+
+            <span class="c1"># Index to where the (full) data starts. Needed, since the</span>
+            <span class="c1"># inverse matrix will generally be full</span>
+            <span class="n">full_block_starts_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sz</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+            <span class="n">full_block_starts_ind</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">sz</span><span class="p">))</span>
+            <span class="c1"># Structure to store the solution</span>
+            <span class="n">inv_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">sz</span><span class="p">)))</span>
+
+            <span class="c1"># Loop over all blocks. Do this in parallel, this has shown significant</span>
+            <span class="c1"># speedups by numba.</span>
+            <span class="k">for</span> <span class="n">iter1</span> <span class="ow">in</span> <span class="n">numba</span><span class="o">.</span><span class="n">prange</span><span class="p">(</span><span class="n">sz</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                <span class="n">n</span> <span class="o">=</span> <span class="n">sz</span><span class="p">[</span><span class="n">iter1</span><span class="p">]</span>
+
+                <span class="n">loc_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+                <span class="c1"># Fill in non-zero elements in local matrix</span>
+                <span class="c1"># This requires some work, since not all elements in the local matrix</span>
+                <span class="c1"># are represented in the data array (elements may be zero). Also, the</span>
+                <span class="c1"># ordering of the data may not correspond to a linear ordering of the</span>
+                <span class="c1"># columns.</span>
+                <span class="k">for</span> <span class="n">iter2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>  <span class="c1"># Local rows</span>
+                    <span class="n">global_row</span> <span class="o">=</span> <span class="n">block_row_starts_ind</span><span class="p">[</span><span class="n">iter1</span><span class="p">]</span> <span class="o">+</span> <span class="n">iter2</span>
+                    <span class="n">data_counter</span> <span class="o">=</span> <span class="n">row_cols_start_ind</span><span class="p">[</span><span class="n">global_row</span><span class="p">]</span>
+
+                    <span class="c1"># Loop over local columns. Getting the number of columns</span>
+                    <span class="c1">#  for each row is a bit involved</span>
+                    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span>
+                        <span class="n">num_cols_per_row</span><span class="p">[</span><span class="n">iter2</span> <span class="o">+</span> <span class="n">block_row_starts_ind</span><span class="p">[</span><span class="n">iter1</span><span class="p">]]</span>
+                    <span class="p">):</span>
+                        <span class="n">loc_col</span> <span class="o">=</span> <span class="n">ind</span><span class="p">[</span><span class="n">data_counter</span><span class="p">]</span> <span class="o">-</span> <span class="n">block_row_starts_ind</span><span class="p">[</span><span class="n">iter1</span><span class="p">]</span>
+                        <span class="n">loc_mat</span><span class="p">[</span><span class="n">iter2</span><span class="p">,</span> <span class="n">loc_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data_counter</span><span class="p">]</span>
+                        <span class="n">data_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="c1"># Compute inverse using np.linalg.inv, which will again invoke an</span>
+                <span class="c1"># appropriate lapack function.</span>
+                <span class="n">inv_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">loc_mat</span><span class="p">))</span>
+
+                <span class="c1"># Store data in the output</span>
+                <span class="n">loc_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+                    <span class="n">full_block_starts_ind</span><span class="p">[</span><span class="n">iter1</span><span class="p">],</span> <span class="n">full_block_starts_ind</span><span class="p">[</span><span class="n">iter1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">inv_vals</span><span class="p">[</span><span class="n">loc_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">inv_mat</span>
+
+            <span class="k">return</span> <span class="n">inv_vals</span>
+
+        <span class="n">v</span> <span class="o">=</span> <span class="n">inv_python</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">dat</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+    <span class="c1"># Remove blocks of size 0</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="n">s</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># Variable to check if we have tried and failed with numba</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;numba&quot;</span> <span class="ow">or</span> <span class="n">method</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">inv_vals</span> <span class="o">=</span> <span class="n">invert_diagonal_blocks_numba</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Error in inversion of local linear systems&quot;</span><span class="p">)</span>
+    <span class="c1"># Variable to check if we should fall back on python</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;python&quot;</span><span class="p">:</span>
+        <span class="n">inv_vals</span> <span class="o">=</span> <span class="n">invert_diagonal_blocks_python</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown type of block inverter </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">ia</span> <span class="o">=</span> <span class="n">block_diag_matrix</span><span class="p">(</span><span class="n">inv_vals</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ia</span></div>
+
+
+<div class="viewcode-block" id="block_diag_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.block_diag_matrix">[docs]</a><span class="k">def</span> <span class="nf">block_diag_matrix</span><span class="p">(</span><span class="n">vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sz</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct block diagonal matrix based on matrix elements and block sizes.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    vals: matrix values</span>
+<span class="sd">    sz: size of matrix blocks</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sps.csr matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">row</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">block_diag_index</span><span class="p">(</span><span class="n">sz</span><span class="p">)</span>
+    <span class="c1"># This line recovers starting indices of the rows.</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">rldecode</span><span class="p">(</span><span class="n">sz</span><span class="p">,</span> <span class="n">sz</span><span class="p">))))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">vals</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">indptr</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="block_diag_index"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.block_diag_index">[docs]</a><span class="k">def</span> <span class="nf">block_diag_index</span><span class="p">(</span>
+    <span class="n">m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get row and column indices for block diagonal matrix</span>
+
+<span class="sd">    This is intended as the equivalent of the corresponding method in MRST.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">    &gt;&gt;&gt; m = np.array([2, 3])</span>
+<span class="sd">    &gt;&gt;&gt; n = np.array([1, 2])</span>
+<span class="sd">    &gt;&gt;&gt; i, j = block_diag_index(m, n)</span>
+<span class="sd">    &gt;&gt;&gt; i, j</span>
+<span class="sd">    (array([0, 1, 2, 3, 4, 2, 3, 4]), array([0, 0, 1, 1, 1, 2, 2, 2]))</span>
+<span class="sd">    &gt;&gt;&gt; a = np.array([1, 3])</span>
+<span class="sd">    &gt;&gt;&gt; i, j = block_diag_index(a)</span>
+<span class="sd">    &gt;&gt;&gt; i, j</span>
+<span class="sd">    (array([0, 1, 2, 3, 1, 2, 3, 1, 2, 3]), array([0, 1, 1, 1, 2, 2, 2, 3, 3, 3]))</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        m - ndarray, dimension 1</span>
+<span class="sd">        n - ndarray, dimension 1, defaults to m</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">m</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int&quot;</span><span class="p">),</span> <span class="n">m</span><span class="p">))</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+    <span class="n">p1</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">p2</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">p1_full</span> <span class="o">=</span> <span class="n">rldecode</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">p2_full</span> <span class="o">=</span> <span class="n">rldecode</span><span class="p">(</span><span class="n">p2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+
+    <span class="n">i</span> <span class="o">=</span> <span class="n">mcolon</span><span class="p">(</span><span class="n">p1_full</span><span class="p">,</span> <span class="n">p2_full</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">sumn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+    <span class="n">m_n_full</span> <span class="o">=</span> <span class="n">rldecode</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="n">rldecode</span><span class="p">(</span><span class="n">sumn</span><span class="p">,</span> <span class="n">m_n_full</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span></div>
+
+
+<div class="viewcode-block" id="rlencode"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.rlencode">[docs]</a><span class="k">def</span> <span class="nf">rlencode</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Compress matrix by looking for identical columns.</span>
+
+<span class="sd">    Example usage: Convert a full set of (row or column) indices of a</span>
+<span class="sd">    sparse matrix into compressed storage.</span>
+
+<span class="sd">    Acknowledgement: The code is heavily inspired by MRST&#39;s function with the</span>
+<span class="sd">    same name, however, requirements on the shape of functions are probably</span>
+<span class="sd">    somewhat different.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        A (np.ndarray): Matrix to be compressed. Should be 2d. Compression</span>
+<span class="sd">            will be along the second axis.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: The compressed array, size n x m.</span>
+<span class="sd">        np.ndarray: Number of times each row in the first output array should</span>
+<span class="sd">            be repeated to restore the original array.</span>
+
+<span class="sd">    See also:</span>
+<span class="sd">        rldecode</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comp</span> <span class="o">=</span> <span class="n">A</span><span class="p">[::,</span> <span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">A</span><span class="p">[::,</span> <span class="mi">1</span><span class="p">::]</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>
+
+    <span class="n">num</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">i</span><span class="p">)))</span>
+
+    <span class="k">return</span> <span class="n">A</span><span class="p">[::,</span> <span class="n">i</span><span class="p">],</span> <span class="n">num</span></div>
+
+
+<div class="viewcode-block" id="rldecode"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.rldecode">[docs]</a><span class="k">def</span> <span class="nf">rldecode</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Decode compressed information in indices.</span>
+
+<span class="sd">    Example usage: Convert the index pointers in compressed matrix storage</span>
+<span class="sd">    (row or column) to a full set of indices.</span>
+
+<span class="sd">    Acknowledgement: The code is heavily inspired by MRST&#39;s function with the</span>
+<span class="sd">    same name, however, requirements on the shape of functions are probably</span>
+<span class="sd">    somewhat different.</span>
+
+<span class="sd">    &gt;&gt;&gt; rldecode(np.array([1, 2, 3]), np.array([2, 3, 1]))</span>
+<span class="sd">    [1, 1, 2, 2, 2, 3]</span>
+
+<span class="sd">    &gt;&gt;&gt; rldecode(np.array([1, 2]), np.array([1, 3]))</span>
+<span class="sd">    [1, 2, 2, 2]</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        A (double, m x k), compressed matrix to be recovered. The</span>
+<span class="sd">        compression should be along dimension 1</span>
+<span class="sd">        n (int): Number of occurences for each element</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        B: The restored array.</span>
+
+<span class="sd">    See also:</span>
+<span class="sd">        rlencode</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">n</span><span class="p">[</span><span class="n">r</span><span class="p">])),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">j</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">:]]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">j</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">B</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

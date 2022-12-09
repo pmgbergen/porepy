@@ -58,12 +58,11 @@ attempting a pull-request.
 Documentation
 ==================
 
-PorePy is divided into the following modules
-
 .. toctree::
    :titlesonly:
+   :maxdepth: 1
 
-   docsrc/porepy/numerics/numerics
+   docsrc/porepy/porepy
 
 Indices and tables
 ==================

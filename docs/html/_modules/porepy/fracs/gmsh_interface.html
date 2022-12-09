@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.fracs.gmsh_interface &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/gmsh_interface.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.fracs.gmsh_interface</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.fracs.gmsh_interface</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Functionality to interface with Gmsh, mainly by translating information from a PorePy</span>
+<span class="sd">format to that used by the Gmsh Python API. For examples on how that can be used, see</span>
+<span class="sd">FractureNetwork2d and FractureNetwork3d.</span>
+
+<span class="sd">Content:</span>
+<span class="sd">    Tags: Enum with fixed numerical representation of geometric objects. Used for tagging</span>
+<span class="sd">        geometric objects internally in PorePy.</span>
+<span class="sd">    PhysicalNames: Enum with fixed string representation of geometric objects. The</span>
+<span class="sd">        mesh generated by gmsh will use these to tag cells on geometric objcets.</span>
+<span class="sd">    GmshData1d, 2d, 3d: dataclasses for the specification of geometries in the various</span>
+<span class="sd">        dimensions.</span>
+<span class="sd">    GmshWriter: Interface to Gmsh. Takes a GmshData*d object and translates it to a</span>
+<span class="sd">        gmsh model. Can also mesh.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">gmsh</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;GmshData1d&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GmshData2d&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GmshData3d&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Tags&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PhysicalNames&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GmshWriter&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="Tags"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.Tags">[docs]</a><span class="k">class</span> <span class="nc">Tags</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Numerical tags used to identify special objects in a mixed-dimensional</span>
+<span class="sd">    geometry. These may be mapped to the string-based tag system used in Gmsh</span>
+<span class="sd">    (see PhysicalNames)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># A neutral tag - objects with this tag will not be accounted for in any praticular</span>
+    <span class="c1"># way in grid and geometry processing.</span>
+    <span class="n">NEUTRAL</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Objects used to define the domain boundary</span>
+    <span class="n">DOMAIN_BOUNDARY_POINT</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">DOMAIN_BOUNDARY_LINE</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">DOMAIN_BOUNDARY_SURFACE</span> <span class="o">=</span> <span class="mi">3</span>
+
+    <span class="c1"># A fracture</span>
+    <span class="n">FRACTURE</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="c1"># Auxiliary line or plane. Used for constraints.</span>
+    <span class="n">AUXILIARY_LINE</span> <span class="o">=</span> <span class="mi">11</span>
+    <span class="n">AUXILIARY_PLANE</span> <span class="o">=</span> <span class="mi">12</span>
+
+    <span class="c1"># A fracture tip - can be point or line</span>
+    <span class="n">FRACTURE_TIP</span> <span class="o">=</span> <span class="mi">20</span>
+
+    <span class="c1"># Intersection line between (at least) two fractures. Ambient dimension is 3.</span>
+    <span class="n">FRACTURE_INTERSECTION_LINE</span> <span class="o">=</span> <span class="mi">21</span>
+
+    <span class="c1"># Line on both fracture and a domain boundary</span>
+    <span class="n">FRACTURE_BOUNDARY_LINE</span> <span class="o">=</span> <span class="mi">22</span>
+
+    <span class="c1"># Point on the intersection between fractures.</span>
+    <span class="c1"># Will at least two fractures in 2d, at least three fractures in 3d.</span>
+    <span class="n">FRACTURE_INTERSECTION_POINT</span> <span class="o">=</span> <span class="mi">30</span>
+
+    <span class="n">FRACTURE_CONSTRAINT_INTERSECTION_POINT</span> <span class="o">=</span> <span class="mi">31</span>
+
+    <span class="c1"># Intersection point between fracture and domain boundary</span>
+    <span class="n">FRACTURE_BOUNDARY_POINT</span> <span class="o">=</span> <span class="mi">32</span></div>
+
+
+<div class="viewcode-block" id="PhysicalNames"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.PhysicalNames">[docs]</a><span class="k">class</span> <span class="nc">PhysicalNames</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;String-based tags used to assign physical names (Gmsh jargon) to classes</span>
+<span class="sd">    of objects in a mixed-dimensional geometry.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Note that neutral tags have no physical names - they should not receive special treatment</span>
+
+    <span class="c1"># The assumption (for now) is that there is a single boundary</span>
+    <span class="c1"># This may change if we implement DD - but then we need to revisit these concepts to</span>
+    <span class="c1"># include (metis?) partitioning</span>
+    <span class="n">DOMAIN</span> <span class="o">=</span> <span class="s2">&quot;DOMAIN&quot;</span>
+
+    <span class="c1"># Fractures</span>
+    <span class="n">FRACTURE</span> <span class="o">=</span> <span class="s2">&quot;FRACTURE_&quot;</span>
+
+    <span class="c1"># Auxiliary line and plane</span>
+    <span class="n">AUXILIARY_LINE</span> <span class="o">=</span> <span class="s2">&quot;AUXILIARY_LINE_&quot;</span>
+    <span class="n">AUXILIARY_PLANE</span> <span class="o">=</span> <span class="s2">&quot;AUXILIARY_PLANE_&quot;</span>
+
+    <span class="c1"># Objects used to define the domain boundary</span>
+    <span class="n">DOMAIN_BOUNDARY_POINT</span> <span class="o">=</span> <span class="s2">&quot;DOMAIN_BOUNDARY_POINT_&quot;</span>
+
+    <span class="n">DOMAIN_BOUNDARY_LINE</span> <span class="o">=</span> <span class="s2">&quot;DOMAIN_BOUNDARY_LINE_&quot;</span>
+
+    <span class="n">DOMAIN_BOUNDARY_SURFACE</span> <span class="o">=</span> <span class="s2">&quot;DOMAIN_BOUNDARY_SURFACE_&quot;</span>
+
+    <span class="c1"># A fracture tip - can be point or line</span>
+    <span class="n">FRACTURE_TIP</span> <span class="o">=</span> <span class="s2">&quot;FRACTURE_TIP_&quot;</span>
+
+    <span class="c1"># Line on both fracture and a domain boundary</span>
+    <span class="n">FRACTURE_BOUNDARY_LINE</span> <span class="o">=</span> <span class="s2">&quot;FRACTURE_BOUNDARY_LINE_&quot;</span>
+
+    <span class="c1"># Intersection line between (at least) two fractures. Ambient dimension is 3.</span>
+    <span class="n">FRACTURE_INTERSECTION_LINE</span> <span class="o">=</span> <span class="s2">&quot;FRACTURE_INTERSECTION_LINE_&quot;</span>
+
+    <span class="c1"># Point on the intersection between fractures.</span>
+    <span class="c1"># Will at least two fractures in 2d, at least three fractures in 3d.</span>
+    <span class="n">FRACTURE_INTERSECTION_POINT</span> <span class="o">=</span> <span class="s2">&quot;FRACTURE_INTERSECTION_POINT_&quot;</span>
+
+    <span class="c1"># Intersection point between fracture and domain boundary</span>
+    <span class="n">FRACTURE_BOUNDARY_POINT</span> <span class="o">=</span> <span class="s2">&quot;FRACTURE_BOUNDARY_POINT_&quot;</span>
+
+    <span class="c1"># Point defined in the intersection between a fracture and constraints / auxiliary planes.</span>
+    <span class="c1"># Ambient dimension is 3.</span>
+    <span class="n">FRACTURE_CONSTRAINT_INTERSECTION_POINT</span> <span class="o">=</span> <span class="s2">&quot;FRACTURE_CONSTRAINT_INTERSECTION_POINT_&quot;</span></div>
+
+
+<span class="k">def</span> <span class="nf">_tag_to_physical_name</span><span class="p">(</span><span class="n">tag</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tags</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="c1"># Convenience function to map from numerical to string representation of a geometric object</span>
+    <span class="c1">#    if isinstance(tag, Tags):</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">Tags</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+    <span class="c1">#    else:</span>
+    <span class="c1">#        t = Tags(tag)</span>
+    <span class="k">for</span> <span class="n">pn</span> <span class="ow">in</span> <span class="n">PhysicalNames</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pn</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">t</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pn</span><span class="o">.</span><span class="n">value</span>
+
+    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found no physical name corresponding to tag </span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">_GmshData</span><span class="p">:</span>
+    <span class="c1"># Common information</span>
+
+    <span class="c1"># Points used in the geometry specification</span>
+    <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="c1"># Mesh size for each point</span>
+    <span class="n">mesh_size</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="c1"># 1d lines needed in the description. The third row should contain tags for the</span>
+    <span class="c1"># lines (note that these are needed for all lines, whereas the field physical lines</span>
+    <span class="c1"># is only used for lines that should be represented in the output mesh file).</span>
+    <span class="n">lines</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="c1"># Mapping from indices of points (referring to the ordering in points) to</span>
+    <span class="c1"># numerical tags for the points.</span>
+    <span class="n">physical_points</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tags</span><span class="p">]</span>
+    <span class="c1"># Mapping from indices of lines (referring to the ordering in lines) to numerical tags</span>
+    <span class="c1"># for the lines.</span>
+    <span class="n">physical_lines</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tags</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="GmshData1d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.GmshData1d">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">GmshData1d</span><span class="p">(</span><span class="n">_GmshData</span><span class="p">):</span>
+    <span class="c1"># Dimesion is 1.</span>
+    <span class="c1"># 1d data is not fully supported yet.</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="GmshData2d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.GmshData2d">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">GmshData2d</span><span class="p">(</span><span class="n">_GmshData</span><span class="p">):</span>
+
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span></div>
+
+
+<div class="viewcode-block" id="GmshData3d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.GmshData3d">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">GmshData3d</span><span class="p">(</span><span class="n">_GmshData</span><span class="p">):</span>
+
+    <span class="c1"># Polygons (both boundary surfaces, fractures and auxiliary lines).</span>
+    <span class="c1"># See FractureNetwork3d for examples of usage.</span>
+    <span class="n">polygons</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+    <span class="c1"># Tags used to identify the type of polygons.</span>
+    <span class="n">polygon_tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tags</span><span class="p">]</span>
+    <span class="c1"># Physical name information for polygons. Used to set gmsh tags for objects to be</span>
+    <span class="c1"># represented in hte output mesh.</span>
+    <span class="n">physical_surfaces</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tags</span><span class="p">]</span>
+    <span class="c1"># Lines to be embedded in surfaces. Outer list has one item per polygon, inner has</span>
+    <span class="c1"># index of lines to embed.</span>
+    <span class="n">lines_in_surface</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
+
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span></div>
+
+
+<div class="viewcode-block" id="GmshWriter"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.GmshWriter">[docs]</a><span class="k">class</span> <span class="nc">GmshWriter</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Interface to Gmsh&#39;s python API.</span>
+
+<span class="sd">    The geometry specification (in the form of a GmshData object) is converted to a</span>
+<span class="sd">    model (in the Gmsh sense) upon initiation of a GmshWriter. A mesh can then be</span>
+<span class="sd">    constructed either by the method generate, or by directly working with the</span>
+<span class="sd">    gmsh api in a client script.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Class variable keeping track of whether gmsh has been initialized.</span>
+    <span class="c1"># This does not account for calls to gmsh.initialize() and gmsh.finalize()</span>
+    <span class="c1"># outside the class.</span>
+    <span class="n">gmsh_initialized</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">GmshData2d</span><span class="p">,</span> <span class="n">GmshData3d</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initialization feeds the geometry specification to Gmsh.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            data: Geometry specification.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">data</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">define_geometry</span><span class="p">()</span>
+
+<div class="viewcode-block" id="GmshWriter.set_gmsh_options"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.GmshWriter.set_gmsh_options">[docs]</a>    <span class="k">def</span> <span class="nf">set_gmsh_options</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set Gmsh options. See Gmsh documentation for choices available.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            options (dict): Options to set. Keys should be recognizable for Gmsh.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">options</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">gmsh</span><span class="o">.</span><span class="n">option</span><span class="o">.</span><span class="n">setNumber</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Could not set numeric gmsh option with key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">gmsh</span><span class="o">.</span><span class="n">option</span><span class="o">.</span><span class="n">setString</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not set string gmsh option with key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GmshWriter.define_geometry"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.GmshWriter.define_geometry">[docs]</a>    <span class="k">def</span> <span class="nf">define_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Feed the geometry specified in self._data to gmsh.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Initialize gmsh if this is not done before</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">GmshWriter</span><span class="o">.</span><span class="n">gmsh_initialized</span><span class="p">:</span>
+            <span class="n">gmsh</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+            <span class="n">GmshWriter</span><span class="o">.</span><span class="n">gmsh_initialized</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">option</span><span class="o">.</span><span class="n">setNumber</span><span class="p">(</span><span class="s2">&quot;General.Verbosity&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+        <span class="c1"># All geometries need their points</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_point_tags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_points</span><span class="p">()</span>
+
+        <span class="c1"># The boundary, and the domain, must be specified prior to the</span>
+        <span class="c1"># co-dimension 1 objects (fractures) so that the latter can be</span>
+        <span class="c1"># embedded in the domain. This requires some specialized treatment</span>
+        <span class="c1"># in 2d and 3d, since the boundary and fractures are made of up</span>
+        <span class="c1"># different geometric objects in the two:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># This should not be difficult, but has not been prioritized.</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;1d geometries are not implemented&quot;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># First add the domain. This will add the lines that form the domain</span>
+            <span class="c1"># boundary, but not the fracture lines.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_domain_tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_domain_2d</span><span class="p">()</span>
+
+            <span class="c1"># Next add the fractures (and constraints). This adds additional lines,</span>
+            <span class="c1"># and embeds them in the domain.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_fractures_2d</span><span class="p">()</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># In 3d, we can first add lines to the description, they are only used</span>
+            <span class="c1"># to define surfaces later.</span>
+
+            <span class="c1"># Make a index list covering all the lines</span>
+            <span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+            <span class="c1"># The function to write lines assumes that the lines are formed by</span>
+            <span class="c1"># point indices (first two rows), tags (third) and line index (fourth)</span>
+            <span class="c1"># Add the latter, essentially saying that each line is a separate line.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines</span><span class="p">,</span> <span class="n">inds</span><span class="p">))</span>
+
+            <span class="c1"># Now we can write the lines</span>
+            <span class="c1"># The lines are not directly embedded in the domain.</span>
+            <span class="c1"># NOTE: If we ever get around to do a 1d-3d model (say a well), this may</span>
+            <span class="c1"># be a place to do that.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_line_tags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_lines</span><span class="p">(</span><span class="n">inds</span><span class="p">,</span> <span class="n">embed_in_domain</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="c1"># Next add the domain. This adds the boundary surfaces, embeds lines in</span>
+            <span class="c1"># the relevant boundary surfaces, and constructs a 3d volume from the</span>
+            <span class="c1"># surfaces</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_domain_tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_domain_3d</span><span class="p">()</span>
+
+            <span class="c1"># Finally, we can add the fractures and constraints and embed them in</span>
+            <span class="c1"># the domain</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_fractures_3d</span><span class="p">()</span>
+
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="GmshWriter.generate"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html#porepy.fracs.gmsh_interface.GmshWriter.generate">[docs]</a>    <span class="k">def</span> <span class="nf">generate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">ndim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">write_geo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">clear_gmsh</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">finalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Make gmsh generate a mesh and write it to specified mesh size.</span>
+
+<span class="sd">        The mesh is generated from the geometry specified in gmsh.model.</span>
+
+<span class="sd">        NOTE: We have experienced issues relating to memory leakages in gmsh which</span>
+<span class="sd">        manifest when gmsh is initialized and finalized several times in a session.</span>
+<span class="sd">        In these situation, best practice seems to be not to finalize gmsh after</span>
+<span class="sd">        mesh generation (set finalize=False, but rather clear the gmsh model by setting</span>
+<span class="sd">        clear_gmsh=True), and finalize gmsh from the outside.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            file_name (str): Name of the file. The suffix &#39;.msh&#39; is added if necessary.</span>
+<span class="sd">            ndim (int, optional): Dimension of the grid to be made. If not specified, the</span>
+<span class="sd">                dimension of the data used to initialize this GmshWriter will be used.</span>
+<span class="sd">            write_geo (bool, optional): If True, the geometry will be written before meshing.</span>
+<span class="sd">                The name of the file will be file_name.geo_unrolled. Defaults to False.</span>
+<span class="sd">            clear_gmsh (bool, optional): If True, the function gmsh.clear() is called after</span>
+<span class="sd">                mesh generation. This will delete the geometry from gmsh.</span>
+<span class="sd">            finalize (bool, optional): If True (default), the finalize method of the gmsh</span>
+<span class="sd">                module is called after mesh generation. If set to False, gmsh should be</span>
+<span class="sd">                finalized by a direct call to gmsh.finalize(); note however that if this</span>
+<span class="sd">                is done, Gmsh cannot be accessed either from the outside or by an</span>
+<span class="sd">                instance of the GmshWriter class before gmsh.initialize() is called.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">ndim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span>
+        <span class="k">if</span> <span class="n">file_name</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">:]</span> <span class="o">!=</span> <span class="s2">&quot;.msh&quot;</span><span class="p">:</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="n">file_name</span> <span class="o">+</span> <span class="s2">&quot;.msh&quot;</span>
+        <span class="k">if</span> <span class="n">write_geo</span><span class="p">:</span>
+            <span class="n">fn</span> <span class="o">=</span> <span class="n">file_name</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;.geo_unrolled&quot;</span>
+            <span class="n">gmsh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Gmsh meshing failed in dimension </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">. Error message:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">exc</span>
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">clear_gmsh</span><span class="p">:</span>
+            <span class="n">gmsh</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">finalize</span><span class="p">:</span>
+            <span class="n">gmsh</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+            <span class="n">GmshWriter</span><span class="o">.</span><span class="n">gmsh_initialized</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+    <span class="k">def</span> <span class="nf">_add_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Add points to gmsh. Also set physical names for points if required.&quot;&quot;&quot;</span>
+        <span class="n">point_tags</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">pi</span><span class="p">,</span> <span class="n">sz</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">mesh_size</span><span class="p">):</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">pi</span><span class="p">]</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">pi</span><span class="p">]</span>
+            <span class="n">point_tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">addPoint</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">sz</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">pi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">physical_points</span><span class="p">:</span>
+                <span class="n">point_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">physical_points</span><span class="p">[</span><span class="n">pi</span><span class="p">]</span>
+                <span class="n">phys_name</span> <span class="o">=</span> <span class="n">_tag_to_physical_name</span><span class="p">(</span><span class="n">point_type</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">pi</span><span class="p">)</span>
+                <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+                <span class="n">ps</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">addPhysicalGroup</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">[</span><span class="n">point_tags</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+                <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">setPhysicalName</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">ps</span><span class="p">,</span> <span class="n">phys_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">point_tags</span>
+
+    <span class="c1"># Write fractures</span>
+
+    <span class="k">def</span> <span class="nf">_add_fractures_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;1d domains are not supported yet&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_fractures_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add all fracture lines to gmsh.&quot;&quot;&quot;</span>
+        <span class="c1"># Only add the lines that correspond to fractures or auxiliary lines.</span>
+        <span class="c1"># Boundary lines are added elsewhere.</span>
+        <span class="c1"># NOTE: Here we operate on the numerical tagging of lines (the attribute edges</span>
+        <span class="c1"># in FractureNetwork2d), thus we must compare with the values of the Tags.</span>
+        <span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">Tags</span><span class="o">.</span><span class="n">FRACTURE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">Tags</span><span class="o">.</span><span class="n">AUXILIARY_LINE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frac_tags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_lines</span><span class="p">(</span><span class="n">inds</span><span class="p">,</span> <span class="n">embed_in_domain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_fractures_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add fracture polygons to gmsh&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span> <span class="n">GmshData3d</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need 3d geometry to write fractures&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Loop over the polygons, find those tagged as fractures or auxiliary planes</span>
+        <span class="c1"># (which could be constraints in the meshing). Add these to the information</span>
+        <span class="c1"># to be written.</span>
+        <span class="n">indices_to_write</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ind</span><span class="p">,</span> <span class="n">tag</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">polygon_tags</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">tag</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Tags</span><span class="o">.</span><span class="n">FRACTURE</span><span class="p">,</span> <span class="n">Tags</span><span class="o">.</span><span class="n">AUXILIARY_PLANE</span><span class="p">):</span>
+                <span class="n">indices_to_write</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frac_tags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_polygons_3d</span><span class="p">(</span><span class="n">indices_to_write</span><span class="p">,</span> <span class="n">embed_in_domain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_polygons_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inds</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">embed_in_domain</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Generic method to add polygons to a 3d geometry&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span> <span class="n">GmshData3d</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need 3d geometry to write polygons&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">physical_surfaces</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">phys_surf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">physical_surfaces</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">phys_surf</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+
+        <span class="n">line_dim</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">surf_dim</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="n">surf_tag</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">to_phys_tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">pi</span> <span class="ow">in</span> <span class="n">inds</span><span class="p">:</span>
+            <span class="n">line_tags</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">polygons</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">pi</span><span class="p">]:</span>
+                <span class="n">line_tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_line_tags</span><span class="p">[</span><span class="n">line</span><span class="p">])</span>
+
+            <span class="n">loop_tag</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">addCurveLoop</span><span class="p">(</span><span class="n">line_tags</span><span class="p">,</span> <span class="n">reorient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">surf_tag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">addPlaneSurface</span><span class="p">([</span><span class="n">loop_tag</span><span class="p">]))</span>
+
+            <span class="c1"># Register the surface as physical if relevant. This will make gmsh export</span>
+            <span class="c1"># the cells on the surface.</span>
+            <span class="k">if</span> <span class="n">pi</span> <span class="ow">in</span> <span class="n">phys_surf</span><span class="p">:</span>
+                <span class="n">physical_name</span> <span class="o">=</span> <span class="n">_tag_to_physical_name</span><span class="p">(</span><span class="n">phys_surf</span><span class="p">[</span><span class="n">pi</span><span class="p">])</span>
+                <span class="n">to_phys_tags</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pi</span><span class="p">,</span> <span class="n">physical_name</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">pi</span><span class="p">),</span> <span class="p">[</span><span class="n">surf_tag</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]))</span>
+
+        <span class="c1"># Update the model with all added surfaces</span>
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+
+        <span class="c1"># Add the surfaces as physical tags if so specified.</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">pi</span><span class="p">,</span> <span class="n">phys_name</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span> <span class="ow">in</span> <span class="n">to_phys_tags</span><span class="p">:</span>
+            <span class="n">ps</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">addPhysicalGroup</span><span class="p">(</span><span class="n">surf_dim</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
+            <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">setPhysicalName</span><span class="p">(</span><span class="n">surf_dim</span><span class="p">,</span> <span class="n">ps</span><span class="p">,</span> <span class="n">phys_name</span><span class="p">)</span>
+
+        <span class="c1"># Embed the surface in the domain</span>
+        <span class="k">if</span> <span class="n">embed_in_domain</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">surf_tag</span><span class="p">:</span>
+                <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">embed</span><span class="p">(</span><span class="n">surf_dim</span><span class="p">,</span> <span class="p">[</span><span class="n">tag</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain_tag</span><span class="p">)</span>
+
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+
+        <span class="c1"># For all surfaces, embed lines in the</span>
+        <span class="c1"># Do this after all surfaces have been added to get away with a single synchronization</span>
+        <span class="k">for</span> <span class="n">tag_ind</span><span class="p">,</span> <span class="n">pi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">inds</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">li</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines_in_surface</span><span class="p">[</span><span class="n">pi</span><span class="p">]:</span>
+                <span class="c1"># note the use of indices here, different for lines, polygons and</span>
+                <span class="c1"># the ordering of surface tags</span>
+                <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">embed</span><span class="p">(</span>
+                    <span class="n">line_dim</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_line_tags</span><span class="p">[</span><span class="n">li</span><span class="p">]],</span> <span class="n">surf_dim</span><span class="p">,</span> <span class="n">surf_tag</span><span class="p">[</span><span class="n">tag_ind</span><span class="p">]</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">surf_tag</span>
+
+    <span class="k">def</span> <span class="nf">_add_lines</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">embed_in_domain</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="c1"># Helper function to write lines.</span>
+        <span class="n">line_tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">ind</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">line_tags</span>
+
+        <span class="n">lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines</span><span class="p">[:,</span> <span class="n">ind</span><span class="p">]</span>
+
+        <span class="n">tag</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+        <span class="n">lines_id</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="n">range_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">amin</span><span class="p">(</span><span class="n">lines_id</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">lines_id</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">line_dim</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="n">has_physical_lines</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span> <span class="s2">&quot;physical_lines&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Temporary storage of the lines that are to be assigned physical</span>
+        <span class="c1"># groups</span>
+        <span class="n">to_physical_group</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">range_id</span><span class="p">:</span>
+            <span class="n">loc_tags</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">mask</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">lines_id</span> <span class="o">==</span> <span class="n">i</span><span class="p">):</span>
+                <span class="n">p0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_point_tags</span><span class="p">[</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">mask</span><span class="p">]]</span>
+                <span class="n">p1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_point_tags</span><span class="p">[</span><span class="n">lines</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">mask</span><span class="p">]]</span>
+                <span class="n">loc_tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">addLine</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">))</span>
+                <span class="c1"># Get hold of physical_name, in case we need it</span>
+                <span class="n">physical_name</span> <span class="o">=</span> <span class="n">_tag_to_physical_name</span><span class="p">(</span><span class="n">tag</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
+
+            <span class="c1"># Store local tags</span>
+            <span class="n">line_tags</span> <span class="o">+=</span> <span class="n">loc_tags</span>
+
+            <span class="c1"># Add this line to the set of physical groups to be assigned.</span>
+            <span class="c1"># We do not assign physical groupings inside this for-loop, as this would</span>
+            <span class="c1"># require multiple costly synchronizations (gmsh style).</span>
+            <span class="k">if</span> <span class="n">has_physical_lines</span> <span class="ow">and</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">physical_lines</span><span class="p">:</span>
+                <span class="n">to_physical_group</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">physical_name</span><span class="p">,</span> <span class="n">loc_tags</span><span class="p">))</span>
+
+        <span class="c1"># Synchronize model with all new lines</span>
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+
+        <span class="c1"># Assign physical name to the line if specified. This will make gmsh</span>
+        <span class="c1"># represent the line as a separate physical object in the .msh file</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">physical_name</span><span class="p">,</span> <span class="n">loc_tags</span><span class="p">)</span> <span class="ow">in</span> <span class="n">to_physical_group</span><span class="p">:</span>
+            <span class="n">phys_group</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">addPhysicalGroup</span><span class="p">(</span><span class="n">line_dim</span><span class="p">,</span> <span class="n">loc_tags</span><span class="p">)</span>
+            <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">setPhysicalName</span><span class="p">(</span><span class="n">line_dim</span><span class="p">,</span> <span class="n">phys_group</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">physical_name</span><span class="si">}{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Syncronize model, and embed all lines in the domain if specified</span>
+        <span class="k">if</span> <span class="n">embed_in_domain</span><span class="p">:</span>
+            <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">embed</span><span class="p">(</span><span class="n">line_dim</span><span class="p">,</span> <span class="n">line_tags</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain_tag</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">line_tags</span>
+
+    <span class="k">def</span> <span class="nf">_add_domain_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Write boundary lines, and tie them together to a closed loop. Define domain.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Here we operate on ``FractureNetwork2d.edges``, thus we should use the</span>
+        <span class="c1"># numerical values of the tag for comparison.</span>
+        <span class="n">bound_line_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">Tags</span><span class="o">.</span><span class="n">DOMAIN_BOUNDARY_LINE</span><span class="o">.</span><span class="n">value</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="n">bound_line_tags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_lines</span><span class="p">(</span><span class="n">bound_line_ind</span><span class="p">,</span> <span class="n">embed_in_domain</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bound_line_tags</span> <span class="o">=</span> <span class="n">bound_line_tags</span>
+
+        <span class="n">loop_tag</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">addCurveLoop</span><span class="p">(</span><span class="n">bound_line_tags</span><span class="p">,</span> <span class="n">reorient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">domain_tag</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">addPlaneSurface</span><span class="p">([</span><span class="n">loop_tag</span><span class="p">])</span>
+
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+        <span class="n">phys_group</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">addPhysicalGroup</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="n">domain_tag</span><span class="p">])</span>
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">setPhysicalName</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">phys_group</span><span class="p">,</span> <span class="n">PhysicalNames</span><span class="o">.</span><span class="n">DOMAIN</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">domain_tag</span>
+
+    <span class="k">def</span> <span class="nf">_add_domain_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Write boundary surfaces and domain&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span> <span class="n">GmshData3d</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need 3d geometry to specify 3d domain&quot;</span><span class="p">)</span>
+
+        <span class="n">inds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">tag</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">polygon_tags</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">tag</span> <span class="o">==</span> <span class="n">Tags</span><span class="o">.</span><span class="n">DOMAIN_BOUNDARY_SURFACE</span><span class="p">:</span>
+                <span class="n">inds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+        <span class="n">bound_surf_tags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_polygons_3d</span><span class="p">(</span><span class="n">inds</span><span class="p">,</span> <span class="n">embed_in_domain</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bound_surf_tags</span> <span class="o">=</span> <span class="n">bound_surf_tags</span>
+
+        <span class="n">loop_tag</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">addSurfaceLoop</span><span class="p">(</span><span class="n">bound_surf_tags</span><span class="p">)</span>
+        <span class="n">domain_tag</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">addVolume</span><span class="p">([</span><span class="n">loop_tag</span><span class="p">])</span>
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">geo</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+
+        <span class="n">phys_group</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">addPhysicalGroup</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="n">domain_tag</span><span class="p">])</span>
+        <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">setPhysicalName</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">phys_group</span><span class="p">,</span> <span class="n">PhysicalNames</span><span class="o">.</span><span class="n">DOMAIN</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">domain_tag</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.fracture_deformation.conforming_propagation &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fracture_deformation/conforming_propagation.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.fracture_deformation.conforming_propagation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.fracture_deformation.conforming_propagation</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Module indended for combining fracture propagation with complex multiphysics,</span>
+<span class="sd">as represented in the model classes.</span>
+
+<span class="sd">WARNING: This should be considered experimental code and should be used with</span>
+<span class="sd">    extreme caution. In particular, the code likely contains bugs, possibly of a</span>
+<span class="sd">    severe character. Moreover, simulation of fracture propagation may cause</span>
+<span class="sd">    numerical stability issues that it will likely take case-specific adaptations</span>
+<span class="sd">    to resolve.</span>
+
+<span class="sd">WARNING 2: At the moment there are assumptions of purely tensional propagation.</span>
+<span class="sd">    Violation of this assumption is not recommended with the current implementation.</span>
+
+<span class="sd">Contains:</span>
+<span class="sd">    ConformingFracturePropagation - class to be used together with a pp Model for</span>
+<span class="sd">    propagation simulation.</span>
+
+<span class="sd">    Required additional mechanical parameters:</span>
+<span class="sd">        poisson_ratio (data_primary)</span>
+<span class="sd">        shear_modulus (data_primary)</span>
+<span class="sd">        SIFs_critical (data_secondary)</span>
+
+<span class="sd">Literature:</span>
+<span class="sd">    Thomas et al. 2020: Growth of three-dimensional fractures, arrays, and networks</span>
+<span class="sd">    in brittle rocks under tension and compression</span>
+<span class="sd">    Nejati et al, 2015: On the use of quarter-point tetrahedral finite elements in</span>
+<span class="sd">    linear elastic fracture mechanics</span>
+<span class="sd">    Richard et al. 2005: Theoretical crack path prediction</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+<span class="kn">from</span> <span class="nn">.propagation_model</span> <span class="kn">import</span> <span class="n">FracturePropagation</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ConformingFracturePropagation"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html#porepy.numerics.fracture_deformation.conforming_propagation.ConformingFracturePropagation">[docs]</a><span class="k">class</span> <span class="nc">ConformingFracturePropagation</span><span class="p">(</span><span class="n">FracturePropagation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class for fracture propagation along existing faces in the higher-dimensional</span>
+<span class="sd">    grid.</span>
+
+<span class="sd">    The propagation criteria is based on stress intensity factors, computed from</span>
+<span class="sd">    a displacement correlation approach.</span>
+
+<span class="sd">    Should be used in combination with a Model class, i.e. assumptions on methods</span>
+<span class="sd">    and fields are made.</span>
+
+<span class="sd">    WARNING: This should be considered experimental code and should be used with</span>
+<span class="sd">        extreme caution. In particular, the code likely contains bugs, possibly of a</span>
+<span class="sd">        severe character. Moreover, simulation of fracture propagation may cause</span>
+<span class="sd">        numerical stability issues that it will likely take case-specific adaptations</span>
+<span class="sd">        to resolve.</span>
+
+<span class="sd">        The code structure for fracture propagation cannot be considered fixed, and it</span>
+<span class="sd">        may be fundamentally restructured at unknown points in the future. If you use</span>
+<span class="sd">        this functionality, please notify the maintainers (Eirik.Keilegavlen@uib.no),</span>
+<span class="sd">        so that we may keep your usecases in mind if a major overhaul of the code is</span>
+<span class="sd">        undertaken.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="c1"># Tag for tensile propagation. This enforces SIF_II=SIF_III=0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_tensile</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># Declear variable for keeping track of whether a propagating fracture has_</span>
+        <span class="c1"># been found. In practice, this is modified by self.evaluate_propagation()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">propagated_fracture</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="ConformingFracturePropagation.has_propagated"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html#porepy.numerics.fracture_deformation.conforming_propagation.ConformingFracturePropagation.has_propagated">[docs]</a>    <span class="k">def</span> <span class="nf">has_propagated</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;propagated_fracture&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">propagated_fracture</span></div>
+
+<div class="viewcode-block" id="ConformingFracturePropagation.evaluate_propagation"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html#porepy.numerics.fracture_deformation.conforming_propagation.ConformingFracturePropagation.evaluate_propagation">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate_propagation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate propagation for all fractures based on the current solution.</span>
+
+<span class="sd">        Computes SIFs using the Displacement Correlation method described in</span>
+<span class="sd">        Nejati et al. based on the displacement jumps of the previous iterate.</span>
+<span class="sd">        Then, propagation onset and angles are evaluated as described in Thomas</span>
+<span class="sd">        et al.</span>
+
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># IMPLEMENTATION NOTE: Warnings from debuggers relating to self not having</span>
+        <span class="c1"># a mdg is okay; this is provided by the Model class which this class should</span>
+        <span class="c1"># be combined with.</span>
+        <span class="c1"># It may not be the most pythonic approach, though.</span>
+        <span class="n">mdg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span> <span class="o">-</span> <span class="mi">2</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Fracture propogation with intersecting fractures has not been tested&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">face_list</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">propagated_fracture</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># The propagation is implemented as a loop over interfaces, this gives access to</span>
+        <span class="c1"># both higher and lower-dimensional grids (both of which may be modified).</span>
+        <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">():</span>
+            <span class="n">data_intf</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+            <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_to_subdomain_pair</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+
+            <span class="c1"># Only consider grids of co-dimension 1 for splitting.</span>
+            <span class="k">if</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">:</span>
+                <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">)</span>
+                <span class="n">data_primary</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">)</span>
+
+                <span class="c1"># Compute stress intensity factors for this fracture.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_displacement_correlation</span><span class="p">(</span>
+                    <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">intf</span><span class="p">,</span> <span class="n">data_primary</span><span class="p">,</span> <span class="n">data_secondary</span><span class="p">,</span> <span class="n">data_intf</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Determine whether the fracture should propagate based on computed SIFs,</span>
+                <span class="c1"># tag faces in the lower-dimensional grid that should be split (that is,</span>
+                <span class="c1"># find the parts of the fracture tips that should move).</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_propagation_criterion</span><span class="p">(</span><span class="n">data_secondary</span><span class="p">)</span>
+
+                <span class="c1"># Determine the propagation angle based on SIFs</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_angle_criterion</span><span class="p">(</span><span class="n">data_secondary</span><span class="p">)</span>
+
+                <span class="c1"># Determine faces to split in the higher-dimensional grid, that is, where</span>
+                <span class="c1"># the fracture should grow.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pick_propagation_faces</span><span class="p">(</span>
+                    <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">data_primary</span><span class="p">,</span> <span class="n">data_secondary</span><span class="p">,</span> <span class="n">data_intf</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">data_intf</span><span class="p">[</span><span class="s2">&quot;propagation_face_map&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Find the faces in the lower-dimensional grid to split.</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">data_intf</span><span class="p">[</span><span class="s2">&quot;propagation_face_map&quot;</span><span class="p">])</span>
+                <span class="n">face_list</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">sd_secondary</span><span class="p">:</span> <span class="n">col</span><span class="p">})</span>
+
+                <span class="c1"># We have propagated (at least) one fracture in this step</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">propagated_fracture</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># No updates to the geometry.</span>
+                <span class="n">face_list</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">sd_secondary</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)})</span>
+
+        <span class="n">pp</span><span class="o">.</span><span class="n">propagate_fracture</span><span class="o">.</span><span class="n">propagate_fractures</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="n">face_list</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_displacement_correlation</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_intf</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute stress intensity factors by displacement correlation based on</span>
+<span class="sd">        the solution of the previous iterate.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sd_secondary : pp.Grid</span>
+<span class="sd">            Fracture grid.</span>
+<span class="sd">        data_primary : dict</span>
+<span class="sd">            Matrix data. Assumed to contain the mechanical parameters &quot;shear_modulus&quot;</span>
+<span class="sd">            and &quot;poisson_ratio&quot;</span>
+<span class="sd">        data_secondary : dict</span>
+<span class="sd">            Fracture data. Will be updated with SIFs</span>
+<span class="sd">        data_intf : dict</span>
+<span class="sd">            Interface data.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        Stores the stress intensity factors in data_secondary under the name &quot;SIFs&quot;. The value</span>
+<span class="sd">        is an self.nd times self.num_faces np.ndarray.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># NOTE: self.mechanics_parameter_key is expected to come from the model with which</span>
+        <span class="c1"># this class is assumed to be combined.</span>
+        <span class="n">parameters_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mechanics_parameter_key</span>  <span class="c1"># type: ignore</span>
+        <span class="p">]</span>
+        <span class="n">parameters_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mechanics_parameter_key</span>  <span class="c1"># type: ignore</span>
+        <span class="p">]</span>
+        <span class="n">u_j</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">data_intf</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mortar_displacement_variable</span>  <span class="c1"># type: ignore</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Only operate on tips</span>
+        <span class="n">tip_faces</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;tip_faces&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Cells in sd_secondary on the fracture tips</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">tip_cells</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">signs_and_cells_of_boundary_faces</span><span class="p">(</span><span class="n">tip_faces</span><span class="p">)</span>
+
+        <span class="c1"># Project to fracture and apply jump operator</span>
+        <span class="n">u_l</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">u_j</span>
+        <span class="p">)</span>
+        <span class="c1"># Jumps at the fracture tips</span>
+        <span class="n">u_l</span> <span class="o">=</span> <span class="n">u_l</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)[:,</span> <span class="n">tip_cells</span><span class="p">]</span>
+
+        <span class="c1"># Pick out components of the tip displacement jump in the tip basis</span>
+        <span class="n">tip_bases</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tip_bases</span><span class="p">(</span>
+            <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;tangential_normal_projection&quot;</span><span class="p">],</span> <span class="n">tip_faces</span>
+        <span class="p">)</span>
+        <span class="n">d_u_tips</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">tip_bases</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]))</span>
+        <span class="n">d_u_tips</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u_l</span> <span class="o">*</span> <span class="n">tip_bases</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">d_u_tips</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u_l</span> <span class="o">*</span> <span class="n">tip_bases</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">d_u_tips</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u_l</span> <span class="o">*</span> <span class="n">tip_bases</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># Compute distance from face centers to cell centers:</span>
+        <span class="c1"># Rather distance from cc to the face??</span>
+        <span class="n">fc_cc</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[::,</span> <span class="n">tip_faces</span><span class="p">]</span>
+            <span class="o">-</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">[::,</span> <span class="n">tip_cells</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">dist_face_cell</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">fc_cc</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># The SIF vector has size equal to the number of faces in sd_secondary, however,</span>
+        <span class="c1"># only the tip values are non-zero.</span>
+        <span class="n">sifs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">))</span>
+        <span class="n">sifs</span><span class="p">[:,</span> <span class="n">tip_faces</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sifs_from_delta_u</span><span class="p">(</span>
+            <span class="n">d_u_tips</span><span class="p">,</span> <span class="n">dist_face_cell</span><span class="p">,</span> <span class="n">parameters_primary</span>
+        <span class="p">)</span>
+        <span class="n">parameters_secondary</span><span class="p">[</span><span class="s2">&quot;SIFs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sifs</span>
+
+    <span class="k">def</span> <span class="nf">_sifs_from_delta_u</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">d_u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">rm</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the stress intensity factors from the relative displacements.</span>
+
+<span class="sd">        See Eq. 19 in Nejati et al. Note that the pp [tangential, normal] convention</span>
+<span class="sd">        for local coordinate systems is different from the [u, v, w] notation with</span>
+<span class="sd">        v being the component normal to the fracture.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            d_u (array): relative displacements, sd_primary.dim x n.</span>
+<span class="sd">            rm (array): distance from correlation point to fracture tip.</span>
+<span class="sd">            parameters (pp.Parameters): assumed to contain constant</span>
+<span class="sd">                mu (array): Shear modulus.</span>
+<span class="sd">                poisson_ratio (array): No, I&#39;m not spelling it out!</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            K (array): the displacement correlation stress intensity factor</span>
+<span class="sd">            estimates.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mu</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;shear_modulus&quot;</span><span class="p">]</span>
+        <span class="n">poisson</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;poisson_ratio&quot;</span><span class="p">]</span>
+        <span class="n">kappa</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">poisson</span>
+        <span class="c1"># kappa = 3 - poisson / (1 + poisson)</span>
+
+        <span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">n_points</span><span class="p">)</span> <span class="o">=</span> <span class="n">d_u</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="c1"># Data structure for the SIFs</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d_u</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">rm</span> <span class="o">=</span> <span class="n">rm</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># Compute SIF_I</span>
+        <span class="n">K</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">rm</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">d_u</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="c1"># Shortcut for tensile problems</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_tensile</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">K</span>
+
+        <span class="c1"># The computation of SIF_II can be numerically less stable than is SIF_I</span>
+        <span class="c1"># The reason seems to be related to the MPSA solution not representing the</span>
+        <span class="c1"># stress singularity at the fracture tips.</span>
+        <span class="c1"># The SIFs can still be computed and used, however, they should not be</span>
+        <span class="c1"># trusted blindly.</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Computing non-tensile SIFs, proceed with caution.&quot;</span><span class="p">)</span>
+        <span class="n">K</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">rm</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">d_u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="c1"># For better values, it may be of interest to consider generalized approaches</span>
+        <span class="c1"># to SIF calculation by</span>
+        <span class="c1"># This is left in the code as a (potentially) useful code.</span>
+        <span class="c1"># Generalised displacement correlation:</span>
+        <span class="c1"># f = -2*(1-poisson)/np.sqrt(2*np.pi)/mu</span>
+        <span class="c1"># f =2/(1+poisson)/np.sqrt(2*np.pi)/mu</span>
+        <span class="c1"># for i in [1,0]:</span>
+        <span class="c1">#     print((3*d_u[i,0]-d_u[i,1])/((3*np.sqrt(2)-np.sqrt(6))*np.sqrt(2*rm[0])*f))</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">K</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">rm</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="n">d_u</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="k">return</span> <span class="n">K</span>
+
+    <span class="k">def</span> <span class="nf">_propagation_criterion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Tag faces for propagation if the equivalent SIF exceeds a critical value.</span>
+
+<span class="sd">        No checks on whether the faces are tips.</span>
+<span class="sd">        See Eq. (4) in Thomas et al./(7) and (25) in Richard et al.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        d : dict</span>
+<span class="sd">            dictionary of a fracture. Assumed to contain facewise computed SIFs</span>
+<span class="sd">            facewise or scalar critical SIFs, both with size self.nd in first dimension.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None</span>
+<span class="sd">            DESCRIPTION.</span>
+
+<span class="sd">        Stores a boolean array identifying the faces to be propagated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mechanics_parameter_key</span>  <span class="c1"># type: ignore</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Computed sifs</span>
+        <span class="n">K</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;SIFs&quot;</span><span class="p">]</span>
+        <span class="c1"># Critical values</span>
+        <span class="n">K_crit</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;SIFs_critical&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Comparison</span>
+        <span class="n">a_1</span> <span class="o">=</span> <span class="n">K_crit</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">K_crit</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">shear_contribution</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="p">(</span><span class="n">a_1</span> <span class="o">*</span> <span class="n">K</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">a_2</span> <span class="o">=</span> <span class="n">K_crit</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">K_crit</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">shear_contribution</span> <span class="o">+=</span> <span class="mi">4</span> <span class="o">*</span> <span class="p">(</span><span class="n">a_2</span> <span class="o">*</span> <span class="n">K</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">K_equivalent</span> <span class="o">=</span> <span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">shear_contribution</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;propagate_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">K_equivalent</span> <span class="o">&gt;=</span> <span class="n">K_crit</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;SIFs_equivalent&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">K_equivalent</span>
+
+    <span class="k">def</span> <span class="nf">_angle_criterion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute propagation angle based on SIFs.</span>
+
+<span class="sd">        No checks on whether the faces are tips or whether they are tagged as</span>
+<span class="sd">        propagating (see propagation_criterion).</span>
+<span class="sd">        See Eq. (5) in Thomas et al/(8) and (23) in Richard et al.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        d : dict</span>
+<span class="sd">            dictionary of a fracture. Assumed to contain facewise computed SIFs</span>
+<span class="sd">            facewise or scalar critical SIFs, both with size self.nd in first dimension.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None</span>
+<span class="sd">            DESCRIPTION.</span>
+
+<span class="sd">        Stores an array of the faces to be propagated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mechanics_parameter_key</span>  <span class="c1"># type: ignore</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Computed sifs</span>
+        <span class="n">K</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;SIFs&quot;</span><span class="p">]</span>
+        <span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">K</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># Avoid division by zero: Find columns with non-zero values</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">K</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="n">K</span><span class="p">[:,</span> <span class="n">ind</span><span class="p">]</span>
+
+        <span class="n">A</span><span class="p">,</span> <span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mi">140</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="o">-</span><span class="mi">70</span><span class="p">)</span>
+        <span class="n">abs_K_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">denominator</span> <span class="o">=</span> <span class="n">K</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">abs_K_1</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">denominator</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+
+        <span class="n">phi</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="n">A</span> <span class="o">*</span> <span class="n">abs_K_1</span> <span class="o">/</span> <span class="n">denominator</span> <span class="o">+</span> <span class="n">B</span> <span class="o">*</span> <span class="p">(</span><span class="n">abs_K_1</span> <span class="o">/</span> <span class="n">denominator</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="p">)</span>
+        <span class="c1"># Mode II angle. This is the angle from the direction along the face normal</span>
+        <span class="c1"># of the tip (e1) in the plane spanned by e1 and e3, the (local) fracture</span>
+        <span class="c1"># normal on the j/+ side.</span>
+        <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;propagation_angle_normal&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">phi</span>
+        <span class="c1"># Could be expanded by Eq. (6) in Thomas for the tangent angle (in the</span>
+        <span class="c1"># fracture plane). This does not make much sense with the current crude</span>
+        <span class="c1"># picking of faces to propagate along.</span>
+        <span class="c1"># parameters[&quot;propagation_angle_tangential&quot;]</span>
+
+    <span class="k">def</span> <span class="nf">_propagation_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">face</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        g : pp.Grid</span>
+<span class="sd">            Fracture grid.</span>
+<span class="sd">        d : dict</span>
+<span class="sd">            The grid&#39;s data dictionary.</span>
+<span class="sd">        face : int</span>
+<span class="sd">            Index of the tip face for which the propagation vector is computed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        propagation_vector : np.ndarray</span>
+<span class="sd">            Nd-dimensional propagation vector.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tip_basis</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tip_bases</span><span class="p">(</span>
+            <span class="n">sd</span><span class="p">,</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;tangential_normal_projection&quot;</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">face</span><span class="p">)</span>
+        <span class="p">)[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">angle</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">mechanics_parameter_key</span><span class="p">][</span>  <span class="c1"># type: ignore</span>
+            <span class="s2">&quot;propagation_angle_normal&quot;</span>
+        <span class="p">][</span><span class="n">face</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">sign</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">tip_basis</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tip_basis</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">e2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sign</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">e2</span> <span class="o">=</span> <span class="n">tip_basis</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">map_geometry</span><span class="o">.</span><span class="n">rotation_matrix</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="n">e2</span><span class="p">)[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">]</span>
+        <span class="n">propagation_vector</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">tip_basis</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">propagation_vector</span>
+
+    <span class="k">def</span> <span class="nf">_pick_propagation_faces</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_intf</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pick out which matrix faces to split based on which fracture faces are</span>
+<span class="sd">        tagged as propagating and their propagation angles.</span>
+
+<span class="sd">        Work flow:</span>
+<span class="sd">            Pick out faces_secondary</span>
+<span class="sd">            Identify the corresponding edges_h (= nodes if self.nd==2)</span>
+<span class="sd">            The edges&#39; faces_primary are candidates for propagation</span>
+<span class="sd">            Pick the candidate based on the propagation angle</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sd_primary : pp.Grid</span>
+<span class="sd">            DESCRIPTION.</span>
+<span class="sd">        sd_secondary : pp.Grid</span>
+<span class="sd">            DESCRIPTION.</span>
+<span class="sd">        data_primary : dict</span>
+<span class="sd">            DESCRIPTION.</span>
+<span class="sd">        data_secondary : dict</span>
+<span class="sd">            DESCRIPTION.</span>
+<span class="sd">        data_intf : dict</span>
+<span class="sd">            DESCRIPTION.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None</span>
+<span class="sd">            DESCRIPTION.</span>
+<span class="sd">        Stores the matrix &quot;propagation_face_map&quot; identifying pairs of</span>
+<span class="sd">        lower- and higherdimensional faces. During grid updates, the former will receive</span>
+<span class="sd">        a new neighbour cell and the latter will be split.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span>
+        <span class="n">parameters_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mechanics_parameter_key</span>  <span class="c1"># type: ignore</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Faces in lower-dimensional grid to be split</span>
+        <span class="n">faces_secondary</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">parameters_secondary</span><span class="p">[</span><span class="s2">&quot;propagate_faces&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span>
+            <span class="mi">0</span>
+        <span class="p">]</span>
+
+        <span class="n">tip_bases</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tip_bases</span><span class="p">(</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;tangential_normal_projection&quot;</span><span class="p">],</span>
+            <span class="n">faces_secondary</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">angles</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">parameters_secondary</span><span class="p">[</span><span class="s2">&quot;propagation_angle_normal&quot;</span><span class="p">][</span>
+            <span class="n">faces_secondary</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Find the edges in lower-dimensional grid to be split. For 2d problems (1d</span>
+        <span class="c1"># fractures) this will be a node, in 3d, this is two nodes.</span>
+        <span class="n">nodes_secondary</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:,</span> <span class="n">faces_secondary</span><span class="p">])</span>
+
+        <span class="c1"># Obtain the global index of all nodes.</span>
+        <span class="c1"># NOTE: For algorithms that introduce new geometric points (not including points that</span>
+        <span class="c1"># are split to represent a new fracture, but algorithms that do mesh adaptation will</span>
+        <span class="c1"># be impacted), the global_point_ind must be kept updated so that it gives a unique</span>
+        <span class="c1"># mapping between points that coincide in the geometry (e.g. the two sides of a</span>
+        <span class="c1"># fracture, and the corresponding point on the fracture).</span>
+        <span class="n">global_nodes</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">nodes_secondary</span><span class="p">]</span>
+
+        <span class="c1"># Prepare for checking intersection. indata_secondary is used to reconstruct non-unique</span>
+        <span class="c1"># nodes later.</span>
+        <span class="n">global_nodes</span><span class="p">,</span> <span class="n">indata_secondary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">global_nodes</span><span class="p">,</span> <span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Find sd_primary indices of unique global nodes</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">nodes_primary</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">,</span> <span class="n">global_nodes</span><span class="p">,</span> <span class="n">return_indices</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Reconstruct non-unique and reshape to edges (first dim is 2 if nd=3)</span>
+        <span class="n">edges_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="n">nodes_primary</span><span class="p">[</span><span class="n">indata_secondary</span><span class="p">],</span> <span class="p">(</span><span class="n">nd</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">faces_secondary</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># IMPLEMENTATION NOTE: No attempt at vectorization: Too many pitfalls. In particular,</span>
+        <span class="c1"># the number of candidate faces is unknown and may differ between the nodes.</span>
+
+        <span class="c1"># Data structure for storing which faces in sd_primary should be split</span>
+        <span class="n">faces_primary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">faces_secondary</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">faces_secondary</span><span class="p">):</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">edges_h</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">candidate_faces_primary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_faces</span><span class="p">(</span>
+                <span class="n">sd_primary</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">f</span>
+            <span class="p">)</span>
+
+            <span class="c1">## Pick the right candidate:</span>
+            <span class="c1"># Direction of h-dim face centers from the tip</span>
+            <span class="n">tip_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:</span><span class="n">nd</span><span class="p">,</span> <span class="n">faces_secondary</span><span class="p">[</span><span class="n">i</span><span class="p">]],</span> <span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">face_center_vecs</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:</span><span class="n">nd</span><span class="p">,</span> <span class="n">candidate_faces_primary</span><span class="p">]</span> <span class="o">-</span> <span class="n">tip_coords</span>
+            <span class="p">)</span>
+            <span class="c1"># normalization</span>
+            <span class="n">face_center_vecs</span> <span class="o">=</span> <span class="n">face_center_vecs</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span>
+                <span class="n">face_center_vecs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Propagation vector, with sign assuring a positive orientation</span>
+            <span class="c1"># of the basis</span>
+            <span class="k">if</span> <span class="n">nd</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">sign</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">tip_bases</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">tip_bases</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">])</span>
+                <span class="n">e2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sign</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">e2</span> <span class="o">=</span> <span class="n">tip_bases</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">R</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">map_geometry</span><span class="o">.</span><span class="n">rotation_matrix</span><span class="p">(</span><span class="n">angles</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">e2</span><span class="p">)[:</span><span class="n">nd</span><span class="p">,</span> <span class="p">:</span><span class="n">nd</span><span class="p">]</span>
+            <span class="n">e0</span> <span class="o">=</span> <span class="n">tip_bases</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">propagation_vector</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">e0</span><span class="p">)</span>
+            <span class="c1"># Pick the candidate closest to the propagation point,</span>
+            <span class="c1"># i.e. corresponding to the smallest angle between propagation vector and</span>
+            <span class="c1"># face center vector</span>
+            <span class="n">distances</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">point_pointset</span><span class="p">(</span>
+                <span class="n">propagation_vector</span><span class="p">,</span> <span class="n">face_center_vecs</span>
+            <span class="p">)</span>
+            <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">distances</span><span class="p">)</span>
+            <span class="c1"># There might be no candidate faces left after imposition of restriction</span>
+            <span class="c1"># of permissible candidates</span>
+            <span class="k">if</span> <span class="n">candidate_faces_primary</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">faces_primary</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">candidate_faces_primary</span><span class="p">[</span><span class="n">ind</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+        <span class="c1"># inwards_normals = - sd_primary.face_normals[faces_primary] * sign</span>
+        <span class="c1"># Construct R_d vector along</span>
+        <span class="n">face_faces</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">faces_secondary</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="p">(</span><span class="n">faces_secondary</span><span class="p">,</span> <span class="n">faces_primary</span><span class="p">)),</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">data_intf</span><span class="p">[</span><span class="s2">&quot;propagation_face_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">face_faces</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">[</span><span class="n">faces_primary</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">vals</span><span class="p">[</span><span class="n">cells</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="s2">&quot;neighbor_cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals</span>
+
+    <span class="k">def</span> <span class="nf">_tip_bases</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">projection</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">TangentialNormalProjection</span><span class="p">,</span>
+        <span class="n">faces</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Construct local bases for tip faces of a fracture.</span>
+
+<span class="sd">        Note: The orientation of a 2d basis may be found by</span>
+<span class="sd">            np.cross(basis[0], basis[1])</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        g : grid.</span>
+<span class="sd">        data_intf : dictionary</span>
+
+<span class="sd">        faces : array</span>
+<span class="sd">            The tip faces for which local bases are constructed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        basis : np.ndarray</span>
+<span class="sd">            Basis vectors. nd x nd x nd. The first axis is for the basis vectors,</span>
+<span class="sd">            the second is the dimension and the last for the tip faces. I.e.,</span>
+<span class="sd">            basis vector i of tip face j is basis[i,:,j]. The ordering of the</span>
+<span class="sd">            basis vectors is [e_{\perp}, e_n, e_{\parallel}], with the subscripts</span>
+<span class="sd">            of the tangential vectors indicating that they are perpendicular and</span>
+<span class="sd">            parallel to the fracture tip (face), respectively.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">basis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">faces</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+        <span class="n">signs</span><span class="p">,</span> <span class="n">cells</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">signs_and_cells_of_boundary_faces</span><span class="p">(</span><span class="n">faces</span><span class="p">)</span>
+
+        <span class="n">basis</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="n">sd</span><span class="o">.</span><span class="n">face_normals</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">faces</span><span class="p">]</span> <span class="o">/</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_areas</span><span class="p">[</span><span class="n">faces</span><span class="p">]</span> <span class="o">*</span> <span class="n">signs</span><span class="p">,</span>
+            <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">faces</span><span class="o">.</span><span class="n">size</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="c1"># Normals of the fracture plane</span>
+        <span class="k">if</span> <span class="n">projection</span><span class="o">.</span><span class="n">normals</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">basis</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">projection</span><span class="o">.</span><span class="n">normals</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">basis</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">projection</span><span class="o">.</span><span class="n">normals</span><span class="p">[:,</span> <span class="n">cells</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># e2 is parallel to the tip face</span>
+            <span class="n">basis</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">basis</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">basis</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">basis</span>
+
+    <span class="k">def</span> <span class="nf">_candidate_faces</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">edge_primary</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">face_secondary</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># TODO: Use identified_faces to avoid pathological cases arising through</span>
+        <span class="c1"># propagation of multiple fractures within the same propagation step.</span>
+
+        <span class="k">def</span> <span class="nf">faces_of_edge</span><span class="p">(</span><span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Obtain indices of all faces sharing an edge.</span>
+
+
+<span class="sd">            Parameters</span>
+<span class="sd">            ----------</span>
+<span class="sd">            g : pp.Grid</span>
+<span class="sd">            e : np.ndarray</span>
+<span class="sd">                The edge.</span>
+
+<span class="sd">            Returns</span>
+<span class="sd">            -------</span>
+<span class="sd">            faces : np.ndarray</span>
+<span class="sd">                Faces.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">faces</span> <span class="o">=</span> <span class="n">e</span>
+            <span class="k">elif</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">faces</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[</span><span class="n">e</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">f_0</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">f_1</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">f_0</span><span class="p">,</span> <span class="n">f_1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Grid dimension should be 1, 2 or 3&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">faces</span>
+
+        <span class="c1"># For an edge (corresponding to a fracture tip in sd_secondary), find its neighboring</span>
+        <span class="c1"># faces in sd_primary</span>
+        <span class="n">candidate_faces</span> <span class="o">=</span> <span class="n">faces_of_edge</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">,</span> <span class="n">edge_primary</span><span class="p">)</span>
+
+        <span class="c1"># Exclude faces that are on a fracture</span>
+        <span class="n">are_fracture</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;fracture_faces&quot;</span><span class="p">][</span><span class="n">candidate_faces</span><span class="p">]</span>
+        <span class="n">candidate_faces</span> <span class="o">=</span> <span class="n">candidate_faces</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">are_fracture</span><span class="p">)]</span>
+
+        <span class="c1"># Make sure splitting of a candidate does not lead to self-intersection.</span>
+        <span class="c1"># This is done by checking that none of the face&#39;s edges is an &quot;internal</span>
+        <span class="c1"># fracture edge&quot;, i.e. that if it lies on a fracture, it is on a tip.</span>
+        <span class="c1">#</span>
+        <span class="c1"># IMPLEMENTATION NOTE: The below tests form an attempt to keep a reasonable fracture</span>
+        <span class="c1"># geometry for general fractures. For general fracture geometries, this is difficult,</span>
+        <span class="c1"># and the below code can not be trusted to give good results (and neither did other</span>
+        <span class="c1"># attempts on implementing such quality checks). For such problems, the best option</span>
+        <span class="c1"># may be remeshing.</span>
+        <span class="c1">#</span>
+        <span class="c1"># IMPLEMENTATION NOTE: For the special case of tensile fracturing along lines or</span>
+        <span class="c1"># planes that are represented in the grid geometry, the below lines can be dropped</span>
+        <span class="c1"># (but they should not do any harm either).</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">candidate_faces</span><span class="p">:</span>
+            <span class="c1"># Obtain all edges:</span>
+            <span class="n">local_nodes</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:,</span> <span class="n">f</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">pts</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">local_nodes</span><span class="p">]</span>
+
+            <span class="c1"># Faces are defined by one node in 1d and two in 2d. This requires</span>
+            <span class="c1"># dimension dependent treatment:</span>
+            <span class="k">if</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="c1"># Sort nodes clockwise (!)</span>
+                <span class="c1"># ASSUMPTION: This assumes that the new cell is star-shaped with respect to the</span>
+                <span class="c1"># local cell center. This should be okay.</span>
+                <span class="n">map_to_sorted</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">sort_points</span><span class="o">.</span><span class="n">sort_point_plane</span><span class="p">(</span>
+                    <span class="n">pts</span><span class="p">,</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">f</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">sorted_nodes</span> <span class="o">=</span> <span class="n">local_nodes</span><span class="p">[</span><span class="n">map_to_sorted</span><span class="p">]</span>
+                <span class="c1"># Close the circle by appending the first node</span>
+                <span class="n">local_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">sorted_nodes</span><span class="p">,</span> <span class="n">sorted_nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+            <span class="c1"># Loop over the edges of the candidate face</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">local_nodes</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">e</span> <span class="o">=</span> <span class="p">[</span><span class="n">local_nodes</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span><span class="p">)]</span>
+
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">edge_primary</span><span class="p">)):</span>
+                    <span class="c1"># The edge which we are splitting</span>
+                    <span class="k">continue</span>
+                <span class="c1"># Identify whether the edge is on a fracture. If so, remove the</span>
+                <span class="c1"># candidate face unless the edge is a fracture tip. This is done</span>
+                <span class="c1"># by going to sd_secondary quantities by use of global_point_ind.</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;fracture_nodes&quot;</span><span class="p">][</span><span class="n">e</span><span class="p">]):</span>
+                    <span class="c1"># To check</span>
+                    <span class="c1"># Obtain the global index of all nodes</span>
+                    <span class="n">global_nodes</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">e</span><span class="p">]</span>
+                    <span class="c1"># Find sd_primary indices of unique global nodes</span>
+                    <span class="n">_</span><span class="p">,</span> <span class="n">nodes_secondary</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span>
+                        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">,</span> <span class="n">global_nodes</span><span class="p">,</span> <span class="n">return_indices</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">face_secondary</span> <span class="o">=</span> <span class="n">nodes_secondary</span>
+                    <span class="k">if</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="c1"># Care has to be taken since we don&#39;t know whether nodes_secondary</span>
+                        <span class="c1"># actually correspond to a face in sd_secondary.</span>
+                        <span class="n">f_0</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[</span><span class="n">nodes_secondary</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">f_1</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[</span><span class="n">nodes_secondary</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">face_secondary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">f_0</span><span class="p">,</span> <span class="n">f_1</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">face_secondary</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;tip_faces&quot;</span><span class="p">][</span><span class="n">face_secondary</span><span class="p">]:</span>
+                            <span class="k">continue</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Not sure what has happened. Identify and deal with it!</span>
+                        <span class="k">assert</span> <span class="n">face_secondary</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span>
+
+                    <span class="n">candidate_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">candidate_faces</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">candidate_faces</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

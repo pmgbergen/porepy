@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.grids.coarsening &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/coarsening.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.grids.coarsening</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.grids.coarsening</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Module with methods to coarsen a grid. The main method is coarsen(), see this for</span>
+<span class="sd">more information.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">from</span> <span class="nn">porepy.grids</span> <span class="kn">import</span> <span class="n">grid</span>
+<span class="kn">from</span> <span class="nn">porepy.utils</span> <span class="kn">import</span> <span class="n">accumarray</span><span class="p">,</span> <span class="n">grid_utils</span><span class="p">,</span> <span class="n">mcolon</span><span class="p">,</span> <span class="n">setmembership</span><span class="p">,</span> <span class="n">tags</span>
+
+
+<div class="viewcode-block" id="coarsen"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.coarsening.html#porepy.grids.coarsening.coarsen">[docs]</a><span class="k">def</span> <span class="nf">coarsen</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">],</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">method_kwargs</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Create a coarse grid from a given grid. If a grid bucket is passed the</span>
+<span class="sd">    procedure is applied to the higher in dimension.</span>
+<span class="sd">    Note: the grid is modified in place.</span>
+<span class="sd">    Note: do not call compute_geometry afterward.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: the grid or grid bucket</span>
+<span class="sd">        method: string which define the method to coarse. Current options:</span>
+<span class="sd">            &#39;by_volume&#39; (the coarsening is based on the cell volumes) or &#39;by_tpfa&#39;</span>
+<span class="sd">            (using the algebraic multigrid method coarse/fine-splittings based on</span>
+<span class="sd">            direct couplings)</span>
+<span class="sd">        method_kwargs: the arguments for each method</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;by_volume&quot;</span><span class="p">:</span>
+        <span class="n">partition</span> <span class="o">=</span> <span class="n">create_aggregations</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="o">**</span><span class="n">method_kwargs</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;by_tpfa&quot;</span><span class="p">:</span>
+        <span class="n">seeds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">method_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;if_seeds&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="n">seeds</span> <span class="o">=</span> <span class="n">generate_seeds</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="n">_tpfa_matrix</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+        <span class="n">partition</span> <span class="o">=</span> <span class="n">create_partition</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">seeds</span><span class="o">=</span><span class="n">seeds</span><span class="p">,</span> <span class="o">**</span><span class="n">method_kwargs</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Undefined coarsening algorithm&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">generate_coarse_grid</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="generate_coarse_grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.coarsening.html#porepy.grids.coarsening.generate_coarse_grid">[docs]</a><span class="k">def</span> <span class="nf">generate_coarse_grid</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">subdiv</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generate a coarse grid clustering the cells according to the flags</span>
+<span class="sd">    given by subdiv. Subdiv should be long as the number of cells in the</span>
+<span class="sd">    original grid, it contains integers (possibly not continuous) which</span>
+<span class="sd">    represent the cells in the final mesh. If a grid bucket is given the</span>
+<span class="sd">    coarsening is applied to the higher dimensional grid.</span>
+
+<span class="sd">    The values computed in &quot;compute_geometry&quot; are not preserved and they should</span>
+<span class="sd">    be computed out from this function.</span>
+
+<span class="sd">    Note: there is no check for disconnected cells in the final grid.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: the grid or grid bucket</span>
+<span class="sd">        subdiv: a list of flags, one for each cell of the original grid</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">        grid: if a grid is given as input, its coarser version is returned.</span>
+<span class="sd">        If a grid bucket is given as input, the grid is updated in place.</span>
+
+<span class="sd">    How to use:</span>
+<span class="sd">    subdiv = np.array([0,0,1,1,1,1,3,4,6,4,6,4])</span>
+<span class="sd">    g = generate_coarse_grid(g, subdiv)</span>
+
+<span class="sd">    or with a grid bucket:</span>
+<span class="sd">    subdiv = np.array([0,0,1,1,1,1,3,4,6,4,6,4])</span>
+<span class="sd">    generate_coarse_grid(mdg, subdiv)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdiv</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="c1"># If the subdiv is a dictionary with g as a key (this can happen if we are</span>
+            <span class="c1"># forwarded here from coarsen), the input must be simplified.</span>
+            <span class="n">subdiv</span> <span class="o">=</span> <span class="n">subdiv</span><span class="p">[</span><span class="n">g</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">_generate_coarse_grid_single</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">subdiv</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
+        <span class="n">_generate_coarse_grid_mdg</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">subdiv</span><span class="p">)</span></div>
+
+
+<span class="c1"># ------------------------------------------------------------------------------#</span>
+
+
+<div class="viewcode-block" id="reorder_partition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.coarsening.html#porepy.grids.coarsening.reorder_partition">[docs]</a><span class="k">def</span> <span class="nf">reorder_partition</span><span class="p">(</span>
+    <span class="n">subdiv</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Re-order the partition id in case to obtain contiguous numbers.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        subdiv: array where for each cell one id</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">        the subdivision written in a contiguous way</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdiv</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span> <span class="ow">in</span> <span class="n">subdiv</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">old_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">partition</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">new_id</span><span class="p">,</span> <span class="n">old_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">old_ids</span><span class="p">):</span>
+                <span class="n">partition</span><span class="p">[</span><span class="n">partition</span> <span class="o">==</span> <span class="n">old_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_id</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">old_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">subdiv</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">new_id</span><span class="p">,</span> <span class="n">old_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">old_ids</span><span class="p">):</span>
+            <span class="n">subdiv</span><span class="p">[</span><span class="n">subdiv</span> <span class="o">==</span> <span class="n">old_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_id</span>
+
+    <span class="k">return</span> <span class="n">subdiv</span></div>
+
+
+<span class="k">def</span> <span class="nf">_generate_coarse_grid_single</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">subdiv</span><span class="p">,</span> <span class="n">face_map</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Specific function for a single grid. Use the common interface instead.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">subdiv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">subdiv</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">subdiv</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">g</span><span class="o">.</span><span class="n">num_cells</span>
+
+    <span class="c1"># declare the storage array to build the cell_faces map</span>
+    <span class="n">cell_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">indptr</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">orient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="c1"># declare the storage array to build the face_nodes map</span>
+    <span class="n">face_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indptr</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">visit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="c1"># compute the face_node indexes</span>
+    <span class="n">num_nodes_per_face</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indptr</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">face_node_ind</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">rldecode</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="n">num_nodes_per_face</span>
+    <span class="p">)</span>
+
+    <span class="n">cells_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">subdiv</span><span class="p">)</span>
+    <span class="n">cell_volumes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">cells_list</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">cell_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="n">cells_list</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">cellId</span><span class="p">,</span> <span class="n">cell</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cells_list</span><span class="p">):</span>
+        <span class="c1"># extract the cells of the original mesh associated to a specific label</span>
+        <span class="n">cells_old</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">subdiv</span> <span class="o">==</span> <span class="n">cell</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># compute the volume</span>
+        <span class="n">cell_volumes</span><span class="p">[</span><span class="n">cellId</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">cell_volumes</span><span class="p">[</span><span class="n">cells_old</span><span class="p">])</span>
+        <span class="n">cell_centers</span><span class="p">[:,</span> <span class="n">cellId</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">[:,</span> <span class="n">cells_old</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># reconstruct the cell_faces mapping</span>
+        <span class="n">faces_old</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">orient_old</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">[:,</span> <span class="n">cells_old</span><span class="p">])</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">faces_old</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">mask</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">faces_old</span><span class="p">,</span> <span class="n">return_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="c1"># extract the indexes of the internal edges, to be discared</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">faces_old</span> <span class="o">==</span> <span class="n">f</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">faces_old</span><span class="p">[</span><span class="n">mask</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">faces_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">faces_old</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+        <span class="n">cell_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">cell_faces</span><span class="p">,</span> <span class="n">faces_new</span><span class="p">]</span>
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">cells</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">cellId</span><span class="p">,</span> <span class="n">faces_new</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+        <span class="n">orient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">orient</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">orient_old</span><span class="p">,</span> <span class="n">index</span><span class="p">)]</span>
+
+        <span class="c1"># reconstruct the face_nodes mapping</span>
+        <span class="c1"># consider only the unvisited faces</span>
+        <span class="n">not_visit</span> <span class="o">=</span> <span class="o">~</span><span class="n">visit</span><span class="p">[</span><span class="n">faces_new</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">not_visit</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="o">~</span><span class="n">not_visit</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="c1"># mask to consider only the external faces</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">face_node_ind</span> <span class="o">==</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">faces_new</span><span class="p">[</span><span class="n">not_visit</span><span class="p">]],</span>
+                <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">face_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">face_nodes</span><span class="p">,</span> <span class="n">face_node_ind</span><span class="p">[</span><span class="n">mask</span><span class="p">]]</span>
+
+        <span class="n">nodes_new</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">nodes</span><span class="p">,</span> <span class="n">nodes_new</span><span class="p">]</span>
+        <span class="n">visit</span><span class="p">[</span><span class="n">faces_new</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># Rename the faces</span>
+    <span class="n">cell_faces_unique</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">cell_faces</span><span class="p">)</span>
+    <span class="n">cell_faces_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">cell_faces_unique</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">cell_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">cell_faces_id</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cell_faces_unique</span> <span class="o">==</span> <span class="n">f</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">cell_faces</span><span class="p">]</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">cell_faces_unique</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">cells_list</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">cell_faces</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">orient</span><span class="p">,</span> <span class="p">(</span><span class="n">cell_faces</span><span class="p">,</span> <span class="n">cells</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="c1"># Rename the nodes</span>
+    <span class="n">face_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">cell_faces_id</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cell_faces_unique</span> <span class="o">==</span> <span class="n">f</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">face_nodes</span><span class="p">]</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">nodes_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+    <span class="n">nodes_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nodes_list</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">nodes</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">nodes_id</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">nodes_list</span> <span class="o">==</span> <span class="n">n</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+    <span class="c1"># sort the nodes</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">face_nodes</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;mergesort&quot;</span><span class="p">)]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nodes</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">face_nodes</span><span class="p">))]</span>
+    <span class="n">face_nodes</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">indptr</span><span class="p">))</span>
+
+    <span class="n">g</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Coarsened grid&quot;</span>
+    <span class="c1"># store again the data in the same grid</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;coarse&quot;</span><span class="p">)</span>
+
+    <span class="n">g</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">nodes_list</span><span class="p">]</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span> <span class="o">=</span> <span class="n">face_nodes</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">face_areas</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_areas</span><span class="p">[</span><span class="n">cell_faces_unique</span><span class="p">]</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="n">tags</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span> <span class="n">cell_faces_unique</span><span class="p">,</span> <span class="n">tags</span><span class="o">.</span><span class="n">standard_face_tags</span><span class="p">())</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">face_normals</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_normals</span><span class="p">[:,</span> <span class="n">cell_faces_unique</span><span class="p">]</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">cell_faces_unique</span><span class="p">]</span>
+
+    <span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span> <span class="o">=</span> <span class="n">cell_faces</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="o">=</span> <span class="n">cell_volumes</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">grid_utils</span><span class="o">.</span><span class="n">star_shape_cell_centers</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">as_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">is_nan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:])</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">[:,</span> <span class="n">is_nan</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_centers</span><span class="p">[:,</span> <span class="n">is_nan</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">face_map</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">cell_faces_unique</span><span class="p">,</span> <span class="n">cell_faces_id</span><span class="p">])</span>
+
+
+<span class="k">def</span> <span class="nf">_generate_coarse_grid_mdg</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="n">subdiv</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Specific function for a grid bucket. Use the common interface instead.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdiv</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">subdiv</span> <span class="o">=</span> <span class="p">{</span><span class="n">g</span><span class="p">:</span> <span class="n">subdiv</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span> <span class="ow">in</span> <span class="n">subdiv</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+
+        <span class="c1"># Construct the coarse grids</span>
+        <span class="n">face_map</span> <span class="o">=</span> <span class="n">_generate_coarse_grid_single</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">partition</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Update all the primary_to_mortar_int for all the &#39;edges&#39; connected to the grid</span>
+        <span class="c1"># We update also all the face_cells</span>
+        <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_to_interfaces</span><span class="p">(</span><span class="n">g</span><span class="p">):</span>
+            <span class="c1"># The indices that need to be mapped to the new grid</span>
+
+            <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+
+            <span class="n">projections</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">()</span><span class="o">.</span><span class="n">tocsr</span><span class="p">(),</span>
+                <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_avg</span><span class="p">()</span><span class="o">.</span><span class="n">tocsr</span><span class="p">(),</span>
+            <span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">ind</span><span class="p">,</span> <span class="n">mat</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">projections</span><span class="p">):</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="n">mat</span><span class="o">.</span><span class="n">indices</span>
+
+                <span class="c1"># Map indices</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">face_map</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="c1"># Reverse the ordering</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">mask</span><span class="p">)]</span>
+
+                <span class="c1"># Create the new matrix</span>
+                <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
+                <span class="n">projections</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">mat</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">mat</span><span class="o">.</span><span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Update mortar projection</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span> <span class="o">=</span> <span class="n">projections</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span> <span class="o">=</span> <span class="n">projections</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+
+            <span class="c1"># Also update all other projections to primary</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">(</span><span class="n">secondary</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="c1"># update also the face_cells map</span>
+            <span class="n">face_cells</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;face_cells&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">face_cells</span><span class="o">.</span><span class="n">indices</span>
+
+            <span class="c1"># map indices</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">face_map</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">face_cells</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">mask</span><span class="p">)]</span>
+
+            <span class="c1"># update the map</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;face_cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">face_cells</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_tpfa_matrix</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">perm</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute a two-point flux approximation matrix useful related to a call of</span>
+<span class="sd">    create_partition.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    g: the grid</span>
+<span class="sd">    perm: (optional) permeability, the it is not given unitary tensor is assumed</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    out: sparse matrix</span>
+<span class="sd">        Two-point flux approximation matrix</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">dim_max</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">perm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">perm</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">))</span>
+
+    <span class="n">solver</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Tpfa</span><span class="p">(</span><span class="s2">&quot;flow&quot;</span><span class="p">)</span>
+    <span class="n">specified_parameters</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;second_order_tensor&quot;</span><span class="p">:</span> <span class="n">perm</span><span class="p">,</span>
+        <span class="s2">&quot;bc&quot;</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">initialize_default_data</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="p">{},</span> <span class="s2">&quot;flow&quot;</span><span class="p">,</span> <span class="n">specified_parameters</span><span class="p">)</span>
+    <span class="n">solver</span><span class="o">.</span><span class="n">discretize</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">solver</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="generate_seeds"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.coarsening.html#porepy.grids.coarsening.generate_seeds">[docs]</a><span class="k">def</span> <span class="nf">generate_seeds</span><span class="p">(</span><span class="n">mdg</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Giving the higher dimensional grid in a grid bucket, generate the seed for</span>
+<span class="sd">    the tip of lower</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">seeds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">seeds</span>
+
+    <span class="c1"># Extract the higher dimensional grid</span>
+    <span class="n">g_h</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">g_h_faces</span><span class="p">,</span> <span class="n">g_h_cells</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">g_h</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">)</span>
+
+    <span class="c1"># Extract the 1-codimensional grids</span>
+    <span class="n">gs</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">gs</span><span class="p">:</span>
+        <span class="n">tips</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;tip_faces&quot;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">faces</span><span class="p">,</span> <span class="n">cells</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">)</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">faces</span><span class="p">,</span> <span class="n">tips</span><span class="p">)</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">cells</span><span class="p">[</span><span class="n">index</span><span class="p">])</span>
+
+        <span class="c1"># recover the mapping between the secondary and the primary grid</span>
+        <span class="n">mg</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_pair_to_interface</span><span class="p">((</span><span class="n">g_h</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
+        <span class="n">primary_to_mortar</span> <span class="o">=</span> <span class="n">mg</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">()</span>
+        <span class="n">secondary_to_mortar</span> <span class="o">=</span> <span class="n">mg</span><span class="o">.</span><span class="n">secondary_to_mortar_int</span><span class="p">()</span>
+        <span class="c1"># this is the old face_cells mapping</span>
+        <span class="n">face_cells</span> <span class="o">=</span> <span class="n">secondary_to_mortar</span><span class="o">.</span><span class="n">T</span> <span class="o">*</span> <span class="n">primary_to_mortar</span>
+
+        <span class="n">interf_cells</span><span class="p">,</span> <span class="n">interf_faces</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">face_cells</span><span class="p">)</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">interf_cells</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">g_h_faces</span><span class="p">,</span> <span class="n">interf_faces</span><span class="p">[</span><span class="n">index</span><span class="p">])</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">seeds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">seeds</span><span class="p">,</span> <span class="n">g_h_cells</span><span class="p">[</span><span class="n">index</span><span class="p">]))</span>
+
+    <span class="k">return</span> <span class="n">seeds</span></div>
+
+
+<div class="viewcode-block" id="create_aggregations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.coarsening.html#porepy.grids.coarsening.create_aggregations">[docs]</a><span class="k">def</span> <span class="nf">create_aggregations</span><span class="p">(</span><span class="n">grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Create a cell partition based on their volumes.</span>
+
+<span class="sd">    Parameter:</span>
+<span class="sd">        grid (pp.Grid, or pp.MixedDimensionalGrid): subdomain or mixed-dimensional grid</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">        partition: partition of the cells for the coarsening algorithm</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract the higher dimensional grids and store in a list</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
+        <span class="n">grid_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">grid</span><span class="o">.</span><span class="n">dim_max</span><span class="p">())</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+        <span class="n">grid_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">grid</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only subdomains and mixed-dimensional grids supported.&quot;</span><span class="p">)</span>
+
+    <span class="n">partition</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grid_list</span><span class="p">:</span>
+        <span class="n">partition_local</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="n">volumes</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_volumes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">volumes_checked</span> <span class="o">=</span> <span class="n">volumes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">c2c</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_connection_map</span><span class="p">()</span>
+
+        <span class="c1"># Compute the inverse of the harminc mean</span>
+        <span class="n">weight</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">volumes</span><span class="p">)</span>
+
+        <span class="n">new_id</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">while</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">partition_local</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="c1"># Consider the smallest element to be aggregated</span>
+            <span class="n">cell_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">volumes_checked</span><span class="p">)</span>
+
+            <span class="c1"># If the smallest fulfil the condition, stop the loop</span>
+            <span class="k">if</span> <span class="n">volumes</span><span class="p">[</span><span class="n">cell_id</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">mean</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="n">do_it</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">old_cluster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">cell_id</span><span class="p">])</span>
+            <span class="k">while</span> <span class="n">do_it</span><span class="p">:</span>
+                <span class="n">cluster</span> <span class="o">=</span> <span class="n">__get_neigh</span><span class="p">(</span><span class="n">old_cluster</span><span class="p">,</span> <span class="n">c2c</span><span class="p">,</span> <span class="n">partition_local</span><span class="p">)</span>
+                <span class="n">volume</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">volumes</span><span class="p">[</span><span class="n">cluster</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">volume</span> <span class="o">&gt;</span> <span class="n">mean</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">old_cluster</span><span class="p">,</span> <span class="n">cluster</span><span class="p">):</span>
+                    <span class="n">do_it</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">old_cluster</span> <span class="o">=</span> <span class="n">cluster</span>
+
+            <span class="c1"># If one of the element in the cluster has already a partition id,</span>
+            <span class="c1"># we uniform the ids</span>
+            <span class="n">partition_cluster</span> <span class="o">=</span> <span class="n">partition_local</span><span class="p">[</span><span class="n">cluster</span><span class="p">]</span>
+            <span class="n">has_coarse_id</span> <span class="o">=</span> <span class="n">partition_cluster</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">has_coarse_id</span><span class="p">):</span>
+                <span class="c1"># For each coarse id in the cluster, rename the coarse ids in the</span>
+                <span class="c1"># partition_local</span>
+                <span class="k">for</span> <span class="n">partition_id</span> <span class="ow">in</span> <span class="n">partition_cluster</span><span class="p">[</span><span class="n">has_coarse_id</span><span class="p">]:</span>
+                    <span class="n">which_partition_id</span> <span class="o">=</span> <span class="n">partition_local</span> <span class="o">==</span> <span class="n">partition_id</span>
+                    <span class="n">partition_local</span><span class="p">[</span><span class="n">which_partition_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_id</span>
+                    <span class="n">volumes</span><span class="p">[</span><span class="n">which_partition_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">volume</span>
+                    <span class="n">volumes_checked</span><span class="p">[</span><span class="n">which_partition_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">volume</span>
+
+            <span class="c1"># Update the data for the cluster</span>
+            <span class="n">partition_local</span><span class="p">[</span><span class="n">cluster</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_id</span>
+            <span class="n">volumes</span><span class="p">[</span><span class="n">cluster</span><span class="p">]</span> <span class="o">=</span> <span class="n">volume</span>
+            <span class="n">new_id</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">volumes_checked</span><span class="p">[</span><span class="n">cluster</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+
+        <span class="n">volumes_checked</span> <span class="o">=</span> <span class="n">volumes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">which_cell</span> <span class="o">=</span> <span class="n">volumes_checked</span> <span class="o">&lt;</span> <span class="n">mean</span>
+        <span class="n">volumes_checked</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">which_cell</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+
+        <span class="k">while</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">which_cell</span><span class="p">):</span>
+            <span class="n">cell_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">volumes_checked</span><span class="p">)</span>
+            <span class="n">part_cell</span> <span class="o">=</span> <span class="n">partition_local</span><span class="p">[</span><span class="n">cell_id</span><span class="p">]</span>
+            <span class="c1"># Extract the neighbors of the current cell</span>
+            <span class="n">loc</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">c2c</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">cell_id</span><span class="p">],</span> <span class="n">c2c</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">cell_id</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="n">neighbors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">c2c</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">loc</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cell_id</span><span class="p">))</span>
+            <span class="n">part_neighbors</span> <span class="o">=</span> <span class="n">partition_local</span><span class="p">[</span><span class="n">neighbors</span><span class="p">]</span>
+            <span class="n">neighbors</span> <span class="o">=</span> <span class="n">neighbors</span><span class="p">[</span><span class="n">part_neighbors</span> <span class="o">!=</span> <span class="n">part_cell</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">neighbors</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">volumes_checked</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+                <span class="n">which_cell</span> <span class="o">=</span> <span class="n">volumes_checked</span> <span class="o">&lt;</span> <span class="n">mean</span>
+                <span class="k">continue</span>
+            <span class="n">smallest</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">volumes</span><span class="p">[</span><span class="n">neighbors</span><span class="p">])</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">partition_local</span> <span class="o">==</span> <span class="n">part_cell</span>
+            <span class="n">partition_local</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">partition_local</span><span class="p">[</span><span class="n">neighbors</span><span class="p">[</span><span class="n">smallest</span><span class="p">]]</span>
+            <span class="n">volumes</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">volumes</span><span class="p">[</span><span class="n">smallest</span><span class="p">]</span> <span class="o">+</span> <span class="n">volumes</span><span class="p">[</span><span class="n">cell_id</span><span class="p">]</span>
+            <span class="n">volumes_checked</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">volumes</span><span class="p">[</span><span class="n">smallest</span><span class="p">]</span> <span class="o">+</span> <span class="n">volumes</span><span class="p">[</span><span class="n">cell_id</span><span class="p">]</span>
+            <span class="n">which_cell</span> <span class="o">=</span> <span class="n">volumes_checked</span> <span class="o">&lt;</span> <span class="n">mean</span>
+
+        <span class="c1"># Fill up the cells which are left</span>
+        <span class="n">has_not_coarse_id</span> <span class="o">=</span> <span class="n">partition_local</span> <span class="o">&lt;</span> <span class="mi">0</span>
+        <span class="n">partition_local</span><span class="p">[</span><span class="n">has_not_coarse_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_id</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">has_not_coarse_id</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">partition</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">partition_local</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">partition</span></div>
+
+
+<span class="k">def</span> <span class="nf">__get_neigh</span><span class="p">(</span><span class="n">cells_id</span><span class="p">,</span> <span class="n">c2c</span><span class="p">,</span> <span class="n">partition</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Support function for create_aggregations&quot;&quot;&quot;</span>
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">cell_id</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">cells_id</span><span class="p">):</span>
+        <span class="c1"># Extract the neighbors of the current cell</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">c2c</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">cell_id</span><span class="p">],</span> <span class="n">c2c</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">cell_id</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">neighbors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">neighbors</span><span class="p">,</span> <span class="n">c2c</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">loc</span><span class="p">]))</span>
+
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">neighbors</span><span class="p">)</span>
+    <span class="n">partition_neighbors</span> <span class="o">=</span> <span class="n">partition</span><span class="p">[</span><span class="n">neighbors</span><span class="p">]</span>
+
+    <span class="c1"># Check if some neighbor has already a coarse id</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">neighbors</span><span class="p">[</span><span class="n">partition_neighbors</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="create_partition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.coarsening.html#porepy.grids.coarsening.create_partition">[docs]</a><span class="k">def</span> <span class="nf">create_partition</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">seeds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create the partition based on an input matrix using the algebraic multigrid</span>
+<span class="sd">    method coarse/fine-splittings based on direct couplings. The standard values</span>
+<span class="sd">    for cdepth and epsilon are taken from the following reference.</span>
+
+<span class="sd">    For more information see: U. Trottenberg, C. W. Oosterlee, and A. Schuller.</span>
+<span class="sd">    Multigrid. Academic press, 2000.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A: sparse matrix used for the agglomeration</span>
+<span class="sd">    g: grid or grid bucket</span>
+<span class="sd">    seeds: (optional) to define a-priori coarse cells</span>
+<span class="sd">    cdepth: the greather is the more intense the aggregation will be, e.g. less</span>
+<span class="sd">        cells if it is used combined with generate_coarse_grid</span>
+<span class="sd">    epsilon: weight for the off-diagonal entries to define the &quot;strong</span>
+<span class="sd">        negatively cupling&quot;</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    out: map from old to the new grid with agglomeration indices</span>
+
+<span class="sd">    How to use</span>
+<span class="sd">    ----------</span>
+<span class="sd">    part = create_partition(tpfa_matrix(g))</span>
+<span class="sd">    g = generate_coarse_grid(g, part)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">cdepth</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cdepth&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;epsilon&quot;</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">)</span>
+
+    <span class="c1"># NOTE: Extract the higher dimensional grids, we suppose it is unique</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
+        <span class="n">g_high</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">g</span><span class="o">.</span><span class="n">dim_max</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">g_high</span> <span class="o">=</span> <span class="n">g</span>
+
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">Nc</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># For each node, which other nodes are strongly connected to it</span>
+    <span class="n">ST</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">lil_matrix</span><span class="p">((</span><span class="n">Nc</span><span class="p">,</span> <span class="n">Nc</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="c1"># In the first instance, all cells are strongly connected to each other</span>
+    <span class="n">At</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Nc</span><span class="p">):</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">At</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">At</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">ci</span><span class="p">,</span> <span class="n">vals</span> <span class="o">=</span> <span class="n">At</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">loc</span><span class="p">],</span> <span class="n">At</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">loc</span><span class="p">]</span>
+        <span class="n">neg</span> <span class="o">=</span> <span class="n">vals</span> <span class="o">&lt;</span> <span class="mf">0.0</span>
+        <span class="n">nvals</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">neg</span><span class="p">]</span>
+        <span class="n">nci</span> <span class="o">=</span> <span class="n">ci</span><span class="p">[</span><span class="n">neg</span><span class="p">]</span>
+        <span class="n">minId</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">nvals</span><span class="p">)</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="o">-</span><span class="n">nvals</span> <span class="o">&gt;=</span> <span class="n">epsilon</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">nvals</span><span class="p">[</span><span class="n">minId</span><span class="p">])</span>
+        <span class="n">ST</span><span class="p">[</span><span class="n">nci</span><span class="p">[</span><span class="n">ind</span><span class="p">],</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># Temporary field, will store connections of depth 1</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">cdepth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">STold</span> <span class="o">=</span> <span class="n">ST</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Nc</span><span class="p">):</span>
+            <span class="n">rowj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">STold</span><span class="o">.</span><span class="n">rows</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">rowj</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">STold</span><span class="o">.</span><span class="n">rows</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rowj</span><span class="p">])</span>
+            <span class="n">ST</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">rowj</span><span class="p">,</span> <span class="n">row</span><span class="p">))]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">ST</span><span class="o">.</span><span class="n">setdiag</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">lmbda</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">ST</span><span class="o">.</span><span class="n">rows</span><span class="p">])</span>
+
+    <span class="c1"># Define coarse nodes</span>
+    <span class="n">candidate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">Nc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">is_fine</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">Nc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">is_coarse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">Nc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="c1"># cells that are not important for any other cells are on the fine scale.</span>
+    <span class="k">for</span> <span class="n">row_id</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ST</span><span class="o">.</span><span class="n">rows</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">row</span><span class="p">:</span>
+            <span class="n">is_fine</span><span class="p">[</span><span class="n">row_id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">candidate</span><span class="p">[</span><span class="n">row_id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">ST</span> <span class="o">=</span> <span class="n">ST</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+    <span class="n">it</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">candidate</span><span class="p">):</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">lmbda</span><span class="p">)</span>
+        <span class="n">is_coarse</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">ST</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">ST</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">:</span> <span class="n">ST</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span>
+        <span class="n">jf</span> <span class="o">=</span> <span class="n">j</span><span class="p">[</span><span class="n">candidate</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span>
+        <span class="n">is_fine</span><span class="p">[</span><span class="n">jf</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">candidate</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">jf</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="n">ST</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">mcolon</span><span class="o">.</span><span class="n">mcolon</span><span class="p">(</span><span class="n">ST</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">jf</span><span class="p">],</span> <span class="n">ST</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">jf</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])]</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">loop</span><span class="p">):</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">ST</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">ST</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="p">:</span> <span class="n">ST</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span>
+            <span class="n">lmbda</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="n">candidate</span><span class="p">[</span><span class="n">s</span><span class="p">]]</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">s</span><span class="p">[</span><span class="n">is_fine</span><span class="p">[</span><span class="n">s</span><span class="p">]]</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">lmbda</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">candidate</span><span class="p">)]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">it</span> <span class="o">=</span> <span class="n">it</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="c1"># Something went wrong during aggregation</span>
+        <span class="k">assert</span> <span class="n">it</span> <span class="o">&lt;=</span> <span class="n">Nc</span>
+
+    <span class="k">del</span> <span class="n">lmbda</span><span class="p">,</span> <span class="n">ST</span>
+
+    <span class="k">if</span> <span class="n">seeds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">is_coarse</span><span class="p">[</span><span class="n">seeds</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">is_fine</span><span class="p">[</span><span class="n">seeds</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># If two neighbors are coarse, eliminate one of them without touching the</span>
+    <span class="c1"># seeds</span>
+    <span class="n">c2c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="n">c2c_rows</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">c2c</span><span class="p">)</span>
+
+    <span class="n">pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_coarse</span><span class="p">)[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">c2c</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">it</span><span class="p">],</span> <span class="n">c2c</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">it</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">c2c_rows</span><span class="p">[</span><span class="n">loc</span><span class="p">],</span> <span class="n">it</span><span class="p">)</span>
+        <span class="n">cind</span> <span class="o">=</span> <span class="n">ind</span><span class="p">[</span><span class="n">is_coarse</span><span class="p">[</span><span class="n">ind</span><span class="p">]]</span>
+        <span class="n">new_pair</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="n">cind</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">cind</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">new_pair</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># Remove one of the neighbors cells</span>
+    <span class="k">if</span> <span class="n">pairs</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="n">pairs</span> <span class="o">=</span> <span class="n">setmembership</span><span class="o">.</span><span class="n">unique_rows</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">ij</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+            <span class="n">A_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">ij</span><span class="p">,</span> <span class="n">ij</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="n">ij</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">A_val</span><span class="p">)]</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">seeds</span><span class="p">,</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ids</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+                <span class="n">is_coarse</span><span class="p">[</span><span class="n">ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">is_fine</span><span class="p">[</span><span class="n">ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">coarse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_coarse</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Primal grid</span>
+    <span class="n">NC</span> <span class="o">=</span> <span class="n">coarse</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">primal</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">lil_matrix</span><span class="p">((</span><span class="n">NC</span><span class="p">,</span> <span class="n">Nc</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">primal</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">NC</span><span class="p">),</span> <span class="n">coarse</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">NC</span><span class="p">)]]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">connection</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">lil_matrix</span><span class="p">((</span><span class="n">Nc</span><span class="p">,</span> <span class="n">Nc</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Nc</span><span class="p">):</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">c2c_rows</span><span class="p">[</span><span class="n">c2c</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="p">:</span> <span class="n">c2c</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">it</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]],</span> <span class="n">it</span><span class="p">)</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">it</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">it</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">A_idx</span><span class="p">,</span> <span class="n">A_row</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">loc</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">loc</span><span class="p">]</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">A_idx</span> <span class="o">!=</span> <span class="n">it</span>
+        <span class="n">connection</span><span class="p">[</span><span class="n">it</span><span class="p">,</span> <span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A_row</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">/</span> <span class="n">A_row</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">mask</span><span class="p">)])</span>
+
+    <span class="n">connection</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+
+    <span class="n">candidates_rep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ediff1d</span><span class="p">(</span><span class="n">connection</span><span class="o">.</span><span class="n">indptr</span><span class="p">)</span>
+    <span class="n">candidates_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">is_coarse</span><span class="p">,</span> <span class="n">candidates_rep</span><span class="p">)</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+        <span class="p">(</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">candidates_idx</span><span class="p">],</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">NC</span><span class="p">),</span> <span class="n">candidates_rep</span><span class="p">[</span><span class="n">is_coarse</span><span class="p">]),</span>
+        <span class="p">),</span>
+        <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">connection_idx</span> <span class="o">=</span> <span class="n">mcolon</span><span class="o">.</span><span class="n">mcolon</span><span class="p">(</span>
+        <span class="n">connection</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">coarse</span><span class="p">],</span> <span class="n">connection</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">coarse</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">vals</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span>
+        <span class="n">accumarray</span><span class="o">.</span><span class="n">accum</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">connection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">connection_idx</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="n">Nc</span><span class="p">,</span> <span class="n">NC</span><span class="p">])</span>
+    <span class="p">)</span>
+    <span class="k">del</span> <span class="n">candidates_rep</span><span class="p">,</span> <span class="n">candidates_idx</span><span class="p">,</span> <span class="n">connection_idx</span>
+
+    <span class="n">it</span> <span class="o">=</span> <span class="n">NC</span>
+    <span class="n">not_found</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">is_coarse</span><span class="p">)</span>
+    <span class="c1"># Process the strongest connection globally</span>
+    <span class="k">while</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">not_found</span><span class="p">):</span>
+
+        <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">vals</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">vals</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">mcind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">vals</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))))</span>
+        <span class="n">mcval</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">mcind</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mcind</span><span class="p">):</span>
+            <span class="n">loc</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">vals</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">r</span><span class="p">],</span> <span class="n">vals</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">r</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="n">vals_idx</span><span class="p">,</span> <span class="n">vals_data</span> <span class="o">=</span> <span class="n">vals</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">loc</span><span class="p">],</span> <span class="n">vals</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">loc</span><span class="p">]</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">vals_idx</span> <span class="o">==</span> <span class="n">c</span>
+            <span class="k">if</span> <span class="n">vals_idx</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">mcval</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals_data</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+        <span class="n">mi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">mcval</span><span class="p">)</span>
+        <span class="n">nadd</span> <span class="o">=</span> <span class="n">mcind</span><span class="p">[</span><span class="n">mi</span><span class="p">]</span>
+
+        <span class="n">primal</span><span class="p">[</span><span class="n">mi</span><span class="p">,</span> <span class="n">nadd</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">it</span> <span class="o">=</span> <span class="n">it</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">it</span> <span class="o">&gt;</span> <span class="n">Nc</span> <span class="o">+</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="k">break</span>
+
+        <span class="n">not_found</span><span class="p">[</span><span class="n">nadd</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">vals</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">vals</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">nadd</span><span class="p">]</span> <span class="p">:</span> <span class="n">vals</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">nadd</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">loc</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">connection</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">nadd</span><span class="p">],</span> <span class="n">connection</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">nadd</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">nc</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">loc</span><span class="p">]</span>
+        <span class="n">af</span> <span class="o">=</span> <span class="n">not_found</span><span class="p">[</span><span class="n">nc</span><span class="p">]</span>
+        <span class="n">nc</span> <span class="o">=</span> <span class="n">nc</span><span class="p">[</span><span class="n">af</span><span class="p">]</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">mcval</span><span class="p">[</span><span class="n">mi</span><span class="p">]</span> <span class="o">*</span> <span class="n">connection</span><span class="p">[</span><span class="n">nadd</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">nv</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">af</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nc</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">vals</span> <span class="o">+=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">nv</span><span class="p">,</span> <span class="p">(</span><span class="n">nc</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">mi</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">nc</span><span class="p">)))),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">Nc</span><span class="p">,</span> <span class="n">NC</span><span class="p">))</span>
+
+    <span class="n">coarse</span><span class="p">,</span> <span class="n">fine</span> <span class="o">=</span> <span class="n">primal</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()</span>
+    <span class="n">partition</span> <span class="o">=</span> <span class="p">{</span><span class="n">g_high</span><span class="p">:</span> <span class="p">(</span><span class="n">g_high</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">coarse</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">fine</span><span class="p">)])}</span>
+    <span class="k">return</span> <span class="n">partition</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

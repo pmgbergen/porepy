@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.ad.equation_manager &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/ad/equation_manager.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.ad.equation_manager</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.ad.equation_manager</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Main content:</span>
+<span class="sd">EquationManager: representation of a set of equations on Ad form.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">_ad_utils</span><span class="p">,</span> <span class="n">operators</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;EquationManager&quot;</span><span class="p">]</span>
+
+<span class="n">GridLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="EquationManager"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager">[docs]</a><span class="k">class</span> <span class="nc">EquationManager</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Representation of a set of equations specified on Ad form.</span>
+
+<span class="sd">    The equations are tied to a specific MixedDimensionalGrid, with variables fixed in a</span>
+<span class="sd">    corresponding DofManager.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid on which this EquationManager</span>
+<span class="sd">            operates.</span>
+<span class="sd">        dof_manager (pp.DofManager): Degree of freedom manager used for this</span>
+<span class="sd">            EquationManager.</span>
+<span class="sd">        equations (List of Ad Operators): Equations assigned to this EquationManager.</span>
+<span class="sd">            can be expanded by direct addition to the list.</span>
+<span class="sd">        variables (Dict): Mapping from subdomains or grid tuples (interfaces) to Ad</span>
+<span class="sd">            variables. These are set at initialization from the MixedDimensionalGrid, and</span>
+<span class="sd">            should not be changed later.</span>
+<span class="sd">        secondary_variables (List of Ad Variables): List of variables that are secondary,</span>
+<span class="sd">            that is, their derivatives will not be included in the Jacobian matrix.</span>
+<span class="sd">            Variables will be represented on atomic form, that is, merged variables are</span>
+<span class="sd">            unravelled. Secondary variables act as a filter during assembly, that is,</span>
+<span class="sd">            they do not impact the ordering or treatment of variables.</span>
+<span class="sd">        row_block_indices_last_assembled (np.ndarray): Row indices for the start of blocks</span>
+<span class="sd">            corresponding to different equations in the last assembled system. The last item</span>
+<span class="sd">            in the array is the total number of rows, so that row indices for block i can</span>
+<span class="sd">            be recovered by np.arange(row_bl..[i], row_bl..[i+1]). The user must relate the</span>
+<span class="sd">            indices to equations (either in self.equations or the equation list given to the</span>
+<span class="sd">            relevant assembly method). This information is intended for diagnostic usage.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
+        <span class="n">dof_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span><span class="p">,</span>
+        <span class="n">equations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;pp.ad.Operator&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">secondary_variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize the EquationManager.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid for this EquationManager.</span>
+<span class="sd">            dof_manager (pp.DofManager): Degree of freedom manager.</span>
+<span class="sd">            equations (List, Optional): List of equations. Defaults to empty list.</span>
+<span class="sd">            secondary_variables (List of Ad Variable or MergedVariable): Variables</span>
+<span class="sd">                to be considered secondary for this EquationManager.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span> <span class="o">=</span> <span class="n">mdg</span>
+
+        <span class="c1"># Inform mypy about variables, and then set them by a dedicated method.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">GridLike</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_variables</span><span class="p">(</span><span class="n">mdg</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">equations</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">equations</span> <span class="o">=</span> <span class="n">equations</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span> <span class="o">=</span> <span class="n">dof_manager</span>
+
+        <span class="c1"># Define secondary variables.</span>
+        <span class="c1"># Note that secondary variables will be present in self.variables; the exclusion</span>
+        <span class="c1"># of secondary variables happens in assembly methods.</span>
+
+        <span class="c1"># This gets a bit technical: Since every EquationManager makes its own set of</span>
+        <span class="c1"># variables with unique Ids, we should make sure the secondary variables are</span>
+        <span class="c1"># taken with respect to the variable set of this EquationManager. This should be</span>
+        <span class="c1"># okay for standard usage (although the user may abuse it, and suffer for doing so).</span>
+        <span class="c1"># However, when the EquationManager is formed by extracting a subsystem,</span>
+        <span class="c1"># the set of secondary variables are defined from the original EquationManager,</span>
+        <span class="c1"># and this can create all sort of problems. Therefore, translate the secondary</span>
+        <span class="c1"># variables into variables identified with this EquationManager.</span>
+        <span class="c1"># IMPLEMENTATION NOTE: The code below has not been thoroughly tested on</span>
+        <span class="c1"># mixed-dimensional subdomains.</span>
+
+        <span class="k">if</span> <span class="n">secondary_variables</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">secondary_variables</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Make a list of combinations of grids and names, this should form a unique</span>
+        <span class="c1"># classification of variables</span>
+        <span class="n">secondary_grid_name</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">_name</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables_as_list</span><span class="p">(</span><span class="n">secondary_variables</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="c1"># Do the same for all variables, but make this a map to the atomic (non-merged)</span>
+        <span class="c1"># variable.</span>
+        <span class="n">primary_grid_name</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">_name</span><span class="p">):</span> <span class="n">var</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables_as_list</span><span class="p">()</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Data structure for secondary variables</span>
+        <span class="n">sec_var</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># Loop over all variables known to this EquationManager. If its grid-name</span>
+        <span class="c1"># combination is identical to that of a secondary variable, we store it as a</span>
+        <span class="c1"># secondary variable, with the representation known to this EquationManager</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">primary_grid_name</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">secondary_grid_name</span><span class="p">:</span>
+                <span class="n">sec_var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">primary_grid_name</span><span class="p">[</span><span class="n">v</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">secondary_variables</span> <span class="o">=</span> <span class="n">sec_var</span>
+
+        <span class="c1"># Start index for blocks corresponding to rows of the different equations.</span>
+        <span class="c1"># Defaults to None, will be overwritten by assembly methods.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">row_block_indices_last_assembled</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_set_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
+        <span class="c1"># Define variables as specified in the MixedDimensionalGrid</span>
+        <span class="n">variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span>
+            <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">operators</span><span class="o">.</span><span class="n">Variable</span><span class="p">]</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">variables</span><span class="p">[</span><span class="n">sd</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PRIMARY_VARIABLES</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">variables</span><span class="p">[</span><span class="n">sd</span><span class="p">][</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">operators</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="p">[</span><span class="n">sd</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">intf</span><span class="p">,</span> <span class="n">intf_data</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">variables</span><span class="p">[</span><span class="n">intf</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">num_cells</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">num_cells</span>
+            <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">intf_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PRIMARY_VARIABLES</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">variables</span><span class="p">[</span><span class="n">intf</span><span class="p">][</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">operators</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span>
+                    <span class="n">var</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">interfaces</span><span class="o">=</span><span class="p">[</span><span class="n">intf</span><span class="p">],</span> <span class="n">num_cells</span><span class="o">=</span><span class="n">num_cells</span>
+                <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">variables</span> <span class="o">=</span> <span class="n">variables</span>
+
+<div class="viewcode-block" id="EquationManager.merge_variables"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.merge_variables">[docs]</a>    <span class="k">def</span> <span class="nf">merge_variables</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">grid_var</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">GridLike</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pp.ad.MergedVariable&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Concatenate a variable defined over several subdomains or interfaces.</span>
+
+
+
+<span class="sd">        The merged variable can be used to define mathematical operations on multiple</span>
+<span class="sd">        subdomains simultaneously (provided it is combined with other operators defined on</span>
+<span class="sd">        the same subdomains).</span>
+
+<span class="sd">        NOTE: Merged variables are assigned unique ids (see documentation of</span>
+<span class="sd">        Variable and MergedVariable), thus two MergedVariables will have different</span>
+<span class="sd">        ids even if they represent the same combination of subdomains and variables.</span>
+<span class="sd">        This does not impact the parsing of the variables into numerical values.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            grid_var: Tuple containing first a (Mortar)grid representing the subdomain</span>
+<span class="sd">                or interface and second the name of the variable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pp.ad.MergedVariable: Joint representation of the variable on the specified</span>
+<span class="sd">                subdomains.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MergedVariable</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">g</span><span class="p">][</span><span class="n">v</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">grid_var</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="EquationManager.variable"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.variable">[docs]</a>    <span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_like</span><span class="p">:</span> <span class="n">GridLike</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get a variable for a specified grid or interface between grids, that is</span>
+<span class="sd">        a mortar grid.</span>
+
+<span class="sd">        Subsequent calls of this method with the same grid and variable will return</span>
+<span class="sd">        references to the same variable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pp.ad.Variable: Ad representation of a variable.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">grid_like</span><span class="p">][</span><span class="n">variable</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="EquationManager.variable_state"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.variable_state">[docs]</a>    <span class="k">def</span> <span class="nf">variable_state</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">grid_var</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="c1"># This should likely be placed somewhere else</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">grid_var</span><span class="p">:</span>
+            <span class="n">ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="o">.</span><span class="n">grid_and_variable_to_dofs</span><span class="p">(</span><span class="o">*</span><span class="n">item</span><span class="p">)</span>
+            <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="n">ind</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">values</span></div>
+
+<div class="viewcode-block" id="EquationManager.assemble"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.assemble">[docs]</a>    <span class="k">def</span> <span class="nf">assemble</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector with respect to the current</span>
+<span class="sd">        state represented in self.mdg.</span>
+
+<span class="sd">        Derivatives for secondary variables are not included in the Jacobian matrix.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            state (np.ndarray, optional): State vector to assemble from. If not provided,</span>
+<span class="sd">                the default behavior of pp.ad.Expression.to_ad() will be followed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.spmatrix: Jacobian matrix corresponding to the current variable state,</span>
+<span class="sd">                as found in self.mdg. The ordering of the equations is determined by</span>
+<span class="sd">                the ordering in self.equations (for rows) and self.dof_manager (for</span>
+<span class="sd">                columns).</span>
+<span class="sd">            np.ndarray: Residual vector corresponding to the current variable state,</span>
+<span class="sd">                as found in self.mdg. Scaled with -1 (moved to rhs).</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Data structures for building the Jacobian matrix and residual vector</span>
+        <span class="n">mat</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">rhs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Keep track of first row index for each equation/block</span>
+        <span class="n">ind_start</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Iterate over equations, assemble.</span>
+        <span class="k">for</span> <span class="n">eq</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">ad</span> <span class="o">=</span> <span class="n">eq</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+            <span class="c1"># Append matrix and rhs</span>
+            <span class="n">mat</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ad</span><span class="o">.</span><span class="n">jac</span><span class="p">)</span>
+            <span class="c1"># Multiply by -1 to move to the rhs</span>
+            <span class="n">rhs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="n">ad</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
+            <span class="n">ind_start</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind_start</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ad</span><span class="o">.</span><span class="n">val</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+
+        <span class="c1"># The system assembled in the for-loop above contains derivatives for both</span>
+        <span class="c1"># primary and secondary variables, where the primary is understood as the</span>
+        <span class="c1"># complement of the secondary ones. Columns relating to secondary variables</span>
+        <span class="c1"># should therefore be removed. Construct a projection matrix onto the set</span>
+        <span class="c1"># of primary variables and right multiply the Jacobian matrix.</span>
+
+        <span class="c1"># Define primary variables as the complement of the secondary ones</span>
+        <span class="c1"># This operation we do on atomic variables (not merged), or else there may</span>
+        <span class="c1"># be problems for</span>
+        <span class="n">primary_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variable_set_complement</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_variables_as_list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">secondary_variables</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">proj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_column_projection</span><span class="p">(</span><span class="n">primary_variables</span><span class="p">)</span>
+
+        <span class="c1"># Concatenate matrix and remove columns of secondary variables</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">([[</span><span class="n">m</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">mat</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csr&quot;</span><span class="p">)</span> <span class="o">*</span> <span class="n">proj</span>
+
+        <span class="c1"># The right hand side vector. This should have contributions form both primary</span>
+        <span class="c1"># and secondary variables, thus no need to modify it before concatenation.</span>
+        <span class="n">rhs_cat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">vec</span> <span class="k">for</span> <span class="n">vec</span> <span class="ow">in</span> <span class="n">rhs</span><span class="p">])</span>
+
+        <span class="c1"># Store information on start of each block</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">row_block_indices_last_assembled</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ind_start</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">rhs_cat</span></div>
+
+<div class="viewcode-block" id="EquationManager.assemble_subsystem"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.assemble_subsystem">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_subsystem</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">eq_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+            <span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">,</span> <span class="s2">&quot;pp.ad.MergedVariable&quot;</span><span class="p">]]</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector using a specified subset of</span>
+<span class="sd">        equations and variables.</span>
+
+<span class="sd">        The method is intended for use in splitting algorithms. Matrix blocks not</span>
+<span class="sd">        included will simply be ignored.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            eq_names (Sequence of str, optional): Equations to be assembled, specified</span>
+<span class="sd">                as keys in self.equations. If not provided (None), all equations known to</span>
+<span class="sd">                this EquationManager will be included.</span>
+<span class="sd">            variables (Sequence of Variables, optional): Variables to be assembled.</span>
+<span class="sd">                If not provided (None), all variables known to this EquationManager will be</span>
+<span class="sd">                included. If a secondary variable is specified, this will be included in</span>
+<span class="sd">                the returned system.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.spmatrix: Jacobian matrix corresponding to the current variable state,</span>
+<span class="sd">                as found in self.mdg, for the specified equations and variables.</span>
+<span class="sd">            np.ndarray: Residual vector corresponding to the current variable state,</span>
+<span class="sd">                as found in self.mdg, for the specified equations and variables.</span>
+<span class="sd">                Scaled with -1 (moved to rhs).</span>
+
+<span class="sd">            NOTE: The ordering of columns in the system are defined by the order of the</span>
+<span class="sd">                variables specified in DofManager. For the rows, no corresponding global</span>
+<span class="sd">                ordering of equations exists, and the rows will therefore be organized</span>
+<span class="sd">                by the ordering in the parameter eq_names.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables_as_list</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">eq_names</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">eq_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+        <span class="c1"># Data structures for building matrix and residual vector</span>
+        <span class="n">mat</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">rhs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Projection to the subset of active variables</span>
+        <span class="n">projection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_column_projection</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+
+        <span class="n">ind_start</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Iterate over equations, assemble.</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">eq_names</span><span class="p">:</span>
+            <span class="n">eq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">ad</span> <span class="o">=</span> <span class="n">eq</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="p">)</span>
+
+            <span class="c1"># ad contains derivatives with respect to all variables, while</span>
+            <span class="c1"># we need a subset. Project the columns to get the right size.</span>
+            <span class="n">mat</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ad</span><span class="o">.</span><span class="n">jac</span> <span class="o">*</span> <span class="n">projection</span><span class="p">)</span>
+
+            <span class="c1"># The residuals can be stored without reordering.</span>
+            <span class="c1"># Multiply by -1 to move to the rhs</span>
+            <span class="n">rhs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="n">ad</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
+
+            <span class="n">ind_start</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind_start</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ad</span><span class="o">.</span><span class="n">val</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+
+        <span class="c1"># Concatenate results.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">([[</span><span class="n">m</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">mat</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csr&quot;</span><span class="p">)</span>
+            <span class="n">rhs_cat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">vec</span> <span class="k">for</span> <span class="n">vec</span> <span class="ow">in</span> <span class="n">rhs</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Special case if the restriction produced an empty system.</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="n">rhs_cat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># Store information on start of each block</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">row_block_indices_last_assembled</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ind_start</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">rhs_cat</span></div>
+
+<div class="viewcode-block" id="EquationManager.assemble_schur_complement_system"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.assemble_schur_complement_system">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_schur_complement_system</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">primary_equations</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">primary_variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">,</span> <span class="s2">&quot;pp.ad.MergedVariable&quot;</span><span class="p">]],</span>
+        <span class="n">inverter</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector using a Schur complement</span>
+<span class="sd">        elimination of the variables and equations not to be included.</span>
+
+<span class="sd">        The specified equations and variables will define a reordering of the linearized</span>
+<span class="sd">        system into</span>
+
+<span class="sd">            [A_pp, A_ps  [x_p   = [b_p</span>
+<span class="sd">             A_sp, A_ss]  x_s]     b_s]</span>
+
+<span class="sd">        Where subscripts p and s define primary and secondary quantities. The Schur</span>
+<span class="sd">        complement system is then given by</span>
+
+<span class="sd">            (A_pp - A_ps * inv(A_ss) * A_sp) * x_p = b_p - A_ps * inv(A_pp) * b_s.</span>
+
+<span class="sd">        The Schur complement is well-defined only if the inverse of A_ss exists,</span>
+<span class="sd">        and the efficiency of the approach assumes that an efficient inverter for</span>
+<span class="sd">        A_ss can be found. The user must ensure both requirements are fulfilled.</span>
+<span class="sd">        The simplest option is a lambda function on the form:</span>
+
+<span class="sd">            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))</span>
+
+<span class="sd">        but depending on A (size and sparsity pattern), this can be costly in terms of</span>
+<span class="sd">        computational time and memory.</span>
+
+<span class="sd">        The method can be used e.g. for splitting between primary and secondary variables,</span>
+<span class="sd">        where the latter can be efficiently eliminated (for instance, they contain no</span>
+<span class="sd">        spatial derivatives).</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            primary_equations (Sequence of str): Equations to be assembled, specified</span>
+<span class="sd">                as keys in self.equations. Should have length &gt; 0.</span>
+<span class="sd">            primary_variables (Sequence of Variables): Variables to be assembled. Should have</span>
+<span class="sd">                length &gt; 0.</span>
+<span class="sd">            inverter (Callable): Method to compute the inverse of the matrix A_ss.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.spmatrix: Jacobian matrix corresponding to the current variable state,</span>
+<span class="sd">                as found in self.mdg, for the specified equations and variables.</span>
+<span class="sd">            np.ndarray: Residual vector corresponding to the current variable state,</span>
+<span class="sd">                as found in self.mdg, for the specified equations and variables.</span>
+<span class="sd">                Scaled with -1 (moved to rhs).</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">primary_equations</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must take Schur complement with at least one equation&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">primary_variables</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must take Schur complement with at least one variable&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Unravel any merged variables</span>
+        <span class="n">primary_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables_as_list</span><span class="p">(</span><span class="n">primary_variables</span><span class="p">)</span>
+
+        <span class="c1"># Get lists of all variables and equations, and find the secondary items</span>
+        <span class="c1"># by a set difference</span>
+        <span class="n">all_eq_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">all_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables_as_list</span><span class="p">()</span>
+
+        <span class="n">secondary_equations</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">all_eq_names</span><span class="p">)</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">primary_equations</span><span class="p">)))</span>
+        <span class="n">secondary_variables</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">all_variables</span><span class="p">)</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">primary_variables</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="c1"># First assemble the primary and secondary equations for all variables</span>
+        <span class="c1"># Note the reverse order here: Assemble the primary variables last so that</span>
+        <span class="c1"># the attribute row_block_indices_last_assembled is set correctly.</span>
+        <span class="n">A_s</span><span class="p">,</span> <span class="n">b_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_subsystem</span><span class="p">(</span><span class="n">secondary_equations</span><span class="p">,</span> <span class="n">all_variables</span><span class="p">)</span>
+        <span class="n">A_p</span><span class="p">,</span> <span class="n">b_p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_subsystem</span><span class="p">(</span><span class="n">primary_equations</span><span class="p">,</span> <span class="n">all_variables</span><span class="p">)</span>
+
+        <span class="c1"># Projection matrices to reduce matrices to the relevant columns</span>
+        <span class="n">proj_primary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_column_projection</span><span class="p">(</span><span class="n">primary_variables</span><span class="p">)</span>
+        <span class="n">proj_secondary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_column_projection</span><span class="p">(</span><span class="n">secondary_variables</span><span class="p">)</span>
+
+        <span class="c1"># Matrices involved in the Schur complements</span>
+        <span class="n">A_pp</span> <span class="o">=</span> <span class="n">A_p</span> <span class="o">*</span> <span class="n">proj_primary</span>
+        <span class="n">A_ps</span> <span class="o">=</span> <span class="n">A_p</span> <span class="o">*</span> <span class="n">proj_secondary</span>
+        <span class="n">A_sp</span> <span class="o">=</span> <span class="n">A_s</span> <span class="o">*</span> <span class="n">proj_primary</span>
+        <span class="n">A_ss</span> <span class="o">=</span> <span class="n">A_s</span> <span class="o">*</span> <span class="n">proj_secondary</span>
+
+        <span class="c1"># Explicitly compute the inverse.</span>
+        <span class="c1"># Depending on the matrix, and the inverter, this can take a long time.</span>
+        <span class="n">inv_A_ss</span> <span class="o">=</span> <span class="n">inverter</span><span class="p">(</span><span class="n">A_ss</span><span class="p">)</span>
+
+        <span class="n">S</span> <span class="o">=</span> <span class="n">A_pp</span> <span class="o">-</span> <span class="n">A_ps</span> <span class="o">*</span> <span class="n">inv_A_ss</span> <span class="o">*</span> <span class="n">A_sp</span>
+        <span class="n">bs</span> <span class="o">=</span> <span class="n">b_p</span> <span class="o">-</span> <span class="n">A_ps</span> <span class="o">*</span> <span class="n">inv_A_ss</span> <span class="o">*</span> <span class="n">b_s</span>
+
+        <span class="k">return</span> <span class="n">S</span><span class="p">,</span> <span class="n">bs</span></div>
+
+<div class="viewcode-block" id="EquationManager.subsystem_equation_manager"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.subsystem_equation_manager">[docs]</a>    <span class="k">def</span> <span class="nf">subsystem_equation_manager</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">eq_names</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">,</span> <span class="s2">&quot;pp.ad.MergedVariable&quot;</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;EquationManager&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Extract an EquationManager for a subset of variables and equations.</span>
+<span class="sd">        In effect, this produce a nonlinear subsystem.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            eq_names (Sequence of str): Equations assigned to the new EquationManager,</span>
+<span class="sd">                specified as keys in self.equations.</span>
+<span class="sd">            variables (Sequence of Variables): Variables for which the new EquationManager is</span>
+<span class="sd">                defined.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            EquationManager: System of nonlinear equations. The ordering of the</span>
+<span class="sd">                equations in the subsystem will be the same as in the original</span>
+<span class="sd">                EquationManager (i.e. self),  disregarding equations not included in the</span>
+<span class="sd">                subset. Variables that were excluded are added to the set of</span>
+<span class="sd">                secondary_variables in the new EquationManager.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">secondary_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variable_set_complement</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+
+        <span class="n">sub_eqs</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">eq_names</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">EquationManager</span><span class="p">(</span>
+            <span class="n">mdg</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="p">,</span>
+            <span class="n">equations</span><span class="o">=</span><span class="n">sub_eqs</span><span class="p">,</span>
+            <span class="n">dof_manager</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="p">,</span>
+            <span class="n">secondary_variables</span><span class="o">=</span><span class="n">secondary_variables</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="EquationManager.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Loop over all discretizations in self.equations, find all unique discretizations</span>
+<span class="sd">        and discretize.</span>
+
+<span class="sd">        This is more efficient than discretizing on the Operator level, since</span>
+<span class="sd">        discretizations which occur more than once in a set of equations will be</span>
+<span class="sd">        identified and only discretized once.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid from which parameters etc.</span>
+<span class="sd">                will be taken and where discretization matrices will be stored.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Somehow loop over all equations, discretize identified objects</span>
+        <span class="c1"># (but should also be able to do rediscretization based on</span>
+        <span class="c1"># dependency graph etc.).</span>
+
+        <span class="c1"># List of discretizations, build up by iterations over all equations</span>
+        <span class="n">discr</span><span class="p">:</span> <span class="n">List</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">eqn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="c1"># This will expand the list discr with new discretizations.</span>
+            <span class="c1"># The list may contain duplicates.</span>
+            <span class="n">discr</span> <span class="o">=</span> <span class="n">eqn</span><span class="o">.</span><span class="n">_identify_subtree_discretizations</span><span class="p">(</span><span class="n">discr</span><span class="p">)</span>
+
+        <span class="c1"># Uniquify to save computational time, then discretize.</span>
+        <span class="n">unique_discr</span> <span class="o">=</span> <span class="n">_ad_utils</span><span class="o">.</span><span class="n">uniquify_discretization_list</span><span class="p">(</span><span class="n">discr</span><span class="p">)</span>
+        <span class="n">_ad_utils</span><span class="o">.</span><span class="n">discretize_from_list</span><span class="p">(</span><span class="n">unique_discr</span><span class="p">,</span> <span class="n">mdg</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_column_projection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create a projection matrix from the full variable set to a subset.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            variables (Sequence of pp.ad.Variable): Variables to be preserved in the</span>
+<span class="sd">                projection. Should be atomic variables, *not* merged ones. The</span>
+<span class="sd">                projection will preserve the ordering of the included variables, as</span>
+<span class="sd">                defined in self.dof_manager.block_dof.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.spmatrix: Projection matrix to be right multiplied with a Jacobian matrix to</span>
+<span class="sd">                remove columns corresponding to variables not included.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">num_global_dofs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="o">.</span><span class="n">full_dof</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+        <span class="c1"># Array for the dofs associated with each grid-variable combination</span>
+        <span class="n">inds</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Loop over variables, find dofs</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">:</span>
+            <span class="n">inds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="o">.</span><span class="n">grid_and_variable_to_dofs</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">_name</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">inds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Special case if no indices were returned</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">num_global_dofs</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+        <span class="c1"># Create projection matrix. Uniquify indices here, both to sort (will preserve</span>
+        <span class="c1"># the ordering of the unknowns given by the DofManager) and remove duplicates</span>
+        <span class="c1"># (in case variables were specified more than once).</span>
+        <span class="n">local_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">inds</span><span class="p">]))</span>
+        <span class="n">num_local_dofs</span> <span class="o">=</span> <span class="n">local_dofs</span><span class="o">.</span><span class="n">size</span>
+
+        <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_local_dofs</span><span class="p">),</span> <span class="p">(</span><span class="n">local_dofs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_local_dofs</span><span class="p">))),</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_global_dofs</span><span class="p">,</span> <span class="n">num_local_dofs</span><span class="p">),</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_variable_set_complement</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+            <span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">,</span> <span class="s2">&quot;pp.ad.MergedVariable&quot;</span><span class="p">]]</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Take the complement of a set of variables, with respect to the full set of</span>
+<span class="sd">        variables. The variables are returned as atomic (merged variables are</span>
+<span class="sd">        unravelled as part of the process).</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            variables (Sequence of pp.ad.Variable or pp.ad.MergedVariable, optional):</span>
+<span class="sd">                Variables for which the complement should be taken. If not provided,</span>
+<span class="sd">                all variables known to this EquationManager will be added, thus an</span>
+<span class="sd">                empty list will be returned.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of pp.ad.Variable: Variables known to this EquationManager which were</span>
+<span class="sd">            not present in the input list.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Unravel any merged variable</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables_as_list</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+        <span class="c1"># Get list of all variables</span>
+        <span class="n">all_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables_as_list</span><span class="p">()</span>
+
+        <span class="c1"># Do the complement</span>
+        <span class="n">other_variables</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">all_variables</span><span class="p">)</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">variables</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">other_variables</span>
+
+    <span class="k">def</span> <span class="nf">_variables_as_list</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+            <span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">,</span> <span class="s2">&quot;pp.ad.MergedVariable&quot;</span><span class="p">]]</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;pp.ad.Variable&quot;</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Unravel a list of variables into atomic (non-merged) variables.</span>
+
+<span class="sd">        This is a bit cumbersome, since the variables are stored as a</span>
+<span class="sd">        mapping from individual GridLike to an innermapping between variable</span>
+<span class="sd">        names and actual variables. To top it off, this variable can be merged,</span>
+<span class="sd">        and we need the atomic variables.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            variables (Sequence of pp.ad.Variable or pp.ad.MergedVariable, optional):</span>
+<span class="sd">                Variables to be unravelled. If not provided, all variables known to this</span>
+<span class="sd">                EquationManager will be considered.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of pp.ad.Variable: Atomic form of all variables in the input list.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">variables</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># First get a list of all variables (single or merged)</span>
+            <span class="n">tmp_vars</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="c1"># Loop over GridType-variable Dict</span>
+            <span class="k">for</span> <span class="n">v_dict</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="c1"># loop over name-variable dict</span>
+                <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">v_dict</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="c1"># Append variable</span>
+                    <span class="n">tmp_vars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tmp_vars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+
+        <span class="c1"># List of all variables.</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Loop over all variables, add the variable itself, or its subvariables</span>
+        <span class="c1"># (if it is Merged)</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">tmp_vars</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MergedVariable</span><span class="p">,</span> <span class="n">operators</span><span class="o">.</span><span class="n">MergedVariable</span><span class="p">)):</span>
+                <span class="k">for</span> <span class="n">sv</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">:</span>
+                    <span class="n">var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sv</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">,</span> <span class="n">operators</span><span class="o">.</span><span class="n">Variable</span><span class="p">)):</span>
+                <span class="n">var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Encountered unknown type in variable list&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">var</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Equation manager for mixed-dimensional grid with &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">num_subdomains</span><span class="p">()</span><span class="si">}</span><span class="s2"> subdomains and </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">num_interfaces</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="s2">&quot; interfaces.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">var</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">sd</span><span class="p">]:</span>
+                <span class="n">var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">intf</span><span class="p">]:</span>
+                <span class="n">var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+        <span class="c1"># Sort variables alphabetically, not case-sensitive</span>
+        <span class="n">unique_vars</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">var</span><span class="p">)),</span> <span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="o">.</span><span class="n">casefold</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Variables present on at least one grid or interface:</span><span class="se">\n\t</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">unique_vars</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">eq_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">]</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;In total </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">)</span><span class="si">}</span><span class="s2"> equations, with names: </span><span class="se">\n\t</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">eq_names</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">secondary_variables</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;In total </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">secondary_variables</span><span class="p">)</span><span class="si">}</span><span class="s2"> secondary variables.&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Equation manager for mixed-dimensional grid with &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">num_subdomains</span><span class="p">()</span><span class="si">}</span><span class="s2"> subdomains and </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">num_interfaces</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="s2">&quot; interfaces.</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">var</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">sd</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">var</span><span class="p">:</span>
+                    <span class="n">var</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">var</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">intf</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">var</span><span class="p">:</span>
+                    <span class="n">var</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">var</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+
+        <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;There are in total </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">var</span><span class="p">)</span><span class="si">}</span><span class="s2"> variables, distributed as follows &quot;</span>
+            <span class="s2">&quot;(sorted alphabetically):</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Sort variables alphabetically, not case-sensitive</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="o">.</span><span class="n">casefold</span><span class="p">):</span>
+            <span class="n">grids</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> is present on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">grids</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot; subdomain(s)&quot;</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grids</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot; interface(s)&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">secondary_variables</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="c1"># Leave a hint that any merged secondary variables have been split into subparts</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;In total </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">secondary_variables</span><span class="p">)</span><span class="si">}</span><span class="s2"> secondary variables&quot;</span>
+                <span class="s2">&quot;(having split merged variables).</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;Listing secondary variables:</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="c1"># Make a list of</span>
+            <span class="n">sec_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="o">.</span><span class="n">_name</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">secondary_variables</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">Counter</span><span class="p">(</span><span class="n">sec_names</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> occurs on </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2"> subdomains or interfaces&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">eq_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">]</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;In total </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">)</span><span class="si">}</span><span class="s2"> equations, with names: </span><span class="se">\n\t</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">eq_names</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span>
+
+<div class="viewcode-block" id="EquationManager.name_and_assign_equations"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html#porepy.numerics.ad.EquationManager.name_and_assign_equations">[docs]</a>    <span class="k">def</span> <span class="nf">name_and_assign_equations</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">equation_dictionary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convenience method for assigning and naming equations.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            equation_dictionary (Dict): Dictionary containing name: equation pairs.</span>
+
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">eq</span> <span class="ow">in</span> <span class="n">equation_dictionary</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">eq</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">name</span><span class="p">:</span> <span class="n">eq</span><span class="p">})</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.time_step_control &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/time_step_control.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.time_step_control</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.time_step_control</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains a routine for iteration-based time-stepping control.</span>
+
+<span class="sd">The algorithm is heavily inspired by [1], which was later used in [2].</span>
+
+<span class="sd">[1] Simunek, J., Van Genuchten, M. T., &amp; Sejna, M. (2005). The HYDRUS-1D software package for</span>
+<span class="sd">    simulating the one-dimensional movement of water, heat, and multiple solutes in</span>
+<span class="sd">    variably-saturated media. University of California-Riverside Research Reports, 3, 1-240.</span>
+
+<span class="sd">[2] Varela, J., Gasda, S. E., Keilegavlen, E., &amp; Nordbotten, J. M. (2021). A</span>
+<span class="sd">    Finite-Volume-Based Module for Unsaturated Poroelasticity. Advanced Modeling with the</span>
+<span class="sd">    MATLAB Reservoir Simulation Toolbox.</span>
+
+<span class="sd">Algorithm Overview:</span>
+
+<span class="sd">    Provided `recompute_solution = False`, the algorithm will adapt the time step</span>
+<span class="sd">    based on `iterations`. If `iterations` is less than the lower endpoint of the</span>
+<span class="sd">    optimal iteration range, then it will increase the time step by a factor</span>
+<span class="sd">    `iter_relax_factors[1]`. If `iterations` is greater than the upper endpoint of the</span>
+<span class="sd">    optimal iteration range it will decrease the time step by a factor</span>
+<span class="sd">    `iter_relax_factors[0]`. Otherwise, `iterations` lies in the optimal iteration</span>
+<span class="sd">    range, and time step remains unchanged.</span>
+
+<span class="sd">    If `recompute_solution = True`, then the time step will be reduced by a factor</span>
+<span class="sd">    `recomp_factor` with the hope of achieving convergence in the next time level. The</span>
+<span class="sd">    algorithm will keep decreasing the time step unless: (1) the time step is equal to the</span>
+<span class="sd">    minimum admissible time step or (2) the number of recomputing attempts has been</span>
+<span class="sd">    exhausted. In both cases, an error will be raised.</span>
+
+<span class="sd">    Now that the algorithm has determined a new time step, it has to ensure three more</span>
+<span class="sd">    conditions, (1) the calculated time step cannot be smaller than dt_min,</span>
+<span class="sd">    (2) the calculated time step cannot be larger than dt_max, and (3) the</span>
+<span class="sd">    time step cannot be too large such that the next time will exceed a scheduled</span>
+<span class="sd">    time. These three conditions are implemented in this order of precedence and</span>
+<span class="sd">    will override any of the previous calculated time steps.</span>
+
+<span class="sd">Algorithm Workflow in Pseudocode:</span>
+
+<span class="sd">    INPUT</span>
+<span class="sd">        time_manager // time step control object properly initialized</span>
+<span class="sd">        iterations // number of non-linear iterations</span>
+<span class="sd">        recompute_solution // boolean flag</span>
+
+<span class="sd">    IF time &gt; final simulation time THEN</span>
+<span class="sd">        RETURN None</span>
+<span class="sd">    ENDIF</span>
+
+<span class="sd">    IF constant_dt is True THEN</span>
+<span class="sd">        RETURN dt_init</span>
+<span class="sd">    ENDIF</span>
+
+<span class="sd">    IF recompute_solution is False THEN</span>
+<span class="sd">        RESET counter that keeps track of number of recomputing attempts</span>
+<span class="sd">        IF iterations &lt; lower endpoint of optimal iteration range THEN</span>
+<span class="sd">            DECREASE dt // multiply by an over relaxation factor &gt; 1</span>
+<span class="sd">        IFELSE iterations &gt; upper endpoint of optimal iteration range THEN</span>
+<span class="sd">            INCREASE dt // multiply by an under relaxation factor &lt; 1</span>
+<span class="sd">        ELSE</span>
+<span class="sd">            PASS // dt remains unchanged</span>
+<span class="sd">        ENDIF</span>
+<span class="sd">    ELSE</span>
+<span class="sd">        IF number of recomputing attempts has not been exhausted THEN</span>
+<span class="sd">            IF dt is equal to dt_min THEN</span>
+<span class="sd">                RAISE Error // since recomputation will not have any effect</span>
+<span class="sd">            ENDIF</span>
+<span class="sd">            SUBTRACT dt from current time // we have to &quot;go back in time&quot;</span>
+<span class="sd">            DECREASE dt // multiply by recomputation factor &lt; 1</span>
+<span class="sd">            INCREASE counter that keeps track of number of recomputing attempts</span>
+<span class="sd">        ELSE</span>
+<span class="sd">            RAISE Error // maximum number of recomputing attempts has been exhausted</span>
+<span class="sd">        ENDIF</span>
+<span class="sd">    ENDIF</span>
+
+<span class="sd">    IF dt &lt; dt_min THEN</span>
+<span class="sd">        SET dt = dt_min</span>
+<span class="sd">    ENDIF</span>
+
+<span class="sd">    IF dt &gt; dt_max THEN</span>
+<span class="sd">        SET dt = dt_max</span>
+<span class="sd">    ENDIF</span>
+
+<span class="sd">    IF time + dt &gt; a scheduled time THEN</span>
+<span class="sd">        SET dt = scheduled time - time</span>
+<span class="sd">    ENDIF</span>
+
+<span class="sd">    RETURN dt</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;TimeManager&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="TimeManager"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager">[docs]</a><span class="k">class</span> <span class="nc">TimeManager</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Parent class for iteration-based time-stepping control routine.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        schedule: Array-like object containing the target times for the simulation.</span>
+<span class="sd">            Unless a constant time step is prescribed, the time-stepping algorithm will adapt</span>
+<span class="sd">            the time step so that the scheduled times are guaranteed to be hit.</span>
+
+<span class="sd">            The `schedule` must contain minimally two elements, corresponding to the</span>
+<span class="sd">            initial and final simulation times. Schedules of size &gt; 2 must contain strictly</span>
+<span class="sd">            increasing times. Examples of VALID inputs are: [0, 1], np.array([0, 10, 30, 50]),</span>
+<span class="sd">            and [0, 1*pp.HOUR, 3*pp.HOUR]. Examples of INVALID inputs are: [1], [1, 0],</span>
+<span class="sd">            and np.array([0, 1, 1, 2]).</span>
+
+<span class="sd">            If a constant time step is used (`constant_dt = True`), then the time step</span>
+<span class="sd">            (`dt_init`) is required to be compatible with the scheduled times in `schedule`.</span>
+<span class="sd">            Otherwise, an error will be raised. Examples of VALID inputs for `constant_dt =</span>
+<span class="sd">            True` and `dt_init = 2` are: [0, 2] and np.array([0, 4, 6, 10]). Examples of</span>
+<span class="sd">            INVALID inputs for `constant_dt = True` and `dt_init = 2` are [0, 3] and</span>
+<span class="sd">            np.array([0, 4, 5, 10]).</span>
+<span class="sd">        dt_init: Initial time step. The initial time step is required to be positive and</span>
+<span class="sd">            less or equal than the final simulation time.</span>
+<span class="sd">        constant_dt: Whether to treat the time step as constant or not.</span>
+<span class="sd">            If True, then the time-stepping control algorithm is effectively bypassed. The</span>
+<span class="sd">            algorithm will NOT adapt the time step in any situation, even if the user</span>
+<span class="sd">            attempts to recompute the solution. Nevertheless, the attributes such as</span>
+<span class="sd">            scheduled times will still be accessible, provided `dt_init` and `schedule` are</span>
+<span class="sd">            compatible.</span>
+<span class="sd">        dt_min_max: Minimum and maximum permissible time steps.</span>
+<span class="sd">            If None, then the minimum time step is set to 0.1% of the final simulation time</span>
+<span class="sd">            and the maximum time step is set to 10% of the final simulation time. If given,</span>
+<span class="sd">            then the first and second elements of the tuple corresponds to the minimum and</span>
+<span class="sd">            maximum time steps, respectively.</span>
+
+<span class="sd">            To avoid oscillations and ensure a stable time step adaptation in combination with</span>
+<span class="sd">            the relaxation factors, we further require:</span>
+<span class="sd">                dt_min_max[0] * iter_relax_factors[1] &lt; dt_min_max[1], and</span>
+<span class="sd">                dt_min_max[1] * iter_relax_factors[0] &gt; dt_min_max[0].</span>
+<span class="sd">            Note that in practical applications, these conditions are usually met.</span>
+<span class="sd">        iter_max: Maximum number of iterations.</span>
+<span class="sd">        iter_optimal_range: Optimal iteration range.</span>
+<span class="sd">            The first and second elements of the tuple correspond to the lower and upper</span>
+<span class="sd">            endpoints of the optimal iteration range.</span>
+<span class="sd">        iter_relax_factors: Relaxation factors.</span>
+<span class="sd">            The first and second elements of the tuple corresponds to the under-relaxation and</span>
+<span class="sd">            over-relaxation factors, respectively. We require the under-relaxation factor</span>
+<span class="sd">            to be strictly lower than one, whereas the over-relaxation factor is required to</span>
+<span class="sd">            be strictly greater than one. Note that the values of `iter_relax_factors` must be</span>
+<span class="sd">            selected such that they avoid oscillations in combination with `dt_min_max`. Refer</span>
+<span class="sd">            to the documentation of `dt_min_max` for the explicit condition to be satisfied.</span>
+<span class="sd">        recomp_factor: Failed-to-converge solution recomputation factor.</span>
+<span class="sd">            Factor by which the time step will be multiplied in case the solution must be</span>
+<span class="sd">            recomputed. We require `recomp_factor` to be strictly less than one.</span>
+<span class="sd">        recomp_max: Failed-to-converge maximum recomputation attempts. The maximum allowable</span>
+<span class="sd">            number of consecutive recomputation attempts.</span>
+<span class="sd">        print_info. Whether to print on-the-fly time-stepping information or not.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        # The following is an example on how to initialize a time-stepping object</span>
+<span class="sd">        time_manager = pp.TimeManager(</span>
+<span class="sd">            schedule=[0, 10],</span>
+<span class="sd">            dt_init=0.5,</span>
+<span class="sd">            dt_min_max=(0.1, 2),</span>
+<span class="sd">            iter_max=10,</span>
+<span class="sd">            iter_optimal_range=(3, 8),</span>
+<span class="sd">            iter_relax_factors=(0.9, 1.1),</span>
+<span class="sd">            recomp_factor=0.1,</span>
+<span class="sd">            recomp_max=5,</span>
+<span class="sd">            print_info=True</span>
+<span class="sd">        )</span>
+<span class="sd">        # To inspect the attributes of the object</span>
+<span class="sd">        print(time_manager)</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        dt (float): Time step.</span>
+<span class="sd">        dt_init (float): Initial time step.</span>
+<span class="sd">        dt_min_max (tuple[Union[int, float], Union[int, float]]): Min and max time steps.</span>
+<span class="sd">        is_constant (bool): Constant time step flag.</span>
+<span class="sd">        iter_max (int): Maximum number of iterations.</span>
+<span class="sd">        iter_optimal_range (tuple[int, int]): Optimal iteration range.</span>
+<span class="sd">        iter_relax_factors (tuple[float, float]): Relaxation factors.</span>
+<span class="sd">        recomp_factor (float): Recomputation factor. Strictly lower than one.</span>
+<span class="sd">        recomp_max (int): Maximum number of recomputation attempts.</span>
+<span class="sd">        schedule (ArrayLike): List of scheduled times including initial and final times.</span>
+<span class="sd">        time (float): Current time.</span>
+<span class="sd">        time_final (float): Final simulation time.</span>
+<span class="sd">        time_init (float): Initial simulation time.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">schedule</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
+        <span class="n">dt_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">constant_dt</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">dt_min_max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">iter_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span>
+        <span class="n">iter_optimal_range</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span>
+        <span class="n">iter_relax_factors</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.7</span><span class="p">,</span> <span class="mf">1.3</span><span class="p">),</span>
+        <span class="n">recomp_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">recomp_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="n">print_info</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="n">schedule</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">schedule</span><span class="p">)</span>
+        <span class="c1"># Sanity checks for schedule</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">schedule</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expected schedule with at least two elements.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">time</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">schedule</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Encountered at least one negative time in schedule.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_strictly_increasing</span><span class="p">(</span><span class="n">schedule</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Schedule must contain strictly increasing times.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Sanity checks for initial time step</span>
+        <span class="k">if</span> <span class="n">dt_init</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Initial time step must be positive.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">dt_init</span> <span class="o">&gt;</span> <span class="n">schedule</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Initial time step cannot be larger than final simulation time.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># If dt_min_max is not given, set dt_min=0.001*final_time and dt_max=0.1*final_time</span>
+        <span class="n">dt_min_max_passed</span> <span class="o">=</span> <span class="n">dt_min_max</span>  <span class="c1"># store for later use</span>
+        <span class="k">if</span> <span class="n">dt_min_max</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dt_min_max</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.001</span> <span class="o">*</span> <span class="n">schedule</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">schedule</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># More sanity checks below. Note that all the remaining sanity checks (but one) are</span>
+        <span class="c1"># only needed when constant_dt = False. Thus, to save time when constant_dt = True,</span>
+        <span class="c1"># we use this rather ugly if-statement from below.</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">constant_dt</span><span class="p">:</span>
+
+            <span class="c1"># Sanity checks for dt_min and dt_max</span>
+            <span class="n">msg_dtmin</span> <span class="o">=</span> <span class="s2">&quot;Initial time step cannot be smaller than minimum time step. &quot;</span>
+            <span class="n">msg_dtmax</span> <span class="o">=</span> <span class="s2">&quot;Initial time step cannot be larger than maximum time step. &quot;</span>
+            <span class="n">msg_unset</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;This error was raised since `dt_min_max` was not set on &quot;</span>
+                <span class="s2">&quot;initialization. Thus, values of dt_min and dt_max were assigned &quot;</span>
+                <span class="s2">&quot;based on the final simulation time. If you still want to use this &quot;</span>
+                <span class="s2">&quot;initial time step, consider passing `dt_min_max` explicitly.&quot;</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">dt_init</span> <span class="o">&lt;</span> <span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">dt_min_max_passed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg_dtmin</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg_dtmin</span> <span class="o">+</span> <span class="n">msg_unset</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">dt_init</span> <span class="o">&gt;</span> <span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">dt_min_max_passed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg_dtmax</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg_dtmax</span> <span class="o">+</span> <span class="n">msg_unset</span><span class="p">)</span>
+
+            <span class="c1"># NOTE: The above checks guarantee that minimum time step &lt;= maximum time step</span>
+
+            <span class="c1"># Sanity checks for maximum number of iterations.</span>
+            <span class="c1"># Note that iter_max = 1 is a possibility. This will imply that the solver</span>
+            <span class="c1"># reaches convergence directly, e.g., as in direct solvers.</span>
+            <span class="k">if</span> <span class="n">iter_max</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Maximum number of iterations must be positive.&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Sanity checks for optimal iteration range</span>
+            <span class="k">if</span> <span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Lower endpoint &#39;</span><span class="si">{</span><span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39; of optimal iteration range &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;cannot be larger than upper endpoint &#39;</span><span class="si">{</span><span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">iter_max</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Upper endpoint &#39;</span><span class="si">{</span><span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39; of optimal iteration range &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;cannot be larger than maximum number of iterations &#39;</span><span class="si">{</span><span class="n">iter_max</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Lower endpoint &#39;</span><span class="si">{</span><span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39; of optimal iteration range &quot;</span>
+                    <span class="s2">&quot;cannot be negative.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+            <span class="c1"># Sanity checks for relaxation factors</span>
+            <span class="k">if</span> <span class="n">iter_relax_factors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expected under-relaxation factor &lt; 1.&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">iter_relax_factors</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expected over-relaxation factor &gt; 1.&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Checks for sensible combinations of iter_optimal_range and iter_relax_factors</span>
+            <span class="n">msg_dtmin_over</span> <span class="o">=</span> <span class="s2">&quot;Encountered dt_min * over_relax_factor &gt; dt_max. &quot;</span>
+            <span class="n">msg_dtmax_under</span> <span class="o">=</span> <span class="s2">&quot;Encountered dt_max * under_relax_factor &lt; dt_min. &quot;</span>
+            <span class="n">msg_osc</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;The algorithm will behave erratically for such a combination of parameters. &quot;</span>
+                <span class="s2">&quot;See documentation of `dt_min_max` or `iter_relax_factors`.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">iter_relax_factors</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg_dtmin_over</span> <span class="o">+</span> <span class="n">msg_osc</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">iter_relax_factors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg_dtmax_under</span> <span class="o">+</span> <span class="n">msg_osc</span><span class="p">)</span>
+
+            <span class="c1"># Sanity check for recomputation factor</span>
+            <span class="k">if</span> <span class="n">recomp_factor</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expected recomputation factor &lt; 1.&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Sanity check for maximum number of recomputation attempts</span>
+            <span class="k">if</span> <span class="n">recomp_max</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Number of recomputation attempts must be &gt; 0.&quot;</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="c1"># If the time step is constant, check that the scheduled times and the time</span>
+            <span class="c1"># step are compatible. See documentation of ``schedule``.</span>
+            <span class="n">sim_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">schedule</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">schedule</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt_init</span><span class="p">,</span> <span class="n">dt_init</span><span class="p">)</span>
+            <span class="n">compat_rtol</span> <span class="o">=</span> <span class="mf">1e-05</span>
+            <span class="n">compat_atol</span> <span class="o">=</span> <span class="mf">1e-08</span>
+            <span class="n">is_compatible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_schedule_in_simulated_times</span><span class="p">(</span>
+                <span class="n">schedule</span><span class="p">,</span>
+                <span class="n">sim_times</span><span class="p">,</span>
+                <span class="n">rtol</span><span class="o">=</span><span class="n">compat_rtol</span><span class="p">,</span>
+                <span class="n">atol</span><span class="o">=</span><span class="n">compat_atol</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_compatible</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">&quot;Mismatch between the time step and scheduled time. Make sure the two are &quot;</span>
+                    <span class="s2">&quot;compatible, or consider adjusting the tolerances of the sanity check.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="c1"># Schedule, initial, and final times</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span> <span class="o">=</span> <span class="n">schedule</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_init</span> <span class="o">=</span> <span class="n">schedule</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_final</span> <span class="o">=</span> <span class="n">schedule</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Initial time step</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dt_init</span> <span class="o">=</span> <span class="n">dt_init</span>
+
+        <span class="c1"># Minimum and maximum allowable time steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span> <span class="o">=</span> <span class="n">dt_min_max</span>
+
+        <span class="c1"># Maximum number of iterations</span>
+        <span class="c1"># TODO: This is really a property of the nonlinear solver. A full integration will</span>
+        <span class="c1">#  most likely required &quot;pulling&quot; this parameter from the solver side.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iter_max</span> <span class="o">=</span> <span class="n">iter_max</span>
+
+        <span class="c1"># Optimal iteration range</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iter_optimal_range</span> <span class="o">=</span> <span class="n">iter_optimal_range</span>
+
+        <span class="c1"># Relaxation factors</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iter_relax_factors</span> <span class="o">=</span> <span class="n">iter_relax_factors</span>
+
+        <span class="c1"># Recomputation multiplication factor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recomp_factor</span> <span class="o">=</span> <span class="n">recomp_factor</span>
+
+        <span class="c1"># Number of permissible re-computation attempts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recomp_max</span> <span class="o">=</span> <span class="n">recomp_max</span>
+
+        <span class="c1"># Constant time step flag</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_constant</span> <span class="o">=</span> <span class="n">constant_dt</span>
+
+        <span class="c1"># Time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_init</span>
+
+        <span class="c1"># Time step. Initially, equal to the initial time step</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_init</span>
+
+        <span class="c1"># Time index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Private attributes</span>
+        <span class="c1"># Number of times the solution has been recomputed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Index of the next scheduled time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># Print information</span>
+        <span class="c1"># TODO: In the future, printing should be promoted to a logging strategy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">print_info</span>
+
+        <span class="c1"># Keep track of recomputed solutions and current number of iterations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_sol</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_iters</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Time-stepping control object with attributes:</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Initial and final simulation time = (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">time_init</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">time_final</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Initial time step = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt_init</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Minimum and maximum time steps = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Optimal iteration range = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">iter_optimal_range</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Relaxation factors = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">iter_relax_factors</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Recomputation factor = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">recomp_factor</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Maximum recomputation attempts = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">recomp_max</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Current time step and time are </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="si">}</span><span class="s2">.&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span>
+
+<div class="viewcode-block" id="TimeManager.compute_time_step"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.compute_time_step">[docs]</a>    <span class="k">def</span> <span class="nf">compute_time_step</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">iterations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">recompute_solution</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Determine next time step based on the previous number of iterations.</span>
+
+<span class="sd">        See also Algorithm Overview and Algorithm Workflow from the module documentation.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            iterations: Number of non-linear iterations. In time-dependent simulations,</span>
+<span class="sd">                this typically represents the number of iterations for a given time step.</span>
+<span class="sd">                A warning is raised if `iterations` is given when `recompute_solution = True`</span>
+<span class="sd">                or `constant_dt = True`.</span>
+<span class="sd">            recompute_solution: Whether the solution needs to be recomputed or not. If True,</span>
+<span class="sd">                then the time step is multiplied by `recomp_factor`. If False, then the time</span>
+<span class="sd">                step will be tuned accordingly.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Next time step if time &lt; final_time. None, otherwise.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># For bookkeeping reasons, save recomputation and iterations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_sol</span> <span class="o">=</span> <span class="n">recompute_solution</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_iters</span> <span class="o">=</span> <span class="n">iterations</span>
+
+        <span class="c1"># First, check if we reach final simulation time</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_final</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># If the time step is constant, always return that value</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_constant</span><span class="p">:</span>
+            <span class="c1"># Some sanity checks</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;iterations &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_iters</span><span class="si">}</span><span class="s2">&#39; has no effect if time step is constant.&quot;</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_sol</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;recompute_solution=True has no effect if time step is constant.&quot;</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_init</span>
+
+        <span class="c1"># Adapt time step</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_sol</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_adaptation_based_on_iterations</span><span class="p">(</span><span class="n">iterations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_iters</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_adaptation_based_on_recomputation</span><span class="p">()</span>
+
+        <span class="c1"># Correct time step</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_correction_based_on_dt_min</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_correction_based_on_dt_max</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_correction_based_on_schedule</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span></div>
+
+<div class="viewcode-block" id="TimeManager.increase_time"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.increase_time">[docs]</a>    <span class="k">def</span> <span class="nf">increase_time</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Increase simulation time by the current time step.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span></div>
+
+<div class="viewcode-block" id="TimeManager.increase_time_index"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.increase_time_index">[docs]</a>    <span class="k">def</span> <span class="nf">increase_time_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Increase time index counter by one.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_index</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+    <span class="k">def</span> <span class="nf">_adaptation_based_on_iterations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iterations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Provided convergence, adapt time step based on the number of iterations.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            iterations: Number of non-linear iterations needed to achieve convergence.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError if `iterations` is None.</span>
+<span class="sd">            Warning if `iterations` &gt; `max_iter`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Sanity check: Make sure iterations is given</span>
+        <span class="k">if</span> <span class="n">iterations</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Time step cannot be adapted without &#39;iterations&#39;.&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="c1"># Sanity check: Make sure the given number of iterations is less or equal than the</span>
+        <span class="c1"># maximum number of iterations</span>
+        <span class="k">if</span> <span class="n">iterations</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_max</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The given number of iterations &#39;</span><span class="si">{</span><span class="n">iterations</span><span class="si">}</span><span class="s2">&#39; is larger than the maximum &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;number of iterations &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">iter_max</span><span class="si">}</span><span class="s2">&#39;. This usually means that the solver &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;did not converge, but since recompute_solution = False was given, the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;algorithm will adapt the time step anyways.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="c1"># Make sure to reset the recomputation counter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_num</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Proceed to determine the next time step using the following criteria:</span>
+        <span class="c1">#     (C1) If the number of iterations is less than the lower endpoint of the optimal</span>
+        <span class="c1">#     iteration range `iter_low`, we can relax the time step by multiplying it by an</span>
+        <span class="c1">#     over-relaxation factor greater than 1, i.e., `over_relax_factor`.</span>
+        <span class="c1">#     (C2) If the number of iterations is greater than the upper endpoint of the</span>
+        <span class="c1">#     optimal iteration range `iter_upp`, we have to decrease the time step by</span>
+        <span class="c1">#     multiplying it by an under-relaxation factor smaller than 1, i.e.,</span>
+        <span class="c1">#     `under_relax_factor`.</span>
+        <span class="c1">#     (C3) If neither of these situations occur, then the number iterations lies</span>
+        <span class="c1">#     in the optimal iteration range, and the time step remains unchanged.</span>
+        <span class="k">if</span> <span class="n">iterations</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>  <span class="c1"># (C1)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_relax_factors</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Relaxing time step. Next dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">iterations</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_optimal_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>  <span class="c1"># (C2)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_relax_factors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Restricting time step. Next dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">pass</span>  <span class="c1"># (C3)</span>
+
+    <span class="k">def</span> <span class="nf">_adaptation_based_on_recomputation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Adapt (decrease) time step when `recompute_solution` = True.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError if dt = dt_min, since any recomputation attempt will be pointless.</span>
+<span class="sd">            ValueError if recomp_attempts &gt; max_recomp_attempts.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_num</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">recomp_max</span><span class="p">:</span>
+
+            <span class="c1"># If dt = dt_min, adaptation based on recomputation won&#39;t have any effect</span>
+            <span class="c1"># in the next iteration (any decrease in time step will be corrected to dt_min</span>
+            <span class="c1"># by self.correction_based_on_dt_min() in a subsequent correction step). Thus,</span>
+            <span class="c1"># to avoid pointless iterations, we raise an error.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">&quot;Recomputation will not have any effect since the time step achieved its&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;minimum admissible value -&gt; dt = dt_min = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+            <span class="c1"># Raise a warning if iterations is not None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Number of iterations has no effect in recomputation.&quot;</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+            <span class="c1"># If the solution did not converge AND we are allowed to recompute it, then:</span>
+            <span class="c1">#   (S1) Update simulation time since solution will be recomputed.</span>
+            <span class="c1">#   (S2) Update time index since solution will be recomputed.</span>
+            <span class="c1">#   (S3) Decrease time step multiplying it by the recomputing factor &lt; 1.</span>
+            <span class="c1">#   (S4) Increase counter that keeps track of the number of times the solution</span>
+            <span class="c1">#        was recomputed.</span>
+
+            <span class="c1"># Note that iterations is not really used here. So, as long as</span>
+            <span class="c1"># recompute_solution = True and recomputation_attempts &lt; max_recomp_attempts,</span>
+            <span class="c1"># the method is entirely agnostic to the number of iterations passed. This</span>
+            <span class="c1"># design choice was made to give more flexibility, in the sense that we are</span>
+            <span class="c1"># not limiting the recomputation criteria to _only_ reaching the maximum</span>
+            <span class="c1"># number of iterations, even though that is the primary intended usage.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>  <span class="c1"># (S1)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time_index</span> <span class="o">-=</span> <span class="mi">1</span>  <span class="c1"># (S2)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">recomp_factor</span>  <span class="c1"># (S3)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_num</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># (S4)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">&quot;Solution did not converge and will be recomputed.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; Recomputing attempt #</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_recomp_num</span><span class="si">}</span><span class="s2">. Next dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># The solution did not converge AND recomputation attempts have been exhausted</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Solution did not converge after </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">recomp_max</span><span class="si">}</span><span class="s2"> recomputing &quot;</span>
+                <span class="s2">&quot;attempts.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_correction_based_on_dt_min</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Correct time step if dt &lt; dt_min.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Calculated dt &lt; dt_min. Using dt_min = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_correction_based_on_dt_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Correct time step if dt &gt; dt_max.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Calculated dt &gt; dt_max. Using dt_max = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_correction_based_on_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Correct time step if time + dt &gt; scheduled_time.&quot;&quot;&quot;</span>
+        <span class="n">schedule_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">schedule_time</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="n">schedule_time</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>  <span class="c1"># correct  time step</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schedule</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_idx</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># increase index to catch next scheduled time</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Correcting time step to match scheduled time. Next dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Correcting time step to match final time. Final dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="p">)</span>
+
+    <span class="c1"># Helpers</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_is_strictly_increasing</span><span class="p">(</span><span class="n">check_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Checks if a list is strictly increasing.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            check_array: Array to be tested.</span>
+
+<span class="sd">        Returns: True or False.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">check_array</span><span class="p">,</span> <span class="n">check_array</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+
+<div class="viewcode-block" id="TimeManager.is_schedule_in_simulated_times"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.is_schedule_in_simulated_times">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">is_schedule_in_simulated_times</span><span class="p">(</span>
+        <span class="n">schedule</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">sim_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-05</span><span class="p">,</span>
+        <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-08</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Checks if ``schedule`` is a proper subset of ``sim_times`` for given tolerances</span>
+
+<span class="sd">        Reference: https://github.com/numpy/numpy/issues/7784#issuecomment-848036186</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            schedule: First array.</span>
+<span class="sd">            sim_times: Second array.</span>
+<span class="sd">            rtol: Relative tolerance.</span>
+<span class="sd">            atol: Absolute tolerance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if all times in ``schedule`` intersect the elements of ``sim_times`` with</span>
+<span class="sd">            relative tolerance ``rtol`` and absolute tolerance ``atol`. False otherwise.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ss</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">schedule</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">sim_times</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+        <span class="n">in1d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">schedule</span><span class="p">[</span><span class="n">ss</span><span class="p">],</span> <span class="n">sim_times</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span>
+            <span class="n">schedule</span><span class="p">[</span><span class="n">ss</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sim_times</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">schedule</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">in1d</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.fracture_deformation.propagate_fracture &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fracture_deformation/propagate_fracture.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.fracture_deformation.propagate_fracture</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.fracture_deformation.propagate_fracture</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Propagation of fractures. Much in common with (and reuse of) split_grid.</span>
+<span class="sd">For now assumes:</span>
+<span class="sd">    single fracture</span>
+<span class="sd">When this assumption is relieved, some (re)structuring will be needed.</span>
+<span class="sd">The structure for multi-fracture propagation may possibly strongly resemble</span>
+<span class="sd">that of split_grid.</span>
+
+<span class="sd">WARNING: This should be considered experimental code, which cannot be assumed</span>
+<span class="sd">to be bug free.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">from</span> <span class="nn">porepy.grids</span> <span class="kn">import</span> <span class="n">mortar_grid</span>
+
+
+<div class="viewcode-block" id="propagate_fractures"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html#porepy.numerics.fracture_deformation.propagate_fracture.propagate_fractures">[docs]</a><span class="k">def</span> <span class="nf">propagate_fractures</span><span class="p">(</span>
+    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span> <span class="n">faces</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    mdg - Mixed-dimensional grid with matrix and fracture grids.</span>
+<span class="sd">    faces_h - list of list of faces to be split in the highest-dimensional</span>
+<span class="sd">        grid. The length of the outer list equals the number of fractures.</span>
+<span class="sd">        Each entry in the list is a list containing the higher-dimensional</span>
+<span class="sd">        indices of the faces to be split for the extension of the corresponding</span>
+<span class="sd">        fracture.</span>
+<span class="sd">    Changes to grids done in-place.</span>
+<span class="sd">    The call changes:</span>
+<span class="sd">        Geometry and connectivity fields of the two grids involved.</span>
+<span class="sd">        The face_cells mapping between them</span>
+<span class="sd">        Their respective face tags.</span>
+<span class="sd">    Also adds the following to subdomain data dictionaries:</span>
+<span class="sd">        new_cells and new_faces tags, for use in e.g. local discretization</span>
+<span class="sd">        updates.</span>
+<span class="sd">        partial_update, a boolean flag indicating that the grids have been</span>
+<span class="sd">        updated.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">dim_primary</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_primary</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">n_old_faces_h</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span>
+
+    <span class="c1"># First initialise certain tags to get rid of any existing tags from</span>
+    <span class="c1"># previous calls</span>
+    <span class="n">data_primary</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">)</span>
+    <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;new_cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;new_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;split_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="c1"># Data structure for keeping track of faces in sd_primary to be split</span>
+    <span class="n">split_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="c1"># By default, we will not update the higher-dimensional grid. This will be</span>
+    <span class="c1"># changed in the below for loop if the grid gets faces split.</span>
+    <span class="c1"># This variable can be used e.g. to check if a rediscretization is necessary on</span>
+    <span class="c1"># the higher-dimensional grid</span>
+    <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;partial_update&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># Initialize mapping between old and new faces for sd_primary. We will store the updates</span>
+    <span class="c1"># from splitting related to each lower-dimensional grid, and then merge towards the</span>
+    <span class="c1"># end; the split data may be handy for debugging</span>
+    <span class="n">face_map_h</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">sps</span><span class="o">.</span><span class="n">dia_matrix</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="c1"># The propagation is divided into two main steps:</span>
+    <span class="c1"># First, update the geometry of the fracture grids, and, simultaneously, the higher</span>
+    <span class="c1"># dimensional grid (the former will be updated once, the latter may undergo several</span>
+    <span class="c1"># update steps, depending on how many fractures propagate).</span>
+    <span class="c1"># Second, update the mortar grids. This is done after all fractures have been</span>
+    <span class="c1"># propagated.</span>
+
+    <span class="k">for</span> <span class="n">sd_secondary</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_primary</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+
+        <span class="c1"># The propagation of a fracture consists of the following major steps:</span>
+        <span class="c1">#   1. Find which faces in sd_primary should be split for this sd_secondary.</span>
+        <span class="c1">#   2. Add nodes to sd_secondary where the fracture will propagate.</span>
+        <span class="c1">#   3. Update face-node and cell-face relation in sd_secondary.</span>
+        <span class="c1">#   4. Update face geometry of sd_secondary.</span>
+        <span class="c1">#   5. Update cell geometry of sd_secondary.</span>
+        <span class="c1">#   6. Split the faces in sd_primary to make room for the new fracture.</span>
+        <span class="c1">#   7. Update geometry in sd_secondary and sd_primary.</span>
+        <span class="c1">#</span>
+        <span class="c1"># IMPLEMENTATION NOTE: While point 7 replaces information from 4 and 5, the</span>
+        <span class="c1"># provisional fields may still be needed in point 6.</span>
+
+        <span class="c1"># Initialize data on new faces and cells</span>
+        <span class="n">data_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">)</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;new_cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;new_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="c1"># Step 1:</span>
+        <span class="c1"># Uniquify the faces to be split. Among others, this avoids trouble when</span>
+        <span class="c1"># a face is requested split twice, from two neighboring faces</span>
+        <span class="n">faces_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">faces</span><span class="p">[</span><span class="n">sd_secondary</span><span class="p">])))</span>
+        <span class="n">split_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">split_faces</span><span class="p">,</span> <span class="n">faces_h</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">faces_h</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># If there is no propagation for this fracture, we continue</span>
+            <span class="c1"># No need to update discretization of this grid</span>
+            <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;partial_update&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="c1"># Variable mappings are unit mappings</span>
+            <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;face_index_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
+            <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;cell_index_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+
+            <span class="c1"># Identity mapping of faces in this step</span>
+            <span class="n">face_map_h</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sps</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">))</span>
+
+            <span class="c1"># Move on to the next fracture</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Keep track of original information:</span>
+        <span class="n">n_old_faces_l</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span>
+        <span class="n">n_old_cells_l</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span>
+        <span class="n">n_old_nodes_l</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_nodes</span>
+        <span class="n">n_old_nodes_h</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">num_nodes</span>
+
+        <span class="c1"># It is convenient to tag the nodes lying on the domain boundary. This</span>
+        <span class="c1"># helps updating the face tags later:</span>
+        <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">add_node_tags_from_face_tags</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="s2">&quot;domain_boundary&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Step 2:</span>
+        <span class="c1"># Get the &quot;involved nodes&quot;, i.e., the union between the new nodes in</span>
+        <span class="c1"># the lower dimension and the boundary nodes where the fracture</span>
+        <span class="c1"># propagates. The former are added to the nodes in sd_secondary - specifically,</span>
+        <span class="c1"># both node coordinates and global_point_ind of sd_secondary are amended.</span>
+        <span class="p">(</span>
+            <span class="n">unique_node_indata_secondary</span><span class="p">,</span>
+            <span class="n">unique_node_indata_primary</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">_update_nodes_fracture_grid</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">faces_h</span><span class="p">)</span>
+
+        <span class="c1"># Step 3:</span>
+        <span class="c1"># Update the connectivity matrices (cell_faces and face_nodes) and tag</span>
+        <span class="c1"># the lower-dimensional faces, including re-classification of (former)</span>
+        <span class="c1"># tips to internal faces, where appropriate.</span>
+        <span class="n">n_new_faces</span><span class="p">,</span> <span class="n">new_face_centers</span> <span class="o">=</span> <span class="n">_update_connectivity_fracture_grid</span><span class="p">(</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">unique_node_indata_secondary</span><span class="p">,</span>
+            <span class="n">unique_node_indata_primary</span><span class="p">,</span>
+            <span class="n">n_old_nodes_l</span><span class="p">,</span>
+            <span class="n">n_old_faces_l</span><span class="p">,</span>
+            <span class="n">n_old_cells_l</span><span class="p">,</span>
+            <span class="n">faces_h</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Step 4: Update fracture grid face geometry</span>
+        <span class="c1"># Note: This simply expands arrays with face geometry, but it does not</span>
+        <span class="c1"># compute reasonable values for the geometry</span>
+        <span class="n">_append_face_geometry_fracture_grid</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">,</span> <span class="n">n_new_faces</span><span class="p">,</span> <span class="n">new_face_centers</span><span class="p">)</span>
+
+        <span class="c1"># Step 5: Update fracture grid cell geometry</span>
+        <span class="c1"># Same for cells. Here the geometry quantities are copied from the</span>
+        <span class="c1"># face values of sd_primary, thus values should be reasonable.</span>
+        <span class="n">new_cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">_update_cells_fracture_grid</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">faces_h</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Step 6: Split sd_primary along faces_h</span>
+        <span class="n">_split_fracture_extension</span><span class="p">(</span>
+            <span class="n">mdg</span><span class="p">,</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">faces_h</span><span class="p">,</span>
+            <span class="n">unique_node_indata_primary</span><span class="p">,</span>
+            <span class="n">new_cells</span><span class="p">,</span>
+            <span class="n">non_planar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Store information on which faces and cells have just been added.</span>
+        <span class="c1"># Note that we only keep track of the faces and cells from the last</span>
+        <span class="c1"># propagation call!</span>
+        <span class="n">new_faces_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+            <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">-</span> <span class="n">n_new_faces</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span>
+        <span class="p">)</span>
+        <span class="n">new_faces_h</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">frac_pairs</span><span class="p">[</span>
+            <span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">frac_pairs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">faces_h</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Sanity check on the grid; most likely something will have gone wrong</span>
+        <span class="c1"># long before if there is a problem.</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">new_faces_h</span> <span class="o">&gt;=</span> <span class="n">n_old_faces_h</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">new_cells</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">n_old_cells_l</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;New cells are assumed to be appended to cell array&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">new_faces_l</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">n_old_faces_l</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;New faces are assumed to be appended to face array&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Update the geometry</span>
+        <span class="n">_update_geometry</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">new_cells</span><span class="p">,</span> <span class="n">n_old_cells_l</span><span class="p">,</span> <span class="n">n_old_faces_l</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Finally, some bookkeeping that can become useful in a larger-scale simulation.</span>
+
+        <span class="c1"># Mark both grids for a partial update</span>
+        <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;partial_update&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;partial_update&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># Append arrays of new faces (sd_secondary, sd_primary) and cells (sd_secondary)</span>
+        <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;new_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;new_faces&quot;</span><span class="p">],</span> <span class="n">new_faces_h</span><span class="p">)</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;new_cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;new_cells&quot;</span><span class="p">],</span> <span class="n">new_cells</span><span class="p">)</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;new_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;new_faces&quot;</span><span class="p">],</span> <span class="n">new_faces_l</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Create mappings between the old and new faces and cells in sd_secondary</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_old_faces_l</span><span class="p">)</span>
+        <span class="n">face_map_l</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_old_faces_l</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">arr</span><span class="p">)),</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">n_old_faces_l</span><span class="p">),</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_old_cells_l</span><span class="p">)</span>
+        <span class="n">cell_map_l</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_old_cells_l</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">arr</span><span class="p">)),</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">n_old_cells_l</span><span class="p">),</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+
+        <span class="c1"># These can be stored directly - there should be no more changes for sd_secondary</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;face_index_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">face_map_l</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;cell_index_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_map_l</span>
+
+        <span class="c1"># For sd_primary we construct the map of faces for the splitting of this sd_secondary</span>
+        <span class="c1"># and append it to the list of face_maps</span>
+
+        <span class="c1"># The size of the next map should be compatible with the number of faces in</span>
+        <span class="c1"># the previous map.</span>
+        <span class="n">nfh</span> <span class="o">=</span> <span class="n">face_map_h</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nfh</span><span class="p">)</span>
+        <span class="n">face_map_h</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nfh</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">arr</span><span class="p">)),</span>
+                <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">nfh</span><span class="p">),</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Append default tags for the new nodes. Both high and low-dimensional grid</span>
+        <span class="n">_append_node_tags</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">-</span> <span class="n">n_old_nodes_l</span><span class="p">)</span>
+        <span class="n">_append_node_tags</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">-</span> <span class="n">n_old_nodes_h</span><span class="p">)</span>
+
+    <span class="c1"># The standard node tags are updated from the face tags, which are updated on the</span>
+    <span class="c1"># fly in the above loop.</span>
+    <span class="n">node_tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;domain_boundary&quot;</span><span class="p">,</span> <span class="s2">&quot;tip&quot;</span><span class="p">,</span> <span class="s2">&quot;fracture&quot;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">node_tags</span><span class="p">:</span>
+        <span class="c1"># The node tag is set to true if at least one neighboring face is tagged</span>
+        <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">add_node_tags_from_face_tags</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
+    <span class="c1"># Done with all splitting.</span>
+
+    <span class="c1"># Compose the mapping of faces for sd_secondary</span>
+    <span class="n">fm</span> <span class="o">=</span> <span class="n">face_map_h</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">face_map_h</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="n">fm</span> <span class="o">=</span> <span class="n">m</span> <span class="o">*</span> <span class="n">fm</span>
+    <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;face_index_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fm</span>
+    <span class="c1"># Also make a cell-map, this is a 1-1 mapping in this case</span>
+    <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;cell_index_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+
+    <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;split_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">split_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="c1">##</span>
+    <span class="c1"># Second main step of propagation: Update mortar grid.</span>
+
+    <span class="c1"># When all faces have been split, we can update the mortar grids</span>
+    <span class="k">for</span> <span class="n">intf_old</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_to_interfaces</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">):</span>
+
+        <span class="n">data_edge</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">intf_old</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">sd_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_to_subdomain_pair</span><span class="p">(</span><span class="n">intf_old</span><span class="p">)</span>
+        <span class="n">data_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">)</span>
+        <span class="n">intf_old</span> <span class="o">=</span> <span class="n">_update_mortar_grid</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">intf_old</span><span class="p">,</span>
+            <span class="n">data_edge</span><span class="p">,</span>
+            <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;new_cells&quot;</span><span class="p">],</span>
+            <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;new_faces&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Get hold of the new interface data dictionary, in case something happened with</span>
+        <span class="c1"># the mapping when replacing the interface.</span>
+        <span class="n">data_edge</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">intf_old</span><span class="p">)</span>
+
+        <span class="c1"># Mapping of cell indices on the mortar grid is composed by the corresponding</span>
+        <span class="c1"># map for sd_secondary.</span>
+        <span class="n">cell_map</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">sps</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;cell_index_map&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+        <span class="n">data_edge</span><span class="p">[</span><span class="s2">&quot;cell_index_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_map</span>
+
+        <span class="c1"># Also update projection operators</span>
+        <span class="n">pp</span><span class="o">.</span><span class="n">contact_conditions</span><span class="o">.</span><span class="n">set_projections</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="p">[</span><span class="n">intf_old</span><span class="p">])</span></div>
+
+
+<span class="k">def</span> <span class="nf">_update_mortar_grid</span><span class="p">(</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+    <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+    <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+    <span class="n">d_e</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">new_cells</span><span class="p">,</span>
+    <span class="n">new_faces_h</span><span class="p">,</span>
+<span class="p">):</span>
+
+    <span class="c1"># Face-cell map. This has been updated during splitting, thus it has</span>
+    <span class="c1"># the shapes of the new grids</span>
+    <span class="n">face_cells</span> <span class="o">=</span> <span class="n">d_e</span><span class="p">[</span><span class="s2">&quot;face_cells&quot;</span><span class="p">]</span>
+
+    <span class="n">cells</span><span class="p">,</span> <span class="n">faces</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">face_cells</span><span class="p">)</span>
+
+    <span class="c1"># If this is ever broken, we have a problem</span>
+    <span class="n">other_side_old</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">_ind_face_on_other_side</span>
+
+    <span class="n">other_side_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">other_side_old</span><span class="p">)</span>
+
+    <span class="c1"># Make sure that the + and - side of the new mortar cells is</span>
+    <span class="c1"># coherent with those already in place. This may not be strictly</span>
+    <span class="c1"># necessary, as the normal vectors of the grid will be adjusted</span>
+    <span class="c1"># locally to the +- convention, however, it will ease the interpretation</span>
+    <span class="c1"># of results, including debugging.</span>
+
+    <span class="c1">#</span>
+    <span class="k">for</span> <span class="n">ci</span> <span class="ow">in</span> <span class="n">new_cells</span><span class="p">:</span>
+        <span class="c1"># Find the occurrences of this new cell in the face-cell map.</span>
+        <span class="c1"># There should be exactly two of these.</span>
+        <span class="n">hit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ci</span> <span class="o">==</span> <span class="n">cells</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">hit</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="c1"># Find the faces in the higher-dimensional grid that correspond</span>
+        <span class="c1"># to this new cell</span>
+        <span class="n">loc_faces</span> <span class="o">=</span> <span class="n">faces</span><span class="p">[</span><span class="n">hit</span><span class="p">]</span>
+
+        <span class="c1"># The new faces will be on each side of the fracture, and</span>
+        <span class="c1"># there will be at least one node not shared by the faces.</span>
+        <span class="c1"># We need to pick one of the faces, and find its neighboring</span>
+        <span class="c1"># faces along the fracture, on the same side of the fracture.</span>
+        <span class="c1"># The sign of the new face (in the mortar grid) will be the</span>
+        <span class="c1"># same as the old one</span>
+
+        <span class="c1"># We need to focus on split nodes, or else we risk finding neighboring</span>
+        <span class="c1"># faces on both sides of the fracture.</span>
+        <span class="c1"># Nodes of both local faces</span>
+        <span class="n">local_nodes_0</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:,</span> <span class="n">loc_faces</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">indices</span>
+        <span class="n">local_nodes_1</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:,</span> <span class="n">loc_faces</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">indices</span>
+
+        <span class="c1"># Nodes that belong only to the first local face</span>
+        <span class="n">local_nodes_0_only</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">local_nodes_0</span><span class="p">,</span> <span class="n">local_nodes_1</span><span class="p">)</span>
+
+        <span class="c1"># Get the other faces of these nodes. These will include both faces</span>
+        <span class="c1"># on the fracture, and faces internal to sd_primary</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">other_faces</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[</span><span class="n">local_nodes_0_only</span><span class="p">])</span>
+
+        <span class="c1"># Pick those of the other faces that were not added during splitting</span>
+        <span class="n">old_other_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">other_faces</span><span class="p">,</span> <span class="n">new_faces_h</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">old_other_faces</span><span class="p">,</span> <span class="n">other_side_old</span><span class="p">)):</span>
+            <span class="n">other_side_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">other_side_new</span><span class="p">,</span> <span class="n">loc_faces</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">other_side_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">other_side_new</span><span class="p">,</span> <span class="n">loc_faces</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># The new mortar grid is constructed to be matching with sd_secondary.</span>
+    <span class="c1"># If splitting is undertaken for a non-matching grid, all bets are off.</span>
+    <span class="n">side_grids</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">mortar_grid</span><span class="o">.</span><span class="n">MortarSides</span><span class="o">.</span><span class="n">LEFT_SIDE</span><span class="p">:</span> <span class="n">sd_secondary</span><span class="p">,</span>
+        <span class="n">mortar_grid</span><span class="o">.</span><span class="n">MortarSides</span><span class="o">.</span><span class="n">RIGHT_SIDE</span><span class="p">:</span> <span class="n">sd_secondary</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">mg_new</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">(</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
+        <span class="n">side_grids</span><span class="p">,</span>
+        <span class="n">d_e</span><span class="p">[</span><span class="s2">&quot;face_cells&quot;</span><span class="p">],</span>
+        <span class="n">face_duplicate_ind</span><span class="o">=</span><span class="n">other_side_new</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># Update old grid with values from the new one. This is similar to redoing initialization.</span>
+    <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;side_grids&quot;</span><span class="p">,</span> <span class="s2">&quot;sides&quot;</span><span class="p">,</span> <span class="s2">&quot;num_cells&quot;</span><span class="p">,</span> <span class="s2">&quot;cell_volumes&quot;</span><span class="p">,</span> <span class="s2">&quot;cell_centers&quot;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">intf</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">mg_new</span><span class="p">,</span> <span class="n">field</span><span class="p">))</span>
+    <span class="n">intf</span><span class="o">.</span><span class="n">_init_projections</span><span class="p">(</span><span class="n">d_e</span><span class="p">[</span><span class="s2">&quot;face_cells&quot;</span><span class="p">],</span> <span class="n">other_side_new</span><span class="p">)</span>
+    <span class="n">intf</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">intf</span>
+
+
+<span class="k">def</span> <span class="nf">_update_geometry</span><span class="p">(</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+    <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+    <span class="n">new_cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">n_old_cells_l</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">n_old_faces_l</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># Update geometry on each iteration to ensure correct tags.</span>
+
+    <span class="c1"># The geometry of the higher-dimensional grid can be computed straightforwardly.</span>
+    <span class="n">sd_primary</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="c1"># 1d geometry computation is valid also for manifolds</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># The implementation of 2d compute_geometry() assumes that the</span>
+        <span class="c1"># grid is planar. The simplest option is to treat one cell at</span>
+        <span class="c1"># a time, and then merge the arrays at the end.</span>
+
+        <span class="c1"># Initialize arrays for geometric quantities</span>
+        <span class="n">fa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Face areas</span>
+        <span class="n">fc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># Face centers</span>
+        <span class="n">fn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># Face normals</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Cell volumes</span>
+        <span class="n">cc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># Cell centers</span>
+        <span class="c1"># Many of the faces will have their quantities computed twice,</span>
+        <span class="c1"># once from each side. Keep track of which faces we are dealing with</span>
+        <span class="n">face_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">ci</span> <span class="ow">in</span> <span class="n">new_cells</span><span class="p">:</span>
+            <span class="n">sub_g</span><span class="p">,</span> <span class="n">face_indata_secondaryoc</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">partition</span><span class="o">.</span><span class="n">extract_subgrid</span><span class="p">(</span>
+                <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">ci</span>
+            <span class="p">)</span>
+            <span class="n">sub_g</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+
+            <span class="n">fa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fa</span><span class="p">,</span> <span class="n">sub_g</span><span class="o">.</span><span class="n">face_areas</span><span class="p">)</span>
+            <span class="n">fc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fc</span><span class="p">,</span> <span class="n">sub_g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">fn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">sub_g</span><span class="o">.</span><span class="n">face_normals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cv</span><span class="p">,</span> <span class="n">sub_g</span><span class="o">.</span><span class="n">cell_volumes</span><span class="p">)</span>
+            <span class="n">cc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cc</span><span class="p">,</span> <span class="n">sub_g</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">face_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">face_ind</span><span class="p">,</span> <span class="n">face_indata_secondaryoc</span><span class="p">)</span>
+
+        <span class="c1"># The new cell geometry is composed of values from the previous grid, and</span>
+        <span class="c1"># the values computed one by one for the new cells</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_volumes</span><span class="p">[:</span><span class="n">n_old_cells_l</span><span class="p">],</span> <span class="n">cv</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n_old_cells_l</span><span class="p">],</span> <span class="n">cc</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># For the faces, more work is needed</span>
+        <span class="n">face_areas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
+        <span class="n">face_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">))</span>
+        <span class="n">face_normals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">))</span>
+
+        <span class="c1"># For the old faces, transfer already computed values</span>
+        <span class="n">face_areas</span><span class="p">[:</span><span class="n">n_old_faces_l</span><span class="p">]</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_areas</span><span class="p">[:</span><span class="n">n_old_faces_l</span><span class="p">]</span>
+        <span class="n">face_centers</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n_old_faces_l</span><span class="p">]</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n_old_faces_l</span><span class="p">]</span>
+        <span class="n">face_normals</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n_old_faces_l</span><span class="p">]</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_normals</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n_old_faces_l</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">fi</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_old_faces_l</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">):</span>
+            <span class="c1"># Geometric quantities for this face</span>
+            <span class="n">hit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">face_ind</span> <span class="o">==</span> <span class="n">fi</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c1"># There should be 1 or 2 hits</span>
+            <span class="k">assert</span> <span class="n">hit</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">hit</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">3</span>
+
+            <span class="c1"># For areas and centers, the computations based on the two neighboring</span>
+            <span class="c1"># cells should give the same result. Check, and then use the value.</span>
+            <span class="n">mean_area</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">fa</span><span class="p">[</span><span class="n">hit</span><span class="p">])</span>
+            <span class="n">mean_center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">fc</span><span class="p">[:,</span> <span class="n">hit</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">fa</span><span class="p">[</span><span class="n">hit</span><span class="p">],</span> <span class="n">mean_area</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">fc</span><span class="p">[:,</span> <span class="n">hit</span><span class="p">],</span> <span class="n">mean_center</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+            <span class="n">face_areas</span><span class="p">[</span><span class="n">fi</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean_area</span>
+            <span class="n">face_centers</span><span class="p">[:,</span> <span class="n">fi</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean_center</span>
+
+            <span class="c1"># The normal is more difficult, since this is not unique.</span>
+            <span class="c1"># The direction of the normal vectors computed from subgrids should be</span>
+            <span class="c1"># consistent with the +- convention in the main grid.</span>
+
+            <span class="c1"># Normal vectors found for this global face</span>
+            <span class="n">normals</span> <span class="o">=</span> <span class="n">fn</span><span class="p">[:,</span> <span class="n">hit</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">normals</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">normals</span> <span class="o">=</span> <span class="n">normals</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+            <span class="c1"># For the moment, use the mean of the two values.</span>
+            <span class="n">mean_normal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">normals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">face_normals</span><span class="p">[:,</span> <span class="n">fi</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean_normal</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">mean_normal</span><span class="p">)</span> <span class="o">*</span> <span class="n">mean_area</span>
+
+        <span class="c1"># Sanity check</span>
+        <span class="c1"># assert np.allclose(np.linalg.norm(face_normals, axis=0), face_areas)</span>
+
+        <span class="c1"># Store computed values</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_areas</span> <span class="o">=</span> <span class="n">face_areas</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_centers</span> <span class="o">=</span> <span class="n">face_centers</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_normals</span> <span class="o">=</span> <span class="n">face_normals</span>
+
+
+<span class="k">def</span> <span class="nf">_update_connectivity_fracture_grid</span><span class="p">(</span>
+    <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>  <span class="c1"># higher dimensional grid</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>  <span class="c1"># lower dimensional grid</span>
+    <span class="n">nodes_l</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># nodes in sd_primary involved in the propagation</span>
+    <span class="n">nodes_h</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># nodes in sd_secondary involved in the propagation</span>
+    <span class="n">n_old_nodes_l</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>  <span class="c1"># number of nodes in sd_secondary before splitting</span>
+    <span class="n">n_old_faces_l</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>  <span class="c1"># number of faces in sd_secondary before splitting</span>
+    <span class="n">n_old_cells_l</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>  <span class="c1"># number of cells in sd_secondary before splitting</span>
+    <span class="n">faces_h</span><span class="p">,</span>  <span class="c1"># faces in sd_primary to be split</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Update of cell_faces of the lower grid after insertion of new cells at the</span>
+<span class="sd">    higher-dimensional faces_h. Also tags the faces as domain_boundary or tip</span>
+<span class="sd">    Should be called after initialization of tags</span>
+<span class="sd">    and geometry of sd_secondary by append_face_geometry and append_face_tags.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract immediate information</span>
+
+    <span class="c1"># Each split face gives a new cell in sd_secondary</span>
+    <span class="n">n_new_cells_l</span> <span class="o">=</span> <span class="n">faces_h</span><span class="o">.</span><span class="n">size</span>
+    <span class="c1"># index of the new cells in sd_secondary. These are appended to the existing cells</span>
+    <span class="n">new_cells_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_old_cells_l</span><span class="p">,</span> <span class="n">n_old_cells_l</span> <span class="o">+</span> <span class="n">n_new_cells_l</span><span class="p">)</span>
+
+    <span class="c1"># Initialize fields for new faces in sd_secondary</span>
+    <span class="n">new_faces_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">new_face_centers_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+    <span class="c1"># Counter of total number of faces in sd_secondary</span>
+    <span class="n">face_counter_l</span> <span class="o">=</span> <span class="n">n_old_faces_l</span>
+
+    <span class="c1"># Copy what is to be updated: Cell-face and face-node relation in sd_secondary</span>
+    <span class="n">old_cell_faces</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">old_face_nodes</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Get the face_node indices to form lower-dimensional faces on the form</span>
+    <span class="c1"># [[nodes of face 1], [nodes of face 2], ...], i.e., array where each face</span>
+    <span class="c1"># is represented by the nodes it consists of.</span>
+    <span class="c1"># ASSUMPTION: This breaks if not all faces have the same number of cells</span>
+    <span class="c1"># Rewrite is possible, but more technical</span>
+    <span class="n">all_faces_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">n_old_faces_l</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Initialize indices and values for the cell_faces update</span>
+    <span class="n">ind_f</span><span class="p">,</span> <span class="n">ind_c</span><span class="p">,</span> <span class="n">cf_val</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="c1"># and for the face_nodes update</span>
+    <span class="n">fn_ind_f</span><span class="p">,</span> <span class="n">fn_ind_n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="c1"># Loop over all new cells to be created</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_cells_l</span><span class="p">):</span>
+
+        <span class="c1"># Find the nodes of the corresponding higher-dimensional face</span>
+        <span class="n">face_h</span> <span class="o">=</span> <span class="n">faces_h</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">local_nodes_h</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:,</span> <span class="n">face_h</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Find the nodes&#39; place among the active higher-dimensional nodes, that is,</span>
+        <span class="c1"># nodes that will be split</span>
+        <span class="n">in_unique_nodes</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">ismember_rows</span><span class="p">(</span>
+            <span class="n">local_nodes_h</span><span class="p">,</span> <span class="n">nodes_h</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Find the corresponding lower-dimensional nodes</span>
+        <span class="n">local_nodes_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">nodes_l</span><span class="p">[</span><span class="n">in_unique_nodes</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="c1"># Get geometry information</span>
+        <span class="n">local_pts</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">local_nodes_l</span><span class="p">]</span>
+        <span class="c1"># The new cell center is taken as the mean of the node coordinates.</span>
+        <span class="c1"># This should be okay for simplexes, not sure what we get for general cells.</span>
+        <span class="n">local_cell_center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">local_pts</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Store face center for the update of sd_secondary.face_centers</span>
+
+        <span class="c1"># Faces are defined by one node in 1d and two in 2d. This requires</span>
+        <span class="c1"># dimension-dependent treatment:</span>
+        <span class="k">if</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># Sort nodes clockwise (!)</span>
+            <span class="c1"># ASSUMPTION: This assumes that the new cell is star-shaped with respect to the</span>
+            <span class="c1"># local cell center. This should be okay.</span>
+            <span class="n">map_to_sorted</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">sort_points</span><span class="o">.</span><span class="n">sort_point_plane</span><span class="p">(</span>
+                <span class="n">local_pts</span><span class="p">,</span> <span class="n">local_cell_center</span>
+            <span class="p">)</span>
+            <span class="n">sorted_nodes_l</span> <span class="o">=</span> <span class="n">local_nodes_l</span><span class="p">[</span><span class="n">map_to_sorted</span><span class="p">]</span>
+            <span class="n">sorted_nodes_h</span> <span class="o">=</span> <span class="n">local_nodes_h</span><span class="p">[</span><span class="n">map_to_sorted</span><span class="p">]</span>
+
+            <span class="c1"># Define the faces of the new cell c (size: 2 x faces_per_cell_l). &quot;Duplicate&quot;</span>
+            <span class="c1"># of the higher dimension used for tag identification.</span>
+            <span class="n">faces_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">sorted_nodes_l</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sorted_nodes_l</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">sorted_nodes_l</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="p">)</span>
+            <span class="n">local_faces_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">sorted_nodes_h</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sorted_nodes_h</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">sorted_nodes_h</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Faces and nodes are 1:1, but ismember_rows (below) requires 2d array</span>
+            <span class="n">faces_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">local_nodes_l</span><span class="p">)</span>
+            <span class="n">local_faces_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">local_nodes_h</span><span class="p">)</span>
+
+        <span class="c1"># Now the faces of c are defined by sorted_nodes_l</span>
+        <span class="c1"># and their arrangement in faces_l.</span>
+        <span class="n">n_local_faces_l</span> <span class="o">=</span> <span class="n">faces_l</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Check which faces exist in sd_secondary already, either from before propgation</span>
+        <span class="c1"># or from previous runs through current loop:</span>
+        <span class="p">(</span><span class="n">exist</span><span class="p">,</span> <span class="n">existing_faces_l</span><span class="p">)</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">ismember_rows</span><span class="p">(</span>
+            <span class="n">faces_l</span><span class="p">,</span> <span class="n">all_faces_l</span>
+        <span class="p">)</span>
+        <span class="c1"># The existing faces are no longer tips (but internal).</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;tip_faces&quot;</span><span class="p">][</span><span class="n">existing_faces_l</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># Number of genuinely new local faces in sd_secondary created for this cell</span>
+        <span class="n">n_new_local_faces_l</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">exist</span><span class="p">)</span>
+        <span class="p">)</span>  <span class="c1"># mypy complains if int() is not added</span>
+
+        <span class="c1"># Index of the new faces, they will be appended to the face array</span>
+        <span class="n">new_face_indices_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+            <span class="n">face_counter_l</span><span class="p">,</span> <span class="n">face_counter_l</span> <span class="o">+</span> <span class="n">n_new_local_faces_l</span>
+        <span class="p">)</span>
+        <span class="c1"># Update face counter to be ready for the next cell</span>
+        <span class="n">face_counter_l</span> <span class="o">+=</span> <span class="n">n_new_local_faces_l</span>
+
+        <span class="c1">## Assign tags to the new faces</span>
+        <span class="c1"># First expand tag arrays to make space for new faces</span>
+        <span class="n">_append_face_tags</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">,</span> <span class="n">n_new_local_faces_l</span><span class="p">)</span>
+
+        <span class="c1"># The existing faces are tagged according to the information from the</span>
+        <span class="c1"># node tags of sd_primary.</span>
+        <span class="n">fi</span> <span class="o">=</span> <span class="n">local_faces_h</span><span class="p">[:,</span> <span class="o">~</span><span class="n">exist</span><span class="p">]</span>
+
+        <span class="c1"># The new faces are either on the domain boundary, or tip faces</span>
+        <span class="n">domain_boundary_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_nodes&quot;</span><span class="p">][</span><span class="n">fi</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
+        <span class="p">)</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;tip_faces&quot;</span><span class="p">][</span><span class="n">new_face_indices_l</span><span class="p">]</span> <span class="o">=</span> <span class="o">~</span><span class="n">domain_boundary_faces</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">][</span>
+            <span class="n">new_face_indices_l</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">domain_boundary_faces</span>
+
+        <span class="c1"># Expand array of face-nodes in sd_secondary</span>
+        <span class="n">all_faces_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">all_faces_l</span><span class="p">,</span> <span class="n">faces_l</span><span class="p">[:,</span> <span class="o">~</span><span class="n">exist</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Find node indices faces to be updated.</span>
+        <span class="n">ind_n_local</span> <span class="o">=</span> <span class="n">faces_l</span><span class="p">[:,</span> <span class="o">~</span><span class="n">exist</span><span class="p">]</span>
+        <span class="c1"># TODO: What happens here if ~exist is more than one face?</span>
+        <span class="n">local_pts</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">ind_n_local</span><span class="p">]</span>
+        <span class="n">local_face_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">local_pts</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># New face center set to the mean of the face&#39;s vertexes.</span>
+        <span class="c1"># This is reasonable at least for simplex (and Cartesian) faces</span>
+        <span class="n">new_face_centers_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">new_face_centers_l</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">local_face_centers</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="n">new_faces_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_faces_l</span><span class="p">,</span> <span class="n">ind_n_local</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Expand face-node and cell-face relations</span>
+        <span class="c1"># Build index of all local faces (both new, and already existing)</span>
+        <span class="n">all_local_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">faces_l</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">all_local_faces</span><span class="p">[</span><span class="n">exist</span><span class="p">]</span> <span class="o">=</span> <span class="n">existing_faces_l</span>
+        <span class="n">all_local_faces</span><span class="p">[</span><span class="o">~</span><span class="n">exist</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_face_indices_l</span>
+
+        <span class="c1"># Add both existing and new faces to face-nodes.</span>
+        <span class="c1"># Why include exist here, they should have been added already?</span>
+        <span class="c1"># Answer: We could have dropped it, but this will simply add the same</span>
+        <span class="c1"># information twice to the face-node relation. Since this has boolean</span>
+        <span class="c1"># data, adding a 2 instead of a 1 will make no difference.</span>
+        <span class="n">ind_f_local</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">all_local_faces</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">fn_ind_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fn_ind_f</span><span class="p">,</span> <span class="n">ind_f_local</span><span class="p">)</span>
+        <span class="n">fn_ind_n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fn_ind_n</span><span class="p">,</span> <span class="n">faces_l</span><span class="p">)</span>
+
+        <span class="c1"># Cell-face relation</span>
+        <span class="c1"># Here all faces should be added, existing or not</span>
+        <span class="n">ind_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind_f</span><span class="p">,</span> <span class="n">all_local_faces</span><span class="p">)</span>
+        <span class="n">ind_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind_c</span><span class="p">,</span> <span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_local_faces_l</span><span class="p">))</span>
+
+        <span class="c1"># To get the sign correct, some work is needed.</span>
+        <span class="c1"># We distinguish between three cases</span>
+        <span class="c1"># 1) This is a new face. We will assign positive sign, thus outer normal</span>
+        <span class="c1"># 2) This is a face which existed before we entered the loop over</span>
+        <span class="c1">#    cells. The sign will be oposite of that used in the previous occurence</span>
+        <span class="c1">#    of the face</span>
+        <span class="c1"># 3) This is a face that has been added before for a previous new cell.</span>
+        <span class="c1">#    The sign will be oposite of when first added, that is, -1.</span>
+        <span class="n">cf_val_loc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_local_faces_l</span><span class="p">)</span>
+        <span class="c1"># The faces that did not exist, are assigned sign 1</span>
+        <span class="c1"># (should get outer normal)</span>
+        <span class="n">cf_val_loc</span><span class="p">[</span><span class="o">~</span><span class="n">exist</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># Find faces that were in the original grid (before entering the outer loop</span>
+        <span class="c1"># over cells)</span>
+        <span class="n">are_in_original</span> <span class="o">=</span> <span class="n">existing_faces_l</span> <span class="o">&lt;</span> <span class="n">n_old_faces_l</span>
+
+        <span class="c1"># Faces that existed before the cell loop</span>
+        <span class="n">ind_in_original</span> <span class="o">=</span> <span class="n">existing_faces_l</span><span class="p">[</span><span class="n">are_in_original</span><span class="p">]</span>
+        <span class="c1"># Index of these faces in cf_val_loc</span>
+        <span class="n">indata_secondaryocal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">all_local_faces</span><span class="p">,</span> <span class="n">ind_in_original</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">[</span><span class="n">ind_in_original</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">ind_in_original</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="c1"># This situation can happen in 3d (perhaps also 2d).</span>
+            <span class="c1"># It will likely correspond to a strangly shaped fracture.</span>
+            <span class="c1"># Implementation of such geometries seems complex, if at all desirable.</span>
+            <span class="c1"># The suggested solution is to patch the face splitting algorithm so that</span>
+            <span class="c1"># this does not happen.</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot split the same lower-dimensional face twice&quot;</span><span class="p">)</span>
+
+        <span class="c1"># The sign of this cell should be the oposite of that used in the</span>
+        <span class="c1"># original grid.</span>
+        <span class="n">cf_val_loc</span><span class="p">[</span><span class="n">indata_secondaryocal</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()[</span>
+            <span class="n">ind_in_original</span><span class="p">,</span> <span class="p">:</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">data</span>
+
+        <span class="c1"># Faces that were not in the original grid, but were added before this iteration</span>
+        <span class="c1"># of the cell loop</span>
+        <span class="n">ind_not_in_original</span> <span class="o">=</span> <span class="n">existing_faces_l</span><span class="p">[</span><span class="o">~</span><span class="n">are_in_original</span><span class="p">]</span>
+        <span class="c1"># Index of these faces in cf_val_loc</span>
+        <span class="n">ind_not_local</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">all_local_faces</span><span class="p">,</span> <span class="n">ind_not_in_original</span><span class="p">)</span>
+        <span class="c1"># These are assigned the value -1; since it was given +1 when first added</span>
+        <span class="c1"># to cf_val (see call cf_val_loc[~exist] above)</span>
+        <span class="n">cf_val_loc</span><span class="p">[</span><span class="n">ind_not_local</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="c1"># Store signs of cf_val. This effectively is the sign of the normal vectors</span>
+        <span class="n">cf_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cf_val</span><span class="p">,</span> <span class="n">cf_val_loc</span><span class="p">)</span>
+
+    <span class="c1"># Done with the expansion of all faces and cells. What is left is to update</span>
+    <span class="c1"># sd_secondary.cell_faces and face_nodes.</span>
+
+    <span class="c1"># Resize and update face_nodes ...</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">face_counter_l</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span>
+    <span class="p">)</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:</span><span class="n">n_old_nodes_l</span><span class="p">,</span> <span class="p">:</span><span class="n">n_old_faces_l</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_face_nodes</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[</span><span class="n">fn_ind_n</span><span class="p">,</span> <span class="n">fn_ind_f</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">eliminate_zeros</span><span class="p">()</span>
+
+    <span class="c1"># ... and cell_faces</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_faces</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">face_counter_l</span><span class="p">,</span> <span class="n">n_old_cells_l</span> <span class="o">+</span> <span class="n">n_new_cells_l</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n_old_faces_l</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="n">n_old_cells_l</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_cell_faces</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">[</span><span class="n">ind_f</span><span class="p">,</span> <span class="n">ind_c</span><span class="p">]</span> <span class="o">=</span> <span class="n">cf_val</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">eliminate_zeros</span><span class="p">()</span>
+    <span class="n">n_new_faces</span> <span class="o">=</span> <span class="n">face_counter_l</span> <span class="o">-</span> <span class="n">n_old_faces_l</span>
+    <span class="k">return</span> <span class="n">n_new_faces</span><span class="p">,</span> <span class="n">new_face_centers_l</span>
+
+
+<span class="k">def</span> <span class="nf">_update_cells_fracture_grid</span><span class="p">(</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">faces_h</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Cell information for sd_secondary is inherited directly from the higher-dimensional</span>
+<span class="sd">    faces we are splitting. The function updates num_cells, cell_centers and</span>
+<span class="sd">    cell_volumes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n_new_cells</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">+</span> <span class="n">faces_h</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">new_cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">n_new_cells</span><span class="p">)</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">=</span> <span class="n">n_new_cells</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">,</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">faces_h</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_volumes</span><span class="p">,</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_areas</span><span class="p">[</span><span class="n">faces_h</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">new_cells</span>
+
+
+<span class="k">def</span> <span class="nf">_update_nodes_fracture_grid</span><span class="p">(</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">faces_h</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Finds the nodes in the lower-dimensional grid corresponding to the higher-</span>
+<span class="sd">    dimensional faces to be split. Updates node information in sd_secondary:</span>
+<span class="sd">        global_point_ind</span>
+<span class="sd">        nodes</span>
+<span class="sd">        num_nodes</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        unique_nodes_l - numpy array (number of involved nodes x 1) Indices of</span>
+<span class="sd">            the nodes (as arranged in sd_secondary.nodes).</span>
+<span class="sd">        unique_nodes_h - same, but corresponding to sd_primary.nodes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Nodes of sd_primary to be split</span>
+    <span class="n">nodes_h</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:,</span> <span class="n">faces_h</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">unique_nodes_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">nodes_h</span><span class="p">)</span>
+
+    <span class="c1"># Global index of nodes to split</span>
+    <span class="n">unique_global_nodes</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">unique_nodes_h</span><span class="p">]</span>
+
+    <span class="c1"># Some of the nodes of the face to be split will be in sd_secondary already (as tip nodes)</span>
+    <span class="c1"># Find which are present, and which should be added</span>
+    <span class="c1"># NOTE: This comparison must be done in terms of global_point_ind</span>
+    <span class="n">are_old_global_nodes_in_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span>
+        <span class="n">unique_global_nodes</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">global_point_ind</span>
+    <span class="p">)</span>
+    <span class="n">are_new_global_nodes_in_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">are_old_global_nodes_in_l</span><span class="p">)</span>
+
+    <span class="c1"># Index in sd_primary, of nodes to be added to sd_secondary</span>
+    <span class="n">new_node_indices_h</span> <span class="o">=</span> <span class="n">unique_nodes_h</span><span class="p">[</span><span class="n">are_new_global_nodes_in_l</span><span class="p">]</span>
+    <span class="c1"># Global indices of nodes to be added to sd_secondary</span>
+    <span class="n">new_global_node_indices_l</span> <span class="o">=</span> <span class="n">unique_global_nodes</span><span class="p">[</span><span class="n">are_new_global_nodes_in_l</span><span class="p">]</span>
+
+    <span class="c1"># Append nodes to sd_secondary and update bookkeeping</span>
+    <span class="n">new_nodes_l</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">new_node_indices_h</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span> <span class="n">new_nodes_l</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">n_new_nodes</span> <span class="o">=</span> <span class="n">new_nodes_l</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">+=</span> <span class="n">n_new_nodes</span>
+
+    <span class="c1"># Append global point indices to sd_secondary</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">global_point_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">sd_secondary</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">,</span> <span class="n">new_global_node_indices_l</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Find index of the updated nodes in sd_secondary that belong to the split faces</span>
+    <span class="c1"># Order preserving find:</span>
+    <span class="n">unique_nodes_l</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">ismember_rows</span><span class="p">(</span>
+        <span class="n">unique_global_nodes</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">unique_nodes_l</span><span class="p">,</span> <span class="n">unique_nodes_h</span>
+
+
+<span class="k">def</span> <span class="nf">_append_face_geometry_fracture_grid</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">n_new_faces</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">new_centers</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Appends and updates faces geometry information for new faces. Also updates</span>
+<span class="sd">    num_faces.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">face_normals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_normals</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="n">n_new_faces</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">face_areas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_areas</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_new_faces</span><span class="p">))</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">,</span> <span class="n">new_centers</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">+=</span> <span class="n">n_new_faces</span>
+
+
+<span class="k">def</span> <span class="nf">_append_face_tags</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">n_new_faces</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Initiates default face tags (False) for new faces.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">standard_face_tags</span><span class="p">()</span>
+    <span class="n">new_tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_new_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">))]</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">append_tags</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">new_tags</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_append_node_tags</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">n_new_nodes</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Initiates default face tags (False) for new faces.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">standard_node_tags</span><span class="p">()</span>
+    <span class="n">new_tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_new_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">))]</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">append_tags</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">new_tags</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_split_fracture_extension</span><span class="p">(</span>
+    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+    <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+    <span class="n">faces_h</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">nodes_h</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">cells_l</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">non_planar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Split the higher-dimensional grid along specified faces. Updates made to</span>
+<span class="sd">    face_cells of the grid pair and the nodes and faces of the higher-</span>
+<span class="sd">    dimensional grid.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mdg                 - A grid mixed-dimensional grid</span>
+<span class="sd">    sd_primary          - Higher-dimensional grid to be split along specified faces.</span>
+<span class="sd">    sd_secondary          - Immersed lower-dimensional grid.</span>
+<span class="sd">    faces_h     - The higher-dimensional faces to be split.</span>
+<span class="sd">    cells_l     - The corresponding lower-dimensional cells.</span>
+<span class="sd">    nodes_h     - The corresponding (hisd_primaryer-dimensional) nodes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># IMPLEMENTATION NOTE: Part of the following code is likely more general than</span>
+    <span class="c1"># necessary considering assumptions made before we reach this point - e.g.</span>
+    <span class="c1"># assumptions in propagate_fractures() and other subfunctions. Specifically,</span>
+    <span class="c1"># it is unlikely the code will be called with sd_primary.dim != mdg.dim_max().</span>
+
+    <span class="c1"># We are splitting faces in sd_primary. This affects all the immersed fractures,</span>
+    <span class="c1"># as face_cells has to be extended for the new faces_h.</span>
+    <span class="n">neigh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">mdg</span><span class="o">.</span><span class="n">neighboring_subdomains</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">))</span>
+
+    <span class="c1"># Find the neighbours that are lower dimensional</span>
+    <span class="n">is_low_dim_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">([</span><span class="n">w</span><span class="o">.</span><span class="n">dim</span> <span class="o">&lt;</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">neigh</span><span class="p">])</span>
+    <span class="n">low_dim_neigh</span> <span class="o">=</span> <span class="n">neigh</span><span class="p">[</span><span class="n">is_low_dim_grid</span><span class="p">]</span>
+    <span class="n">sd_pairs</span> <span class="o">=</span> <span class="p">[(</span><span class="n">sd_primary</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">low_dim_neigh</span><span class="p">]</span>
+    <span class="n">sd_secondary_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">low_dim_neigh</span> <span class="o">==</span> <span class="n">sd_secondary</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Some work is needed to make mypy happy here</span>
+    <span class="k">assert</span> <span class="n">sd_secondary_arr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span>
+    <span class="c1"># This converts form numpy int to a standard int.</span>
+    <span class="n">sd_secondary_ind</span> <span class="o">=</span> <span class="n">sd_secondary_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sd_pairs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># No lower dim grid. Nothing to do.</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Unexpected neighbourless sd_primary in fracture propagation&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">face_cell_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">intf_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">sd_pairs</span><span class="p">:</span>
+        <span class="n">intf</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_pair_to_interface</span><span class="p">(</span><span class="n">pair</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+        <span class="n">face_cell_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;face_cells&quot;</span><span class="p">])</span>
+        <span class="n">intf_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+
+    <span class="c1"># We split all the faces that are connected to faces_h</span>
+    <span class="c1"># The new faces will share the same nodes and properties (normals,</span>
+    <span class="c1"># etc.)</span>
+    <span class="n">face_cell_list</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fracs</span><span class="o">.</span><span class="n">split_grid</span><span class="o">.</span><span class="n">split_specific_faces</span><span class="p">(</span>
+        <span class="n">sd_primary</span><span class="p">,</span> <span class="n">face_cell_list</span><span class="p">,</span> <span class="n">faces_h</span><span class="p">,</span> <span class="n">cells_l</span><span class="p">,</span> <span class="n">sd_secondary_ind</span><span class="p">,</span> <span class="n">non_planar</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Replace the face-cell relation on the MixedDimensionalGrid edge</span>
+    <span class="k">for</span> <span class="n">intf</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">intf_list</span><span class="p">,</span> <span class="n">face_cell_list</span><span class="p">):</span>
+        <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">intf</span><span class="p">)[</span><span class="s2">&quot;face_cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span>
+
+    <span class="c1"># We now find which lower-dim nodes correspond to which higher-</span>
+    <span class="c1"># dim nodes. We split these nodes according to the topology of</span>
+    <span class="c1"># the connected higher-dim cells. At a X-intersection we split</span>
+    <span class="c1"># the node into four, while at the fracture boundary it is not split.</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">fracs</span><span class="o">.</span><span class="n">split_grid</span><span class="o">.</span><span class="n">split_nodes</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">,</span> <span class="p">[</span><span class="n">sd_secondary</span><span class="p">],</span> <span class="p">[</span><span class="n">nodes_h</span><span class="p">])</span>
+
+    <span class="c1"># Remove zeros from cell_faces</span>
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">():</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">eliminate_zeros</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_tag_affected_cells_and_faces</span><span class="p">(</span><span class="n">mdg</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Tag the lower-dimensional cells and higher-dimensional faces which have</span>
+<span class="sd">    been affected by the update. Should be the new cells, and both the original</span>
+<span class="sd">    (defining the split, see e.g. faces_h in propagate_fracture) and the newly</span>
+<span class="sd">    created faces.</span>
+<span class="sd">    Assumes only two dimensions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dim_primary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span>
+    <span class="n">dim_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">dim_min</span><span class="p">()</span>
+    <span class="n">sd_primary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_primary</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sd_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_secondary</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">data_primary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">)</span>
+    <span class="n">data_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">)</span>
+    <span class="n">cells_l</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;new_cells&quot;</span><span class="p">]</span>
+    <span class="n">faces_h</span> <span class="o">=</span> <span class="n">data_primary</span><span class="p">[</span><span class="s2">&quot;new_faces&quot;</span><span class="p">]</span>
+    <span class="n">old_faces_h</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">frac_pairs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">frac_pairs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">faces_h</span><span class="p">)]</span>
+    <span class="n">all_faces_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">old_faces_h</span><span class="p">,</span> <span class="n">faces_h</span><span class="p">))</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">t</span><span class="p">[</span><span class="n">all_faces_h</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">sd_primary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;discretize_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span>
+
+    <span class="c1"># TODO: Fix tpfa, so that local 1d update is possible (MPFA calls TPFA for</span>
+    <span class="c1"># 1d). Once fixed, change to t = np.zeros(...) in this line:</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">t</span><span class="p">[</span><span class="n">cells_l</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">sd_secondary</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;discretize_cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span>
+
+
+<div class="viewcode-block" id="propgation_angle"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html#porepy.numerics.fracture_deformation.propagate_fracture.propgation_angle">[docs]</a><span class="k">def</span> <span class="nf">propgation_angle</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the angle of propagation from already computed SIFs. The</span>
+<span class="sd">    computation is done in the local coordinate system of the fracture tips,</span>
+<span class="sd">    and positive angles correspond to.</span>
+<span class="sd">    Intended for a single fracture grid.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        K: array of stress intensity factors, with mode along first axis and</span>
+<span class="sd">            face along second.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        phi: array (number of tip faces, ) of propagation angles in radians.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="mi">140</span> <span class="o">/</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="o">-</span><span class="mi">70</span> <span class="o">/</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+    <span class="k">if</span> <span class="n">K</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">K</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">K</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))])</span>
+    <span class="n">aK</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">absolute</span><span class="p">(</span><span class="n">K</span><span class="p">)</span>
+    <span class="n">phi</span> <span class="o">=</span> <span class="n">A</span> <span class="o">*</span> <span class="n">aK</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">aK</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">aK</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="n">B</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span>
+        <span class="n">aK</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">aK</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">aK</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="p">)</span>
+    <span class="n">neg_ind</span> <span class="o">=</span> <span class="n">K</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span>  <span class="c1"># ?</span>
+    <span class="n">phi</span><span class="p">[</span><span class="n">neg_ind</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">phi</span><span class="p">[</span><span class="n">neg_ind</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">phi</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

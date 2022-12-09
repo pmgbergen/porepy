@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.interface_laws.elliptic_discretization &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/interface_laws/elliptic_discretization.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.interface_laws.elliptic_discretization</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.interface_laws.elliptic_discretization</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The module contains the base class for all elliptic discretization methods, to be used</span>
+<span class="sd">in both mono and mixed-dimensional problems. One instance for the scalar and one for</span>
+<span class="sd">the vector equation.</span>
+
+<span class="sd">The classes may be interpreted as a &quot;contract&quot; which elliptic discretization methods</span>
+<span class="sd">must honor. This is particularly useful to ensure uniformity when coupling</span>
+<span class="sd">discretizations between dimensions by interface laws.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">from</span> <span class="nn">porepy.numerics.discretization</span> <span class="kn">import</span> <span class="n">Discretization</span>
+
+
+<div class="viewcode-block" id="EllipticDiscretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization">[docs]</a><span class="k">class</span> <span class="nc">EllipticDiscretization</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This is the parent class of all discretizations for second order elliptic</span>
+<span class="sd">    problems. The class cannot be used itself, but should rather be seen as a</span>
+<span class="sd">    declaration of which methods are assumed implemented for all specific</span>
+<span class="sd">    discretization schemes.</span>
+
+<span class="sd">    Subclasses are intended used both on single grids, and as components in a</span>
+<span class="sd">    mixed-dimensional, or more generally multiple grid problem. In the latter case,</span>
+<span class="sd">    this class will provide the discretization on individual grids; a full</span>
+<span class="sd">    discretization will also need discretizations of the edge problems (coupling between</span>
+<span class="sd">    grids) and a way to assemble the grids.</span>
+
+<span class="sd">    The class methods should together take care of both the discretization</span>
+<span class="sd">    (defined as construction of operators used when writing down the continuous</span>
+<span class="sd">    form of the equations, e.g. divergence, transmissibility matrix etc), and</span>
+<span class="sd">    assembly of (whole or part of) the system matrix. For problems on multiple</span>
+<span class="sd">    grids, an assembly will only be a partial (considering a single grid)- the</span>
+<span class="sd">    full system matrix for multiple grids is handled somewhere else.</span>
+
+<span class="sd">    Known realizations of the elliptic discretization are:</span>
+<span class="sd">        Tpfa: Finite volume method using a wwo-point flux approximation.</span>
+<span class="sd">        Mpfa: Finite volume method using a multi-point flux approximation.</span>
+<span class="sd">        RT0: Mixed finite element method, using the lowest order Raviart-Thomas</span>
+<span class="sd">            elements.</span>
+<span class="sd">        MVEM: Mixed formulation of the lowest order virtual element method.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        keyword (str): This is used to identify operators and parameters that</span>
+<span class="sd">            the discretization will work on.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set the discretization, with the keyword used for storing various</span>
+<span class="sd">        information associated with the discretization.</span>
+
+<span class="sd">        Paramemeters:</span>
+<span class="sd">            keyword (str): Identifier of all information used for this</span>
+<span class="sd">                discretization.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
+
+    <span class="k">def</span> <span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get the keyword of this object, on a format friendly to access relevant</span>
+<span class="sd">        fields in the data dictionary</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            String, on the form self.keyword + &#39;_&#39;.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span>
+
+<div class="viewcode-block" id="EllipticDiscretization.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.ndof">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Abstract method. Return the number of degrees of freedom associated to the</span>
+<span class="sd">        method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (grid): Computational grid.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: the number of degrees of freedom.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.extract_pressure"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.extract_pressure">[docs]</a>    <span class="k">def</span> <span class="nf">extract_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">solution_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Abstract method. Extract the pressure part of a solution.</span>
+
+<span class="sd">        The implementation will depend what the primary variables of the specific</span>
+<span class="sd">        implementation are.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (pp.Grid): To which the solution array belongs.</span>
+<span class="sd">            solution_array (np.array): Solution for this grid obtained from</span>
+<span class="sd">                either a mono-dimensional or a mixed-dimensional problem.</span>
+<span class="sd">            data (dictionary): Data dictionary associated with the grid. Not used,</span>
+<span class="sd">                but included for consistency reasons.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array (g.num_cells): Pressure solution vector. Will be identical</span>
+<span class="sd">                to solution_array.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Method not implemented&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.extract_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.extract_flux">[docs]</a>    <span class="k">def</span> <span class="nf">extract_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">solution_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Abstract method. Extract the pressure part of a solution.</span>
+
+<span class="sd">        The implementation will depend what are the primary variables of the specific</span>
+<span class="sd">        implementation.</span>
+
+<span class="sd">        TODO: We should incrude the boundary condition as well?</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (grid): To which the solution array belongs.</span>
+<span class="sd">            solution_array (np.array): Solution for this grid obtained from</span>
+<span class="sd">                either a mono-dimensional or a mixed-dimensional problem. Will</span>
+<span class="sd">                correspond to the pressure solution.</span>
+<span class="sd">            data (dictionary): Data dictionary associated with the grid.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array (g.num_faces): Flux vector.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Method not implemented&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.assemble_int_bound_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.assemble_int_bound_flux">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">cc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">use_secondary_proj</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
+<span class="sd">        boundary, manifested as a flux boundary condition.</span>
+
+<span class="sd">        The intended use is when the internal boundary is coupled to another</span>
+<span class="sd">        node in a mixed-dimensional method. Specific usage depends on the</span>
+<span class="sd">        interface condition between the nodes; this method will typically be</span>
+<span class="sd">        used to impose flux continuity on a higher-dimensional domain.</span>
+
+<span class="sd">        Implementations of this method will use an interplay between the grid on</span>
+<span class="sd">        the node and the mortar grid on the relevant edge.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (Grid): Grid which the condition should be imposed on.</span>
+<span class="sd">            sd_data (dictionary): Data dictionary for the node in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            intf_data (dictionary): Data dictionary for the edge in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            grid_swap (boolean): If True, the grid g is identified with the @</span>
+<span class="sd">                secondary side of the mortar grid in data_adge.</span>
+<span class="sd">            cc (block matrix, 3x3): Block matrix for the coupling condition.</span>
+<span class="sd">                The first and second rows and columns are identified with the</span>
+<span class="sd">                primary and secondary side; the third belongs to the edge variable.</span>
+<span class="sd">                The discretization of the relevant term is done in-place in cc.</span>
+<span class="sd">            matrix (block matrix 3x3): Discretization matrix for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">            self_ind (int): Index in cc and matrix associated with this node.</span>
+<span class="sd">                Should be either 1 or 2.</span>
+<span class="sd">            use_secondary_proj (boolean): If True, the secondary side projection operator is</span>
+<span class="sd">                used. Needed for periodic boundary conditions.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.assemble_int_bound_source"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.assemble_int_bound_source">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assemble_int_bound_source</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">cc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
+<span class="sd">        boundary, manifested as a source term.</span>
+
+<span class="sd">        The intended use is when the internal boundary is coupled to another</span>
+<span class="sd">        node in a mixed-dimensional method. Specific usage depends on the</span>
+<span class="sd">        interface condition between the nodes; this method will typically be</span>
+<span class="sd">        used to impose flux continuity on a lower-dimensional domain.</span>
+
+<span class="sd">        Implementations of this method will use an interplay between the grid on</span>
+<span class="sd">        the node and the mortar grid on the relevant edge.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (Grid): Grid which the condition should be imposed on.</span>
+<span class="sd">            data (dictionary): Data dictionary for the node in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            data_intf (dictionary): Data dictionary for the edge in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            grid_swap (boolean): If True, the grid g is identified with the @</span>
+<span class="sd">                secondary side of the mortar grid in data_adge.</span>
+<span class="sd">            cc (block matrix, 3x3): Block matrix for the coupling condition.</span>
+<span class="sd">                The first and second rows and columns are identified with the</span>
+<span class="sd">                primary and secondary side; the third belongs to the edge variable.</span>
+<span class="sd">                The discretization of the relevant term is done in-place in cc.</span>
+<span class="sd">            matrix (block matrix 3x3): Discretization matrix for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">            self_ind (int): Index in cc and matrix associated with this node.</span>
+<span class="sd">                Should be either 1 or 2.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.assemble_int_bound_pressure_trace"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.assemble_int_bound_pressure_trace">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_trace</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">cc</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">use_secondary_proj</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">assemble_matrix</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">assemble_rhs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
+<span class="sd">        boundary, manifested as a condition on the boundary pressure.</span>
+
+<span class="sd">        The intended use is when the internal boundary is coupled to another</span>
+<span class="sd">        node in a mixed-dimensional method. Specific usage depends on the</span>
+<span class="sd">        interface condition between the nodes; this method will typically be</span>
+<span class="sd">        used to impose flux continuity on a higher-dimensional domain.</span>
+
+<span class="sd">        Implementations of this method will use an interplay between the grid on</span>
+<span class="sd">        the node and the mortar grid on the relevant edge.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (Grid): Grid which the condition should be imposed on.</span>
+<span class="sd">            sd_data (dictionary): Data dictionary for the node in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            intf_data (dictionary): Data dictionary for the edge in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            grid_swap (boolean): If True, the grid g is identified with the @</span>
+<span class="sd">                secondary side of the mortar grid in data_adge.</span>
+<span class="sd">            cc (block matrix, 3x3): Block matrix for the coupling condition.</span>
+<span class="sd">                The first and second rows and columns are identified with the</span>
+<span class="sd">                primary and secondary side; the third belongs to the edge variable.</span>
+<span class="sd">                The discretization of the relevant term is done in-place in cc.</span>
+<span class="sd">            matrix (block matrix 3x3): Discretization matrix for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">            rhs (block_array 3x1): Right hand side contribution for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">            self_ind (int): Index in cc and matrix associated with this node.</span>
+<span class="sd">                Should be either 1 or 2.</span>
+<span class="sd">            use_secondary_proj (boolean): If True, the secondary side projection operator is</span>
+<span class="sd">                used. Needed for periodic boundary conditions.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.assemble_int_bound_pressure_trace_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.assemble_int_bound_pressure_trace_rhs">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_trace_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">,</span> <span class="n">intf</span><span class="p">,</span> <span class="n">intf_data</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">self_ind</span><span class="p">,</span> <span class="n">use_secondary_proj</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Assemble the rhs contribution from an internal</span>
+<span class="sd">        boundary, manifested as a condition on the boundary pressure.</span>
+
+<span class="sd">        For details, see self.assemble_int_bound_pressure_trace()</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (Grid): Grid which the condition should be imposed on.</span>
+<span class="sd">            sd_data (dictionary): Data dictionary for the node in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            intf_data (dictionary): Data dictionary for the edge in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            cc (block matrix, 3x3): Block matrix for the coupling condition.</span>
+<span class="sd">                The first and second rows and columns are identified with the</span>
+<span class="sd">                primary and secondary side; the third belongs to the edge variable.</span>
+<span class="sd">                The discretization of the relevant term is done in-place in cc.</span>
+<span class="sd">            matrix (block matrix 3x3): Discretization matrix for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">            rhs (block_array 3x1): Right hand side contribution for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">            self_ind (int): Index in cc and matrix associated with this node.</span>
+<span class="sd">                Should be either 1 or 2.</span>
+<span class="sd">            use_secondary_proj (boolean): If True, the secondary side projection operator is</span>
+<span class="sd">                used. Needed for periodic boundary conditions.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.assemble_int_bound_pressure_trace_between_interfaces"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.assemble_int_bound_pressure_trace_between_interfaces">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_trace_between_interfaces</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">proj_primary</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">proj_secondary</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">cc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal</span>
+<span class="sd">        boundary, manifested as a condition on the boundary pressure.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (Grid): Grid which the condition should be imposed on.</span>
+<span class="sd">            sd_data (dictionary): Data dictionary for the node in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">           proj_primary (sparse matrix): Pressure projection from the higher-dim</span>
+<span class="sd">                grid to the primary mortar grid.</span>
+<span class="sd">           proj_secondary (sparse matrix): Flux projection from the secondary mortar</span>
+<span class="sd">                grid to the main grid.</span>
+<span class="sd">           cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block</span>
+<span class="sd">                represents coupling between variables on this interface. Index 0, 1 and</span>
+<span class="sd">                2 represent the primary grid, the primary and secondary interface,</span>
+<span class="sd">                respectively.</span>
+<span class="sd">           matrix (block matrix 3x3): Discretization matrix for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">           rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right</span>
+<span class="sd">                hand side of this coupling. Index 0, 1 and 2 represent the primary grid,</span>
+<span class="sd">                the primary and secondary interface, respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.assemble_int_bound_pressure_cell"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.assemble_int_bound_pressure_cell">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_cell</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">cc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
+<span class="sd">        boundary, manifested as a condition on the cell pressure.</span>
+
+<span class="sd">        The intended use is when the internal boundary is coupled to another</span>
+<span class="sd">        node in a mixed-dimensional method. Specific usage depends on the</span>
+<span class="sd">        interface condition between the nodes; this method will typically be</span>
+<span class="sd">        used to impose flux continuity on a lower-dimensional domain.</span>
+
+<span class="sd">        Implementations of this method will use an interplay between the grid on</span>
+<span class="sd">        the node and the mortar grid on the relevant edge.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (Grid): Grid which the condition should be imposed on.</span>
+<span class="sd">            sd_data (dictionary): Data dictionary for the node in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            intf_data (dictionary): Data dictionary for the edge in the</span>
+<span class="sd">                mixed-dimensional grid.</span>
+<span class="sd">            cc (block matrix, 3x3): Block matrix for the coupling condition.</span>
+<span class="sd">                The first and second rows and columns are identified with the</span>
+<span class="sd">                primary and secondary side; the third belongs to the edge variable.</span>
+<span class="sd">                The discretization of the relevant term is done in-place in cc.</span>
+<span class="sd">            matrix (block matrix 3x3): Discretization matrix for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">            rhs (block_array 3x1): Right hand side contribution for the edge and</span>
+<span class="sd">                the two adjacent nodes.</span>
+<span class="sd">            self_ind (int): Index in cc and matrix associated with this node.</span>
+<span class="sd">                Should be either 1 or 2.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="EllipticDiscretization.enforce_neumann_int_bound"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html#porepy.numerics.interface_laws.elliptic_discretization.EllipticDiscretization.enforce_neumann_int_bound">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">enforce_neumann_int_bound</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Enforce Neumann boundary conditions on a given system matrix.</span>
+
+<span class="sd">        Methods based on a mixed variational form will need this function to</span>
+<span class="sd">        implement essential boundary conditions.</span>
+
+<span class="sd">        The discretization matrix should be modified in place.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sd (Grid): On which the equation is discretized</span>
+<span class="sd">            data (dictionary): Of data related to the discretization.</span>
+<span class="sd">            matrix (scipy.sparse.matrix): Discretization matrix to be modified.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

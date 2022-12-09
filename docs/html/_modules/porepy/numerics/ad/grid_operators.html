@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.ad.grid_operators &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/ad/grid_operators.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.ad.grid_operators</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.ad.grid_operators</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Ad representation of grid-related quantities needed to write equations. The classes</span>
+<span class="sd">defined here are mainly wrappers that constructs Ad matrices based on grid information.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+<span class="kn">from</span> <span class="nn">.operators</span> <span class="kn">import</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">Operator</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;MortarProjections&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Divergence&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;BoundaryCondition&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Geometry&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Trace&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SubdomainProjections&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ParameterArray&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ParameterMatrix&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="SubdomainProjections"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.SubdomainProjections">[docs]</a><span class="k">class</span> <span class="nc">SubdomainProjections</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper class for generating projection to and from subdomains.</span>
+
+<span class="sd">    One use case in when variables are defined on only some subdomains.</span>
+
+<span class="sd">    The class should be used through the methods {cell, face}_{projection, restriction}.</span>
+
+<span class="sd">    See also MortarProjections for projections to and from mortar subdomains.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Construct subdomain restrictions and prolongations for a set of subdomains.</span>
+
+<span class="sd">        The projections will be ordered according to the ordering in subdomains. It is critical</span>
+<span class="sd">        that the same ordering is used by other operators.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (List of pp.Grid): List of subdomains. The order of the subdomains in</span>
+<span class="sd">                the list will establish the ordering of the subdomain projections.</span>
+<span class="sd">            dim (int, optional): Dimension of the quantities to be projected.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;SubdomainProjection&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_scalar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_grids</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+
+        <span class="c1"># Store total number of faces and cells in the list of subdomains. This will be</span>
+        <span class="c1"># needed to handle projections to and from empty lists (see usage below).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tot_num_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tot_num_faces</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cell_projection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_face_projection</span> <span class="o">=</span> <span class="n">_subgrid_projections</span><span class="p">(</span>
+            <span class="n">subdomains</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="SubdomainProjections.cell_restriction"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.SubdomainProjections.cell_restriction">[docs]</a>    <span class="k">def</span> <span class="nf">cell_restriction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Matrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Construct restrictions from global to subdomain cell quantities.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (List of pp.Grid): One or several subdomains to which</span>
+<span class="sd">                the projection should apply.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pp.ad.Matrix: Matrix operator (in the Ad sense) that represents the</span>
+<span class="sd">                projection.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_error_message</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># A key error will be raised if a grid in g is not known to</span>
+            <span class="c1"># self._cell_projection</span>
+            <span class="c1"># IMPLEMENTATION NOTE: Use csr format, since the number of rows can</span>
+            <span class="c1"># be much less than the number of columns.</span>
+            <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">([[</span><span class="bp">self</span><span class="o">.</span><span class="n">_cell_projection</span><span class="p">[</span><span class="n">g</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># If the grid list is empty, we project from the full set of cells to</span>
+            <span class="c1"># nothing.</span>
+            <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tot_num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span>
+            <span class="n">mat</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;CellRestriction&quot;</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SubdomainProjections.cell_prolongation"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.SubdomainProjections.cell_prolongation">[docs]</a>    <span class="k">def</span> <span class="nf">cell_prolongation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Matrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Construct prolongation from subdomain to global cell quantities.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (List of pp.Grid): One or several subdomains to which</span>
+<span class="sd">                the prolongation should apply.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the</span>
+<span class="sd">                prolongation.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cell_projection</span><span class="p">[</span><span class="n">subdomains</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;CellProlongation&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># A key error will be raised if a grid in g is not known to</span>
+                <span class="c1"># self._cell_projection</span>
+                <span class="c1"># IMPLEMENTATION NOTE: Use csc format, since the number of columns can</span>
+                <span class="c1"># be much less than the number of rows.</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">([[</span><span class="bp">self</span><span class="o">.</span><span class="n">_cell_projection</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">]])</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># If the grid list is empty, we project from nothing to the full set of</span>
+                <span class="c1"># cells</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_tot_num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span>
+                <span class="n">mat</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;CellProlongation&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_error_message</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="SubdomainProjections.face_restriction"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.SubdomainProjections.face_restriction">[docs]</a>    <span class="k">def</span> <span class="nf">face_restriction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Matrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Construct restrictions from global to subdomain face quantities.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (List of pp.Grid): One or several subdomains to which</span>
+<span class="sd">                the projection should apply.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the</span>
+<span class="sd">                projection.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+            <span class="k">if</span> <span class="s2">&quot;mortar_grid&quot;</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument should be a regular grid, not mortar grid&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_face_projection</span><span class="p">[</span><span class="n">subdomains</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;FaceRestriction&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># A key error will be raised if a grid in subdomains is not known to</span>
+                <span class="c1"># self._face_projection</span>
+                <span class="c1"># IMPLEMENTATION NOTE: Use csr format, since the number of rows can</span>
+                <span class="c1"># be much less than the number of columns.</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span>
+                    <span class="p">[[</span><span class="bp">self</span><span class="o">.</span><span class="n">_face_projection</span><span class="p">[</span><span class="n">g</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">]</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># If the grid list is empty, we project from the full set of faces to</span>
+                <span class="c1"># nothing.</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tot_num_faces</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span>
+                <span class="n">mat</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;FaceRestriction&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_error_message</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="SubdomainProjections.face_prolongation"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.SubdomainProjections.face_prolongation">[docs]</a>    <span class="k">def</span> <span class="nf">face_prolongation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Matrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Construct prolongation from subdomain to global face quantities.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (List of pp.Grid): One or several subdomains to which</span>
+<span class="sd">                the prolongation should apply.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the</span>
+<span class="sd">                prolongation.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_face_projection</span><span class="p">[</span><span class="n">subdomains</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;FaceProlongation&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># A key error will be raised if a grid in subdomains is not known to</span>
+                <span class="c1"># self._face_projection</span>
+                <span class="c1"># IMPLEMENTATION NOTE: Use csc format, since the number of columns can</span>
+                <span class="c1"># be far smaller than the number of rows.</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">([[</span><span class="bp">self</span><span class="o">.</span><span class="n">_face_projection</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">]])</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># If the grid list is empty, we project from nothing to the full set of</span>
+                <span class="c1"># faces</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_tot_num_faces</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span>
+                <span class="n">mat</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;FaceProlongation&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_error_message</span><span class="p">())</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Restriction and prolongation operators for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_grids</span><span class="si">}</span><span class="s2"> subdomains</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Aimed at variables with dimension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="nf">_error_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Argument should be a subdomain grid or a list of subdomain grids&quot;</span></div>
+
+
+<div class="viewcode-block" id="MortarProjections"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.MortarProjections">[docs]</a><span class="k">class</span> <span class="nc">MortarProjections</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper class to generate projections to and from MortarGrids.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        mortar_to_primary_int (pp.ad.Matrix): Matrix of projections from the mortar</span>
+<span class="sd">            grid to the primary grid. Intended for extensive quantities (so fluxes).</span>
+<span class="sd">            Represented as an Ad Matrix operator.</span>
+<span class="sd">        mortar_to_primary_avg (pp.ad.Matrix): Matrix of projections from the mortar</span>
+<span class="sd">            grid to the primary grid. Intended for intensive quantities (so pressures).</span>
+<span class="sd">            Represented as an Ad Matrix operator.</span>
+<span class="sd">        primary_to_mortar_int (pp.ad.Matrix): Matrix of projections from the primary</span>
+<span class="sd">            grid to the mortar grid. Intended for extensive quantities (so fluxes).</span>
+<span class="sd">            Represented as an Ad Matrix operator.</span>
+<span class="sd">        primary_to_mortar_avg (pp.ad.Matrix): Matrix of projections from the primary</span>
+<span class="sd">            grid to the mortar grid. Intended for intensive quantities (so pressures).</span>
+<span class="sd">            Represented as an Ad Matrix operator.</span>
+<span class="sd">        mortar_to_secondary_int (pp.ad.Matrix): Matrix of projections from the mortar</span>
+<span class="sd">            grid to the secondary grid. Intended for extensive quantities (so fluxes).</span>
+<span class="sd">            Represented as an Ad Matrix operator.</span>
+<span class="sd">        mortar_to_secondary_avg (pp.ad.Matrix): Matrix of projections from the mortar</span>
+<span class="sd">            grid to the secondary grid. Intended for intensive quantities (so pressures).</span>
+<span class="sd">            Represented as an Ad Matrix operator.</span>
+<span class="sd">        secondary_to_mortar_int (pp.ad.Matrix): Matrix of projections from the secondary</span>
+<span class="sd">            grid to the mortar grid. Intended for extensive quantities (so fluxes).</span>
+<span class="sd">            Represented as an Ad Matrix operator.</span>
+<span class="sd">        secondary_to_mortar_avg (pp.ad.Matrix): Matrix of projections from the secondary</span>
+<span class="sd">            grid to the mortar grid. Intended for intensive quantities (so pressures).</span>
+<span class="sd">            Represented as an Ad Matrix operator.</span>
+<span class="sd">        sign_of_mortar_sides (pp.Ad.Matrix): Matrix representation that assigns signs</span>
+<span class="sd">            to two mortar sides. Needed to implement a jump operator in contact</span>
+<span class="sd">            mechanics.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
+        <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Construct mortar projection object.</span>
+
+<span class="sd">        The projections will be ordered according to the ordering in grids, or the order</span>
+<span class="sd">        of the MixedDimensionalGrid iteration over grids. It is critical that the same ordering</span>
+<span class="sd">        is used by other operators.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid.</span>
+<span class="sd">            subdomains (List of pp.Grid): List of grids for which the projections</span>
+<span class="sd">                should apply. The order of the grids in the list establishes the ordering of</span>
+<span class="sd">                the subdomain projections.</span>
+<span class="sd">            interfaces (List of edges): List of edges for which the projections</span>
+<span class="sd">                should apply. The order of the grids in the list establishes the ordering of</span>
+<span class="sd">                the subdomain projections.</span>
+<span class="sd">            dim (int, optional): Dimension of the quantities to be projected.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;MortarProjection&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_edges</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">dim</span>
+
+        <span class="c1"># Initialize projections</span>
+        <span class="n">cell_projection</span><span class="p">,</span> <span class="n">face_projection</span> <span class="o">=</span> <span class="n">_subgrid_projections</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+
+        <span class="c1"># IMPLEMENTATION NOTE:</span>
+        <span class="c1"># sparse blocks are slow; it should be possible to do a right multiplication</span>
+        <span class="c1"># of local-to-global mortar indices instead of the block.</span>
+
+        <span class="c1"># Data structures for constructing the projection operators</span>
+        <span class="n">mortar_to_primary_int</span><span class="p">,</span> <span class="n">mortar_to_primary_avg</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="n">primary_to_mortar_int</span><span class="p">,</span> <span class="n">primary_to_mortar_avg</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+        <span class="n">mortar_to_secondary_int</span><span class="p">,</span> <span class="n">mortar_to_secondary_avg</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="n">secondary_to_mortar_int</span><span class="p">,</span> <span class="n">secondary_to_mortar_avg</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+        <span class="c1"># The goal is to construct global projections between subdomains and mortar subdomains.</span>
+        <span class="c1"># The construction takes two stages, and is different for projections to and</span>
+        <span class="c1"># from the mortar grid:</span>
+        <span class="c1"># For projections from the mortar grid, a mapping is first made from local</span>
+        <span class="c1"># mortar numbering global grid ordering. In the second stage, the mappings from</span>
+        <span class="c1"># mortar are stacked to make a global mapping.</span>
+        <span class="c1"># Projections to the mortar grid are made by first defining projections from</span>
+        <span class="c1"># global grid numbering to local mortar subdomains, and then stack the latter.</span>
+
+        <span class="c1"># Special treatment is needed for the case of empty lists - see below</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="n">interfaces</span><span class="p">:</span>
+                <span class="n">g_primary</span><span class="p">,</span> <span class="n">g_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_to_subdomain_pair</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">intf</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span>  <span class="c1"># Appease mypy</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">g_primary</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="n">intf</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="n">intf</span><span class="o">.</span><span class="n">codim</span>
+                <span class="p">)</span> <span class="ow">or</span> <span class="n">g_secondary</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="n">intf</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span>
+                    <span class="c1"># This will correspond to DD of sorts; we could handle this</span>
+                    <span class="c1"># by using cell_projections for g_primary and/or</span>
+                    <span class="c1"># face_projection for g_secondary, depending on the exact</span>
+                    <span class="c1"># configuration</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Non-standard interface.&quot;</span><span class="p">)</span>
+                <span class="n">primary_projection</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">face_projection</span><span class="p">[</span><span class="n">g_primary</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">intf</span><span class="o">.</span><span class="n">codim</span> <span class="o">&lt;</span> <span class="mi">2</span>
+                    <span class="k">else</span> <span class="n">cell_projection</span><span class="p">[</span><span class="n">g_primary</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="c1"># Create all projection matrices for this MortarGrid and append them to</span>
+                <span class="c1"># the list. The use of optimized storage is of importance here, since</span>
+                <span class="c1"># for small subdomain subdomains in problems with many cells in total, the</span>
+                <span class="c1"># projection matrices may have many more rows than columns, or opposite.</span>
+
+                <span class="c1"># Projections to primary</span>
+                <span class="n">mortar_to_primary_int</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                        <span class="n">primary_projection</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_primary_int</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">mortar_to_primary_avg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                        <span class="n">primary_projection</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_primary_avg</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Projections from primary</span>
+                <span class="n">primary_to_mortar_int</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                        <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="o">*</span> <span class="n">primary_projection</span><span class="o">.</span><span class="n">T</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">primary_to_mortar_avg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                        <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_avg</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="o">*</span> <span class="n">primary_projection</span><span class="o">.</span><span class="n">T</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Projections to secondary</span>
+                <span class="n">mortar_to_secondary_int</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                        <span class="n">cell_projection</span><span class="p">[</span><span class="n">g_secondary</span><span class="p">]</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_int</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">mortar_to_secondary_avg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                        <span class="n">cell_projection</span><span class="p">[</span><span class="n">g_secondary</span><span class="p">]</span> <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Projections from secondary.</span>
+                <span class="c1"># IMPLEMENTATION NOTE: For some reason, forcing csr format here</span>
+                <span class="c1"># decreased the runtime with a factor of 5, while this was not important</span>
+                <span class="c1"># while creating the other projection matrices. Experimentation showed no</span>
+                <span class="c1"># similar pattern when flipping between csc and csr formats, so it probably</span>
+                <span class="c1"># just has to be in this way, or this was case-dependent behavior (the</span>
+                <span class="c1"># relevant test case was the field case in the 3d flow benchmark).</span>
+                <span class="n">secondary_to_mortar_int</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                        <span class="n">intf</span><span class="o">.</span><span class="n">secondary_to_mortar_int</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+                        <span class="o">*</span> <span class="n">cell_projection</span><span class="p">[</span><span class="n">g_secondary</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">secondary_to_mortar_avg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                        <span class="n">intf</span><span class="o">.</span><span class="n">secondary_to_mortar_avg</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+                        <span class="o">*</span> <span class="n">cell_projection</span><span class="p">[</span><span class="n">g_secondary</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># FIXME: The assumption here is that a MixedDimensionalGrid with a single grid</span>
+            <span class="c1"># (no fractures) has been constructed. In this case, the projection</span>
+            <span class="c1"># to primary should have g.num_faces rows, while there are no</span>
+            <span class="c1"># secondary subdomains to project to. If the mortar projection is constructed</span>
+            <span class="c1"># for a different case (hard to imagine what, but who knows), it is not</span>
+            <span class="c1"># clear what to do, so we&#39;ll raise an error.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+
+            <span class="n">num_cells_lower_dimension</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span> <span class="o">*</span> <span class="n">dim</span>
+            <span class="n">num_faces_higher_dimension</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span> <span class="o">*</span> <span class="n">dim</span>
+
+            <span class="c1"># Projections to and from the grid</span>
+            <span class="n">to_face</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">num_faces_higher_dimension</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="n">from_face</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_faces_higher_dimension</span><span class="p">))</span>
+            <span class="n">to_cells</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">num_cells_lower_dimension</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="n">from_cells</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_cells_lower_dimension</span><span class="p">))</span>
+
+            <span class="c1"># Projections to primary</span>
+            <span class="n">mortar_to_primary_int</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">to_face</span><span class="p">)</span>
+            <span class="n">mortar_to_primary_avg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">to_face</span><span class="p">)</span>
+
+            <span class="c1"># Projections from primary</span>
+            <span class="n">primary_to_mortar_int</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">from_face</span><span class="p">)</span>
+            <span class="n">primary_to_mortar_avg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">from_face</span><span class="p">)</span>
+
+            <span class="n">mortar_to_secondary_int</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">to_cells</span><span class="p">)</span>
+            <span class="n">mortar_to_secondary_avg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">to_cells</span><span class="p">)</span>
+
+            <span class="n">secondary_to_mortar_int</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">from_cells</span><span class="p">)</span>
+            <span class="n">secondary_to_mortar_avg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">from_cells</span><span class="p">)</span>
+
+        <span class="c1"># Stack mappings from the mortar horizontally.</span>
+        <span class="c1"># The projections are wrapped by a pp.ad.Matrix to be compatible with the</span>
+        <span class="c1"># requirements for processing of Ad operators.</span>
+        <span class="k">def</span> <span class="nf">bmat</span><span class="p">(</span><span class="n">matrices</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+            <span class="c1"># Create block matrix, convert it to optimized storage format</span>
+            <span class="n">block_matrix</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">optimized_compressed_storage</span><span class="p">(</span>
+                <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span><span class="n">matrices</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">block_matrix</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_primary_int</span> <span class="o">=</span> <span class="n">bmat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">mortar_to_primary_int</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;MortarToPrimaryInt&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_primary_avg</span> <span class="o">=</span> <span class="n">bmat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">mortar_to_primary_avg</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;MortarToPrimaryAvg&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_secondary_int</span> <span class="o">=</span> <span class="n">bmat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">mortar_to_secondary_int</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;MortarToSecondaryInt&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span> <span class="o">=</span> <span class="n">bmat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">mortar_to_secondary_avg</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;MortarToSecondaryAvg&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Vertical stacking of the projections</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">primary_to_mortar_int</span> <span class="o">=</span> <span class="n">bmat</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">m</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">primary_to_mortar_int</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;PrimaryToMortarInt&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">primary_to_mortar_avg</span> <span class="o">=</span> <span class="n">bmat</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">m</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">primary_to_mortar_avg</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;PrimaryToMortarAvg&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secondary_to_mortar_int</span> <span class="o">=</span> <span class="n">bmat</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">m</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">secondary_to_mortar_int</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;SecondaryToMortarInt&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secondary_to_mortar_avg</span> <span class="o">=</span> <span class="n">bmat</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">m</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">secondary_to_mortar_avg</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;SecondaryToMortarAvg&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Also generate a merged version of MortarGrid.sign_of_mortar_sides:</span>
+        <span class="n">mats</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="n">interfaces</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">intf</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span>  <span class="c1"># Appease mypy</span>
+            <span class="n">mats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">intf</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span>
+                <span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">([[</span><span class="kc">None</span><span class="p">]]),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;SignOfMortarSides&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span>
+                <span class="n">sps</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">mats</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;SignOfMortarSides&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Mortar projection for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_edges</span><span class="si">}</span><span class="s2"> interfaces</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Aimed at variables with dimension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Projections to primary have dimensions </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_primary_avg</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Projections to secondary have dimensions </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="Trace"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.Trace">[docs]</a><span class="k">class</span> <span class="nc">Trace</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper class for Ad representations of trace operators and their inverse,</span>
+<span class="sd">    that is, mappings between grid cells and faces.</span>
+
+<span class="sd">    NOTE: The mapping will hit both boundary and interior faces, so the values</span>
+<span class="sd">    to be mapped should be carefully filtered (e.g. by combining it with a</span>
+<span class="sd">    mortar mapping).</span>
+
+<span class="sd">    The mapping does not alter signs of variables, that is, the direction</span>
+<span class="sd">    of face normal vectors is not accounted for.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        trace (pp.ad.Matrix): Matrix of trace projections from cells to faces.</span>
+<span class="sd">        inv_trace (pp.ad.Matrix): Matrix of trace projections from faces to cells.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Construct trace operators and their inverse for a given set of subdomains.</span>
+
+<span class="sd">        The operators will be ordered according to the ordering in subdomains. It is critical</span>
+<span class="sd">        that the same ordering is used by other operators.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (List of pp.Grid): List of grids. The order of the grids in the list</span>
+<span class="sd">                sets the ordering of the trace operators.</span>
+<span class="sd">            dim (int, optional): Dimension of the quantities to be projected. Defaults to 1.</span>
+<span class="sd">            name (str, optional): Name of the operator. Default is None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">grids</span> <span class="o">=</span> <span class="n">subdomains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_scalar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_grids</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+
+        <span class="n">cell_projections</span><span class="p">,</span> <span class="n">face_projections</span> <span class="o">=</span> <span class="n">_subgrid_projections</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+
+        <span class="n">trace</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">inv_trace</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_scalar</span><span class="p">:</span>
+
+                <span class="c1"># TEMPORARY CONSTRUCT: Use the divergence operator as a trace.</span>
+                <span class="c1"># It would be better to define a dedicated function for this,</span>
+                <span class="c1"># perhaps in the grid itself.</span>
+                <span class="n">div</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">scalar_divergence</span><span class="p">(</span><span class="n">sd</span><span class="p">))</span>
+
+                <span class="c1"># Restrict global cell values to the local grid, use transpose of div</span>
+                <span class="c1"># to map cell values to faces.</span>
+                <span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">div</span><span class="o">.</span><span class="n">T</span> <span class="o">*</span> <span class="n">cell_projections</span><span class="p">[</span><span class="n">sd</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                <span class="c1"># Similarly restrict a global face quantity to the local grid, then</span>
+                <span class="c1"># map back to cells.</span>
+                <span class="n">inv_trace</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">div</span> <span class="o">*</span> <span class="n">face_projections</span><span class="p">[</span><span class="n">sd</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;kronecker&quot;</span><span class="p">)</span>
+        <span class="c1"># Stack both trace and inv_trace vertically to make them into mappings to</span>
+        <span class="c1"># global quantities.</span>
+        <span class="c1"># Wrap the stacked matrices into an Ad object</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trace</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">([[</span><span class="n">m</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">trace</span><span class="p">])</span><span class="o">.</span><span class="n">tocsr</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_trace</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">sps</span><span class="o">.</span><span class="n">bmat</span><span class="p">([[</span><span class="n">m</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">inv_trace</span><span class="p">])</span><span class="o">.</span><span class="n">tocsr</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Trace operator for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_grids</span><span class="si">}</span><span class="s2"> subdomains</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Aimed at variables with dimension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Projection from grid to mortar has dimensions </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Trace&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; named </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="Geometry"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.Geometry">[docs]</a><span class="k">class</span> <span class="nc">Geometry</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper class for Ad representations of grids.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        cell_volumes (pp.ad.Matrix): Diagonal ad matrix of cell volumes.</span>
+<span class="sd">        face_areas (pp.ad.Matrix):  Diagonal ad matrix of face areas.</span>
+<span class="sd">        nd (int): Ambient/highest dimension of the mixed-dimensional grid.</span>
+
+<span class="sd">    FIXME: Implement parse??</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Construct concatenated grid operators for a given set of subdomains.</span>
+
+<span class="sd">        The operators will be ordered according to the ordering in grids. It is critical</span>
+<span class="sd">        that the same ordering is used by other operators.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (List of pp.Grid): List of grids. The order of the grids in the list</span>
+<span class="sd">                sets the ordering of the geometry operators. Can be either subdomain (pp.Grid)</span>
+<span class="sd">                or interface (pp.MortarGrid) grids.</span>
+<span class="sd">            nd: ambient dimension.</span>
+<span class="sd">            name (str, optional): Name of the operator. Default is None.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            AssertionError if nd is smaller than the dimension of any subdomain.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">&lt;=</span> <span class="n">nd</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_grids</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">=</span> <span class="n">nd</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
+
+        <span class="c1"># Wrap the stacked matrices into Ad objects (could be extended to e.g. face normals)</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;cell_volumes&quot;</span><span class="p">,</span> <span class="s2">&quot;face_areas&quot;</span><span class="p">]:</span>
+            <span class="n">ad_matrix</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span>
+                <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="nb">getattr</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">]))</span>
+            <span class="p">)</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">ad_matrix</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">scalar_to_nd</span><span class="p">(</span><span class="n">size</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Expand matrix of size [N x M] to [nd*N x M].</span>
+
+<span class="sd">            When left multiplied to a matrix A, each row of A is</span>
+<span class="sd">            repeated nd times.</span>
+
+<span class="sd">            Usage example: Scaling from traction to force is</span>
+
+<span class="sd">                    force = (scalar_to_nd_face * face_areas) * traction</span>
+
+<span class="sd">            FIXME: Refactor?</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">rows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">)</span>
+            <span class="n">cols</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">size</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">))</span>
+            <span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">)</span>
+            <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">)),</span>
+                <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">size</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">scalar_to_nd_cell</span> <span class="o">=</span> <span class="n">scalar_to_nd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scalar_to_nd_face</span> <span class="o">=</span> <span class="n">scalar_to_nd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Geometry operator for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_grids</span><span class="si">}</span><span class="s2"> grids.</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Ambient dimension is </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Compound geometry&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; named </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="Divergence"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.Divergence">[docs]</a><span class="k">class</span> <span class="nc">Divergence</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper class for Ad representations of divergence operators.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Construct divergence operators for a set of subdomains.</span>
+
+<span class="sd">        The operators will be ordered according to the ordering in subdomains, or the order</span>
+<span class="sd">        of the MixedDimensionalGrid iteration over subdomains. It is critical that the same</span>
+<span class="sd">        ordering is used by other operators.</span>
+
+<span class="sd">        IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be</span>
+<span class="sd">        added in due course.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (List of pp.Grid): List of grids. The order of the subdomains in</span>
+<span class="sd">                the list sets the ordering of the divergence operators.</span>
+<span class="sd">            dim (int, optional): Dimension of vector field. Defaults to 1.</span>
+<span class="sd">            name (str, optional): Name to be assigned to the operator. Default is None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;divergence for vector field of size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; defined on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">)</span><span class="si">}</span><span class="s2"> subdomains</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">nf</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">nc</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span>
+            <span class="n">nf</span> <span class="o">+=</span> <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+            <span class="n">nc</span> <span class="o">+=</span> <span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;The total size of the matrix is (</span><span class="si">{</span><span class="n">nc</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">nf</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Divergence &quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;named </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+<div class="viewcode-block" id="Divergence.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.Divergence.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert the Ad expression into a divergence operators on all relevant subdomains,</span>
+<span class="sd">        represented as a sparse block matrix.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            mdg (pp.MixedDimensionalGrid): Not used, but needed for compatibility with</span>
+<span class="sd">                the general parsing method for Operators.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.spmatrix: Block matrix representation of a divergence operator on</span>
+<span class="sd">                multiple subdomains.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">mat</span> <span class="o">=</span> <span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">scalar_divergence</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mat</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">sps</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">scalar_divergence</span><span class="p">(</span><span class="n">sd</span><span class="p">),</span> <span class="n">sps</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span>
+            <span class="p">]</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">matrix</span></div></div>
+
+
+<div class="viewcode-block" id="BoundaryCondition"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.BoundaryCondition">[docs]</a><span class="k">class</span> <span class="nc">BoundaryCondition</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper class for Ad representations of boundary conditions for a given keyword.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Construct a wrapper for boundary conditions for a set of subdomains.</span>
+
+<span class="sd">        The boundary values will be ordered according to the ordering in subdomains. It is</span>
+<span class="sd">        critical that the same ordering is used by other operators.</span>
+
+<span class="sd">        IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be</span>
+<span class="sd">        added in due course.</span>
+
+<span class="sd">        FIXME: Consider merging with ParameterArray by initializing the latter with</span>
+<span class="sd">            param_keyword = self.keyword, and array_keyword=&#39;bc_values&#39;.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            keyword (str): Keyword that should be used to access the data dictionary</span>
+<span class="sd">                to get the relevant boundary conditions.</span>
+<span class="sd">            subdomains (List of pp.Grid): List of subdomains. The order of the subdomains</span>
+<span class="sd">                in the list sets the ordering of the boundary values.</span>
+<span class="sd">            name (str, optional): Name to be assigned to the operator. Default is None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="n">subdomains</span>
+        <span class="c1"># FIXME: Super sets tree. Purge?</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Boundary Condition operator with keyword </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span>
+            <span class="n">dims</span><span class="p">[</span><span class="n">sd</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">dims</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dims</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="si">}</span><span class="s2"> subdomains of dimension </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;BC(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+<div class="viewcode-block" id="BoundaryCondition.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.BoundaryCondition.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert the Ad expression into numerical values for the boundary conditions,</span>
+<span class="sd">        in the form of an np.ndarray concatenated for all subdomains.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. The boundary condition</span>
+<span class="sd">                will be taken from the data dictionaries with the relevant keyword.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Value of boundary conditions.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+            <span class="n">val</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span><span class="s2">&quot;bc_values&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">val</span><span class="p">])</span></div></div>
+
+
+<div class="viewcode-block" id="ParameterArray"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.ParameterArray">[docs]</a><span class="k">class</span> <span class="nc">ParameterArray</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Extract an array from the parameter dictionaries for a given set of subdomains.</span>
+
+<span class="sd">    Can be used to implement sources, and general arrays to be picked from the</span>
+<span class="sd">    parameter array (and thereby could be changed during the simulation, without</span>
+<span class="sd">    having to redefine the abstract Ad representation of the equations).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">param_keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">array_keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Construct a wrapper for parameter arrays for a set of subdomains.</span>
+
+<span class="sd">        The values of the parameter will be ordered according to the ordering</span>
+<span class="sd">        in subdomains, or the order of the MixedDimensionalGrid iteration over subdomains.</span>
+<span class="sd">        It is critical that the same ordering is used by other operators.</span>
+
+<span class="sd">        IMPLEMENTATION NOTE: This class only takes care of parameter arrays. For</span>
+<span class="sd">            parameters which are (left) multiplied with other terms, use ParameterMatrix.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            param_keyword (str): Keyword that should be used to access the data dictionary</span>
+<span class="sd">                to get the relevant parameter dictionary (same way as discretizations</span>
+<span class="sd">                pick out their parameters).</span>
+<span class="sd">            subdomains (List of pp.Grid): List of subdomains. The order of the subdomains in</span>
+<span class="sd">                the list establishes the ordering of the parameter values.</span>
+<span class="sd">            interfaces (List of pp.MortarGrid): List of edges. The order of the edges in the</span>
+<span class="sd">                list establishes the ordering of the parameter values.</span>
+<span class="sd">            name (str, optional): Name to be assigned to the array. Default is None.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            To get the source term for a flow equation initialize with param_keyword=&#39;flow&#39;,</span>
+<span class="sd">            and array_keyword=&#39;source&#39;.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="c1"># Check that at least one of subdomains and edges is given and set empty list</span>
+        <span class="c1"># if only one is not given</span>
+        <span class="k">if</span> <span class="n">subdomains</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subdomains</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">interfaces</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;ParameterArray needs at least a list of subdomains or a list of edges&quot;</span>
+                <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">interfaces</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">interfaces</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">param_keyword</span> <span class="o">=</span> <span class="n">param_keyword</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">array_keyword</span> <span class="o">=</span> <span class="n">array_keyword</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="n">subdomains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span> <span class="o">=</span> <span class="n">interfaces</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Will access the parameter with keyword </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">param_keyword</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; and keyword </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">array_keyword</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span>
+            <span class="n">dims</span><span class="p">[</span><span class="n">sd</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">dims</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dims</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="si">}</span><span class="s2"> subdomains of dimension </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span>
+            <span class="n">dims</span><span class="p">[</span><span class="n">intf</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">dims</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span><span class="si">{</span><span class="n">dims</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="si">}</span><span class="s2"> interfaces of dimension </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ParameterArray(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">param_keyword</span><span class="si">}</span><span class="s2">)(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">array_keyword</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+<div class="viewcode-block" id="ParameterArray.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.ParameterArray.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert the Ad expression into numerical values for the scalar sources,</span>
+<span class="sd">        in the form of an np.ndarray concatenated for all subdomains.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. The boundary condition</span>
+<span class="sd">                will be taken from the data dictionaries with the relevant keyword.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Value of boundary conditions.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+            <span class="n">val</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">param_keyword</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">array_keyword</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+            <span class="n">val</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">param_keyword</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">array_keyword</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">val</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span></div></div>
+
+
+<div class="viewcode-block" id="ParameterMatrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.ParameterMatrix">[docs]</a><span class="k">class</span> <span class="nc">ParameterMatrix</span><span class="p">(</span><span class="n">ParameterArray</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Extract a matrix from the parameter dictionaries for a given set of subdomains.</span>
+
+<span class="sd">    Typical use: Parameters which are left multiplied with an ad expression. Note that</span>
+<span class="sd">        array parameters are represented by one diagonal matrix for each grid.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ParameterMatrix(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">param_keyword</span><span class="si">}</span><span class="s2">)(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">array_keyword</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+<div class="viewcode-block" id="ParameterMatrix.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html#porepy.numerics.ad.ParameterMatrix.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert the Ad expression into numerical values for the scalar sources,</span>
+<span class="sd">        in the form of an np.ndarray concatenated for all subdomains.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. The boundary condition</span>
+<span class="sd">                will be taken from the data dictionaries with the relevant keyword.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sps.spmatrix: Value of boundary conditions.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+            <span class="n">val</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">param_keyword</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">array_keyword</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+            <span class="n">val</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">param_keyword</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">array_keyword</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">val</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span></div></div>
+
+
+<span class="c1"># Helper methods below</span>
+
+
+<span class="k">def</span> <span class="nf">_subgrid_projections</span><span class="p">(</span>
+    <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;Construct prolongation matrices from individual subdomains to a set of subdomains.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        subdomains: List of grids representing subdomains.</span>
+<span class="sd">        dim: Dimension of the quantities to be projected. 1 corresponds to scalars, 2 to a</span>
+<span class="sd">            vector of two components etc.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        cell_projection: Dictionary with the individual subdomains as keys and projection</span>
+<span class="sd">            matrices for cell-based quantities as items.</span>
+<span class="sd">        face_projection: Dictionary with the individual subdomains as keys and projection</span>
+<span class="sd">            matrices for face-based quantities as items.</span>
+
+
+<span class="sd">    The global cell and face numbering is set according to the order of the</span>
+<span class="sd">    input subdomains.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">face_projection</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">cell_projection</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">are_interfaces</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomains</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">are_interfaces</span><span class="p">:</span>
+        <span class="n">tot_num_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span> <span class="o">*</span> <span class="n">dim</span>
+    <span class="n">tot_num_cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span> <span class="o">*</span> <span class="n">dim</span>
+
+    <span class="n">face_offset</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">cell_offset</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">:</span>
+
+        <span class="n">cell_ind</span> <span class="o">=</span> <span class="n">cell_offset</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">expand_indices_nd</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="n">dim</span>
+        <span class="p">)</span>
+        <span class="n">cell_sz</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="n">dim</span>
+
+        <span class="c1"># Create matrix and convert to csc format, since the number of rows is (much)</span>
+        <span class="c1"># higher than the number of columns.</span>
+        <span class="n">cell_projection</span><span class="p">[</span><span class="n">sd</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">cell_sz</span><span class="p">),</span> <span class="p">(</span><span class="n">cell_ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">cell_sz</span><span class="p">))),</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">tot_num_cells</span><span class="p">,</span> <span class="n">cell_sz</span><span class="p">),</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+        <span class="n">cell_offset</span> <span class="o">=</span> <span class="n">cell_ind</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">are_interfaces</span><span class="p">:</span>
+            <span class="n">face_ind</span> <span class="o">=</span> <span class="n">face_offset</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">expand_indices_nd</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="n">dim</span>
+            <span class="p">)</span>
+            <span class="n">face_sz</span><span class="p">,</span> <span class="n">cell_sz</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">*</span> <span class="n">dim</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="n">dim</span>
+            <span class="n">face_projection</span><span class="p">[</span><span class="n">sd</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">face_sz</span><span class="p">),</span> <span class="p">(</span><span class="n">face_ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">face_sz</span><span class="p">))),</span>
+                <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">tot_num_faces</span><span class="p">,</span> <span class="n">face_sz</span><span class="p">),</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>  <span class="c1"># Again use csc storage, since num_cols &lt; num_rows</span>
+
+            <span class="c1"># Correct start of the numbering for the next grid</span>
+            <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Point subdomains have no faces</span>
+                <span class="n">face_offset</span> <span class="o">=</span> <span class="n">face_ind</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">cell_projection</span><span class="p">,</span> <span class="n">face_projection</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

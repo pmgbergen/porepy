@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.fracs.fracture_network_2d module &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.fracture_network_2d.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="porepy.fracs.fracture_network_3d module" href="porepy.fracs.fracture_network_3d.html" />
+    <link rel="prev" title="porepy.fracs.fracture_importer module" href="porepy.fracs.fracture_importer.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
+          <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
+      <li class="breadcrumb-item active">porepy.fracs.fracture_network_2d module</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-porepy.fracs.fracture_network_2d">
+<span id="porepy-fracs-fracture-network-2d-module"></span><h1>porepy.fracs.fracture_network_2d module<a class="headerlink" href="#module-porepy.fracs.fracture_network_2d" title="Permalink to this heading"></a></h1>
+<p>Module contains class for representing a fracture network in a 2d domain.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FractureNetwork2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Class representation of a set of fractures in a 2D domain.</p>
+<p>The fractures are represented by their endpoints. Poly-line fractures are
+currently not supported. There is no requirement or guarantee that the
+fractures are contained within the specified domain. The fractures can be
+cut to a given domain by the function constrain_to_domain().</p>
+<p>The domain can be a general non-convex polygon.</p>
+<p>IMPLEMENTATION NOTE: The class is mainly intended for representation and meshing of
+a fracture network, however, it also contains some utility functions. The balance
+between these components may change in the future, specifically, utility functions
+may be removed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>(</strong><strong>siz</strong> (<em>pts</em>) – 2 x num_pts): Start and endpoints of the fractures. Points
+can be shared by fractures.</p></li>
+<li><p><strong>(</strong><strong>size</strong> (<em>edges</em>) – (2 + num_tags) x num_fracs): Fractures, defined as connections
+between the points.</p></li>
+<li><p><strong>domain</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em> | </em><em>np.ndarray</em><em>]</em>) – The domain in which the fracture set is defined. If dictionary, it
+should contain keys ‘xmin’, ‘xmax’, ‘ymin’, ‘ymax’, each of which maps to a
+double giving the range of the domain. If np.array, it should be of size
+2 x n, and given the vertexes of the domain. The fractures need not lay
+inside the domain.</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Tolerance used in geometric computations.</p></li>
+<li><p><strong>pts</strong> (<em>Optional</em><em>[</em><em>np.ndarray</em><em>]</em>) – </p></li>
+<li><p><strong>edges</strong> (<em>Optional</em><em>[</em><em>np.ndarray</em><em>]</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.add_network">
+<span class="sig-name descname"><span class="pre">add_network</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.add_network"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.add_network" title="Permalink to this definition"></a></dt>
+<dd><p>Add this fracture set to another one, and return a new set.</p>
+<p>The new set may contain non-unique points and edges.</p>
+<p>It is assumed that the domains, if specified, are on a dictionary form.</p>
+<p>WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have different
+set of tags, the necessary rows and columns are filled with what is essentially
+random values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">FractureSet</span></code>) – Another set to be added</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>New fracture set, containing all points and edges in both self and</dt><dd><p>fs, and the union of the domains.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.as_graph">
+<span class="sig-name descname"><span class="pre">as_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split_intersections</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.as_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.as_graph" title="Permalink to this definition"></a></dt>
+<dd><p>Represent the fracture set as a graph, using the networkx data structure.</p>
+<p>By default, the fractures will first be split into non-intersecting branches.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>split_intersections</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – If True (default), the network
+is split into non-intersecting branches before invoking the graph
+representation.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Graph representation of the network, using the networkx</dt><dd><p>data structure.</p>
+</dd>
+<dt>FractureSet: This fracture set, split into non-intersecting branches.</dt><dd><p>Only returned if split_intersections is True</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>networkx.graph</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.compute_center">
+<span class="sig-name descname"><span class="pre">compute_center</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.compute_center"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.compute_center" title="Permalink to this definition"></a></dt>
+<dd><p>Compute center points of a set of fractures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">n</span> <span class="pre">,</span> <span class="pre">optional</span></code>) – <p>Points used to describe the fractures.</p>
+<p>defaults to the fractures in this set.</p>
+</p></li>
+<li><p><strong>edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">num_frac,</span> <span class="pre">optional</span></code>) – Indices, referring to pts, of the start
+and end points of the fractures for which the centres should be computed.
+Defaults to the fractures of this set.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Coordinates of the centers of this fracture.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.array, 2 x num_frac</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.constrain_to_domain">
+<span class="sig-name descname"><span class="pre">constrain_to_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.constrain_to_domain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.constrain_to_domain" title="Permalink to this definition"></a></dt>
+<dd><p>Constrain the fracture network to lay within a specified domain.</p>
+<p>Fractures that cross the boundary of the domain will be cut to lay
+within the boundary. Fractures that lay completely outside the domain
+will be dropped from the constrained description.</p>
+<p>TODO: Also return an index map from new to old fractures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>domain</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary,</span> <span class="pre">None</span></code>) – Domain specification, in the form of a
+dictionary with fields ‘xmin’, ‘xmax’, ‘ymin’, ‘ymax’. If not
+provided, the domain of this object will be used.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Initialized by the constrained fractures, and the</dt><dd><p>specified domain.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="porepy.fracs.fracture_network_2d.FractureNetwork2d">FractureNetwork2d</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.copy" title="Permalink to this definition"></a></dt>
+<dd><p>Create deep copy of the network.</p>
+<p>The method will create a deep copy of all fractures, as well as the domain, of
+the network. Note that if the fractures have had extra points imposed as part
+of a meshing procedure, these will be included in the copied fractures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>pp.FractureNetwork2d.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="porepy.fracs.fracture_network_2d.FractureNetwork2d"><em>FractureNetwork2d</em></a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>self.snapped_copy(), self.copy_with_split_intersections()</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.copy_with_split_intersections">
+<span class="sig-name descname"><span class="pre">copy_with_split_intersections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.copy_with_split_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.copy_with_split_intersections" title="Permalink to this definition"></a></dt>
+<dd><p>Create a new FractureSet, with all fracture intersections removed</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – Tolerance used in geometry computations when
+splitting fractures. Defaults to the tolerance of this network.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>New set, where all intersection points are added so that</dt><dd><p>the set only contains non-intersecting branches.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>FractureSet</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>self.copy(), self.snapped_copy()</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.domain_measure">
+<span class="sig-name descname"><span class="pre">domain_measure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.domain_measure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.domain_measure" title="Permalink to this definition"></a></dt>
+<dd><p>Get the measure (length, area) of a given box domain, specified by its
+extensions stored in a dictionary.</p>
+<p>The dimension of the domain is inferred from the dictionary fields.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>domain</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary,</span> <span class="pre">optional</span></code>) – Should contain keys ‘xmin’ and ‘xmax’
+specifying the extension in the x-direction. If the domain is 2d,
+it should also have keys ‘ymin’ and ‘ymax’. If no domain is specified
+the domain of this object will be used.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Measure of the domain.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>double</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.end_points">
+<span class="sig-name descname"><span class="pre">end_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.end_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.end_points" title="Permalink to this definition"></a></dt>
+<dd><p>Get start points of all fractures, or a subset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fi</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span> <span class="pre">or</span> <span class="pre">int,</span> <span class="pre">optional</span></code>) – Index of the fractures for which the
+end point should be returned. Either a numpy array, or a single
+int. In case of multiple indices, the points are returned in the
+order specified in fi. If not specified, all end points will be
+returned.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>End coordinates of all fractures.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.array, 2 x num_frac</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.get_points">
+<span class="sig-name descname"><span class="pre">get_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.get_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.get_points" title="Permalink to this definition"></a></dt>
+<dd><p>Return start and end points for a specified fracture.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fi</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span> <span class="pre">or</span> <span class="pre">int,</span> <span class="pre">optional</span></code>) – Index of the fractures for which the
+end point should be returned. Either a numpy array, or a single
+int. In case of multiple indices, the points are returned in the
+order specified in fi. If not specified, all end points will be
+returned.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>End coordinates of all fractures.
+np.array, 2 x num_frac: End coordinates of all fractures.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.array, 2 x num_frac</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.impose_external_boundary">
+<span class="sig-name descname"><span class="pre">impose_external_boundary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_domain_edges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.impose_external_boundary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.impose_external_boundary" title="Permalink to this definition"></a></dt>
+<dd><p>Constrain the fracture network to lie within a domain.</p>
+<p>Fractures outside the imposed domain will be deleted.</p>
+<p>The domain will be added to self.pts and self.edges, if add_domain_edges is True.
+The domain boundary edges can be identified from self.tags[‘boundary’].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>domain</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span> <span class="pre">or</span> <span class="pre">np.array,</span> <span class="pre">optional</span></code>) – Domain. See __init__ for description.
+if not provided, self.domain will be used.</p></li>
+<li><p><strong>add_domain_edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool,</span> <span class="pre">optional</span></code>) – Include or not the boundary edges and pts in
+the list of edges. Default value True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Index of edges that were outside the bounding box</dt><dd><p>and therefore deleted.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>edges_deleted (np.array)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.length">
+<span class="sig-name descname"><span class="pre">length</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.length"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.length" title="Permalink to this definition"></a></dt>
+<dd><p>Compute the total length of the fractures, based on the fracture id.
+The output array has length as unique(frac) and ordered from the lower index
+to the higher.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fi</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">or</span> <span class="pre">int</span></code>) – Index of fracture(s) where length should be
+computed. Refers to self.edges</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Length of each fracture</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh">
+<span class="sig-name descname"><span class="pre">mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">do_snap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dfn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tags_to_transfer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_small_fractures</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_geo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clear_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.mesh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh" title="Permalink to this definition"></a></dt>
+<dd><p>Create MixedDimensionalGrid (mixed-dimensional grid) for this fracture network.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mesh_args</strong> – Arguments passed on to mesh size control</p></li>
+<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double,</span> <span class="pre">optional</span></code>) – Tolerance used for geometric computations.
+Defaults to the tolerance of this network.</p></li>
+<li><p><strong>do_snap</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – Whether to snap lines to avoid small
+segments. Defaults to True.</p></li>
+<li><p><strong>constraints</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span> <span class="pre">of</span> <span class="pre">int</span></code>) – Index of network edges that should not
+generate lower-dimensional meshes, but only act as constraints in
+the meshing algorithm.</p></li>
+<li><p><strong>dfn</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – If True, a DFN mesh (of the network, but not
+the surrounding matrix) is created.</p></li>
+<li><p><strong>tags_to_transfer</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">key,</span> <span class="pre">optional</span> <span class="pre">default</span> <span class="pre">None</span></code>) – The tags of
+the network are passed to the fracture grids.</p></li>
+<li><p><strong>remove_small_fractures</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Whether to remove small fractures. FIXME: expand documentation.</p></li>
+<li><p><strong>write_geo</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool,</span> <span class="pre">optional</span></code>) – If True (default), the gmsh configuration
+will be written to a .geo_unrolled file.</p></li>
+<li><p><strong>finalize_gmsh</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>) – If True (default), the port to Gmsh is closed when
+meshing is completed. On repeated invocations of Gmsh in the same Python
+session, a memory leak in Gmsh may cause reduced performance (written
+spring 2021). In these cases, it may be better to finalize gmsh externally
+to this class. See also clear_gmsh.</p></li>
+<li><p><strong>clear_gmsh</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – If True, the geometry representation in gmsh
+is deleted when meshing is completed. This is of use only if finalize_gmsh
+is set to False, in which case it may be desirable to delete the old
+geometry before adding a new one. Defaults to False.</p></li>
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mixed-dimensional mesh.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid">MixedDimensionalGrid</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.num_frac">
+<span class="sig-name descname"><span class="pre">num_frac</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.num_frac"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.num_frac" title="Permalink to this definition"></a></dt>
+<dd><p>Return the number of fractures stored</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.orientation">
+<span class="sig-name descname"><span class="pre">orientation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.orientation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.orientation" title="Permalink to this definition"></a></dt>
+<dd><p>Compute the angle of the fractures to the x-axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fi</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">or</span> <span class="pre">int</span></code>) – Index of fracture(s) where length should be
+computed. Refers to self.edges</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Orientation of each fracture, relative to the x-axis.</dt><dd><p>Measured in radians, will be a number between 0 and pi.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>angle</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.plot" title="Permalink to this definition"></a></dt>
+<dd><p>Plot the fracture set.</p>
+<p>The function passes this fracture set to PorePy plot_fractures</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>**kwargs</strong> – Keyword arguments to be passed on to matplotlib.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.prepare_for_gmsh">
+<span class="sig-name descname"><span class="pre">prepare_for_gmsh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">do_snap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dfn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_small_fractures</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.prepare_for_gmsh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.prepare_for_gmsh" title="Permalink to this definition"></a></dt>
+<dd><p>Process network intersections and write a gmsh .geo configuration file,
+ready to be processed by gmsh.</p>
+<p>NOTE: Consider using the mesh() function instead to get a ready MixedDimensionalGrid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mesh_args</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Arguments passed on to mesh size control</p></li>
+<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double,</span> <span class="pre">optional</span></code>) – Tolerance used for geometric computations.
+Defaults to the tolerance of this network.</p></li>
+<li><p><strong>do_snap</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – Whether to snap lines to avoid small
+segments. Defaults to True.</p></li>
+<li><p><strong>constraints</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span> <span class="pre">of</span> <span class="pre">int</span></code>) – Index of network edges that should not
+generate lower-dimensional meshes, but only act as constraints in
+the meshing algorithm.</p></li>
+<li><p><strong>dfn</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – If True, a DFN mesh (of the network, but not
+the surrounding matrix) is created.
+remove_small_fractures
+Whether to remove small fractures. FIXME: expand documentation.</p></li>
+<li><p><strong>remove_small_fractures</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mixed-dimensional mesh.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid">MixedDimensionalGrid</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.snapped_copy">
+<span class="sig-name descname"><span class="pre">snapped_copy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tol</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.snapped_copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.snapped_copy" title="Permalink to this definition"></a></dt>
+<dd><p>Modify point definition so that short branches are removed, and
+almost intersecting fractures become intersecting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code>) – Threshold for geometric modifications. Points and
+segments closer than the threshold may be modified.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A new network with modified point coordinates.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="porepy.fracs.fracture_network_2d.FractureNetwork2d">FractureNetwork2d</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>self.copy(), self.copy_with_split_intersections()</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.start_points">
+<span class="sig-name descname"><span class="pre">start_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.start_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.start_points" title="Permalink to this definition"></a></dt>
+<dd><p>Get start points of all fractures, or a subset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fi</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span> <span class="pre">or</span> <span class="pre">int,</span> <span class="pre">optional</span></code>) – Index of the fractures for which the
+start point should be returned. Either a numpy array, or a single
+int. In case of multiple indices, the points are returned in the
+order specified in fi. If not specified, all start points will be
+returned.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Start coordinates of all fractures.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.array, 2 x num_frac</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.to_csv">
+<span class="sig-name descname"><span class="pre">to_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_header</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.to_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.to_csv" title="Permalink to this definition"></a></dt>
+<dd><p>Save the 2d network on a csv file with comma as separator.
+Note: the file is overwritten if present.
+The format is
+FID, START_X, START_Y, END_X, END_Y</p>
+<section id="parameters">
+<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h2>
+<dl class="simple">
+<dt>file_name</dt><dd><p>Name of the file.</p>
+</dd>
+<dt>with_header</dt><dd><p>Whether to write headers for the five columns in the first row.</p>
+</dd>
+</dl>
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.to_file">
+<span class="sig-name descname"><span class="pre">to_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_2d.html#FractureNetwork2d.to_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.to_file" title="Permalink to this definition"></a></dt>
+<dd><p>Export the fracture network to file.</p>
+<p>The file format is given as a kwarg, by default vtu will be used. The writing is
+outsourced to meshio, thus the file format should be supported by that package.</p>
+<p>The fractures are treated as lines, with no special treatment
+of intersections.</p>
+<p>Fracture numbers are always exported (1-offset). In addition, it is
+possible to export additional data, as specified by the
+keyword-argument data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of the target file.</p></li>
+<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary,</span> <span class="pre">optional</span></code>) – Data associated with the fractures.
+The values in the dictionary should be numpy arrays. 1d and 3d
+data is supported. Fracture numbers are always exported.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+<dl>
+<dt>Optional arguments in kwargs:</dt><dd><dl class="simple">
+<dt>binary (boolean): Use binary export format. Default to</dt><dd><p>True.</p>
+</dd>
+<dt>fracture_offset (int): Use to define the offset for a</dt><dd><p>fracture id. Default to 1.</p>
+</dd>
+</dl>
+<p>folder_name (string): Path to save the file. Default to “./”.
+extension (string): File extension. Default to “.vtu”.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.bounding_box_imposed">
+<span class="sig-name descname"><span class="pre">bounding_box_imposed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.bounding_box_imposed" title="Permalink to this definition"></a></dt>
+<dd><p>Flag indicating whether the bounding box has been imposed.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.domain">
+<span class="sig-name descname"><span class="pre">domain</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.domain" title="Permalink to this definition"></a></dt>
+<dd><p>The domain for this fracture network.</p>
+<p>The domain is defined by a dictionary with keys ‘xmin’, ‘xmax’, ‘ymin’, ‘ymax’.
+If not specified, the domain will be set to the bounding box of the fractures.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.edges">
+<span class="sig-name descname"><span class="pre">edges</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.edges" title="Permalink to this definition"></a></dt>
+<dd><p>The fractures as an array of start and end points, referring to <code class="docutils literal notranslate"><span class="pre">pts</span></code></p>
+<p>Additional rows are optional tags of the fractures. In the standard form, the
+third row (first row of tags) identifies the type of edges, referring to the
+numbering system in GmshInterfaceTags. The second row of tags keeps track of the
+numbering of the edges (referring to the original order of the edges) in
+geometry processing like intersection removal. Additional tags can be assigned
+by the user.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.pts">
+<span class="sig-name descname"><span class="pre">pts</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.pts" title="Permalink to this definition"></a></dt>
+<dd><p>Start and endpoints of the fractures. Points can be shared by fractures.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.tags">
+<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">np.ndarray</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.tags" title="Permalink to this definition"></a></dt>
+<dd><p>Tags for the fractures.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.fracs.fracture_network_2d.FractureNetwork2d.tol">
+<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_2d.FractureNetwork2d.tol" title="Permalink to this definition"></a></dt>
+<dd><p>Tolerance used in geometric computations.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="porepy.fracs.fracture_importer.html" class="btn btn-neutral float-left" title="porepy.fracs.fracture_importer module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="porepy.fracs.fracture_network_3d.html" class="btn btn-neutral float-right" title="porepy.fracs.fracture_network_3d module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

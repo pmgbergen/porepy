@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.fracs.meshing &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/meshing.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.fracs.meshing</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.fracs.meshing</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Main module for grid generation in fractured domains in 2d and 3d.</span>
+
+<span class="sd">The module serves as the only necessary entry point to create the grid. It</span>
+<span class="sd">will therefore wrap interface to different mesh generators, pass options to the</span>
+<span class="sd">generators etc.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">from</span> <span class="nn">porepy.fracs</span> <span class="kn">import</span> <span class="n">split_grid</span><span class="p">,</span> <span class="n">structured</span>
+<span class="kn">from</span> <span class="nn">porepy.grids</span> <span class="kn">import</span> <span class="n">mortar_grid</span>
+<span class="kn">from</span> <span class="nn">porepy.grids.md_grid</span> <span class="kn">import</span> <span class="n">MixedDimensionalGrid</span>
+<span class="kn">from</span> <span class="nn">porepy.utils</span> <span class="kn">import</span> <span class="n">mcolon</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">mortar_sides</span> <span class="o">=</span> <span class="n">mortar_grid</span><span class="o">.</span><span class="n">MortarSides</span>
+
+
+<div class="viewcode-block" id="subdomains_to_mdg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.meshing.html#porepy.fracs.meshing.subdomains_to_mdg">[docs]</a><span class="k">def</span> <span class="nf">subdomains_to_mdg</span><span class="p">(</span>
+    <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span>
+    <span class="n">time_tot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Convert a list of grids to a full MixedDimensionalGrid.</span>
+
+<span class="sd">    The list can come from several mesh constructors, both simplex and</span>
+<span class="sd">    structured approaches uses this in 2D and 3D.</span>
+
+<span class="sd">    The function can not be used on an arbitrary set of grids; they should</span>
+<span class="sd">    contain information to glue grids together. This will be included for grids</span>
+<span class="sd">    created by the standard mixed-dimensional grid constructors. Essentially,</span>
+<span class="sd">    do not directly use this function unless you are knowledgeable about how it</span>
+<span class="sd">    works.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        subdomains: Subdomains to enter into the Mixed-dimensional grid.</span>
+<span class="sd">            Sorted per dimension.</span>
+<span class="sd">        time_tot (optional): Start time for full mesh construction. Used for</span>
+<span class="sd">            logging. Defaults to None, in which case no information on total</span>
+<span class="sd">            time consumption is logged.</span>
+<span class="sd">        **kwargs: Passed on to subfunctions.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        MixedDimensionalGrid: Final mixed-dimensional grid.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Tag tip faces</span>
+    <span class="n">check_highest_dim</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;check_highest_dim&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">_tag_faces</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">check_highest_dim</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Assemble mdg&quot;</span><span class="p">)</span>
+    <span class="n">tm_mdg</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="c1"># Assemble the list of subdomain grids into a mixed-dimensional grid.</span>
+    <span class="c1"># This will also identify pairs of neighboring grids (one dimension apart).</span>
+    <span class="n">mdg</span><span class="p">,</span> <span class="n">sd_pair_to_face_cell_map</span> <span class="o">=</span> <span class="n">_assemble_mdg</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Done. Elapsed time &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tm_mdg</span><span class="p">))</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Compute geometry&quot;</span><span class="p">)</span>
+    <span class="n">tm_geom</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">mdg</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Done. Elapsed time &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tm_geom</span><span class="p">))</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Split fractures&quot;</span><span class="p">)</span>
+    <span class="n">tm_split</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="c1"># Split faces and nodes in the grids of various dimensions</span>
+    <span class="n">mdg</span><span class="p">,</span> <span class="n">node_pairs</span> <span class="o">=</span> <span class="n">split_grid</span><span class="o">.</span><span class="n">split_fractures</span><span class="p">(</span>
+        <span class="n">mdg</span><span class="p">,</span> <span class="n">sd_pair_to_face_cell_map</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Done. Elapsed time &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tm_split</span><span class="p">))</span>
+
+    <span class="c1"># Now that neighboring subdomains are identified, faces and nodes are split, we</span>
+    <span class="c1"># are ready to create mortar grids on the interface between subdomains. These</span>
+    <span class="c1"># will be added to the mixed-dimensional grid.</span>
+    <span class="n">create_interfaces</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="n">node_pairs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">time_tot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Mesh construction completed. Total time &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">time_tot</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mdg</span></div>
+
+
+<div class="viewcode-block" id="cart_grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.meshing.html#porepy.fracs.meshing.cart_grid">[docs]</a><span class="k">def</span> <span class="nf">cart_grid</span><span class="p">(</span>
+    <span class="n">fracs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">nx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        fracs: One list item for each fracture. Each item consist of a</span>
+<span class="sd">            (nd x npt) array describing fracture vertices, where npt is 2 for</span>
+<span class="sd">            2d domains, 4 for 3d domains. The fractures have to be</span>
+<span class="sd">            rectangles(3D) or straight lines(2D) that align with the axis.</span>
+<span class="sd">            The fractures may be intersecting.The fractures will snap to the</span>
+<span class="sd">            closest grid faces.</span>
+<span class="sd">        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D</span>
+<span class="sd">    **kwargs:</span>
+<span class="sd">        physdims (np.ndarray): Physical dimensions in each direction.</span>
+<span class="sd">            Defaults to same as nx, that is, cells of unit size.</span>
+<span class="sd">            May also contain fracture tags, options for gridding, etc.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        MixedDimensionalGrid: A complete mixed-dimensional grid where all</span>
+<span class="sd">        fractures are represented as lower dim grids. The higher dim fracture</span>
+<span class="sd">        faces are split in two, and on the edges of the MixedDimensionalGrid</span>
+<span class="sd">        graph the mapping from lower dim cells to higher dim faces are stored</span>
+<span class="sd">        as &#39;face_cells&#39;. Each face is given boolean tags depending on the type:</span>
+<span class="sd">        domain_boundary_faces: All faces that lie on the domain boundary</span>
+<span class="sd">        (i.e. should be given a boundary condition).fracture_faces: All faces</span>
+<span class="sd">        that are split (i.e. has a connection to a lower dim grid). tip_faces:</span>
+<span class="sd">        A boundary face that is not on the domain boundary, nor coupled to a</span>
+<span class="sd">        lower dimensional domain. The union of the above three is the tag</span>
+<span class="sd">        boundary_faces.</span>
+
+<span class="sd">    Examples:</span>
+
+<span class="sd">        &gt;&gt;&gt; frac1 = np.array([[1, 4], [2, 2]])</span>
+<span class="sd">        &gt;&gt;&gt; frac2 = np.array([[2, 2], [1, 4]])</span>
+<span class="sd">        &gt;&gt;&gt; fracs = [frac1, frac2]</span>
+<span class="sd">        &gt;&gt;&gt; mdg = cart_grid(fracs, [5, 5])</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">nx</span><span class="p">)</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">physdims</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;physdims&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">physdims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">physdims</span> <span class="o">=</span> <span class="n">nx</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">physdims</span><span class="p">)</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">ndim</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Physical dimension must equal grid dimension&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Call relevant method, depending on grid dimensions</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">subdomains</span> <span class="o">=</span> <span class="n">structured</span><span class="o">.</span><span class="n">_cart_grid_2d</span><span class="p">(</span><span class="n">fracs</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">physdims</span><span class="o">=</span><span class="n">physdims</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">subdomains</span> <span class="o">=</span> <span class="n">structured</span><span class="o">.</span><span class="n">_cart_grid_3d</span><span class="p">(</span><span class="n">fracs</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">physdims</span><span class="o">=</span><span class="n">physdims</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only support for 2 and 3 dimensions&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">subdomains_to_mdg</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="tensor_grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.meshing.html#porepy.fracs.meshing.tensor_grid">[docs]</a><span class="k">def</span> <span class="nf">tensor_grid</span><span class="p">(</span>
+    <span class="n">fracs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">    fracs (list of np.ndarray): One list item for each fracture. Each item</span>
+<span class="sd">        consist of a (nd x npt) array describing fracture vertices, where npt is 2</span>
+<span class="sd">        for 2d domains, 4 for 3d domains. The fractures has to be rectangles(3D) or</span>
+<span class="sd">        straight lines(2D) that alignes with the axis. The fractures may be intersecting.</span>
+<span class="sd">        The fractures will snap to closest grid faces.</span>
+<span class="sd">    x (np.ndarray): Node coordinates in x-direction</span>
+<span class="sd">    y (np.ndarray): Node coordinates in y-direction.</span>
+<span class="sd">    z (np.ndarray): Node coordinates in z-direction.</span>
+<span class="sd">    **kwargs: May contain fracture tags, options for gridding, etc.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    MixedDimensionalGrid: A complete bucket where all fractures are represented as</span>
+<span class="sd">        lower dim grids. The higher dim fracture faces are split in two,</span>
+<span class="sd">        and on the edges of the MixedDimensionalGrid graph the mapping from lower dim</span>
+<span class="sd">        cells to higher dim faces are stored as &#39;face_cells&#39;. Each face is</span>
+<span class="sd">        given boolean tags depending on the type:</span>
+<span class="sd">           domain_boundary_faces: All faces that lie on the domain boundary</span>
+<span class="sd">               (i.e. should be given a boundary condition).</span>
+<span class="sd">           fracture_faces: All faces that are split (i.e. has a connection to a</span>
+<span class="sd">               lower dim grid).</span>
+<span class="sd">           tip_faces: A boundary face that is not on the domain boundary, nor</span>
+<span class="sd">               coupled to a lower domentional domain.</span>
+<span class="sd">        The union of the above three is the tag boundary_faces.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">        &gt;&gt;&gt; frac1 = np.array([[1, 4], [2, 2]])</span>
+<span class="sd">        &gt;&gt;&gt; frac2 = np.array([[2, 2], [1, 4]])</span>
+<span class="sd">        &gt;&gt;&gt; fracs = [frac1, frac2]</span>
+<span class="sd">        &gt;&gt;&gt; mdg = cart_grid(fracs, [5, 5])</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Call relevant method, depending on grid dimensions</span>
+    <span class="k">if</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;fractured tensor grids not implemented in 1D&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">z</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">subdomains</span> <span class="o">=</span> <span class="n">structured</span><span class="o">.</span><span class="n">_tensor_grid_2d</span><span class="p">(</span><span class="n">fracs</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">subdomains</span> <span class="o">=</span> <span class="n">structured</span><span class="o">.</span><span class="n">_tensor_grid_3d</span><span class="p">(</span><span class="n">fracs</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">subdomains_to_mdg</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_tag_faces</span><span class="p">(</span><span class="n">grids</span><span class="p">,</span> <span class="n">check_highest_dim</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Tag faces of grids. Three different tags are given to different types of</span>
+<span class="sd">        faces:</span>
+<span class="sd">            NONE: None of the below (i.e. an internal face)</span>
+<span class="sd">            DOMAIN_BOUNDARY: All faces that lie on the domain boundary</span>
+<span class="sd">                (i.e. should be given a boundary condition).</span>
+<span class="sd">            FRACTURE: All faces that are split (i.e. has a connection to a</span>
+<span class="sd">                lower dim grid).</span>
+<span class="sd">            TIP: A boundary face that is not on the domain boundary, nor</span>
+<span class="sd">                coupled to a lower domentional domain.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            grids (list): List of grids to be tagged. Sorted per dimension.</span>
+<span class="sd">            check_highest_dim (boolean, default=True): If true, we require there is</span>
+<span class="sd">                a single mesh in the highest dimension. The test is useful, but</span>
+<span class="sd">                should be waived for dfn meshes.</span>
+<span class="sd">            tag_tip_node (bool, default=True): If True, nodes in the highest-dimensional grid</span>
+<span class="sd">    are tagged</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Assume only one grid of highest dimension</span>
+    <span class="k">if</span> <span class="n">check_highest_dim</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">grids</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Must be exactly&quot;</span> <span class="s2">&quot;1 grid of dim: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">grids</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">g_h</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">grids</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">bnd_faces</span> <span class="o">=</span> <span class="n">g_h</span><span class="o">.</span><span class="n">get_all_boundary_faces</span><span class="p">()</span>
+        <span class="n">domain_boundary_tags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g_h</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">domain_boundary_tags</span><span class="p">[</span><span class="n">bnd_faces</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">g_h</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">domain_boundary_tags</span>
+
+        <span class="c1"># Pick out the face-node relation for the highest dimensional grid, restricted</span>
+        <span class="c1"># to the faces on the domain boundary. This will be of use for identifying</span>
+        <span class="c1"># tip faces for 2d grids below.</span>
+        <span class="n">fn_h</span> <span class="o">=</span> <span class="n">g_h</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:,</span> <span class="n">bnd_faces</span><span class="p">]</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+
+        <span class="c1"># Nodes on the boundary</span>
+        <span class="n">bnd_nodes</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">fn_h</span><span class="p">)</span>
+
+        <span class="c1"># Boundary nodes of g_h in terms of global indices</span>
+        <span class="n">bnd_nodes_glb</span> <span class="o">=</span> <span class="n">g_h</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">bnd_nodes</span><span class="p">)]</span>
+
+        <span class="c1"># Find the nodes in g_h that are on the tip of a fracture (not counting</span>
+        <span class="c1"># fracture endings on the global boundary). Do this by identifying tip nodes</span>
+        <span class="c1"># among the grids of dimension dim_max - 1. Exclude tips that also occur on</span>
+        <span class="c1"># other fractures (this will correspond to T or L-intersection, which look</span>
+        <span class="c1"># like tips from individual fractures).</span>
+
+        <span class="c1"># IMPLEMENTATION NOTE: To account for cases where not all global nodes are</span>
+        <span class="c1"># present in g_h (e.g. for DFN-type grids), and avoid issues relating to nodes</span>
+        <span class="c1"># in lower-dimensional grids that are not present in g_h, we store node numbers</span>
+        <span class="c1"># instead of using booleans arrays on the nodes in g_h.</span>
+
+        <span class="c1"># Keep track of nodes in g_h that correspond to tip nodes of a fracture.</span>
+        <span class="n">global_node_as_fracture_tip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="c1"># Also count the number of occurences of nodes on fractures</span>
+        <span class="n">num_occ_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">g_dim</span> <span class="ow">in</span> <span class="n">grids</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">g_dim</span><span class="p">:</span>
+                <span class="c1"># We find the global nodes of all boundary faces</span>
+                <span class="n">bnd_faces_l</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">get_all_boundary_faces</span><span class="p">()</span>
+                <span class="n">indptr</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indptr</span>
+                <span class="n">fn_loc</span> <span class="o">=</span> <span class="n">mcolon</span><span class="o">.</span><span class="n">mcolon</span><span class="p">(</span><span class="n">indptr</span><span class="p">[</span><span class="n">bnd_faces_l</span><span class="p">],</span> <span class="n">indptr</span><span class="p">[</span><span class="n">bnd_faces_l</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="n">nodes_loc</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">fn_loc</span><span class="p">]</span>
+                <span class="c1"># Convert to global numbering</span>
+                <span class="n">nodes_glb</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">nodes_loc</span><span class="p">]</span>
+                <span class="c1"># We then tag each node as a tip node if it is not a global</span>
+                <span class="c1"># boundary node</span>
+                <span class="n">node_on_tip_not_global_bnd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span>
+                    <span class="n">nodes_glb</span><span class="p">,</span> <span class="n">bnd_nodes_glb</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span>
+
+                <span class="c1"># We reshape the nodes such that each column equals the nodes of</span>
+                <span class="c1"># one face. If a face only contains global boundary nodes, the</span>
+                <span class="c1"># local face is also a boundary face. Otherwise, we add a TIP tag.</span>
+                <span class="c1"># Note that we only consider boundary faces, hence any is okay.</span>
+                <span class="n">n_per_face</span> <span class="o">=</span> <span class="n">_nodes_per_face</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+                <span class="n">is_tip_face</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span>
+                    <span class="n">node_on_tip_not_global_bnd</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">n_per_face</span><span class="p">,</span> <span class="n">bnd_faces_l</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span>
+                    <span class="p">),</span>
+                    <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Special case: In 2d, there may be fractures that are so close to a</span>
+                <span class="c1"># corner of the domain that it has faces with nodes on different</span>
+                <span class="c1"># surfaces of the global boundary. These are identified by the two</span>
+                <span class="c1"># nodes (there will be 2 in 2d) not having any faces in the coarse grid</span>
+                <span class="c1"># in common.</span>
+                <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="n">n_per_face</span> <span class="o">==</span> <span class="mi">2</span>
+                    <span class="n">not_tip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">is_tip_face</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">fi</span> <span class="ow">in</span> <span class="n">not_tip</span><span class="p">:</span>
+                        <span class="n">g1</span> <span class="o">=</span> <span class="n">fn_h</span><span class="p">[</span><span class="n">nodes_glb</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">fi</span><span class="p">]]</span><span class="o">.</span><span class="n">indices</span>
+                        <span class="n">g2</span> <span class="o">=</span> <span class="n">fn_h</span><span class="p">[</span><span class="n">nodes_glb</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">fi</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">indices</span>
+                        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">g1</span><span class="p">,</span> <span class="n">g2</span><span class="p">)</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">is_tip_face</span><span class="p">[</span><span class="n">fi</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+                <span class="c1"># Tag faces on tips and boundaries</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;tip_faces&quot;</span><span class="p">][</span><span class="n">bnd_faces_l</span><span class="p">[</span><span class="n">is_tip_face</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">domain_boundary_tags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+                <span class="n">domain_boundary_tags</span><span class="p">[</span><span class="n">bnd_faces_l</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">is_tip_face</span><span class="p">)]]</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">domain_boundary_tags</span>
+
+                <span class="c1"># Also tag the nodes of the lower-dimensional grid that are on a tip</span>
+                <span class="n">is_tip_node</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+                <span class="n">is_tip_node</span><span class="p">[</span><span class="n">nodes_loc</span><span class="p">[</span><span class="n">node_on_tip_not_global_bnd</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;tip_nodes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">is_tip_node</span>
+
+                <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">g_h</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="c1"># For co-dimension 1, we also register those nodes in the host grid which</span>
+                    <span class="c1"># are correspond to the tip of a fracture. We use a slightly wider</span>
+                    <span class="c1"># definition of a fracture tip in this context: Nodes that are on the</span>
+                    <span class="c1"># domain boundary, but also part of a tip face (on the fracture) which</span>
+                    <span class="c1"># extends into the domain are also considered to be tip nodes. Filtering</span>
+                    <span class="c1"># away these will be simple, using the domain_boundary_nodes tag, if</span>
+                    <span class="c1"># necessary.</span>
+                    <span class="n">nodes_on_fracture_tip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span>
+                        <span class="n">nodes_glb</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">n_per_face</span><span class="p">,</span> <span class="n">bnd_faces_l</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)[</span>
+                            <span class="p">:,</span> <span class="n">is_tip_face</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span>
+
+                    <span class="n">global_node_as_fracture_tip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">global_node_as_fracture_tip</span><span class="p">,</span> <span class="n">nodes_on_fracture_tip</span><span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="c1"># Count all global nodes used in this</span>
+                    <span class="n">num_occ_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">num_occ_nodes</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">))</span>
+
+        <span class="c1"># The tip nodes should both be on the tip of a fracture, and not be present</span>
+        <span class="c1"># on other fractures.</span>
+        <span class="n">may_be_tip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">global_node_as_fracture_tip</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">occurs_once</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">num_occ_nodes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">true_tip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">may_be_tip</span><span class="p">,</span> <span class="n">occurs_once</span><span class="p">)</span>
+
+        <span class="c1"># Take the intersection between tip nodes and the nodes in this fracture.</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">local_true_tip</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">ismember_rows</span><span class="p">(</span>
+            <span class="n">true_tip</span><span class="p">,</span> <span class="n">g_h</span><span class="o">.</span><span class="n">global_point_ind</span>
+        <span class="p">)</span>
+        <span class="n">tip_tag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g_h</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">tip_tag</span><span class="p">[</span><span class="n">local_true_tip</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># Tag nodes that are on the tip of a fracture, and not involved in other fractures</span>
+        <span class="n">g_h</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;node_is_fracture_tip&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tip_tag</span>
+
+        <span class="n">on_any_tip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">global_node_as_fracture_tip</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">local_any_tip</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">ismember_rows</span><span class="p">(</span>
+            <span class="n">on_any_tip</span><span class="p">,</span> <span class="n">g_h</span><span class="o">.</span><span class="n">global_point_ind</span>
+        <span class="p">)</span>
+        <span class="n">tip_of_a_fracture</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tip_tag</span><span class="p">)</span>
+        <span class="n">tip_of_a_fracture</span><span class="p">[</span><span class="n">local_any_tip</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># Tag nodes that are on the tip of a fracture, independent of whether it is</span>
+        <span class="n">g_h</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;node_is_tip_of_some_fracture&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tip_of_a_fracture</span>
+
+
+<span class="k">def</span> <span class="nf">_nodes_per_face</span><span class="p">(</span><span class="n">g</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the number of nodes per face for a given grid</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;TensorGrid&quot;</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;CartGrid&quot;</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">n_per_face</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="k">elif</span> <span class="s2">&quot;TetrahedralGrid&quot;</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+        <span class="n">n_per_face</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="s2">&quot;TensorGrid&quot;</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;CartGrid&quot;</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">n_per_face</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">elif</span> <span class="s2">&quot;TriangleGrid&quot;</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+        <span class="n">n_per_face</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="s2">&quot;TensorGrid&quot;</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;CartGrid&quot;</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">n_per_face</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Can not find number of nodes per face for grid: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">n_per_face</span>
+
+
+<span class="k">def</span> <span class="nf">_assemble_mdg</span><span class="p">(</span>
+    <span class="n">subdomains</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a MixedDimensionalGrid from a list of grids.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        subdomains: A list of lists of grids. Each element in the list is a</span>
+<span class="sd">            list of all grids of a the same dimension. It is assumed that the</span>
+<span class="sd">            grids are sorted from high dimensional grids to low dimensional</span>
+<span class="sd">            grids. All grids must also have the mapping g.global_point_ind</span>
+<span class="sd">            which maps the local nodes of the grid to the nodes of the highest</span>
+<span class="sd">            dimensional grid.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        MixedDimensionalGrid:</span>
+<span class="sd">            A MixedDimensionalGrid class where the mapping face_cells are given</span>
+<span class="sd">            to each edge. face_cells maps from lower-dim cells to higher-dim</span>
+<span class="sd">            faces.</span>
+<span class="sd">        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a</span>
+<span class="sd">            face-cell map. The first item represents two neighboring</span>
+<span class="sd">            subdomains. The second item is a mapping between faces in the high</span>
+<span class="sd">            dimension subdomain and cells in the low dimension subdomain.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Create a mixed-dimensional grid</span>
+    <span class="n">mdg</span> <span class="o">=</span> <span class="n">MixedDimensionalGrid</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">sd_d</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">:</span>
+        <span class="n">mdg</span><span class="o">.</span><span class="n">add_subdomains</span><span class="p">(</span><span class="n">sd_d</span><span class="p">)</span>
+
+    <span class="n">sd_pair_to_face_cell_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># We now find the face_cell mappings.</span>
+    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="c1"># If there are no grids of dimension one less, continue.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">[</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Loop over all grids of the higher dimension, look for lower-dimensional</span>
+        <span class="c1"># grids where the cell of the lower-dimensional grid shares nodes with</span>
+        <span class="c1"># the faces of the higher-dimensional grid. If this face-cell intersection</span>
+        <span class="c1"># is non-empty, there is a coupling will be made between the higher and</span>
+        <span class="c1"># lower-dimensional grid, and the face-to-cell relation will be saved.</span>
+        <span class="k">for</span> <span class="n">hsd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">[</span><span class="n">dim</span><span class="p">]:</span>
+
+            <span class="c1"># We have to specify the number of nodes per face to generate a</span>
+            <span class="c1"># matrix of the nodes of each face.</span>
+            <span class="n">n_per_face</span> <span class="o">=</span> <span class="n">_nodes_per_face</span><span class="p">(</span><span class="n">hsd</span><span class="p">)</span>
+
+            <span class="c1"># Get the face-node relation for the higher-dimensional grid,</span>
+            <span class="c1"># stored with one column per face</span>
+            <span class="n">fn_loc</span> <span class="o">=</span> <span class="n">hsd</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">n_per_face</span><span class="p">,</span> <span class="n">hsd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span>
+            <span class="p">)</span>
+            <span class="c1"># Convert to global numbering</span>
+            <span class="n">fn</span> <span class="o">=</span> <span class="n">hsd</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">fn_loc</span><span class="p">]</span>
+            <span class="n">fn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="c1"># Get a cell-node relation for the lower-dimensional grids.</span>
+            <span class="c1"># It turns out that to do the intersection between the node groups</span>
+            <span class="c1"># is costly (mainly because the call to ismember_rows below does</span>
+            <span class="c1"># a unique over all faces-nodes in the higher-dimensional grid).</span>
+            <span class="c1"># To save a lot of time, we first group cell-nodes for all lower-</span>
+            <span class="c1"># dimensional grids, do the intersection once, and then process</span>
+            <span class="c1"># the results.</span>
+
+            <span class="c1"># The treatmnet of the lower-dimensional grids is a bit special</span>
+            <span class="c1"># for point grids (else below)</span>
+            <span class="k">if</span> <span class="n">hsd</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Data structure for cell-nodes</span>
+                <span class="n">cn</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="c1"># Number of cells per grid. Will be used to define offsets</span>
+                <span class="c1"># for cell-node relations for each grid, hence initialize with</span>
+                <span class="c1"># zero.</span>
+                <span class="n">num_cn</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">lg</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">[</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+                    <span class="c1"># Local cell-node relation</span>
+                    <span class="n">cn_loc</span> <span class="o">=</span> <span class="n">lg</span><span class="o">.</span><span class="n">cell_nodes</span><span class="p">()</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">n_per_face</span><span class="p">,</span> <span class="n">lg</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span>
+                    <span class="p">)</span>
+                    <span class="n">cn</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">lg</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">cn_loc</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+                    <span class="n">num_cn</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lg</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+
+                <span class="c1"># Stack all cell-nodes, and define offset array</span>
+                <span class="n">cn_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cn</span><span class="p">])</span>
+                <span class="n">cell_node_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">num_cn</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># 0d grid is much easier, although getting hold of the single</span>
+                <span class="c1"># point index is a bit technical</span>
+                <span class="n">cn_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">lg</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">lg</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">[</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">cell_node_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">cn_all</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="c1"># Ensure that face-node relation is 1d in this case</span>
+                <span class="n">fn</span> <span class="o">=</span> <span class="n">fn</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+            <span class="c1"># Find intersection between cell-node and face-nodes.</span>
+            <span class="c1"># Node nede to sort along 0-axis, we know we&#39;ve done that above.</span>
+            <span class="n">is_mem</span><span class="p">,</span> <span class="n">cell_2_face</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">ismember_rows</span><span class="p">(</span>
+                <span class="n">cn_all</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+            <span class="c1"># Now, for each lower-dimensional grid, either all of none of the cells</span>
+            <span class="c1"># have been identified as faces in the higher-dimensional grid.</span>
+            <span class="c1"># (If hg is the highest dimension, there should be a match for all grids</span>
+            <span class="c1"># in lsd, however, if hsd is itself a fracture, lsd is an intersection which</span>
+            <span class="c1"># need not involve hg).</span>
+
+            <span class="c1"># Special treatment if not all cells were found: cell_2_face then only</span>
+            <span class="c1"># contains those cells found; to make them conincide with the indices</span>
+            <span class="c1"># of is_mem (that is, as the faces are stored in cn_all), we expand the</span>
+            <span class="c1"># cell_2_face array</span>
+            <span class="k">if</span> <span class="n">is_mem</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">cell_2_face</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+                <span class="c1"># If something goes wrong here, we will likely get an index of -1</span>
+                <span class="c1"># when initializing the sparse matrix below - that should be a</span>
+                <span class="c1"># clear indicator.</span>
+                <span class="n">tmp</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">is_mem</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+                <span class="n">tmp</span><span class="p">[</span><span class="n">is_mem</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_2_face</span>
+                <span class="n">cell_2_face</span> <span class="o">=</span> <span class="n">tmp</span>
+
+            <span class="c1"># Loop over all lower-dimensional grids; find the cells that had matching</span>
+            <span class="c1"># faces in hg (should be either none or all the cells).</span>
+            <span class="k">for</span> <span class="n">counter</span><span class="p">,</span> <span class="n">lsd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">subdomains</span><span class="p">[</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]):</span>
+                <span class="c1"># Indices of this grid in is_mem and cell_2_face (thanks to the above</span>
+                <span class="c1"># expansion, involving tmp)</span>
+                <span class="n">ind</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">cell_node_offsets</span><span class="p">[</span><span class="n">counter</span><span class="p">],</span> <span class="n">cell_node_offsets</span><span class="p">[</span><span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="n">loc_mem</span> <span class="o">=</span> <span class="n">is_mem</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+                <span class="c1"># If no match, continue</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">loc_mem</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="c1"># If some match, all should be matches. If this goes wrong, there is</span>
+                <span class="c1"># likely something wrong with the mesh.</span>
+                <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">loc_mem</span><span class="p">)</span>
+                <span class="c1"># Create mapping between faces and cells.</span>
+                <span class="n">face_cell_map</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span>
+                    <span class="p">(</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">loc_mem</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span>
+                        <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">loc_mem</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">cell_2_face</span><span class="p">[</span><span class="n">ind</span><span class="p">]),</span>
+                    <span class="p">),</span>
+                    <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">lsd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">hsd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="c1"># Add the pairing of subdomains and the cell-face map to the list</span>
+                <span class="n">sd_pair_to_face_cell_map</span><span class="p">[(</span><span class="n">hsd</span><span class="p">,</span> <span class="n">lsd</span><span class="p">)]</span> <span class="o">=</span> <span class="n">face_cell_map</span>
+
+    <span class="k">return</span> <span class="n">mdg</span><span class="p">,</span> <span class="n">sd_pair_to_face_cell_map</span>
+
+
+<div class="viewcode-block" id="create_interfaces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.meshing.html#porepy.fracs.meshing.create_interfaces">[docs]</a><span class="k">def</span> <span class="nf">create_interfaces</span><span class="p">(</span>
+    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
+    <span class="n">sd_pair_to_face_cell_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span>
+<span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create interfaces for a given MixedDimensionalGrid.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mdg: The mixed-dimensional grid where the interfaces are built.</span>
+<span class="sd">        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a</span>
+<span class="sd">            face-cell map. The first item represents two neighboring</span>
+<span class="sd">            subdomains. The second item is a mapping between faces in the high</span>
+<span class="sd">            dimension subdomain and cells in the low dimension subdomain.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># loop on all the subdomain pairs and create the mortar grids</span>
+    <span class="k">for</span> <span class="n">sd_pair</span><span class="p">,</span> <span class="n">face_cells</span> <span class="ow">in</span> <span class="n">sd_pair_to_face_cell_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+
+        <span class="n">sd_h</span><span class="p">,</span> <span class="n">sd_l</span> <span class="o">=</span> <span class="n">sd_pair</span>
+
+        <span class="c1"># face_cells.indices gives mappings into the lower dimensional</span>
+        <span class="c1"># cells. Count the number of occurrences for each cell.</span>
+        <span class="n">num_sides</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">face_cells</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">num_sides</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># Each cell should be found either twice (think a regular fracture</span>
+            <span class="c1"># that splits a higher dimensional mesh), or once (the lower end of</span>
+            <span class="c1"># a T-intersection, or both ends of an L-intersection).</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sd">&quot;&quot;&quot;Found low-dimensional cell which corresponds to</span>
+<span class="sd">                             too many high-dimensional faces.&quot;&quot;&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># If all cells are found twice, create two mortar grids</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">num_sides</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="c1"># we are in a two sides situation</span>
+            <span class="n">side_g</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">mortar_sides</span><span class="o">.</span><span class="n">LEFT_SIDE</span><span class="p">:</span> <span class="n">sd_l</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+                <span class="n">mortar_sides</span><span class="o">.</span><span class="n">RIGHT_SIDE</span><span class="p">:</span> <span class="n">sd_l</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># the tag name is just a place-holder we assume left side</span>
+            <span class="n">side_g</span> <span class="o">=</span> <span class="p">{</span><span class="n">mortar_sides</span><span class="o">.</span><span class="n">LEFT_SIDE</span><span class="p">:</span> <span class="n">sd_l</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+        <span class="n">mg</span> <span class="o">=</span> <span class="n">mortar_grid</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">(</span><span class="n">sd_l</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">side_g</span><span class="p">,</span> <span class="n">face_cells</span><span class="p">)</span>
+
+        <span class="n">mdg</span><span class="o">.</span><span class="n">add_interface</span><span class="p">(</span><span class="n">mg</span><span class="p">,</span> <span class="n">sd_pair</span><span class="p">,</span> <span class="n">face_cells</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
