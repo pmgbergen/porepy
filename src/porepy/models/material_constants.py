@@ -256,6 +256,7 @@ class SolidConstants(MaterialConstants):
             "normal_permeability": 1,
             "permeability": 1,
             "porosity": 0.1,
+            "residual_aperture": 0.1,
             "shear_modulus": 1,
             "specific_heat_capacity": 1,
             "thermal_conductivity": 1,
@@ -341,6 +342,15 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["permeability"], "m^2")
+
+    def residual_aperture(self) -> number:
+        """Residual aperture [m].
+
+        Returns:
+            Residual aperture.
+
+        """
+        return self.convert_units(self.constants["residual_aperture"], "m")
 
     def shear_modulus(self) -> number:
         """Young's modulus [Pa].

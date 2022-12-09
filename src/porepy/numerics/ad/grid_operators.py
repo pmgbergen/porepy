@@ -337,7 +337,9 @@ class MortarProjections(Operator):
                         # This equals total number of faces (or cells, if codim is > 1) in the
                         # subdomains times the dimension of the problem.
                         grid_entity = "num_faces" if intf.codim < 2 else "num_cells"
-                        sz_tot = sum([getattr(sd, grid_entity) for sd in subdomains])
+                        sz_tot = (
+                            sum([getattr(sd, grid_entity) for sd in subdomains]) * dim
+                        )
                     m2p, p2m = zero_matrices(sz_mortar, sz_tot)
                     mortar_to_primary_int.append(m2p)
                     mortar_to_primary_avg.append(m2p)
@@ -392,7 +394,7 @@ class MortarProjections(Operator):
                         # We need the number of rows for the primary projection matrix.
                         # This equals total number of faces in the subdomains
                         # times the dimension of the problem.
-                        sz_tot = sum([sd.num_cells for sd in subdomains])
+                        sz_tot = sum([sd.num_cells for sd in subdomains]) * dim
                     m2s, s2m = zero_matrices(sz_mortar, sz_tot)
                     mortar_to_secondary_int.append(m2s)
                     mortar_to_secondary_avg.append(m2s)

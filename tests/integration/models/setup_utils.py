@@ -8,7 +8,7 @@ import numpy as np
 import porepy as pp
 
 
-class GeometrySingleFracture2d(pp.ModelGeometry):
+class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
     def set_fracture_network(self) -> None:
         # Length scale:
         ls = 1 / self.units.m
@@ -22,7 +22,7 @@ class GeometrySingleFracture2d(pp.ModelGeometry):
             p = np.array([[0, 2], [0.5, 0.5]]) * ls
             e = np.array([[0], [1]])
         elif num_fracs == 2:
-            p = np.array([[0, 2, 0.5, 0.5], [1, 1, 0, 1]]) * ls
+            p = np.array([[0, 2, 0.5, 0.5], [0.5, 0.5, 0, 1]]) * ls
             e = np.array([[0, 2], [1, 3]])
         else:
             raise ValueError("Only 0, 1 or 2 fractures supported.")
@@ -34,15 +34,75 @@ class GeometrySingleFracture2d(pp.ModelGeometry):
         return {"mesh_size_frac": 0.5 * ls, "mesh_size_bound": 0.5 * ls}
 
 
+class OrthogonalFractures3d(pp.ModelGeometry):
+    """A 3d domain with up to three orthogonal fractures.
+
+    The fractures have constant x, y and z coordinates equal to 0.5, respectively,
+    and are situated in a unit cube domain. The number of fractures is controlled by
+    the parameter num_fracs, which can be 0, 1, 2 or 3.
+
+    """
+
+    def set_fracture_network(self) -> None:
+        """Set the fracture network.
+
+        The fractures are stored in self.fracture_network.
+
+        """
+        # Length scale:
+        ls = 1 / self.units.m
+
+        num_fracs = self.params.get("num_fracs", 1)
+        domain = pp.grids.standard_grids.utils.unit_domain(3)
+        pts = []
+        if num_fracs > 0:
+            # The three fractures are defined by pertubations of the coordinate arrays.
+            coords_a = [0.5, 0.5, 0.5, 0.5]
+            coords_b = [0, 0, 1, 1]
+            coords_c = [0, 1, 1, 0]
+            pts.append(np.array([coords_a, coords_b, coords_c]) * ls)
+        if num_fracs > 1:
+            pts.append(np.array([coords_b, coords_a, coords_c]) * ls)
+        if num_fracs > 2:
+            pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
+        fractures = [pp.PlaneFracture(p) for p in pts]
+        self.fracture_network = pp.FractureNetwork3d(fractures, domain)
+
+    def mesh_arguments(self) -> dict:
+        # Length scale:
+        ls = 1 / self.units.m
+        mesh_sizes = {
+            "mesh_size_frac": 0.5 * ls,
+            "mesh_size_bound": 0.5 * ls,
+            "mesh_size_min": 0.2 * ls,
+        }
+        return mesh_sizes
+
+
+class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
+    """A model with no physics, for testing purposes.
+
+    The model comes with minimal physical properties, making testing of individual
+    components (e.g. constitutive laws) easier.
+
+    """
+
+    def create_variables(self):
+        pass
+
+    def set_equations(self):
+        pass
+
+
 class MassBalance(
-    GeometrySingleFracture2d,
+    RectangularDomainOrthogonalFractures2d,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     ...
 
 
 class MomentumBalance(
-    GeometrySingleFracture2d,
+    RectangularDomainOrthogonalFractures2d,
     pp.momentum_balance.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
@@ -51,7 +111,7 @@ class MomentumBalance(
 
 
 class MassAndEnergyBalance(
-    GeometrySingleFracture2d,
+    RectangularDomainOrthogonalFractures2d,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
@@ -60,7 +120,7 @@ class MassAndEnergyBalance(
 
 
 class Poromechanics(
-    GeometrySingleFracture2d,
+    RectangularDomainOrthogonalFractures2d,
     pp.poromechanics.Poromechanics,
 ):
     """Combine components needed for poromechanics simulation."""
@@ -69,7 +129,7 @@ class Poromechanics(
 
 
 class Thermoporomechanics(
-    GeometrySingleFracture2d,
+    RectangularDomainOrthogonalFractures2d,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""

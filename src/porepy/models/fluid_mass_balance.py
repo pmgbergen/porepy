@@ -450,7 +450,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             specific_volume_mat = self.specific_volume([sd]).evaluate(
                 self.equation_system
             )
-            if hasattr(specific_volume_mat, "val"):
+            if isinstance(specific_volume_mat, pp.ad.Ad_array):
                 specific_volume_mat = specific_volume_mat.val
             # Extract diagonal of the specific volume matrix.
             specific_volume = specific_volume_mat * np.ones(sd.num_cells)
@@ -458,6 +458,9 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             assert np.all(np.isclose(specific_volume, specific_volume_mat.data))
 
             kappa = self.permeability([sd])
+            if isinstance(kappa, pp.ad.Ad_array):
+                kappa = kappa.val
+
             diffusivity = pp.SecondOrderTensor(kappa * specific_volume)
 
             pp.initialize_data(

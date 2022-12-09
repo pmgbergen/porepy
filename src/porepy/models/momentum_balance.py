@@ -394,6 +394,8 @@ class VariablesMomentumBalance:
         """
         assert all([sd.dim == self.nd - 1 for sd in subdomains])
         interfaces = self.subdomains_to_interfaces(subdomains)
+        # Only use matrix-fracture interfaces
+        interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
