@@ -39,6 +39,8 @@ class TwoFractures2d(SingleFracture2d):
     One fracture is horizontal, the other is tilted (both x and y are non-zero).
     """
 
+    num_fracs: int = 2
+
     def set_fracture_network(self):
         # The first fracture extends from (0, 0.5) to (0.7, 0.5).
         # The second fractures extends from (0.3, 0.3) to (0.7, 0.7).
@@ -72,6 +74,12 @@ class ThreeFractures3d(SingleFracture2d):
         ]
         domain = pp.CubeDomain([1, 1, 1])
         self.fracture_network = pp.FractureNetwork3d(fracs, domain)
+
+
+class BaseWithUnits(pp.ModelGeometry):
+    """ModelGeometry.set_md_geometry requires a units attribute."""
+
+    units: pp.Units = pp.Units()
 
 
 geometry_list = [BaseWithUnits, SingleFracture2d, TwoFractures2d, ThreeFractures3d]
@@ -196,12 +204,8 @@ def test_wrap_grid_attributes(geometry_class: type[pp.ModelGeometry]) -> None:
             ).evaluate(eq_system)
 
             # Check that the wrapped attribute is a matrix
-            # Checking on dia_matrix is true for the current implementation; we may
-            # switch to a different sparse matrix format in the future (although this
-            # seems to EK as a bad idea for efficiency reasons). If so, the test should
-            # be changed.
-            assert isinstance(wrapped_value, sps.dia_matrix)
-            assert isinstance(wrapped_value_inverse, sps.dia_matrix)
+            assert isinstance(wrapped_value, sps.spmatrix)
+            assert isinstance(wrapped_value_inverse, sps.spmatrix)
 
             # Check that the matrix have the expected size, which depends on the type
             # of attribute wrapped (cell or face) and the dimension of the field.
@@ -280,6 +284,78 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
+def test_internal_boundary_normal_to_outwards(geometry_class: type[pp.ModelGeometry]):
+    # Define the geometry
+    geometry: pp.ModelGeometry = geometry_class()
+    geometry.set_geometry()
+    dim = geometry.nd
+
+    # Make an equation system, which is needed for parsing of the Ad operator
+    # representations of the geometry
+    eq_sys = pp.EquationSystem(geometry.mdg)
+
+    # The function to be tested only accepts the top level subdomain(s)
+    # NOTE: This test does not cover the case of multiple subdomains on the top level,
+    # as could happen if we implement a domain decomposition approach. We could make
+    # a partitioning of the top dimensional grid and thereby test the functionality,
+    # but this has not been prioritized. Passing in the same subdomain twice will not
+    # work, since the function will uniquify the input.
+    subdomains = [
+        geometry.mdg.interface_to_subdomain_pair(intf)[0]
+        for intf in geometry.mdg.interfaces()
+    ]
+
+    # Get hold of the matrix to be tested, parse it to numerical format.
+    sign_switcher = geometry.internal_boundary_normal_to_outwards(subdomains, dim=dim)
+    mat = sign_switcher.evaluate(eq_sys)
+
+    # Check that the wrapped attribute is a matrix
+    assert isinstance(mat, sps.spmatrix)
+    # Check that the matrix have the expected size.
+    expected_size = sum([sd.num_faces for sd in subdomains]) * dim
+    assert mat.shape == (expected_size, expected_size)
+
+    # All values are stored on the main diagonal, fetch these.
+    mat_vals = mat.diagonal()
+
+    # Offset, needed to deal with the case of several subdomains. It is not relevant
+    # for now (see comment above), but we keep it.
+    offset = 0
+
+    # Loop over subdomains (at the time of writing, there will only be one) and check
+    # that the values are as expected.
+    for sd in subdomains:
+        # We get the expected values from the cell-face relation of the subdomain:
+        # By assumptions in the mesh construction, the normal vector of a boundary
+        # face is pointing outwards for those faces that have a positive cell-face
+        # item (note that on boundary faces, there is only one non-zero entry in the
+        # cell-face for each row, ie., each face).
+        cf = sd.cell_faces
+        # Summing is a trick to get the sign of the cell-face relation for the boundary
+        # faces (we don't care about internal faces).
+        cf_sum = np.sum(cf, axis=1)
+        # Only compare for fracture faces
+        fracture_faces = np.where(sd.tags["fracture_faces"])[0]
+        # The matrix constrained to this subdomain
+        loc_vals = mat_vals[offset : offset + sd.num_faces * dim]
+        loc_size = loc_vals.size
+        # The matrix will have one row for each face for each dimension. Loop over the
+        # dimensions; the sign should be the same for all dimensions.
+        for i in range(dim):
+            # Indices belonging to the current dimension
+            dim_ind = np.arange(i, loc_size, dim)
+            dim_vals = loc_vals[dim_ind]
+            assert np.allclose(
+                dim_vals[fracture_faces], cf_sum[fracture_faces].A.ravel()
+            )
+        # Update offset, needed to test for multiple subdomains.
+        offset += sd.num_faces * dim
+
+
+# test_internal_boundary_normal_to_outwards(geometry_list[2])
+
+
+@pytest.mark.parametrize("geometry_class", geometry_list)
 def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     """Test :meth:`pp.ModelGeometry.outwards_internal_boundary_normals`.
 
@@ -322,48 +398,28 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     # Check that the normals are outward. This is done by checking that the dot product
     # of the normal and the vector from the center of the interface to the center of the
     # neighboring subdomain cell is positive.
-    subdomains = geometry.interfaces_to_subdomains(interfaces)
-    mortar_projection = pp.ad.MortarProjections(
-        geometry.mdg, subdomains, interfaces, dim=dim
-    )
-    interface_cell_centers = geometry.wrap_grid_attribute(
-        interfaces, "cell_centers", dim
-    )
-    subdomain_cell_centers = geometry.wrap_grid_attribute(
-        subdomains, "cell_centers", dim
-    )
-    trace = pp.ad.Trace(subdomains)
-    # Hack, see :meth:`pp.ad.geometry.ModelGeometry.basis`
-    face_base = []
-    for i in range(dim):
-        e_i = np.zeros(dim).reshape(-1, 1)
-        e_i[i] = 1
-        # expand to cell-wise column vectors.
-        num_faces = sum([g.num_faces for g in subdomains])
-        mat = sps.kron(sps.eye(num_faces), e_i)
-        face_base.append(pp.ad.Matrix(mat))
+    offset = 0
+    for intf in interfaces:
+        sd = geometry.mdg.interface_to_subdomain_pair(intf)[0]
 
-    cell_base = geometry.basis(subdomains, dim=dim)
-    # Map of vector quantities from subdomain cells to faces
-    trace_dim = sum([f * trace.trace * e.T for e, f in zip(cell_base, face_base)])
-    # Map of vector quantities from subdomain faces to cells
-    inv_trace_dim = sum(
-        [e * trace.inv_trace * f.T for e, f in zip(cell_base, face_base)]
-    )
+        loc_normals = normals_reshaped[:, offset : offset + intf.num_cells]
 
-    vec = (
-        interface_cell_centers
-        - mortar_projection.primary_to_mortar_avg
-        * trace_dim
-        * subdomain_cell_centers
-        * inv_trace_dim
-        * mortar_projection.mortar_to_primary_avg
-    ).evaluate(eq_sys)
-    # Check that the dot product is positive.
-    # Collapse the
-    prod = normals.diagonal() * vec.diagonal()
-    dot_prod = np.reshape(prod, (dim, -1), order="F").sum(axis=0)
-    assert np.all(dot_prod > 0)
+        fracture_faces = intf.mortar_to_primary_avg().tocsc().indices
+        proj_normals = (intf.mortar_to_primary_avg() * loc_normals.T)[fracture_faces]
+
+        cc = sd.cell_centers
+        fc = sd.face_centers
+
+        fracture_cells = sd.cell_faces[fracture_faces].tocsr().indices
+
+        vec = cc[:, fracture_cells] - fc[:, fracture_faces]
+
+        nrm1 = np.linalg.norm(proj_normals, axis=1)
+
+        nrm2 = np.linalg.norm(proj_normals + 1e-3 * vec[:dim].T, axis=1)
+
+        assert np.all(nrm1 > nrm2)
+        offset += intf.num_cells
 
     # Left multiply with dim-vector defined on the interface. This should give a vector
     # of length dim*num_intf_cells.
@@ -372,10 +428,13 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     product = (normal_op * dim_vec).evaluate(eq_sys)
     assert product.shape == (size,)
     inner_product = np.sum(product.reshape((dim, -1), order="F"), axis=0)
-    assert np.allclose(np.abs(inner_product), 1)
+    # assert np.allclose(np.abs(inner_product), 1)
     # The following operation is used in models, and is therefore tested here.
     # TODO: Extract method for inner product using a basis?
     basis = geometry.basis(interfaces, dim)
     nd_to_scalar_sum = sum([e.T for e in basis])
     inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
     assert np.allclose(inner_op.evaluate(eq_sys), inner_product)
+
+
+test_outwards_normals(geometry_list[3])

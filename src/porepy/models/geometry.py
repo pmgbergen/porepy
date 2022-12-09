@@ -399,17 +399,17 @@ class ModelGeometry:
 
     def internal_boundary_normal_to_outwards(
         self,
-        interfaces: list[pp.MortarGrid],
+        subdomains: list[pp.Grid],
         dim: int,
     ) -> pp.ad.Operator:
         """Obtain a vector for flipping normal vectors on internal boundaries.
 
-        For a list of interfaces, check if the normal vector of the neighboring
-        higher-dimensional subdomain point into the interface (e.g., into the fracture),
-        and if so, flip the normal vector. The flipping takes the form of an operator
-        that multiplies the normal vectors of all faces in all higher-dimensional
-        subdomains, leaves internal faces unchanged, but flips the relevant normal
-        vectors on subdomain faces that are part of an internal boundary.
+        For a list of subdomains, check if the normal vector on internal boundaries
+        point into the internal interface (e.g., into the fracture), and if so, flip the
+        normal vector. The flipping takes the form of an operator that multiplies the
+        normal vectors of all faces on fractures, leaves internal faces (internal to the
+        subdomain proper, that is) unchanged, but flips the relevant normal vectors on
+        subdomain faces that are part of an internal boundary.
 
         Currently, this is a helper method for the computation of outward normals in
         :meth:`outwards_internal_boundary_normals`. Other usage is allowed, but one
@@ -417,87 +417,35 @@ class ModelGeometry:
         operators.
 
         Parameters:
-            interfaces: List of interfaces.
+            subdomains: List of subdomains.
 
         Returns:
             Operator with flipped signs if normal vector points inwards.
 
-        Raises:
-            NotImplementedError: If the interface is between subdomains of equal dimension.
-
         """
-        if len(interfaces) == 0:
+        if len(subdomains) == 0:
             # Special case if no interfaces.
             sign_flipper = pp.ad.Matrix(sps.csr_matrix((0, 0)))
         else:
-            # Two loops are required to be able to prolong the local (to the interface)
-            # projection matrix to the full set of subdomains: First generate the
-            # local matrices, and store the subdomains they belong to. Then, use the
-            # full list of subdomains to construct a projection matrix and use this
-            # to prolong the local matrices.
+            # There is already a method to construct a switcher matrix in grid_utils,
+            # so we use that. Loop over all subdomains, construct a local switcher
+            # matrix and store it. The mixed-dimensional version can then be constructed
+            # by block diagonal concatenation.
+            # NOTE: While it is somewhat unfortunate to have the method in grid_utils,
+            # since this leads to a more nested code, it also means we can use the
+            # method outside the Ad framework. For the time being, we keep it.
             matrices = []
-            subdomains = []
-            for intf in interfaces:
-                # Extracting matrix for each interface should in theory allow for
-                # multiple matrix subdomains (corresponding to an interface between
-                # two subdomains of equation dimension), but this is not tested.
-                # We raise an error if both subdomains are of the same dimension.
-                subdomain_pair = self.mdg.interface_to_subdomain_pair(intf)
-                # EK: I am not sure what we want to do if we ever apply this to
-                # interfaces between subdomains of the same dimension. For now, raise an
-                # error instead of silently doing something wrong. If we ever fix this,
-                # it must be fixed also in the method
-                # outwards_internal_boundary_normals.
-                if subdomain_pair[0].dim == subdomain_pair[1].dim:
-                    raise NotImplementedError(
-                        "Interface between subdomains of same dimension is not covered."
-                    )
-
-                matrix_subdomain = self.mdg.interface_to_subdomain_pair(intf)[0]
-
-                # Find faces on the boundary of the subdomain which neighbors this
-                # interface. Note the use of CSR-format here (CSC would not work).
-                faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
-                # Use utility method to get a matrix representation of a sign-flip
-                # operator.
+            for sd in subdomains:
+                # Use the tagging of fracture surfaces to identify the faces on internal
+                # boundaries.
+                faces_on_fracture_surface = np.where(sd.tags["fracture_faces"])[0]
                 switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
-                    matrix_subdomain, dim, faces_on_fracture_surface
+                    sd, dim, faces_on_fracture_surface
                 )
-                # Store the matrix and the subdomain to which it should be applied.
                 matrices.append(switcher_int)
-                subdomains.append(matrix_subdomain)
 
-            # Now that we know about all subdomains that should be considered together
-            # we can build a prolongation operator.
-            projection = pp.ad.SubdomainProjections(subdomains, dim)
-            # TODO: What happens if the same subdomain is present in multiple interfaces?
-            subdomain_ids = [sd.id for sd in subdomains]
-            assert len(subdomain_ids) == len(set(subdomain_ids))
-
-            # Loop over all subdomains, prolong the matrix (both pre- and
-            # post-prolongation) so that the resulting sign flipper is valid for all
-            # subdomains taken together.
-            # TODO: Should we have an empty operator for such cases? It would need to
-            # evaluate to zero (in cases where subdomains is emtpy), and essentially
-            # evaluate as void when combined with any other operator. It could come in
-            # natural in cases where an operator is built by adding several operators,
-            # but it is not clear how we really want to handle these cases (keyword:
-            # rewamp of the AD machinery).
-            sign_flipper = None
-            for m, sd in zip(matrices, subdomains):
-                # The sign flipper should map from the faces of all subdomains, down
-                # to this one, flip the signs locally, and then project back up again.
-                m_loc = (
-                    projection.face_prolongation([sd])
-                    * pp.ad.Matrix(m)
-                    * projection.face_restriction([sd])
-                )
-                if sign_flipper is None:
-                    sign_flipper = m_loc
-                else:
-                    sign_flipper += m_loc
-
-        assert sign_flipper is not None  # Should be guaranteed by the loop above
+            # Construct the block diagonal matrix.
+            sign_flipper = pp.ad.Matrix(sps.block_diag(matrices).tocsr())
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
@@ -527,37 +475,18 @@ class ModelGeometry:
         # The first is constructed herein, the second is a method of this class.
 
         # Since the normal vectors are stored on the primary subdomains, but are to be
-        # computed on the interfaces, we need mortar projections. These are built to
-        # map information between all subdomains (primary and secondary) and the mortar.
-        # The result is a fair bit of juggling with subdomain lists is needed to
-        # distinguish between all subdomains and the subdomains of the primary side of
-        # the interface, which are the ones expected by the switcher matrix method.
+        # computed on the interfaces, we need mortar projections.
 
-        # TODO: Consider to let the switcher method operate on the full list of
-        # subdomains (and not just the primary ones), and let it return empty entries
-        # where appropriate (i.e. for the secondary subdomains).
-
-        # First, get subdomains of the interfaces
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        # A subdomain projection operator, covering all subdomains (primary and
-        # secondary).
-        sd_projection = pp.ad.SubdomainProjections(subdomains, self.nd)
-
-        # Also a dedicated list for the primary subdomains
+        # Get hold of the primary subdomains, i.e. the higher-dimensional neighbors of
+        # the interfaces.
         primary_subdomains: list[pp.Grid] = []
         for intf in interfaces:
-            # Extracting matrix for each interface should in theory allow for multiple
-            # matrix subdomains, but this is not tested. See also
-            # :meth:`internal_boundary_normal_to_outwards`.
-            # EK: If we have multiple matrix subdomains, the method for internal
-            # boundary normals (called below) will raise an error. We do not do the same
-            # here, but I have left a comment in the other method that if that is fixed,
-            # we should fix the same here.
             primary_subdomains.append(self.mdg.interface_to_subdomain_pair(intf)[0])
 
-        # Projection operator between the subdomains and interfaces.
+        # Projection operator between the subdomains and interfaces. The projection is
+        # constructed to only consider the higher-dimensional subdomains.
         mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=self.nd
+            self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
         # Face normals on the primary subdomains
         primary_face_normals = self.wrap_grid_attribute(
@@ -565,16 +494,11 @@ class ModelGeometry:
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.
-        flip = self.internal_boundary_normal_to_outwards(interfaces, self.nd)
+        flip = self.internal_boundary_normal_to_outwards(primary_subdomains, self.nd)
         # Flip the normal vectors. Unravelled from the right: Restrict from faces on all
         # subdomains to the primary ones, multiply with the face normals, flip the
         # signs, and project back up to all subdomains.
-        flipped_normals = (
-            sd_projection.face_prolongation(primary_subdomains)
-            * flip
-            * primary_face_normals
-            * sd_projection.face_restriction(primary_subdomains)
-        )
+        flipped_normals = flip * primary_face_normals
         # Project to mortar grid, as a mapping from mortar to the subdomains and back
         # again.
         outwards_normals = (
