@@ -5,7 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, Union, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -185,7 +185,7 @@ class EquationSystem:
 
         """
 
-        self._variable_dof_type: dict[Variable, dict[str, int]] = dict()
+        self._variable_dof_type: dict[Variable, dict[GridEntity, int]] = dict()
         """Dictionary containing the type of DOFs per variable.
 
         The type is given as a dictionary with keys 'cells', 'faces' or 'nodes',
@@ -282,7 +282,7 @@ class EquationSystem:
         return self._variables
 
     @property
-    def variable_domains(self) -> DomainList:
+    def variable_domains(self) -> list[pp.GridLike]:
         """List containing all domains where at least one variable is defined."""
         # IS: We might want an equiation_domain method.
         domains = set()
@@ -407,7 +407,7 @@ class EquationSystem:
 
         # Merge subdomains and interfaces into a single list
         assert subdomains is not None or interfaces is not None  # for mypy
-        grids: DomainList = subdomains if subdomains else interfaces
+        grids: Sequence[pp.GridLike] = subdomains if subdomains else interfaces  # type: ignore
 
         # Check if a md variable was already defined under that name on any of grids.
         for var in self.variables:
@@ -474,7 +474,7 @@ class EquationSystem:
     def get_variables(
         self,
         variables: Optional[list[Variable]] = None,
-        grids: Optional[list[pp.Grid]] = None,
+        grids: Optional[list[pp.GridLike]] = None,
         tag_name: Optional[str] = None,
         tag_value: Optional[Any] = None,
     ) -> list[Variable]:
@@ -489,9 +489,10 @@ class EquationSystem:
             grids: list of grids to filter on. If None, all grids are included.
             tag_name: name of the tag to filter on. If None, no filtering on tags.
             tag_value: value of the tag to filter on. If None, no filtering on tag
-            values.
-                If tag_name is not None, but tag_value is None, all variables with the
-                given tag_name are returned regardless of value.
+                values.
+
+            If tag_name is not None, but tag_value is None, all variables with the given
+            tag_name are returned regardless of value.
 
         Returns:
             list of filtered variables.
@@ -823,7 +824,7 @@ class EquationSystem:
             for variable in variables:
                 # same processing as above, only grid variables are of interest
                 if isinstance(variable, Variable):
-                    md_variable = self._variables[variable.name]
+                    md_variable = self.md_variable(variable.name)
                     grid_variables += [
                         var
                         for var in md_variable.sub_vars
@@ -945,7 +946,7 @@ class EquationSystem:
         grids: DomainList,
         equations_per_grid_entity: dict[GridEntity, int],
     ) -> None:
-        """Sets an equation using the passed operator **and uses its name as an identifier**.
+        """Sets an equation using the passed operator and uses its name as an identifier**.
 
         If an equation already exists under that name, it is overwritten.
 
@@ -962,8 +963,8 @@ class EquationSystem:
         Parameters:
             equation: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
-                **The equation must be ready for evaluation,
-                i.e. all involved variables must have values set.**
+                **The equation must be ready for evaluation, i.e. all involved variables
+                must have values set.**
                 An equation can be defined on sets of subdomains or interfaces, but
                 not on a combination.
             grids: A list of grids on which the equation is defined.
@@ -983,7 +984,7 @@ class EquationSystem:
 
         """
         # The grid list is changed in place, so we need to make a copy
-        grids = list(grids)
+        grids = grids[:]
         # The function loops over all grids the operator is defined on and calculate the
         # number of equations per grid quantity (cell, face, node). This information
         # is then stored together with the equation itself.
@@ -1041,7 +1042,8 @@ class EquationSystem:
                 # Store block idx per grid.
                 image_info.update({sd: block_idx})
                 # Remove the subdomain from the domain list.
-                grids.remove(sd)
+                # Ignore mypy error here, since we know that sd is in grids.
+                grids.remove(sd)  # type: ignore
 
         for intf in self.mdg.interfaces():
             if intf in grids:
@@ -1056,7 +1058,8 @@ class EquationSystem:
                 # Store block idx per grid
                 image_info.update({intf: block_idx})
                 # Remove the grid from the domain list
-                grids.remove(intf)
+                # Ignore mypy error here, since we know that intf is in grids.
+                grids.remove(intf)  # type: ignore
 
         # Assert the equation is not defined on an unknown domain.
         assert len(grids) == 0
@@ -1298,7 +1301,8 @@ class EquationSystem:
                 img_info = self._equation_image_space_composition[name]
 
                 # Assure ordering and uniqueness whole equation indexation
-                all_idx = np.unique(np.hstack(img_info.values()))
+                img_values: list[np.ndarray] = list(img_info.values())
+                all_idx = np.unique(np.hstack(img_values))
 
                 # Complementing indices are found by deleting the filtered indices
                 complement_idx = np.delete(all_idx, idx)
@@ -1736,8 +1740,8 @@ class EquationSystem:
             " interfaces.\n"
         )
 
-        all_variables = set([var.name for var in self.variables])
-        variable_grid = {var: [] for var in all_variables}
+        all_variables: set[str] = set([var.name for var in self.variables])
+        variable_grid: dict[str, list[pp.GridLike]] = {var: [] for var in all_variables}
         for var in self.variables:
             variable_grid[var.name].append(var.domain)
 
@@ -1747,15 +1751,17 @@ class EquationSystem:
         )
 
         # Sort variables alphabetically, not case-sensitive
-        for var, grids in variable_grid:
-            s += "\t" + f"{var} is present on"
+        for var_name, grids in variable_grid.items():
+            s += "\t" + f"{var_name} is present on"
             if isinstance(grids[0], pp.Grid):
-                sorted_grids = self.mdg.sort_subdomains(grids)
+                assert all([isinstance(g, pp.Grid) for g in grids])
+                sorted_grids = self.mdg.sort_subdomains(grids)  # type: ignore
                 s += " subdomains with id: " + ", ".join(
                     [str(g.id) for g in sorted_grids]
                 )
             else:
-                sorted_grids = self.mdg.sort_interfaces(grids)
+                assert all([isinstance(g, pp.MortarGrid) for g in grids])
+                sorted_grids = self.mdg.sort_interfaces(grids)  # type: ignore
                 s += " interfaces with id: " + ", ".join(
                     [str(g.id) for g in sorted_grids]
                 )
