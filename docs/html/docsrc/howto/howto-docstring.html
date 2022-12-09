@@ -21,7 +21,8 @@
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="prev" title="Automatic Differentiation" href="../porepy/numerics/ad/numerics-ad.html" /> 
+    <link rel="next" title="Numerics" href="../porepy/numerics/numerics.html" />
+    <link rel="prev" title="PorePy" href="../../index.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -42,14 +43,14 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul>
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">1. How-To docstring</a></li>
+</ul>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="../porepy/numerics/numerics.html">Numerics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../porepy/numerics/ad/numerics-ad.html">Automatic Differentiation</a></li>
 </ul>
 </li>
-</ul>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">1. How-To docstring</a></li>
 </ul>
 
         </div>
@@ -431,10 +432,9 @@ to indent the lines.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="example_docstrings.example_function_2">
-<span class="sig-name descname"><span class="pre">example_function_2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optional_arg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_2" title="Permalink to this definition"></a></dt>
-<dd><p>This function demonstrates linking to objects inside docstrings,
-optional arguments and the <em>Raises:</em> directive.</p>
-<p>Optional arguments must be type-hinted using <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">typing.Optional</span></code></a>.</p>
+<span class="sig-name descname"><span class="pre">example_function_2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_2" title="Permalink to this definition"></a></dt>
+<dd><p>This function demonstrates linking to objects inside docstrings, the usage of
+<code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>, and the <em>Raises:</em> directive.</p>
 <p>As evident, you can link objects in-text. You can also link functions like
 <a class="reference internal" href="#example_docstrings.example_function_1" title="example_docstrings.example_function_1"><code class="xref py py-meth docutils literal notranslate"><span class="pre">example_function_1()</span></code></a>. Note the different usage of <code class="docutils literal notranslate"><span class="pre">:obj:</span></code> and <code class="docutils literal notranslate"><span class="pre">:class:</span></code>
 for objects in third-party packages and objects in PorePy.</p>
@@ -451,11 +451,6 @@ it is obligatory to explicitly specify the None return in the signature.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>optional_arg</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
-<p>This is an optional argument. Use <code class="docutils literal notranslate"><span class="pre">inline</span> <span class="pre">formatting</span></code> to describe the
-default value after the colon, followed by a blank line.</p>
-<p>After the blank line, add text to describe the argument as usual.</p>
-</p></li>
 <li><p><strong>*args</strong> – Arbitrary arguments. Describe adequately how they are used.</p></li>
 <li><p><strong>**kwargs</strong> – <p>Arbitrary keyword arguments.</p>
 <p>You can use rst-lists to describe admissible keywords:</p>
@@ -477,56 +472,68 @@ default value after the colon, followed by a blank line.</p>
     Be aware of necessary indentations when descriptions span multiple lines.</p></li>
 </ul>
 </dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="example_docstrings.example_function_3">
-<span class="sig-name descname"><span class="pre">example_function_3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optional_vector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np.ndarray([0,</span> <span class="pre">0,</span> <span class="pre">0])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">option_1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'A'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">option_2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">option_3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">option_4</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-16</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_3"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_3" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">example_function_3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optional_arg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optional_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">list()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optional_vector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np.ndarray([0,</span> <span class="pre">0,</span> <span class="pre">0])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">option_1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'A'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">option_2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">option_3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-16</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_3"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_3" title="Permalink to this definition"></a></dt>
 <dd><p>This function demonstrates how to document special requirements for arguments.</p>
+<p>Optional arguments must be type-hinted using <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">typing.Optional</span></code></a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Since the latest update for <code class="docutils literal notranslate"><span class="pre">mypy</span></code>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></a> should only be
+used with <code class="docutils literal notranslate"><span class="pre">None</span></code> as the default argument.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mdg</strong> (<em>MixedDimensionalGrid</em>) – A mixed-dimensional grid. Notice the usage of the acronym <code class="docutils literal notranslate"><span class="pre">mdg</span></code>.</p></li>
 <li><p><strong>vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code></p>
-<p>This vector’s special requirement is a certain shape.
-We use the same format as for default values to indicate its supposed
-length.</p>
+<p>This vector’s special requirement is a certain shape.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">inline</span> <span class="pre">formatting</span></code> to describe the
+requirement in the <strong>first line</strong> of the <strong>indented</strong> text,
+followed by a blank line. Inspect the source to see how this looks like.</p>
+<p>After the blank line, add text to describe the argument as usual</p>
 <p>The required shape is <code class="docutils literal notranslate"><span class="pre">(num_cells,)</span></code>, the number of cells.
-If unclear to what the number refers, explain.
-E.g. where <code class="docutils literal notranslate"><span class="pre">num_cells</span></code> denotes the number of cells in <code class="docutils literal notranslate"><span class="pre">mdg</span></code>.</p>
+If unclear to what the number refers, explain.</p>
 <p>Use explicitly <code class="docutils literal notranslate"><span class="pre">shape</span></code> for numpy arrays to describe as precise as possible
 which dimensions are allowed. Remember <code class="docutils literal notranslate"><span class="pre">(3,)</span> <span class="pre">!=</span> <span class="pre">(3,</span> <span class="pre">1)</span></code>.</p>
 </p></li>
 <li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_cells)</span></code></p>
 <p>This argument is a sparse matrix with 3 rows and
 <code class="docutils literal notranslate"><span class="pre">num_cells</span></code> columns.</p>
+<p>We <strong>insist</strong> on having whitespaces between comma and nex number
+for readability reasons.</p>
 </p></li>
-<li><p><strong>a_list</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">len=num_cells</span></code></p>
+<li><p><strong>optional_arg</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<p>This is an <em>optional</em> integer with default value <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<p>We use the same format as for requirements to display its default value.</p>
+</p></li>
+<li><p><strong>optional_list</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">len=num_cells</span></code></p>
 <p>Restrictions to built-int types like lists and tuples can be indicated using
 <code class="docutils literal notranslate"><span class="pre">len=</span></code>.</p>
 </p></li>
 <li><p><strong>optional_vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,),</span> <span class="pre">default=np.ndarray([0,</span> <span class="pre">0,</span> <span class="pre">0])</span></code></p>
 <p>This is an optional vector argument, with both shape restrictions and a
-default argument. Combine both in the top line, followed by a blank line.</p>
+default argument. Combine both in the first indented line,
+followed by a blank line.</p>
 <p>Whatever extra requirements are added besides <code class="docutils literal notranslate"><span class="pre">shape</span></code>, the description
 <code class="docutils literal notranslate"><span class="pre">default=</span></code> must be put at the end.</p>
 </p></li>
 <li><p><strong>option_1</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><em>Literal</em></a><em>[</em><em>'A'</em><em>, </em><em>'B'</em><em>, </em><em>'C'</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default='A'</span></code></p>
 <p>This argument has admissible values and a default value.
-Tt can only be a string <code class="docutils literal notranslate"><span class="pre">'A'</span></code>, <code class="docutils literal notranslate"><span class="pre">'B'</span></code> or <code class="docutils literal notranslate"><span class="pre">'C'</span></code>.</p>
+It can only be a string <code class="docutils literal notranslate"><span class="pre">'A'</span></code>, <code class="docutils literal notranslate"><span class="pre">'B'</span></code> or <code class="docutils literal notranslate"><span class="pre">'C'</span></code>.</p>
 <p>For such admissible values use <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">typing.Literal</span></code></a> to denote them in the
 signature.</p>
 </p></li>
-<li><p><strong>option_2</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
-<p>This is an <em>optional</em> float. The default value is <code class="docutils literal notranslate"><span class="pre">None</span></code> and indicated as
-such in the first line.</p>
+<li><p><strong>option_2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
+<p>This is an boolean argument with the default value <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 </p></li>
-<li><p><strong>option_3</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
-<p>This is an optional boolean argument with the default value <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
-</p></li>
-<li><p><strong>option_4</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1],</span> <span class="pre">default=1e-16</span></code></p>
-<p>This is an optional float argument, with values restricted between 0 and 1.
+<li><p><strong>option_3</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1],</span> <span class="pre">default=1e-16</span></code></p>
+<p>This is an float argument, with values restricted between 0 and 1.
 The default value is set to <code class="docutils literal notranslate"><span class="pre">1e-16</span></code>.</p>
 </p></li>
 </ul>
@@ -598,6 +605,13 @@ a configuration is needed which maps the type alias to its source.</p>
 <p>When encountering type aliases,
 which are not already covered by the configuration of PorePy’s docs,
 please contact the core developers.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>There is an <a class="reference external" href="https://github.com/sphinx-doc/sphinx/issues/10785">open issue on Sphinx’ side</a>,
+which prevents type aliases from being properly linked to their source.</p>
+<p>If you discover your type annotations not creating a hyperlink, don’t threat.
+This will come with future Sphinx updates.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -636,6 +650,9 @@ directive:</p>
 </dd>
 <dt class="field-even">Yields</dt>
 <dd class="field-even"><p>numbers until <code class="docutils literal notranslate"><span class="pre">n</span></code> is reached.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.11)"><em>Generator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>, None, None]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -753,6 +770,9 @@ must be placed at the end with no additional text in between.</p>
 <dd><p>This is the docstring of a class method.</p>
 <p>Note that the <code class="docutils literal notranslate"><span class="pre">self</span></code> argument is replaced by the <code class="docutils literal notranslate"><span class="pre">cls</span></code> argument.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -780,6 +800,9 @@ must be placed at the end with no additional text in between.</p>
 <dd><p>This is the docstring of a static method.</p>
 <p>Note the absence of <code class="docutils literal notranslate"><span class="pre">self</span></code>.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -788,6 +811,8 @@ must be placed at the end with no additional text in between.</p>
 <span class="sig-name descname"><span class="pre">attribute_1</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_1" title="Permalink to this definition"></a></dt>
 <dd><p>This is how to properly document an instance-level attribute in the
 constructor.</p>
+<p>If an attribute has certain properties, like specific shape for arrays or a
+fixed length for lists, document them in the attribute description.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -893,6 +918,7 @@ new.</p>
 <li><p><strong>arg2</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default='A'</span></code></p>
 <p>The second argument defaults to <code class="docutils literal notranslate"><span class="pre">'A'</span></code> now.</p>
 </p></li>
+<li><p><strong>arg1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
 </ul>
 </dd>
 </dl>
@@ -907,8 +933,11 @@ and if the return value changes depending on the new computations.</p>
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>Returns something dependent the parent method result.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>arg</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -943,7 +972,8 @@ integration of a module’s documentation with the core developers.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../porepy/numerics/ad/numerics-ad.html" class="btn btn-neutral float-left" title="Automatic Differentiation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../index.html" class="btn btn-neutral float-left" title="PorePy" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../porepy/numerics/numerics.html" class="btn btn-neutral float-right" title="Numerics" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

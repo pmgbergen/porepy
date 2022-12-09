@@ -41,13 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
+<li class="toctree-l1"><a class="reference internal" href="../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="../docsrc/porepy/numerics/numerics.html">Numerics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../docsrc/porepy/numerics/ad/numerics-ad.html">Automatic Differentiation</a></li>
 </ul>
 </li>
-</ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
 </ul>
 
         </div>
@@ -127,7 +127,6 @@
 <span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
 <span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">DTypeLike</span><span class="p">,</span> <span class="n">NDArray</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
 
 <span class="n">example_var_1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;var&quot;</span>
 <span class="sd">&quot;&quot;&quot;Variables at the module level are documented inline after declaration.&quot;&quot;&quot;</span>
@@ -241,11 +240,9 @@
     <span class="k">return</span> <span class="p">(</span><span class="n">arg1</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg2</span><span class="p">))</span> <span class="ow">and</span> <span class="n">arg3</span></div>
 
 
-<div class="viewcode-block" id="example_function_2"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_2">[docs]</a><span class="k">def</span> <span class="nf">example_function_2</span><span class="p">(</span><span class="n">optional_arg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;This function demonstrates linking to objects inside docstrings,</span>
-<span class="sd">    optional arguments and the *Raises:* directive.</span>
-
-<span class="sd">    Optional arguments must be type-hinted using :obj:`typing.Optional`.</span>
+<div class="viewcode-block" id="example_function_2"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_2">[docs]</a><span class="k">def</span> <span class="nf">example_function_2</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;This function demonstrates linking to objects inside docstrings, the usage of</span>
+<span class="sd">    ``*args`` and ``**kwargs``, and the *Raises:* directive.</span>
 
 <span class="sd">    As evident, you can link objects in-text. You can also link functions like</span>
 <span class="sd">    :meth:`example_function_1`. Note the different usage of ``:obj:`` and ``:class:``</span>
@@ -262,12 +259,6 @@
 <span class="sd">        it is obligatory to explicitly specify the None return in the signature.</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        optional_arg: ``default=None``</span>
-
-<span class="sd">            This is an optional argument. Use ``inline formatting`` to describe the</span>
-<span class="sd">            default value after the colon, followed by a blank line.</span>
-
-<span class="sd">            After the blank line, add text to describe the argument as usual.</span>
 <span class="sd">        *args: Arbitrary arguments. Describe adequately how they are used.</span>
 <span class="sd">        **kwargs: Arbitrary keyword arguments.</span>
 
@@ -291,64 +282,84 @@
 
 
 <div class="viewcode-block" id="example_function_3"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_3">[docs]</a><span class="k">def</span> <span class="nf">example_function_3</span><span class="p">(</span>
-    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
     <span class="n">vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
-    <span class="n">a_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+    <span class="n">optional_arg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optional_list</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(),</span>
     <span class="n">optional_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
     <span class="n">option_1</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span>
-    <span class="n">option_2</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">option_3</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">option_4</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-16</span><span class="p">,</span>
+    <span class="n">option_2</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">option_3</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-16</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;This function demonstrates how to document special requirements for arguments.</span>
 
+<span class="sd">    Optional arguments must be type-hinted using :obj:`typing.Optional`.</span>
+
+<span class="sd">    Warning:</span>
+<span class="sd">        Since the latest update for ``mypy``, :obj:`~typing.Optional` should only be</span>
+<span class="sd">        used with ``None`` as the default argument.</span>
+
 <span class="sd">    Parameters:</span>
-<span class="sd">        mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``.</span>
-<span class="sd">        vector: ``shape=(num_cells,)``</span>
+<span class="sd">        vector:</span>
+<span class="sd">            ``shape=(num_cells,)``</span>
 
 <span class="sd">            This vector&#39;s special requirement is a certain shape.</span>
-<span class="sd">            We use the same format as for default values to indicate its supposed</span>
-<span class="sd">            length.</span>
+
+<span class="sd">            Use ``inline formatting`` to describe the</span>
+<span class="sd">            requirement in the **first line** of the **indented** text,</span>
+<span class="sd">            followed by a blank line. Inspect the source to see how this looks like.</span>
+
+<span class="sd">            After the blank line, add text to describe the argument as usual</span>
 
 <span class="sd">            The required shape is ``(num_cells,)``, the number of cells.</span>
 <span class="sd">            If unclear to what the number refers, explain.</span>
-<span class="sd">            E.g. where ``num_cells`` denotes the number of cells in ``mdg``.</span>
 
 <span class="sd">            Use explicitly ``shape`` for numpy arrays to describe as precise as possible</span>
-<span class="sd">            which dimensions are allowed. Remember ``(3,) != (3, 1)``. </span>
-<span class="sd">        matrix: ``shape=(3, num_cells)``</span>
+<span class="sd">            which dimensions are allowed. Remember ``(3,) != (3, 1)``.</span>
+<span class="sd">        matrix:</span>
+<span class="sd">            ``shape=(3, num_cells)``</span>
 
 <span class="sd">            This argument is a sparse matrix with 3 rows and</span>
 <span class="sd">            ``num_cells`` columns.</span>
-<span class="sd">        a_list: ``len=num_cells``</span>
+
+<span class="sd">            We **insist** on having whitespaces between comma and nex number</span>
+<span class="sd">            for readability reasons.</span>
+<span class="sd">        optional_arg:</span>
+<span class="sd">            ``default=None``</span>
+
+<span class="sd">            This is an *optional* integer with default value ``None``.</span>
+
+<span class="sd">            We use the same format as for requirements to display its default value.</span>
+<span class="sd">        optional_list:</span>
+<span class="sd">            ``len=num_cells``</span>
 
 <span class="sd">            Restrictions to built-int types like lists and tuples can be indicated using</span>
 <span class="sd">            ``len=``.</span>
-<span class="sd">        optional_vector: ``shape=(3,), default=np.ndarray([0, 0, 0])``</span>
+<span class="sd">        optional_vector:</span>
+<span class="sd">            ``shape=(3,), default=np.ndarray([0, 0, 0])``</span>
 
 <span class="sd">            This is an optional vector argument, with both shape restrictions and a</span>
-<span class="sd">            default argument. Combine both in the top line, followed by a blank line.</span>
+<span class="sd">            default argument. Combine both in the first indented line,</span>
+<span class="sd">            followed by a blank line.</span>
 
 <span class="sd">            Whatever extra requirements are added besides ``shape``, the description</span>
 <span class="sd">            ``default=`` must be put at the end.</span>
-<span class="sd">        option_1: ``default=&#39;A&#39;``</span>
+<span class="sd">        option_1:</span>
+<span class="sd">            ``default=&#39;A&#39;``</span>
 
 <span class="sd">            This argument has admissible values and a default value.</span>
-<span class="sd">            Tt can only be a string ``&#39;A&#39;``, ``&#39;B&#39;`` or ``&#39;C&#39;``.</span>
+<span class="sd">            It can only be a string ``&#39;A&#39;``, ``&#39;B&#39;`` or ``&#39;C&#39;``.</span>
 
 <span class="sd">            For such admissible values use :obj:`typing.Literal` to denote them in the</span>
 <span class="sd">            signature.</span>
-<span class="sd">        option_2: ``default=None``</span>
+<span class="sd">        option_2:</span>
+<span class="sd">            ``default=True``</span>
 
-<span class="sd">            This is an *optional* float. The default value is ``None`` and indicated as</span>
-<span class="sd">            such in the first line.</span>
-<span class="sd">        option_3: ``default=True``</span>
+<span class="sd">            This is an boolean argument with the default value ``True``.</span>
+<span class="sd">        option_3:</span>
+<span class="sd">            ``[0, 1], default=1e-16``</span>
 
-<span class="sd">            This is an optional boolean argument with the default value ``True``.</span>
-<span class="sd">        option_4: ``[0, 1], default=1e-16``</span>
-
-<span class="sd">            This is an optional float argument, with values restricted between 0 and 1.</span>
+<span class="sd">            This is an float argument, with values restricted between 0 and 1.</span>
 <span class="sd">            The default value is set to ``1e-16``.</span>
 
 <span class="sd">    Raises:</span>
@@ -417,6 +428,14 @@
 <span class="sd">    When encountering type aliases,</span>
 <span class="sd">    which are not already covered by the configuration of PorePy&#39;s docs,</span>
 <span class="sd">    please contact the core developers.</span>
+
+<span class="sd">    Warning:</span>
+<span class="sd">        There is an `open issue on Sphinx&#39; side</span>
+<span class="sd">        &lt;https://github.com/sphinx-doc/sphinx/issues/10785&gt;`_,</span>
+<span class="sd">        which prevents type aliases from being properly linked to their source.</span>
+
+<span class="sd">        If you discover your type annotations not creating a hyperlink, don&#39;t threat.</span>
+<span class="sd">        This will come with future Sphinx updates.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        array_like: An argument of type :obj:`~numpy.typing.ArrayLike`.</span>
@@ -528,7 +547,11 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">arg1</span>
         <span class="sd">&quot;&quot;&quot;This is how to properly document an instance-level attribute in the</span>
-<span class="sd">        constructor.&quot;&quot;&quot;</span>
+<span class="sd">        constructor.</span>
+
+<span class="sd">        If an attribute has certain properties, like specific shape for arrays or a</span>
+<span class="sd">        fixed length for lists, document them in the attribute description.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">arg2</span>
         <span class="sd">&quot;&quot;&quot;str: This is an instance-level attribute with a redundant field &#39;Type:&#39;</span>
@@ -686,7 +709,8 @@
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        new_arg: This is a new argument for the child class.</span>
-<span class="sd">        arg2: ``default=&#39;A&#39;``</span>
+<span class="sd">        arg2:</span>
+<span class="sd">            ``default=&#39;A&#39;``</span>
 
 <span class="sd">            The second argument defaults to ``&#39;A&#39;`` now.</span>
 
@@ -709,10 +733,7 @@
 <span class="sd">            Returns something dependent the parent method result.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">example_method</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">return</span> <span class="n">out</span></div></div>
+        <span class="k">pass</span></div></div>
 </pre></div>
 
            </div>

@@ -146,7 +146,7 @@ autodoc_typehints = "description"  # signature, description
 
 # display types in signature which are documented, or all (by default)
 # all, documented, documented_params
-autodoc_typehints_description_target = 'documented'
+autodoc_typehints_description_target = 'all'
 
 # default configurations for all autodoc directives
 autodoc_default_options = {

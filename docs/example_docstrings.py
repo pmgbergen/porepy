@@ -50,7 +50,6 @@ import numpy as np
 import scipy.sparse as sps
 from numpy.typing import ArrayLike, DTypeLike, NDArray
 
-import porepy as pp
 
 example_var_1: str = "var"
 """Variables at the module level are documented inline after declaration."""
@@ -164,11 +163,9 @@ def example_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
     return (arg1 > len(arg2)) and arg3
 
 
-def example_function_2(optional_arg: Optional[int] = None, *args, **kwargs) -> None:
-    """This function demonstrates linking to objects inside docstrings,
-    optional arguments and the *Raises:* directive.
-
-    Optional arguments must be type-hinted using :obj:`typing.Optional`.
+def example_function_2(*args, **kwargs) -> None:
+    """This function demonstrates linking to objects inside docstrings, the usage of
+    ``*args`` and ``**kwargs``, and the *Raises:* directive.
 
     As evident, you can link objects in-text. You can also link functions like
     :meth:`example_function_1`. Note the different usage of ``:obj:`` and ``:class:``
@@ -185,12 +182,6 @@ def example_function_2(optional_arg: Optional[int] = None, *args, **kwargs) -> N
         it is obligatory to explicitly specify the None return in the signature.
 
     Parameters:
-        optional_arg: ``default=None``
-
-            This is an optional argument. Use ``inline formatting`` to describe the
-            default value after the colon, followed by a blank line.
-
-            After the blank line, add text to describe the argument as usual.
         *args: Arbitrary arguments. Describe adequately how they are used.
         **kwargs: Arbitrary keyword arguments.
 
@@ -214,64 +205,84 @@ def example_function_2(optional_arg: Optional[int] = None, *args, **kwargs) -> N
 
 
 def example_function_3(
-    mdg: pp.MixedDimensionalGrid,
     vector: np.ndarray,
     matrix: sps.spmatrix,
-    a_list: list,
+    optional_arg: Optional[int] = None,
+    optional_list: list = list(),
     optional_vector: np.ndarray = np.ndarray([0, 0, 0]),
     option_1: Literal["A", "B", "C"] = "A",
-    option_2: Optional[float] = None,
-    option_3: bool = True,
-    option_4: float = 1e-16,
+    option_2: bool = True,
+    option_3: float = 1e-16,
 ) -> sps.spmatrix:
     """This function demonstrates how to document special requirements for arguments.
 
+    Optional arguments must be type-hinted using :obj:`typing.Optional`.
+
+    Warning:
+        Since the latest update for ``mypy``, :obj:`~typing.Optional` should only be
+        used with ``None`` as the default argument.
+
     Parameters:
-        mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``.
-        vector: ``shape=(num_cells,)``
+        vector:
+            ``shape=(num_cells,)``
 
             This vector's special requirement is a certain shape.
-            We use the same format as for default values to indicate its supposed
-            length.
+
+            Use ``inline formatting`` to describe the
+            requirement in the **first line** of the **indented** text,
+            followed by a blank line. Inspect the source to see how this looks like.
+
+            After the blank line, add text to describe the argument as usual
 
             The required shape is ``(num_cells,)``, the number of cells.
             If unclear to what the number refers, explain.
-            E.g. where ``num_cells`` denotes the number of cells in ``mdg``.
 
             Use explicitly ``shape`` for numpy arrays to describe as precise as possible
-            which dimensions are allowed. Remember ``(3,) != (3, 1)``. 
-        matrix: ``shape=(3, num_cells)``
+            which dimensions are allowed. Remember ``(3,) != (3, 1)``.
+        matrix:
+            ``shape=(3, num_cells)``
 
             This argument is a sparse matrix with 3 rows and
             ``num_cells`` columns.
-        a_list: ``len=num_cells``
+
+            We **insist** on having whitespaces between comma and nex number
+            for readability reasons.
+        optional_arg:
+            ``default=None``
+
+            This is an *optional* integer with default value ``None``.
+
+            We use the same format as for requirements to display its default value.
+        optional_list:
+            ``len=num_cells``
 
             Restrictions to built-int types like lists and tuples can be indicated using
             ``len=``.
-        optional_vector: ``shape=(3,), default=np.ndarray([0, 0, 0])``
+        optional_vector:
+            ``shape=(3,), default=np.ndarray([0, 0, 0])``
 
             This is an optional vector argument, with both shape restrictions and a
-            default argument. Combine both in the top line, followed by a blank line.
+            default argument. Combine both in the first indented line,
+            followed by a blank line.
 
             Whatever extra requirements are added besides ``shape``, the description
             ``default=`` must be put at the end.
-        option_1: ``default='A'``
+        option_1:
+            ``default='A'``
 
             This argument has admissible values and a default value.
-            Tt can only be a string ``'A'``, ``'B'`` or ``'C'``.
+            It can only be a string ``'A'``, ``'B'`` or ``'C'``.
 
             For such admissible values use :obj:`typing.Literal` to denote them in the
             signature.
-        option_2: ``default=None``
+        option_2:
+            ``default=True``
 
-            This is an *optional* float. The default value is ``None`` and indicated as
-            such in the first line.
-        option_3: ``default=True``
+            This is an boolean argument with the default value ``True``.
+        option_3:
+            ``[0, 1], default=1e-16``
 
-            This is an optional boolean argument with the default value ``True``.
-        option_4: ``[0, 1], default=1e-16``
-
-            This is an optional float argument, with values restricted between 0 and 1.
+            This is an float argument, with values restricted between 0 and 1.
             The default value is set to ``1e-16``.
 
     Raises:
@@ -340,6 +351,14 @@ def example_function_5(
     When encountering type aliases,
     which are not already covered by the configuration of PorePy's docs,
     please contact the core developers.
+
+    Warning:
+        There is an `open issue on Sphinx' side
+        <https://github.com/sphinx-doc/sphinx/issues/10785>`_,
+        which prevents type aliases from being properly linked to their source.
+
+        If you discover your type annotations not creating a hyperlink, don't threat.
+        This will come with future Sphinx updates.
 
     Parameters:
         array_like: An argument of type :obj:`~numpy.typing.ArrayLike`.
@@ -451,7 +470,11 @@ class ExampleClass:
 
         self.attribute_1: int = arg1
         """This is how to properly document an instance-level attribute in the
-        constructor."""
+        constructor.
+
+        If an attribute has certain properties, like specific shape for arrays or a
+        fixed length for lists, document them in the attribute description.
+        """
 
         self.attribute_2: str = arg2
         """str: This is an instance-level attribute with a redundant field 'Type:'
@@ -609,7 +632,8 @@ class ChildClass(ExampleClass):
 
     Parameters:
         new_arg: This is a new argument for the child class.
-        arg2: ``default='A'``
+        arg2:
+            ``default='A'``
 
             The second argument defaults to ``'A'`` now.
 
@@ -632,7 +656,4 @@ class ChildClass(ExampleClass):
             Returns something dependent the parent method result.
 
         """
-        out = True
-        out = super().example_method(arg)
-        out = False
-        return out
+        pass

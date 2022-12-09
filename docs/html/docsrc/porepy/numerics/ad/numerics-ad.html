@@ -21,7 +21,6 @@
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="1. How-To docstring" href="../../../howto/howto-docstring.html" />
     <link rel="prev" title="Numerics" href="../numerics.html" /> 
 </head>
 
@@ -43,14 +42,14 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul class="current">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../numerics.html">Numerics</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Automatic Differentiation</a></li>
 </ul>
 </li>
-</ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../howto/howto-docstring.html">1. How-To docstring</a></li>
 </ul>
 
         </div>
@@ -170,6 +169,7 @@ Defaults to None (converted to empty list).</p></li>
 operator is defined.
 Will be empty for operators not associated with any interface.
 Defaults to None (converted to empty list).</p></li>
+<li><p><strong>tree</strong> (<em>Optional</em><em>[</em><em>Tree</em><em>]</em>) – </p></li>
 </ul>
 </dd>
 </dl>
@@ -179,6 +179,12 @@ Defaults to None (converted to empty list).</p></li>
 <dd><p>Perform the <code class="docutils literal notranslate"><span class="pre">discretize</span></code> function of all child operators which are discretizations
 using data from mdg.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mdg</strong> (<em>MixedDimensionalGrid</em>) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -269,6 +275,9 @@ time step.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – the new name to be assigned.</p>
 </dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -320,6 +329,9 @@ the argument passed to <code class="docutils literal notranslate"><span class="p
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RegularizedHeaviside</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regularization</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/functions.html#RegularizedHeaviside"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.functions.RegularizedHeaviside" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>regularization</strong> (<em>Callable</em>) – </p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -400,6 +412,9 @@ The derivative is set to zero independent of <code class="docutils literal notra
 <dt class="sig sig-object py" id="porepy.numerics.ad.functions.heaviside">
 <span class="sig-name descname"><span class="pre">heaviside</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">var</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zerovalue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/functions.html#heaviside"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.functions.heaviside" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zerovalue</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -527,6 +542,12 @@ effectively create a deep copy, i.e., changes in the value of one Scalar will no
 be reflected in the other. This is in contrast to the behavior of the other
 Ad objects.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
+<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+</ul>
+</dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Scalar.parse">
@@ -536,8 +557,11 @@ Ad objects.</p>
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The wrapped number.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a></p>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>mdg</strong> (<em>MixedDimensionalGrid</em>) – </p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -570,7 +594,10 @@ For time-dependent arrays see <a class="reference internal" href="#porepy.numeri
 with other types of AD operators.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>values</strong> (<em>np.ndarray</em>) – Numpy array to be represented.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>values</strong> (<em>np.ndarray</em>) – Numpy array to be represented.</p></li>
+<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py method">
@@ -581,8 +608,11 @@ with other types of AD operators.</p>
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The wrapped array.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>mdg</strong> (<em>MixedDimensionalGrid</em>) – </p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -716,8 +746,11 @@ with other types of Ad objects.</p>
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The wrapped matrix.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a></p>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>mdg</strong> (<em>MixedDimensionalGrid</em>) – </p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -727,6 +760,9 @@ with other types of Ad objects.</p>
 <span class="sig-name descname"><span class="pre">transpose</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Matrix.transpose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Matrix.transpose" title="Permalink to this definition"></a></dt>
 <dd><p>Returns an AD operator representing the transposed matrix.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><em>Matrix</em></a></p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -777,6 +813,8 @@ Valid keys are <code class="docutils literal notranslate"><span class="pre">cell
 <li><p><strong>interfaces</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">length=1</span></code>) – List containing a single mortar grid.</p></li>
 <li><p><strong>num_cells</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Number of cells in the grid.
 Only relevant if this is an interface variable.</p></li>
+<li><p><strong>previous_timestep</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>previous_iteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
 </ul>
 </dd>
 </dl>
@@ -1101,6 +1139,14 @@ parsing of an operator tree.</p>
 obtain numeric function values.</p>
 <p>What remains abstract is the Jacobian.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>func</strong> (<em>Callable</em>) – </p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>array_compatible</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>ad_compatible</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+</ul>
+</dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.AbstractJacobianFunction.get_values">
@@ -1109,8 +1155,11 @@ obtain numeric function values.</p>
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The direct evaluation of the callable using <code class="docutils literal notranslate"><span class="pre">val</span></code> of passed AD arrays.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>args</strong> (<a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><em>Ad_array</em></a>) – </p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1134,6 +1183,13 @@ framework.</p>
 are formally implemented but never used by the AD framework (see <code class="docutils literal notranslate"><span class="pre">ad_compatible</span></code>)</p>
 </div>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>func</strong> (<em>Callable</em>) – </p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>array_compatible</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+</ul>
+</dd>
 </dl>
 </dd></dl>
 
@@ -1146,7 +1202,10 @@ zero Jacobian.</p>
 <p>It still has to be called though since it fulfills the notion of a ‘function’.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>values</strong> (<em>np.ndarray</em>) – constant values per cell.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>values</strong> (<em>np.ndarray</em>) – constant values per cell.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py method">
@@ -1165,8 +1224,11 @@ we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.</
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The trivial derivative of a constant.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a></p>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>args</strong> (<a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><em>Ad_array</em></a>) – </p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1178,8 +1240,11 @@ we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.</
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The values passed at instantiation.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>args</strong> (<a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><em>Ad_array</em></a>) – </p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1194,9 +1259,14 @@ we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.</
 per dependency.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>multipliers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – scalar multipliers for the identity blocks in the Jacobian,
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>multipliers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – scalar multipliers for the identity blocks in the Jacobian,
 per dependency of <code class="docutils literal notranslate"><span class="pre">func</span></code>. The order in <code class="docutils literal notranslate"><span class="pre">multipliers</span></code> is expected to match
-the order of AD operators passed to the call of this function.</p>
+the order of AD operators passed to the call of this function.</p></li>
+<li><p><strong>func</strong> (<em>Callable</em>) – </p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>array_compatible</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py method">
@@ -1205,6 +1275,12 @@ the order of AD operators passed to the call of this function.</p>
 <dd><p>The approximate Jacobian consists of identity blocks times scalar multiplier
 per every function dependency.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>args</strong> (<a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><em>Ad_array</em></a>) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a></p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -1236,6 +1312,9 @@ the points of interpolation and stores them.
 If False, evaluates them if necessary.
 Influences the runtime.
 Defaults to False.</p></li>
+<li><p><strong>func</strong> (<em>Callable</em>) – </p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>array_compatible</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
 </ul>
 </dd>
 </dl>
@@ -1307,6 +1386,9 @@ If used differently or if another reference is saved between explicit instantiat
 and call, this is a potential memory leak.</p>
 </div>
 <dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference internal" href="#porepy.numerics.ad.operator_functions.ADmethod" title="porepy.numerics.ad.operator_functions.ADmethod"><em>ADmethod</em></a>, <a class="reference internal" href="#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a>]</p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -1334,6 +1416,9 @@ methods)</p>
 <li><p><strong>binding_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.11)"><em>type</em></a>) – type instance of the decorated method’s class/owner.</p></li>
 </ul>
 </dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><em>Callable</em></a></p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -1349,6 +1434,9 @@ and performs the evaluation/call.</p>
 <li><p><strong>*args</strong> – arguments for the call to the wrapping AD operator function</p></li>
 <li><p><strong>**kwargs</strong> – keyword argument for the call to the wrapping Ad operator function</p></li>
 </ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1375,7 +1463,6 @@ and performs the evaluation/call.</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../numerics.html" class="btn btn-neutral float-left" title="Numerics" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../../../howto/howto-docstring.html" class="btn btn-neutral float-right" title="1. How-To docstring" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
