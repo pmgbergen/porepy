@@ -1449,9 +1449,11 @@ class EquationSystem:
             block_indices = np.arange(block_length) + ind_start
             # Extract last index and add 1 to get the starting point for next block of
             # indices.
-            ind_start = block_indices[-1] + 1
+
             self.assembled_equation_indices.update({equ_name: block_indices})
 
+            if block_length > 0:
+                ind_start = block_indices[-1] + 1
         # Concatenate results equation-wise.
         if len(mat) > 0:
             A = sps.vstack(mat, format="csr")

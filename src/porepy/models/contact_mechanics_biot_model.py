@@ -659,14 +659,12 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Construct equations
         subdomain_flow_eq: pp.ad.Operator = self._subdomain_flow_equation(subdomains)
+        subdomain_flow_eq.set_name("subdomain_flow")
         interface_flow_eq: pp.ad.Operator = self._interface_flow_equation(interfaces)
+        interface_flow_eq.set_name("interface_flow")
         # Assign equations to manager
-        self._eq_manager.name_and_assign_equations(
-            {
-                "subdomain_flow": subdomain_flow_eq,
-                "interface_flow": interface_flow_eq,
-            },
-        )
+        self.equation_system.set_equation(subdomain_flow_eq, subdomains, {"cells": 1})
+        self.equation_system.set_equation(interface_flow_eq, interfaces, {"cells": 1})
 
     def _set_ad_projections(
         self,
@@ -1155,23 +1153,35 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         Assign primary variables to the nodes and edges of the mixed-dimensional grid.
         """
         super()._assign_variables()
-        # First for the nodes
-        for sd, data in self.mdg.subdomains(return_data=True):
-            if sd.dim == self.nd:
-                data[pp.PRIMARY_VARIABLES].update(
-                    {
-                        self.scalar_variable: {"cells": 1},
-                    }
-                )
-            else:
-                data[pp.PRIMARY_VARIABLES].update({self.scalar_variable: {"cells": 1}})
+        if self._use_ad:
+            self.equation_system.create_variables(
+                self.scalar_variable, {"cells": 1}, subdomains=self.mdg.subdomains()
+            )
+            self.equation_system.create_variables(
+                self.mortar_scalar_variable,
+                {"cells": 1},
+                interfaces=self.mdg.interfaces(),
+            )
+        else:
+            # First for the subdomains
+            for sd, data in self.mdg.subdomains(return_data=True):
+                if sd.dim == self.nd:
+                    data[pp.PRIMARY_VARIABLES].update(
+                        {
+                            self.scalar_variable: {"cells": 1},
+                        }
+                    )
+                else:
+                    data[pp.PRIMARY_VARIABLES].update(
+                        {self.scalar_variable: {"cells": 1}}
+                    )
 
-        # Then for the edges
-        for intf, data in self.mdg.interfaces(return_data=True):
-            if intf.codim == 1:
-                data[pp.PRIMARY_VARIABLES].update(
-                    {self.mortar_scalar_variable: {"cells": 1}}
-                )
+            # Then for the interfaces.
+            for intf, data in self.mdg.interfaces(return_data=True):
+                if intf.codim == 1:
+                    data[pp.PRIMARY_VARIABLES].update(
+                        {self.mortar_scalar_variable: {"cells": 1}}
+                    )
 
     def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
@@ -1192,11 +1202,12 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         interfaces = self._ad.codim_one_interfaces
         # Primary variables on Ad form
-        self._ad.pressure = self._eq_manager.merge_variables(
-            [(sd, self.scalar_variable) for sd in self._ad.all_subdomains]
+        self._ad.pressure = self.equation_system.md_variable(
+            self.scalar_variable, self._ad.all_subdomains
         )
-        self._ad.interface_flux = self._eq_manager.merge_variables(
-            [(intf, self.mortar_scalar_variable) for intf in interfaces]
+
+        self._ad.interface_flux = self.equation_system.md_variable(
+            self.mortar_scalar_variable, interfaces
         )
 
     def check_convergence(
@@ -1314,7 +1325,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         logger.info("Discretize")
 
         if self._use_ad:
-            self._eq_manager.discretize(self.mdg)
+            self.equation_system.discretize()
         else:
             # Discretization is a bit cumbersome, as the Biot discretization removes the
             # one-to-one correspondence between discretization objects and blocks in

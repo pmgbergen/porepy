@@ -77,8 +77,8 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
             ),
         )
 
-        self._assign_variables()
         self._create_dof_and_eq_manager()
+        self._assign_variables()
         self._create_ad_variables()
         self._initial_condition()
 
@@ -237,35 +237,40 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         """
         Assign primary variables to subdomains and interfaces of the mixed-dimensional grid.
         """
-        for _, data in self.mdg.subdomains(return_data=True):
-            data[pp.PRIMARY_VARIABLES] = {
-                self.variable: {"cells": 1},
-            }
-        for intf, data in self.mdg.interfaces(return_data=True):
-            if intf.codim == 2:
-                continue
-            else:
+        if self._use_ad:
+            self.equation_system.create_variables(
+                self.variable, {"cells": 1}, subdomains=self.mdg.subdomains()
+            )
+            self.equation_system.create_variables(
+                self.mortar_variable, {"cells": 1}, interfaces=self.mdg.interfaces()
+            )
+        else:
+            for _, data in self.mdg.subdomains(return_data=True):
                 data[pp.PRIMARY_VARIABLES] = {
-                    self.mortar_variable: {"cells": 1},
+                    self.variable: {"cells": 1},
                 }
+            for intf, data in self.mdg.interfaces(return_data=True):
+                if intf.codim == 2:
+                    continue
+                else:
+                    data[pp.PRIMARY_VARIABLES] = {
+                        self.mortar_variable: {"cells": 1},
+                    }
 
     def _create_dof_and_eq_manager(self) -> None:
         """Create a dof_manager and eq_manager based on a mixed-dimensional grid"""
         self.dof_manager = pp.DofManager(self.mdg)
-        self._eq_manager = pp.ad.EquationManager(self.mdg, self.dof_manager)
+        self.equation_system = pp.ad.EquationSystem(self.mdg)
 
     def _create_ad_variables(self) -> None:
         """Create the mixed-dimensional variables for potential and mortar flux"""
 
-        self._ad.pressure = self._eq_manager.merge_variables(
-            [(sd, self.variable) for sd in self.mdg.subdomains()]
+        self._ad.pressure = self.equation_system.md_variable(
+            self.variable, self.mdg.subdomains()
         )
-        self._ad.mortar_flux = self._eq_manager.merge_variables(
-            [
-                (intf, self.mortar_variable)
-                for intf in self.mdg.interfaces()
-                if intf.codim < 2
-            ]
+        self._ad.mortar_flux = self.equation_system.md_variable(
+            self.mortar_variable,
+            [intf for intf in self.mdg.interfaces() if intf.codim < 2],
         )
 
     def _assign_equations(self) -> None:
@@ -350,16 +355,12 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
             )
             + mortar_flux
         )
-        subdomain_flow_eq.set_name("flow on subdomains")
-        interface_flow_eq.set_name("flow on interfaces")
+        subdomain_flow_eq.set_name("subdomain_flow")
+        interface_flow_eq.set_name("interfaces_flow")
 
         # Add to the equation list:
-        self._eq_manager.equations.update(
-            {
-                "subdomain_flow": subdomain_flow_eq,
-                "interface_flow": interface_flow_eq,
-            }
-        )
+        self.equation_system.set_equation(subdomain_flow_eq, subdomains, {"cells": 1})
+        self.equation_system.set_equation(interface_flow_eq, interfaces, {"cells": 1})
 
     def _flux(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
         """Fluid flux.
@@ -408,7 +409,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     def _discretize(self) -> None:
         """Discretize all terms"""
         tic = time.time()
-        self._eq_manager.discretize(self.mdg)
+        self.equation_system.discretize()
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
     def after_newton_iteration(self, solution_vector: np.ndarray) -> None:

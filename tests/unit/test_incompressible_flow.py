@@ -112,7 +112,7 @@ def test_prepare_simulation(model, n_fracs):
 
     assert model.dof_manager.num_dofs() == num_dofs
     equations = ["subdomain_flow", "interface_flow"]
-    compare_keywords(model._eq_manager.equations.keys(), equations)
+    compare_keywords(model.equation_system.equations.keys(), equations)
 
 
 @pytest.mark.parametrize(
