@@ -1235,7 +1235,7 @@ class Variable(Operator):
     def __init__(
         self,
         name: str,
-        ndof: dict[str, int],
+        ndof: dict[Literal['cells', 'faces', 'nodes'], int],
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
         previous_timestep: bool = False,
