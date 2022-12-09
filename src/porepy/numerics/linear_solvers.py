@@ -44,7 +44,7 @@ class LinearSolver:
         """
 
         setup.before_newton_loop()
-        if hasattr(setup, "equation_manager"):
+        if hasattr(setup, "equation_system"):
             prev_sol = setup.equation_system.get_variable_values(from_iterate=False)
         else:
             prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
