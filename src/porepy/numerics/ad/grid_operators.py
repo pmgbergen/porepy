@@ -57,6 +57,18 @@ class SubdomainProjections(Operator):
         self.dim = dim
         self._is_scalar: bool = dim == 1
 
+        # Uniquify the list of subdomains. There is no need to have the same subdomain
+        # represented several times.
+        if len(set(subdomains)) < len(subdomains):
+            # The problem here is that the subdomain projections are stored in a dict,
+            # with the subdomanis as keys. If the same subdomain is represented twice,
+            # the first projection will be overwritten by the second, thus the order
+            # of the subdomains will be lost. There is no easy way to handle this, the
+            # only option is to fix the error on the caller side. An internal fix would
+            # entail changing the storage format for the projection, potentially needing
+            # a lot of memory.
+            raise ValueError("Subdomains must be unique")
+
         self._num_grids: int = len(subdomains)
 
         # Store total number of faces and cells in the list of subdomains. This will be
@@ -171,7 +183,8 @@ class SubdomainProjections(Operator):
 
     def __repr__(self) -> str:
         s = (
-            f"Restriction and prolongation operators for {self._num_grids} subdomains\n"
+            f"Restriction and prolongation operators for {self._num_grids}"
+            " unique subdomains\n"
             f"Aimed at variables with dimension {self.dim}\n"
         )
         return s
