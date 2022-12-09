@@ -4,7 +4,7 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Path setup -------------------------------------------------------------------------------
+# -- path setup ------------------------------------------------------------------------
 
 import os
 import sys
@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath("../src"))
 # rel path to example documentation
 sys.path.append(os.path.abspath("."))
 
-# -- Project information ----------------------------------------------------------------------
+# -- project information ---------------------------------------------------------------
 
 project = "PorePy"
 release = "1.5"
@@ -31,7 +31,7 @@ copyright = ("2022 UiB Center for Modeling of Coupled Subsurface Dynamics, "
              +"GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007."
 )
 
-# -- General configuration --------------------------------------------------------------------
+# -- general configuration -------------------------------------------------------------
 
 # Name of the root document or "homepage"
 root_doc = "index"
@@ -60,7 +60,14 @@ templates_path = ["templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-# -- Options for HTML output ------------------------------------------------------------------
+porepy_type_alias_map = {
+    'ArrayLike': 'ArrayLike',
+    'NDArray': 'NDArray',
+    'DTypeLike': 'DTypeLike',
+    'ExampleArrayLike': 'ExampleArrayLike',
+}
+
+# -- options for HTML output -----------------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages. Currently set to theme of Python 2 docs
 html_theme = "sphinx_rtd_theme"
@@ -96,7 +103,25 @@ html_theme_options = {
     'titles_only': False
 }
 
-# -- Autodoc Settings -------------------------------------------------------------------------
+# -- napoleon settings -----------------------------------------------------------------
+
+napoleon_google_docstring = True
+napoleon_numpy_docstring = False
+# napoleon_include_init_with_doc = False
+# napoleon_include_private_with_doc = False
+# napoleon_include_special_with_doc = False
+napoleon_use_admonition_for_examples = True
+napoleon_use_admonition_for_notes = True
+napoleon_use_admonition_for_references = True
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_keyword = True
+napoleon_use_rtype = True
+napoleon_preprocess_types = True
+napoleon_type_aliases = porepy_type_alias_map
+napoleon_attr_annotations = True
+
+# -- autodoc settings ------------------------------------------------------------------
 
 # autoclass concatenates docs strings from init and class.
 autoclass_content = "class"  # class-both-init
@@ -117,10 +142,11 @@ autodoc_preserve_defaults = True
 autodoc_typehints_format = "short"
 
 # uses type hints in signatures for e.g. linking (default)
-autodoc_typehints = "signature"
+autodoc_typehints = "description"  # signature, description
 
 # display types in signature which are documented, or all (by default)
-autodoc_typehints_description_target = 'all'  # all-documented
+# all, documented, documented_params
+autodoc_typehints_description_target = 'documented'
 
 # default configurations for all autodoc directives
 autodoc_default_options = {
@@ -135,42 +161,29 @@ autodoc_default_options = {
 # Used to shorten the parsing of type hint aliases
 # NOTE: As of now, hyperlinking to type aliases is an open issue
 # see https://github.com/sphinx-doc/sphinx/issues/10785
-autodoc_type_aliases = {
-    'ArrayLike': 'ArrayLike',
-    'NDArray': 'NDArray',
-    'DTypeLike': 'DTypeLike',
-    'ExampleArrayLike': 'ExampleArrayLike',
-}
+# NOTE: There is a temporary work-around for custom type aliases
+# https://github.com/pandas-dev/pandas/issues/33025#issuecomment-699636759
+# may be of interest.
+autodoc_type_aliases = porepy_type_alias_map
 
-# -- Napoleon Settings ------------------------------------------------------------------------
+# -- autodoc typehints settings --------------------------------------------------------
 
-napoleon_google_docstring = True
-napoleon_numpy_docstring = False
-# napoleon_include_init_with_doc = False
-# napoleon_include_private_with_doc = False
-# napoleon_include_special_with_doc = False
-napoleon_use_admonition_for_examples = True
-napoleon_use_admonition_for_notes = True
-napoleon_use_admonition_for_references = True
-napoleon_use_ivar = False
-napoleon_use_param = True
-napoleon_use_keyword = True
-napoleon_use_rtype = True
-napoleon_preprocess_types = True
-napoleon_type_aliases = {
-}
-napoleon_attr_annotations = True
+# shorten namespace to only contain class name
+typehints_fully_qualified = False
+# adds stub documentation to undocumented types
+always_document_param_types = False
+# If True, adds the :rtype: directive after :returns:
+typehints_document_rtype = True
+# separates rtype from return, combines them otherwise
+# see napoleon_use_rtype, must not be in conflict
+typehints_use_rtype = True
+# auto-generates formatting for default values in signature
+typehints_defaults = 'comma'  # comma, braces-after
+# Optional[Union] -> Union
+# Unions containing None are always Optional
+simplify_optional_unions = False
 
-# -- Autodoc typehints settings ---------------------------------------------------------------
-
-# typehints_fully_qualified = False
-# always_document_param_types = False
-# typehints_document_rtype = True
-# typehints_use_rtype = False
-# typehints_defaults = 'braces'
-# simplify_optional_unions = False
-
-# -- Intersphinx Settings ---------------------------------------------------------------------
+# -- intersphinx settings --------------------------------------------------------------
 
 intersphinx_mapping = {
     'python3': ("https://docs.python.org/3", None),
@@ -179,7 +192,7 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/stable', None)
 }
 
-# -- Todo Settings ----------------------------------------------------------------------------
+# -- todo settings ---------------------------------------------------------------------
 
 todo_include_todos = True
 todo_emit_warnings = False

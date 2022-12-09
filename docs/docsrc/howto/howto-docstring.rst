@@ -27,10 +27,12 @@ Docstring-Basics
    and `Python object referencing <https://sphinx-experiment.readthedocs.io/en/latest/domains.html#python-roles>`_.
    The domain ``:py`` can be omitted in this project.
 6. Limit the length of every line to 88 characters. PorePy's PR routines include checks using
-   ``black``, ``flake8`` and ``mypy``, which check exactly that.
+   ``isort``, ``black``, ``flake8`` and ``mypy``, which check exactly that.
    
-   Tip: Most IDEs support a modification of the code editor such that a vertical line is displayed
-   after the 88th character column.
+   .. hint::
+        Most IDEs support a modification of the code editor such that a vertical line is displayed
+        after the 88th character column.
+
 7. End every multi-line docstring with a blank line before \"\"\", independent of what you are
    documenting.
 
@@ -129,22 +131,8 @@ These include:
 - ``p``, ``T``, ``u``,... : names of common physical variables
 - ``num_dofs`` : number of degrees of freedom
 - ``nd`` : ambient dimension of a ``mdg``, corresponding to the highest dimension of subdomains
-- ``np`` : number of points
-- ``nc`` : number of cells
-
-
-.. rubric:: Typing and linking
-    
-PorePy demands a complete provision of annotations using
-`Python typing <https://docs.python.org/3/library/typing.html>`_.
-This implicates that the type of every variable, attribute, argument and return value is known.
-Sphinx is able to interpret and create respective intra- and inter-doc linking based on 
-the annotations.
-
-As a consequence, **we abstain from including type hints in docstrings** and keep them light.
-
-This rule does not exclude custom linking and referencing in-text, where a developer feels the
-necessity to do so.
+- ``num_points`` : number of points
+- ``num_cells`` : number of cells
 
 .. rubric:: Google style directives
 
@@ -160,13 +148,13 @@ The compulsory order of directives inside a docstring is:
     1. Examples, Note, ...
     2. References, See Also
     3. Parameters
-    4. Returns/ Yields
-    5. Raises
+    4. Raises
+    5. Returns/ Yields
 
 Other rules:
 
     * When using Google Style directives do not type additional text **between** and **after** the
-      directives References/See Also, Parameters, Returns/Yields and Raises.
+      directives References/See Also, Parameters, Raises and Returns/Yields.
     * End every docstring with a blank line before \"\"\". This is especially important after
       the *Returns:* directive and its indented block.
 
@@ -174,6 +162,79 @@ Other rules:
     The Google Style directives are only valid when used inside docstrings,
     but not so when used in .rst files. Keep this in mind, in case you deal with the .rst
     structure of the webpage.
+
+.. rubric:: Type hints and annotations
+    
+PorePy demands a complete provision of annotations using
+`Python typing <https://docs.python.org/3/library/typing.html>`_.
+This implicates that the type of every variable, attribute, argument and return value is known.
+Sphinx is able to interpret and create respective intra- and inter-doc linking based on 
+the annotations.
+
+Type hints can be given using ``(type):``, with or without brackets, at multiple occasions.
+But doing so overrides the configurations of Sphinx,
+rendering the type annotations useless and making the documentation inconsistent.
+
+.. important::
+
+    As a consequence, **we abstain from including type hints in docstrings** and keep them light.
+
+    **Do:**
+
+    .. code:: Python
+
+        def my_function:
+            """...
+
+            Parameters:
+                argument: Description of argument.
+
+            Returns:
+                Description of return value.
+
+            """
+
+    **Do NOT:**
+
+    .. code:: Python
+
+        def my_function:
+            """...
+
+            Parameters:
+                argument (type): Description of argument.
+
+            Returns:
+                type: Description of return value.
+
+            """
+
+    **Do:**
+
+    .. code:: Python
+
+        variable: str = "A"
+        """Description of variable."""
+
+    **Do NOT:**
+
+    .. code:: Python
+
+        variable: str = "A"
+        """str: Description of variable."""
+
+.. rubric:: Linking/ Cross-referencing to other objects
+
+Linking to other objects or members using
+
+- `:obj:`,
+- `:class:`,
+- `:func:`,
+- `:meth` and
+- `:data:`
+
+to provide useful cross-referencing *in the text* is encouraged.
+This will help readers to quickly navigate in the docs.
 
 Documenting variables
 ---------------------
@@ -185,6 +246,7 @@ Documenting variables
 .. autodata:: example_docstrings.example_var_3
 
 .. autodata:: example_docstrings.ExampleArrayLike
+
 
 Documenting functions
 ---------------------
@@ -281,6 +343,8 @@ and static methods and sorts them alphabetically inside each group.
 .. rubric:: Example class documentation
 
 .. autoclass:: example_docstrings.ExampleClass
+
+.. autoclass:: example_docstrings.ChildClass
 
 Module-level documentation
 --------------------------
