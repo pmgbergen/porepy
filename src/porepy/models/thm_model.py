@@ -146,8 +146,12 @@ class THM(pp.ContactMechanicsBiot):
         """Re-discretize the nonlinear terms"""
         self.compute_fluxes()
         if self._use_ad:
-            self._eq_manager.equations["interface_heat_advection"].discretize(self.mdg)
-            self._eq_manager.equations["subdomain_energy_balance"].discretize(self.mdg)
+            self.equation_system.equations["interface_heat_advection"].discretize(
+                self.mdg
+            )
+            self.equation_system.equations["subdomain_energy_balance"].discretize(
+                self.mdg
+            )
         else:
             terms = [
                 self.friction_coupling_term,
@@ -392,7 +396,23 @@ class THM(pp.ContactMechanicsBiot):
     def _assign_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces."""
         super()._assign_variables()
-
+        if self._use_ad:
+            self.equation_system.create_variables(
+                self.temperature_variable,
+                {"cells": 1},
+                self.mdg.subdomains(),
+            )
+            self.equation_system.create_variables(
+                self.mortar_temperature_variable,
+                {"cells": 1},
+                self.mdg.interfaces(),
+            )
+            self.equation_system.create_variables(
+                self.mortar_temperature_advection_variable,
+                {"cells": 1},
+                self.mdg.interfaces(),
+            )
+            return
         # The remaining variables to define is the temperature on the nodes
         for _, data in self.mdg.subdomains(return_data=True):
             data[pp.PRIMARY_VARIABLES].update({self.temperature_variable: {"cells": 1}})
@@ -425,14 +445,14 @@ class THM(pp.ContactMechanicsBiot):
 
         interfaces = self._ad.codim_one_interfaces
         # Primary variables on Ad form
-        self._ad.temperature = self._eq_manager.merge_variables(
-            [(g, self.temperature_variable) for g in self._ad.all_subdomains]
+        self._ad.temperature = self.equation_system.md_variable(
+            self.temperature_variable, self._ad.all_subdomains
         )
-        self._ad.advective_interface_flux = self._eq_manager.merge_variables(
-            [(intf, self.mortar_temperature_advection_variable) for intf in interfaces]
+        self._ad.advective_interface_flux = self.equation_system.md_variable(
+            self.mortar_temperature_advection_variable, interfaces
         )
-        self._ad.conductive_interface_flux = self._eq_manager.merge_variables(
-            [(intf, self.mortar_temperature_variable) for intf in interfaces]
+        self._ad.conductive_interface_flux = self.equation_system.md_variable(
+            self.mortar_temperature_variable, interfaces
         )
 
     def _assign_discretizations(self) -> None:
@@ -626,13 +646,22 @@ class THM(pp.ContactMechanicsBiot):
             self._interface_heat_advection_equation(interfaces)
         )
         # Assign equations to manager
-        self._eq_manager.name_and_assign_equations(
+        self.equation_system.name_and_assign_equations(
             {
                 "subdomain_energy_balance": subdomain_energy_balance_eq,
                 "interface_heat_conduction": interface_heat_conduction_eq,
                 "interface_heat_advection": interface_heat_advection_eq,
             },
         )
+        subdomain_energy_balance_eq.set_name("subdomain_energy_balance")
+        interface_heat_conduction_eq.set_name("interface_heat_conduction")
+        interface_heat_advection_eq.set_name("interface_heat_advection")
+        es = self.equation_system
+        es.set_equation(
+            subdomain_energy_balance_eq, self._ad.all_subdomains, {"cells": 1}
+        )
+        es.set_equation(interface_heat_conduction_eq, interfaces, {"cells": 1})
+        es.set_equation(interface_heat_advection_eq, interfaces, {"cells": 1})
 
     def _subdomain_flow_equation(self, subdomains: List[pp.Grid]):
         """Mass balance equation for slightly compressible flow in a deformable medium.
@@ -1106,7 +1135,7 @@ class THM(pp.ContactMechanicsBiot):
             self.assembler = pp.Assembler(self.mdg, self.dof_manager)
 
         if self._use_ad:
-            self._eq_manager.discretize(self.mdg)
+            self.equation_system.discretize()
             return
         # Discretization is a bit cumbersome, as the Biot discretization removes the
         # one-to-one correspondence between discretization objects and blocks in the matrix.

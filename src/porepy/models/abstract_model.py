@@ -51,7 +51,7 @@ class AbstractModel:
         default_params = {
             "folder_name": "visualization",
             "file_name": "data",
-            "use_ad": True,
+            "use_ad": False,
             # Set the default linear solver to Pardiso; this can be overridden by
             # user choices. If Pardiso is not available, backup solvers will automatically be
             # invoked.
@@ -70,7 +70,7 @@ class AbstractModel:
         self._use_ad = self.params["use_ad"]
 
         # Define attributes to be assigned later
-        self._eq_manager: pp.ad.EquationManager
+        self.equation_system: pp.ad.EquationSystem
         self.dof_manager: pp.DofManager
         self.mdg: pp.MixedDimensionalGrid
         self.box: dict
@@ -97,10 +97,14 @@ class AbstractModel:
 
     def _initial_condition(self) -> None:
         """Set initial guess for the variables."""
-        initial_values = np.zeros(self.equation_system.num_dofs())
-        self.equation_system.set_variable_values(
-            initial_values, to_state=True, to_iterate=True
-        )
+        if self._use_ad:
+            initial_values = np.zeros(self.equation_system.num_dofs())
+            self.equation_system.set_variable_values(
+                initial_values, to_state=True, to_iterate=True
+            )
+        else:
+            initial_values = np.zeros(self.dof_manager.num_dofs())
+            self.dof_manager.distribute_variable(initial_values)
 
     def prepare_simulation(self) -> None:
         """Method called prior to the start of time stepping, or prior to entering the
@@ -247,7 +251,7 @@ class AbstractModel:
         """
         t_0 = time.time()
         if self._use_ad:
-            A, b = self._eq_manager.assemble()
+            A, b = self.equation_system.assemble()
         else:
             A, b = self.assembler.assemble_matrix_rhs()  # type: ignore
         self.linear_system = (A, b)
