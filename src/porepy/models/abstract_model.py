@@ -18,7 +18,8 @@ import abc
 import logging
 import time
 import warnings
-from typing import Any, Dict, Optional, Tuple
+from collections import namedtuple
+from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -345,49 +346,65 @@ class AbstractModel:
         """
         pass
 
-    def _domain_boundary_sides(
-        self,
-        sd: pp.Grid,
-        tol: float = 1e-10,
-    ) -> tuple[
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-    ]:
+    def _domain_boundary_sides(self, sd: pp.Grid, tol: float = 1e-10) -> NamedTuple:
         """Obtain indices of the faces lying on the sides of the domain boundaries.
 
         The method is primarily intended for box-shaped domains. However, it can also be
         applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
         provided `tol` is tuned accordingly.
 
-        Args:
+        Parameters:
             sd: Subdomain grid.
             tol: Tolerance used to determine whether a face center lies on a boundary side.
 
         Returns:
-            Tuple of boolean arrays, each one of size sd.num_faces. For a given array,
-                a True element indicates that the face lies on the side of the domain.
-                Otherwise, the element is set to False.
+            NamedTuple containing the domain boundary sides. Available attributes are:
+
+                - all_bf (np.ndarray of int): indices of the boundary faces.
+                - east (np.ndarray of bool): flags of the faces lying on the East side.
+                - west (np.ndarray of bool): flags of the faces lying on the West side.
+                - north (np.ndarray of bool): flags of the faces lying on the North side.
+                - south (np.ndarray of bool): flags of the faces lying on the South side.
+                - top (np.ndarray of bool): flags of the faces lying on the Top side.
+                - bottom (np.ndarray of bool): flags of the faces lying on Bottom side.
+
+        Examples:
+
+            .. code:: python
+
+                model = pp.IncompressibleFlow({})
+                model.prepare_simulation()
+                sd = model.mdg.subdomains()[0]
+                sides = model._domain_boundary_sides(sd)
+                # Access north faces using index or name is equivalent:
+                north_by_index = sides[3]
+                north_by_name = sides.north
+                assert all(north_by_index == north_by_name)
 
         """
+
+        # Get domain boundary sides
         box = self.box
-        east = sd.face_centers[0] > box["xmax"] - tol
-        west = sd.face_centers[0] < box["xmin"] + tol
+        east = np.abs(box["xmax"] - sd.face_centers[0]) <= tol
+        west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
         if self.mdg.dim_max() == 1:
             north = np.zeros(sd.num_faces, dtype=bool)
             south = north.copy()
         else:
-            north = sd.face_centers[1] > box["ymax"] - tol
-            south = sd.face_centers[1] < box["ymin"] + tol
+            north = np.abs(box["ymax"] - sd.face_centers[1]) <= tol
+            south = np.abs(box["ymin"] - sd.face_centers[1]) <= tol
         if self.mdg.dim_max() < 3:
             top = np.zeros(sd.num_faces, dtype=bool)
             bottom = top.copy()
         else:
-            top = sd.face_centers[2] > box["zmax"] - tol
-            bottom = sd.face_centers[2] < box["zmin"] + tol
+            top = np.abs(box["zmax"] - sd.face_centers[2]) <= tol
+            bottom = np.abs(box["zmin"] - sd.face_centers[2]) <= tol
         all_bf = sd.get_boundary_faces()
-        return all_bf, east, west, north, south, top, bottom
+
+        # Create a namedtuple to store the arrays
+        DomainSides = namedtuple(
+            "DomainSides", "all_bf east west north south top bottom"
+        )
+        domain_sides = DomainSides(all_bf, east, west, north, south, top, bottom)
+
+        return domain_sides

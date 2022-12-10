@@ -43,18 +43,25 @@ def _get_shape(mat):
 
 
 class Operator:
-    """Superclass for all Ad operators.
+    """Parent class for all AD operators.
 
-    Objects of this class is not meant to be initiated directly; rather the various
+    This class is not meant to be initiated directly, rather the various
     subclasses should be used. Instances of this class will still be created when
     subclasses are combined by operations.
 
-    Attributes:
-        subdomains: List of subdomains (subdomains) on which the operator is defined. Will be
-            empty for operators not associated with specific subdomains.
-        interfaces: List of edges (tuple of subdomains) in the mixed-dimensional grid on which
-            the operator is defined. Will be empty for operators not associated with
-            specific subdomains.
+    Contains a tree structure of child operators for the recursive forward evaluation.
+
+    Provides overload functions for basic arithmetic operations.
+
+    Parameters:
+        name: Name of this operator. Used for string representations
+        subdomains (optional): List of subdomains on which the operator is defined.
+            Will be empty for operators not associated with any subdomains.
+            Defaults to None (converted to empty list).
+        interfaces (optional): List of interfaces in the mixed-dimensional grid on which the
+            operator is defined.
+            Will be empty for operators not associated with any interface.
+            Defaults to None (converted to empty list).
 
     """
 
@@ -68,9 +75,23 @@ class Operator:
         if name is None:
             name = ""
         self._name = name
-        self.subdomains: list[pp.Grid] = [] if subdomains is None else subdomains
-        self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
+
         self._set_tree(tree)
+
+        self.subdomains: list[pp.Grid] = [] if subdomains is None else subdomains
+        """List of subdomains on which the operator is defined, passed at instantiation.
+
+        Will be empty for operators not associated with specific subdomains.
+
+        """
+
+        self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
+        """List of mortar grids in the mixed-dimensional grid on which the operator is defined,
+        passed at instantiation.
+
+        Will be empty for operators not associated with specific subdomains.
+
+        """
 
     def _set_tree(self, tree=None):
         if tree is None:
@@ -230,11 +251,8 @@ class Operator:
         return _ad_utils.uniquify_discretization_list(all_discr)
 
     def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
-        """Perform discretization operation on all discretizations identified in
-        the tree of this operator, using data from mdg.
-
-        IMPLEMENTATION NOTE: The discretizations was identified at initialization of
-        Expression - it is now done here to accommodate updates (?) and
+        """Perform the ``discretize`` function of all child operators which are discretizations
+        using data from mdg.
 
         """
         unique_discretizations: dict[
@@ -243,15 +261,23 @@ class Operator:
         _ad_utils.discretize_from_list(unique_discretizations, mdg)
 
     def is_leaf(self) -> bool:
-        """Check if this operator is a leaf in the tree-representation of an object.
+        """Check if this operator is a leaf in the tree-representation of an expression.
+
+        Note that this implies that the method ``parse()`` is expected to be implemented.
 
         Returns:
-            bool: True if the operator has no children. Note that this implies that the
-                method parse() is expected to be implemented.
+            True if the operator has no children.
+
         """
         return len(self.tree.children) == 0
 
     def set_name(self, name: str) -> None:
+        """Reset this object's name originally passed at instantiation.
+
+        Parameters:
+            name: the new name to be assigned.
+
+        """
         self._name = name
 
     def previous_timestep(self) -> pp.ad.Operator:
@@ -264,7 +290,7 @@ class Operator:
 
         Returns:
             A copy of self, with all time dependent operators evaluated at the previous
-                time step.
+            time step.
 
         """
         # Create a copy of the operator tree evaluated at a previous time step. This is done
@@ -335,11 +361,19 @@ class Operator:
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
+
         Subclasses that represent atomic operators (leaves in a tree-representation of
         an operator) should override this method to return e.g. a number, an array or a
         matrix.
         This method should not be called on operators that are formed as combinations
-        of atomic operators; such operators should be evaluated by the method evaluate().
+        of atomic operators; such operators should be evaluated by the method :meth:`evaluate`.
+
+        Parameters:
+            mdg: Mixed-dimensional grid on which this operator is to be parsed.
+
+        Returns:
+            A numerical format representing this operator;s values on given domain.
+
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
@@ -650,7 +684,7 @@ class Operator:
         return self._name if self._name is not None else ""
 
     def viz(self):
-        """Give a visualization of the operator tree that has this operator at the top."""
+        """Draws a visualization of the operator tree that has this operator as its root."""
         G = nx.Graph()
 
         def parse_subgraph(node):
@@ -709,16 +743,17 @@ class Operator:
         """Evaluate the residual and Jacobian matrix for a given state.
 
         Parameters:
-            dof_manager (pp.DofManager): used to represent the problem. Will be used
+            dof_manager: Used to represent the problem. Will be used
                 to parse the sub-operators that combine to form this operator.
-            state (np.ndarray, optional): State vector for which the residual and its
+            state (optional): State vector for which the residual and its
                 derivatives should be formed. If not provided, the state will be pulled from
                 the previous iterate (if this exists), or alternatively from the state
                 at the previous time step.
 
         Returns:
-            An Ad-array representation of the residual and Jacobian. Note that the Jacobian
-                matrix need not be invertible, or ever square; this depends on the operator.
+            A representation of the residual and Jacobian in form of an AD Array.
+            Note that the Jacobian matrix need not be invertible, or even square;
+            this depends on the operator.
 
         """
         # Get the mixed-dimensional grid used for the dof-manager.
@@ -870,27 +905,24 @@ class Operator:
 class Matrix(Operator):
     """Ad representation of a sparse matrix.
 
-    For dense matrices, use an Array instead.
+    For dense matrices, use :class:`Array` instead.
 
     This is a shallow wrapper around the real matrix; it is needed to combine the matrix
     with other types of Ad objects.
 
-    Attributes:
-        shape (Tuple of ints): Shape of the wrapped matrix.
+    Parameters:
+        mat: Sparse matrix to be wrapped as an AD operator.
+        name: Name of this operator
 
     """
 
     def __init__(self, mat: sps.spmatrix, name: Optional[str] = None) -> None:
-        """Construct an Ad representation of a matrix.
-
-        Parameters:
-            mat (sps.spmatrix): Sparse matrix to be represented.
-
-        """
         super().__init__(name=name)
         self._mat = mat
         self._set_tree()
+
         self.shape = mat.shape
+        """Shape of the wrapped matrix."""
 
     def __repr__(self) -> str:
         return f"Matrix with shape {self._mat.shape} and {self._mat.data.size} elements"
@@ -901,32 +933,31 @@ class Matrix(Operator):
             s += self._name
         return s
 
-    def parse(self, mdg) -> sps.spmatrix:
-        """Convert the Ad matrix into an actual matrix.
-
-        Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
-                needed as input to be compatible with parse methods for other operators.
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
+        """See :meth:`Operator.parse`.
 
         Returns:
-            sps.spmatrix: The wrapped matrix.
+            The wrapped matrix.
 
         """
         return self._mat
 
     def transpose(self) -> "Matrix":
+        """Returns an AD operator representing the transposed matrix."""
         return Matrix(self._mat.transpose())
 
 
 class Array(Operator):
-    """Ad representation of a numpy array.
+    """AD representation of a constant numpy array.
 
-    For sparse matrices, use a Matrix instead.
+    For sparse matrices, use :class:`Matrix` instead.
+    For time-dependent arrays see :class:`TimeDependentArray`.
 
     This is a shallow wrapper around the real array; it is needed to combine the array
-    with other types of Ad objects.
+    with other types of AD operators.
 
-    See also TimeDependentArray.
+    Parameters:
+        values: Numpy array to be represented.
 
     """
 
@@ -934,7 +965,7 @@ class Array(Operator):
         """Construct an Ad representation of a numpy array.
 
         Parameters:
-            values (np.ndarray): Numpy array to be represented.
+            values: Numpy array to be represented.
 
         """
         super().__init__(name=name)
@@ -951,14 +982,10 @@ class Array(Operator):
         return s
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
-        """Convert the Ad Array into an actual array.
-
-        Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
-                needed as input to be compatible with parse methods for other operators.
+        """See :meth:`Operator.parse`.
 
         Returns:
-            np.ndarray: The wrapped array.
+            The wrapped array.
 
         """
         return self._values
@@ -968,20 +995,27 @@ class TimeDependentArray(Array):
     """An Ad-wrapper around a time-dependent numpy array.
 
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
-    dictionaries associated with subdomains and interfaces. The array values are stored
-    in data[pp.STATE][pp.ITERATE][self._name] for the current time and
-    data[pp.STATE][self._name] for the previous time.
+    dictionaries associated with subdomains and interfaces.
+    The array values are stored
+    in ``data[pp.STATE][pp.ITERATE][self._name]`` for the current time and
+    ``data[pp.STATE][self._name]`` for the previous time.
 
-    The array can be differentiated in time using pp.ad.dt().
+    The array can be differentiated in time using ``pp.ad.dt()``.
 
     The intended use is to represent time-varying quantities in equations, e.g., source
     terms. Future use will also include numerical values of boundary conditions,
     however, this is pending an update to the model classes.
 
-    Attributes:
-        prev_time (boolean): If True, the array will be evaluated using
-            data[pp.STATE] (data being the data dictionaries for subdomains and
-            interfaces), if False, data[pp.STATE][pp.ITERATE] is used.
+    Parameters:
+        name: Name of the variable. Should correspond to items in data[pp.STATE].
+        subdomains: Subdomains on which the array is defined. Defaults to None.
+        interfaces: Interfaces on which the array is defined. Defaults to None.
+            Exactly one of subdomains and interfaces must be non-empty.
+        previous_timestep: Flag indicating if the array should be evaluated at the
+            previous time step.
+
+    Raises:
+        ValueError: If either none of, or both of, subdomains and interfaces are empty.
 
     """
 
@@ -992,23 +1026,6 @@ class TimeDependentArray(Array):
         interfaces: Optional[list[pp.MortarGrid]] = None,
         previous_timestep: bool = False,
     ):
-        """Initialize a TimeDependentArray.
-
-        Args:
-            name: Name of the variable. Should correspond to items in data[pp.STATE].
-            subdomains: Subdomains on which the array is defined. Defaults to None.
-            interfaces: Interfaces on which the array is defined. Defaults to None.
-
-            Exactly one of subdomains and interfaces must be non-empty.
-
-            previous_timestep: Flag indicating if the array should be evaluated at the
-                previous time step.
-
-        Raises:
-            ValueError: If either none of, or both of, subdomains and interfaces are
-                empty.
-
-        """
 
         self._name: str = name
 
@@ -1047,12 +1064,17 @@ class TimeDependentArray(Array):
             self._is_interface_array = True
 
         self.prev_time: bool = previous_timestep
+        """If True, the array will be evaluated using ``data[pp.STATE]``
+        (data being the data dictionaries for subdomains and interfaces).
+
+        If False, ``data[pp.STATE][pp.ITERATE]`` is used.
+
+        """
 
         self._set_tree()
 
     def previous_timestep(self) -> TimeDependentArray:
-        """Return a representation of this variable on the previous time step.
-
+        """
         Returns:
             This array represented at the previous time step.
 
@@ -1070,10 +1092,11 @@ class TimeDependentArray(Array):
         """Convert this array into numerical values.
 
         The numerical values will be picked from the representation of the array in
-        data[pp.STATE][pp.ITERATE] (where data is the data dictionary of the subdomains
-        or interfaces of this Array), or, if self.prev_time = True, from data[pp.STATE].
+        ``data[pp.STATE][pp.ITERATE]`` (where data is the data dictionary of the subdomains
+        or interfaces of this Array), or, if ``self.prev_time = True``,
+        from ``data[pp.STATE]``.
 
-        Args:
+        Parameters:
             mdg: Mixed-dimensional grid.
 
         Returns:
@@ -1113,7 +1136,7 @@ class TimeDependentArray(Array):
 class Scalar(Operator):
     """Ad representation of a scalar.
 
-    This is a shallow wrapper around the real scalar; it may be useful to combine
+    This is a shallow wrapper around a real scalar. It may be useful to combine
     the scalar with other types of Ad objects.
 
     NOTE: Since this is a wrapper around a Python immutable, copying a Scalar will
@@ -1124,12 +1147,6 @@ class Scalar(Operator):
     """
 
     def __init__(self, value: float, name: Optional[str] = None) -> None:
-        """Construct an Ad representation of a float.
-
-        Parameters:
-            value (float): Number to be represented
-
-        """
         super().__init__(name=name)
         self._value = value
         self._set_tree()
@@ -1144,40 +1161,35 @@ class Scalar(Operator):
         return s
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
-        """Convert the Ad Scalar into an actual number.
-
-        Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
-                needed as input to be compatible with parse methods for other operators.
+        """See :meth:`Operator.parse`.
 
         Returns:
-            float: The wrapped number.
+            The wrapped number.
 
         """
         return self._value
 
 
 class Variable(Operator):
-    """Ad representation of a variable defined on a single Grid or MortarGrid.
+    """AD operator representing a variable defined on a single grid or mortar grid.
 
-    For combinations of variables on different subdomains, see MergedVariable.
+    For combinations of variables on different subdomains, see :class:`MergedVariable`.
 
-    Conversion of the variable into numerical value should be done with respect to the
-    state of an array; see the method evaluate(). Therefore, the variable does not
-    implement a parse() method.
+    A conversion of the variable into numerical value should be done with respect to the
+    state of an array; see :meth:`Operator.evaluate`. Therefore, the variable does not
+    implement the method :meth:`Operator.parse`.
 
-    Attributes:
-        id (int): Unique identifier of this variable.
-        prev_iter (boolean): Whether the variable represents the state at the
-            previous iteration.
-        prev_time (boolean): Whether the variable represents the state at the
-            previous time step.
-        subdomains: List with one item, giving the single grid on which the operator is
-            defined.
-        interfaces: List with one item, giving the single edge (tuple of subdomains) on
-            which the operator is defined.
+    A variable is associated with either a grid or an interface. Therefore it is assumed that
+    either ``subdomains`` or ``interfaces`` is passed as an argument.
 
-        It is assumed that exactly one of subdomains and interfaces is defined.
+    Parameters:
+        name: Variable name.
+        ndof: Number of dofs per grid element.
+            Valid keys are ``cells``, ``faces`` and ``nodes``.
+        subdomains (length=1): List containing a single grid.
+        interfaces (length=1): List containing a single mortar grid.
+        num_cells: Number of cells in the grid.
+            Only relevant if this is an interface variable.
 
     """
 
@@ -1196,20 +1208,6 @@ class Variable(Operator):
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ):
-        """Initiate an Ad representation of a variable associated with a grid or edge.
-
-        It is assumed that exactly one of subdomains and interfaces is defined.
-        Parameters:
-            name (str): Variable name.
-            ndof (dict): Number of dofs per grid element.
-            subdomains (optional list of pp.Grid ): List with length one containing a grid.
-            interfaces (optional list of pp.MortarGrid): List with length one containing
-                an interface.
-            num_cells (int): Number of cells in the grid. Only sued if the variable
-                is on an interface.
-
-        """
-
         self._name: str = name
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
@@ -1230,21 +1228,25 @@ class Variable(Operator):
             self._g = self.interfaces[0]
             self._is_edge_var = True
 
-        self.prev_time: bool = previous_timestep
-        self.prev_iter: bool = previous_iteration
-
         # The number of cells in the grid. Will only be used if grid_like is a tuple
         # that is, if this is a mortar variable
         self._num_cells = num_cells
 
-        self.id = next(self._ids)
         self._set_tree()
 
-    def size(self) -> int:
-        """Get the number of dofs for this grid.
+        self.prev_time: bool = previous_timestep
+        """Indicates whether the variable represents the state at the previous time step."""
 
+        self.prev_iter: bool = previous_iteration
+        """Indicates whether the variable represents the state at the previous iteration."""
+
+        self.id = next(self._ids)
+        """Unique identifier of this variable."""
+
+    def size(self) -> int:
+        """
         Returns:
-            int: Number of dofs.
+            The number of dofs of this variable on its grid.
 
         """
         if self._is_edge_var:
@@ -1260,10 +1262,10 @@ class Variable(Operator):
             )
 
     def previous_timestep(self) -> Variable:
-        """Return a representation of this variable on the previous time step.
-
+        """
         Returns:
-            Variable: A representation of this variable, with self.prev_time=True.
+            A representation of this variable at the previous time step,
+            with its ``prev_time`` attribute set to ``True``.
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
@@ -1277,10 +1279,10 @@ class Variable(Operator):
             )
 
     def previous_iteration(self) -> Variable:
-        """Return a representation of this variable on the previous time iteration.
-
+        """
         Returns:
-            Variable: A representation of this variable, with self.prev_iter=True.
+            A representation of this variable on the previous time iteration,
+            with its ``prev_iter`` attribute set to ``True``.
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
@@ -1308,35 +1310,23 @@ class Variable(Operator):
 
 
 class MergedVariable(Variable):
-    """Ad representation of a collection of variables that individually live on separate
-    subdomains of interfaces, but which it is useful to treat jointly.
+    """AD operator representing a collection of variables that individually live on separate
+    subdomains or interfaces, but treated jointly in the mixed-dimensional sense.
 
     Conversion of the variables into numerical value should be done with respect to the
-    state of an array; see the method evaluate().  Therefore, the class does not implement
-    a parse() method.
+    state of an array; see :meth:`Operator.evaluate`. Therefore, the MergedVariable does not
+    implement the method :meth:`Operator.parse`.
 
-    Attributes:
-        sub_vars (List of Variable): List of variable on different subdomains or interfaces.
-        id (int): Counter of all variables. Used to identify variables. Usage of this
-            term is not clear, it may change.
-        prev_iter (boolean): Whether the variable represents the state at the
-            previous iteration.
-        prev_time (boolean): Whether the variable represents the state at the
-            previous time step.
-
-        It is assumed that exactly one of subdomains and interfaces is defined.
+    Parameters:
+        variables: List of variables to be merged. Should all have the same name.
 
     """
 
     def __init__(self, variables: list[Variable]) -> None:
-        """Create a merged representation of variables.
 
-        Parameters:
-            variables (list of Variable): Variables to be merged. Should all have the
-                same name.
-
-        """
         self.sub_vars = variables
+        """List of single-grid variables which are merged into this merged variable,
+        passed at instantiation."""
 
         # Use counter from superclass to ensure unique Variable ids
         self.id = next(Variable._ids)
@@ -1367,19 +1357,18 @@ class MergedVariable(Variable):
         self.prev_iter: bool = False
 
     def size(self) -> int:
-        """Get total size of the merged variable.
-
+        """
         Returns:
-            int: Total size of this merged variable.
+            Total size of this merged variable (sum of sizes of respective sub-variables).
 
         """
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> MergedVariable:
-        """Return a representation of this merged variable on the previous time step.
-
+        """
         Returns:
-            Variable: A representation of this variable, with self.prev_time=True.
+            A representation of this merged variable on the previous time
+            iteration, with its ``prev_iter`` attribute set to ``True``.
 
         """
         new_subs = [var.previous_timestep() for var in self.sub_vars]
@@ -1388,10 +1377,10 @@ class MergedVariable(Variable):
         return new_var
 
     def previous_iteration(self) -> MergedVariable:
-        """Return a representation of this merged variable on the previous iteration.
-
+        """
         Returns:
-            Variable: A representation of this variable, with self.prev_iter=True.
+            A representation of this merged variable on the previous
+            iteration, with its ``prev_iter`` attribute set to ``True``
 
         """
         new_subs = [var.previous_iteration() for var in self.sub_vars]
@@ -1400,8 +1389,12 @@ class MergedVariable(Variable):
         return new_var
 
     def copy(self) -> "MergedVariable":
-        # A shallow copy should be sufficient here; the attributes are not expected to
-        # change.
+        """
+        Returns:
+            A shallow copy should be sufficient here; the attributes are not expected to
+            change.
+
+        """
         return copy.deepcopy(self)
 
     def __repr__(self) -> str:
@@ -1435,9 +1428,17 @@ class MergedVariable(Variable):
 class Tree:
     """Simple implementation of a Tree class. Used to represent combinations of
     Ad operators.
+
+    References:
+        https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
+
+
+    Parameters:
+        operation: See :data:`Operation`
+        children: List of children, either as Ad arrays or other :class:`Operator`.
+
     """
 
-    # https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
     def __init__(
         self,
         operation: Operation,
@@ -1452,5 +1453,5 @@ class Tree:
                 self.add_child(child)
 
     def add_child(self, node: Union[Operator, Ad_array]) -> None:
-        #        assert isinstance(node, (Operator, "pp.ad.Operator"))
+        """Adds a child to this instance."""
         self.children.append(node)
