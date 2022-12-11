@@ -309,7 +309,7 @@ class EquationManager:
         # Iterate over equations, assemble.
         for name in eq_names:
             eq = self.equations[name]
-            ad = eq.evaluate(self.dof_manager)
+            ad = eq.evaluate(self.equation_system)
 
             # ad contains derivatives with respect to all variables, while
             # we need a subset. Project the columns to get the right size.

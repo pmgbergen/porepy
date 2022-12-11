@@ -105,6 +105,7 @@ class AbstractModel:
         else:
             initial_values = np.zeros(self.dof_manager.num_dofs())
             self.dof_manager.distribute_variable(initial_values)
+            self.dof_manager.distribute_variable(initial_values, to_iterate=True)
 
     def prepare_simulation(self) -> None:
         """Method called prior to the start of time stepping, or prior to entering the

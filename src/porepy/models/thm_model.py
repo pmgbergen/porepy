@@ -400,17 +400,17 @@ class THM(pp.ContactMechanicsBiot):
             self.equation_system.create_variables(
                 self.temperature_variable,
                 {"cells": 1},
-                self.mdg.subdomains(),
+                subdomains=self.mdg.subdomains(),
             )
             self.equation_system.create_variables(
                 self.mortar_temperature_variable,
                 {"cells": 1},
-                self.mdg.interfaces(),
+                interfaces=self.mdg.interfaces(),
             )
             self.equation_system.create_variables(
                 self.mortar_temperature_advection_variable,
                 {"cells": 1},
-                self.mdg.interfaces(),
+                interfaces=self.mdg.interfaces(),
             )
             return
         # The remaining variables to define is the temperature on the nodes
@@ -646,13 +646,6 @@ class THM(pp.ContactMechanicsBiot):
             self._interface_heat_advection_equation(interfaces)
         )
         # Assign equations to manager
-        self.equation_system.name_and_assign_equations(
-            {
-                "subdomain_energy_balance": subdomain_energy_balance_eq,
-                "interface_heat_conduction": interface_heat_conduction_eq,
-                "interface_heat_advection": interface_heat_advection_eq,
-            },
-        )
         subdomain_energy_balance_eq.set_name("subdomain_energy_balance")
         interface_heat_conduction_eq.set_name("interface_heat_conduction")
         interface_heat_advection_eq.set_name("interface_heat_advection")

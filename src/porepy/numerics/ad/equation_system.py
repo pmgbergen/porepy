@@ -5,7 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Union, Sequence
+from typing import Any, Callable, Literal, Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps

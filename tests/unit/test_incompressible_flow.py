@@ -71,9 +71,6 @@ def test_prepare_simulation(model, n_fracs):
     # Loop over dictionaries and assert that the correct sets of variables,
     # parameters, initial values are present
     for sd, data in model.mdg.subdomains(return_data=True):
-        var_list = data[pp.PRIMARY_VARIABLES].keys()
-        compare_keywords(var_list, ["p"])
-
         known_initial = {"p": np.zeros(sd.num_cells)}
         state = data[pp.STATE].copy().pop(pp.ITERATE)
         compare_dicts(state, known_initial)
@@ -97,9 +94,6 @@ def test_prepare_simulation(model, n_fracs):
         num_dofs += sd.num_cells
 
     for intf, data in model.mdg.interfaces(return_data=True):
-        var_list = list(data[pp.PRIMARY_VARIABLES].keys())
-        compare_keywords(var_list, ["mortar_p"])
-
         known_initial = {"mortar_p": np.zeros(intf.num_cells)}
         state = data[pp.STATE].copy().pop(pp.ITERATE)
         compare_dicts(state, known_initial)
@@ -110,7 +104,7 @@ def test_prepare_simulation(model, n_fracs):
 
         num_dofs += intf.num_cells
 
-    assert model.dof_manager.num_dofs() == num_dofs
+    assert model.equation_system.num_dofs() == num_dofs
     equations = ["subdomain_flow", "interface_flow"]
     compare_keywords(model.equation_system.equations.keys(), equations)
 
