@@ -477,7 +477,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
-        if not hasattr(self, "dof_manager"):
+        if not hasattr(self, "dof_manager") and not self._use_ad:
             self.dof_manager = pp.DofManager(self.mdg)
         if not self._use_ad:
 
@@ -1315,6 +1315,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     def _discretize(self) -> None:
         """Discretize all terms"""
+        if self._use_ad:
+            self.equation_system.discretize()
+            return
+
         if not hasattr(self, "dof_manager"):
             self.dof_manager = pp.DofManager(self.mdg)
 
@@ -1324,45 +1328,42 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         tic = time.time()
         logger.info("Discretize")
 
-        if self._use_ad:
-            self.equation_system.discretize()
-        else:
-            # Discretization is a bit cumbersome, as the Biot discretization removes the
-            # one-to-one correspondence between discretization objects and blocks in
-            # the matrix.
-            # First, Discretize with the Biot class
-            self._discretize_biot()
+        # Discretization is a bit cumbersome, as the Biot discretization removes the
+        # one-to-one correspondence between discretization objects and blocks in
+        # the matrix.
+        # First, Discretize with the Biot class
+        self._discretize_biot()
 
-            # Next, discretize term on the matrix grid not covered by the Biot discretization,
-            # i.e. the diffusion, mass and source terms
-            filt = pp.assembler_filters.ListFilter(
-                grid_list=[self._nd_subdomain()],
-                term_list=["source", "mass", "diffusion"],
-            )
+        # Next, discretize term on the matrix grid not covered by the Biot discretization,
+        # i.e. the diffusion, mass and source terms
+        filt = pp.assembler_filters.ListFilter(
+            grid_list=[self._nd_subdomain()],
+            term_list=["source", "mass", "diffusion"],
+        )
+        self.assembler.discretize(filt=filt)
+
+        # Build a list of all edges, and all couplings
+        edge_list: List[
+            Union[
+                pp.MortarGrid,
+                Tuple[pp.Grid, pp.Grid, pp.MortarGrid],
+            ]
+        ] = []
+        for intf in self.mdg.interfaces():
+            sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(intf)
+            edge_list.append(intf)
+            edge_list.append((sd_primary, sd_secondary, intf))
+        if len(edge_list) > 0:
+            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)  # type: ignore
             self.assembler.discretize(filt=filt)
 
-            # Build a list of all edges, and all couplings
-            edge_list: List[
-                Union[
-                    pp.MortarGrid,
-                    Tuple[pp.Grid, pp.Grid, pp.MortarGrid],
-                ]
-            ] = []
-            for intf in self.mdg.interfaces():
-                sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(intf)
-                edge_list.append(intf)
-                edge_list.append((sd_primary, sd_secondary, intf))
-            if len(edge_list) > 0:
-                filt = pp.assembler_filters.ListFilter(grid_list=edge_list)  # type: ignore
+        # Finally, discretize terms on the lower-dimensional subdomains. This can be done
+        # in the traditional way, as there is no Biot discretization here.
+        for dim in range(0, self.nd):
+            grid_list = self.mdg.subdomains(dim=dim)
+            if len(grid_list) > 0:
+                filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
                 self.assembler.discretize(filt=filt)
-
-            # Finally, discretize terms on the lower-dimensional subdomains. This can be done
-            # in the traditional way, as there is no Biot discretization here.
-            for dim in range(0, self.nd):
-                grid_list = self.mdg.subdomains(dim=dim)
-                if len(grid_list) > 0:
-                    filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
-                    self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 

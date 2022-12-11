@@ -77,7 +77,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
             ),
         )
 
-        self._create_dof_and_eq_manager()
+        self._create_equation_system()
         self._assign_variables()
         self._create_ad_variables()
         self._initial_condition()
@@ -257,9 +257,13 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                         self.mortar_variable: {"cells": 1},
                     }
 
-    def _create_dof_and_eq_manager(self) -> None:
-        """Create a dof_manager and eq_manager based on a mixed-dimensional grid"""
-        self.dof_manager = pp.DofManager(self.mdg)
+    def _create_equation_system(self) -> None:
+        """Create equation_system based on a mixed-dimensional grid.
+
+        This method previously created a dof and equation manager, but those classes
+        have been deprecated for ad compatible models.
+
+        """
         self.equation_system = pp.ad.EquationSystem(self.mdg)
 
     def _create_ad_variables(self) -> None:
@@ -421,16 +425,21 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
         """
         self._nonlinear_iteration += 1
-        self.dof_manager.distribute_variable(
-            values=solution_vector, additive=self._use_ad, to_iterate=True
+        self.equation_system.set_variable_values(
+            values=solution_vector, additive=True, to_iterate=True
         )
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
 
-        solution = self.dof_manager.assemble_variable(from_iterate=True)
-        self.dof_manager.distribute_variable(values=solution, additive=False)
+        # Fetch iterate solution, which was updated in after_newton_iteration
+        solution = self.equation_system.get_variable_values(from_iterate=True)
+        # Distribute to pp.STATE
+        self.equation_system.set_variable_values(
+            solution, additive=False, to_state=True
+        )
+
         self.convergence_status = True
         self._export()
 

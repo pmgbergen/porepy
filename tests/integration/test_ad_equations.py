@@ -391,7 +391,7 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True) -> None:
     prev_sol_as = model_as.dof_manager.assemble_variable(from_iterate=False)
     init_sol_as = prev_sol_as
 
-    prev_sol_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
+    prev_sol_ad = model_ad.equation_system.get_variable_values(from_iterate=False)
     init_sol_ad = prev_sol_ad.copy()
 
     tol = 1e-12

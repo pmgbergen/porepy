@@ -6,7 +6,7 @@ import copy
 import numbers
 from enum import Enum, EnumMeta
 from itertools import count
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Literal, Optional, Sequence, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -1235,7 +1235,7 @@ class Variable(Operator):
     def __init__(
         self,
         name: str,
-        ndof: dict[Literal['cells', 'faces', 'nodes'], int],
+        ndof: dict[Literal["cells", "faces", "nodes"], int],
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
         previous_timestep: bool = False,
