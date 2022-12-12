@@ -38,6 +38,7 @@ c.initialize()
 
 success = c.flash(initial_guess="feed", copy_to_state=False)
 print("Success: ", success)
+c.post_process_fractions(False)
 c.evaluate_saturations(False)
 c.evaluate_specific_enthalpy(False)
 
