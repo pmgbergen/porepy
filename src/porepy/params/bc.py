@@ -114,7 +114,9 @@ class BoundaryCondition(AbstractBoundaryCondition):
         self.is_rob: np.ndarray = np.zeros(self.num_faces, dtype=bool)
 
         # By default, all faces are Neumann.
-        self.is_neu[self.bf] = True  # NOTE since bf consists of all faces, wouldn't it be the same to initiate is_neu as np.ones?
+        self.is_neu[
+            self.bf
+        ] = True  # NOTE since bf consists of all faces, wouldn't it be the same to initiate is_neu as np.ones?
 
         # Set robin weight
         self.robin_weight: np.ndarray = np.ones(sd.num_faces)

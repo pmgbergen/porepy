@@ -16,8 +16,9 @@ from . import (
     functions,
     grid_operators,
     operator_functions,
-    operators
+    operators,
 )
+from .ad_system import *
 from .discretizations import *
 from .equation_manager import *
 from .forward_mode import *
@@ -25,7 +26,6 @@ from .functions import *
 from .grid_operators import *
 from .operator_functions import *
 from .operators import *
-from .ad_system import *
 
 __all__.extend(operators.__all__)
 __all__.extend(operator_functions.__all__)

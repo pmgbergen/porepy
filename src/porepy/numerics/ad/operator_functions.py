@@ -24,10 +24,13 @@ __all__ = [
     "DiagonalJacobianFunction",
     "InterpolatedFunction",
     "SemiSmoothMin",
+    "SemiSmoothNegative",
+    "SemiSmoothPositive",
+    "ScalarProduct",
     "ADmethod",
 ]
 
-### BASE CLASSES ------------------------------------------------------------------------------
+### BASE CLASSES -----------------------------------------------------------------------
 
 
 class AbstractFunction(Operator):
@@ -224,7 +227,7 @@ class AbstractJacobianFunction(AbstractFunction):
             return np.array([self.func(*vals_i) for vals_i in zip(*vals)])
 
 
-### CONCRETE IMPLEMENTATIONS ------------------------------------------------------------------
+### CONCRETE IMPLEMENTATIONS -----------------------------------------------------------
 
 
 class Function(AbstractFunction):
@@ -425,21 +428,21 @@ class InterpolatedFunction(AbstractFunction):
 
 class SemiSmoothMin(AbstractFunction):
     """Function representing the semi-smooth ``min(-,-)``-function for two operators.
-    
+
     The evaluation of the derivative (and function-values) follows basically an
     active-set-strategy.
-    
+
     The active set is defined by the those DOFs, where operator 1 has (strictly) larger values.
     On the active set, the values correspond to the values of operator 2.
     On the inactive set, the values correspond to the values of operator 1.
-    
+
     The Jacobian is chosen from elements of the B-sub-differential.
     On the active set, the derivatives of operator 2 are chosen.
     On the inactive set, the derivatives of operator 1 are chosen.
-    
+
     In a multi-dimensional setting this corresponds to selecting respective rows of each
     sub-differential and inserting them in the final Jacobian.
-    
+
     Parameters:
         op1: first AD Operator, representing the first argument to the min-function.
         op1: second AD Operator, representing the second argument to the min-function.
@@ -449,33 +452,138 @@ class SemiSmoothMin(AbstractFunction):
     def __init__(self):
         name = f"semi-smooth MIN operator"
         # dummy function, not supposed to be used
-        def func(x,y):
+        def func(x, y):
             return x if x < y else y
+
         super().__init__(func, name, False, False)
-    
+
     def get_values(self, *args: Ad_array) -> np.ndarray:
         # this will throw an error if more than two arguments were passed
         op1, op2 = args
         # active set choice
-        active_set = (op1.val - op2.val) > 0.
+        active_set = (op1.val - op2.val) > 0.0
         # default/inactive vals
         vals = op1.val.copy()
         # replace vals on active set
         vals[active_set] = op2.val[active_set]
         return vals
-    
+
     def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
         # this will throw an error if more than two arguments were passed
         op1, op2 = args
         # active set choice
-        active_set = (op1.val - op2.val) > 0.
+        active_set = (op1.val - op2.val) > 0.0
         # default/inactive choice (lil format for faster assembly)
         jac = op1.jac.tolil()
         # replace (active set) rows with the differential from the other operator
         jac[active_set] = op2.jac.tolil()[active_set]
         return jac.tocsr()  # back to csr
 
-### FUNCTION DECORATOR ------------------------------------------------------------------------
+
+class SemiSmoothNegative(AbstractFunction):
+    """Semi-smooth representation of ``min(a, 0)``,
+    where the rows of the Jacobian corresponding to the criterion are set to zero."""
+
+    def __init__(self):
+        name = f"semi-smooth NEG operator"
+        # dummy function, not supposed to be used
+        def func(x, *args):
+            return x if x < 0 else 0
+
+        super().__init__(func, name, False, False)
+
+    def get_values(self, *args: Ad_array) -> np.ndarray:
+        # consider only first operator
+        op = args[0]
+
+        eliminate = op.val >= 0.0
+
+        vals = op.val.copy()
+        vals[eliminate] = 0.0
+
+        return vals
+
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+        # consider only first operator
+        op = args[0]
+        eliminate = op.val >= 0.0
+
+        jac = op.jac.copy()
+        jac[eliminate, :] = 0.0
+        jac.eliminate_zeros()
+
+        return jac.tocsr()
+
+
+class SemiSmoothPositive(AbstractFunction):
+    """Semi-smooth representation of ``max(a, 0)``,
+    where the rows of the Jacobian corresponding to the criterion are set to zero."""
+
+    def __init__(self):
+        name = f"semi-smooth POS operator"
+        # dummy function, not supposed to be used
+        def func(x, *args):
+            return x if x < 0 else 0
+
+        super().__init__(func, name, False, False)
+
+    def get_values(self, *args: Ad_array) -> np.ndarray:
+        # consider only first operator
+        op = args[0]
+
+        eliminate = op.val <= 0.0
+
+        vals = op.val.copy()
+        vals[eliminate] = 0.0
+
+        return vals
+
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+        # consider only first operator
+        op = args[0]
+        eliminate = op.val <= 0.0
+
+        jac = op.jac.copy()
+        jac[eliminate, :] = 0.0
+        jac.eliminate_zeros()
+
+        return jac.tocsr()
+
+
+class ScalarProduct(AbstractFunction):
+    """AD representation of the scalar product ``<a,b>``.
+
+    Note that this function collapses the AD array into having a scalar val and a
+    single-row Jacobian."""
+
+    def __init__(self):
+        name = f"scalar product"
+        # dummy function, not supposed to be used
+        def func(x, y):
+            return np.dot(x, y)
+
+        super().__init__(func, name, False, False)
+
+    def get_values(self, *args: Ad_array) -> np.ndarray:
+        # Will throw an error if more than two operators
+        op1, op2 = args
+
+        return np.dot(op1.val, op2.val)
+
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+        # consider only first operator
+        op1, op2 = args
+        # op1 * dop2 + op2 * dop1
+        jac = op2.jac.multiply(op1.val[:, np.newaxis]) + op1.jac.multiply(
+            op2.val[:, np.newaxis]
+        )
+        # sum per column
+        jac = jac.sum(axis=0)
+
+        return jac.tocsr()
+
+
+### FUNCTION DECORATOR -----------------------------------------------------------------
 
 
 class ADmethod:
