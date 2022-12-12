@@ -272,8 +272,6 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
     assert no_interfaces == []
     if getattr(geometry, "num_fracs", 0) > 1:
         # Matrix and two fractures. TODO: Use three_sds?
-        three_sds = all_subdomains[:2]
-
         two_fractures = all_subdomains[1:3]
         # Only those interfaces involving one of the two fractures are expected.
         interfaces = []
@@ -427,8 +425,8 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     dim_vec = pp.ad.Array(np.ones(size))
     product = (normal_op * dim_vec).evaluate(eq_sys)
     assert product.shape == (size,)
-    inner_product = np.sum(product.reshape((dim, -1), order="F"), axis=0)
-    # assert np.allclose(np.abs(inner_product), 1)
+    inner_product = np.linalg.norm(product.reshape((dim, -1), order="F"), axis=0)
+    assert np.allclose(np.abs(inner_product), 1)
     # The following operation is used in models, and is therefore tested here.
     # TODO: Extract method for inner product using a basis?
     basis = geometry.basis(interfaces, dim)
@@ -437,4 +435,109 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     assert np.allclose(inner_op.evaluate(eq_sys), inner_product)
 
 
-test_outwards_normals(geometry_list[3])
+test_outwards_normals(geometry_list[2])
+
+
+@pytest.mark.parametrize("geometry_class", geometry_list)
+def test_basis_normal_tangential_components(
+    geometry_class: type[pp.ModelGeometry],
+) -> None:
+    """Test that methods to compute basis vectors and extract normal and tangential
+    components work as expected.
+
+    Parameters:
+        geometry_list: List of classes to test.
+
+    """
+    geometry = geometry_class()
+
+    geometry.set_geometry()
+    dim = geometry.nd
+
+    # List of subdomains and interfaces. The latter are only needed for one test.
+    subdomains = geometry.mdg.subdomains()
+    interfaces = geometry.mdg.interfaces()
+
+    # Count the number of cells
+    num_subdomain_cells = sum([sd.num_cells for sd in subdomains])
+    num_cells_total = num_subdomain_cells + sum([intf.num_cells for intf in interfaces])
+
+    # Make an equation system, which is needed for parsing of the Ad operator
+    # representations of the geometry
+    eq_sys = pp.EquationSystem(geometry.mdg)
+
+    # First test the method e_i (and thereby also the method basis, since the latter
+    # is just a shallow wrapper around the former).
+    # Loop over dimension of the basis vectors and of dimensions, construct the basis
+    # vectors and check that they have the expected components.
+    for basis_dim in range(dim + 1):
+        for i in range(basis_dim):
+            # Consider both subdomains and interfaces here, since the method allows it.
+            e_i = geometry.e_i(subdomains + interfaces, i=i, dim=basis_dim).evaluate(
+                eq_sys
+            )
+            # Expected values
+            rows = np.arange(i, num_cells_total * basis_dim, basis_dim)
+            cols = np.arange(num_cells_total)
+            data = np.ones(num_cells_total)
+            mat = sps.coo_matrix(
+                (data, (rows, cols)),
+                shape=(num_cells_total * basis_dim, num_cells_total),
+            )
+            assert np.allclose((mat - e_i).data, 0)
+
+            if basis_dim == dim:
+                # the dimension of the basis vector space is not specified, the value
+                # should be the same as for basis_dim = dim
+                e_None = geometry.e_i(subdomains + interfaces, i=i).evaluate(eq_sys)
+                assert np.allclose((e_None - e_i).data, 0)
+
+    # Next, test the methods to extract normal and tangential components.
+    # The normal component is straightforward, the tangential component requires a bit
+    # of work to deal with the difference between 2d and 3d.
+    normal_component = geometry.normal_component(subdomains).evaluate(eq_sys)
+
+    # The normal component should, for each row, have 1 in the column corresponding to
+    # the normal component, so [(0, dim-1), (1, 2*dim-1), ...)] should be non-zero.
+    # Note that the number of rows is smaller than the number of columns, since the
+    # matrix will multiply a full vector and extract the normal component.
+    rows_normal_component = np.arange(num_subdomain_cells)
+    cols_normal_component = np.arange(dim - 1, dim * num_subdomain_cells, dim)
+    data_normal_component = np.ones(num_subdomain_cells)
+
+    known_normal_component = sps.coo_matrix(
+        (data_normal_component, (rows_normal_component, cols_normal_component)),
+        shape=(num_subdomain_cells, dim * num_subdomain_cells),
+    )
+
+    assert np.allclose((known_normal_component - normal_component).data, 0)
+
+    # For the tangential component, the expected value depends on dimension.
+    tangential_component = geometry.tangential_component(subdomains).evaluate(eq_sys)
+    if dim == 2:
+        # Here we need [(0, 0), (1, 2), (2, 4), ...] to be non-zero
+        rows_tangential_component = np.arange(num_subdomain_cells)
+        cols_tangential_component = np.arange(0, dim * num_subdomain_cells, dim)
+        data_tangential_component = np.ones(num_subdomain_cells)
+    elif dim == 3:
+        # Here we need [(0, 0), (1, 1), (2, 3), (3, 4), (4, 6), ..] to be non-zero
+        rows_tangential_component = np.arange(num_subdomain_cells * (dim - 1))
+        cols_tangential_component_ext = np.arange(0, dim * num_subdomain_cells)
+        cols_tangential_component = np.setdiff1d(
+            cols_tangential_component_ext,
+            np.arange(dim - 1, dim * num_subdomain_cells, dim),
+        )
+        data_tangential_component = np.ones(num_subdomain_cells * (dim - 1))
+
+    known_tangential_component = sps.coo_matrix(
+        (
+            data_tangential_component,
+            (rows_tangential_component, cols_tangential_component),
+        ),
+        shape=((dim - 1) * num_subdomain_cells, dim * num_subdomain_cells),
+    )
+
+    assert np.allclose((known_tangential_component - tangential_component).data, 0)
+
+
+# test_basis_normal_tangential_components(geometry_list[3])

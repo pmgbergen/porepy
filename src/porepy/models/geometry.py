@@ -11,8 +11,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-logger = logging.getLogger(__name__)
-
 
 class ModelGeometry:
     """This class provides geometry related methods and information for a simulation
@@ -24,15 +22,16 @@ class ModelGeometry:
     well_network: pp.WellNetwork3d
     """Well network."""
     mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
+    """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`"""
     box: dict[str, float]
-    """Box-shaped domain. FIXME: change to "domain"? """
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
+    """Box-shaped domain. Set by the method :meth:`set_md_grid`
     
+    FIXME: change to "domain"? 
+    
+    """
+    nd: int
+    """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
+
     units: pp.Units
     """Unit system."""
 
@@ -204,15 +203,17 @@ class ModelGeometry:
         ad_matrix.set_name(f"Matrix wrapping attribute {attr} on {len(grids)} grids")
         return ad_matrix
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int = None) -> np.ndarray:
+    def basis(
+        self, grids: Sequence[pp.GridLike], dim: int = None
+    ) -> list[pp.ad.Matrix]:
         """Return a cell-wise basis for all subdomains.
 
         Parameters:
             grids: List of grids on which the basis is defined.
-            dim: Dimension of the base. Defaults to self.nd.
+            dim: Dimension of the base. Defaults to ``self.nd``.
 
         Returns:
-            Array (dim) of pp.ad.Matrix, each of which represents a basis function.
+            List of pp.ad.Matrix, each of which represents a basis function.
 
         """
         if dim is None:
@@ -220,20 +221,31 @@ class ModelGeometry:
 
         assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         # Collect the basis functions for each dimension
-        basis = []
+        basis: list[pp.ad.Matrix] = []
         for i in range(dim):
             basis.append(self.e_i(grids, i, dim))
         # Stack the basis functions horizontally
-        return np.hstack(basis)
+        return basis
 
     def e_i(
         self, grids: Sequence[pp.GridLike], i: int, dim: int = None
     ) -> pp.ad.Matrix:
-        """Return a cell-wise basis function.
+        """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
         aligned with the coordinate axes, that is, the reference space of the grid.
         Moreover, the grid is assumed to be planar.
+
+        Example:
+            For a grid with two cells, and with `i=1` and `dim=3`, the returned basis
+            will be (aftert conversion to a numpy array)
+            .. code-block:: python
+                array([[0., 0.],
+                       [1., 0.],
+                       [0., 0.],
+                       [0., 0.],
+                       [0., 1.],
+                       [0., 0.]])
 
         Parameters:
             grids: List of grids on which the basis vector is defined.
@@ -244,26 +256,86 @@ class ModelGeometry:
             pp.ad.Matrix: Ad representation of a matrix with the basis functions as
                 columns.
 
+        Raises:
+            ValueError: If dim is smaller than the dimension of the mixed-dimensional.
+            ValueError: If i is larger than dim.
+
         """
         # TODO: Should we expand this to grids not aligned with the coordinate axes, and
         # possibly unify with ``porepy.utils.projections.TangentialNormalProjection``?
+        # This is not a priority for the mmoment, though.
 
         if dim is None:
             dim = self.nd
 
         # Sanity checks
-        assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
-        assert i < dim, "Basis function index out of range"
+        if dim > self.nd:
+            raise ValueError("Basis functions of higher dimension than the md grid")
+        if i >= dim:
+            raise ValueError("Basis function index out of range")
 
         # Construct a single vector, and later stack it to a matrix
         # Collect the basis functions for each dimension
-        e_i = np.zeros(dim).reshape(-1, 1)
+        e_i = np.zeros((dim, 1))
         e_i[i] = 1
         # Expand to cell-wise column vectors.
         num_cells = sum([g.num_cells for g in grids])
         # Expand to a matrix.
         mat = sps.kron(sps.eye(num_cells), e_i)
         return pp.ad.Matrix(mat)
+
+    # Local basis related methods
+    def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute the tangential component of a vector field.
+
+        The tangential space is defined according to the local coordinates of the
+        subdomains, with the tangential space defined by the first `self.nd` components
+        of the cell-wise vector. It is assumed that the components of the vector are
+        stored with a dimension-major ordering (the dimension varies fastest).
+
+        Parameters:
+            subdomains: List of grids on which the vector field is defined.
+
+        Returns:
+            Operator extracting tangential component of the vector field and expressing
+            it in tangential basis.
+
+        """
+        # We first need an inner product (or dot product), i.e. extract the tangential
+        # component of the cell-wise vector v to be transformed. Then we want to express
+        # it in the tangential basis. The two operations are combined in a single
+        # operator composed right to left: v will be hit by first e_i.T (row vector) and
+        # secondly t_i (column vector).
+        op: pp.ad.Operator = sum(
+            [
+                self.e_i(subdomains, i, self.nd - 1)
+                * self.e_i(subdomains, i, self.nd).T
+                for i in range(self.nd - 1)
+            ]
+        )
+        op.set_name("tangential_component")
+        return op
+
+    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+        """Compute the normal component of a vector field.
+
+        The normal space is defined according to the local coordinates of the
+        subdomains, with the normal space defined by final component, e.g., number
+        `self.nd-1` (zero offset). of the cell-wise vector. It is assumed that the
+        components of a vector are stored with a dimension-major ordering (the dimension
+        varies fastest).
+
+        Parameters:
+            subdomains: List of grids on which the vector field is defined.
+
+        Returns:
+            Operator extracting normal component of the vector field and expressing it
+            in normal basis.
+
+        """
+        e_n = self.e_i(subdomains, self.nd - 1, self.nd)
+        e_n.set_name("normal_component")
+        return e_n.T
 
     def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         """Ad wrapper around tangential_normal_projections for fractures.
@@ -282,6 +354,8 @@ class ModelGeometry:
         # For now, assert all subdomains are fractures, i.e. dim == nd - 1
         assert all([sd.dim == self.nd - 1 for sd in subdomains])
         if len(subdomains) > 0:
+            # Compute the local coordinates for each subdomain. For this, we use the
+            # preset tangential_normal_projection attribute of the subdomains.
             local_coord_proj_list = [
                 self.mdg.subdomain_data(sd)[
                     "tangential_normal_projection"
@@ -290,6 +364,7 @@ class ModelGeometry:
             ]
             local_coord_proj = sps.block_diag(local_coord_proj_list)
         else:
+            # Also treat no subdomains
             local_coord_proj = sps.csr_matrix((0, 0))
         return pp.ad.Matrix(local_coord_proj)
 
@@ -356,50 +431,6 @@ class ModelGeometry:
             bottom = g.face_centers[2] < box["zmin"] + tol
         all_bf = g.get_boundary_faces()
         return all_bf, east, west, north, south, top, bottom
-
-    # Local basis related methods
-    def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Compute the tangential component of a vector field.
-
-        The tangential space is defined according to the local coordinates of the
-        subdomains.
-
-        Parameters:
-            subdomains: List of grids on which the vector field is defined.
-
-        Returns:
-            Operator extracting tangential component of the vector field and expressing
-            it in tangential basis.
-
-        """
-        # We first need an inner product (or dot product), i.e. extract the tangential
-        # component of the cell-wise vector v to be transformed. Then we want to express
-        # it in the tangential basis. The two operations are combined in a single
-        # operator composed right to left: v will be hit by first e_i.T (row vector) and
-        # secondly t_i (column vector).
-        op: pp.ad.Operator = sum(
-            [
-                self.e_i(subdomains, i, self.nd - 1)
-                * self.e_i(subdomains, i, self.nd).T
-                for i in range(self.nd - 1)
-            ]
-        )
-        op.set_name("tangential_component")
-        return op
-
-    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Compute the normal component of a vector field.
-
-        Parameters:
-            subdomains: List of grids on which the vector field is defined.
-
-        Returns:
-            Operator extracting normal component of the vector field and expressing it
-            in normal basis.
-        """
-        e_n = self.e_i(subdomains, self.nd - 1, self.nd)
-        e_n.set_name("normal_component")
-        return e_n.T
 
     def internal_boundary_normal_to_outwards(
         self,
