@@ -50,14 +50,15 @@ class DimensionReduction:
     """Apertures and specific volumes."""
 
     nd: int
-    """Ambient dimension of the problem.
-
-    This attribute must be provided by a mixin class. Normally, it is set by
-    :class:`porepy.models.geometry.ModelGeometry.
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    # TODO: Figure out how to document these class instances that must be decleared for
-    # mypy to accept the use of mixin.
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
         """FIXME: Decide on how to treat interfaces."""
@@ -153,45 +154,52 @@ class DisplacementJumpAperture(DimensionReduction):
     """Fracture aperture from displacement jump."""
 
     nd: int
-    """Ambient dimension of the problem.
-
-    This attribute must be provided by a mixin class. Normally, it is set by
-    :class:`porepy.models.geometry.ModelGeometry.
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
-    """Method to map from subdomains to the adjacent interfaces.
-
-    This method must be provided by a mixin class. Normally, it is set by
-    :class:`porepy.models.geometry.ModelGeometry.
+    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Method to map from interfaces to the adjacent subdomains.
-
-    This method must be provided by a mixin class. Normally, it is set by
-    :class:`porepy.models.geometry.ModelGeometry.
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-
     normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the normal component of vectors. Normally defined in a mixin
+    instance of :class:`~porepy.models.models.ModelGeometry`.
 
+    """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the displacement jump on fracture grids. Normally defined in a
+    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
 
+    """
     mdg: pp.MixedDimensionalGrid
-
-    system_manager: pp.ad.EquationSystem
-    """EquationSystem object for the current model.
-
-    This attribute must be provided by a mixin class. Normally, it is set by the
-    relevant solution strategy class.
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    
+    """
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
 
     """
 
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
-        """Residual aperture [m]."""
+        """Residual aperture [m].
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Ad operator representing the resdiual aperture for the grids. The value is
+            constant for each grid, and is the same for all cells in the grid.
+
+        """
         return Scalar(self.solid.residual_aperture(), name="residual_aperture")
 
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -307,9 +315,7 @@ class ConstantFluidDensity:
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-
-    This attribute must be provided by a mixin class. Normally, it is set by the
-    XXX
+    Normally, this is set by a mixin TODO
 
     """
 
@@ -332,8 +338,15 @@ class FluidDensityFromPressure:
     """Fluid density as a function of pressure."""
 
     fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
 
+    """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from reference state. Normally provided by
+    a mixin of instance :class:`~porepy.models.VariableMixin`.
+
+    """
 
     def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Fluid compressibility [1/Pa].
@@ -400,6 +413,19 @@ class FluidDensityFromPressure:
 
 
 class FluidDensityFromTemperature:
+    """Fluid density as a function of temperature."""
+
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from reference state. Normally provided by
+    a mixin of instance :class:`~porepy.models.VariableMixin`.
+
+    """
+
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid density as a function of temperature.
 
@@ -450,7 +476,17 @@ class FluidDensityFromTemperature:
 class FluidDensityFromPressureAndTemperature:
     """Fluid density which is a function of pressure and temperature."""
 
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
+
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from reference state. Normally provided by
+    a mixin of instance :class:`~porepy.models.VariableMixin`.
+
+    """
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid density as a function of pressure and temperature.
@@ -491,6 +527,10 @@ class ConstantViscosity:
     """Constant viscosity."""
 
     fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     def fluid_viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid viscosity [Pa s].
@@ -511,6 +551,10 @@ class ConstantPermeability:
     """A spatially homogeneous permeability field."""
 
     solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     def permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Permeability [m^2].
@@ -527,8 +571,13 @@ class ConstantPermeability:
         Returns:
             Cell-wise permeability tensor. The value is picked from the solid constants.
 
+        Raises:
+            ValueError: If more than one subdomain is provided.
+
         """
-        assert len(subdomains) == 1, "Only one subdomain is allowed."
+        if len(subdomains) > 1:
+            raise ValueError("Only one subdomain is allowed.")
+
         size = subdomains[0].num_cells
         return self.solid.permeability() * np.ones(size)
 
@@ -553,6 +602,27 @@ class ConstantPermeability:
 
 class CubicLawPermeability(ConstantPermeability):
     """Cubic law permeability for fractures and intersections."""
+
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
+
+    """
+    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the specific volume of a subdomain. Normally provided by a
+    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+
+    """
+    nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the aperture of a subdomain. Normally provided by a
+    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+
+    """
 
     def permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Permeability [m^2].
@@ -584,34 +654,72 @@ class DarcysLaw:
     """
 
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
+    """
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
+    """
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-
+    """Pressure variable. Normally defined in a mixin instance of 
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    
+    """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
-
+    """Darcy flux variables on interfaces. Normally defined in a mixin instance of 
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    
+    """
     mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
+    """
     bc_values_darcy_flux: Callable[[list[pp.Grid]], np.ndarray]
+    """Darcy flux boundary conditions. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
+    """
     normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Normal permeability. Normally defined in a mixin instance of :
+    class:`~porepy.models.constitutive_laws.ConstantPermeability`.
 
+    """
     fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
 
+    """
     nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
 
+    """
     darcy_keyword: str
+    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
+    instance of 
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
 
     basis: Callable[[Sequence[pp.GridLike]], np.ndarray]
 
     internal_boundary_normal_to_outwards: Callable[
         [list[pp.MortarGrid], int], pp.ad.Matrix
     ]
-
+    """Switch interface normal vectors to point outwards from the subdomain. Normally
+    set by a mixin instance of :class:`porepy.models.geometry.ModelGeometry`.
+    """
     wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str], pp.ad.Operator]
+    """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
@@ -638,7 +746,7 @@ class DarcysLaw:
         return pressure_trace
 
     def darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Darcy flux.
+        """Discretization of Darcy's law.
 
         Parameters:
             subdomains: List of subdomains where the Darcy flux is defined.
@@ -692,12 +800,7 @@ class DarcysLaw:
         return eq
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-        """
-        Note:
-            The ad.Discretizations may be purged altogether. Their current function is
-            very similar to the ad.Geometry in that both basically wrap numpy/scipy
-            arrays in ad arrays and collect them in a block matrix. This similarity
-            could possibly be exploited. Revisit at some point.
+        """Discretization object for the Darcy flux term.
 
         Parameters:
             subdomains: List of subdomains where the Darcy flux is defined.
@@ -706,14 +809,18 @@ class DarcysLaw:
             Discretization of the Darcy flux.
 
         """
+        # TODO: The ad.Discretizations may be purged altogether. Their current function
+        # is very similar to the ad.Geometry in that both basically wrap numpy/scipy
+        # arrays in ad arrays and collect them in a block matrix. This similarity could
+        # possibly be exploited. Revisit at some point.
         return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
     def vector_source(
         self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str
     ) -> pp.ad.Operator:
-        """Vector source term.
+        """Vector source term. Represents gravity effects.
 
-        Represents gravity effects. EK: Let's discuss how to name/think about this term.
+        TODO: EK: Let's discuss how to name/think about this term.
         Note that it appears slightly differently in a flux and a force/momentum
         balance.
 
@@ -743,8 +850,8 @@ class DarcysLaw:
 
         Returns:
             Face-wise vector source term.
-        """
 
+        """
         # Account for sign of boundary face normals
         normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
         return normals * self.vector_source(interfaces, material=material)
@@ -753,27 +860,40 @@ class DarcysLaw:
 class ThermalExpansion:
     """Thermal expansion coefficients for the fluid and the solid."""
 
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
+
     def fluid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Thermal expansion of the fluid.
+        """Thermal expansion of the fluid [1/K].
 
         Parameters:
             subdomains: List of subdomains where the thermal expansion is defined.
 
         Returns:
-            Thermal expansion of the fluid in 1/Kelvin.
+            Thermal expansion of the fluid, represented as an Ad operator. The value is
+            constant for all subdomains.
 
         """
         val = self.fluid.thermal_expansion()
         return Scalar(val, "fluid_thermal_expansion")
 
     def solid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Thermal expansion of the solid.
+        """Thermal expansion of the solid [1/K].
 
         Parameters:
             subdomains: List of subdomains where the thermal expansion is defined.
 
         Returns:
-            Thermal expansion of the solid in 1/Kelvin.
+            Thermal expansion of the fluid, represented as an Ad operator. The value is
+            constant for all subdomains.
 
         """
         val = self.solid.thermal_expansion()
@@ -784,13 +904,35 @@ class ThermalConductivityLTE:
     """Thermal conductivity in the local thermal equilibrium approximation."""
 
     fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
     solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
 
+    """
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Porosity of the rock. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
+    """
+    reference_porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Reference porosity of the rock. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.PoroMechanicsPorosity`.
+
+    """
     equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
 
+    """
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def fluid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid thermal conductivity [W / (m K)]
@@ -887,24 +1029,52 @@ class FouriersLaw:
     """
 
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
+    """
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
+    """
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Temperature variable. Normally defined in a mixin instance of 
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
+    """
     mdg: pp.MixedDimensionalGrid
-
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    
+    """
     interface_fourier_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
-
+    """Fourier flux variable on interfaces. Normally defined in a mixin instance of 
+   :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+    
+    """
     bc_values_fourier_flux: Callable[[list[pp.Grid]], np.ndarray]
+    """Fourier flux boundary conditions. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
+    """
     normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-
+    """Conductivity on a mortar grid. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
+    """
     fourier_keyword: str
-
+    """Keyword used to identify the Fourier flux discretization. Normally set by a mixin
+    instance of 
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
+    
+    """
     wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str], pp.ad.Operator]
+    """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def temperature_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Temperature on the subdomain boundaries.
@@ -1009,18 +1179,35 @@ class FouriersLaw:
 
 
 class AdvectiveFlux:
+    """Mixin class for discretizing advective fluxes."""
 
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
+    """
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
+    """
     mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Darcy flux variables on subdomains. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
+    """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
+    """Darcy flux variables on interfaces. Normally defined in a mixin instance of 
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
 
     def advective_flux(
         self,
@@ -1110,9 +1297,18 @@ class AdvectiveFlux:
 
 
 class SpecificHeatCapacities:
+    """Class for the specific heat capacities of the fluid and solid phases."""
 
     fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
     solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     def fluid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid specific heat capacity [J/kg/K].
@@ -1153,9 +1349,15 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     """
 
     temperature: pp.ad.Operator
-    reference_temperature: float
+    """Temperature variable. Normally defined in a mixin instance of 
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+    
+    """
 
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from reference state. Normally provided by
+    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid enthalpy [J / m^3].
@@ -1218,10 +1420,17 @@ class GravityForce:
     """
 
     fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin TODO
 
+    """
     e_i: Callable[[Union[list[pp.Grid], list[pp.MortarGrid]], int, int], pp.ad.Operator]
 
     nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def gravity_force(
         self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str
@@ -1262,19 +1471,63 @@ class LinearElasticMechanicalStress:
     """
 
     nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
 
+    """
     stress_keyword: str
+    """Keyword used to identify the stress discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
+    """
     bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Mechanics boundary conditions. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
 
+    """
     displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
     interface_displacement: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
+    """Displacement variable on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
+    """
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    
+    """
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
+    """
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    subdomain_projections: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Projections between subdomains. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    local_coordinates: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Mapping to local coordinates. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
     mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def mechanical_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Linear elastic mechanical stress.
@@ -1295,6 +1548,8 @@ class LinearElasticMechanicalStress:
         """
         for sd in subdomains:
             assert sd.dim == self.nd
+        # No need to facilitate changing of stress discretization, only one is
+        # available at the moment.
         discr = pp.ad.MpsaAd(self.stress_keyword, subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains)
         bc = self.bc_values_mechanics(subdomains)
@@ -1350,10 +1605,47 @@ class PressureStress:
 
     """
 
+    nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
     pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Pressure variable. Should be defined in the class inheriting from this mixin."""
+    """Pressure variable. Normally defined in a mixin instance of 
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
     reference_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Reference pressure. Should be defined in the class inheriting from this mixin."""
+    """Reference pressure. Normally defined in a mixin instance of 
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+    outwards_internal_boundary_normals: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Outwards normal vectors on internal boundaries. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    
+    """
+    stress_keyword: str
+    """Keyword used to identify the stress discretization. Normally set by a mixin
+    instance of 
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+
+    """
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    outwards_internal_boundary_normals: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Outwards normal vectors on internal boundaries. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def pressure_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure contribution to stress tensor.
@@ -1439,16 +1731,40 @@ class ThermoPressureStress(PressureStress):
     """
 
     temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Temperature variable. Should be defined in the class inheriting from this
-    mixin."""
+    """Temperature variable. Normally defined in a mixin instance of 
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+    
+    """
     reference_temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Reference temperature. Should be defined in the class inheriting from this
-    mixin."""
+    """Reference temperature. Normally defined in a mixin instance of
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+    
+    """
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Biot coefficient. Should be defined in the class inheriting from this mixin."""
-    thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Thermal expansion coefficient. Should be defined in the class inheriting from
-    this mixin."""
+    """Biot coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+
+    """
+    bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Bulk modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+
+    """
+    solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Thermal expansion coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
+    """
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
+    stress_keyword: str
+    """Keyword used to identify the stress discretization. Normally set by a mixin
+    instance of 
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+
+    """
 
     def thermal_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Temperature contribution to stress tensor.
@@ -1487,6 +1803,10 @@ class ThermoPressureStress(PressureStress):
 class ConstantSolidDensity:
 
     solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Constant solid density.
@@ -1509,6 +1829,12 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
     parameters (bulk_modulus, lame_mu, poisson_ratio). The latter are computed from the
     former. Also provides a method for computing the stiffness matrix as a
     FourthOrderTensor.
+    """
+
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
     """
 
     def shear_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -1584,12 +1910,25 @@ class FracturedSolid:
     """
 
     nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
 
+    """
     tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the tangential component of vectors. Normally defined in a mixin
+    instance of :class:`~porepy.models.models.ModelGeometry`.
 
+    """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the displacement jump on fracture grids. Normally defined in a
+    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
 
+    """
     solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     def gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fracture gap [m].
@@ -1661,14 +2000,20 @@ class FrictionBound:
     """
 
     normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator extracting normal component of vector. Should be defined in class combined with
-    this mixin."""
-    traction: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Traction variable. Should be defined in class combined with from this mixin."""
-    friction_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Friction coefficient. Should be defined in class combined with this mixin."""
+    """Operator giving the normal component of vectors. Normally defined in a mixin
+    instance of :class:`~porepy.models.models.ModelGeometry`.
 
+    """
+    friction_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Friction coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FracturedSolid`.
+
+    """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
 
     def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction bound [m].
@@ -1692,6 +2037,10 @@ class BiotCoefficient:
     """Biot coefficient."""
 
     solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Biot coefficient.
@@ -1709,35 +2058,94 @@ class BiotCoefficient:
 class ConstantPorosity:
 
     solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Constant porosity [-].
+
+        The porosity is assumed to be constant, and is defined by the solid constant
+        object.
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            The porosity represented as an Ad operator. The value is constant for all
+            subdomains.
+
+        """
         return Scalar(self.solid.porosity(), "porosity")
 
 
 class PoroMechanicsPorosity:
 
     solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin TODO
+
+    """
 
     nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
 
+    """
     mdg: pp.MixedDimensionalGrid
-
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    
+    """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from reference state. Normally provided by
+    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+
+    """
     bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Bulk modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
 
+    """
     stress_keyword: str
+    """Keyword used to identify the stress discretization. Normally set by a mixin
+    instance of 
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+    
+    """
     darcy_keyword: str
-
+    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
+    instance of 
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+    
+    """
     bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Mechanics boundary conditions. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
 
+    """
     displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
+    """
     interface_displacement: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
+    """Displacement variable on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
+    """
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return Scalar(self.solid.porosity(), "reference_porosity")
@@ -1837,6 +2245,22 @@ class PoroMechanicsPorosity:
 
 class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     """Add thermal effects to matrix porosity."""
+
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from reference state. Normally provided by
+    a mixin of instance :class:`~porepy.models.VariableMixin`.
+
+    """
+    solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Thermal expansion coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
+    """
+    stress_keyword: str
+    """Keyword used to identify the stress discretization. Normally set by a mixin
+    instance of 
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+
+    """
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity [-].

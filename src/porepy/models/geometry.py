@@ -28,7 +28,11 @@ class ModelGeometry:
     box: dict[str, float]
     """Box-shaped domain. FIXME: change to "domain"? """
     nd: int
-    """Ambient dimension."""
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    
     units: pp.Units
     """Unit system."""
 
