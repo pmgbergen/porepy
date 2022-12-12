@@ -28,6 +28,10 @@ class EnergyBalanceEquations:
     # Expected attributes for this mixin
     mdg: pp.MixedDimensionalGrid
     equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
+
+    """
     fluid_internal_energy: pp.ad.Operator
     solid_internal_energy: pp.ad.Operator
     fluid_enthalpy: pp.ad.Operator
@@ -245,6 +249,10 @@ class VariablesEnergyBalance:
 
     # Expected attributes for this mixin
     equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
+
+    """
     fluid: pp.FluidConstants
 
     def create_variables(self) -> None:
@@ -289,6 +297,7 @@ class VariablesEnergyBalance:
 
         Returns:
             Variable representing the interface Fourier flux.
+
         """
         flux = self.equation_system.md_variable(
             self.interface_fourier_flux_variable, interfaces
