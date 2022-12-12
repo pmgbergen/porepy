@@ -71,13 +71,15 @@ def log(var):
     else:
         return np.log(var)
 
+
 def sqrt(var):
     if isinstance(var, Ad_array):
         val = np.sqrt(var.val)
-        der = var.diagvec_mul_jac(.5 * (1 / val))
+        der = var.diagvec_mul_jac(0.5 * (1 / val))
         return Ad_array(val, der)
     else:
         return np.sqrt(var)
+
 
 def cbrt(var):
     if isinstance(var, Ad_array):
@@ -86,25 +88,26 @@ def cbrt(var):
         return Ad_array(val, der)
     else:
         return np.cbrt(var)
-    
+
+
 def power(var, exponent):
     if isinstance(var, Ad_array):
         if exponent >= 0:
             val = np.power(var.val, exponent)
         else:
-            val = 1 / np.power(var.val, - exponent)
+            val = 1 / np.power(var.val, -exponent)
         der_exponent = exponent - 1
         if der_exponent >= 0:
             vec = np.power(var.val, der_exponent)
         else:
-            vec = 1 / np.power(var.val, - der_exponent)
+            vec = 1 / np.power(var.val, -der_exponent)
         der = var.diagvec_mul_jac(exponent * vec)
         return Ad_array(val, der)
     else:
-        if exponent >= 0.:
+        if exponent >= 0.0:
             return np.power(var, exponent)
         else:
-            return 1 / np.power(var, - exponent)
+            return 1 / np.power(var, -exponent)
 
 
 # %% Sign and absolute value functions and l2_norm

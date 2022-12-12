@@ -422,7 +422,7 @@ class Operator:
                 if isinstance(results[1], pp.ad.Ad_array):
                     # See remarks by EK in case ndarray / Ad_array
                     return (results[0] * results[1] ** -1)[0]
-                elif isinstance(results[1], numbers.Real): # trivial case
+                elif isinstance(results[1], numbers.Real):  # trivial case
                     return results[0] / results[1]
                 elif isinstance(results[1], np.ndarray):
                     # element-wise division for numpy vectors

@@ -170,9 +170,27 @@ class Composition(abc.ABC):
             <https://doi.org/10.1016/j.matcom.2021.07.015>`_
 
         """
+        self.algorithmic_variables: list[str] = []
+        """A list containing algorithmic variables in the AD framework, which are
+        neither physical nor must they be used in extended problems e.g., flow.
+
+        Warning:
+            This list is filled only upon initialization.
+
+        """
+        self.algorithmic_equations: list[str] = []
+        """A list containing equations in the AD framework, which are
+        neither physical nor must they be used in extended problems e.g., flow.
+
+        They result from specific algorithms chosen for the flash.
+
+        Warning:
+            This list is filled only upon initialization.
+
+        """
 
         ### PRIVATE
-
+        # state variables
         self._p: pp.ad.MergedVariable = ad_system.create_variable(self.p_name)
         """Pressure variable used for the thermodynamic state."""
         self._h: pp.ad.MergedVariable = ad_system.create_variable(self.h_name)
@@ -180,17 +198,17 @@ class Composition(abc.ABC):
         self._T: pp.ad.MergedVariable = ad_system.create_variable(self.T_name)
         """Temperature variable used for the thermodynamic state."""
 
+        # modelled phases and components
         self._components: list[Component] = list()
         """A list containing all modelled components."""
-
         self._phases: list[Phase] = list()
         """A list containing all modelled phases.
 
         To be created in the constructor of child classes.
 
         """
-        self._max_history: int = 100
-        """Maximal number of flash history entries (FiFo)."""
+
+        # (parts of) names of equations in the flash subsystem
         self._mass_conservation: str = "flash_mass"
         """Used to name mass balance operators"""
         self._phase_fraction_unity: str = "flash_phase_unity"
@@ -199,6 +217,40 @@ class Composition(abc.ABC):
         """Used to name the KKT operator for each phase."""
         self._enthalpy_constraint: str = "flash_h_constraint"
         """Used to name the enthalpy constraint operator in the p-h flash."""
+
+        # names for variables and equations associated with the NPIPM
+        self._V_extension: str = "NPIPM_V"
+        """Used to name the V-extension equation in the NPIPM."""
+        self._W_extension: str = "NPIPM_W"
+        """Used to name the W-extension equation in the NPIPM."""
+        self._v_w_coupling: str = "NPIPM_coupling"
+        """Used to name the V-W-nu coupling equation in the NPIPM."""
+        self._nu_parametrization: str = "NPIPM_param"
+        """Used to name the parameter equation in the NPIPM."""
+        self._V_name: str = "NPIPM_var_V"
+        """Name of the variable ``V`` in the NPIPM."""
+        self._W_name: str = "NPIPM_var_W"
+        """Name of the variable ``W`` in the NPIPM."""
+        self._nu_name: str = "NPIPM_var_nu"
+        """Name of the variable ``nu`` in the NPIPM."""
+        self._npipm_vars: list[str] = list()
+        """A list containing the names of algorithmic variables belonging to the NPIPM.
+        """
+        self._npipm_equations: list[str] = list()
+        """A list containing names of equations associated with the NPIPM."""
+        # variables associated with the NPIPM
+        self._V_of_phase: dict[Phase, pp.ad.MergedVariable] = dict()
+        """A dictionary containing the extension variable ``V`` for each phase."""
+        self._W_of_phase: dict[Phase, pp.ad.MergedVariable] = dict()
+        """A dictionary containing the extension variable ``W`` for each phase."""
+        self._nu: pp.ad.MergedVariable = ad_system.create_variable(self._nu_name)
+        """Variable ``nu`` representing the IPM parameter."""
+        # append the name of nu
+        self._npipm_vars.append(self._nu_name)
+
+        # miscellaneous attributes
+        self._max_history: int = 100
+        """Maximal number of flash history entries (FiFo)."""
         self._ss_min: pp.ad.Operator = pp.ad.SemiSmoothMin()
         """An operator representing the semi-smooth min function in AD."""
         self._y_R: pp.ad.Operator
@@ -550,6 +602,56 @@ class Composition(abc.ABC):
         # storing references to the subsystems
         self.pT_subsystem = pT_subsystem
         self.ph_subsystem = ph_subsystem
+
+        ### NPIPM variables and equations
+        for phase in self.phases:
+            # create V_e
+            name = self._V_name + phase.name
+            V_e = self.ad_system.create_variable(name)
+            self._npipm_vars.append(name)
+            self._V_of_phase[phase] = V_e
+            # create W_e
+            name = self._W_name + phase.name
+            W_e = self.ad_system.create_variable(name)
+            self._npipm_vars.append(name)
+            self._W_of_phase[phase] = W_e
+            # V_e extension equation, create and store
+            v_extension = phase.fraction - V_e
+            name = self._V_extension + phase.name
+            self.ad_system.set_equation(name, v_extension, num_equ_per_dof=image_info)
+            self._npipm_equations.append(name)
+            # W_e extension equation, create and store
+            w_extension = self.get_composition_unity_for(phase) - W_e
+            name = self._W_extension + phase.name
+            self.ad_system.set_equation(name, w_extension, num_equ_per_dof=image_info)
+            self._npipm_equations.append(name)
+            # V-W-nu coupling for this phase
+            coupling = V_e * W_e - self._nu
+            name = self._v_w_coupling + phase.name
+            self.ad_system.set_equation(name, coupling, num_equ_per_dof=image_info)
+            self._npipm_equations.append(name)
+
+        # NPIPM parameter equation
+        eta = pp.ad.Scalar(self.npipm_parameters["eta"])
+        coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self.num_phases**2)
+        neg = pp.ad.SemiSmoothNegative()
+        pos = pp.ad.SemiSmoothPositive()
+        dot = pp.ad.ScalarProduct()
+
+        phase_parts = list()
+        for phase in self.phases:
+            v_e = self._V_of_phase[phase]
+            w_e = self._W_of_phase[phase]
+
+            phase_parts.append(
+                dot(neg(v_e), neg(v_e))
+                + dot(neg(w_e), neg(w_e))
+                + coeff * pos(dot(v_e, w_e)) * pos(dot(v_e, w_e))
+            )
+
+        equation = eta * self._nu + self._nu * self._nu + sum(phase_parts) / 2
+        self.ad_system.set_equation(name, equation, num_equ_per_dof=image_info)
+        self._npipm_equations.append(name)
 
     def _get_subsystem_dict(self) -> dict[str, list]:
         """Returns a template for subsystem dictionaries."""
@@ -995,6 +1097,10 @@ class Composition(abc.ABC):
 
         """
         success = False
+        # adding the algorithmic variables
+        var_names = subsystem["primary_vars"] + self._npipm_vars
+        # adding the additional equations for the NPIPM
+        equations = subsystem["equations"] + self._npipm_equations
 
         return success
 

@@ -35,9 +35,9 @@ class DofManager:
 
     """
 
-    admissible_dof_types: tuple[Literal["cells"], Literal["faces"], Literal["nodes"]] = (
-        "cells", "faces", "nodes"
-    )
+    admissible_dof_types: tuple[
+        Literal["cells"], Literal["faces"], Literal["nodes"]
+    ] = ("cells", "faces", "nodes")
     """A set denoting admissible types of local DOFs for variables.
 
     - nodes: DOFs per node, which constitute the grid
@@ -71,9 +71,7 @@ class DofManager:
     ### DOF management ------------------------------------------------------------------------
 
     def num_dofs(self) -> np.int_:
-        """Returns the total number of DOFs managed by this DofManager
-
-        """
+        """Returns the total number of DOFs managed by this DofManager"""
         return np.sum(self.full_dof)
 
     def append_dofs(self, var_names: Union[str, Sequence[str]]) -> None:
@@ -342,7 +340,7 @@ class DofManager:
     def projection_to(
         self,
         variables: Union[str, Sequence[str]],
-        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None
+        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None,
     ) -> sps.csr_matrix:
         """Create a projection matrix from the global variable vector to a subspace specified
         by given ``variables`` and optionally on specific subdomains and interfaces.
@@ -413,7 +411,7 @@ class DofManager:
         return_projection: Optional[bool] = False,
         matrix_format: csc_or_csr_matrix = sps.csr_matrix,
     ) -> Union[np.ndarray, Tuple[np.ndarray, csc_or_csr_matrix]]:
-        """Get the indices in the global system of variables on all grids the variable is 
+        """Get the indices in the global system of variables on all grids the variable is
         defined.
 
         This method is primarily intended used when equations are assembled with an
@@ -425,7 +423,7 @@ class DofManager:
             var: names of the variables.
             return_projection (optional): Return the projection matrix from for
                 selecting only the requested variables. Default to False.
-            matrix_format (optional): Format of the projection matrix. 
+            matrix_format (optional): Format of the projection matrix.
                 Default to sps.csr_matrix.
 
         """

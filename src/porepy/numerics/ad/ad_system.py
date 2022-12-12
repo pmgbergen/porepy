@@ -51,9 +51,7 @@ class ADSystem:
     """
 
     def __init__(
-        self,
-        mdg: pp.MixedDimensionalGrid,
-        var_categories: Optional[EnumMeta] = None
+        self, mdg: pp.MixedDimensionalGrid, var_categories: Optional[EnumMeta] = None
     ) -> None:
 
         ### PUBLIC
@@ -89,7 +87,9 @@ class ADSystem:
 
         """
 
-        self._equ_image_space_composition: Dict[str, Dict[GridLike, np.ndarray]] = dict()
+        self._equ_image_space_composition: Dict[
+            str, Dict[GridLike, np.ndarray]
+        ] = dict()
         """Contains for every equation name (key) a dictionary, which provides again for every
         involved grid (key) the indices of equations expressed through the equation operator.
         The ordering of the items in the grid-array dictionaries is assumed to be consistent
@@ -108,9 +108,9 @@ class ADSystem:
     def create_variable(
         self,
         name: str,
-        dof_info: dict[Union[Literal["cells"], Literal["faces"], Literal["nodes"]], int] = {
-            "cells": 1
-        },
+        dof_info: dict[
+            Union[Literal["cells"], Literal["faces"], Literal["nodes"]], int
+        ] = {"cells": 1},
         subdomains: Union[None, list[pp.Grid]] = list(),
         interfaces: Optional[list[pp.MortarGrid]] = None,
         category: Optional[Enum] = None,
@@ -330,8 +330,8 @@ class ADSystem:
     ### Equation management -------------------------------------------------------------------
 
     def set_equation(
-        self, 
-        name: str, 
+        self,
+        name: str,
         equation_operator: pp.ad.Operator,
         num_equ_per_dof: Dict[GridLike, Dict[str, int]],
     ) -> None:
@@ -348,7 +348,7 @@ class ADSystem:
                 zero and this instance represents the left-hand side.
                 The equation mus be ready for evaluation! i.e. all involved variables must have
                 values set.
-            num_equ_per_dof: a dictionary describing how many equations ``equation_operator`` 
+            num_equ_per_dof: a dictionary describing how many equations ``equation_operator``
                 provides. This is a temporary work-around until operators are able to provide
                 information on their image space.
                 The dictionary must contain the number of equations per
@@ -360,7 +360,7 @@ class ADSystem:
                 (see :data:`porepy.DofManager.admissible_dof_types`),
                 for each grid the operator was defined on.
 
-                The order of the items in ``num_equ_per_dof`` must be consistent with the 
+                The order of the items in ``num_equ_per_dof`` must be consistent with the
                 general order of grids, as used by the dof manager and implemented in various
                 discretizations used inside ``equation_operator``.
 
@@ -372,15 +372,13 @@ class ADSystem:
             # calculate number of equations per grid
             if isinstance(grid, pp.Grid):
                 num_equ_per_grid = (
-                    grid.num_cells * dof_info.get('cells', 0)
-                    + grid.num_nodes * dof_info.get('nodes', 0)
-                    + grid.num_faces * dof_info.get('faces', 0)
+                    grid.num_cells * dof_info.get("cells", 0)
+                    + grid.num_nodes * dof_info.get("nodes", 0)
+                    + grid.num_faces * dof_info.get("faces", 0)
                 )
             # mortar grids have only cell-wise dofs
             elif isinstance(grid, pp.MortarGrid):
-                num_equ_per_grid = (
-                    grid.num_cells * dof_info.get('cells', 0)
-                )
+                num_equ_per_grid = grid.num_cells * dof_info.get("cells", 0)
             else:
                 raise ValueError(
                     f"Unknown grid type '{type(grid)}'. Use Grid or MortarGrid"
@@ -401,7 +399,7 @@ class ADSystem:
         #         f"Passed 'equation_operator' has {is_num_equ} equations,"
         #         f" opposing indicated number of {total_num_equ}."
         #     )
-        
+
         # if all good, we assume we can proceed
         self._equ_image_space_composition.update({name: image_info})
         self._equations.update({name: equation_operator})
@@ -415,10 +413,10 @@ class ADSystem:
 
         """
         return self._equations[name]
-    
+
     def remove_equation(self, name: str) -> pp.ad.Operator | None:
         """Removes a previously set equation and all related information.
-        
+
         Returns:
             a reference to the equation in operator form or None, if the equation is unknown.
 
@@ -551,7 +549,7 @@ class ADSystem:
             grid_columns = list(set([key[0] for key in self.dof_manager.block_dof]))  # type: ignore
         elif isinstance(grid_columns, (pp.Grid, pp.MortarGrid)):
             grid_columns = [grid_columns]  # type: ignore
-        
+
         # TODO think about argument validation, i.e. are the variables, equations and grids
         # known to this system and dof manager.
         # This will help users during debugging, otherwise just some key errors will be raised
@@ -578,7 +576,9 @@ class ADSystem:
                 # if this equation is defined on one of the restricted grids,
                 # slice out respective rows in an order-preserving way
                 # the order is stored in the image space composition
-                for grid, block_idx in self._equ_image_space_composition[equ_name].items():
+                for grid, block_idx in self._equ_image_space_composition[
+                    equ_name
+                ].items():
                     if grid in grid_rows:
                         equ_mat.append(ad.jac[block_idx])
                         equ_rhs.append(ad.val[block_idx])
@@ -611,8 +611,10 @@ class ADSystem:
         # slice out the columns belonging to the requested subsets of variables and
         # grid-related column blocks by using transposed projection for the global dof vector
         # Multiply rhs by -1 to move to the rhs
-        column_projection = self.dof_manager.projection_to(variables, grid_columns).transpose()
-        return A * column_projection, - rhs_cat
+        column_projection = self.dof_manager.projection_to(
+            variables, grid_columns
+        ).transpose()
+        return A * column_projection, -rhs_cat
 
     def assemble_schur_complement_system(
         self,
@@ -684,7 +686,9 @@ class ADSystem:
         all_variables = self.dof_manager.get_variables()
         all_eq_names = list(self._equations.keys())
         secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
-        secondary_variables = list(set(all_variables).difference(set(primary_variables)))
+        secondary_variables = list(
+            set(all_variables).difference(set(primary_variables))
+        )
 
         # First assemble the primary and secondary equations for all variables and all grids
         # save the indices and shift the indices for the second assembly accordingly
@@ -710,7 +714,7 @@ class ADSystem:
             # blocks before
             block_indices = self.assembled_equation_indices[equ] + ind_start
             assembled_equation_indices.update({equ: block_indices})
-        
+
         # store the indices for the Schur complement assembly
         self.assembled_equation_indices = assembled_equation_indices
 
@@ -738,7 +742,9 @@ class ADSystem:
 
         return S, rhs_S
 
-    def expand_schur_complement_solution(self, reduced_solution: np.ndarray) -> np.ndarray:
+    def expand_schur_complement_solution(
+        self, reduced_solution: np.ndarray
+    ) -> np.ndarray:
         """Expands the solution of the **last assembled** Schur complement system to the
         global solution.
 
@@ -797,8 +803,12 @@ class ADSystem:
             eq_names = [eq_names]  # type: ignore
 
         for name in eq_names:
-            image_info = self._equ_image_space_composition[name]  # TODO fix this, incorrect
-            new_manger.set_equation(name, self._equations[name], num_equ_per_dof=image_info)
+            image_info = self._equ_image_space_composition[
+                name
+            ]  # TODO fix this, incorrect
+            new_manger.set_equation(
+                name, self._equations[name], num_equ_per_dof=image_info
+            )
 
         return new_manger
 
