@@ -134,10 +134,10 @@ class Composition(abc.ABC):
         """Contains chronologically stored information about performed flash procedures.
         """
 
-        self.flash_tolerance: float = 1e-8
+        self.flash_tolerance: float = 1e-7
         """Convergence criterion for the flash algorithm."""
 
-        self.max_iter_flash: int = 1000
+        self.max_iter_flash: int = 100
         """Maximal number of iterations for the flash algorithms."""
 
         self.ph_subsystem: dict[str, list] = dict()
@@ -151,6 +151,23 @@ class Composition(abc.ABC):
         """A dictionary representing the subsystem for the p-T flash.
 
         Contains information on relevant variables and equations.
+
+        """
+
+        self.npipm_parameters: dict[str, float] = {
+            "eta": 0.5,
+            "u": 1,
+            "kappa": 0.4,
+            "rho": 0.99,
+        }
+        """A dictionary containing per parameter name (str, key) the respective
+        parameter for the NPIPM.
+
+        Values can be set directly by modifying the values of this dictionary.
+
+        See Also:
+            `Vu et al. (2021), Section 6.
+            <https://doi.org/10.1016/j.matcom.2021.07.015>`_
 
         """
 
