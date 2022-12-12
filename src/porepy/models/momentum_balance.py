@@ -130,7 +130,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         contact_from_primary_mortar = (
             mortar_projection.primary_to_mortar_int
             * self.subdomain_projections(self.nd).face_prolongation(matrix_subdomains)
-            * self.internal_boundary_normal_to_outwards(interfaces, self.nd)
+            * self.internal_boundary_normal_to_outwards(matrix_subdomains, self.nd)
             * self.stress(matrix_subdomains)
         )
         # Traction from the actual contact force.
