@@ -15,86 +15,36 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+import setup_utils
 
 
-class SingleFracture2d(pp.ModelGeometry):
-    """Single fracture in 2d with unstructured simplex mesh."""
+geometry_list = [
+    setup_utils.RectangularDomainOrthogonalFractures2d,
+    setup_utils.OrthogonalFractures3d,
+]
 
-    num_fracs: int = 1
-    """Used to compare to the size of the fracture network assigned internally."""
-
-    def mesh_arguments(self) -> dict:
-        return {"mesh_size_frac": 0.5, "mesh_size_min": 0.5, "mesh_size_bound": 0.5}
-
-    def set_fracture_network(self):
-        pts = np.array([[0, 0.5], [0.5, 0.5]])
-        edges = np.array([[0], [1]])
-        domain = pp.SquareDomain([1, 1])
-        self.fracture_network = pp.FractureNetwork2d(pts, edges, domain)
-
-
-class TwoFractures2d(SingleFracture2d):
-    """Two fractures in 2d with unstructured simplex mesh.
-
-    One fracture is horizontal, the other is tilted (both x and y are non-zero).
-    """
-
-    num_fracs: int = 2
-
-    def set_fracture_network(self):
-        # The first fracture extends from (0, 0.5) to (0.7, 0.5).
-        # The second fractures extends from (0.3, 0.3) to (0.7, 0.7).
-        pts = np.array([[0, 0.7, 0.3, 0.7], [0.5, 0.5, 0.3, 0.7]])
-        edges = np.array([[0, 2], [1, 3]])
-        domain = pp.SquareDomain([1, 1])
-        self.fracture_network = pp.FractureNetwork2d(pts, edges, domain)
-
-
-class ThreeFractures3d(SingleFracture2d):
-    """Three fractures in 3d with unstructured simplex mesh."""
-
-    ambient_dimension: int = 3
-    """Used to compare to the nd attribute assigned internally."""
-
-    num_fracs: int = 3
-    """Used to compare to the size of the fracture network assigned internally."""
-
-    def set_fracture_network(self):
-        coords = [0, 1]
-        pts0 = [coords[0], coords[0], coords[1], coords[1]]
-        pts1 = [coords[0], coords[1], coords[1], coords[0]]
-        pts2 = [0.5, 0.5, 0.5, 0.5]
-        fracs = [
-            # A fracture with vertices (0, 0, 0.5), (0, 1, 0.5), (1, 1, 0.5), (1, 0, 0.5)
-            pp.PlaneFracture(np.array([pts0, pts1, pts2])),
-            # A fracture with vertexes (0.5, 0, 0), (0.5, 0, 1), (0.5, 1, 1), (0.5, 1, 0)
-            pp.PlaneFracture(np.array([pts2, pts0, pts1])),
-            # A fracture with vertexes (0, 0.5, 0), (1, 0.5, 0), (1, 0.5, 1), (0, 0.5, 1)
-            pp.PlaneFracture(np.array([pts1, pts2, pts0])),
-        ]
-        domain = pp.CubeDomain([1, 1, 1])
-        self.fracture_network = pp.FractureNetwork3d(fracs, domain)
-
-
-class BaseWithUnits(pp.ModelGeometry):
-    """ModelGeometry.set_md_geometry requires a units attribute."""
-
-    units: pp.Units = pp.Units()
-
-
-geometry_list = [BaseWithUnits, SingleFracture2d, TwoFractures2d, ThreeFractures3d]
+num_fracs_list = [0, 1, 2, 3]
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_set_fracture_network(geometry_class):
+@pytest.mark.parametrize("num_fracs", num_fracs_list)
+def test_set_fracture_network(geometry_class, num_fracs):
+    """Test the method set_fracture_network."""
     geometry = geometry_class()
+    geometry.params = {"num_fracs": num_fracs}
+    geometry.units = pp.Units()
+    geometry.num_fracs = num_fracs
     geometry.set_fracture_network()
     assert getattr(geometry, "num_fracs", 0) == geometry.fracture_network.num_frac()
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 def test_set_geometry(geometry_class):
+    """Test the method set_geometry."""
     geometry = geometry_class()
+    # Testing with a single fracture should be sufficient here
+    geometry.params = {"num_fracs": 1}
+    geometry.units = pp.Units()
     geometry.set_geometry()
     for attr in ["mdg", "box", "nd", "fracture_network"]:
         assert hasattr(geometry, attr)
@@ -102,14 +52,18 @@ def test_set_geometry(geometry_class):
     # add testing if default is changed.
     assert not hasattr(geometry, "well_network")
 
-    # Checks on attribute values. Default values correspond to the un-modified
-    assert geometry.nd == getattr(geometry, "ambient_dimension", 2)
-
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_boundary_sides(geometry_class):
+@pytest.mark.parametrize("num_fracs", num_fracs_list)
+def test_boundary_sides(geometry_class, num_fracs):
     geometry = geometry_class()
+    geometry.params = {"num_fracs": num_fracs}
+    geometry.units = pp.Units()
     geometry.set_geometry()
+
+    # Fetch the bounding box for the domain
+    box_min, box_max = pp.bounding_box.from_md_grid(geometry.mdg)
+
     for sd in geometry.mdg.subdomains():
         all_bf, east, west, north, south, top, bottom = geometry.domain_boundary_sides(
             sd
@@ -124,15 +78,19 @@ def test_boundary_sides(geometry_class):
         assert np.all(np.logical_not(np.in1d(all_bf, frac_faces)))
         assert np.all(all_bool == (east + west + north + south + top + bottom))
 
-        # Check coordinates
+        # Check that the coordinates of the
         for side, dim in zip([east, north, top], [0, 1, 2]):
-            assert np.all(np.isclose(sd.face_centers[dim, side], 1))
+            assert np.all(np.isclose(sd.face_centers[dim, side], box_max[dim]))
         for side, dim in zip([west, south, bottom], [0, 1, 2]):
-            assert np.all(np.isclose(sd.face_centers[dim, side], 0))
+            assert np.all(np.isclose(sd.face_centers[dim, side], box_min[dim]))
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_wrap_grid_attributes(geometry_class: type[pp.ModelGeometry]) -> None:
+# Only test up to two fractures here, that should suffice.
+@pytest.mark.parametrize("num_fracs", [0, 1, 2])
+def test_wrap_grid_attributes(
+    geometry_class: type[pp.ModelGeometry], num_fracs
+) -> None:
     """Test that the grid attributes are wrapped correctly.
 
     The test is based on sending in a list of grids (both subdomains and interfaces)
@@ -140,6 +98,8 @@ def test_wrap_grid_attributes(geometry_class: type[pp.ModelGeometry]) -> None:
 
     """
     geometry = geometry_class()
+    geometry.params = {"num_fracs": num_fracs}
+    geometry.units = pp.Units()
     geometry.set_geometry()
     nd: int = geometry.nd
 
@@ -252,6 +212,9 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
 
     """
     geometry = geometry_class()
+    # Use two fractures, that should be enough to test the methods.
+    geometry.params = {"num_fracs": 2}
+    geometry.units = pp.Units()
     geometry.set_geometry()
     all_subdomains = geometry.mdg.subdomains()
     all_interfaces = geometry.mdg.interfaces()
@@ -282,9 +245,14 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_internal_boundary_normal_to_outwards(geometry_class: type[pp.ModelGeometry]):
+@pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
+def test_internal_boundary_normal_to_outwards(
+    geometry_class: type[pp.ModelGeometry], num_fracs
+) -> None:
     # Define the geometry
     geometry: pp.ModelGeometry = geometry_class()
+    geometry.params = {"num_fracs": num_fracs}
+    geometry.units = pp.Units()
     geometry.set_geometry()
     dim = geometry.nd
 
@@ -350,8 +318,12 @@ def test_internal_boundary_normal_to_outwards(geometry_class: type[pp.ModelGeome
         offset += sd.num_faces * dim
 
 
+# test_internal_boundary_normal_to_outwards(geometry_list[2])
+
+
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
+@pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
+def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> None:
     """Test :meth:`pp.ModelGeometry.outwards_internal_boundary_normals`.
 
     Parameters:
@@ -360,6 +332,8 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     """
     # Define the geometry
     geometry: pp.ModelGeometry = geometry_class()
+    geometry.params = {"num_fracs": num_fracs}
+    geometry.units = pp.Units()
     geometry.set_geometry()
     dim = geometry.nd
     # Make an equation system, which is needed for parsing of the Ad operator
@@ -426,6 +400,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     assert np.allclose(np.abs(inner_product), 1)
     # The following operation is used in models, and is therefore tested here.
     # TODO: Extract method for inner product using a basis?
+    # EK: This test fails at the moment, to be revisited.
     basis = geometry.basis(interfaces, dim)
     nd_to_scalar_sum = sum([e.T for e in basis])
     inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
@@ -444,7 +419,10 @@ def test_basis_normal_tangential_components(
 
     """
     geometry = geometry_class()
-
+    # Use two fractures, that should be sufficient to test the method
+    geometry.params = {"num_fracs": 2}
+    geometry.units = pp.Units()
+    geometry.set_geometry()
     geometry.set_geometry()
     dim = geometry.nd
 
@@ -532,3 +510,6 @@ def test_basis_normal_tangential_components(
     )
 
     assert np.allclose((known_tangential_component - tangential_component).data, 0)
+
+
+# test_basis_normal_tangential_components(geometry_list[3])
