@@ -73,9 +73,22 @@ def lines_by_polygon(
                 int_pts = np.c_[int_pts, np.array(int_lines.xy)]
                 edges_kept_aslist.append(ei)
         elif type(int_lines) is shapely_geometry.MultiLineString:
-            # consider the case of multiple intersections by avoiding considering
-            # lines on the boundary of the polygon
-            for int_line in int_lines:
+            # Consider the case of multiple intersections by avoiding considering
+            # lines on the boundary of the polygon.
+
+            # NOTE: After updating to shapely 2.0, iteration over the components
+            # of a multiline should call the geoms attribute.
+            # We could have enforced an update for all users, but instead do a
+            # gentler version which should accommodate v1 and v2.
+            import shapely
+
+            if shapely.__version__[0] > "1":
+                lines_for_iteration = [line for line in int_lines.geoms]
+            else:
+                # shapely v1
+                lines_for_iteration = [line for line in int_lines]
+
+            for int_line in lines_for_iteration:
                 if not int_line.touches(poly) and int_line.length > 0:
                     int_pts = np.c_[int_pts, np.array(int_line.xy)]
                     edges_kept_aslist.append(ei)
