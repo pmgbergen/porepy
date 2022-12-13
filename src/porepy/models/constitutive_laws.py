@@ -181,7 +181,7 @@ class DisplacementJumpAperture(DimensionReduction):
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the current model. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-    
+
     """
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
@@ -473,7 +473,9 @@ class FluidDensityFromTemperature:
         return exp(Scalar(-1) * self.fluid.thermal_expansion() * dtemp)
 
 
-class FluidDensityFromPressureAndTemperature:
+class FluidDensityFromPressureAndTemperature(
+    FluidDensityFromPressure, FluidDensityFromTemperature
+):
     """Fluid density which is a function of pressure and temperature."""
 
     fluid: pp.FluidConstants
@@ -521,6 +523,61 @@ class FluidDensityFromPressureAndTemperature:
         )
         rho.set_name("fluid_density_from_pressure_and_temperature")
         return rho
+
+
+class FluidMobility:
+    """Class for fluid mobility and its discretization in flow problems."""
+
+    fluid_viscosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the fluid viscosity. Normally provided by a mixin of
+    instance :class:`~porepy.models.VariableMixin`.
+
+    """
+    mobility_keyword: str
+    """Keyword for the discretization of the mobility. Normally provided by a mixin of
+    instance :class:`~porepy.models.SolutionStrategy`.
+
+    """
+
+    def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Mobility of the fluid flux.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the mobility.
+
+        """
+        return pp.ad.Scalar(1) / self.fluid_viscosity(subdomains)
+
+    def mobility_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Discretization:
+        """Discretization of the fluid mobility factor.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Discretization of the fluid mobility.
+
+        """
+        return pp.ad.UpwindAd(self.mobility_keyword, subdomains)
+
+    def interface_mobility_discretization(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Discretization:
+        """Discretization of the interface mobility.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Discretization for the interface mobility.
+
+        """
+        return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
 
 class ConstantViscosity:
@@ -664,16 +721,16 @@ class DarcysLaw:
 
     """
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Pressure variable. Normally defined in a mixin instance of 
+    """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    
+
     """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
-    """Darcy flux variables on interfaces. Normally defined in a mixin instance of 
+    """Darcy flux variables on interfaces. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    
+
     """
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the current model. Normally defined in a mixin
@@ -702,7 +759,7 @@ class DarcysLaw:
     """
     darcy_keyword: str
     """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
-    instance of 
+    instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
@@ -1039,21 +1096,21 @@ class FouriersLaw:
 
     """
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Temperature variable. Normally defined in a mixin instance of 
+    """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the current model. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-    
+
     """
     interface_fourier_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
-    """Fourier flux variable on interfaces. Normally defined in a mixin instance of 
+    """Fourier flux variable on interfaces. Normally defined in a mixin instance of
    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-    
+
     """
     bc_values_fourier_flux: Callable[[list[pp.Grid]], np.ndarray]
     """Fourier flux boundary conditions. Normally defined in a mixin instance of
@@ -1066,9 +1123,9 @@ class FouriersLaw:
     """
     fourier_keyword: str
     """Keyword used to identify the Fourier flux discretization. Normally set by a mixin
-    instance of 
+    instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
-    
+
     """
     wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str], pp.ad.Operator]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
@@ -1204,7 +1261,7 @@ class AdvectiveFlux:
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
-    """Darcy flux variables on interfaces. Normally defined in a mixin instance of 
+    """Darcy flux variables on interfaces. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
@@ -1349,9 +1406,9 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     """
 
     temperature: pp.ad.Operator
-    """Temperature variable. Normally defined in a mixin instance of 
+    """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-    
+
     """
 
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
@@ -1501,7 +1558,7 @@ class LinearElasticMechanicalStress:
     contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-    
+
     """
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
@@ -1611,23 +1668,23 @@ class PressureStress:
 
     """
     pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Pressure variable. Normally defined in a mixin instance of 
+    """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
     reference_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Reference pressure. Normally defined in a mixin instance of 
+    """Reference pressure. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
     outwards_internal_boundary_normals: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Outwards normal vectors on internal boundaries. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-    
+
     """
     stress_keyword: str
     """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of 
+    instance of
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
@@ -1731,14 +1788,14 @@ class ThermoPressureStress(PressureStress):
     """
 
     temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Temperature variable. Normally defined in a mixin instance of 
+    """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-    
+
     """
     reference_temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Reference temperature. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-    
+
     """
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Biot coefficient. Normally defined in a mixin instance of
@@ -1761,7 +1818,7 @@ class ThermoPressureStress(PressureStress):
     """
     stress_keyword: str
     """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of 
+    instance of
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
@@ -2096,7 +2153,7 @@ class PoroMechanicsPorosity:
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the current model. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-    
+
     """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
     """Function that returns a perturbation from reference state. Normally provided by
@@ -2114,15 +2171,15 @@ class PoroMechanicsPorosity:
     """
     stress_keyword: str
     """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of 
+    instance of
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-    
+
     """
     darcy_keyword: str
     """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
-    instance of 
+    instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-    
+
     """
     bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Mechanics boundary conditions. Normally defined in a mixin instance of
@@ -2257,7 +2314,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     """
     stress_keyword: str
     """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of 
+    instance of
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """

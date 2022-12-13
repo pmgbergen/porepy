@@ -41,8 +41,16 @@ class VariablesFluidMassAndEnergy(
 
 class ConstitutiveLawFluidMassAndEnergy(
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
-    energy.ConstitutiveLawsEnergyBalance,
-    mass.ConstitutiveLawsSinglePhaseFlow,
+    pp.constitutive_laws.EnthalpyFromTemperature,
+    pp.constitutive_laws.FouriersLaw,
+    pp.constitutive_laws.ThermalConductivityLTE,
+    pp.constitutive_laws.DimensionReduction,
+    pp.constitutive_laws.AdvectiveFlux,
+    pp.constitutive_laws.DarcysLaw,
+    pp.constitutive_laws.FluidMobility,
+    pp.constitutive_laws.ConstantPorosity,
+    pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.ConstantViscosity,
 ):
     """Combine fluid mass and energy balance constitutive laws.
 

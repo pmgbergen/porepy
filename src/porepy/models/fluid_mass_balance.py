@@ -178,6 +178,7 @@ class ConstitutiveLawsSinglePhaseFlow(
     pp.constitutive_laws.ConstantPermeability,
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
+    pp.constitutive_laws.FluidMobility,
 ):
     """Constitutive equations for single-phase flow.
 
@@ -194,37 +195,6 @@ class ConstitutiveLawsSinglePhaseFlow(
         compressibility
 
     """
-
-    def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Mobility of the fluid flux.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing the mobility.
-
-        """
-        return pp.ad.Scalar(1) / self.fluid_viscosity(subdomains)
-
-    def mobility_discretization(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Discretization:
-        return pp.ad.UpwindAd(self.mobility_keyword, subdomains)
-
-    def interface_mobility_discretization(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.Discretization:
-        """
-
-        Parameters:
-            interfaces: List of interface grids.
-
-        Returns:
-            Discretization for the interface mobility.
-
-        """
-        return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
 
 class BoundaryConditionsSinglePhaseFlow:
