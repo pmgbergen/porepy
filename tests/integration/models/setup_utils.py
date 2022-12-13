@@ -24,8 +24,11 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         elif num_fracs == 2:
             p = np.array([[0, 2, 0.5, 0.5], [0.5, 0.5, 0, 1]]) * ls
             e = np.array([[0, 2], [1, 3]])
+        elif num_fracs == 3:
+            p = np.array([[0, 2, 0.5, 0.5, 0.3, 0.7], [0.5, 0.5, 0, 1, 0.3, 0.7]]) * ls
+            e = np.array([[0, 2, 4], [1, 3, 5]])
         else:
-            raise ValueError("Only 0, 1 or 2 fractures supported.")
+            raise ValueError("Only up to 3 fractures supported.")
         self.fracture_network = pp.FractureNetwork2d(p, e, domain)
 
     def mesh_arguments(self) -> dict:
@@ -138,40 +141,57 @@ class Thermoporomechanics(
 
 
 def model(
-    model_type: str, num_fracs: int = 1
+    model_type: str, dim: int, num_fracs: int = 1
 ) -> MassBalance | MomentumBalance | MassAndEnergyBalance | Poromechanics:
     """Setup for tests."""
     # Suppress output for tests
     params = {"suppress_export": True, num_fracs: num_fracs}
 
-    ob: MassBalance | MomentumBalance | MassAndEnergyBalance | Poromechanics
+    # To define the model we comine a geometry with a physics class.
+    # First identify the two component classes from the user input, and then combine
+    # them in a new class.
 
-    # Choose model and create setup object
+    # Identify the geometry class
+    if dim == 2:
+        geometry = RectangularDomainOrthogonalFractures2d
+    elif dim == 3:
+        geometry = OrthogonalFractures3d
+    else:
+        raise ValueError(f"Unknown dimension {dim}")
+
+    # Identify the physics class
     if model_type == "mass_balance":
-        ob = MassBalance(params)
+        model_class = pp.fluid_mass_balance.SinglePhaseFlow
     elif model_type == "momentum_balance":
-        ob = MomentumBalance(params)
+        model_class = pp.momentum_balance.MomentumBalance
     elif model_type == "energy_balance" or model_type == "mass_and_energy_balance":
-        ob = MassAndEnergyBalance(params)
+        model_class = pp.mass_and_energy_balance.MassAndEnergyBalance
     elif model_type == "poromechanics":
-        ob = Poromechanics(params)
+        model_class = pp.poromechanics.Poromechanics
     elif model_type == "thermoporomechanics":
-        ob = Thermoporomechanics(params)
+        model_class = pp.thermoporomechanics.Thermoporomechanics
     else:
         # To add a new model, insert an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
 
+    # Combine the two classes
+    class Model(geometry, model_class):
+        pass
+
+    # Create an instance of the combined class
+    model = Model(params)
+
     # Prepare the simulation
     # (create grids, variables, equations, discretize, etc.)
-    ob.prepare_simulation()
-    return ob
+    model.prepare_simulation()
+    return model
 
 
 def domains_from_method_name(
     mdg: pp.MixedDimensionalGrid,
     method_name: str,
     domain_dimension: int,
-):
+) -> list[pp.Grid] | list[pp.MortarGrid]:
     """Return the domains to be tested for a given method.
 
     The method to be tested is assumed to take as input only its domain of definition,

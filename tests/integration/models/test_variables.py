@@ -37,7 +37,8 @@ from .setup_utils import model
 def test_parse_variables(model_type, variable_name, domain_inds):
     """Test that the ad parsing works as expected."""
     # Set up an object of the prescribed model
-    setup = model(model_type)
+    # Use dimension two and one fracture.
+    setup = model(model_type, dim=2, num_fracs=1)
     # Fetch the relevant method to get the variable from this model.
     variable = getattr(setup, variable_name)
     # Fetch the signature of the method.

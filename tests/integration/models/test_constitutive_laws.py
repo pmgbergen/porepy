@@ -18,7 +18,7 @@ from . import setup_utils
 
 
 @pytest.mark.parametrize(
-    "model_type,method_name,domain_dimension",
+    "model_type,method_name,only_codimension",
     [  # Fluid mass balance
         ("mass_balance", "bc_values_darcy_flux", None),
         ("mass_balance", "bc_values_mobrho", None),
@@ -37,8 +37,8 @@ from . import setup_utils
         # Momentum balance
         ("momentum_balance", "bc_values_mechanics", None),
         # The body force and stress are only meaningful in the top dimension
-        ("momentum_balance", "body_force", 2),
-        ("momentum_balance", "stress", 2),
+        ("momentum_balance", "body_force", 0),
+        ("momentum_balance", "stress", 0),
         ("momentum_balance", "solid_density", None),
         ("momentum_balance", "lame_lambda", None),
         ("momentum_balance", "shear_modulus", None),
@@ -63,19 +63,27 @@ from . import setup_utils
         ("energy_balance", "specific_volume", None),
         # Poromechanics
         ("poromechanics", "reference_porosity", None),
-        ("poromechanics", "biot_coefficient", 2),
-        ("poromechanics", "matrix_porosity", 2),
-        ("poromechanics", "porosity", 1),
+        ("poromechanics", "biot_coefficient", 0),
+        ("poromechanics", "matrix_porosity", 0),
         ("poromechanics", "porosity", None),
-        ("poromechanics", "pressure_stress", 2),
-        ("poromechanics", "stress", 2),
+        ("poromechanics", "pressure_stress", 0),
+        ("poromechanics", "stress", 0),
         ("poromechanics", "specific_volume", None),
         ("poromechanics", "aperture", None),
         ("poromechanics", "fracture_pressure_stress", 1),
     ],
 )
-@pytest.mark.parametrize("num_fracs", [0, 1, 2])
-def test_parse_constitutive_laws(model_type, method_name, domain_dimension, num_fracs):
+# Run the test for models with and without fractures. We skip the case of more than one
+# fracture, since it seems unlikely this will uncover any errors that will not be found
+# with the simpler setups. Activate more fractures if needed in debugging.
+@pytest.mark.parametrize(
+    "num_fracs", [0, 1, pytest.param([2, 3], marks=pytest.mark.skip)]
+)
+# By default we run only a 2d test. Activate 3d if needed in debugging.
+@pytest.mark.parametrize("domain_dim", [2, pytest.param(3, marks=pytest.mark.skip)])
+def test_parse_constitutive_laws(
+    model_type, method_name, only_codimension, num_fracs, domain_dim
+):
     """Test that the ad parsing of constitutive laws works as intended.
 
     The workflow in the test is as follows: An object of the prescribed model is
@@ -91,23 +99,41 @@ def test_parse_constitutive_laws(model_type, method_name, domain_dimension, num_
         model_type: Type of model to test. Currently supported are "mass_balance" and
             "momentum_balance". To add a new model, add a new class in setup_utils.py.
         method_name (str): Name of the method to test.
-        domain_inds (list of int): Indices of the domains for which the method
-            should be called. Some methods are only defined for a subset of
-            domains.
+        only_codimension (list of int): Indices of the domains for which the method
+            should be called. Some methods are only defined for a subset of domains. If
+            not specified (None), all subdomains or interfaces in the model will be
+            considered.
 
     """
-    if domain_dimension is not None:
-        if domain_dimension == 2 and num_fracs > 0:
+    if only_codimension is not None:
+        if only_codimension == 0 and num_fracs > 0:
+            # If the test is to be run on the top domain only, we need not consider
+            # models with fractures (note that since we iterate over num_fracs, the
+            # test will be run for num_fracs = 0, which is the top domain only)
             return
-        elif domain_dimension == 1 and num_fracs == 0:
+        elif only_codimension == 1 and num_fracs == 0:
+            # If the point of the test is to check the method on a fracture, we need
+            # not consider models without fractures.
             return
+        else:
+            # We will run the test, but only on the specified codimension.
+            dimensions_to_assemble = domain_dim - only_codimension
+    else:
+        # Test on subdomains or interfaces of all dimensions
+        dimensions_to_assemble = None
+
+    if domain_dim == 2 and num_fracs > 2:
+        # The 2d models are not defined for more than two fractures.
+        return
 
     # Set up an object of the prescribed model
-    setup = setup_utils.model(model_type, num_fracs=num_fracs)
+    setup = setup_utils.model(model_type, domain_dim, num_fracs=num_fracs)
     # Fetch the relevant method of this model and extract the domains for which it is
     # defined.
     method = getattr(setup, method_name)
-    domains = setup_utils.domains_from_method_name(setup.mdg, method, domain_dimension)
+    domains = setup_utils.domains_from_method_name(
+        setup.mdg, method, dimensions_to_assemble
+    )
 
     # Call the method with the domain as argument. An error here will indicate that
     # something is wrong with the way the method combines terms and factors (e.g., grids
