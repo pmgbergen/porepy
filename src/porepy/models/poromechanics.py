@@ -24,9 +24,18 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.BiotCoefficient,
     pp.constitutive_laws.PressureStress,
     pp.constitutive_laws.PoroMechanicsPorosity,
-    # Individual subproblems
-    mass.ConstitutiveLawsSinglePhaseFlow,
-    momentum.ConstitutiveLawsMomentumBalance,
+    # Fluid mass balance subproblem
+    pp.constitutive_laws.DarcysLaw,
+    pp.constitutive_laws.DimensionReduction,
+    pp.constitutive_laws.AdvectiveFlux,
+    pp.constitutive_laws.FluidMobility,
+    pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.FluidDensityFromPressure,
+    pp.constitutive_laws.ConstantViscosity,
+    # Mechanical subproblem
+    pp.constitutive_laws.LinearElasticSolid,
+    pp.constitutive_laws.FracturedSolid,
+    pp.constitutive_laws.FrictionBound,
 ):
     """Class for the coupling of mass and momentum balance to obtain poromechanics
     equations.
