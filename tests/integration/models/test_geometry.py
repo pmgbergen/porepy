@@ -350,9 +350,6 @@ def test_internal_boundary_normal_to_outwards(geometry_class: type[pp.ModelGeome
         offset += sd.num_faces * dim
 
 
-# test_internal_boundary_normal_to_outwards(geometry_list[2])
-
-
 @pytest.mark.parametrize("geometry_class", geometry_list)
 def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     """Test :meth:`pp.ModelGeometry.outwards_internal_boundary_normals`.
@@ -433,9 +430,6 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     nd_to_scalar_sum = sum([e.T for e in basis])
     inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
     assert np.allclose(inner_op.evaluate(eq_sys), inner_product)
-
-
-test_outwards_normals(geometry_list[2])
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
@@ -538,6 +532,3 @@ def test_basis_normal_tangential_components(
     )
 
     assert np.allclose((known_tangential_component - tangential_component).data, 0)
-
-
-# test_basis_normal_tangential_components(geometry_list[3])
