@@ -856,6 +856,7 @@ class Composition(abc.ABC):
         if method == "newton-min":
             success = self._Newton_min(subsystem)
         elif method == "npipm":
+            self._set_NPIPM_initial_guess()
             success = self._NPIPM(subsystem)
         else:
             raise ValueError(f"Unknown method {method}.")
@@ -1014,6 +1015,41 @@ class Composition(abc.ABC):
                     )
         else:
             raise ValueError(f"Unknown initial-guess-strategy {initial_guess}.")
+
+    def _set_NPIPM_initial_guess(self) -> None:
+        """Sets the initial guesses for ``V_e``, ``W_e`` and ``nu`` according to
+        Vu (2021), section 3.3."""
+        # initial guess for nu is constructed from V and W
+        V_mat: list[np.ndarray] = list()
+        W_mat: list[np.ndarray] = list()
+
+        for phase in self.phases:
+            # initial value for V_e
+            v_name = self._V_name + phase.name
+            val_v = phase.fraction.evaluate(self.ad_system.dof_manager).val
+            self.ad_system.set_var_values(v_name, val_v, True)
+            # initial value for W_e
+            w_name = self._W_name + phase.name
+            val_w = (
+                self.get_composition_unity_for(phase)
+                .evaluate(self.ad_system.dof_manager)
+                .val
+            )
+            self.ad_system.set_var_values(w_name, val_w, True)
+            # store value for initial guess for nu
+            V_mat.append(val_v)
+            W_mat.append(val_w)
+
+        # initial guess for nu is cell-wise scalar product between concatenated V and W
+        # for each phase
+        V = np.ndarray(V_mat)
+        W = np.ndarray(W_mat).T  # transpose to turn matrix product into scalar product
+        # the diagonal of the product of above returns the cell-wise scalar product
+        nu_mat = V * W
+        nu = np.diag(nu_mat)
+        nu = nu / self.num_phases
+
+        self.ad_system.set_var_values(self._nu_name, nu, True)
 
     def _Newton_min(
         self,
