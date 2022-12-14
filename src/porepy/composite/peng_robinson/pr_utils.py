@@ -2,6 +2,8 @@
 Peng-Robinson EoS."""
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 import porepy as pp
@@ -41,3 +43,17 @@ Z_CRIT: float = (
     1 / 32 * (11 + np.cbrt(16 * np.sqrt(2) - 13) - np.cbrt(16 * np.sqrt(2) + 13))
 )
 """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
+
+
+class Leaf(pp.ad.Operator):
+    """A leaf-operator returning an assigned value whenever it is parsed."""
+
+    def __init__(self, name: str = "") -> None:
+        super().__init__(name=name)
+
+        self.value: Any = 0.0
+        """The numerical value of this operator."""
+
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
+        """Returns the value assigned to this operator."""
+        self.value
