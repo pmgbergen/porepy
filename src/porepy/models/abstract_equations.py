@@ -25,9 +25,9 @@ class BalanceEquation:
     def balance_equation(
         self,
         subdomains: list[pp.Grid],
-        accumulation,
-        stress,
-        source,
+        accumulation: pp.ad.Operator,
+        stress: pp.ad.Operator,
+        source: pp.ad.Operator,
         dim: int,
     ) -> pp.ad.Operator:
         """Balance equation for a vector variable.

@@ -15,7 +15,7 @@ Notes:
 
 """
 
-from __future__ import annotations
+from __future__ import annotations, Callable
 
 import logging
 from typing import Optional
@@ -37,6 +37,27 @@ class MassBalanceEquations(pp.BalanceEquation):
 
     FIXME: Well equations? Low priority.
 
+    """
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """Darcy flux variable on interfaces. Normally defined in a mixin instance of 
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    
+    """
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
+
+    """
+    fluid_density: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
     """
 
     def set_equations(self):
@@ -71,7 +92,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid mass.
+        """The full conservation equation for fluid mass.
 
         This implementation assumes constant porosity and must be overridden for
         variable porosity. This has to do with wrapping of scalars as vectors or
@@ -83,6 +104,7 @@ class MassBalanceEquations(pp.BalanceEquation):
 
         Returns:
             Operator representing the fluid mass.
+
         """
 
         mass_density = self.fluid_density(subdomains) * self.porosity(subdomains)
