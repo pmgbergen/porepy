@@ -10,7 +10,7 @@ import abc
 import logging
 import time
 import warnings
-from typing import Any, Optional, Callable
+from typing import Any, Callable, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -26,34 +26,35 @@ class SolutionStrategy(abc.ABC):
 
     """
 
-    set_geometry: Callable[[None], None]
+    set_geometry: Callable[[], None]
     """Set the geometry of the model. Normally provided by a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
-    
+
     """
-    initialize_data_saving: Callable[[None], None]
+    initialize_data_saving: Callable[[], None]
     """Initialize data saving. Normally provided by a mixin instance of
     :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-    
+
     """
-    save_data_time_step: Callable[[None], None]
+    save_data_time_step: Callable[[], None]
     """Save data at a time step. Normally provided by a mixin instance of
     :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-    
+
     """
-    finalize_data_saving: Callable[[None], None]
+    finalize_data_saving: Callable[[], None]
     """Finalize data saving. Normally provided by a mixin instance of
     :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-    
+
     """
-    create_variables: Callable[[None], None]
+    create_variables: Callable[[], None]
     """Create variables. Normally provided by a mixin instance of a Variable class
     relevant to the model.
+
     """
-    set_equations: Callable[[None], None]
+    set_equations: Callable[[], None]
     """Set the governing equations of the model. Normally provided by the solution
     strategy of a specific model (i.e. a subclass of this class).
-    
+
     """
 
     def __init__(self, params: Optional[dict] = None):
@@ -90,22 +91,22 @@ class SolutionStrategy(abc.ABC):
         # Define attributes to be assigned later
         self.equation_system: pp.ad.EquationSystem
         """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
-        
+
         """
         self.mdg: pp.MixedDimensionalGrid
         """Mixed-dimensional grid. Will normally be set by a mixin instance of
         :class:`~porepy.models.geometry.ModelGeometry`.
-        
+
         """
         self.box: dict
         """Bounding box of the domain. Will normally be set by a mixin instance of
         :class:`~porepy.models.geometry.ModelGeometry`.
-        
+
         """
         self.linear_system: tuple[sps.spmatrix, np.ndarray]
         """The linear system to be solved in each iteration of the non-linear solver.
         The tuple contains the sparse matrix and the right hand side residual vector.
-        
+
         """
         self.exporter: pp.Exporter
         """Exporter for visualization."""
