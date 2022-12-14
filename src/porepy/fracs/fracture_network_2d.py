@@ -47,6 +47,8 @@ class FractureNetwork2d:
             double giving the range of the domain. If np.array, it should be of size
             2 x n, and given the vertexes of the domain. The fractures need not lay
             inside the domain.
+            TODO: The np.ndarray gives all kind of trouble with typing in other places.
+            Should be dropped.
         tol: Tolerance used in geometric computations.
 
     """
