@@ -5,7 +5,7 @@ Contains:
     - VariableMixin: Base class for variables.
 """
 
-from typing import Union, Callable, Sequence, Optional
+from typing import Callable, Optional, Sequence, Union
 
 import porepy as pp
 

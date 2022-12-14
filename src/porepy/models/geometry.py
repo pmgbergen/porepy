@@ -490,7 +490,7 @@ class ModelGeometry:
     def outwards_internal_boundary_normals(
         self,
         interfaces: list[pp.MortarGrid],
-        unitary: bool=False,
+        unitary: bool = False,
     ) -> pp.ad.Operator:
         """Compute outward normal vectors on internal boundaries.
 
