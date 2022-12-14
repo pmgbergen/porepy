@@ -10,7 +10,7 @@ import abc
 import logging
 import time
 import warnings
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional, Callable
 
 import numpy as np
 import scipy.sparse as sps
@@ -26,7 +26,37 @@ class SolutionStrategy(abc.ABC):
 
     """
 
-    def __init__(self, params: Optional[Dict] = None):
+    set_geometry: Callable[[None], None]
+    """Set the geometry of the model. Normally provided by a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+    
+    """
+    initialize_data_saving: Callable[[None], None]
+    """Initialize data saving. Normally provided by a mixin instance of
+    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
+    
+    """
+    save_data_time_step: Callable[[None], None]
+    """Save data at a time step. Normally provided by a mixin instance of
+    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
+    
+    """
+    finalize_data_saving: Callable[[None], None]
+    """Finalize data saving. Normally provided by a mixin instance of
+    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
+    
+    """
+    create_variables: Callable[[None], None]
+    """Create variables. Normally provided by a mixin instance of a Variable class
+    relevant to the model.
+    """
+    set_equations: Callable[[None], None]
+    """Set the governing equations of the model. Normally provided by the solution
+    strategy of a specific model (i.e. a subclass of this class).
+    
+    """
+
+    def __init__(self, params: Optional[dict] = None):
         """Initialize the solution strategy.
 
         Args:
@@ -36,12 +66,16 @@ class SolutionStrategy(abc.ABC):
         """
         if params is None:
             params = {}
+
+        # Set default parameters, these will be overwritten by any parameters passed.
         default_params = {
             "folder_name": "visualization",
             "file_name": "data",
             "linear_solver": "pypardiso",
         }
+
         default_params.update(params)
+
         self.params = default_params
         """Dictionary of parameters."""
 
@@ -55,19 +89,29 @@ class SolutionStrategy(abc.ABC):
 
         # Define attributes to be assigned later
         self.equation_system: pp.ad.EquationSystem
-        """Equation system manager."""
+        """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
+        
+        """
         self.mdg: pp.MixedDimensionalGrid
-        """Mixed-dimensional grid."""
+        """Mixed-dimensional grid. Will normally be set by a mixin instance of
+        :class:`~porepy.models.geometry.ModelGeometry`.
+        
+        """
         self.box: dict
-        """Bounding box of the domain."""
+        """Bounding box of the domain. Will normally be set by a mixin instance of
+        :class:`~porepy.models.geometry.ModelGeometry`.
+        
+        """
         self.linear_system: tuple[sps.spmatrix, np.ndarray]
         """The linear system to be solved in each iteration of the non-linear solver.
-        The tuple contains the sparse matrix and the right hand side residual vector."""
+        The tuple contains the sparse matrix and the right hand side residual vector.
+        
+        """
         self.exporter: pp.Exporter
         """Exporter for visualization."""
 
-        self.units = params.get("units", pp.Units())
-        """Units of the model."""
+        self.units: pp.Units = params.get("units", pp.Units())
+        """Units of the model. See also :meth:`set_units`."""
 
         self.time_manager = params.get(
             "time_manager",
@@ -121,25 +165,31 @@ class SolutionStrategy(abc.ABC):
     def set_materials(self):
         """Set material parameters.
 
-        In addition to adjusting the units (see ::method::set_units), materials
-        are defined through ::class::pp.Material and the constants passed when
-        initializing the materials. For most purposes, a user needs only pass the
-        desired parameter values in params["material_constants"] and should not
-        need to modify the material classes. However, if a user wishes to modify
-        to e.g. provide additional material parameters, this can be done by passing
-        modified material classes in params["fluid"] and params["solid"].
+        In addition to adjusting the units (see ::method::set_units), materials are
+        defined through ::class::pp.Material and the constants passed when initializing
+        the materials. For most purposes, a user needs only pass the desired parameter
+        values in params["material_constants"] when initializing a solution strategy,
+        and should not need to modify the material classes. However, if a user wishes to
+        modify to e.g. provide additional material parameters, this can be done by
+        passing modified material classes in params["fluid"] and params["solid"].
 
         """
         # Default values
         constants = {}
         constants.update(self.params.get("material_constants", {}))
+        # Use standard models for fluid and solid constants if not provided.
         if "fluid" not in constants:
             constants["fluid"] = pp.FluidConstants()
         if "solid" not in constants:
             constants["solid"] = pp.SolidConstants()
+
+        # Loop over all constants objects (fluid, solid), and set units.
         for name, const in constants.items():
+            # Check that the object is of the correct type
             assert isinstance(const, pp.models.material_constants.MaterialConstants)
+            # Impose the units passed to initialization of the model.
             const.set_units(self.units)
+            # This is where the constants (fluid, solid) are actually set as attributes
             setattr(self, name, const)
 
     def before_newton_loop(self) -> None:
@@ -153,6 +203,10 @@ class SolutionStrategy(abc.ABC):
     def discretize(self) -> None:
         """Discretize all terms."""
         tic = time.time()
+        # Do a discretization of the equations. More refined control of the
+        # discretization process can be achieved by exploiting knowledge of the equation
+        # system (e.g., which terms are linear and need not be discretized at every
+        # iteration).
         self.equation_system.discretize()
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
@@ -166,6 +220,7 @@ class SolutionStrategy(abc.ABC):
         self._nonlinear_iteration = 0
 
     def before_newton_iteration(self) -> None:
+        """Wrap for legacy reasons. Call :meth:`before_nonlinear_iteration` instead."""
         self.before_nonlinear_iteration()
 
     def before_nonlinear_iteration(self) -> None:
@@ -177,7 +232,14 @@ class SolutionStrategy(abc.ABC):
         pass
 
     def after_newton_iteration(self, solution_vector: np.ndarray):
-        """Wrap for legacy reasons."""
+        """Wrap for legacy reasons. Call :meth:`after_nonlinear_iteration` instead.
+
+        Parameters:
+            solution_vector: The new solution state, as computed by the non-linear
+                solver.
+
+        """
+        # TODO: Remove and call after_nonlinear_iteration directly.
         self.after_nonlinear_iteration(solution_vector)
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
@@ -187,7 +249,8 @@ class SolutionStrategy(abc.ABC):
         the current approximation etc.
 
         Parameters:
-            np.array: The new solution state, as computed by the non-linear solver.
+            solution_vector: The new solution state, as computed by the non-linear
+                solver.
 
         """
         self._nonlinear_iteration += 1
@@ -198,6 +261,15 @@ class SolutionStrategy(abc.ABC):
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
+        """Wrap for legacy reasons. Call :meth:`after_nonlinear_convergence` instead.
+
+        Parameters:
+            solution: The new solution state, as computed by the non-linear solver.
+            errors: The error in the solution, as computed by the non-linear solver.
+            iteration_counter: The number of iterations performed by the non-linear
+                solver.
+
+        """
         self.after_nonlinear_convergence(solution, errors, iteration_counter)
 
     def after_nonlinear_convergence(
@@ -208,7 +280,10 @@ class SolutionStrategy(abc.ABC):
         Possible usage is to distribute information on the solution, visualization, etc.
 
         Parameters:
-            np.array: The new solution state, as computed by the non-linear solver.
+            solution: The new solution state, as computed by the non-linear solver.
+            errors: The error in the solution, as computed by the non-linear solver.
+            iteration_counter: The number of iterations performed by the non-linear
+                solver.
 
         """
         solution = self.equation_system.get_variable_values(from_iterate=True)
@@ -221,11 +296,27 @@ class SolutionStrategy(abc.ABC):
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
+        """Method to be called if the non-linear solver fails to converge.
+
+        Parameters:
+            solution: The new solution state, as computed by the non-linear solver.
+            errors: The error in the solution, as computed by the non-linear solver.
+            iteration_counter: The number of iterations performed by the non-linear
+                solver.
+        """
         self.after_nonlinear_failure(solution, errors, iteration_counter)
 
     def after_nonlinear_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
+        """Method to be called if the non-linear solver fails to converge.
+
+        Parameters:
+            solution: The new solution state, as computed by the non-linear solver.
+            errors: The error in the solution, as computed by the non-linear solver.
+            iteration_counter: The number of iterations performed by the non-linear
+                solver.
+        """
         if self._is_nonlinear_problem():
             raise ValueError("Newton iterations did not converge")
         else:
@@ -240,29 +331,29 @@ class SolutionStrategy(abc.ABC):
         solution: np.ndarray,
         prev_solution: np.ndarray,
         init_solution: np.ndarray,
-        nl_params: Dict[str, Any],
-    ) -> Tuple[float, bool, bool]:
+        nl_params: dict[str, Any],
+    ) -> tuple[float, bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
-            solution (np.array): Newly obtained solution vector
-            prev_solution (np.array): Solution obtained in the previous non-linear
-                iteration.
-            init_solution (np.array): Solution obtained from the previous time-step.
-            nl_params (dict): Dictionary of parameters used for the convergence check.
+            solution: Newly obtained solution vector prev_solution: Solution obtained in
+            the previous non-linear iteration. init_solution: Solution obtained from the
+            previous time-step. nl_params: Dictionary of parameters used for the
+            convergence check.
                 Which items are required will depend on the convergence test to be
                 implemented.
 
         Returns:
-            float: Error, computed to the norm in question.
-            boolean: True if the solution is converged according to the test
-                implemented by this method.
-            boolean: True if the solution is diverged according to the test
-                implemented by this method.
+            The method returns the following tuple:
 
-        Raises: NotImplementedError if the problem is nonlinear and AD is not used.
-            Convergence criteria are more involved in this case, so we do not risk
-            providing a general method.
+            float:
+                Error, computed to the norm in question.
+            boolean:
+                True if the solution is converged according to the test implemented by
+                this method.
+            boolean:
+                True if the solution is diverged according to the test implemented by
+                this method.
 
         """
         if not self._is_nonlinear_problem():
@@ -293,12 +384,12 @@ class SolutionStrategy(abc.ABC):
         If Pardiso is not available, backup solvers will automatically be invoked in
         :meth:`solve_linear_system`.
 
-        Raises:
-            ValueError if the chosen solver is not among the three currently
-            supported, see linear_solve.
+        To use a custom solver in a model, override this method (and possibly
+        :meth:`solve_linear_system`).
 
-            To use a custom solver in a model, override this method (and possibly
-            :meth:`solve_linear_system`).
+        Raises:
+            ValueError if the chosen solver is not among the three currently supported,
+            see linear_solve.
 
         """
         solver = self.params["linear_solver"]
@@ -308,12 +399,10 @@ class SolutionStrategy(abc.ABC):
             raise ValueError(f"Unknown linear solver {solver}")
 
     def assemble_linear_system(self) -> None:
-        """Assemble the linearized system.
+        """Assemble the linearized system and store it in :attr:`linear_system`.
 
         The linear system is defined by the current state of the model.
 
-        Attributes:
-            linear_system is assigned.
         """
         t_0 = time.time()
         self.linear_system = self.equation_system.assemble()
@@ -326,6 +415,9 @@ class SolutionStrategy(abc.ABC):
         initialize_linear_solver of this model. Implemented options are
             - scipy.sparse.spsolve with and without call to umfpack
             - pypardiso.spsolve
+
+        See also:
+            :meth:`initialize_linear_solver`
 
         Returns:
             np.ndarray: Solution vector.
@@ -369,5 +461,10 @@ class SolutionStrategy(abc.ABC):
         return np.atleast_1d(x)
 
     def _is_nonlinear_problem(self) -> bool:
-        """Specifies whether the Model problem is nonlinear."""
+        """Specifies whether the Model problem is nonlinear.
+
+        Returns:
+            bool: True if the problem is nonlinear, False otherwise.
+
+        """
         return True
