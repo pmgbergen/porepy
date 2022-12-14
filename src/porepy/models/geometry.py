@@ -3,8 +3,7 @@
 """
 from __future__ import annotations
 
-import logging
-from typing import Optional, Sequence, Tuple, Union
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -25,9 +24,9 @@ class ModelGeometry:
     """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`"""
     box: dict[str, float]
     """Box-shaped domain. Set by the method :meth:`set_md_grid`
-    
-    FIXME: change to "domain"? 
-    
+
+    FIXME: change to "domain"?
+
     """
     nd: int
     """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
@@ -87,10 +86,14 @@ class ModelGeometry:
             self.mdg = pp.meshing.subdomains_to_mdg([[g]])
         else:
             self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-            self.box = self.fracture_network.domain
+            domain = self.fracture_network.domain
+            if isinstance(domain, dict):
+                self.box = domain
+            elif isinstance(domain, np.ndarray):
+                self.box = pp.geometry.bounding_box.from_points(domain)
 
     def subdomains_to_interfaces(
-        self, subdomains: list[pp.Grid], codims: Optional[list] = None
+        self, subdomains: list[pp.Grid], codims: Optional[list[int]] = None
     ) -> list[pp.MortarGrid]:
         """Interfaces neighbouring any of the subdomains.
 
@@ -204,7 +207,7 @@ class ModelGeometry:
         return ad_matrix
 
     def basis(
-        self, grids: Sequence[pp.GridLike], dim: int = None
+        self, grids: Sequence[pp.GridLike], dim: Optional[int] = None
     ) -> list[pp.ad.Matrix]:
         """Return a cell-wise basis for all subdomains.
 
@@ -228,7 +231,7 @@ class ModelGeometry:
         return basis
 
     def e_i(
-        self, grids: Sequence[pp.GridLike], i: int, dim: int = None
+        self, grids: Sequence[pp.GridLike], i: int, dim: Optional[int] = None
     ) -> pp.ad.Matrix:
         """Return a cell-wise basis function in a specified dimension.
 
@@ -487,7 +490,7 @@ class ModelGeometry:
     def outwards_internal_boundary_normals(
         self,
         interfaces: list[pp.MortarGrid],
-        unitary: Optional[bool] = False,
+        unitary: bool=False,
     ) -> pp.ad.Operator:
         """Compute outward normal vectors on internal boundaries.
 
