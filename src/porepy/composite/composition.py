@@ -159,6 +159,7 @@ class Composition(abc.ABC):
             "u": 1,
             "kappa": 0.4,
             "rho": 0.99,
+            "j_max": 20,
         }
         """A dictionary containing per parameter name (str, key) the respective
         parameter for the NPIPM.
@@ -259,6 +260,9 @@ class Composition(abc.ABC):
         This operator is instantiated during initialization.
 
         """
+        self._cc_eqn: list[str] = list()
+        """A list of names of equations representing semi-smooth complementary
+        conditions."""
 
     def __str__(self) -> str:
         """Returns string representation of the composition,
@@ -575,18 +579,23 @@ class Composition(abc.ABC):
             pT_subsystem["equations"].append(name)
             ph_subsystem["equations"].append(name)
 
-        ### Semi-smooth complementary conditions per phase
-        for phase in self.phases:
-            if phase == self.reference_phase:
-                continue
-            name = f"{self._complementary}_{phase.name}"
-            constraint, lagrange = self.get_complementary_condition_for(phase)
+            # store name for it to be excluded in NPIPM
+            self._cc_eqn.append(name)
 
-            # instantiate semi-smooth min in AD form with skewing factor
-            equation = self._ss_min(constraint, lagrange)
-            equations.update({name: equation})
-            pT_subsystem["equations"].append(name)
-            ph_subsystem["equations"].append(name)
+        ### Semi-smooth complementary conditions per phase, besides ref phase
+        for phase in self.phases:
+            if phase != self.reference_phase:
+                name = f"{self._complementary}_{phase.name}"
+                constraint, lagrange = self.get_complementary_condition_for(phase)
+
+                # instantiate semi-smooth min in AD form with skewing factor
+                equation = self._ss_min(constraint, lagrange)
+                equations.update({name: equation})
+                pT_subsystem["equations"].append(name)
+                ph_subsystem["equations"].append(name)
+
+                # store name for it to be excluded in NPIPM
+                self._cc_eqn.append(name)
 
         ### enthalpy constraint for p-H flash
         equation = self.get_enthalpy_constraint(True)
@@ -1042,14 +1051,92 @@ class Composition(abc.ABC):
 
         # initial guess for nu is cell-wise scalar product between concatenated V and W
         # for each phase
-        V = np.ndarray(V_mat)
-        W = np.ndarray(W_mat).T  # transpose to turn matrix product into scalar product
+        V = np.ndarray(V_mat).T  # num_cells X num_phases
+        W = np.ndarray(W_mat)  # num_phases X num_cells
         # the diagonal of the product of above returns the cell-wise scalar product
+        # TODO can this be optimized using a for loop over diagonal elements of product?
         nu_mat = V * W
         nu = np.diag(nu_mat)
         nu = nu / self.num_phases
 
         self.ad_system.set_var_values(self._nu_name, nu, True)
+
+    def _Armijo_line_search(
+        self, DX: np.ndarray, equations: list[str], variables: list[str]
+    ) -> float:
+        """Performs the Armijo line-search for a given system of equations, variables
+        and a preliminary update, using the least-square potential.
+
+        By default, the values stored as ``ITERATE`` are used for evaluation.
+
+        Parameters:
+            DX: Preliminary update to solution vector.
+            equations: Names of equations in system for which the search is requested.
+            var_names: Names of variables in the system.
+
+        Raises:
+            RuntimeError: If line-search in defined interval does not yield any results.
+
+        Returns:
+            The step-size resulting from the line-search algorithm.
+
+        """
+        # get relevant parameters
+        kappa = self.npipm_parameters["kappa"]
+        rho = self.npipm_parameters["rho"]
+        j_max = self.npipm_parameters["j_max"]
+
+        # get starting point from current ITERATE state at iteration k
+        _, b_k = self.ad_system.assemble_subsystem(equations, variables)
+        b_k_pot = np.dot(b_k, b_k) / 2  # -b0 since above method returns rhs
+        X_k = self.ad_system.dof_manager.assemble_variable(from_iterate=True)
+
+        _, b_1 = self.ad_system.assemble_subsystem(
+            equations, variables, state=(X_k + rho * DX)
+        )
+        # start with first step size. If sufficient, return rho
+        if np.dot(b_1, b_1) <= (1 - 2 * kappa * rho) * b_k_pot:
+            return rho
+        else:
+            # if maximal line-search interval defined, use for-loop
+            if j_max:
+                for j in range(2, j_max + 1):
+                    # new step-size
+                    rho_j = rho**j
+
+                    # compute system state at preliminary step-size
+                    _, b_j = self.ad_system.assemble_subsystem(
+                        equations, variables, state=(X_k + rho_j * DX)
+                    )
+
+                    # check potential and return if reduced.
+                    if np.dot(b_j, b_j) <= (1 - 2 * kappa * rho_j) * b_k_pot:
+                        return rho_j
+
+                # if for-loop did not yield any results, raise error
+                raise RuntimeError(
+                    f"Armijo line-search did not yield results after {j_max} steps."
+                )
+            # if no j_max is defined, use while loop
+            # NOTE: If system is wrong in some sense, this might possible never finish.
+            else:
+                # prepare for while loop
+                rho_j = rho * rho
+                # compute system state at preliminary step-size
+                _, b_j = self.ad_system.assemble_subsystem(
+                    equations, variables, state=(X_k + rho_j * DX)
+                )
+
+                # while potential not decreasing, compute next step-size
+                while np.dot(b_j, b_j) > (1 - 2 * kappa * rho_j) * b_k_pot:
+                    # next power of step-size
+                    rho_j *= rho
+                    _, b_j = self.ad_system.assemble_subsystem(
+                        equations, variables, state=(X_k + rho_j * DX)
+                    )
+                # if potential decreases, return step-size
+                else:
+                    return rho_j
 
     def _Newton_min(
         self,
@@ -1125,6 +1212,10 @@ class Composition(abc.ABC):
         """Performs a non-parametric interior point algorithm to find the solution
         inside the compositional space.
 
+        Includes an Armijo line-search to find a descending step size.
+
+        Root-finding is still performed using Newton, with semi-smooth parts.
+
         Parameters:
             subsystem: Specially structured dict containing equation and variable names.
 
@@ -1136,7 +1227,56 @@ class Composition(abc.ABC):
         # adding the algorithmic variables
         var_names = subsystem["primary_vars"] + self._npipm_vars
         # adding the additional equations for the NPIPM
-        equations = subsystem["equations"] + self._npipm_equations
+        equations: list[str] = subsystem["equations"] + self._npipm_equations
+        # removing semi-smooth CC, which are not part of the NPIPM system
+        for name in self._cc_eqn:
+            equations.remove(name)
+
+        # assemble linear system of eq for semi-smooth subsystem
+        A, b = self.ad_system.assemble_subsystem(equations, var_names)
+
+        # if residual is already small enough
+        if np.linalg.norm(b) <= self.flash_tolerance:
+            success = True
+            iter_final = 0
+        else:
+            # column slicing to relevant variables
+            prolongation = self.ad_system.dof_manager.projection_to(
+                var_names
+            ).transpose()
+
+            for i in range(self.max_iter_flash):
+
+                # solve iteration and add to ITERATE state additively
+                dx = sps.linalg.spsolve(A, b)
+                DX = prolongation * dx
+                # get step size using Armijo line search
+                step_size = self._Armijo_line_search(DX, equations, var_names)
+
+                self.ad_system.dof_manager.distribute_variable(
+                    step_size * DX,
+                    variables=var_names,
+                    additive=True,
+                    to_iterate=True,
+                )
+                # counting necessary number of iterations
+                iter_final = i + 1  # shift since range() starts with zero
+                A, b = self.ad_system.assemble_subsystem(equations, var_names)
+
+                # in case of convergence
+                if np.linalg.norm(b) <= self.flash_tolerance:
+                    success = True
+                    break
+
+        # append history entry
+        self._history_entry(
+            flash="isenthalpic" if self.T_name in var_names else "isothermal",
+            method="npipm",
+            iterations=iter_final,
+            success=success,
+            variables=var_names,
+            equations=equations,
+        )
 
         return success
 
