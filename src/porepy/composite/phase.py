@@ -25,8 +25,8 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     """Abstract base class for phases in a multiphase multicomponent mixture.
 
     The term 'phase' includes both, states of matter and general fields.
-    A phase is identified by the (time-dependent) region/volume it occupies and a
-    respective velocity field (or flux) in that region.
+    A phase is identified by the (time-dependent) region/volume it occupies (saturation)
+    and the (molar) fraction of mass belonging to this phase.
 
     Phases have physical properties,
     dependent on the thermodynamic state and the composition.
@@ -43,6 +43,12 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     A Phase class with name ``X`` can only be present once in a system.
     Ambiguities must be avoided due to central storage of the fractional values in the
     grid data dictionaries.
+
+    Note:
+        The variables representing saturation and molar fraction of a phase are created
+        and their value is set to zero.
+        The :class:`~porepy.composite.composition.Composition` and its flash methods are
+        supposed to be used to calculate valid values for a given thermodynamic state.
 
     Parameters:
         ad_system: AD system in which this phase is present cell-wise in each subdomain.
@@ -62,22 +68,24 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
         #### PRIVATE
         self._name = name
-        self._present_components: list[Component] = list()
+        """Name given to the phase at instantiation."""
 
-        # Instantiate saturation and molar phase fraction (secondary variables)
+        self._composition: dict[Component, pp.ad.MergedVariable] = dict()
+        """A dictionary containing the composition variable (value) for each
+        added/modelled component in this phase."""
+
         self._s: pp.ad.MergedVariable = ad_system.create_variable(self.saturation_name)
+        """Saturation Variable in AD form."""
+
         self._fraction: pp.ad.MergedVariable = ad_system.create_variable(
             self.fraction_name
         )
+        """Molar fraction variable in AD form."""
 
+        # Set values for fractions of phase
         nc = ad_system.dof_manager.mdg.num_subdomain_cells()
         ad_system.set_var_values(self.saturation_name, np.zeros(nc), True)
         ad_system.set_var_values(self.fraction_name, np.zeros(nc), True)
-
-        # contains extended fractional values per present component name (key)
-        self._ext_composition: dict[Component, pp.ad.MergedVariable] = dict()
-        # contains regular fractional values per present component name (key)
-        self._composition: dict[Component, pp.ad.MergedVariable] = dict()
 
     def __iter__(self) -> Generator[Component, None, None]:
         """Generator over components present in this phase.
@@ -92,8 +100,8 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             Components present in this phase.
 
         """
-        for substance in self._present_components:
-            yield substance
+        for component in self._composition:
+            yield component
 
     @property
     def name(self) -> str:
@@ -103,7 +111,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     @property
     def num_components(self) -> int:
         """Number of added components."""
-        return len(self._present_components)
+        return len(self._composition)
 
     @property
     def saturation_name(self) -> str:
@@ -163,8 +171,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Phys. Dimension:        [-] fractional
 
         If a phase is present (phase fraction is strictly positive),
-        the extended component
-        fraction (this one) coincides with the regular component fraction.
+        the component fraction (this one) has physical meaning.
 
         If a phase vanishes (phase fraction is zero),
         the extended fractions represent non-physical values at equilibrium.
@@ -172,7 +179,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
         In the case of a vanished phase, the regular phase composition is obtained by
         re-normalizing the extended phase composition,
-        i.e. the normalized component fractions fulfil unity.
+        see :meth:`normalized_fraction_of_component`.
 
         Parameters:
             component: A component present in this phase.
@@ -185,55 +192,40 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             Returns always zero if a component is not modelled (added) to this phase.
 
         """
-        if component in self._ext_composition:
-            return self._ext_composition[component]
+        if component in self._composition:
+            return self._composition[component]
         else:
             return pp.ad.Scalar(0.0)
 
-    def normalized_fraction_of_component_name(self, component: Component) -> str:
-        """
-        Parameters:
-            component: Component for which the respective name is requested.
-
-        Returns:
-            Name of the respective variable, given by the general symbol, the
-            component name and the phase name.
-
-        """
-        return (
-            f"{VARIABLE_SYMBOLS['normalized_phase_composition']}_"
-            f"{component.name}_{self.name}"
-        )
-
     def normalized_fraction_of_component(
         self, component: Component
-    ) -> pp.ad.MergedVariable | pp.ad.Scalar:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-] fractional
+    ) -> pp.ad.Operator | pp.ad.Scalar:
+        """Performs a normalization of the component fraction by dividing it through
+        the sum of the phase composition.
 
         If a phase is present (phase fraction is strictly positive),
-        the regular component fraction (this one) coincides with the
-        extended component fraction.
+        the normalized component fraction coincides with the component fraction due to
+        the sum of the phase composition fulfilling unity.
 
-        If a phase vanishes (phase fraction is zero),
-        the regular component fraction is obtained by re-normalizing the
-        extended component fraction.
+        If a phase vanishes (phase fraction is zero), the normalized fraction has
+        no physical meaning but fulfils unity, contrary to the (extended) fraction.
 
         Parameters:
             component: A component present in this phase.
 
         Returns:
-            Normalized molar fraction of a component in this phase,
-            a secondary variable on the whole domain (cell-wise).
+            Normalized molar fraction of a component in this phase in AD operator form.
 
-            Indicates how many of the moles in this phase belong to the component.
-
-            Returns always zero if a component is not modelled (added) to this phase.
+            Returns always zero (wrapped in AD) if a component is not modelled
+            (added) to this phase.
 
         """
-        if component in self._ext_composition:
-            return self._composition[component]
+        if component in self._composition:
+            fraction_sum = list()
+            for comp in self:
+                fraction_sum.append(self.fraction_of_component(comp))
+            # normalization by division through fraction sum
+            return self.fraction_of_component(comp) / sum(fraction_sum)
         else:
             return pp.ad.Scalar(0.0)
 
@@ -259,7 +251,6 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         """
         if isinstance(component, Component):
             component = [component]  # type: ignore
-        present_components = [ps.name for ps in self._present_components]
 
         for comp in component:
             # sanity check when using the AD framework
@@ -268,24 +259,18 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
                     f"Component '{comp.name}' instantiated with a different AD system."
                 )
             # skip already present components:
-            if comp.name in present_components:
+            if comp.name in self._composition:
                 continue
 
             # create compositional variables for the component in this phase
-            ext_fraction_name = self.fraction_of_component_name(comp)
-            fraction_name = self.normalized_fraction_of_component_name(comp)
-            ext_comp_fraction = self.ad_system.create_variable(ext_fraction_name)
+            fraction_name = self.fraction_of_component_name(comp)
             comp_fraction = self.ad_system.create_variable(fraction_name)
 
             # set fractional values to zero
             nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
-            self.ad_system.set_var_values(ext_fraction_name, np.zeros(nc), True)
             self.ad_system.set_var_values(fraction_name, np.zeros(nc), True)
 
-            # store reference to present substance
-            self._present_components.append(comp)
             # store the compositional variable
-            self._ext_composition.update({comp: ext_comp_fraction})
             self._composition.update({comp: comp_fraction})
 
     ### Physical properties ------------------------------------------------------------
@@ -310,7 +295,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         weight = 0.0
         # add the mass-weighted fraction for each present substance.
         # if no components are present, the weight is zero!
-        for component in self._present_components:
+        for component in self._composition:
             weight += component.molar_mass() * self._composition[component]
 
         # Multiply the mass weight with the molar density and return the operator

@@ -258,10 +258,3 @@ class SimpleComposition(Composition):
             name = G.fraction_of_component_name(C)
             print(name, self.ad_system.get_var_values(name, from_iterate))
         print("---")
-        for C in self.components:
-            name = L.normalized_fraction_of_component_name(C)
-            print(name, self.ad_system.get_var_values(name, from_iterate))
-        for C in self.components:
-            name = G.normalized_fraction_of_component_name(C)
-            print(name, self.ad_system.get_var_values(name, from_iterate))
-        print("---")
