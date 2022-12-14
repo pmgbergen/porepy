@@ -1,9 +1,10 @@
 """Module contains various functions to find overlaps between grid cells.
 
 The module is primarily intended used for replacing individual grids in the
-MixedDimensionalGrid, should be done via the MixedDimensionalGrid method
-replace_grids(). That is, the methods herein should as a rule not be
-invoked directly.
+MixedDimensionalGrid. It is called mostly inside
+:class:`~porepy.grids.mortar_grid.MortarGrid`.
+That is, the methods herein should as a rule not be invoked directly.
+
 """
 import logging
 from typing import Optional
@@ -24,31 +25,32 @@ def match_1d(
     old_g: pp.Grid,
     tol: float,
     scaling: Optional[Literal["averaged", "integrated"]] = None,
-) -> sps.spmatrix:
+) -> sps.csr_matrix:
     """Obtain mappings between the cells of non-matching 1d grids.
 
     The overlaps are identified as a sparse matrix which maps from cells in the old to
     the new grid.
 
-    It is assumed that the two grids are aligned, with common start and
-    endpoints.
+    It is assumed that the two grids are aligned, with common start and endpoints.
 
-    Args:
-        new_g (pp.Grid). Target grid for the mapping. Should have dimension 1.
-        old_g (pp.Grid). Original grid. Should have dimension 1.
-        tol (float): Tolerance used to filter away false overlaps caused by
+    Parameters:
+        new_g: Target grid for the mapping. Should have dimension 1.
+        old_g: Original grid. Should have dimension 1.
+        tol: Tolerance used to filter away false overlaps caused by
              numerical errors. Should be scaled relative to the cell size.
-        scaling (str, optional): Control weights of the returned matrix, see return
+        scaling (optional): Control weights of the returned matrix, see return
             values for specification.
 
     Returns:
-        sps.spmatrix: Mapping from the cells in the old to the new grid. The values in
-            the matrix depend on the parameter scaling: If set to 'averaged', a mapping
-            fit for intensive quantities (e.g., pressure) is returned (all rows sum to
-            unity). If set to 'integrated', the matrix is a mapping for extensive
-            quantities (column sum is 1). If not provided, the matrix elements are 1
-            for cell-pairs (new and old grid) that overlap; overlaps with areas less
-            than the parameter tol will be ignored.
+        Mapping from the cells in the old to the new grid.
+        The values in the matrix depend on the parameter ``scaling``.
+        If set to 'averaged', a mapping fit for intensive quantities
+        (e.g., pressure) is returned (all rows sum to unity).
+        If set to 'integrated', the matrix is a mapping for extensive
+        quantities (column sum is 1).
+        If not provided, the matrix elements are 1 for cell-pairs (new and old grid)
+        that overlap; overlaps with areas less
+        than the parameter tol will be ignored.
 
     """
     # Cell-node relation between grids - we know there are two nodes per cell
@@ -106,7 +108,7 @@ def match_2d(
     old_g: pp.Grid,
     tol: float,
     scaling: Optional[Literal["averaged", "integrated"]] = None,
-) -> sps.spmatrix:
+) -> sps.csr_matrix:
     """Match two simplex tesselations to identify overlapping cells.
 
     The overlaps are identified as a sparse matrix which maps from cells in the old to
@@ -115,27 +117,30 @@ def match_2d(
     It is assumed that the two grids are aligned, with common start and
     endpoints.
 
-    Args:
-        new_g (pp.Grid). Target grid for the mapping. Should have dimension 1.
-        old_g (pp.Grid). Original grid. Should have dimension 1.
-        tol (float): Tolerance used to filter away false overlaps caused by
+    Parameters:
+        new_g: Target grid for the mapping. Should have dimension 2.
+        old_g: Original grid. Should have dimension 2.
+        tol: Tolerance used to filter away false overlaps caused by
              numerical errors. Should be scaled relative to the cell size.
-        scaling (str, optional): Control weights of the returned matrix, see return
+        scaling (optional): Control weights of the returned matrix, see return
             values for specification.
 
     Returns:
-        sps.spmatrix: Mapping from the cells in the old to the new grid. The values in
-            the matrix depends on the parameter scaling: If set to 'averaged', a mapping
-            fit for intensive quantities (e.g., pressure) is returned (all rows sum to
-            unity). If set to 'integrated', the matrix is a mapping for extensive
-            quantities (column sum is 1). If not provided, the matrix elements are 1
-            for cell-pairs (new and old grid) that overlap; overlaps with areas less
-            than the parameter tol will be ignored.
+        Mapping from the cells in the old to the new grid. The values in
+        the matrix depends on the parameter scaling: If set to 'averaged', a mapping
+        fit for intensive quantities (e.g., pressure) is returned (all rows sum to
+        unity). If set to 'integrated', the matrix is a mapping for extensive
+        quantities (column sum is 1). If not provided, the matrix elements are 1
+        for cell-pairs (new and old grid) that overlap; overlaps with areas less
+        than the parameter tol will be ignored.
 
     """
 
     def proj_pts(p, center, normal):
-        """Project points to the 2d plane defined by normal and center them around center"""
+        """Project points to the 2d plane defined by normal and center them around
+        center.
+
+        """
         rot = pp.map_geometry.project_plane_matrix(p - center, normal)
         return rot.dot(p - center)[:2]
 
@@ -216,26 +221,28 @@ def match_grids_along_1d_mortar(
     tol: float,
     scaling: Literal["averaged", "integrated"],
 ) -> sps.csr_matrix:
-    """Match the faces of two 2d grids along a 1d mortar grid.
+    """Match the faces of two 2D grids along a 1D mortar grid.
 
-    The function identifies faces on the 1d segment specified by the MortarGrid, and
+    The function identifies faces on the 1D segment specified by the MortarGrid, and
     finds the area weights of the matched faces. Both sides of the mortar grid are taken
     care of.
 
-    Args:
-        mg (pp.MortarGrid): MortarGrid that specifies the target 1d line. Must be of
-            dimension 1.
-        g_new (pp.Grid): New 2d grid. Should have faces split along the 1d line.
-            Dimension 2.
-        g_old (pp.Grid): Old 2d grid. Dimension 2. The mappings in mg from mortar to
+    Note:
+        The returned matrix can be used to update
+        :attr:`porepy.grids.mortar_grid.MortarGrid._primary_to_mortar_int`
+        by right multiplication.
+
+    Parameters:
+        mg: MortarGrid that specifies the target 1D line. Must be of dimension 1.
+        g_new: New 2D grid. Should have faces split along the 1D line.
+        g_old: Old 2D grid. The mappings in mg from mortar to
             primary should be set for this grid.
-        tol (double): Tolerance used in comparison of geometric quantities.
-        scaling (str, optional): Control weights of the returned matrix, see return
+        tol: Tolerance used in comparison of geometric quantities.
+        scaling: Control weights of the returned matrix, see return
             values for specification.
 
     Returns:
-        sps.csr_matrix: Matrix that can be used to update mg._primary_to_mortar_int by
-            right multiplication; essentially a mapping from the new to the old grid.
+        Mapping from the new to the old grid.
 
     Raises:
         ValueError: If the matching procedure goes wrong.
@@ -354,7 +361,8 @@ def match_grids_along_1d_mortar(
     # Find cells in 2d close to the segment
     bound_cells_old = cells_from_faces(g_old, faces_on_boundary_old)
     # This may occur if the mortar grid is one sided (T-intersection)
-    #    assert bound_cells_old.size > 1, 'Have not implemented this. Not difficult though'
+    #    assert bound_cells_old.size > 1,
+    #    'Have not implemented this. Not difficult though'
     # Vector from midpoint to cell centers. Check which side the cells are on
     # relative to normal vector.
     # We are here assuming that the segment is not too curved (due to rounding
@@ -401,7 +409,8 @@ def match_grids_along_1d_mortar(
 
     # Cells along the segment, from the new grid
     bound_cells_new = cells_from_faces(g_new, faces_on_boundary_new)
-    #    assert bound_cells_new.size > 1, 'Have not implemented this. Not difficult though'
+    #    assert bound_cells_new.size > 1,
+    #    'Have not implemented this. Not difficult though'
     cc_new = g_new.cell_centers[:, bound_cells_new]
     side_new = np.sign(np.sum(((cc_new - mp) * normal), axis=0))
 
@@ -486,8 +495,8 @@ def mdg_refinement(
     mdg: pp.MixedDimensionalGrid,
     mdg_ref: pp.MixedDimensionalGrid,
     tol: float = 1e-8,
-    mode: str = "nested",
-):
+    mode: Literal["nested"] = "nested",
+) -> None:
     """Wrapper for coarse_fine_cell_mapping to construct mapping for grids in
     MixedDimensionalGrid.
 
@@ -497,20 +506,18 @@ def mdg_refinement(
     Currently, only nested refinement is supported; more general cases are also
     possible.
 
-    Note: No node prop is added to the reference grids in mdg_ref.
+    Acknowledgement:
+        The code was contributed by Haakon Ervik.
 
-    Parameters
-    ----------
-    mdg : pp.MixedDimensionalGrid
-        Coarse mixed-dimensional grid
-    mdg_ref : pp.MixedDimensionalGrid
-        Refined mixed-dimensional grid
-    tol : float, Optional
-        Tolerance for point_in_poly* -methods
-    mode : str, Optional
-        Refinement mode. Defaults to 'nested', corresponds to refinement by splitting.
+    Note:
+        No node prop is added to the reference grids in mdg_ref.
 
-    Acknowledgement: The code was contributed by Haakon Ervik.
+    Parameters:
+        mdg: Coarse mixed-dimensional grid.
+        mdg_ref: Refined mixed-dimensional grid.
+        tol (optional): Tolerance for point_in_poly* -methods
+        mode (optional): Refinement mode. Defaults to 'nested',
+            corresponds to refinement by splitting.
 
     """
 
@@ -540,63 +547,59 @@ def mdg_refinement(
 
 
 def structured_refinement(
-    g: pp.Grid, g_ref: pp.Grid, point_in_poly_tol=1e-8
+    g: pp.Grid, g_ref: pp.Grid, point_in_poly_tol: float = 1e-8
 ) -> sps.csc_matrix:
-    """Construct a mapping between cells of a grid and its refined version
+    """Construct a mapping between cells of a grid and its refined version.
 
     Assuming a regular and a refined mesh, where the refinement is executed by
     splitting.
     I.e. a cell in the refined grid is completely contained within a cell in the
     coarse grid.
 
-    Parameters
-    ----------
-    g : pp.Grid
-        Coarse grid
-    g_ref : pp.Grid
-        Refined grid
-    point_in_poly_tol : float, Optional
-        Tolerance for pp.geometry_property_checks.point_in_polyhedron()
+    Acknowledgement:
+        The code was contributed by Haakon Ervik.
 
-    Returns
-    -------
-    coarse_fine : sps.csc_matrix
+    Parameters:
+        g: Coarse grid.
+        g_ref: Refined grid.
+        point_in_poly_tol (optional): Tolerance for
+            :func:`~porepy.geometry_property_checks.point_in_polyhedron`.
+            Default is 1e-8.
+
+    Returns:
         Column major sparse matrix mapping from coarse to fine cells.
 
-
-    This method creates a mapping from fine to coarse cells by creating a matrix 'M'
-    where the rows represent the fine cells while the columns represent the coarse
-    cells. In practice this means that for an array 'p', of known values on a coarse
-    grid, by applying the mapping
-        q = M * p
-    each value in a coarse cell will now be transferred to all the fine cells contained
-    within the coarse cell.
-
-    The procedure for creating this mapping relies on two main assumptions.
-        1. Each fine cell is fully contained inside exactly one coarse cell.
-        2. Each cell can be characterised as a simplex.
-            - i.e. Every node except one defines every face of the object.
-
-    The first assumption implies that the problem of assessing if a fine cell is
-    contained within a coarse cell is reduced to assessing if the center of a fine cell
-    is contained within the coarse cell.
-
-    The second assumption implies that a cell in any dimension (1D, 2D, 3D) will be a
-    convex object. This way, we can use existing algorithms in PorePy to find if a point
-    is inside a polygon (2D) or polyhedron (3D). (The 1D case is trivial)
-
-    The general algorithm is as follows (refer to start of for-loop in the code):
-    1. Make a list of (pointers to) untested cell centers called 'test_cells_ptr'.
-    2. Iterate through all coarse cells. Now, consider one of these:
-    3. For all untested cell centers (defined by 'test_cells_ptr'), check if they are
-        inside the coarse cell.
-    4. Those that pass (is inside the coarse cell) add to the mapping, then remove those
-        point from the list of untested cell centers.
-    5. Assemble the mapping.
-
-    Acknowledgement: The code was contributed by Haakon Ervik.
-
     """
+    # This method creates a mapping from fine to coarse cells by creating a matrix 'M'
+    # where the rows represent the fine cells while the columns represent the coarse
+    # cells. In practice this means that for an array 'p', of known values on a coarse
+    # grid, by applying the mapping
+    #     q = M * p
+    # each value in a coarse cell will now be transferred to all the fine cells
+    # contained within the coarse cell.
+
+    # The procedure for creating this mapping relies on two main assumptions.
+    #     1. Each fine cell is fully contained inside exactly one coarse cell.
+    #     2. Each cell can be characterised as a simplex.
+    #         I.e. Every node except one defines every face of the object.
+
+    # The first assumption implies that the problem of assessing if a fine cell is
+    # contained within a coarse cell is reduced to assessing if the center of a fine
+    # cell is contained within the coarse cell.
+
+    # The second assumption implies that a cell in any dimension (1D, 2D, 3D) will be
+    # a convex object. This way, we can use existing algorithms in PorePy to find if
+    # a point is inside a polygon (2D) or polyhedron (3D). (The 1D case is trivial)
+
+    # The general algorithm is as follows (refer to start of for-loop in the code):
+    # 1. Make a list of (pointers to) untested cell centers called 'test_cells_ptr'.
+    # 2. Iterate through all coarse cells. Now, consider one of these:
+    # 3. For all untested cell centers (defined by 'test_cells_ptr'), check if they
+    #     are inside the coarse cell.
+    # 4. Those that pass (is inside the coarse cell) add to the mapping, then remove
+    #     those point from the list of untested cell centers.
+    # 5. Assemble the mapping.
+
     if g.dim == 0:
         mapping = sps.csc_matrix((np.ones(1), ([0], [0])))
         return mapping
@@ -679,7 +682,7 @@ def structured_refinement(
             )
 
         else:
-            logger.warning(f"A grid of dimension {g.dim} encountered. Skip!")
+            logger.warning("A grid of dimension %d encountered. Skip!", g.dim)
             continue
 
         # 6. Step: Update pointer to which cell centers to use as test points
