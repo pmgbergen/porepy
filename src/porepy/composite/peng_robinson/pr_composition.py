@@ -14,7 +14,7 @@ This framework is highly non-linear and active research code.
 """
 from __future__ import annotations
 
-from typing import Callable, Generator, Optional
+from typing import Callable, Generator, Literal, Optional
 
 import numpy as np
 
@@ -220,6 +220,78 @@ class PR_Composition(Composition):
     def B(self) -> pp.ad.Operator:
         """An operator representing ``B`` in the characteristic polynomial of the EoS."""
         return (self.covolume * self.p) / (R_IDEAL * self.T)
+
+    ### Flash extension ----------------------------------------------------------------
+
+    def flash(
+        self,
+        flash_type: Literal["isothermal", "isenthalpic"] = "isothermal",
+        method: Literal["newton-min", "npipm"] = "newton-min",
+        initial_guess: Literal["feed", "iterate", "uniform"] | str = "iterate",
+        copy_to_state: bool = False,
+    ) -> bool:
+        """The Peng-Robinson EoS introduces a new initial-guess-strategy based on
+        feed fractions and evaluation of fugacity-values.
+
+        This initial guess strategy is conform with the equilibrium equations and
+        provides compositional values inside the compositional space.
+        """
+        return super().flash(flash_type, method, initial_guess, copy_to_state)
+
+    def _set_initial_guess(self, initial_guess: str) -> None:
+        """Initial guess strategy based on feed and evaluation of fugacity values is
+        introduced here."""
+
+        if initial_guess == "feed":
+            # use feed fractions as basis for all initial guesses
+            feed: dict[PR_Component, np.ndarray] = dict()
+            # setting the values for liquid and gas phase composition
+            L = self._phases[0]
+            G = self._phases[1]
+            for component in self.components:
+                k_val_L = (
+                    self._fugacities[component][L]
+                    .evaluate(self.ad_system.dof_manager)
+                    .val
+                )
+                k_val_G = (
+                    self._fugacities[component][G]
+                    .evaluate(self.ad_system.dof_manager)
+                    .val
+                )
+                z_c = self.ad_system.get_var_values(component.fraction_name, True)
+                feed.update({component: z_c})
+
+                # this initial guess fulfils the equilibrium equation for component c
+                xi_c_G = z_c
+                xi_c_L = (k_val_G / k_val_L) * xi_c_G
+
+                self.ad_system.set_var_values(
+                    G.fraction_of_component_name(component),
+                    xi_c_G,
+                )
+                self.ad_system.set_var_values(
+                    L.fraction_of_component_name(component),
+                    xi_c_L,
+                )
+            # for an initial guess for gas fraction we take the feed of
+            # the reference component
+            # if its only one component, we use 0.5
+            if self.num_components == 1:
+                y_G = feed[self.reference_component] * 0.5
+            else:
+                y_G = feed[self.reference_component]
+            y_L = 1 - y_G
+            self.ad_system.set_var_values(
+                L.fraction_name,
+                y_L,
+            )
+            self.ad_system.set_var_values(
+                G.fraction_name,
+                y_G,
+            )
+        else:
+            super()._set_initial_guess(initial_guess)
 
     ### Model equations ----------------------------------------------------------------
 
