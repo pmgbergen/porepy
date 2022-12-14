@@ -52,6 +52,17 @@ from .phase import Phase
 
 __all__ = ["Composition"]
 
+FlashSystemDict = dict[
+    Literal["equations", "primary_vars", "secondary_vars"], list[str]
+]
+"""A type alias for subsystem dictionaries which contain:
+
+- 'equations': A list of names of equations belonging to this subsystem.
+- 'primary_vars': A list of names of primary variables in this subsystem.
+- 'secondary_vars': A list of names of secondary variables in this subsystem.
+
+"""
+
 
 class Composition(abc.ABC):
     """Base class for all compositions with multiple components in the unified setting.
@@ -79,22 +90,15 @@ class Composition(abc.ABC):
         - pressure,
         - specific enthalpy of the mixture,
         - (p-T flash) temperature of the mixture,
-        - feed fractions per component.
-        - volumetric phase fractions (saturations)
+        - feed fractions per component,
+        - volumetric phase fractions (saturations),
+        - **molar fraction of reference phase (eliminated by unity)**.
 
     Primary variables are:
 
-        - molar phase fractions,
+        - molar phase fractions except for reference phase,
         - molar component fractions in a phase,
         - (p-h flash) temperature of the mixture.
-
-    Warning:
-        The phase fraction of the reference phase,
-        as well as the normalized phase composition variables
-        are neither primary nor secondary.
-        They can be evaluated once the procedure converges
-        (see :meth:`post_process_fractions`).
-        Keep this in mind when using the composition in other models, e.g. flow.
 
     While the molar fractions are the actual unknowns in the flash procedure,
     the saturation values can be computed once the equilibrium converges using
@@ -140,14 +144,14 @@ class Composition(abc.ABC):
         self.max_iter_flash: int = 100
         """Maximal number of iterations for the flash algorithms."""
 
-        self.ph_subsystem: dict[str, list] = dict()
+        self.ph_subsystem: FlashSystemDict = dict()
         """A dictionary representing the subsystem for the p-h flash.
 
         Contains information on relevant variables and equations.
 
         """
 
-        self.pT_subsystem: dict[str, list] = dict()
+        self.pT_subsystem: FlashSystemDict = dict()
         """A dictionary representing the subsystem for the p-T flash.
 
         Contains information on relevant variables and equations.
@@ -162,7 +166,7 @@ class Composition(abc.ABC):
             "j_max": 20,
         }
         """A dictionary containing per parameter name (str, key) the respective
-        parameter for the NPIPM.
+        parameter for the NPIPM and Armijo line-search.
 
         Values can be set directly by modifying the values of this dictionary.
 
@@ -171,6 +175,7 @@ class Composition(abc.ABC):
             <https://doi.org/10.1016/j.matcom.2021.07.015>`_
 
         """
+
         self.algorithmic_variables: list[str] = []
         """A list containing algorithmic variables in the AD framework, which are
         neither physical nor must they be used in extended problems e.g., flow.
@@ -179,6 +184,7 @@ class Composition(abc.ABC):
             This list is filled only upon initialization.
 
         """
+
         self.algorithmic_equations: list[str] = []
         """A list containing equations in the AD framework, which are
         neither physical nor must they be used in extended problems e.g., flow.
@@ -533,18 +539,27 @@ class Composition(abc.ABC):
 
         Raises:
             AssertionError: If the mixture is empty (no components).
+            AssertionError: If less than 2 phases are modelled.
 
         """
         # assert non-empty mixture
         assert self.num_components >= 1, "No components added to mixture."
+        # assert there are at least 2 phases modelled
+        assert self.num_phases >= 2, "Composition modelled with only one phase."
 
-        # allocating place for the subsystem
-        equations = dict()
-        pT_subsystem: dict[str, list] = self._get_subsystem_dict()
-        ph_subsystem: dict[str, list] = self._get_subsystem_dict()
+        # allocating subsystems
+        equations: dict[str, pp.ad.Operator] = dict()
+        pT_subsystem: FlashSystemDict = {
+            "equations": list(),
+            "primary_vars": list(),
+            "secondary_vars": list(),
+        }
+        ph_subsystem: FlashSystemDict = {
+            "equations": list(),
+            "primary_vars": list(),
+            "secondary_vars": list(),
+        }
         self._set_subsystem_vars(ph_subsystem, pT_subsystem)
-        # assert there are phases present
-        assert self._phases
 
         ### reference phase fraction by unity
         self._y_R = self.get_reference_phase_fraction_by_unity()
@@ -603,6 +618,7 @@ class Composition(abc.ABC):
         ph_subsystem["equations"].append(self._enthalpy_constraint)
 
         # adding equations to AD system
+        # every equation in the unified flash is a cell-wise scalar equation
         image_info = dict()
         for sd in self.ad_system.dof_manager.mdg.subdomains():
             image_info.update({sd: {"cells": 1}})
@@ -615,28 +631,30 @@ class Composition(abc.ABC):
         ### NPIPM variables and equations
         for phase in self.phases:
             # create V_e
-            name = self._V_name + phase.name
+            name = f"{self._V_name}_{phase.name}"
             V_e = self.ad_system.create_variable(name)
             self._npipm_vars.append(name)
             self._V_of_phase[phase] = V_e
             # create W_e
-            name = self._W_name + phase.name
+            name = f"{self._W_name}_{phase.name}"
             W_e = self.ad_system.create_variable(name)
             self._npipm_vars.append(name)
             self._W_of_phase[phase] = W_e
+
             # V_e extension equation, create and store
             v_extension = phase.fraction - V_e
-            name = self._V_extension + phase.name
+            name = f"{self._V_extension}_{phase.name}"
             self.ad_system.set_equation(name, v_extension, num_equ_per_dof=image_info)
             self._npipm_equations.append(name)
             # W_e extension equation, create and store
             w_extension = self.get_composition_unity_for(phase) - W_e
-            name = self._W_extension + phase.name
+            name = f"{self._V_extension}_{phase.name}"
             self.ad_system.set_equation(name, w_extension, num_equ_per_dof=image_info)
             self._npipm_equations.append(name)
+
             # V-W-nu coupling for this phase
             coupling = V_e * W_e - self._nu
-            name = self._v_w_coupling + phase.name
+            name = f"{self._v_w_coupling}_{phase.name}"
             self.ad_system.set_equation(name, coupling, num_equ_per_dof=image_info)
             self._npipm_equations.append(name)
 
@@ -659,19 +677,19 @@ class Composition(abc.ABC):
             )
 
         equation = eta * self._nu + self._nu * self._nu + sum(phase_parts) / 2
-        self.ad_system.set_equation(name, equation, num_equ_per_dof=image_info)
-        self._npipm_equations.append(name)
+        self.ad_system.set_equation(
+            self._nu_parametrization, equation, num_equ_per_dof=image_info
+        )
+        self._npipm_equations.append(self._nu_parametrization)
 
-    def _get_subsystem_dict(self) -> dict[str, list]:
-        """Returns a template for subsystem dictionaries."""
-        return {
-            "equations": list(),
-            "primary_vars": list(),
-            "secondary_vars": list(),
-        }
+        # store information about algorithmic vars and equations
+        self.algorithmic_equations += self._npipm_equations
+        self.algorithmic_variables += self._npipm_vars
 
     def _set_subsystem_vars(
-        self, ph_subsystem: dict[str, list], pT_subsystem: dict[str, list]
+        self,
+        ph_subsystem: FlashSystemDict,
+        pT_subsystem: FlashSystemDict,
     ) -> None:
         """Auxiliary function to set the variables in respective subsystems."""
 
@@ -679,11 +697,11 @@ class Composition(abc.ABC):
         # pressure is always a secondary var in the flash
         pT_subsystem["secondary_vars"].append(self.p_name)
         ph_subsystem["secondary_vars"].append(self.p_name)
-        # for the p-H flash, enthalpy is a secondary var
+        # enthalpy is always a secondary var in the flash
         ph_subsystem["secondary_vars"].append(self.h_name)
-        # for the p-T flash, temperature AND enthalpy are secondary vars,
-        # because h can be evaluated for given T and fractions
         pT_subsystem["secondary_vars"].append(self.h_name)
+        # Temperature is only secondary in the p-T flash because it is fixed
+        # It varies in the p-h flash.
         pT_subsystem["secondary_vars"].append(self.T_name)
         # feed fractions are always secondary vars
         for component in self.components:
@@ -693,6 +711,9 @@ class Composition(abc.ABC):
         for phase in self.phases:
             pT_subsystem["secondary_vars"].append(phase.saturation_name)
             ph_subsystem["secondary_vars"].append(phase.saturation_name)
+        # molar fraction of the reference phase is always a secondary var
+        pT_subsystem["secondary_vars"].append(self.reference_phase.fraction_name)
+        ph_subsystem["secondary_vars"].append(self.reference_phase.fraction_name)
         # solute fractions in compounds are always secondary vars in the flash
         for component in self.components:
             if isinstance(component, Compound):
@@ -702,26 +723,22 @@ class Composition(abc.ABC):
                     ph_subsystem["secondary_vars"].append(solute_fraction_name)
 
         ### FLASH PRIMARY VARIABLES
+        # for the p-h flash, T is an additional var
+        ph_subsystem["primary_vars"].append(self.T_name)
         # phase fractions
         for phase in self.phases:
             if phase != self.reference_phase:
                 pT_subsystem["primary_vars"].append(phase.fraction_name)
                 ph_subsystem["primary_vars"].append(phase.fraction_name)
-            # reference phase fractions are secondary
-            else:
-                pT_subsystem["secondary_vars"].append(phase.fraction_name)
-                ph_subsystem["secondary_vars"].append(phase.fraction_name)
             # phase composition
             for component in phase:
                 var_name = phase.fraction_of_component_name(component)
                 pT_subsystem["primary_vars"].append(var_name)
                 ph_subsystem["primary_vars"].append(var_name)
-        # for the p-h flash, T is an additional var
-        ph_subsystem["primary_vars"].append(self.T_name)
 
     ### other --------------------------------------------------------------------------
 
-    def print_last_flash(self) -> None:
+    def print_last_flash_results(self) -> None:
         """Prints the result of the last flash calculation."""
         entry = self.flash_history[-1]
         msg = "\nProcedure: %s\n" % (str(entry["flash"]))
@@ -907,9 +924,10 @@ class Composition(abc.ABC):
         """Evaluates the specific molar enthalpy of the mixture,
         based on current pressure, temperature and phase fractions.
 
-        To be used after an **isothermal** flash.
+        Warning:
+            To be used after an **isothermal** flash.
 
-        Use with care, if the equilibrium problem is coupled with e.g., flow.
+            Use with care, if the equilibrium problem is coupled with an energy balance.
 
         Parameters:
             copy_to_state: ``default=True``
@@ -936,18 +954,17 @@ class Composition(abc.ABC):
         self.ad_system.set_var_values(self.h_name, h, copy_to_state)
 
     def post_process_fractions(self, copy_to_state: bool = True) -> None:
-        """Re-normalizes phase compositions and removes numerical artifacts
-        (values bound between 0 and 1), and evaluates the reference phase fraction.
+        """Evaluates the fraction of the reference phase and removes numerical artifacts
+        from all fractional values.
 
-        Phase compositions (fractions of components in that phase) are nonphysical if a
-        phase is not present. The unified flash procedure yields nevertheless values,
-        possibly violating the unity constraint.
-        Respective fractions have to be re-normalized in a post-processing step and
-        set as regular phase composition.
+        Fractional values are supposed to be between 0 and 1 after any valid flash
+        result. Molar phase fractions and phase compositions are post-processed
+        respectively.
 
-        Also, removes artifacts outside the bound 0 and 1 for all molar fractions
-        except feed fraction, which is **not** changed by the flash at all
-        (the amount of matter is not supposed to change and must be defined elsewhere).
+        Note:
+            A components overall fraction (feed fraction) is not changed!
+            The amount of moles belonging to a certain component are not supposed
+            to change at all during a flash procedure without reactions.
 
         Parameters:
             copy_to_state: ``default=True``
@@ -970,33 +987,17 @@ class Composition(abc.ABC):
             y_e[y_e > 1.0] = 1.0
             self.ad_system.set_var_values(phase_e.fraction_name, y_e, copy_to_state)
 
-            # extracting phase composition xi of phase e
-            xi_e = list()
+            # remove numerical artifacts in phase compositions
             for comp_c in phase_e:
                 xi_ce = self.ad_system.get_var_values(
                     phase_e.fraction_of_component_name(comp_c)
                 )
-                xi_e.append(xi_ce)
-            sum_xi_e = sum(xi_e)
-
-            # re-normalize phase compositions and set regular phase compositions
-            for c, comp_c in enumerate(phase_e):
-                xi_ce = xi_e[c]
-                chi_ce = xi_ce / sum_xi_e
-                # remove numerical artifacts
                 xi_ce[xi_ce < 0.0] = 0.0
                 xi_ce[xi_ce > 1.0] = 1.0
-                chi_ce[chi_ce < 0.0] = 0.0
-                chi_ce[chi_ce > 1.0] = 1.0
                 # write values
                 self.ad_system.set_var_values(
                     phase_e.fraction_of_component_name(comp_c),
                     xi_ce,
-                    copy_to_state,
-                )
-                self.ad_system.set_var_values(
-                    phase_e.normalized_fraction_of_component_name(comp_c),
-                    chi_ce,
                     copy_to_state,
                 )
 
@@ -1140,7 +1141,7 @@ class Composition(abc.ABC):
 
     def _Newton_min(
         self,
-        subsystem: dict,
+        subsystem: FlashSystemDict,
     ) -> bool:
         """Performs a semi-smooth newton (Newton-min),
         where the complementary conditions are the semi-smooth part.
@@ -1207,7 +1208,7 @@ class Composition(abc.ABC):
 
     def _NPIPM(
         self,
-        subsystem: dict,
+        subsystem: FlashSystemDict,
     ) -> bool:
         """Performs a non-parametric interior point algorithm to find the solution
         inside the compositional space.

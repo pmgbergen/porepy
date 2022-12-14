@@ -137,8 +137,7 @@ VARIABLE_SYMBOLS = {
     "component_fraction": "z",
     "phase_fraction": "y",
     "phase_saturation": "s",
-    "phase_composition": "xi",
-    "normalized_phase_composition": "x",
+    "phase_composition": "x",
     "solute_fraction": "chi",
 }
 """A dictionary mapping names of variables (key) to their symbol, which is used in the
