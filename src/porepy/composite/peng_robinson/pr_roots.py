@@ -14,7 +14,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .pr_utils import A_CRIT, B_CRIT, _power
+from .pr_utils import A_CRIT, B_CRIT, Leaf, _power
 
 
 class PR_Roots:
@@ -88,32 +88,40 @@ class PR_Roots:
 
         """
 
-        self._z_l: pp.ad.Ad_array = pp.ad.Ad_array()
-        """AD representation of liquid root."""
-        self._z_g: pp.ad.Ad_array = pp.ad.Ad_array()
-        """AD representation of gaseous root."""
+        self.liquid_root: pp.ad.Operator = Leaf("PR Liquid Root")
+        """An AD leaf-operator returning the AD array representing the liquid root
+        computed using :meth:`compute_roots`."""
+
+        self.gas_root: pp.ad.Operator = Leaf("PR Gas Root")
+        """An AD leaf-operator returning the AD array representing the gas root
+        computed using :meth:`compute_roots`."""
+
+        # self._z_l: pp.ad.Ad_array = pp.ad.Ad_array()
+        # """AD representation of liquid root."""
+        # self._z_g: pp.ad.Ad_array = pp.ad.Ad_array()
+        # """AD representation of gaseous root."""
 
         self._eps = eps
         """``eps`` passed at instantiation."""
 
     ### EoS roots ----------------------------------------------------------------------
 
-    @property
-    def liquid_root(self) -> pp.ad.Ad_array:
-        """An AD array representing (cell-wise) the extended root of the characteristic
-        polynomial associated with the **liquid** phase.
+    # @property
+    # def liquid_root(self) -> pp.ad.Ad_array:
+    #     """An AD array representing (cell-wise) the extended root of the characteristic
+    #     polynomial associated with the **liquid** phase.
 
-        The AD framework provides information about the derivatives with respect to the
-        thermodynamic state, i.e. the dependencies of the attraction and co-volume.
+    #     The AD framework provides information about the derivatives with respect to the
+    #     thermodynamic state, i.e. the dependencies of the attraction and co-volume.
 
-        """
-        return self._z_l
+    #     """
+    #     return self._z_l
 
-    @property
-    def gas_root(self) -> pp.ad.Ad_array:
-        """AD representing (cell-wise) of the **gaseous** phase
-        (see :meth:`liquid_root`)."""
-        return self._z_g
+    # @property
+    # def gas_root(self) -> pp.ad.Ad_array:
+    #     """AD representing (cell-wise) of the **gaseous** phase
+    #     (see :meth:`liquid_root`)."""
+    #     return self._z_g
 
     ### EoS parameters -----------------------------------------------------------------
 
@@ -359,8 +367,10 @@ class PR_Roots:
             Z_G_jac[three_root_region] = Z_G_3.jac
 
         ### storing results for access
-        self._z_l = pp.ad.Ad_array(Z_L_val, Z_L_jac)
-        self._z_g = pp.ad.Ad_array(Z_G_val, Z_G_jac)
+        # self._z_l = pp.ad.Ad_array(Z_L_val, Z_L_jac)
+        # self._z_g = pp.ad.Ad_array(Z_G_val, Z_G_jac)
+        self.liquid_root.value = pp.ad.Ad_array(Z_L_val, Z_L_jac)
+        self.gas_root.value = pp.ad.Ad_array(Z_G_val, Z_G_jac)
 
     def _smoother(
         self, Z_L: pp.ad.Ad_array, Z_I: pp.ad.Ad_array, Z_G: pp.ad.Ad_array

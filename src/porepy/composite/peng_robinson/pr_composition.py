@@ -453,7 +453,7 @@ class PR_Composition(Composition):
         self._phases[0]._rho = self._rho_Z(self.roots.liquid_root)
         self._phases[1]._rho = self._rho_Z(self.roots.gas_root)
 
-    def _rho_Z(self, Z: pp.ad.Ad_array) -> Callable:
+    def _rho_Z(self, Z: pp.ad.Operator) -> Callable:
         """Returns a callable representing the density in the PR EoS for a
         specific root.
 
@@ -478,7 +478,7 @@ class PR_Composition(Composition):
         self._phases[0]._h = self._h_Z(self.roots.liquid_root)
         self._phases[1]._h = self._h_Z(self.roots.gas_root)
 
-    def _h_Z(self, Z: pp.ad.Ad_array) -> Callable:
+    def _h_Z(self, Z: pp.ad.Operator) -> Callable:
         """Returns a callable representing the enthalpy in the PR EoS for a
         specific root.
 
@@ -514,7 +514,7 @@ class PR_Composition(Composition):
         self._phases[0]._mu = self._mu_Z(self.roots.liquid_root)
         self._phases[1]._mu = self._mu_Z(self.roots.gas_root)
 
-    def _mu_Z(self, Z: pp.ad.Ad_array) -> Callable:  # TODO
+    def _mu_Z(self, Z: pp.ad.Operator) -> Callable:  # TODO
         """Returns a callable representing the viscosity in the PR EoS for a
         specific root.
 
@@ -536,7 +536,7 @@ class PR_Composition(Composition):
         self._phases[0]._kappa = self._kappa_Z(self.roots.liquid_root)
         self._phases[1]._kappa = self._kappa_Z(self.roots.gas_root)
 
-    def _kappa_Z(self, Z: pp.ad.Ad_array) -> Callable:  # TODO
+    def _kappa_Z(self, Z: pp.ad.Operator) -> Callable:  # TODO
         """Returns a callable representing the conductivity in the PR EoS for a
         specific root.
 
@@ -561,7 +561,7 @@ class PR_Composition(Composition):
                 self._phases[1]: self._phi_c_Z(component, self.roots.gas_root),
             }
 
-    def _phi_c_Z(self, component: PR_Component, Z: pp.ad.Ad_array) -> pp.ad.Operator:
+    def _phi_c_Z(self, component: PR_Component, Z: pp.ad.Operator) -> pp.ad.Operator:
         """Returns an AD operator representing the fugacity of ``component`` in a phase
         represented by an extended root ``Z``.
 
