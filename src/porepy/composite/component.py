@@ -447,7 +447,7 @@ class Compound(Component):
 
         # last validity check to ensure the solvent is present everywhere
         if np.any(fraction_sum >= 1.0):
-            raise ValueError("Sum of solute fractions is greater or equal to 1.")
+            raise ValueError("Sum of solute fractions is >= 1.")
 
     def set_solute_fractions_with_molality(
         self, molalities: dict[PseudoComponent, np.ndarray | float]
