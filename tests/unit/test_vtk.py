@@ -177,33 +177,33 @@ def subdomain(request):
     return subdomains[request.param]
 
 
-@pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
-def test_single_subdomains(setup, subdomain):
-    # Test of the Exporter for single subdomains of different dimensionality
-    # and different grid type. Exporting of scalar and vectorial data is tested.
-
-    # Define grid
-    sd = subdomain.grid
-    sd.compute_geometry()
-
-    # Define data
-    dummy_scalar = np.ones(sd.num_cells) * sd.dim
-    dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-
-    # Export data
-    save = pp.Exporter(
-        sd,
-        setup.file_name,
-        setup.folder,
-        export_constants_separately=False,
-    )
-    save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-    # Check that exported vtu file and reference file are the same
-    assert _compare_vtu_files(
-        f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
-        f"{subdomain.ref_vtu_file}",
-    )
+# @pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
+# def test_single_subdomains(setup, subdomain):
+#    # Test of the Exporter for single subdomains of different dimensionality
+#    # and different grid type. Exporting of scalar and vectorial data is tested.
+#
+#    # Define grid
+#    sd = subdomain.grid
+#    sd.compute_geometry()
+#
+#    # Define data
+#    dummy_scalar = np.ones(sd.num_cells) * sd.dim
+#    dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
+#
+#    # Export data
+#    save = pp.Exporter(
+#        sd,
+#        setup.file_name,
+#        setup.folder,
+#        export_constants_separately=False,
+#    )
+#    save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
+#
+#    # Check that exported vtu file and reference file are the same
+#    assert _compare_vtu_files(
+#        f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
+#        f"{subdomain.ref_vtu_file}",
+#    )
 
 
 def test_mdg(setup):
