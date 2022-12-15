@@ -738,9 +738,7 @@ class DarcysLaw:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    internal_boundary_normal_to_outwards: Callable[
-        [list[pp.MortarGrid], int], pp.ad.Matrix
-    ]
+    internal_boundary_normal_to_outwards: Callable[[list[pp.Grid], int], pp.ad.Matrix]
     """Switch interface normal vectors to point outwards from the subdomain. Normally
     set by a mixin instance of :class:`porepy.models.geometry.ModelGeometry`.
     """
@@ -1562,7 +1560,7 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    local_coordinates: Callable[[list[pp.Grid]], pp.ad.Operator]
+    local_coordinates: Callable[[list[pp.Grid]], pp.ad.Matrix]
     """Mapping to local coordinates. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -1591,13 +1589,22 @@ class LinearElasticMechanicalStress:
 
         """
         for sd in subdomains:
+            # The mechanical stress is only defined on subdomains of co-dimension 0.
             assert sd.dim == self.nd
+
         # No need to facilitate changing of stress discretization, only one is
         # available at the moment.
         discr = pp.ad.MpsaAd(self.stress_keyword, subdomains)
+        # Fractures in the domain
         interfaces = self.subdomains_to_interfaces(subdomains)
+        # Boundary conditions on external boundaries
         bc = self.bc_values_mechanics(subdomains)
         proj = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=self.nd)
+        # The stress in the subdomanis is the sum of the stress in the subdomain,
+        # the stress on the external boundaries, and the stress on the interfaces.
+        # The latter is found by projecting the displacement on the interfaces to the
+        # subdomains, and let these act as Dirichlet boundary conditions on the
+        # subdomains.
         stress = (
             discr.stress * self.displacement(subdomains)
             + discr.bound_stress * bc
@@ -1617,15 +1624,30 @@ class LinearElasticMechanicalStress:
         Returns:
             Fracture stress operator.
 
+        Raises:
+            ValueError: If any interface is not of co-dimension 1.
+
         """
         for interface in interfaces:
-            assert interface.dim == self.nd - 1
+            if any([interface.dim != self.nd - 1]):
+                raise ValueError("Interface must be of co-dimension 1.")
+
+        # Subdomains of the interfaces
         subdomains = self.interfaces_to_subdomains(interfaces)
+        # Isolate the fracture subdomains
         fracture_subdomains = [sd for sd in subdomains if sd.dim == self.nd - 1]
+        # Projection between all subdomains of the interfaces
         subdomain_projection = pp.ad.SubdomainProjections(subdomains, self.nd)
+        # Projection between the subdomains and the interfaces
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
+        # Spelled out, the stress on the interface is found by mapping the
+        # contact traction (a primary variable) from local to global coordinates (note
+        # the transpose), prolonging the traction from the fracture subdomains to all
+        # subdomains (the domain of definition for the mortar projections), projecting
+        # to the interface, and switching the sign of the traction depending on the
+        # sign of the mortar sides.
         traction = (
             mortar_projection.sign_of_mortar_sides
             * mortar_projection.secondary_to_mortar_int
@@ -1688,6 +1710,11 @@ class PressureStress:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    basis: Callable[[Sequence[pp.GridLike], Optional[int]], list[pp.ad.Matrix]]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def pressure_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure contribution to stress tensor.
@@ -1698,10 +1725,21 @@ class PressureStress:
         Returns:
             Pressure stress operator.
 
+        Raises:
+            ValueError: If any subdomain is not of dimension `nd`.
+
         """
         for sd in subdomains:
-            assert sd.dim == self.nd
+            # The stress is only defined in matrix subdomains. The stress from fluid
+            # pressure in fracture subdomains is handled in :meth:`fracture_stress`.
+            if sd.dim != self.nd:
+                raise ValueError("Subdomain must be of dimension nd.")
+
+        # No need to accommodate different discretizations for the stress tensor, as we
+        # have only one.
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        # The stress is simply found by the grad_p operator, multiplied with the
+        # pressure perturbation.
         stress: pp.ad.Operator = (
             discr.grad_p * self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no
@@ -1714,15 +1752,22 @@ class PressureStress:
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Fracture stress on interfaces.
 
+        The fracture stress is composed of the stress from the contact traction, and
+        the stress from the fluid pressure inside the fracture.
+
         Parameters:
             interfaces: List of interfaces where the stress is defined.
 
         Returns:
             Poromechanical stress operator on matrix-fracture interfaces.
 
+        Raises:
+            ValueError: If any interface is not of dimension `nd - 1`.
+
         """
         if not all([intf.dim == self.nd - 1 for intf in interfaces]):
             raise ValueError("Interfaces must be of dimension nd - 1.")
+
         traction = super().fracture_stress(interfaces) + self.fracture_pressure_stress(
             interfaces
         )
@@ -1741,11 +1786,13 @@ class PressureStress:
             Pressure stress operator.
 
         """
+        # All subdomains of the interfaces
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        outwards_normal = self.outwards_internal_boundary_normals(
-            interfaces, unitary=True
-        )
+        # Consistent sign of the normal vectors.
+        # Note the unitary scaling here, we will scale the pressure with the area
+        # of the interface (equivalently face area in the matrix subdomains) elsewhere.
+        outwards_normal = self.outwards_internal_boundary_normals(interfaces, True)
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
         scalar_to_nd = sum([e_i for e_i in self.basis(interfaces)])
@@ -1817,13 +1864,19 @@ class ThermoPressureStress(PressureStress):
         Returns:
             Temperature stress operator.
 
+        Raises:
+            AssertionError: If any subdomain is not of dimension `nd`.
+
         """
         for sd in subdomains:
-            assert sd.dim == self.nd
+            if sd.dim != self.nd:
+                raise ValueError("Subdomains must be of dimension nd - 1.")
+
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         alpha = self.biot_coefficient(subdomains)
         beta = self.solid_thermal_expansion(subdomains)
         k = self.bulk_modulus(subdomains)
+
         # Check that both are scalar. Else, the scaling may not be correct.
         assert isinstance(alpha, pp.ad.Scalar)
         assert isinstance(beta, pp.ad.Scalar)
