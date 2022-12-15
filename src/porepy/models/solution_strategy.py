@@ -131,9 +131,9 @@ class SolutionStrategy(abc.ABC):
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
         self.set_equation_system_manager()
+        self.set_materials()
         self.create_variables()
         self.initial_condition()
-        self.set_materials()
         self.set_discretization_parameters()
         self.set_equations()
 

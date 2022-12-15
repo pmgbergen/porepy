@@ -1656,13 +1656,14 @@ class LinearElasticMechanicalStress:
             assert interface.dim == self.nd - 1
         subdomains = self.interfaces_to_subdomains(interfaces)
         fracture_subdomains = [sd for sd in subdomains if sd.dim == self.nd - 1]
+        subdomain_projection = pp.ad.SubdomainProjections(subdomains, self.nd)
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
         traction = (
             mortar_projection.sign_of_mortar_sides
             * mortar_projection.secondary_to_mortar_int
-            * self.subdomain_projections(self.nd).cell_prolongation(fracture_subdomains)
+            * subdomain_projection.cell_prolongation(fracture_subdomains)
             * self.local_coordinates(fracture_subdomains).transpose()
             * self.contact_traction(fracture_subdomains)
         )
