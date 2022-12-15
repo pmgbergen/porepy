@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 from enum import Enum
 from functools import partial
-from typing import Callable, Optional, Type, Union
+from typing import Callable, Optional, Type
 
 import numpy as np
 import scipy.sparse as sps
@@ -86,6 +86,10 @@ class AbstractFunction(Operator):
 
         ### PRIVATE
         self._operation: Enum = Operator.Operations.approximate
+
+        self._name: str = name if name is not None else ""
+
+        self._set_tree()
 
     def __call__(self, *args: pp.ad.Operator | Ad_array) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
