@@ -3,47 +3,11 @@ from functools import partial
 from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 
 number = pp.number
 Scalar = pp.ad.Scalar
-
-
-def ad_wrapper(
-    vals: Union[number, np.ndarray],
-    array: bool,
-    size: Optional[int] = None,
-    name: Optional[str] = None,
-) -> Union[pp.ad.Array, pp.ad.Matrix]:
-    """Create ad array or diagonal matrix.
-
-    Utility method.
-
-    Parameters:
-        vals: Values to be wrapped. Floats are broadcast to an np array.
-        array: Whether to return a matrix or vector.
-        size: Size of the array or matrix. If not set, the size is inferred from vals.
-        name: Name of ad object.
-
-    Returns:
-        Values wrapped as an Ad object.
-
-    """
-    if type(vals) is not np.ndarray:
-        assert size is not None, "Size must be set if vals is not an array"
-        value_array: np.ndarray = vals * np.ones(size)
-    else:
-        value_array = vals
-
-    if array:
-        return pp.ad.Array(value_array, name)
-    else:
-        if size is None:
-            size = value_array.size
-        matrix = sps.diags(vals, shape=(size, size))
-        return pp.ad.Matrix(matrix, name)
 
 
 class DimensionReduction:
@@ -83,7 +47,7 @@ class DimensionReduction:
 
         """
         if len(subdomains) == 0:
-            return ad_wrapper(0, array=True, size=0)
+            return pp.wrap_as_ad_array(0, size=0)
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
 
         # The implementation here is not perfect, but it seems to be what is needed
@@ -95,7 +59,7 @@ class DimensionReduction:
 
         for i, sd in enumerate(subdomains):
             # First make the local aperture array.
-            a_loc = ad_wrapper(self.grid_aperture(sd), array=True)
+            a_loc = pp.wrap_as_ad_array(self.grid_aperture(sd))
             # Expand to a global array.
             a_glob = projection.cell_prolongation([sd]) * a_loc
             if i == 0:
@@ -221,7 +185,7 @@ class DisplacementJumpAperture(DimensionReduction):
         nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
 
         num_cells_nd_subdomains = sum([sd.num_cells for sd in nd_subdomains])
-        one = ad_wrapper(1, True, size=num_cells_nd_subdomains, name="one")
+        one = pp.wrap_as_ad_array(1, size=num_cells_nd_subdomains, name="one")
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) * one
 
@@ -289,7 +253,9 @@ class DisplacementJumpAperture(DimensionReduction):
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
                 # Wrap as diagonal matrix.
-                average_mat = ad_wrapper(average_weights, False, name="average_weights")
+                average_mat = pp.wrap_as_ad_matrix(
+                    average_weights, name="average_weights"
+                )
                 # Average apertures of the parent subdomains.
                 apertures_of_dim = (
                     average_mat * parent_cells_to_intersection_cells * parent_apertures
@@ -904,7 +870,7 @@ class DarcysLaw:
         """
         val = self.fluid.convert_units(0, "m*s^-2")
         size = int(np.sum([g.num_cells for g in grids]) * self.nd)
-        source = ad_wrapper(val, array=True, size=size, name="zero_vector_source")
+        source = pp.wrap_as_ad_array(val, size=size, name="zero_vector_source")
         return source
 
     def interface_vector_source(
@@ -1530,7 +1496,7 @@ class GravityForce:
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
         size = np.sum([g.num_cells for g in grids])
-        gravity = ad_wrapper(val, array=True, size=size, name="gravity")
+        gravity = pp.wrap_as_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
@@ -2246,7 +2212,7 @@ class PoroMechanicsPorosity:
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         # Constant unitary porosity in fractures and intersections
         size = sum([sd.num_cells for sd in subdomains_lower])
-        one = ad_wrapper(1, True, size=size, name="one")
+        one = pp.wrap_as_ad_array(1, size=size, name="one")
         rho_nd = projection.cell_prolongation(subdomains_nd) * self.matrix_porosity(
             subdomains_nd
         )

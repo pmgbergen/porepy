@@ -332,9 +332,7 @@ class VariablesEnergyBalance:
         """
         t_ref = self.fluid.convert_units(0, "K")
         size = sum([sd.num_cells for sd in subdomains])
-        return pp.constitutive_laws.ad_wrapper(
-            t_ref, True, size, name="reference_temperature"
-        )
+        return pp.wrap_as_ad_array(t_ref, size, name="reference_temperature")
 
 
 class ConstitutiveLawsEnergyBalance(
@@ -399,7 +397,7 @@ class BoundaryConditionsEnergyBalance:
 
         """
         num_faces = sum([sd.num_faces for sd in subdomains])
-        return pp.constitutive_laws.ad_wrapper(0, True, num_faces, "bc_values_fourier")
+        return pp.wrap_as_ad_array(0, num_faces, "bc_values_fourier")
 
     def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary values for the enthalpy.
@@ -427,9 +425,7 @@ class BoundaryConditionsEnergyBalance:
             bc_values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
-        bc_values = pp.constitutive_laws.ad_wrapper(
-            np.hstack(bc_values), True, name="bc_values_enthalpy"
-        )
+        bc_values = pp.wrap_as_ad_array(np.hstack(bc_values), name="bc_values_enthalpy")
         return bc_values
 
 

@@ -1536,3 +1536,76 @@ class Tree:
     def add_child(self, node: Union[Operator, Ad_array]) -> None:
         #        assert isinstance(node, (Operator, "pp.ad.Operator"))
         self.children.append(node)
+
+
+def _ad_wrapper(
+    vals: Union[pp.number, np.ndarray],
+    as_array: bool,
+    size: Optional[int] = None,
+    name: Optional[str] = None,
+) -> Union[pp.ad.Array, pp.ad.Matrix]:
+    """Create ad array or diagonal matrix.
+
+    Utility method.
+
+    Parameters:
+        vals: Values to be wrapped. Floats are broadcast to an np array.
+        array: Whether to return a matrix or vector.
+        size: Size of the array or matrix. If not set, the size is inferred from vals.
+        name: Name of ad object.
+
+    Returns:
+        Values wrapped as an Ad object.
+
+    """
+    if type(vals) is not np.ndarray:
+        assert size is not None, "Size must be set if vals is not an array"
+        value_array: np.ndarray = vals * np.ones(size)
+    else:
+        value_array = vals
+
+    if as_array:
+        return pp.ad.Array(value_array, name)
+    else:
+        if size is None:
+            size = value_array.size
+        matrix = sps.diags(vals, shape=(size, size))
+        return pp.ad.Matrix(matrix, name)
+
+
+def wrap_as_ad_array(
+    vals: Union[pp.number, np.ndarray],
+    size: Optional[int] = None,
+    name: Optional[str] = None,
+) -> Array:
+    """Wrap a number or array as ad array.
+
+    Parameters:
+        vals: Values to be wrapped. Floats are broadcast to an np array.
+        size: Size of the array. If not set, the size is inferred from vals.
+        name: Name of ad object.
+
+    Returns:
+        Values wrapped as an ad Array.
+
+    """
+    return _ad_wrapper(vals, True, size=size, name=name)
+
+
+def wrap_as_ad_matrix(
+    vals: Union[pp.number, np.ndarray],
+    size: Optional[int] = None,
+    name: Optional[str] = None,
+) -> Array:
+    """Wrap a number or array as ad array.
+
+    Parameters:
+        vals: Values to be wrapped. Floats are broadcast to an np array.
+        size: Size of the array. If not set, the size is inferred from vals.
+        name: Name of ad object.
+
+    Returns:
+        Values wrapped as an ad Matrix.
+
+    """
+    return _ad_wrapper(vals, False, size=size, name=name)

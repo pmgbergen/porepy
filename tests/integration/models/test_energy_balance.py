@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.models.constitutive_laws import ad_wrapper
 
 from .setup_utils import MassAndEnergyBalance
 from .test_mass_balance import BoundaryConditionLinearPressure
@@ -29,7 +28,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
             val_loc = np.zeros(sd.num_faces)
             val_loc[west] = 1
             values.append(val_loc)
-        return ad_wrapper(np.hstack(values), True, name="bc_values_fourier")
+        return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_fourier")
 
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -69,9 +68,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
             bc_values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
-        bc_values = pp.constitutive_laws.ad_wrapper(
-            np.hstack(bc_values), True, name="bc_values_enthalpy"
-        )
+        bc_values = pp.wrap_as_ad_array(np.hstack(bc_values), name="bc_values_enthalpy")
         return bc_values
 
 

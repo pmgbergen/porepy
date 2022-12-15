@@ -184,7 +184,11 @@ from porepy.models.run_models import (
 
 
 from porepy.numerics import ad
+from porepy.numerics.ad.operators import wrap_as_ad_array, wrap_as_ad_matrix
 from porepy.numerics.ad.equation_system import EquationSystem
+
+# Time stepping control
+from porepy.numerics.time_step_control import TimeManager
 
 from porepy import models
 from porepy.models.abstract_equations import (
@@ -198,6 +202,7 @@ from porepy.models.material_constants import (
     SolidConstants,
     MaterialConstants,
 )
+
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
 from porepy.models.solution_strategy import SolutionStrategy
@@ -220,9 +225,6 @@ from porepy.models.thm_model import THM
 from porepy.models.incompressible_flow_model import IncompressibleFlow
 from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
 
-
-# Time stepping control
-from porepy.numerics.time_step_control import TimeManager
 
 # Visualization
 from porepy.viz.exporter import Exporter
