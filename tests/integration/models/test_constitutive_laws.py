@@ -180,11 +180,25 @@ def test_parse_constitutive_laws(
             # c_p T
             4180 * 3,
         ),
-        # (   TODO
-        #     setup_utils.Poromechanics,
-        #     "matrix_porosity",
-        #     # 1 - \phi_f
-        # )
+        (
+            setup_utils.Poromechanics,
+            "matrix_porosity",
+            # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk p. Only pressure, not
+            # div(u), is included in this test.
+            7e-3 + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2,
+        ),
+        (
+            setup_utils.Thermoporomechanics,
+            "matrix_porosity",
+            # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk * p
+            # - (1 - phi_0) * thermal expansion * T
+            #  Only pressure and temperature, not div(u), is included in this test.
+            (
+                7e-3
+                + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2
+                - (1 - 7e-3) * 1e-5 * 3
+            ),
+        ),
         (
             setup_utils.MomentumBalance,
             "bulk_modulus",
@@ -254,8 +268,9 @@ def test_evaluated_values(model, method_name, expected):
     val = op.evaluate(setup.equation_system)
     if isinstance(val, pp.ad.Ad_array):
         val = val.val
-
-    assert np.allclose(val, expected)
+    # Strict tolerance. We know analytical expected values, and some of the
+    # perturbations are small relative to
+    assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
 
 
 @pytest.mark.parametrize(

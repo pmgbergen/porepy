@@ -417,6 +417,7 @@ def domains_from_method_name(
 
 # TODO: Move. Check all values.
 granite_values = {
+    "biot_coefficient": 0.8,
     "permeability": 1e-20,
     "density": 2700,
     "porosity": 7e-3,
@@ -424,6 +425,7 @@ granite_values = {
     "lame_lambda": 11.11 * pp.GIGA,
     "specific_heat_capacity": 790,
     "thermal_conductivity": 2.5,
+    "thermal_expansion": 1e-5,
 }
 # Cf. fluid.py
 water_values = {
