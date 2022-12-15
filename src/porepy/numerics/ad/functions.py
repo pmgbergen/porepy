@@ -1,22 +1,26 @@
-"""
-This module contains functions to be wrapped in a pp.ad.Function and used as part
-of compound pp.ad.Operators, i.e. as (terms of) equations.
+"""This module contains functions to be wrapped in a
+:class:`~porepy.numerics.ad.operator_functions.Function` and used as part
+of compound :class:`~porepy.numerics.ad.operators.Operator`, i.e. as (terms of) equations.
 
-Some functions depend on non-ad objects. This requires that the function (f) be wrapped
-in an ad Function using partial evaluation:
+Some functions depend on non-ad objects. This requires that the function ``f`` be wrapped
+in an ``ad.Function`` using partial evaluation:
 
-    from functools import partial
-    AdFunction = pp.ad.Function(partial(f, other_parameter), "name")
-    equation: pp.ad.Operator = AdFunction(var) - 2 * var
+Examples:
+    >>> from functools import partial
+    >>> AdFunction = pp.ad.Function(partial(f, other_parameter), "name")
+    >>> equation: pp.ad.Operator = AdFunction(var) - 2 * var
 
-with var being some ad variable.
+    with ``var`` being some AD variable.
 
-Note that while the argument to AdFunction is a pp.ad.Operator, the wrapping in
-pp.ad.Function implies that upon parsing, the argument passed to f will be an Ad_array.
+    Note that while the argument to ``AdFunction`` is a
+    :class:`~porepy.numerics.ad.operators.Operator, the wrapping in
+    ``pp.ad.Function`` implies that upon parsing,
+    the argument passed to ``f`` will be an Ad_array.
+
 """
 from __future__ import annotations
 
-from typing import Callable, Union
+from typing import Callable
 
 import numpy as np
 import scipy.sparse as sps
@@ -90,25 +94,18 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     """L2 norm of a vector variable.
 
     For the example of dim=3 components and n vectors, the ordering is assumed
-    to be
-        [u0, v0, w0, u1, v1, w1, ..., un, vn, wn]
+    to be ``[u0, v0, w0, u1, v1, w1, ..., un, vn, wn]``
 
     Vectors satisfying ui=vi=wi=0 are assigned zero entries in the jacobi matrix
 
-    Usage note:
+    Note:
         See module level documentation on how to wrap functions like this in ad.Function.
 
-    Parameters
-    ----------
-    dim : int
-        Dimension, i.e. number of vector components.
-    var : pp.ad.Ad_array
-        Ad operator (variable or expression) which is argument of the norm
-        function.
+    Parameters:
+        dim: Dimension, i.e. number of vector components.
+        var: Ad operator (variable or expression) which is argument of the norm function.
 
-    Returns
-    -------
-    pp.ad.Ad_array
+    Returns:
         The norm of var with appropriate val and jac attributes.
 
     """
@@ -265,30 +262,24 @@ def heaviside(var, zerovalue: float = 0.5):
 
 
 def heaviside_smooth(var, eps: float = 1e-3):
-    """
-    Smooth (regularized) version of the Heaviside function.
+    """Smooth (regularized) version of the Heaviside function.
 
-    Parameters
-    ----------
-    var : Ad_array or ndarray
-        Input array.
-    eps : float, optional
-        Regularization parameter. The default is 1E-3. The function will
-        convergence to the Heaviside function in the limit when eps --> 0
+    Note:
+        The analytical expression for the smooth version Heaviside function reads:
+            ``H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps))``,
+        with its derivative smoothly approximating the Dirac delta function:
+            ``d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2))``.
 
-    Returns
-    -------
-    Ad_array or ndarray (depending on the input)
-        Regularized heaviside function (and its Jacobian if applicable).
+        Reference: https://ieeexplore.ieee.org/document/902291
 
-    Note
-    _____
-    The analytical expression for the smooth version Heaviside function reads:
-        H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps)),
-    with its derivative smoothly approximating the Dirac delta function:
-        d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2)).
+    Parameters:
+        var: Input array.
+        eps (optional): Regularization parameter. The function will converge to the
+            Heaviside function in the limit when ``eps --> 0``. The default is ``1e-3``.
 
-    Reference: https://ieeexplore.ieee.org/document/902291
+    Returns:
+        Regularized heaviside function (and its Jacobian if applicable) in form of a
+        Ad_array or ndarray (depending on the input).
 
     """
     if isinstance(var, Ad_array):
@@ -315,26 +306,19 @@ class RegularizedHeaviside:
             return np.heaviside(var)  # type: ignore
 
 
-def maximum(
-    var0: pp.ad.Ad_array, var1: Union[pp.ad.Ad_array, np.ndarray]
-) -> pp.ad.Ad_array:
+def maximum(var0: pp.ad.Ad_array, var1: pp.ad.Ad_array | np.ndarray) -> pp.ad.Ad_array:
     """Ad maximum function represented as an Ad_array.
 
     The second argument is allowed to be constant, with a numpy array originally
     wrapped in a pp.ad.Array, whereas the first argument is expected to be an
     Ad_array originating from a pp.ad.Operator.
 
-    Parameters
-    ----------
-    var0 : pp.ad.Ad_array
-        Ad operator (variable or expression).
-    var1 : Union[pp.ad.Ad_array, pp.ad.Array]
-        Ad operator (variable or expression) OR ad Array.
+    Parameters:
+        var0: First argument to the maximum function.
+        var1: Second argument.
 
-    Returns
-    -------
-    pp.ad.Ad_array
-        The maximum of var0 and var1 with appropriate val and jac attributes.
+    Returns:
+        The maximum of ``var0`` and ``var1`` with appropriate val and jac attributes.
 
     """
     vals = [var0.val.copy()]
@@ -357,22 +341,17 @@ def maximum(
 def characteristic_function(tol: float, var: pp.ad.Ad_array):
     """Characteristic function of an ad variable.
 
-    Returns 1 if var.val is within absolute tolerance = tol of zero. The derivative is set to
-    zero independent of var.val.
+    Returns 1 if ``var.val`` is within absolute tolerance = ``tol`` of zero.
+    The derivative is set to zero independent of ``var.val``.
 
-    Usage note:
-        See module level documentation on how to wrap functions like this in ad.Function.
+    Note:
+        See module level documentation on how to wrap functions like this in ``ad.Function``.
 
-    Parameters
-    ----------
-    tol : float
-        Absolute tolerance for comparison with 0 using np.isclose.
-    var : pp.ad.Ad_array
-        Ad operator (variable or expression).
+    Parameters:
+        tol: Absolute tolerance for comparison with 0 using np.isclose.
+        var: Ad operator (variable or expression).
 
-    Returns
-    -------
-    pp.ad.Ad_array
+    Returns:
         The characteristic function of var with appropriate val and jac attributes.
 
     """

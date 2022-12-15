@@ -25,7 +25,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
     The simulation starts at time t=0.
 
-    Overwritten methods include:
+    Overridden methods include:
         1. _set_parameters: compressibility added
         2. _assign_discretizations: Upgrade incompressible flow equations
             to slightly compressible
@@ -34,10 +34,8 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         1. _compressibility: constant compressibility per cell
 
     Attributes:
-        end_time (float): Upper limit of considered time interval
-        time_step (float): time step size
-        time (float): simulation time
-        time_index (int): number of time steps passed
+        time_manager: Time-stepping control manager.
+
     """
 
     def __init__(self, params: Optional[Dict] = None) -> None:
@@ -47,18 +45,15 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
                 Some frequently used entries are file and folder names for export,
                 mesh sizes...
         """
+        if params is None:
+            params = {}
         super().__init__(params)
 
-        # attributes
-        if isinstance(params, type(None)):
-            self.end_time = float(1)
-            self.time_step = float(1)
-        else:
-            self.end_time = self.params.get("end_time", float(1))
-            self.time_step = self.params.get("time_step", float(1))
-
-        self.time = float(0)
-        self.time_index = 0
+        # Time manager
+        self.time_manager = params.get(
+            "time_manager",
+            pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
+        )
         self._ad = _AdVariables()
 
     def _set_parameters(self) -> None:
@@ -95,7 +90,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         # Access to pressure ad variable
         p = self._ad.pressure
-        self._ad.time_step = pp.ad.Scalar(self.time_step, "time step")
+        self._ad.time_step = pp.ad.Scalar(self.time_manager.dt, "time step")
 
         accumulation_term = (
             accumulation_term.mass * (p - p.previous_timestep()) / self._ad.time_step
@@ -103,3 +98,10 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         #  Adding accumulation term to incompressible flow equations
         self._eq_manager.equations["subdomain_flow"] += accumulation_term
+
+    def _export(self):
+        if hasattr(self, "exporter"):
+            self.exporter.write_vtu([self.variable], time_dependent=True)
+
+    def after_simulation(self):
+        self.exporter.write_pvd()

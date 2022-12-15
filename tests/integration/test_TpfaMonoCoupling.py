@@ -77,23 +77,16 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         g1.compute_geometry()
         g2.compute_geometry()
-        grids = [g2, g1]
+        grids = [g1, g2]
 
         mdg = pp.MixedDimensionalGrid()
 
-        [mdg.add_subdomains(g) for g in grids]
-        [g2, g1] = mdg.subdomains(dim=2)
+        mdg.add_subdomains(grids)
 
         tol = 1e-6
-        if np.any(g2.cell_centers[0] > split):
-            right_grid = g2
-            left_grid = g1
-        else:
-            right_grid = g1
-            left_grid = g2
+        right_grid = g2
+        left_grid = g1
 
-        mdg.subdomain_data(left_grid)["node_number"] = 0
-        mdg.subdomain_data(right_grid)["node_number"] = 1
         left_faces = np.argwhere(left_grid.face_centers[0] > split - tol).ravel()
         right_faces = np.argwhere(right_grid.face_centers[0] < split + tol).ravel()
         val = np.ones(left_faces.size, dtype=np.bool)
@@ -342,8 +335,6 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         intf.compute_geometry()
 
         mdg.add_interface(intf, (g1, g1), face_faces)
-
-        mdg.assign_subdomain_ordering()
         return mdg
 
     def generate_grid_with_fractures(self, n, xmax, ymax):
@@ -379,10 +370,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                     if np.sum(face_faces) == 0:
                         continue
 
-                    di = mdg.subdomain_data(gi)
-                    dj = mdg.subdomain_data(gj)
 
-                    if di["node_number"] < dj["node_number"]:
+                    if gi.id < gj.id:
                         # gj is left
                         g_m, _, _ = pp.partition.extract_subgrid(
                             gj, gj.right, faces=True
@@ -421,5 +410,4 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestTpfaCouplingPeriodicBc().test_periodic_bc_with_fractues()
     unittest.main()

@@ -9,31 +9,31 @@ AQAAAACAAADgAQAAPQAAAA==eJxjYACBD/ZgiuEBlJ6wB0K/QBNv2IPKh9EwgEv8Aro5Ntj1TYCKDzb3
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int64" Name="connectivity" format="binary">
-AQAAAACAAADAAAAAMgAAAA==eJxdxacBACAQADF67+y/K4JTHxOlPi02bNmJPQeO4sSZi7hy486DJy/efPjyAzZgANU=
+<DataArray type="Int32" Name="connectivity" format="binary">
+AQAAAACAAABgAAAALgAAAA==eJwtw8UNADAMALGUmffftfeIJYuIGG3p6HVgZNKZhVU3dg5OLm4eXj5+GzAA1Q==
 </DataArray>
-<DataArray type="Int64" Name="offsets" format="binary">
-AQAAAACAAABgAAAAKAAAAA==eJxjYoAAFijNBqU5oDQXlOaB0nxQWgBKC0FpESgtBqUloDQAFyAAnQ==
+<DataArray type="Int32" Name="offsets" format="binary">
+AQAAAACAAAAwAAAAJQAAAA==eJwNwwEGACAQALCTJMlJkv7/0jZWIqLa7A6n6XJ7vD4/C5AAnQ==
 </DataArray>
-<DataArray type="Int64" Name="types" format="binary">
-AQAAAACAAABgAAAADgAAAA==eJxjZoAAZhrRAAewACU=
+<DataArray type="Int32" Name="types" format="binary">
+AQAAAACAAAAwAAAADwAAAA==eJxjZmBgYCYBAwAD2AAl
 </DataArray>
 </Cells>
 <CellData>
-<DataArray type="Int64" Name="cell_id" format="binary">
-AQAAAACAAABgAAAAIQAAAA==eJxjYIAARijNBKWZoTQLlGaF0mxQmp0BFeDSDwAG0AAj
+<DataArray type="Int32" Name="cell_id" format="binary">
+AQAAAACAAAAwAAAAIAAAAA==eJxjYGBgYARiJiBmBmIWIGYFYjYgZmeAAGR5AANoACM=
 </DataArray>
-<DataArray type="Int64" Name="grid_dim" format="binary">
-AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=
+<DataArray type="Int32" Name="grid_dim" format="binary">
+AQAAAACAAAAwAAAADwAAAA==eJxjZGBgYCQBAwABaAAN
 </DataArray>
-<DataArray type="Int64" Name="grid_edge_number" format="binary">
-AQAAAACAAABgAAAADgAAAA==eJxjYKAMMBKgAQCwAAU=
+<DataArray type="Int32" Name="interface_id" format="binary">
+AQAAAACAAAAwAAAAEQAAAA==eJxjYWBgYMGDWdEwAAU4ADU=
 </DataArray>
-<DataArray type="Int64" Name="is_mortar" format="binary">
-AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=
+<DataArray type="Int32" Name="is_mortar" format="binary">
+AQAAAACAAAAwAAAADwAAAA==eJxjZGBgYCQBAwABaAAN
 </DataArray>
-<DataArray type="Int64" Name="mortar_side" format="binary">
-AQAAAACAAABgAAAAEwAAAA==eJxjZIAARhw0EwGakHoAA7gAEw==
+<DataArray type="Int32" Name="mortar_side" format="binary">
+AQAAAACAAAAwAAAAEwAAAA==eJxjZGBgYETCTGgYXRwAAdwAEw==
 </DataArray>
 <DataArray type="Float64" Name="unique_dummy_scalar" format="binary">
 AQAAAACAAABgAAAADAAAAA==eJxjYKAtAAAAYAAB

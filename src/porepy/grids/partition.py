@@ -7,6 +7,7 @@ Intended support is by Cartesian indexing, and METIS-based.
 from __future__ import annotations
 
 import warnings
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -62,7 +63,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
 
 
 def partition_structured(
-    g: pp.TensorGrid, num_part: int = 1, coarse_dims: np.ndarray = None
+    g: pp.TensorGrid, num_part: int = 1, coarse_dims: Optional[np.ndarray] = None
 ) -> np.ndarray:
     """Define a partitioning of a grid based on logical Cartesian indexing.
 
@@ -767,7 +768,7 @@ def overlap(
 
 
 def grid_is_connected(
-    g: pp.Grid, cell_ind: np.ndarray = None
+    g: pp.Grid, cell_ind: Optional[np.ndarray] = None
 ) -> tuple[bool, list[np.ndarray]]:
     """
     Check if a grid is fully connected, as defined by its cell_connection_map().

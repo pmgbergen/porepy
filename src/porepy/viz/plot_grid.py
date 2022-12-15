@@ -272,17 +272,31 @@ def plot_mdg(
         kwargs["color_map"] = _color_map(extr_value)
 
     # Plot each subdomain separately
-    mdg.assign_subdomain_ordering()
     for sd, sd_data in mdg.subdomains(return_data=True):
         # Adjust rgb colors depending on the subdomain ordering
-        kwargs["rgb"] = np.divide(
-            kwargs.get("rgb", [1, 0, 0]), sd_data["node_number"] + 1
-        )
+        kwargs["rgb"] = np.divide(kwargs.get("rgb", [1, 0, 0]), sd.id + 1)
         # Plot the subdomain and data
+
+        vector_value_array = sd_data.get(pp.STATE, {}).get(vector_value, None)
+        if vector_value_array is not None:
+            # The further algorithm requires the vector_value array of shape (3 x n).
+            # Now, we have a 1D array.
+            # Thus, we first reshape and then fill the remaining dimensions with zeros.
+            vector_value_array = vector_value_array.reshape(
+                (mdg.dim_max(), -1), order="F"
+            )
+            vector_value_array = np.vstack(
+                [
+                    vector_value_array,
+                    np.zeros(
+                        (3 - vector_value_array.shape[0], vector_value_array.shape[1])
+                    ),
+                ]
+            )
         _plot_sd_xd(
             sd,
             sd_data.get(pp.STATE, {}).get(cell_value, None),
-            sd_data.get(pp.STATE, {}).get(vector_value, None),
+            vector_value_array,
             ax,
             **kwargs,
         )
@@ -371,7 +385,7 @@ class _Arrow3D(FancyArrowPatch):
         """
         # Render the 3d coordinates of the arrows as preparation for plotting in the 2d plane.
         xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
         # Extract the rendered positions in the 2d plotting plane
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
         # Draw the arrows

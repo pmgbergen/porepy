@@ -280,7 +280,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         """
         setup = SetupContactMechanicsBiot()
         setup.uy_north = 0.001
-        setup.end_time *= 3
+        setup.time_manager.time_final *= 3
         setup.mesh_args = [2, 2]
         setup.simplex = False
         # setup.subtract_fracture_pressure = False

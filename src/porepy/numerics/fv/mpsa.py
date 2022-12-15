@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from time import time
-from typing import Any, Dict, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -84,7 +84,7 @@ class Mpsa(Discretization):
         return sd.dim * sd.num_cells
 
     def extract_displacement(
-        self, sd: pp.Grid, solution_array: np.ndarray, d: Dict
+        self, sd: pp.Grid, solution_array: np.ndarray, d: dict
     ) -> np.ndarray:
         """Extract the displacement part of a solution.
 
@@ -102,7 +102,7 @@ class Mpsa(Discretization):
         return solution_array
 
     def extract_stress(
-        self, sd: pp.Grid, solution_array: np.ndarray, d: Dict
+        self, sd: pp.Grid, solution_array: np.ndarray, d: dict
     ) -> np.ndarray:
         """Extract the stress corresponding to a solution
 
@@ -128,7 +128,7 @@ class Mpsa(Discretization):
 
         return stress * solution_array + bound_stress * bc_val
 
-    def discretize(self, sd: pp.Grid, data: Dict) -> None:
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
         Discretize the second order vector elliptic equation using multi-point
         stress approximation.
@@ -175,8 +175,8 @@ class Mpsa(Discretization):
         data (dict): For entries, see above.
 
         """
-        parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+        parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
         constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
@@ -415,8 +415,8 @@ class Mpsa(Discretization):
         )
 
     def assemble_matrix_rhs(
-        self, sd: pp.Grid, data: Dict
-    ) -> Tuple[sps.spmatrix, np.ndarray]:
+        self, sd: pp.Grid, data: dict
+    ) -> tuple[sps.spmatrix, np.ndarray]:
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
@@ -441,7 +441,7 @@ class Mpsa(Discretization):
         """
         return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
 
-    def assemble_matrix(self, sd: pp.Grid, data: Dict) -> sps.spmatrix:
+    def assemble_matrix(self, sd: pp.Grid, data: dict) -> sps.spmatrix:
         """
         Return the matrix for a discretization of a second order elliptic vector
         equation using a FV method.
@@ -470,7 +470,7 @@ class Mpsa(Discretization):
 
         return M
 
-    def assemble_rhs(self, sd: pp.Grid, data: Dict) -> np.ndarray:
+    def assemble_rhs(self, sd: pp.Grid, data: dict) -> np.ndarray:
         """Return the right-hand side for a discretization of a second
         order elliptic equation using a finite volume method.
 
@@ -506,11 +506,11 @@ class Mpsa(Discretization):
         sd: pp.Grid,
         constit: pp.FourthOrderTensor,
         bound: pp.BoundaryConditionVectorial,
-        eta: float = None,
+        eta: Optional[float] = None,
         inverter: str = "numba",
-        hf_disp: bool = False,
-        hf_eta: float = None,
-    ) -> Tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix, sps.spmatrix]:
+        hf_disp: Optional[bool] = False,
+        hf_eta: Optional[float] = None,
+    ) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix, sps.spmatrix]:
         """
         Actual implementation of the MPSA W-method. To calculate the MPSA
         discretization on a grid, either call this method, or, to respect the
@@ -621,7 +621,7 @@ class Mpsa(Discretization):
             k = pp.SecondOrderTensor(2 * constit.mu + constit.lmbda)
             params["second_order_tensor"] = k
 
-            d: Dict = {
+            d: dict = {
                 pp.PARAMETERS: {tpfa_key: params},
                 pp.DISCRETIZATION_MATRICES: {tpfa_key: {}},
             }
@@ -728,7 +728,7 @@ class Mpsa(Discretization):
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
         eta: float,
         inverter: str,
-    ) -> Tuple[sps.spmatrix, sps.spmatrix, np.ndarray]:
+    ) -> tuple[sps.spmatrix, sps.spmatrix, np.ndarray]:
         """
         This is the function where the real discretization takes place. It contains
         the parts that are common for elasticity and poro-elasticity, and was thus
@@ -1084,8 +1084,8 @@ class Mpsa(Discretization):
         self,
         sd: pp.Grid,
         subcell_topology: pp.fvutils.SubcellTopology,
-        eta: float = None,
-    ) -> Tuple[sps.csr_matrix, sps.csr_matrix]:
+        eta: Optional[float] = None,
+    ) -> tuple[sps.csr_matrix, sps.csr_matrix]:
         """
         Function for reconstructing the displacement at the half faces given the
         local gradients. For a subcell Ks associated with cell K and node s, the
@@ -1212,7 +1212,7 @@ class Mpsa(Discretization):
         eta: float,
         num_sub_cells: int,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
-    ) -> Tuple[sps.spmatrix, sps.spmatrix]:
+    ) -> tuple[sps.spmatrix, sps.spmatrix]:
         nd = sd.dim
         # Distance from cell centers to face centers, this will be the
         # contribution from gradient unknown to equations for displacement
@@ -1247,7 +1247,7 @@ class Mpsa(Discretization):
         eta: float,
         num_sub_cells: int,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
-    ) -> Tuple[sps.spmatrix, sps.spmatrix]:
+    ) -> tuple[sps.spmatrix, sps.spmatrix]:
         nd = sd.dim
         # Distance from cell centers to face centers, this will be the
         # contribution from gradient unknown to equations for displacement
@@ -1297,7 +1297,7 @@ class Mpsa(Discretization):
 
     def _split_stiffness_matrix(
         self, constit: pp.FourthOrderTensor
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Split the stiffness matrix into symmetric and asymetric part
 
@@ -1361,7 +1361,7 @@ class Mpsa(Discretization):
         sd: pp.Grid,
         constit: pp.FourthOrderTensor,
         subcell_topology: pp.fvutils.SubcellTopology,
-    ) -> Tuple[sps.spmatrix, sps.spmatrix, np.ndarray, np.ndarray]:
+    ) -> tuple[sps.spmatrix, sps.spmatrix, np.ndarray, np.ndarray]:
         """Compute product between stiffness tensor and face normals.
 
         The method splits the stiffness matrix into a symmetric and asymmetric
@@ -1540,7 +1540,7 @@ class Mpsa(Discretization):
         nno: np.ndarray,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
         nd: int,
-    ) -> Tuple[sps.spmatrix, sps.spmatrix, np.ndarray]:
+    ) -> tuple[sps.spmatrix, sps.spmatrix, np.ndarray]:
         """
         Define matrices to turn linear system into block-diagonal form.
 
@@ -1681,7 +1681,7 @@ class Mpsa(Discretization):
         d_cont_cell: np.ndarray,
         num_sub_cells: int,
         nd: int,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Transform columns of displacement balance from increasing cell
         ordering (first x-variables of all cells, then y) to increasing
         variables (first all variables of the first cells, then...)
@@ -1720,7 +1720,7 @@ class Mpsa(Discretization):
         d_cont_cell = d_cont_cell[:, d_cont_cell_map]
         return d_cont_grad, d_cont_cell
 
-    def _row_major_to_col_major(self, shape: Tuple, nd: int, axis: int) -> sps.spmatrix:
+    def _row_major_to_col_major(self, shape: tuple, nd: int, axis: int) -> sps.spmatrix:
         """Transform columns of displacement balance from increasing cell
         ordering (first x-variables of all cells, then y) to increasing
         variables (first all variables of the first cells, then...)
@@ -1821,7 +1821,7 @@ class Mpsa(Discretization):
 
     def _reduce_grid_constit_2d(
         self, sd: pp.Grid, constit: pp.FourthOrderTensor
-    ) -> Tuple[pp.Grid, pp.FourthOrderTensor]:
+    ) -> tuple[pp.Grid, pp.FourthOrderTensor]:
         sd = sd.copy()
 
         (

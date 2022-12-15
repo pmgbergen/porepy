@@ -13,9 +13,11 @@ Content:
         gmsh model. Can also mesh.
 
 """
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import gmsh
 import numpy as np
@@ -145,10 +147,10 @@ class _GmshData:
     lines: np.ndarray
     # Mapping from indices of points (referring to the ordering in points) to
     # numerical tags for the points.
-    physical_points: Dict[int, Tags]
+    physical_points: dict[int, Tags]
     # Mapping from indices of lines (referring to the ordering in lines) to numerical tags
     # for the lines.
-    physical_lines: Dict[int, Tags]
+    physical_lines: dict[int, Tags]
 
 
 @dataclass
@@ -169,15 +171,15 @@ class GmshData3d(_GmshData):
 
     # Polygons (both boundary surfaces, fractures and auxiliary lines).
     # See FractureNetwork3d for examples of usage.
-    polygons: List[np.ndarray]
+    polygons: list[np.ndarray]
     # Tags used to identify the type of polygons.
-    polygon_tags: np.ndarray
+    polygon_tags: dict[int, Tags]
     # Physical name information for polygons. Used to set gmsh tags for objects to be
     # represented in hte output mesh.
-    physical_surfaces: Dict[int, Tags]
+    physical_surfaces: dict[int, Tags]
     # Lines to be embedded in surfaces. Outer list has one item per polygon, inner has
     # index of lines to embed.
-    lines_in_surface: List[List[int]]
+    lines_in_surface: list[list[int]]
 
     dim: int = 3
 
@@ -208,7 +210,7 @@ class GmshWriter:
 
         self.define_geometry()
 
-    def set_gmsh_options(self, options: Optional[Dict] = None) -> None:
+    def set_gmsh_options(self, options: Optional[dict] = None) -> None:
         """Set Gmsh options. See Gmsh documentation for choices available.
 
         Parameters:
@@ -350,7 +352,7 @@ class GmshWriter:
             gmsh.finalize()
             GmshWriter.gmsh_initialized = False
 
-    def _add_points(self) -> List[int]:
+    def _add_points(self) -> list[int]:
         """Add points to gmsh. Also set physical names for points if required."""
         point_tags = []
         for pi, sz in enumerate(self._data.mesh_size):
@@ -379,6 +381,8 @@ class GmshWriter:
         """Add all fracture lines to gmsh."""
         # Only add the lines that correspond to fractures or auxiliary lines.
         # Boundary lines are added elsewhere.
+        # NOTE: Here we operate on the numerical tagging of lines (the attribute edges
+        # in FractureNetwork2d), thus we must compare with the values of the Tags.
         inds = np.argwhere(
             np.logical_or.reduce(
                 (
@@ -389,19 +393,23 @@ class GmshWriter:
         ).ravel()
         self._frac_tags = self._add_lines(inds, embed_in_domain=True)
 
-    def _add_fractures_3d(self):
+    def _add_fractures_3d(self) -> None:
         """Add fracture polygons to gmsh"""
-        inds = np.argwhere(
-            np.logical_or.reduce(
-                (
-                    self._data.polygon_tags == Tags.FRACTURE.value,
-                    self._data.polygon_tags == Tags.AUXILIARY_PLANE.value,
-                )
-            )
-        ).ravel()
-        self._frac_tags = self._add_polygons_3d(inds, embed_in_domain=True)
 
-    def _add_polygons_3d(self, inds: np.ndarray, embed_in_domain: bool) -> List[int]:
+        if not isinstance(self._data, GmshData3d):
+            raise ValueError("Need 3d geometry to write fractures")
+
+        # Loop over the polygons, find those tagged as fractures or auxiliary planes
+        # (which could be constraints in the meshing). Add these to the information
+        # to be written.
+        indices_to_write = []
+        for ind, tag in self._data.polygon_tags.items():
+            if tag in (Tags.FRACTURE, Tags.AUXILIARY_PLANE):
+                indices_to_write.append(ind)
+
+        self._frac_tags = self._add_polygons_3d(indices_to_write, embed_in_domain=True)
+
+    def _add_polygons_3d(self, inds: list, embed_in_domain: bool) -> list[int]:
         """Generic method to add polygons to a 3d geometry"""
 
         if not isinstance(self._data, GmshData3d):
@@ -419,7 +427,7 @@ class GmshWriter:
 
         surf_tag = []
 
-        to_phys_tags: List[Tuple[int, str, List[int]]] = []
+        to_phys_tags: list[tuple[int, str, list[int]]] = []
 
         for pi in inds:
             line_tags = []
@@ -462,9 +470,9 @@ class GmshWriter:
 
         return surf_tag
 
-    def _add_lines(self, ind: np.ndarray, embed_in_domain: bool) -> List[int]:
+    def _add_lines(self, ind: np.ndarray, embed_in_domain: bool) -> list[int]:
         # Helper function to write lines.
-        line_tags: List[int] = []
+        line_tags: list[int] = []
 
         if ind.size == 0:
             return line_tags
@@ -483,7 +491,7 @@ class GmshWriter:
 
         # Temporary storage of the lines that are to be assigned physical
         # groups
-        to_physical_group: List[Tuple[int, str, List[int]]] = []
+        to_physical_group: list[tuple[int, str, list[int]]] = []
 
         for i in range_id:
             loc_tags = []
@@ -497,9 +505,9 @@ class GmshWriter:
             # Store local tags
             line_tags += loc_tags
 
-            # Add this line to the set of physical groups to be assigned
+            # Add this line to the set of physical groups to be assigned.
             # We do not assign physical groupings inside this for-loop, as this would
-            # require multiple costly synchronizations (gmsh style)
+            # require multiple costly synchronizations (gmsh style).
             if has_physical_lines and i in self._data.physical_lines:
                 to_physical_group.append((i, physical_name, loc_tags))
 
@@ -520,6 +528,9 @@ class GmshWriter:
 
     def _add_domain_2d(self) -> int:
         """Write boundary lines, and tie them together to a closed loop. Define domain."""
+
+        # Here we operate on ``FractureNetwork2d.edges``, thus we should use the
+        # numerical values of the tag for comparison.
         bound_line_ind = np.argwhere(
             self._data.lines[2] == Tags.DOMAIN_BOUNDARY_LINE.value
         ).ravel()
@@ -541,9 +552,10 @@ class GmshWriter:
         if not isinstance(self._data, GmshData3d):
             raise ValueError("Need 3d geometry to specify 3d domain")
 
-        inds = np.argwhere(
-            self._data.polygon_tags == Tags.DOMAIN_BOUNDARY_SURFACE.value
-        ).ravel()
+        inds = []
+        for i, tag in self._data.polygon_tags.items():
+            if tag == Tags.DOMAIN_BOUNDARY_SURFACE:
+                inds.append(i)
 
         bound_surf_tags = self._add_polygons_3d(inds, embed_in_domain=False)
 
