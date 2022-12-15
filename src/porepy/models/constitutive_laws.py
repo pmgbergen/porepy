@@ -1975,7 +1975,7 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
 
     def bulk_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Bulk modulus [Pa]."""
-        val = (self.solid.lame_lambda() + 2 * self.solid.shear_modulus()) / 3
+        val = self.solid.lame_lambda() + 2 * self.solid.shear_modulus() / 3
         return Scalar(val, "bulk_modulus")
 
     def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:

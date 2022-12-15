@@ -41,6 +41,7 @@ class VariablesFluidMassAndEnergy(
 
 class ConstitutiveLawFluidMassAndEnergy(
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
+    pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,

@@ -420,9 +420,10 @@ granite_values = {
     "permeability": 1e-20,
     "density": 2700,
     "porosity": 7e-3,
-    "lame_mu": 16.67 * pp.GIGA,
+    "shear_modulus": 16.67 * pp.GIGA,
     "lame_lambda": 11.11 * pp.GIGA,
     "specific_heat_capacity": 790,
+    "thermal_conductivity": 2.5,
 }
 # Cf. fluid.py
 water_values = {
