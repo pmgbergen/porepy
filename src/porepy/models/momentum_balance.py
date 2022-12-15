@@ -125,11 +125,12 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
+        proj = pp.ad.SubdomainProjections(subdomains, self.nd)
 
         # Contact traction from primary grid and mortar displacements (via primary grid)
         contact_from_primary_mortar = (
             mortar_projection.primary_to_mortar_int
-            * self.subdomain_projections(self.nd).face_prolongation(matrix_subdomains)
+            * proj.face_prolongation(matrix_subdomains)
             * self.internal_boundary_normal_to_outwards(matrix_subdomains, self.nd)
             * self.stress(matrix_subdomains)
         )
@@ -455,7 +456,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             sd.num_cells for sd in self.mdg.subdomains(dim=self.nd - 1)
         )
         traction_vals = np.zeros((self.nd, num_frac_cells))
-        traction_vals[-1] = -1
+        traction_vals[-1] = self.solid.convert_units(-1, "Pa")
         self.equation_system.set_variable_values(
             traction_vals.ravel("F"),
             [self.contact_traction_variable],
