@@ -206,7 +206,7 @@ def test_single_subdomains(setup, subdomain):
     )
 
 
-@pytest.mark.parametrize("subdomain", single_subdomains)
+@pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
 def test_single_subdomains_import(setup, subdomain):
     # Test of the import routine of the Exporter for single subdomains.
     # Consistent with test_single_subdomains.
