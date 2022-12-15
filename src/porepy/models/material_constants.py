@@ -138,9 +138,10 @@ class FluidConstants(MaterialConstants):
         default_constants: dict[str, number] = {
             "compressibility": 0,
             "density": 1,
+            "normal_thermal_conductivity": 1,
+            "pressure": 0,
             "specific_heat_capacity": 1,
             "thermal_conductivity": 1,
-            "normal_thermal_conductivity": 1,
             "thermal_expansion": 0,
             "viscosity": 1,
         }
@@ -190,6 +191,17 @@ class FluidConstants(MaterialConstants):
         return self.convert_units(
             self.constants["normal_thermal_conductivity"], "W * m^-1 * K^-1"
         )
+
+    def pressure(self) -> number:
+        """Pressure [Pa].
+
+        Intended usage: Reference pressure.
+
+        Returns:
+            Pressure in converted pressure units.
+
+        """
+        return self.convert_units(self.constants["pressure"], "Pa")
 
     def specific_heat_capacity(self) -> number:
         """Specific heat [J/kg/K].
@@ -247,7 +259,7 @@ class SolidConstants(MaterialConstants):
     def __init__(self, constants: Optional[dict] = None):
         # Default values, sorted alphabetically
         default_constants = {
-            "biot_coefficient": 0,
+            "biot_coefficient": 1,
             "density": 1,
             "dilation_angle": 0,
             "fracture_gap": 0,
