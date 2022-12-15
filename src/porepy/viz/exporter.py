@@ -231,7 +231,7 @@ class Exporter:
                 raise ValueError("The data array is not compatible with the grid.")
 
             # Flatten the data compatible with _to_vector_format.
-            return np.ravel(value, "F")
+            return np.ravel(value, "C")
 
         # Convert file_names to a list
         if isinstance(file_names, str):
