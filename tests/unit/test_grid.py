@@ -675,6 +675,7 @@ def test_boundary_grid():
     """Test that the boundary grid is created correctly."""
     # First make a standard grid and its derived BoundaryGrid
     g = pp.CartGrid([2, 2])
+    g.compute_geometry()
 
     boundary_grid = pp.BoundaryGrid(g)
 

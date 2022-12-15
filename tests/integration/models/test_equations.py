@@ -9,7 +9,7 @@ See also: tests.integration.models.test_constitutive_laws.
 """
 import pytest
 
-import setup_utils
+from . import setup_utils
 
 
 @pytest.mark.parametrize(

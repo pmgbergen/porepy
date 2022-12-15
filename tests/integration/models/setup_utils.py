@@ -82,6 +82,203 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         return mesh_sizes
 
 
+class BoundaryConditionsThermoporomechanicsDirNorthSouth(
+    pp.thermoporomechanics.BoundaryConditionsThermoporomechanics
+):
+    """Boundary conditions for the thermoporomechanics problem.
+
+    Dirichlet boundary conditions are defined on the north and south boundaries. Some
+    of the default values may be changed directly through attributes of the class.
+
+    Implementation of mechanical values facilitates time-dependent boundary conditions
+    with use of :class:`pp.time.TimeDependentArray` for :math:`\nabla \cdot u` term.
+
+    Usage: tests for models defining equations for any subset of the thermoporomechanics
+    problem.
+
+    """
+
+    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary condition type for Darcy flux.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, north + south, "dir")
+
+    def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """Boundary condition values for Darcy flux.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries,
+        with a constant value of 0 unless fluid's reference pressure is changed.
+
+        Parameters:
+            subdomains: List of subdomains for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        vals = []
+        if len(subdomains) == 0:
+            return pp.ad.Array(np.zeros(0), name="bc_values_darcy")
+        for sd in subdomains:
+            _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+            vals_loc = np.zeros(sd.num_faces)
+            vals_loc[north + south] = self.fluid.pressure()
+            vals.append(vals_loc)
+        return pp.constitutive_laws.ad_wrapper(
+            np.hstack(vals), True, name="bc_values_darcy"
+        )
+
+    def bc_type_mechanics(self, sd):
+        """Boundary condition type for mechanics.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, north + south, "dir")
+        bc.internal_to_dirichlet(sd)
+        return bc
+
+    def bc_type_mobrho(self, sd):
+        """Boundary condition type for the density-mobility product.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, north + south, "dir")
+
+    def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary condition type for the Fourier heat flux.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, north + south, "dir")
+
+    def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary condition type for the enthalpy.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, north + south, "dir")
+
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """Boundary condition values for the mobility.
+
+        Nonzero values are only defined on the north and south boundaries corresponding
+        to the reference value of the density-mobility product.
+
+        Parameters:
+            subdomains: List of subdomains for which to define boundary conditions.
+
+        Returns:
+            bc_values: Array of boundary condition values.
+
+        """
+        bc_values = []
+        for sd in subdomains:
+            # Get density and viscosity values on boundary faces applying trace to
+            # interior values.
+            _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+            # Append to list of boundary values
+            vals = np.zeros(sd.num_faces)
+            vals[north + south] = self.fluid.density() / self.fluid.viscosity()
+            bc_values.append(vals)
+
+        # Concatenate to single array and wrap as ad.Array
+        bc_values = pp.constitutive_laws.ad_wrapper(
+            np.hstack(bc_values), True, name="bc_values_mobility"
+        )
+        return bc_values
+
+    def bc_values_mechanics_np(self, sd: pp.Grid) -> np.ndarray:
+        """Boundary values for the mechanics problem as a numpy array.
+
+        Extracted from below method to facilitate time dependent boundary conditions.
+        Values for north and south faces are set to zero unless otherwise specified
+        through attributes ux_north, uy_north, ux_south, uy_south.
+
+        Parameters:
+            sd: Subdomain for which boundary values are to be returned.
+
+        Returns:
+            Array of boundary values, with one value for each dimension of the
+                problem, for each face in the subdomain.
+
+        """
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        values = np.zeros((sd.dim, sd.num_faces))
+        values[0, south] = self.params.get("ux_south", 0)
+        values[1, south] = self.params.get("uy_south", 0)
+        values[0, north] = self.params.get("ux_north", 0)
+        values[1, north] = self.params.get("uy_north", 0)
+        return values.ravel("F")
+
+    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """Boundary values for the mechanics problem.
+
+        Parameters:
+            subdomains: List of subdomains for which boundary values are to be returned.
+
+        Returns:
+            Array of boundary values, with one value for each dimension of the
+                problem, for each face in the subdomain.
+
+        """
+        # Set the boundary values
+        bc_values = []
+        if len(subdomains) == 0:
+            return pp.ad.Array(np.zeros(0), name="bc_values_mechanics")
+        for sd in subdomains:
+            bc_values.append(self.bc_values_mechanics_np(sd))
+        ad_values = pp.constitutive_laws.ad_wrapper(
+            np.hstack(bc_values), True, name="bc_values_mechanics"
+        )
+        return ad_values
+
+
 class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
     """A model with no physics, for testing purposes.
 
