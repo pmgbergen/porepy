@@ -507,7 +507,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             Operator representing the reference pressure.
 
         """
-        p_ref = self.fluid.convert_units(0, "Pa")
+        p_ref = self.fluid.pressure()
         size = sum([sd.num_cells for sd in subdomains])
         return ad_wrapper(p_ref, True, size, name="reference_pressure")
 

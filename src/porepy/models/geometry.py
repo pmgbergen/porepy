@@ -77,7 +77,7 @@ class ModelGeometry:
             ls = 1 / self.units.m
             # Mono-dimensional grid by default
             phys_dims = np.array([1, 1]) * ls
-            n_cells = np.array([1, 1])
+            n_cells = np.array([2, 2])
             self.box = pp.geometry.bounding_box.from_points(
                 np.array([[0, 0], phys_dims]).T
             )
