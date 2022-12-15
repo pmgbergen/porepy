@@ -527,7 +527,9 @@ class EquationManager:
 
     def _variable_set_complement(
         self,
-        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]] = None,
+        variables: Optional[
+            Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
+        ] = None,
     ) -> List["pp.ad.Variable"]:
         """
         Take the complement of a set of variables, with respect to the full set of

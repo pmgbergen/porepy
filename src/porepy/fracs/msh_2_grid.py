@@ -1,7 +1,9 @@
 """
 Module for converting gmsh output file to our grid structure.
 """
-from typing import Dict, List, Tuple, Union
+from __future__ import annotations
+
+from typing import Optional, Union
 
 import numpy as np
 
@@ -10,7 +12,7 @@ import porepy as pp
 from .gmsh_interface import PhysicalNames
 
 
-def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Grid]:
+def create_3d_grids(pts: np.ndarray, cells: dict[str, np.ndarray]) -> list[pp.Grid]:
     """Create a tetrahedral grid from a gmsh tessalation.
 
     Parameters:
@@ -37,13 +39,13 @@ def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Gr
 
 def create_2d_grids(
     pts: np.ndarray,
-    cells: Dict[str, np.ndarray],
-    phys_names: Dict[str, str],
-    cell_info: Dict,
+    cells: dict[str, np.ndarray],
+    phys_names: dict[str, str],
+    cell_info: dict,
     is_embedded: bool = False,
-    surface_tag: str = None,
-    constraints: np.ndarray = None,
-) -> List[pp.Grid]:
+    surface_tag: Optional[str] = None,
+    constraints: Optional[np.ndarray] = None,
+) -> list[pp.Grid]:
     """Create 2d grids for lines of a specified type from a gmsh tessalation.
 
     Only surfaces that were defined as 'physical' in the gmsh sense may have a grid
@@ -85,7 +87,7 @@ def create_2d_grids(
 
     if is_embedded:
         # List of 2D grids, one for each surface
-        g_list: List[pp.Grid] = []
+        g_list: list[pp.Grid] = []
 
         # Special treatment of the case with no fractures
         if "triangle" not in cells:
@@ -199,14 +201,14 @@ def create_2d_grids(
 
 def create_1d_grids(
     pts: np.ndarray,
-    cells: Dict[str, np.ndarray],
-    phys_names: Dict,
-    cell_info: Dict,
-    line_tag: str = None,
+    cells: dict[str, np.ndarray],
+    phys_names: dict,
+    cell_info: dict,
+    line_tag: Optional[str] = None,
     tol: float = 1e-4,
-    constraints: np.ndarray = None,
+    constraints: Optional[np.ndarray] = None,
     return_fracture_tips: bool = True,
-) -> Union[List[pp.Grid], Tuple[List[pp.Grid], np.ndarray]]:
+) -> Union[list[pp.Grid], tuple[list[pp.Grid], np.ndarray]]:
     """Create 1d grids for lines of a specified type from a gmsh tessalation.
 
     Only lines that were defined as 'physical' in the gmsh sense may have a grid
@@ -253,7 +255,7 @@ def create_1d_grids(
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
 
     # Data structure for the point grids
-    g_1d: List[pp.Grid] = []
+    g_1d: list[pp.Grid] = []
 
     # If there are no fracture intersections, we return empty lists
     if "line" not in cells:
@@ -318,11 +320,11 @@ def create_1d_grids(
 
 def create_0d_grids(
     pts: np.ndarray,
-    cells: Dict[str, np.ndarray],
-    phys_names: Dict[int, str],
-    cell_info: Dict[str, np.ndarray],
-    target_tag_stem: str = None,
-) -> List[pp.PointGrid]:
+    cells: dict[str, np.ndarray],
+    phys_names: dict[int, str],
+    cell_info: dict[str, np.ndarray],
+    target_tag_stem: Optional[str] = None,
+) -> list[pp.PointGrid]:
     """Create 0d grids for points of a specified type from a gmsh tessalation.
 
     Only points that were defined as 'physical' in the gmsh sense may have a grid

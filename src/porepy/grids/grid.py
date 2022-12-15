@@ -12,7 +12,9 @@ Acknowledgements:
 """
 from __future__ import annotations
 
+import copy
 import itertools
+from itertools import count
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -79,27 +81,40 @@ class Grid:
 
         ----
 
-        Other fields: These may only be assigned to certain grids, use with
-        caution:
-
-        frac_num (int): Index of the fracture the grid corresponds to. Take
-            value (0, 1, ...) if the grid corresponds to a fracture, -1 if not.
-        parent_cell_ind (np.ndarray): For grids that have refined or are subgrids
-            of larger grids, index of parent the cell in the parent grid.
-            Defaults to a mapping to its own index.
-        global_point_ind (np.ndarray): Index of each point, assigned during processing
-            of mixed-dimensional grids created by gmsh. Used to identify points that
-            are geometrically equal, though on different grids. Could potentially be
-            used to identify such geometrically equal points at a later stage, but
-            there is no guarantee that this will work.
-        _physical_name_index (int): Used to keep track of processing of grids generated
-            by gmsh.
-        frac_pairs (np.ndarray): indices of faces that are geometrically coinciding, but
-            lay on different side of a lower-dimensional grid.
-        well_num (int): Index of the well associated to the grid. Take value in
-            (0, 1, ..) if the grid corresponds to a well, -1 if not.
+        Other fields (these may only be assigned to certain grids, use with caution):
+            frac_num (int): Index of the fracture the grid corresponds to. Take
+                value (0, 1, ...) if the grid corresponds to a fracture, -1 if not.
+            parent_cell_ind (np.ndarray): For grids that have refined or are subgrids
+                of larger grids, index of parent the cell in the parent grid.
+                Defaults to a mapping to its own index.
+            global_point_ind (np.ndarray): Index of each point, assigned during processing
+                of mixed-dimensional grids created by gmsh. Used to identify points that
+                are geometrically equal, though on different grids. Could potentially be
+                used to identify such geometrically equal points at a later stage, but
+                there is no guarantee that this will work.
+            _physical_name_index (int): Used to keep track of processing of grids generated
+                by gmsh.
+            frac_pairs (np.ndarray): indices of faces that are geometrically coinciding, but
+                lay on different side of a lower-dimensional grid.
+            well_num (int): Index of the well associated to the grid. Take value in
+                (0, 1, ..) if the grid corresponds to a well, -1 if not.
 
     """
+
+    _counter = count(0)
+    """Counter of instantiated grids. See __new__ and id."""
+    __id: int
+
+    def __new__(cls, *args, **kwargs):
+        """Make object and set id according to class counter.
+
+        Args:
+            *args:
+            **kwargs:
+        """
+        obj = object.__new__(cls)
+        obj.__id = next(cls._counter)
+        return obj
 
     def __init__(
         self,
@@ -173,13 +188,27 @@ class Grid:
             self.tags = external_tags
             self._check_tags()
 
-    def copy(self) -> pp.Grid:
-        """Create a deep copy of the grid.
+    @property
+    def id(self) -> int:
+        """Grid ID.
 
         Returns:
-            grid: A deep copy of self. All attributes will also be copied.
+            Integer id.
+
+        The returned attribute should not be changed. This may severely compromise other parts
+        of the code, such as sorting in md grids.
+        The attribute is set in __new__. This avoids calls to super().__init__ in subclasses.
+        """
+        return self.__id
+
+    def copy(self) -> pp.Grid:
+        """Create a new instance with some attributes deep-copied from the grid.
+
+        Returns:
+            grid: A deep copy of self. Some predefined attributes are also copied.
 
         """
+        # Instantiating a new object gives it a unique id (see __new__)
         h = Grid(
             self.dim,
             self.nodes.copy(),
@@ -188,20 +217,19 @@ class Grid:
             name=self.name,
             history=self.history,
         )
-        if hasattr(self, "cell_volumes"):
-            h.cell_volumes = self.cell_volumes.copy()
-        if hasattr(self, "cell_centers"):
-            h.cell_centers = self.cell_centers.copy()
-        if hasattr(self, "face_centers"):
-            h.face_centers = self.face_centers.copy()
-        if hasattr(self, "face_normals"):
-            h.face_normals = self.face_normals.copy()
-        if hasattr(self, "face_areas"):
-            h.face_areas = self.face_areas.copy()
-        if hasattr(self, "tags"):
-            h.tags = self.tags.copy()
-        if hasattr(self, "periodic_face_map"):
-            h.periodic_face_map = self.periodic_face_map.copy()
+        copy_attributes = [
+            "cell_volumes",
+            "cell_centers",
+            "face_centers",
+            "face_normals",
+            "face_areas",
+            "tags",
+            "periodic_face_map",
+        ]
+        for attr in copy_attributes:
+            if hasattr(self, attr):
+                setattr(h, attr, copy.deepcopy(getattr(self, attr)))
+
         return h
 
     def __repr__(self) -> str:

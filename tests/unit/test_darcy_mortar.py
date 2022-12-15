@@ -69,7 +69,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         mdg = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
         mdg.compute_geometry()
-        mdg.assign_subdomain_ordering()
 
         for intf in mdg.interfaces():
             pass
@@ -506,7 +505,6 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
                         mg_map[mg][s] = pp.refinement.remesh_1d(g, num_nodes=num_nodes)
 
         mdg.replace_subdomains_and_interfaces(sd_map=gmap, intf_map=mg_map, tol=1e-4)
-        mdg.assign_subdomain_ordering()
 
         self.set_params(mdg)
 
@@ -914,8 +912,6 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         g_new_2d = self.grid_2d(pert_node=pert_node, flip_normal=flip_normal)
         g_new_1d = self.grid_1d(num_1d)
         mdg.replace_subdomains_and_interfaces(sd_map={g2: g_new_2d, g1: g_new_1d})
-
-        mdg.assign_subdomain_ordering()
 
         self.set_params(mdg)
         return mdg

@@ -527,12 +527,7 @@ def mdg_refinement(
 
     for i in np.arange(len(subdomains)):
         sd, sd_ref = subdomains[i], subdomains_ref[i]
-
-        node_num, node_num_ref = (
-            mdg.node_number(sd),
-            mdg_ref.node_number(sd_ref),
-        )
-        assert node_num == node_num_ref, "Weakly check that grids refer to same domain."
+        assert sd.id == sd_ref, "Strongly check that grids refer to same domain."
 
         # Compute the mapping for this subdomain-pair,
         # and assign the result to the node of the coarse mdg

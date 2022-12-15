@@ -51,6 +51,7 @@ from porepy.utils.interpolation_tables import (
     InterpolationTable,
     AdaptiveInterpolationTable,
 )
+from porepy.utils import array_operations
 from porepy.numerics.linalg import matrix_operations
 
 from porepy.geometry import (
@@ -190,7 +191,7 @@ from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleF
 from porepy.numerics import ad
 
 # Time stepping control
-from porepy.numerics.time_step_control import TimeSteppingControl
+from porepy.numerics.time_step_control import TimeManager
 
 # Visualization
 from porepy.viz.exporter import Exporter

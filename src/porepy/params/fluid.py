@@ -29,7 +29,7 @@ class UnitFluid(object):
             theta_ref (float, optional): reference temperature in Celsius.
         """
         if theta_ref is None:
-            self.theta_ref = 20 * (pp.CELSIUS)
+            self.theta_ref = 20 * pp.CELSIUS
         else:
             self.theta_ref = theta_ref
 
@@ -43,7 +43,7 @@ class UnitFluid(object):
             delta_theta (float): temperature increment in Celsius.
 
         Returns:
-            float: themal expansion
+            float: thermal expansion
         """
         return 1
 
@@ -110,7 +110,7 @@ class UnitFluid(object):
 class Water(UnitFluid):
     def __init__(self, theta_ref=None):
         if theta_ref is None:
-            self.theta_ref = 20 * (pp.CELSIUS)
+            self.theta_ref = 20 * pp.CELSIUS
         else:
             self.theta_ref = theta_ref
 
@@ -124,7 +124,7 @@ class Water(UnitFluid):
             delta_theta (float): temperature increment in Celsius.
 
         Returns:
-            float: themal expansion
+            float: thermal expansion
         """
         return (
             0.0002115
@@ -143,7 +143,7 @@ class Water(UnitFluid):
         """
         if theta is None:
             theta = self.theta_ref
-        theta_0 = 10 * (pp.CELSIUS)
+        theta_0 = 10 * pp.CELSIUS
         rho_0 = 999.8349 * (pp.KILOGRAM / pp.METER**3)
         return rho_0 / (1.0 + self.thermal_expansion(theta - theta_0))
 

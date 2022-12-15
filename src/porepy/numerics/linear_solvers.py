@@ -5,7 +5,9 @@ setup object has its own system to assemble and solve the system; this
 is just a wrapper around that, mostly for compliance with the nonlinear
 case, see numerics.nonlinear.nonlinear_solvers.
 """
-from typing import Dict, Tuple
+from __future__ import annotations
+
+from typing import Optional
 
 from porepy.models.abstract_model import AbstractModel
 
@@ -15,7 +17,7 @@ class LinearSolver:
     model class before and after solving the problem.
     """
 
-    def __init__(self, params: Dict = None) -> None:
+    def __init__(self, params: Optional[dict] = None) -> None:
         """Define linear solver.
 
         Parameters:
@@ -29,7 +31,7 @@ class LinearSolver:
         # default_options.update(params)
         self.params = params  # default_options
 
-    def solve(self, setup: AbstractModel) -> Tuple[float, bool]:
+    def solve(self, setup: AbstractModel) -> tuple[float, bool]:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:

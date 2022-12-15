@@ -3,7 +3,7 @@ gmsh
 matplotlib
 meshio >= 5.0
 networkx
-numba >= 0.53.0, < 0.56.1
+numba >= 0.56.3
 numpy
 requests
 scipy
