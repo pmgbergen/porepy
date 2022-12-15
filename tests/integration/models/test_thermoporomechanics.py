@@ -10,14 +10,16 @@ import pytest
 
 import porepy as pp
 
-from .setup_utils import Thermoporomechanics
-from .test_momentum_balance import BoundaryConditionsDirNorthSouth
+from .setup_utils import (
+    BoundaryConditionsThermoporomechanicsDirNorthSouth,
+    Thermoporomechanics,
+)
 from .test_poromechanics import NonzeroFractureGapPoromechanics
 
 
 class TailoredThermoporomechanics(
     NonzeroFractureGapPoromechanics,
-    BoundaryConditionsDirNorthSouth,
+    BoundaryConditionsThermoporomechanicsDirNorthSouth,
     Thermoporomechanics,
 ):
     ...
@@ -53,7 +55,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     params = {
         "suppress_export": False,  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
-        "north_displacement": north_displacement,
+        "uy_north": north_displacement,
         "max_iterations": 50,
     }
 

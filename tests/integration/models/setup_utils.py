@@ -135,9 +135,7 @@ class BoundaryConditionsThermoporomechanicsDirNorthSouth(
             vals_loc = np.zeros(sd.num_faces)
             vals_loc[north + south] = self.fluid.pressure()
             vals.append(vals_loc)
-        return pp.constitutive_laws.ad_wrapper(
-            np.hstack(vals), True, name="bc_values_darcy"
-        )
+        return pp.wrap_as_ad_array(np.hstack(vals), name="bc_values_darcy")
 
     def bc_type_mechanics(self, sd):
         """Boundary condition type for mechanics.
@@ -228,9 +226,7 @@ class BoundaryConditionsThermoporomechanicsDirNorthSouth(
             bc_values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
-        bc_values = pp.constitutive_laws.ad_wrapper(
-            np.hstack(bc_values), True, name="bc_values_mobility"
-        )
+        bc_values = pp.wrap_as_ad_array(np.hstack(bc_values), name="bc_values_mobility")
         return bc_values
 
     def bc_values_mechanics_np(self, sd: pp.Grid) -> np.ndarray:
@@ -273,8 +269,8 @@ class BoundaryConditionsThermoporomechanicsDirNorthSouth(
             return pp.ad.Array(np.zeros(0), name="bc_values_mechanics")
         for sd in subdomains:
             bc_values.append(self.bc_values_mechanics_np(sd))
-        ad_values = pp.constitutive_laws.ad_wrapper(
-            np.hstack(bc_values), True, name="bc_values_mechanics"
+        ad_values = pp.wrap_as_ad_array(
+            np.hstack(bc_values), name="bc_values_mechanics"
         )
         return ad_values
 

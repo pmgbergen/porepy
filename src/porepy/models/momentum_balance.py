@@ -546,9 +546,7 @@ class BoundaryConditionsMomentumBalance:
 
         """
         num_faces = sum([sd.num_faces for sd in subdomains])
-        return constitutive_laws.ad_wrapper(
-            0, True, num_faces * self.nd, "bc_vals_mechanics"
-        )
+        return pp.wrap_as_ad_array(0, num_faces * self.nd, "bc_vals_mechanics")
 
 
 class MomentumBalance(

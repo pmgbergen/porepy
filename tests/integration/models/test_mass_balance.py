@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.models.constitutive_laws import ad_wrapper
 
 from .setup_utils import MassBalance
 
@@ -52,7 +51,7 @@ class BoundaryConditionLinearPressure:
             val_loc = np.zeros(sd.num_faces)
             val_loc[west] = 1
             values.append(val_loc)
-        return ad_wrapper(np.hstack(values), True, name="bc_values_darcy")
+        return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_darcy")
 
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
@@ -74,7 +73,7 @@ class BoundaryConditionLinearPressure:
             val_loc = np.zeros(sd.num_faces)
             val_loc[all_bf] = self.fluid.density() / self.fluid.viscosity()
             values.append(val_loc)
-        return ad_wrapper(np.hstack(values), True, name="bc_values_mobrho")
+        return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_mobrho")
 
 
 class LinearModel(BoundaryConditionLinearPressure, MassBalance):

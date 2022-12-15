@@ -24,8 +24,6 @@ import numpy as np
 
 import porepy as pp
 
-from .constitutive_laws import ad_wrapper
-
 logger = logging.getLogger(__name__)
 
 
@@ -364,9 +362,9 @@ class BoundaryConditionsSinglePhaseFlow:
 
         """
         num_faces = sum([sd.num_faces for sd in subdomains])
-        # Ignore typing error below, the parameter in ad_wrapper forces it to be an
+        # Ignore typing error below, the parameter in _ad_wrapper forces it to be an
         # Array.
-        return ad_wrapper(0, True, num_faces, "bc_values_darcy")  # type: ignore
+        return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")  # type: ignore
 
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary condition values for the mobility times density.
@@ -405,8 +403,8 @@ class BoundaryConditionsSinglePhaseFlow:
         # Concatenate to single array and wrap as ad.Array
         # We have forced the type of bc_values_array to be an ad.Array, but mypy does
         # not recognize this. We therefore ignore the typing error.
-        bc_values_array: pp.ad.Array = ad_wrapper(  # type: ignore
-            np.hstack(bc_values), array=True, name="bc_values_mobility"
+        bc_values_array: pp.ad.Array = pp.wrap_as_ad_array(  # type: ignore
+            np.hstack(bc_values), name="bc_values_mobility"
         )
         return bc_values_array  # type: ignore
 
@@ -509,7 +507,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         """
         p_ref = self.fluid.pressure()
         size = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(p_ref, True, size, name="reference_pressure")
+        return pp.wrap_as_ad_array(p_ref, size, name="reference_pressure")
 
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
