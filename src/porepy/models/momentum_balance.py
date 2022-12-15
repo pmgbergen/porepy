@@ -227,9 +227,13 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
 
         # Parameters
-        c_num = scalar_to_tangential * self.numerical_constant(subdomains)
-        # Combine the above into expressions that enter the equation
 
+        # Expanding using only left multiplication to with scalar_to_tangential does
+        # not work for an array, unlike the operators below. Arrays need right
+        # multiplication as well.
+        c_num = self.numerical_constant(subdomains)
+        c_num = sum([e_i * c_num * e_i.T for e_i in tangential_basis])
+        # Combine the above into expressions that enter the equation
         tangential_sum = t_t + c_num * u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
