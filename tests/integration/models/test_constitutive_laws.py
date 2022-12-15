@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+import porepy.models.constitutive_laws as c_l
 
 from . import setup_utils
 
@@ -152,10 +153,116 @@ def test_parse_constitutive_laws(
 
 
 @pytest.mark.parametrize(
+    "model, method_name, expected",
+    [
+        (setup_utils.Poromechanics, "fluid_density", 1000 * np.exp(4e-10 * 2)),
+        (
+            setup_utils.Thermoporomechanics,
+            "fluid_density",
+            # \rho = \rho_0 \exp(compressibility p - thermal_expansion T)
+            1000 * np.exp(4e-10 * 2 - 2.1e-4 * 3),
+        ),
+        (
+            setup_utils.MassAndEnergyBalance,
+            "thermal_conductivity",
+            # Porosity weighted average of the solid and fluid thermal conductivities
+            (1 - 7e-3) * 2.5 + 7e-3 * 0.6,
+        ),
+        (
+            setup_utils.MassAndEnergyBalance,
+            "solid_enthalpy",
+            # c_p T
+            790 * 3,
+        ),
+        (
+            setup_utils.MassAndEnergyBalance,
+            "fluid_enthalpy",
+            # c_p T
+            4180 * 3,
+        ),
+        # (   TODO
+        #     setup_utils.Poromechanics,
+        #     "matrix_porosity",
+        #     # 1 - \phi_f
+        # )
+        (
+            setup_utils.MomentumBalance,
+            "bulk_modulus",
+            # \lambda + 2/3 \mu
+            11.11 * pp.GIGA + 2 / 3 * 16.67 * pp.GIGA,
+        ),
+        (
+            setup_utils.MomentumBalance,
+            "shear_modulus",
+            # \mu
+            16.67 * pp.GIGA,
+        ),
+        (
+            setup_utils.MomentumBalance,
+            "youngs_modulus",
+            # \mu (3 \lambda + 2 \mu) / (\lambda + \mu)
+            16.67 * (3 * 11.11 + 2 * 16.67) / (11.11 + 16.67) * pp.GIGA,
+        ),
+    ],
+)
+def test_evaluated_values(model, method_name, expected):
+    """Test that the value of the parsed operator is as expected."""
+    # The thermoporoelastic model covers most constitutive laws, so we use it for the
+    # test.
+    # Assign non-trivial values to the parameters to avoid masking errors.
+    solid = pp.SolidConstants(setup_utils.granite_values)
+    fluid = pp.FluidConstants(setup_utils.water_values)
+    params = {"material_constants": {"solid": solid, "fluid": fluid}, "num_fracs": 0}
+
+    setup = model(params)
+    setup.prepare_simulation()
+
+    # Set variable values different from default zeros in iterate.
+    # This yields non-zero perturbations.
+    if hasattr(setup, "pressure_variable"):
+        setup.equation_system.set_variable_values(
+            2 * np.ones(setup.mdg.num_subdomain_cells()),
+            [setup.pressure_variable],
+            to_iterate=True,
+        )
+    if hasattr(setup, "temperature_variable"):
+        setup.equation_system.set_variable_values(
+            3 * np.ones(setup.mdg.num_subdomain_cells()),
+            [setup.temperature_variable],
+            to_iterate=True,
+        )
+    method = getattr(setup, method_name)
+
+    # Call the method with the domain as argument. An error here will indicate that
+    # something is wrong with the way the method combines terms and factors (e.g., grids
+    # parameters, variables, other methods) to form an Ad operator object.
+    op = method(setup.mdg.subdomains())
+    if isinstance(op, np.ndarray):
+        # E.g. permeability or conductivity
+        assert np.allclose(op, expected)
+        return
+
+    # The method should return an Ad object.
+    assert isinstance(op, pp.ad.Operator)
+
+    # Carry out discretization.
+    op.discretize(setup.mdg)
+    # Evaluate the discretized operator. An error here would typically be caused by the
+    # method combining terms and factors of the wrong size etc. This could be a problem
+    # with the constitutive law, or it could signify that something has changed in the
+    # Ad machinery which makes the evaluation of the operator fail.
+    val = op.evaluate(setup.equation_system)
+    if isinstance(val, pp.ad.Ad_array):
+        val = val.val
+
+    assert np.allclose(val, expected)
+
+
+@pytest.mark.parametrize(
     "constitutive_mixin, domain_dimension, expected",
     [
-        (pp.constitutive_laws.CubicLawPermeability, 1, 0.01**3 / 12),
-        (pp.constitutive_laws.CubicLawPermeability, 0, 0.01**4 / 12),
+        (c_l.CubicLawPermeability, 1, 0.01**3 / 12),
+        (c_l.CubicLawPermeability, 0, 0.01**4 / 12),
     ],
 )
 def test_permeability_values(constitutive_mixin, domain_dimension, expected):

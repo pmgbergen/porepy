@@ -30,7 +30,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ThermoPressureStress,
     pp.constitutive_laws.ThermoPoroMechanicsPorosity,
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
-    # Energy subproblems
+    # Energy subproblem
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,

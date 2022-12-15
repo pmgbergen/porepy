@@ -99,8 +99,10 @@ class EnergyBalanceEquations:
             Operator representing the solid energy.
 
         """
-        energy_density = self.solid_enthalpy(subdomains) * (
-            1 - self.porosity(subdomains)
+        energy_density = (
+            self.solid_density(subdomains)
+            * self.solid_enthalpy(subdomains)
+            * (1 - self.porosity(subdomains))
         )
         energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("solid_internal_energy")
@@ -346,6 +348,7 @@ class ConstitutiveLawsEnergyBalance(
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.FluidDensityFromTemperature,
+    pp.constitutive_laws.ConstantSolidDensity,
 ):
     """Collect constitutive laws for the energy balance."""
 
