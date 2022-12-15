@@ -5,60 +5,14 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.models.constitutive_laws import ad_wrapper
 
-from .setup_utils import MomentumBalance
-
-
-class BoundaryConditionsDirNorthSouth:
-    """Overload the boundary condition.
-
-    Dirichlet values on the north and south boundaries. The values are set to zero by
-    default, but can be changed by setting the parameters north_displacement and
-    south_displacement.
-
-    """
-
-    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
-
-        Parameters:
-            sd: Subdomain grid on which to define boundary conditions.
-
-        Returns:
-            Boundary condition object.
-
-        """
-        # Define boundary regions
-        _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, north + south, "dir")
-        bc.internal_to_dirichlet(sd)
-        return bc
-
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
-        Not sure where this one should reside. Note that we could remove the
-        grid_operator BC and DirBC, probably also ParameterArray/Matrix (unless needed
-        to get rid of pp.ad.Discretization. I don't see how it would be, though).
-        Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
-
-        Returns:
-            Array of boundary values.
-
-        """
-        # Define boundary regions
-        values = []
-        for sd in subdomains:
-            _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
-            val_loc = np.zeros((self.nd, sd.num_faces))
-            val_loc[1, north] = self.params.get("north_displacement", 0)
-            val_loc[1, south] = self.params.get("south_displacement", 0)
-            values.append(val_loc.ravel("F"))
-        return ad_wrapper(np.hstack(values), True, name="bc_values_mechnics")
+from .setup_utils import (
+    BoundaryConditionsThermoporomechanicsDirNorthSouth,
+    MomentumBalance,
+)
 
 
-class LinearModel(BoundaryConditionsDirNorthSouth, MomentumBalance):
+class LinearModel(BoundaryConditionsThermoporomechanicsDirNorthSouth, MomentumBalance):
     pass
 
 
@@ -86,7 +40,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     params = {
         "suppress_export": True,  # Suppress output for tests
         "material_constants": {"solid": solid},
-        "north_displacement": north_displacement,
+        "uy_north": north_displacement,
     }
 
     # Create model and run simulation

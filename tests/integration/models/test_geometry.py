@@ -15,8 +15,8 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-import setup_utils
 
+from . import setup_utils
 
 geometry_list = [
     setup_utils.RectangularDomainOrthogonalFractures2d,

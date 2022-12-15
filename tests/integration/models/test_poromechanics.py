@@ -10,8 +10,10 @@ import pytest
 
 import porepy as pp
 
-from .setup_utils import Poromechanics
-from .test_momentum_balance import BoundaryConditionsDirNorthSouth
+from .setup_utils import (
+    BoundaryConditionsThermoporomechanicsDirNorthSouth,
+    Poromechanics,
+)
 
 
 class NonzeroFractureGapPoromechanics:
@@ -30,58 +32,68 @@ class NonzeroFractureGapPoromechanics:
 
         """
         super().initial_condition()
+        # Initial pressure equals reference pressure (defaults to zero).
+        self.equation_system.set_variable_values(
+            self.fluid.pressure() * np.ones(self.mdg.num_subdomain_cells()),
+            [self.pressure_variable],
+            to_state=True,
+            to_iterate=True,
+        )
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
-        top_cells = sd.cell_centers[1] > 0.5
-        vals = np.zeros((self.nd, sd.num_cells))
-        vals[1, top_cells] = 0.042
-        self.equation_system.set_variable_values(
-            vals.ravel("F"),
-            [self.displacement_variable],
-            to_state=True,
-            to_iterate=True,
-        )
-        # Find mortar cells on the top boundary
-        intf = self.mdg.interfaces()[0]
-        # Identify by normal vector in sd_primary
-        faces_primary = intf.primary_to_mortar_int().tocsr().indices
-        switcher = pp.grid_utils.switch_sign_if_inwards_normal(
-            sd,
-            self.nd,
-            faces_primary,
-        )
+        # Initial displacement.
+        if len(self.mdg.subdomains()) > 1:
 
-        normals = (switcher * sd.face_normals[: sd.dim].ravel("F")).reshape(
-            sd.dim, -1, order="F"
-        )
-        intf_normals = normals[:, faces_primary]
-        top_cells = intf_normals[1, :] < 0
+            top_cells = sd.cell_centers[1] > 0.5
+            vals = np.zeros((self.nd, sd.num_cells))
+            vals[1, top_cells] = 0.042
+            self.equation_system.set_variable_values(
+                vals.ravel("F"),
+                [self.displacement_variable],
+                to_state=True,
+                to_iterate=True,
+            )
+            # Find mortar cells on the top boundary
+            intf = self.mdg.interfaces()[0]
+            # Identify by normal vector in sd_primary
+            faces_primary = intf.primary_to_mortar_int().tocsr().indices
+            switcher = pp.grid_utils.switch_sign_if_inwards_normal(
+                sd,
+                self.nd,
+                faces_primary,
+            )
 
-        # Set mortar displacement to zero on bottom and 0.042 on top
-        vals = np.zeros((self.nd, intf.num_cells))
-        vals[1, top_cells] = 0.042
-        self.equation_system.set_variable_values(
-            vals.ravel("F"),
-            [self.interface_displacement_variable],
-            to_state=True,
-            to_iterate=True,
-        )
+            normals = (switcher * sd.face_normals[: sd.dim].ravel("F")).reshape(
+                sd.dim, -1, order="F"
+            )
+            intf_normals = normals[:, faces_primary]
+            top_cells = intf_normals[1, :] < 0
+
+            # Set mortar displacement to zero on bottom and 0.042 on top
+            vals = np.zeros((self.nd, intf.num_cells))
+            vals[1, top_cells] = 0.042
+            self.equation_system.set_variable_values(
+                vals.ravel("F"),
+                [self.interface_displacement_variable],
+                to_state=True,
+                to_iterate=True,
+            )
 
         # Bc values for stress
-
-        _, _, _, north, *_ = self.domain_boundary_sides(sd)
+        _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
         val_loc = np.zeros((self.nd, sd.num_faces))
-        val_loc[1, north] = 0.042
+        # Only add if there is a fracture.
+        frac_val = 0.042 * (len(self.mdg.subdomains()) > 1)
+        val_loc[1, north] = frac_val
         sd_data[pp.STATE].update({"bc_values_mechanics": val_loc.ravel("F")})
-        val_loc[1, north] = self.params.get("north_displacement", 0)
+        val_loc[1, north] = self.params.get("uy_north", 0) + frac_val
+        val_loc[1, south] = self.params.get("uy_south", 0)
         sd_data[pp.STATE][pp.ITERATE].update(
             {"bc_values_mechanics": val_loc.ravel("F")}
         )
 
     def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
-        Not sure where this one should reside. Note that we could remove the
-        grid_operator BC and DirBC, probably also ParameterArray/Matrix (unless needed
-        to get rid of pp.ad.Discretization. I don't see how it would be, though).
+        """Boundary values for mechanics.
+
         Parameters:
             subdomains: List of subdomains on which to define boundary conditions.
 
@@ -89,20 +101,127 @@ class NonzeroFractureGapPoromechanics:
             Array of boundary values.
 
         """
-        # Define boundary regions
+        # Use time dependent array to allow for time dependent boundary conditions in
+        # the div(u) term.
         return pp.ad.TimeDependentArray("bc_values_mechanics", subdomains)
+
+    def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Fracture stress on interfaces.
+
+        The "else" mimicks old subtract_p_frac=False behavior, which is
+        useful for testing reference pressure.
+
+        Parameters:
+            interfaces: List of interfaces where the stress is defined.
+
+        Returns:
+            Poromechanical stress operator on matrix-fracture interfaces.
+
+        """
+        if not all([intf.dim == self.nd - 1 for intf in interfaces]):
+            raise ValueError("Interfaces must be of dimension nd - 1.")
+
+        if getattr(self, "subtract_p_frac", True):
+            # Contact traction and fracture pressure.
+            return super().fracture_stress(interfaces)
+        else:
+            # Only contact traction.
+            return pp.constitutive_laws.LinearElasticMechanicalStress.fracture_stress(
+                self, interfaces
+            )
+
+    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid source term.
+
+        Add a source term in fractures.
+
+        Parameters:
+            subdomains: List of subdomains where the source term is defined.
+
+        Returns:
+            Fluid source term operator.
+
+        """
+        internal_boundaries = super().fluid_source(subdomains)
+        if "fracture_source_value" not in self.params:
+            return internal_boundaries
+
+        vals = []
+        for sd in subdomains:
+            if sd.dim == self.nd:
+                vals.append(np.zeros(sd.num_cells))
+            else:
+                vals.append(
+                    np.ones(sd.num_cells) * self.params["fracture_source_value"]
+                )
+        fracture_source = pp.constitutive_laws.ad_wrapper(
+            np.hstack(vals), array=True, name="fracture_fluid_source"
+        )
+        return internal_boundaries + fracture_source
 
 
 class TailoredPoromechanics(
-    NonzeroFractureGapPoromechanics, BoundaryConditionsDirNorthSouth, Poromechanics
+    NonzeroFractureGapPoromechanics,
+    BoundaryConditionsThermoporomechanicsDirNorthSouth,
+    Poromechanics,
 ):
     pass
+
+
+def create_fractured_setup(solid_vals, fluid_vals, uy_north):
+    # Instantiate constants and store in params.
+    solid_vals["fracture_gap"] = 0.042
+    solid_vals["residual_aperture"] = 1e-10
+    solid_vals["biot_coefficient"] = 1.0
+    fluid_vals["compressibility"] = 1
+    solid = pp.SolidConstants(solid_vals)
+    fluid = pp.FluidConstants(fluid_vals)
+
+    params = {
+        "suppress_export": True,  # Suppress output for tests
+        "material_constants": {"solid": solid, "fluid": fluid},
+        "uy_north": uy_north,
+        "max_iterations": 20,
+    }
+    setup = TailoredPoromechanics(params)
+    return setup
+
+
+def get_variables(setup):
+    # Check that the pressure is linear
+    sd = setup.mdg.subdomains(dim=setup.nd)[0]
+    u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
+    u_vals = setup.equation_system.get_variable_values(u_var).reshape(
+        setup.nd, -1, order="F"
+    )
+
+    p_var = setup.equation_system.get_variables(
+        [setup.pressure_variable], setup.mdg.subdomains()
+    )
+    p_vals = setup.equation_system.get_variable_values(p_var)
+    p_var = setup.equation_system.get_variables(
+        [setup.pressure_variable], setup.mdg.subdomains(dim=setup.nd - 1)
+    )
+    p_frac = setup.equation_system.get_variable_values(p_var)
+    # Fracture
+    sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
+    jump = (
+        setup.displacement_jump(sd_frac)
+        .evaluate(setup.equation_system)
+        .val.reshape(setup.nd, -1, order="F")
+    )
+    traction = (
+        setup.contact_traction(sd_frac)
+        .evaluate(setup.equation_system)
+        .val.reshape(setup.nd, -1, order="F")
+    )
+    return u_vals, p_vals, p_frac, jump, traction
 
 
 @pytest.mark.parametrize(
     "solid_vals,north_displacement",
     [
-        ({}, 0.042),
+        ({}, 0.0),
         ({}, -0.1),
         ({"porosity": 0.5}, 0.1),
     ],
@@ -118,39 +237,16 @@ def test_2d_single_fracture(solid_vals, north_displacement):
             directions. The values are used to infer sign of displacement solution.
 
     """
-    # Instantiate constants and store in params.
-    solid_vals["fracture_gap"] = 0.042
-    solid_vals["biot_coefficient"] = 0.8
-    fluid_vals = {"compressibility": 1}
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
-
-    params = {
-        "suppress_export": True,  # Suppress output for tests
-        "material_constants": {"solid": solid, "fluid": fluid},
-        "north_displacement": north_displacement,
-        "max_iterations": 50,
-    }
+    setup = create_fractured_setup(solid_vals, {}, north_displacement)
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
     # Create model and run simulation
-    setup = TailoredPoromechanics(params)
-    pp.run_time_dependent_model(setup, params)
-
-    # Check that the pressure is linear
-    sd = setup.mdg.subdomains(dim=setup.nd)[0]
-    u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
-    u_vals = setup.equation_system.get_variable_values(u_var).reshape(
-        setup.nd, -1, order="F"
-    )
-    p_var = setup.equation_system.get_variables(
-        [setup.pressure_variable], setup.mdg.subdomains()
-    )
-    p_vals = setup.equation_system.get_variable_values(p_var)
-
-    top = sd.cell_centers[1] > 0.5
-    bottom = sd.cell_centers[1] < 0.5
+    sd_nd = setup.mdg.subdomains(dim=setup.nd)[0]
+    top = sd_nd.cell_centers[1] > 0.5
+    bottom = sd_nd.cell_centers[1] < 0.5
     tol = 1e-10
-    if np.isclose(north_displacement, 0.042):
+    if np.isclose(north_displacement, 0.0):
 
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
@@ -158,7 +254,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         assert np.allclose(u_vals[1, top], 0.042)
         # Zero displacement relative to initial value implies zero pressure
         assert np.allclose(p_vals, 0)
-    elif north_displacement < 0.042:
+    elif north_displacement < 0.0:
         # Boundary displacement is negative, so the y displacement should be
         # negative
         assert np.all(u_vals[1] < 0)
@@ -166,9 +262,9 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         # Check that x displacement is negative for left half and positive for right
         # half. Tolerance excludes cells at the centerline, where the displacement is
         # zero.
-        left = sd.cell_centers[0] < setup.box["xmax"] / 2 - tol
+        left = sd_nd.cell_centers[0] < setup.box["xmax"] / 2 - tol
         assert np.all(u_vals[0, left] < 0)
-        right = sd.cell_centers[0] > setup.box["xmax"] / 2 + tol
+        right = sd_nd.cell_centers[0] > setup.box["xmax"] / 2 + tol
         assert np.all(u_vals[0, right] > 0)
         # Compression implies pressure increase
         assert np.all(p_vals > 0 - tol)
@@ -182,19 +278,8 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         # Expansion implies pressure reduction
         assert np.all(p_vals < 0 + tol)
 
-    # Check that the displacement jump and traction are as expected
-    sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
-    jump = (
-        setup.displacement_jump(sd_frac)
-        .evaluate(setup.equation_system)
-        .val.reshape(setup.nd, -1, order="F")
-    )
-    traction = (
-        setup.contact_traction(sd_frac)
-        .evaluate(setup.equation_system)
-        .val.reshape(setup.nd, -1, order="F")
-    )
-    if north_displacement > 0.042:
+    # Fracture
+    if north_displacement > 0.0:
         # Normal component of displacement jump should be positive.
         assert np.all(jump[1] > -tol)
         # Traction should be zero
@@ -205,7 +290,192 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         assert np.allclose(jump[1], 0.042)
         # Normal traction should be non-positive. Zero if north_displacement equals
         # initial gap, negative otherwise.
-        if north_displacement < 0.042:
+        if north_displacement < 0.0:
             assert np.all(traction[setup.nd - 1 :: setup.nd] <= tol)
         else:
             assert np.allclose(traction, 0)
+
+
+def test_poromechanics_model_no_modification():
+    """Test that the raw contact poromechanics model with no modifications can be run with
+    no error messages. Failure of this test would signify rather fundamental problems
+    in the model.
+    """
+    mod = pp.poromechanics.Poromechanics({})
+    pp.run_stationary_model(mod, {})
+
+
+@pytest.mark.parametrize("biot_coefficient", [0, 0.5])
+def test_without_fracture(biot_coefficient):
+
+    fluid = pp.FluidConstants(constants={"compressibility": 0.5})
+    solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
+    params = {
+        "num_fracs": 0,
+        "material_constants": {"fluid": fluid, "solid": solid},
+        "uy_north": 0.001,
+    }
+    m = TailoredPoromechanics(params)
+    pp.run_time_dependent_model(m, {})
+
+    sd = m.mdg.subdomains(dim=m.nd)
+    u = (
+        m.displacement(sd)
+        .evaluate(m.equation_system)
+        .val.reshape((m.nd, -1), order="F")
+    )
+    p = m.pressure(sd).evaluate(m.equation_system).val
+
+    # By symmetry (reasonable to expect from this grid), the average x displacement
+    # should be zero
+    tol = 1e-10
+    assert np.abs(np.sum(u[0])) < tol
+    # Check that y component lies between zero and applied boundary displacement
+    assert np.all(u[1] > 0)
+    assert np.all(u[1] < 0.001)
+    # Check that the expansion yields a negative pressure
+    if biot_coefficient == 0:
+        assert np.allclose(p, 0)
+    else:
+        assert np.all(p < -tol)
+        # Stronger test, could be relaxed.
+        assert np.allclose(p, -1.04503974e-05)
+
+
+def test_pull_north_positive_opening():
+    setup = create_fractured_setup({}, {}, 0.001)
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
+
+    # All components should be open in the normal direction
+    assert np.all(jump[1] > 0)
+
+    # By symmetry (reasonable to expect from this grid), the jump in tangential
+    # deformation should be zero.
+    assert np.abs(np.sum(jump[0])) < 1e-5
+
+    # The contact force in normal direction should be zero
+
+    # NB: This assumes the contact force is expressed in local coordinates
+    assert np.all(np.abs(traction) < 1e-7)
+
+    # Check that the dilation of the fracture yields a negative fracture pressure
+    assert np.all(p_frac < -1e-7)
+
+
+def test_pull_south_positive_opening():
+
+    setup = create_fractured_setup({}, {}, 0)
+    setup.params["uy_south"] = -0.001
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
+
+    # All components should be open in the normal direction
+    assert np.all(jump[1] > 0)
+
+    # By symmetry (reasonable to expect from this grid), the jump in tangential
+    # deformation should be zero.
+    assert np.abs(np.sum(jump[0])) < 1e-5
+
+    # The contact force in normal direction should be zero
+
+    # NB: This assumes the contact force is expressed in local coordinates
+    assert np.all(np.abs(traction) < 1e-7)
+
+    # Check that the dilation of the fracture yields a negative fracture pressure
+    assert np.all(p_frac < -1e-7)
+
+
+def test_push_north_zero_opening():
+
+    setup = create_fractured_setup({}, {}, -0.001)
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
+
+    # All components should be closed in the normal direction
+    assert np.allclose(jump[1], 0.042)
+
+    # Contact force in normal direction should be negative
+    assert np.all(traction[1] < 0)
+
+    # Compression of the domain yields a (slightly) positive fracture pressure
+    assert np.all(p_frac > 1e-10)
+
+
+def test_positive_p_frac_positive_opening():
+
+    setup = create_fractured_setup({}, {}, 0)
+    setup.params["fracture_source_value"] = 0.001
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
+
+    # All components should be open in the normal direction
+    assert np.all(jump[1] > 0.042)
+
+    # By symmetry (reasonable to expect from this grid), the jump in tangential
+    # deformation should be zero.
+    assert np.abs(np.sum(jump[0])) < 1e-5
+
+    # The contact force in normal direction should be zero
+
+    # NB: This assumes the contact force is expressed in local coordinates
+    assert np.all(np.abs(traction) < 1e-7)
+
+    # Fracture pressure is positive
+    assert np.all(p_frac > 1e-3)
+
+
+def test_time_dependent_pull_north_negative_scalar():
+    """To obtain the value used in the corresponding TM test,
+    test_pull_north_reduce_to_tm, uncomment the line
+    setup.subtract_p_frac = False
+    """
+    setup = create_fractured_setup({}, {}, 0.001)
+    setup.time_manager.time_final *= 3
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
+    # All components should be open in the normal direction
+    assert np.all(jump[1] > 0.042)
+    assert np.all(jump[1] < 0.042 + 0.001)
+
+    # By symmetry (reasonable to expect from this grid), the jump in tangential
+    # deformation should be zero.
+    assert np.all(np.abs(jump[0]) < 2e-6)
+
+    # The contact force in normal direction should be zero
+
+    # NB: This assumes the contact force is expressed in local coordinates
+    assert np.all(np.abs(traction) < 1e-7)
+
+    # Check that the dilation of the fracture yields a negative fracture pressure
+    assert np.all(p_frac < -1e-7)
+    # If the update of the mechanical BC values for the previous time step used in
+    # div u is missing, the effect is similar to if the pull on the north is
+    # increased in each time step. This leads to a too small fracture pressure.
+    known = np.array(
+        [-3.43671008e-05, -2.94970692e-05, -2.85329037e-05, -3.29267175e-05]
+    )
+    assert np.allclose(p_frac, known)
+
+
+def test_pull_south_positive_reference_scalar():
+    """Compare with and without nonzero reference (and initial) state."""
+    setup_ref = create_fractured_setup({}, {}, 0.001)
+    setup_ref.subtract_p_frac = False
+    setup_ref.params["uy_south"] = -0.001
+    pp.run_time_dependent_model(setup_ref, {})
+    u_vals_ref, p_vals_ref, p_frac_ref, jump_ref, traction_ref = get_variables(
+        setup_ref
+    )
+
+    setup = create_fractured_setup({}, {"pressure": 1}, 0.001)
+    setup.subtract_p_frac = False
+    setup.params["uy_south"] = -0.001
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
+
+    assert np.allclose(jump, jump_ref)
+    assert np.allclose(u_vals, u_vals_ref)
+    assert np.allclose(traction, traction_ref)
+    assert np.allclose(p_frac, p_frac_ref + 1)
+    assert np.allclose(p_vals, p_vals_ref + 1)
