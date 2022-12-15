@@ -141,6 +141,7 @@ class FluidConstants(MaterialConstants):
             "normal_thermal_conductivity": 1,
             "pressure": 0,
             "specific_heat_capacity": 1,
+            "temperature": 0,
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
             "viscosity": 1,
@@ -148,6 +149,15 @@ class FluidConstants(MaterialConstants):
         if constants is not None:
             default_constants.update(constants)
         super().__init__(default_constants)
+
+    def compressibility(self) -> number:
+        """Compressibility [1/Pa].
+
+        Returns:
+            Compressibility array in converted pressure units.
+
+        """
+        return self.convert_units(self.constants["compressibility"], "Pa^-1")
 
     def density(self) -> number:
         """Density [kg/m^3].
@@ -157,26 +167,6 @@ class FluidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["density"], "kg * m^-3")
-
-    def thermal_expansion(self) -> number:
-        """Thermal expansion coefficient [1/K].
-
-        Returns:
-            Thermal expansion coefficient in converted temperature units.
-
-        """
-        return self.convert_units(self.constants["thermal_expansion"], "K^-1")
-
-    def thermal_conductivity(self) -> number:
-        """Thermal conductivity [W/m/K].
-
-        Returns:
-            Thermal conductivity in converted mass, length and temperature units.
-
-        """
-        return self.convert_units(
-            self.constants["thermal_conductivity"], "W * m^-1 * K^-1"
-        )
 
     def normal_thermal_conductivity(self) -> number:
         """Normal thermal conductivity [W/m/K].
@@ -214,6 +204,37 @@ class FluidConstants(MaterialConstants):
             self.constants["specific_heat_capacity"], "J * kg^-1 * K^-1"
         )
 
+    def temperature(self) -> number:
+        """Temperature [K].
+
+        Intended usage: Reference temperature.
+
+        Returns:
+            Temperature in converted temperature units.
+
+        """
+        return self.convert_units(self.constants["temperature"], "K")
+
+    def thermal_conductivity(self) -> number:
+        """Thermal conductivity [W/m/K].
+
+        Returns:
+            Thermal conductivity in converted mass, length and temperature units.
+
+        """
+        return self.convert_units(
+            self.constants["thermal_conductivity"], "W * m^-1 * K^-1"
+        )
+
+    def thermal_expansion(self) -> number:
+        """Thermal expansion coefficient [1/K].
+
+        Returns:
+            Thermal expansion coefficient in converted temperature units.
+
+        """
+        return self.convert_units(self.constants["thermal_expansion"], "K^-1")
+
     def viscosity(self) -> number:
         """Viscosity [Pa s].
 
@@ -222,15 +243,6 @@ class FluidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["viscosity"], "Pa*s")
-
-    def compressibility(self) -> number:
-        """Compressibility [1/Pa].
-
-        Returns:
-            Compressibility array in converted pressure units.
-
-        """
-        return self.convert_units(self.constants["compressibility"], "Pa^-1")
 
 
 class SolidConstants(MaterialConstants):
@@ -271,6 +283,7 @@ class SolidConstants(MaterialConstants):
             "residual_aperture": 0.1,
             "shear_modulus": 1,
             "specific_heat_capacity": 1,
+            "temperature": 0,
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
         }
@@ -408,3 +421,12 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["dilation_angle"], "rad")
+
+    def temperature(self) -> number:
+        """Temperature [K].
+
+        Returns:
+            Temperature in converted temperature units.
+
+        """
+        return self.convert_units(self.constants["temperature"], "K")

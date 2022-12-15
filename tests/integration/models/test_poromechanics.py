@@ -425,42 +425,9 @@ def test_positive_p_frac_positive_opening():
     assert np.all(p_frac > 1e-3)
 
 
-def test_time_dependent_pull_north_negative_scalar():
-    """To obtain the value used in the corresponding TM test,
-    test_pull_north_reduce_to_tm, uncomment the line
-    setup.subtract_p_frac = False
-    """
-    setup = create_fractured_setup({}, {}, 0.001)
-    setup.time_manager.time_final *= 3
-    pp.run_time_dependent_model(setup, {})
-    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
-    # All components should be open in the normal direction
-    assert np.all(jump[1] > 0.042)
-    assert np.all(jump[1] < 0.042 + 0.001)
-
-    # By symmetry (reasonable to expect from this grid), the jump in tangential
-    # deformation should be zero.
-    assert np.all(np.abs(jump[0]) < 2e-6)
-
-    # The contact force in normal direction should be zero
-
-    # NB: This assumes the contact force is expressed in local coordinates
-    assert np.all(np.abs(traction) < 1e-7)
-
-    # Check that the dilation of the fracture yields a negative fracture pressure
-    assert np.all(p_frac < -1e-7)
-    # If the update of the mechanical BC values for the previous time step used in
-    # div u is missing, the effect is similar to if the pull on the north is
-    # increased in each time step. This leads to a too small fracture pressure.
-    known = np.array(
-        [-3.43671008e-05, -2.94970692e-05, -2.85329037e-05, -3.29267175e-05]
-    )
-    assert np.allclose(p_frac, known)
-
-
-def test_pull_south_positive_reference_scalar():
+def test_pull_south_positive_reference_pressure():
     """Compare with and without nonzero reference (and initial) state."""
-    setup_ref = create_fractured_setup({}, {}, 0.001)
+    setup_ref = create_fractured_setup({}, {}, 0)
     setup_ref.subtract_p_frac = False
     setup_ref.params["uy_south"] = -0.001
     pp.run_time_dependent_model(setup_ref, {})
@@ -468,7 +435,7 @@ def test_pull_south_positive_reference_scalar():
         setup_ref
     )
 
-    setup = create_fractured_setup({}, {"pressure": 1}, 0.001)
+    setup = create_fractured_setup({}, {"pressure": 1}, 0)
     setup.subtract_p_frac = False
     setup.params["uy_south"] = -0.001
     pp.run_time_dependent_model(setup, {})

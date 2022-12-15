@@ -1420,8 +1420,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         c = self.fluid_specific_heat_capacity(subdomains)
         enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
         enthalpy.set_name("fluid_enthalpy")
-        # TODO: Is there not one more c-scaling here?
-        return c * enthalpy
+        return enthalpy
 
     def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Solid enthalpy [J/kg/K].
@@ -1440,8 +1439,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         c = self.solid_specific_heat_capacity(subdomains)
         enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
         enthalpy.set_name("solid_enthalpy")
-        # TODO: Is there a scaling factor c too much here?
-        return c * enthalpy
+        return enthalpy
 
 
 class GravityForce:

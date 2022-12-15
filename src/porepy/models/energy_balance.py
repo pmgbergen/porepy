@@ -323,6 +323,9 @@ class VariablesEnergyBalance:
     def reference_temperature(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Reference temperature.
 
+        For now, we assume that the reference temperature is the same for solid and
+        fluid. More sophisticated models may require different reference temperatures.
+
         Parameters:
             subdomains: List of subdomains.
 
@@ -330,7 +333,8 @@ class VariablesEnergyBalance:
                 Operator representing the reference temperature.
 
         """
-        t_ref = self.fluid.convert_units(0, "K")
+        t_ref = self.fluid.temperature()
+        assert t_ref == self.solid.temperature()
         size = sum([sd.num_cells for sd in subdomains])
         return pp.wrap_as_ad_array(t_ref, size, name="reference_temperature")
 

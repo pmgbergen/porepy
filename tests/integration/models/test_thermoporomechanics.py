@@ -15,6 +15,7 @@ from .setup_utils import (
     Thermoporomechanics,
 )
 from .test_poromechanics import NonzeroFractureGapPoromechanics
+from .test_poromechanics import get_variables as get_variables_poromechanics
 
 
 class TailoredThermoporomechanics(
@@ -22,66 +23,89 @@ class TailoredThermoporomechanics(
     BoundaryConditionsThermoporomechanicsDirNorthSouth,
     Thermoporomechanics,
 ):
-    ...
+    pass
 
 
-@pytest.mark.parametrize(
-    "solid_vals,north_displacement",
-    [
-        ({}, 0.042),
-        ({}, -0.1),
-        ({"porosity": 0.5}, 0.1),
-    ],
-)
-def test_2d_single_fracture(solid_vals, north_displacement):
-    """Test that the solution is qualitatively sound.
+def create_fractured_setup(
+    solid_vals: dict, fluid_vals: dict, params: dict
+) -> TailoredThermoporomechanics:
+    """Create a setup for a 2d problem with a single fracture.
 
     Parameters:
-        solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
+        solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants`
             and corresponding values.
-        north_displacement (float): Value of displacement on the north boundary.
-        expected_x_y (tuple): Expected values of the displacement in the x and y.
-            directions. The values are used to infer sign of displacement solution.
+        fluid_vals: Dictionary with keys as those in :class:`pp.FluidConstants`
+            and corresponding values.
+        params: Dictionary with keys as those in params of
+            :class:`TailoredThermoporomechanics`.
+
+    Returns:
+        setup: Model object for the problem.
 
     """
     # Instantiate constants and store in params.
     solid_vals["fracture_gap"] = 0.042
-    solid_vals["biot_coefficient"] = 0.8
+    solid_vals["residual_aperture"] = 1e-10
+    solid_vals["biot_coefficient"] = 1.0
     solid_vals["thermal_expansion"] = 1e-1
-    fluid_vals = {"compressibility": 1, "thermal_expansion": 1e-1}
+    fluid_vals["compressibility"] = 1
+    fluid_vals["thermal_expansion"] = 1e-1
     solid = pp.SolidConstants(solid_vals)
     fluid = pp.FluidConstants(fluid_vals)
 
-    params = {
-        "suppress_export": False,  # Suppress output for tests
+    default = {
+        "suppress_export": True,  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
-        "uy_north": north_displacement,
-        "max_iterations": 50,
+        "max_iterations": 20,
     }
+    default.update(params)
+    setup = TailoredThermoporomechanics(default)
+    return setup
 
-    # Create model and run simulation
-    setup = TailoredThermoporomechanics(params)
-    pp.run_time_dependent_model(setup, params)
 
-    # Check that the pressure is linear
-    sd = setup.mdg.subdomains(dim=setup.nd)[0]
-    u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
-    u_vals = setup.equation_system.get_variable_values(u_var).reshape(
-        setup.nd, -1, order="F"
-    )
-    p_var = setup.equation_system.get_variables(
-        [setup.pressure_variable], setup.mdg.subdomains()
-    )
-    p_vals = setup.equation_system.get_variable_values(p_var)
+def get_variables(setup):
+    u_vals, p_vals, p_frac, jump, traction = get_variables_poromechanics(setup)
     t_var = setup.equation_system.get_variables(
         [setup.temperature_variable], setup.mdg.subdomains()
     )
     t_vals = setup.equation_system.get_variable_values(t_var)
+    t_var = setup.equation_system.get_variables(
+        [setup.temperature_variable], setup.mdg.subdomains(dim=setup.nd - 1)
+    )
+    t_frac = setup.equation_system.get_variable_values(t_var)
+    return u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac
+
+
+@pytest.mark.parametrize(
+    "solid_vals,uy_north",
+    [
+        ({}, 0.0),
+        ({}, -0.1),
+        ({"porosity": 0.5}, 0.1),
+    ],
+)
+def test_2d_single_fracture(solid_vals: dict, uy_north: float):
+    """Test that the solution is qualitatively sound.
+
+    Parameters:
+        solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants`
+            and corresponding values.
+        uy_north: Value of displacement on the north boundary.
+
+    """
+
+    # Create model and run simulation
+    setup = create_fractured_setup(solid_vals, {}, {"uy_north": uy_north})
+    pp.run_time_dependent_model(setup, {})
+
+    # Check that the pressure is linear
+    sd = setup.mdg.subdomains(dim=setup.nd)[0]
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
 
     top = sd.cell_centers[1] > 0.5
     bottom = sd.cell_centers[1] < 0.5
     tol = 1e-10
-    if np.isclose(north_displacement, 0.042):
+    if np.isclose(uy_north, 0.0):
 
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
@@ -91,7 +115,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         # temperature
         assert np.allclose(p_vals, 0)
         assert np.allclose(t_vals, 0)
-    elif north_displacement < 0.042:
+    elif uy_north < 0:
         # Boundary displacement is negative, so the y displacement should be
         # negative
         assert np.all(u_vals[1] < 0)
@@ -117,19 +141,8 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         assert np.all(p_vals < 0 + tol)
         assert np.all(t_vals < 0 + tol)
 
-    # Check that the displacement jump and traction are as expected
-    sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
-    jump = (
-        setup.displacement_jump(sd_frac)
-        .evaluate(setup.equation_system)
-        .val.reshape(setup.nd, -1, order="F")
-    )
-    traction = (
-        setup.contact_traction(sd_frac)
-        .evaluate(setup.equation_system)
-        .val.reshape(setup.nd, -1, order="F")
-    )
-    if north_displacement > 0.042:
+    # Check that the displacement jump and traction are as expected.
+    if uy_north > 0:
         # Normal component of displacement jump should be positive.
         assert np.all(jump[1] > -tol)
         # Traction should be zero
@@ -138,9 +151,105 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         # Displacement jump should be equal to initial displacement.
         assert np.allclose(jump[0], 0.0)
         assert np.allclose(jump[1], 0.042)
-        # Normal traction should be non-positive. Zero if north_displacement equals
+        # Normal traction should be non-positive. Zero if uy_north equals
         # initial gap, negative otherwise.
-        if north_displacement < 0.042:
+        if uy_north < 0:
             assert np.all(traction[setup.nd - 1 :: setup.nd] <= tol)
         else:
             assert np.allclose(traction, 0)
+
+
+def test_thermoporomechanics_model_no_modification():
+    """Test that the raw contact thermoporomechanics model with no modifications can be
+    run with no error messages.
+
+    Failure of this test would signify rather fundamental problems in the model.
+
+    """
+    mod = pp.thermoporomechanics.Thermoporomechanics({})
+    pp.run_stationary_model(mod, {})
+
+
+def test_pull_north_positive_opening():
+    setup = create_fractured_setup({}, {}, {"uy_north": 0.001})
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+
+    # All components should be open in the normal direction
+    assert np.all(jump[1] > 0)
+
+    # By symmetry (reasonable to expect from this grid), the jump in tangential
+    # deformation should be zero.
+    assert np.abs(np.sum(jump[0])) < 1e-5
+
+    # The contact force in normal direction should be zero
+
+    # NB: This assumes the contact force is expressed in local coordinates
+    assert np.all(np.abs(traction) < 1e-7)
+
+    # Check that the dilation of the fracture yields a negative fracture pressure
+    assert np.all(p_frac < -1e-7)
+    assert np.all(t_frac < -1e-7)
+
+
+def test_pull_south_positive_opening():
+
+    setup = create_fractured_setup({}, {}, {"uy_south": -0.001})
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+
+    # All components should be open in the normal direction
+    assert np.all(jump[1] > 0)
+
+    # By symmetry (reasonable to expect from this grid), the jump in tangential
+    # deformation should be zero.
+    assert np.abs(np.sum(jump[0])) < 1e-5
+
+    # The contact force in normal direction should be zero
+
+    # NB: This assumes the contact force is expressed in local coordinates
+    assert np.all(np.abs(traction) < 1e-7)
+
+    # Check that the dilation yields a negative pressure and temperature
+    assert np.all(p_vals < -1e-7)
+    assert np.all(t_vals < -1e-7)
+
+
+def test_push_north_zero_opening():
+
+    setup = create_fractured_setup({}, {}, {"uy_north": -0.001})
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+
+    # All components should be closed in the normal direction
+    assert np.allclose(jump[1], 0.042)
+
+    # Contact force in normal direction should be negative
+    assert np.all(traction[1] < 0)
+
+    # Compression of the domain yields a (slightly) positive fracture pressure
+    assert np.all(p_frac > 1e-10)
+    assert np.all(t_frac > 1e-10)
+
+
+def test_positive_p_frac_positive_opening():
+
+    setup = create_fractured_setup({}, {}, {"fracture_source_value": 0.001})
+    pp.run_time_dependent_model(setup, {})
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+
+    # All components should be open in the normal direction
+    assert np.all(jump[1] > 0.042)
+
+    # By symmetry (reasonable to expect from this grid), the jump in tangential
+    # deformation should be zero.
+    assert np.abs(np.sum(jump[0])) < 1e-5
+
+    # The contact force in normal direction should be zero.
+
+    # NB: This assumes the contact force is expressed in local coordinates.
+    assert np.all(np.abs(traction) < 1e-7)
+
+    # Fracture pressure and temperature is positive.
+    assert np.all(p_frac > 1e-3)
+    assert np.allclose(t_frac, 6.1e-5, atol=1e-6)
