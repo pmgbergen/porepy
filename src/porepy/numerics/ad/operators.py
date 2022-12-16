@@ -6,7 +6,7 @@ import copy
 import numbers
 from enum import Enum, EnumMeta
 from itertools import count
-from typing import Any, Literal, Optional, Sequence, Union
+from typing import Any, Literal, Optional, Sequence, Union, overload
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -639,13 +639,13 @@ class Operator:
 
     def evaluate(
         self,
-        system_manager: pp.ad.EquationSystem,
+        system_manager: pp.ad.EquationSystem | pp.DofManager,
         state: Optional[np.ndarray] = None,
     ):  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given state.
 
         Parameters:
-            dof_manager: Used to represent the problem. Will be used
+            system_manager: Used to represent the problem. Will be used
                 to parse the sub-operators that combine to form this operator.
             state (optional): State vector for which the residual and its
                 derivatives should be formed. If not provided, the state will be pulled from
@@ -767,7 +767,9 @@ class Operator:
         return eq
 
     def _identify_variables(
-        self, system_manager: pp.ad.EquationSystem, var: Optional[list] = None
+        self,
+        system_manager: pp.ad.EquationSystem | pp.DofManager,
+        var: Optional[list] = None,
     ):
         """Identify all variables in this operator."""
         # 1. Get all variables present in this operator.
@@ -807,7 +809,7 @@ class Operator:
                         # created by the EquationSystem. However, we will tie the
                         # indices to the id of this variable, since this is the one that
                         # will be used for lookup later on.
-                        sub_var_known_to_eq_system = sub_var.original_variable
+                        sub_var_known_to_eq_system: Variable = sub_var.original_variable
                     else:
                         sub_var_known_to_eq_system = sub_var
 
@@ -1272,7 +1274,7 @@ class Variable(Operator):
         self.id: int = next(Variable._ids)
         """ID counter. Used to identify variables during operator parsing."""
 
-        self.original_variable: Variable = None
+        self.original_variable: Variable
         """The original variable, if this variable is a copy of another variable.
 
         This attribute is used by the methods :meth:`Variable.previous_timestep` and
@@ -1338,7 +1340,11 @@ class Variable(Operator):
             with its ``prev_time`` attribute set to ``True``.
 
         """
-        ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
+        ndof: dict[Literal["cells", "faces", "nodes"], int] = {
+            "cells": self._cells,
+            "faces": self._faces,
+            "nodes": self._nodes,
+        }
         new_var = Variable(self.name, ndof, self.domain, previous_timestep=True)
         # Assign self as the original variable.
         new_var.original_variable = self
@@ -1351,7 +1357,11 @@ class Variable(Operator):
             with its ``prev_iter`` attribute set to ``True``.
 
         """
-        ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
+        ndof: dict[Literal["cells", "faces", "nodes"], int] = {
+            "cells": self._cells,
+            "faces": self._faces,
+            "nodes": self._nodes,
+        }
         new_var = Variable(self.name, ndof, self.domain, previous_iteration=True)
         # Assign self as the original variable.
         new_var.original_variable = self
@@ -1407,7 +1417,7 @@ class MixedDimensionalVariable(Variable):
         self.prev_iter: bool = False
         """Flag indicating if the variable represents the state at the previous iteration."""
 
-        self.original_variable: MixedDimensionalVariable = None
+        self.original_variable: MixedDimensionalVariable
         """The original variable, if this variable is a copy of another variable.
 
         This attribute is used by the methods :meth:`Variable.previous_timestep` and
@@ -1571,12 +1581,33 @@ class Tree:
         self.children.append(node)
 
 
+@overload
+def _ad_wrapper(
+    vals: Union[pp.number, np.ndarray],
+    as_array: Literal[False],
+    size: Optional[int] = None,
+    name: Optional[str] = None,
+) -> Matrix:
+    # See md_grid for explanation of overloading and type hints.
+    ...
+
+
+@overload
+def _ad_wrapper(
+    vals: Union[pp.number, np.ndarray],
+    as_array: Literal[True],
+    size: Optional[int] = None,
+    name: Optional[str] = None,
+) -> Array:
+    ...
+
+
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
     as_array: bool,
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> Union[pp.ad.Array, pp.ad.Matrix]:
+) -> Array | pp.ad.Matrix:
     """Create ad array or diagonal matrix.
 
     Utility method.
@@ -1607,7 +1638,7 @@ def _ad_wrapper(
 
 
 def wrap_as_ad_array(
-    vals: Union[pp.number, np.ndarray],
+    vals: pp.number | np.ndarray,
     size: Optional[int] = None,
     name: Optional[str] = None,
 ) -> Array:
@@ -1629,8 +1660,8 @@ def wrap_as_ad_matrix(
     vals: Union[pp.number, np.ndarray],
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> Array:
-    """Wrap a number or array as ad array.
+) -> Matrix:
+    """Wrap a number or array as ad matrix.
 
     Parameters:
         vals: Values to be wrapped. Floats are broadcast to an np array.
