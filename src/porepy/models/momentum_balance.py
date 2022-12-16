@@ -224,7 +224,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
         # Traction from the actual contact force.
         traction_from_secondary = self.fracture_stress(interfaces)
-
+        # The force balance equation. Note that the force from the fracture is a
+        # traction, not a stress, and must be scaled with the area of the interface.
+        # This is not the case for the force from the matrix, which is a stress.
         force_balance_eq: pp.ad.Operator = (
             contact_from_primary_mortar
             + self.volume_integral(traction_from_secondary, interfaces, dim=self.nd)
@@ -246,6 +248,19 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             Operator for the normal deformation equation.
 
         """
+        # The lines below is an implementation of equations (24) and (26) in the paper
+        #
+        # Berge et al. (2020): Finite volume discretization for poroelastic media with
+        #   fractures modeled by contact mechanics (IJNME, DOI: 10.1002/nme.6238). The
+        #
+        # Note that:
+        #  - We do not directly implement the matrix elements of the contact traction
+        #    as are derived by Berge in their equations (28)-(32). Instead, we directly
+        #    implement the complimentarity function, and let the AD framework take care
+        #    of the derivatives.
+        #  - Related to the previous point, we do not implement the regularization that
+        #    is discussed in Section 3.2.1 of the paper.
+
         # Variables
         nd_vec_to_normal = self.normal_component(subdomains)
         # The normal component of the contact traction and the displacement jump
@@ -260,6 +275,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # The complimentarity condition
         equation: pp.ad.Operator = t_n + max_function(
             (-1) * t_n
+            # EK: I will take care of typing of this term when we have a better name for
+            # the method.
             - self.numerical_constant(subdomains) * (u_n - self.gap(subdomains)),
             zeros_frac,
         )
@@ -274,12 +291,14 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         Contact mechanics equation for the tangential constraints.
 
         The function reads
+        .. math::
             C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
-        with u being displacement jump increments, t denoting tangential component and
-        b_p the friction bound.
 
-        For b_p = 0, the equation C_t = 0 does not in itself imply T_t = 0, which is
-        what the contact conditions require. The case is handled through the use of a
+        with `u` being displacement jump increments, `t` denoting tangential component
+        and `b_p` the friction bound.
+
+        For `b_p = 0`, the equation `C_t = 0` does not in itself imply `T_t = 0`, which
+        is what the contact conditions require. The case is handled through the use of a
         characteristic function.
 
         Parameters:
@@ -289,6 +308,19 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             complementary_eq: Contact mechanics equation for the tangential constraints.
 
         """
+        # The lines below is an implementation of equations (25) and (27) in the paper
+        #
+        # Berge et al. (2020): Finite volume discretization for poroelastic media with
+        #   fractures modeled by contact mechanics (IJNME, DOI: 10.1002/nme.6238). The
+        #
+        # Note that:
+        #  - We do not directly implement the matrix elements of the contact traction
+        #    as are derived by Berge in their equations (28)-(32). Instead, we directly
+        #    implement the complimentarity function, and let the AD framework take care
+        #    of the derivatives.
+        #  - Related to the previous point, we do not implement the regularization that
+        #    is discussed in Section 3.2.1 of the paper.
+
         # Basis vector combinations
         num_cells = sum([sd.num_cells for sd in subdomains])
         # Mapping from a full vector to the tangential component
@@ -305,25 +337,35 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
+        # Vectors needed to express the governing equations
         ones_frac = pp.ad.Array(np.ones(num_cells * (self.nd - 1)))
         zeros_frac = pp.ad.Array(np.zeros(num_cells))
 
         # Functions EK: Should we try to agree on a name convention for ad functions?
+        # EK: Yes. Suggestions?
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+
+        # With the active set method, the performance of the Newton solver is sensitive
+        # to changes in state between sticking and sliding. To reduce the sensitivity to
+        # round-off errors, we use a tolerance to allow for slight inaccuracies before
+        # switching between the two cases.
         tol = 1e-5  # FIXME: Revisit this tolerance!
+        # The characteristic function will evaluate to 1 if the argument is less than
+        # the tolerance, and 0 otherwise.
         f_characteristic = pp.ad.Function(
             partial(pp.ad.functions.characteristic_function, tol),
             "characteristic_function_for_zero_normal_traction",
         )
 
-        # Parameters
-
-        # Expanding using only left multiplication to with scalar_to_tangential does
-        # not work for an array, unlike the operators below. Arrays need right
+        # The numerical constant is used to loosen the sensitivity in the transition
+        # between sticking and sliding.
+        # Expanding using only left multiplication to with scalar_to_tangential does not
+        # work for an array, unlike the operators below. Arrays need right
         # multiplication as well.
         c_num = self.numerical_constant(subdomains)
         c_num = sum([e_i * c_num * e_i.T for e_i in tangential_basis])
+
         # Combine the above into expressions that enter the equation
         tangential_sum = t_t + c_num * u_t_increment
 
@@ -683,6 +725,8 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         Not sure about method location, but it is a property of the contact problem, and
         more solution strategy than material property or constitutive law.
 
+        TODO: We need a more descritive name for this method.
+
         Parameters:
             subdomains: List of subdomains. Only the first is used.
 
@@ -693,6 +737,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # Conversion unnecessary for dimensionless parameters, but included as good
         # practice.
         val = self.solid.convert_units(1, "-")
+        # TODO: Fix return type, should it be scalar or matrix?
         return pp.ad.Scalar(val, name="c_num")
 
     def _is_nonlinear_problem(self) -> bool:
