@@ -260,7 +260,7 @@ def test_time_dependent_array():
 
 
 def test_ad_variable_creation():
-    """Test creation of Ad variables by way of the EquationManager.
+    """Test creation of Ad variables by way of the EquationSystem.
     1) Fetching the same variable twice should get the same variable (same attribute id).
     2) Fetching the same mixed-dimensional variable twice should result in objects with different
        id attributes, but point to the same underlying variable.
@@ -367,6 +367,34 @@ def test_ad_variable_evaluation():
         if d.data.size > 0:
             assert np.max(np.abs(d.data)) < 1e-10
 
+    eq_system = pp.EquationSystem(mdg)
+    # First create a variable on the subdomains. The number of dofs is different for the
+    # different subdomains.
+    # NOTE: The order of creation is a bit important here: We will iterate of the
+    # subdomains (implicitly sorted by dimension) and assign a value to the variables.
+    # The order of creation should therefore be consistent with the order of iteration.
+    # It should be possible to avoid this by using dof-indices of the subdomains, but EK
+    # cannot wrap his head around this at the moment (it is Friday afternoon).
+    eq_system.create_variables(
+        var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
+    )
+    eq_system.create_variables(
+        var, dof_info={"cells": 2}, subdomains=mdg.subdomains(dim=1)
+    )
+    eq_system.create_variables(
+        var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=0)
+    )
+    eq_system.create_variables(
+        var2, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
+    )
+    # Next create interface variables.
+    eq_system.create_variables(
+        mortar_var, dof_info={"cells": 2}, interfaces=mdg.interfaces(dim=1)
+    )
+    eq_system.create_variables(
+        mortar_var, dof_info={"cells": 1}, interfaces=mdg.interfaces(dim=0)
+    )
+
     for sd, data in mdg.subdomains(return_data=True):
         if sd.dim == 1:
             num_dofs = 2
@@ -407,8 +435,6 @@ def test_ad_variable_evaluation():
         state_map[intf] = val_state
         iterate_map[intf] = val_iterate
 
-    eq_system = pp.EquationSystem(mdg)
-
     # Manually assemble state and iterate
     true_state = np.zeros(eq_system.num_dofs())
     true_iterate = np.zeros(eq_system.num_dofs())
@@ -416,9 +442,10 @@ def test_ad_variable_evaluation():
     # Also a state array that differs from the stored iterates
     double_iterate = np.zeros(eq_system.num_dofs())
 
-    for (g, v) in eq_system.block_dof:
-        inds = eq_system.dofs_of(eq_system.get_variables([v], [g]))
-        if v == var2:
+    for v in eq_system.variables:
+        g = v.domain
+        inds = eq_system.dofs_of([v])
+        if v.name == var2:
             true_state[inds] = state_map_2[g]
             true_iterate[inds] = iterate_map_2[g]
             double_iterate[inds] = 2 * iterate_map_2[g]
@@ -468,14 +495,20 @@ def test_ad_variable_evaluation():
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
     # Form an edge variable, evaluate this
-    edge_list = [intf for intf in mdg.interfaces()]
-    var_edge = eq_system.md_variables([(e, mortar_var) for e in edge_list])
+    interfaces = [intf for intf in mdg.interfaces()]
+    variable_interfaces = [
+        eq_system.md_variable(mortar_var, [intf]) for intf in interfaces
+    ]
 
-    edge_inds = np.hstack(
-        [eq_system.grid_and_variable_to_dofs(e, mortar_var) for e in edge_list]
+    interface_inds = np.hstack(
+        [eq_system.dofs_of([var]) for var in variable_interfaces]
+    )
+    interface_values = np.hstack(
+        [var.evaluate(eq_system, true_iterate).val for var in variable_interfaces]
     )
     assert np.allclose(
-        true_iterate[edge_inds], var_edge.evaluate(eq_system, true_iterate).val
+        true_iterate[interface_inds],
+        interface_values,
     )
 
     # Finally, test a single variable; everything should work then as well
@@ -628,7 +661,7 @@ def test_time_differentiation():
     # Differentiate the variable on the highest-dimensional subdomain
     sd = mdg.subdomains(dim=mdg.dim_max())[0]
     var_1 = eq_system.get_variables(["foo"], [sd])[0]
-    dt_var_1 = pp.ad.dt(var_1, time_step)
+    sdt_var_1 = pp.ad.dt(var_1, time_step)
     assert np.allclose(dt_var_1.evaluate(eq_system).val, 2)
 
     # Also test the time difference function
