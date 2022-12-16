@@ -182,7 +182,7 @@ class MixedDimensionalGrid:
             list: List of boundary grids.
 
         """
-        if self._subdomain_data and not self._boundary_data:
+        if self._subdomain_data and not self._subdomain_boundary_grids:
             raise ValueError(
                 "There are subdomains in the mixed-dimensional grid, but no boundary "
                 "grids. This is probably not intended."

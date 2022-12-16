@@ -7,7 +7,6 @@ specified operator function type.
 from __future__ import annotations
 
 import abc
-from enum import Enum
 from functools import partial
 from typing import Callable, Optional, Type
 
@@ -85,7 +84,7 @@ class AbstractFunction(Operator):
         """Indicator whether the callable can process arrays."""
 
         ### PRIVATE
-        self._operation: Enum = Operator.Operations.approximate
+        self._operation: Operator.Operations = Operator.Operations.approximate
 
         self._name: str = name if name is not None else ""
 
