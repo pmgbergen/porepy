@@ -309,7 +309,7 @@ class EquationManager:
         # Iterate over equations, assemble.
         for name in eq_names:
             eq = self.equations[name]
-            ad = eq.evaluate(self.equation_system)
+            ad = eq.evaluate(self.dof_manager)
 
             # ad contains derivatives with respect to all variables, while
             # we need a subset. Project the columns to get the right size.
@@ -529,8 +529,8 @@ class EquationManager:
 
     def _variable_set_complement(
         self,
-        variables: Sequence[
-            Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]
+        variables: Optional[
+            Sequence[Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]]
         ] = None,
     ) -> List["pp.ad.Variable"]:
         """

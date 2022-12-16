@@ -555,11 +555,11 @@ class EquationSystem:
 
         """
         variables = self._parse_variable_type(variables)
-        # storage for atomic blocks of the sub vector (identified by name-grid pairs)
-        values = list()
+        # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
+        values = []
 
-        # loop over all blocks and process those requested
-        # this ensures uniqueness and correct order
+        # Loop over all blocks and process those requested.
+        # This ensures uniqueness and correct order.
         for variable in self._variable_numbers:
             if variable in variables:
                 name = variable.name
@@ -568,7 +568,7 @@ class EquationSystem:
                     data = self.mdg.subdomain_data(grid)
                 elif isinstance(grid, pp.MortarGrid):
                     data = self.mdg.interface_data(grid)
-                # extract a copy of requested values
+                # Extract a copy of requested values.
                 try:
                     if from_iterate:
                         values.append(data[pp.STATE][pp.ITERATE][name].copy())
@@ -581,10 +581,10 @@ class EquationSystem:
                         f"\non grid {grid}."
                     )
 
-        # if there are matching blocks, concatenate and return
+        # If there are matching blocks, concatenate and return.
         if values:
             return np.concatenate(values)
-        # else return an empty vector
+        # Else return an empty vector.
         else:
             return np.array([])
 
