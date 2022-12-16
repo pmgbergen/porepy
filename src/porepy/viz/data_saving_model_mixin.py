@@ -16,8 +16,6 @@ import porepy as pp
 class DataSavingMixin:
     """Class for saving data from a simulation model.
 
-
-
     Contract with other classes:
         The model should/may call save_data_time_step() at the end of each time step.
         The model should/may call finalize_save_data() at the end of the simulation.
@@ -28,6 +26,10 @@ class DataSavingMixin:
     """Equation system manager."""
     params: dict[str, Any]
     """Dictionary of parameters. May contain data saving parameters."""
+    time_manager: pp.TimeManager
+    """Time manager for the simulation."""
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the simulation."""
 
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step."""

@@ -68,7 +68,7 @@ class EquationsPoromechanics(
         Call both parent classes' set_equations methods.
 
         """
-        super().set_equations()
+        mass.MassBalanceEquations.set_equations(self)
         momentum.MomentumBalanceEquations.set_equations(self)
 
 
@@ -84,7 +84,7 @@ class VariablesPoromechanics(
         Call both parent classes' set_variables methods.
 
         """
-        super().create_variables()
+        mass.VariablesSinglePhaseFlow.create_variables(self)
         momentum.VariablesMomentumBalance.create_variables(self)
 
 
@@ -95,9 +95,10 @@ class BoundaryConditionsPoromechanics(
     """Combines mass and momentum balance boundary conditions.
 
     Note:
-        The mechanical boundary conditions are differentiated wrt time in the div_u term.
-        Thus, time dependent values must be defined using
-        :class:pp.ad.TimeDependentArray. This is as of yet untested.
+        The mechanical boundary conditions are differentiated wrt time in the div_u
+        term. Thus, time dependent values must be defined using
+        :class:~porepy.numerics.ad.operators.TimeDependentArray. This is as of yet
+        untested.
 
     """
 

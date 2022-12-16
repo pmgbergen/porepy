@@ -886,8 +886,9 @@ class DarcysLaw:
             Face-wise vector source term.
 
         """
-        # Account for sign of boundary face normals
-        normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
+        # Account for sign of boundary face normals.
+        # No scaling with interface cell volumes.
+        normals = self.outwards_internal_boundary_normals(interfaces, True)
         return normals * self.vector_source(interfaces, material=material)
 
 
@@ -1657,7 +1658,7 @@ class LinearElasticMechanicalStress:
         return traction
 
 
-class PressureStress:
+class PressureStress(LinearElasticMechanicalStress):
     """Stress tensor from pressure.
 
     To be used in poromechanical problems.
@@ -1793,7 +1794,7 @@ class PressureStress:
         outwards_normal = self.outwards_internal_boundary_normals(interfaces, True)
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
-        scalar_to_nd = sum([e_i for e_i in self.basis(interfaces)])
+        scalar_to_nd: pp.ad.Operator = sum([e_i for e_i in self.basis(interfaces)])
         stress = (
             outwards_normal
             * scalar_to_nd
