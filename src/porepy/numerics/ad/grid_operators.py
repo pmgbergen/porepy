@@ -518,11 +518,23 @@ class BoundaryProjection(Operator):
         self, mdg: pp.MixedDimensionalGrid, subdomains: list[pp.Grid], dim: int = 1
     ) -> None:
 
-        mat = [
-            sps.kron(mdg.subdomain_to_boundary_grid(sd).projection, sps.eye(dim))
-            for sd in subdomains
-        ]
-        self._projection: sps.spmatrix = sps.bmat(mat, format="csr")
+        _, face_projections = _subgrid_projections(subdomains, dim)
+
+        # Size for the matrix, used for 0d subdomains.
+        tot_num_faces = np.sum([sd.num_faces for sd in subdomains]) * dim
+
+        mat = []
+        for sd in subdomains:
+            if sd.dim > 0:
+                bg = mdg.subdomain_to_boundary_grid(sd)
+                mat_loc = sps.kron(bg.projection, sps.eye(dim))
+                mat_loc = mat_loc * face_projections[sd].T
+            else:
+                # The subdomain has no faces, so the projection does not exist.
+                mat_loc = sps.csr_matrix((0, tot_num_faces))
+            mat.append(mat_loc)
+        self._projection: sps.spmatrix = sps.bmat([[m] for m in mat], format="csr")
+        """Projection from subdomain faces to boundary grids cells."""
 
     def subdomain_to_boundary(self) -> sps.spmatrix:
         return self._projection
@@ -698,7 +710,7 @@ class Geometry(Operator):
         if not is_mortar:
             self.scalar_to_nd_face = scalar_to_nd(self.num_faces)
 
-    def basis(self, dim: int = None) -> np.ndarray:
+    def basis(self, dim: Optional[int] = None) -> list[pp.ad.Matrix]:
         """Return a cell-wise basis for all subdomains.
 
         Parameters:
@@ -718,9 +730,9 @@ class Geometry(Operator):
         for i in range(dim):
             basis.append(self.e_i(i, dim))
         # Stack the basis functions horizontally
-        return np.hstack(basis)
+        return basis
 
-    def e_i(self, i: int, dim: int = None) -> np.ndarray:
+    def e_i(self, i: int, dim: Optional[int] = None) -> pp.ad.Matrix:
         """Return a cell-wise basis function for all subdomains.
 
         Parameters:
@@ -1045,20 +1057,23 @@ def _subgrid_projections(
 ) -> tuple[dict[pp.Grid, sps.spmatrix], dict[pp.Grid, sps.spmatrix]]:
     """Construct prolongation matrices from individual subdomains to a set of subdomains.
 
-    Args:
-        subdomains: List of grids representing subdomains.
-        dim: Dimension of the quantities to be projected. 1 corresponds to scalars, 2 to a
+    Parameters:
+        subdomains: List of grids representing subdomains. dim: Dimension of the
+        quantities to be projected. 1 corresponds to scalars, 2 to a
             vector of two components etc.
 
     Returns:
-        cell_projection: Dictionary with the individual subdomains as keys and projection
-            matrices for cell-based quantities as items.
-        face_projection: Dictionary with the individual subdomains as keys and projection
-            matrices for face-based quantities as items.
+        cell_projection: Dictionary with the individual subdomains as keys and
+            projection matrices for cell-based quantities as items.
+        face_projection: Dictionary with the individual subdomains as keys and
+        projection matrices for face-based quantities as items.
 
 
-    The global cell and face numbering is set according to the order of the
-    input subdomains.
+    The global cell and face numbering is set according to the order of the input
+    subdomains.
+
+    If the function is to be called with mortar or boundary grids, assign
+    num_faces attributes (value 0).
 
     """
     face_projection: dict[pp.Grid, np.ndarray] = {}

@@ -20,7 +20,11 @@ import porepy as pp
 
 
 def set_parameters(
-    dim: int, subdomains: list[pp.Grid], key: str, mdg: pp.MixedDimensionalGrid, f_or_c="faces",
+    dim: int,
+    subdomains: list[pp.Grid],
+    key: str,
+    mdg: pp.MixedDimensionalGrid,
+    f_or_c="faces",
 ):
     """Set two parameters in the data dictionary.
 
@@ -41,11 +45,13 @@ def set_parameters(
     np.random.seed(42)
     # Start of all faces. If vector problem, all faces have dim numbers
     start_inds = dim * np.cumsum(
-        np.hstack((0, np.array([getattr(sd, "num_"+f_or_c) for sd in subdomains])))
+        np.hstack((0, np.array([getattr(sd, "num_" + f_or_c) for sd in subdomains])))
     )
 
     # Build values of known values (to be filled during assignment of bcs)
-    known_values = np.zeros(sum([getattr(sd, "num_"+f_or_c) for sd in subdomains]) * dim)
+    known_values = np.zeros(
+        sum([getattr(sd, "num_" + f_or_c) for sd in subdomains]) * dim
+    )
     indices = []
     # Loop over grids, assign values, keep track of assigned values
     for sd in subdomains:
@@ -54,7 +60,7 @@ def set_parameters(
         # Repeat values along the vector dimension to enable comparison with
         # parameters expanded from face-wise scalar to face-wise vector using
         # the geometry operator.
-        values = np.random.rand(getattr(sd, "num_"+f_or_c))
+        values = np.random.rand(getattr(sd, "num_" + f_or_c))
         if sd.dim > 0:
             # The if is just to avoid problems with kron when values is empty.
             values = np.kron(values, np.ones(dim))
@@ -291,15 +297,67 @@ def test_mortar_projections(mdg, scalar):
     assert _compare_matrices(known_sgn_mat, proj.sign_of_mortar_sides)
 
 
-def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid):
+@pytest.mark.parametrize("scalar", [True, False])
+def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     """Aspects to test:
     1) That we can create a boundary projection operator with the correct size and items.
     2) Specifically that the top-dimensional grid and one of the fracture grids
        contribute to the boundary projection operator, while the third has a projection
        matrix with zero rows.
     """
-    # Leave a test that will fail here, so that we remember to implement this.
-    assert False
+    proj_dim = 1 if scalar else mdg.dim_max()
+    _, num_faces, _ = geometry_information(mdg, proj_dim)
+    num_cells = sum([bg.num_cells for bg in mdg.boundaries()]) * proj_dim
+
+    g_0 = mdg.subdomains(dim=2)[0]
+    g_1, g_2 = mdg.subdomains(dim=1)
+    # Compute geometry for the mixed-dimensional grid. This is needed for
+    # boundary projection operator.
+    mdg.compute_geometry()
+    projection = pp.ad.grid_operators.BoundaryProjection(
+        mdg, mdg.subdomains(), proj_dim
+    )
+    # Check sizes.
+    assert projection.subdomain_to_boundary().shape == (num_cells, num_faces)
+    assert projection.boundary_to_subdomain().shape == (num_faces, num_cells)
+
+    # Check that the projection matrix for the top-dimensional grid is non-zero.
+    # The matrix has eight boundary faces.
+    ind0 = 0
+    ind1 = g_0.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 8 * proj_dim
+    # Check that the projection matrix for the first fracture is non-zero. Since the
+    # fracture touches the boundary on two sides, we expect two non-zero rows.
+    ind0 = ind1
+    ind1 += g_1.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
+    # Check that the projection matrix for the second fracture is non-zero.
+    ind0 = ind1
+    ind1 += g_2.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
+    # The projection matrix for the intersection should be zero.
+    ind0 = ind1
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:]) == 0
+
+    # Make second projection on subset of grids.
+    subdomains = [g_0, g_1]
+    projection = pp.ad.grid_operators.BoundaryProjection(mdg, subdomains, proj_dim)
+    num_faces = proj_dim * (g_0.num_faces + g_1.num_faces)
+    num_cells = proj_dim * sum(
+        [mdg.subdomain_to_boundary_grid(sd).num_cells for sd in subdomains]
+    )
+    # Check sizes.
+    assert projection.subdomain_to_boundary().shape == (num_cells, num_faces)
+    assert projection.boundary_to_subdomain().shape == (num_faces, num_cells)
+
+    # Check that the projection matrix for the top-dimensional grid is non-zero.
+    # Same sizes as above.
+    ind0 = 0
+    ind1 = g_0.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 8 * proj_dim
+    ind0 = ind1
+    ind1 += g_1.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
 
 
 @pytest.mark.parametrize("scalar", [True, False])
@@ -480,9 +538,10 @@ def test_geometry(mdg: pp.MixedDimensionalGrid, sd_inds: slice, nd: int):
 
     # Test that scalar to nd equals sum of basis vectors
     basis_sum = sum(op.e_i(i).parse(mdg) for i in range(nd))
-    assert np.all(np.isclose(basis_sum.todense(), op.scalar_to_nd_cell.parse(mdg).todense()))
+    assert np.all(
+        np.isclose(basis_sum.todense(), op.scalar_to_nd_cell.parse(mdg).todense())
+    )
     # The former will probably be deprecated.
-
 
 
 @pytest.mark.parametrize("dim", [1, 4])
