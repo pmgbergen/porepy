@@ -624,6 +624,9 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     At some point, this will be refined to be a more sophisticated (modularised)
     solution strategy class. More refactoring may be beneficial.
 
+    Parameters:
+        params: Parameters for the solution strategy.
+
     """
 
     nd: int
@@ -660,8 +663,10 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # Variables
         self.displacement_variable: str = "u"
         """Name of the displacement variable."""
+
         self.interface_displacement_variable: str = "u_interface"
         """Name of the displacement variable on fracture-matrix interfaces."""
+
         self.contact_traction_variable: str = "t"
         """Name of the contact traction variable."""
 

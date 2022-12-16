@@ -12,8 +12,10 @@ include isotropic pressure and temperature terms :math:`\alpha p \mathbf{I}+ \be
 Suggested references (TODO: add more, e.g. Inga's in prep, ppV2):
     - Coussy, 2004, https://doi.org/10.1002/0470092718.
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
+    - Stefansson et al, 2021, https://doi.org/10.1016/j.cma.2021.114122
 
 """
+from __future__ import annotations
 
 import porepy as pp
 
@@ -52,7 +54,7 @@ class ConstitutiveLawsThermoporomechanics(
     """
 
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Stress operator.
+        """Thermo-poromechanical stress operator.
 
         Parameters:
             subdomains: List of subdomains where the stress is defined.
@@ -61,7 +63,7 @@ class ConstitutiveLawsThermoporomechanics(
             Operator for the stress.
 
         """
-        # Method from constitutive library's LinearElasticRock.
+        # Simply add the pressure and temperature terms to the mechanical stress
         traction = (
             self.mechanical_stress(subdomains)
             + self.pressure_stress(subdomains)
@@ -84,8 +86,10 @@ class EquationsThermoporomechanics(
         Call all parent classes' set_equations methods.
 
         """
-        # Energy balance
-        super().set_equations()
+        # Call all super classes' set_equations methods. Do this explicitly (calling the
+        # methods of the super classes directly) instead of using super() since this is
+        # more transparent.
+        energy.EnergyBalanceEquations.set_equations(self)
         mass.MassBalanceEquations.set_equations(self)
         momentum.MomentumBalanceEquations.set_equations(self)
 
@@ -104,7 +108,7 @@ class VariablesThermoporomechanics(
 
         """
         # Energy balance and its parent mass balance
-        super().create_variables()
+        energy.VariablesEnergyBalance.create_variables(self)
         mass.VariablesSinglePhaseFlow.create_variables(self)
         momentum.VariablesMomentumBalance.create_variables(self)
 

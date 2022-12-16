@@ -519,6 +519,9 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     This is *not* a full-scale model (in the old sense), but must be mixed with balance
     equations, constitutive laws etc. See user_examples.
 
+    Parameters:
+        params: Parameters for the solution strategy.
+
     """
 
     specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]

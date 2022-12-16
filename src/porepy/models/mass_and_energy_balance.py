@@ -18,7 +18,7 @@ class EquationsFluidMassAndEnergy(
 
         """
         # Energy balance
-        super().set_equations()
+        energy.EnergyBalanceEquations.set_equations(self)
         mass.MassBalanceEquations.set_equations(self)
 
 
@@ -35,7 +35,7 @@ class VariablesFluidMassAndEnergy(
 
         """
         # Energy balance
-        super().create_variables()
+        energy.VariablesEnergyBalance.create_variables(self)
         mass.VariablesSinglePhaseFlow.create_variables(self)
 
 
@@ -86,6 +86,9 @@ class SolutionStrategyFluidMassAndEnergy(
     """
 
     pass
+
+
+sol = SolutionStrategyFluidMassAndEnergy()
 
 
 class MassAndEnergyBalance(
