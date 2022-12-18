@@ -6,13 +6,14 @@ vertical fracture in the middle of the domain.
 For the details, we refer to https://doi.org/10.1515/jnma-2022-0038
 
 """
-import porepy as pp
+from typing import Callable
+
+import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sym
-import matplotlib.pyplot as plt
 
+import porepy as pp
 from porepy.models.verification_setups.verifications_utils import VerificationUtils
-from typing import Callable
 
 
 class ExactSolution:
