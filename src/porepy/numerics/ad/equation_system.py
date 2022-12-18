@@ -89,24 +89,21 @@ i.e. whether it is defined on cells, faces or nodes.
 class EquationSystem:
     """Represents an equation system, modelled by AD variables and equations in AD form.
 
-    This class provides functionalities to create and manage variables,
-    as well as managing equations in AD operator form.
+    This class provides functionalities to create and manage variables, as well as
+    managing equations on the form of :class:`~porepy.numerics.ad.operators.Operator`.
+    It further provides functions to assemble subsystems and using subsets of equations
+    and variables.
 
-    It further provides functions to assemble subsystems and using subsets of equations and
-    variables.
+    Note:
+        As of now, the system matrix (Jacobian) is assembled with respect to ALL
+        variables and then the columns belonging to the requested subset of variables
+        and grids are sliced out and returned. This will be optimized with minor changes
+        to the AD operator class and its recursive forward AD mode in the future.
 
-    Notes:
-        As of now, the system matrix (Jacobian) is assembled with respect to ALL variables
-        and then the columns belonging to the requested subset of variables and grids are
-        sliced out and returned. This will be optimized with minor changes to the AD operator
-        class and its recursive forward AD mode in the future.
-
-        Currently, this class optimizes the block structure of the Jacobian only regarding the
-        subdomains and interfaces. A more localized optimization
-        (e.g. cell-wise for equations without spatial differential operators) is not performed.
-
-    Parameters:
-        mdg: mixed-dimensional grid representing the whole computational domain.
+        Currently, this class optimizes the block structure of the Jacobian only
+        regarding the subdomains and interfaces. A more localized optimization (e.g.
+        cell-wise for equations without spatial differential operators) is not
+        performed.
 
     """
 
@@ -115,9 +112,9 @@ class EquationSystem:
     ] = ("cells", "faces", "nodes")
     """A set denoting admissible types of local DOFs for variables.
 
-    - nodes: DOFs per grid node
-    - cells: DOFs per grid cell (center)
-    - faces: DOFS per grid face (center)
+    - nodes: DOFs per grid node.
+    - cells: DOFs per grid cell.
+    - faces: DOFS per grid face.
 
     """
 
@@ -138,7 +135,8 @@ class EquationSystem:
 
         self._equations: dict[str, Operator] = dict()
         """Contains references to equations in AD operator form for a given name (key).
-        Private to avoid having people setting equations directly and circumventing the current
+
+        Private to avoid users setting equations directly and circumventing the current
         set-method which includes information about the image space.
 
         """
@@ -146,7 +144,9 @@ class EquationSystem:
         self._equation_image_space_composition: dict[
             str, dict[GridLike, np.ndarray]
         ] = dict()
-        """Contains for every equation name (key) a dictionary, which provides again for
+        """Definition of image space for all equations.
+
+        Contains for every equation name (key) a dictionary, which provides again for
         every involved grid (key) the indices of equations expressed through the
         equation operator. The ordering of the items in the grid-array dictionaries is
         consistent with the remaining PorePy framework. The ordering is local to the
@@ -156,32 +156,35 @@ class EquationSystem:
         """
 
         self._equation_image_size_info: dict[str, dict[GridEntity, int]] = dict()
-        """Contains for every equation name (key) the argument the number of equations
-        per grid entity.
+        """Contains for every equation name (key) the number of equations per grid
+        entity.
 
         """
 
         self._variables: list[Variable] = list()
-        """Contains references to grid Variables. A Variable is uniquely identified by its
-        name and domain, stored as attributes of the Variable object.
+        """Contains references to Variables.
+
+        A Variable is uniquely identified by its name and domain, stored as attributes
+        of the Variable object.
 
         """
 
         self._Schur_complement: Optional[tuple] = None
-        """Contains block matrices and the split rhs of the last assembled Schur complement,
-        such that the expansion can be made. FIXME: What does this line mean?
+        """Contains block matrices and the rhs of the last assembled Schur complement.
 
         """
 
         self._variable_numbers: dict[Variable, int] = dict()
-        """Dictionary containing the index of the variable in the system vector of the last
-        assembled system.
+        """Dictionary containing the index of the variable in the system vector of the
+        last assembled system.
 
         """
 
         self._variable_num_dofs: np.ndarray = np.array([], dtype=int)
-        """Array containing the number of DOFS per block number. The block number corresponds
-        to this array's indexation, see also _variable_numbers.
+        """Array containing the number of DOFS per block number.
+
+        The block number corresponds to this array's indexation, see also
+        attr:`_variable_numbers`.
 
         """
 
@@ -198,25 +201,26 @@ class EquationSystem:
         equation_names: Optional[EquationList] = None,
         variable_names: Optional[VariableList] = None,
     ) -> EquationSystem:
-        """Creates a ``EquationSystem`` for a given subset of equations and variables.
+        """Creates an :class:`EquationSystem` for a given subset of equations and
+        variables.
 
         Currently only subsystems containing *whole* equations and variables in the
         mixed-dimensional sense can be created. Restrictions of equations to subdomains
         is not supported.
 
         Parameters:
-            equation_names: Names of equation for the new subsystem. If None, all
-                equations known to the EquationSystem is used.
+            equation_names: Names of equations for the new subsystem. If None, all
+                equations known to the :class:`EquationSystem` are used.
             variable_names: Names of known variables for the new subsystem. If None, all
-                variables known to the EquationSystem is used.
+                variables known to the :class:`EquationSystem` are used.
 
         Returns:
-            A new instance of ``EquationSystem``. The subsystem equations and variables
-                are ordered as imposed by this systems's order.
+            A new instance of :class:`EquationSystem`. The subsystem equations and
+            variables are ordered as imposed by this systems's order.
 
         Raises:
             ValueError: if passed names are not among created variables and set
-            equations.
+                equations.
 
         """
         # Parsing of input arguments.
@@ -233,7 +237,7 @@ class EquationSystem:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
         # Create the new subsystem.
-        new_manager = EquationSystem(self.mdg)
+        new_equation_system = EquationSystem(self.mdg)
 
         # IMPLEMENTATION NOTE: This method imitates the variable creation and equation
         # setting procedures by calling private methods and accessing private
@@ -243,15 +247,15 @@ class EquationSystem:
         for variable in self._variables:
             if variable in variables:
                 # Update variables in subsystem.
-                new_manager._variables.append(variable)
+                new_equation_system._variables.append(variable)
 
                 # Update variable numbers in subsystem.
-                new_manager._variable_dof_type[variable] = self._variable_dof_type[
+                new_equation_system._variable_dof_type[
                     variable
-                ]
+                ] = self._variable_dof_type[variable]
 
                 # Create dofs in subsystem.
-                new_manager._append_dofs(variable)
+                new_equation_system._append_dofs(variable)
 
         # Loop over known equations to preserve row order.
         for name in known_equations:
@@ -260,13 +264,13 @@ class EquationSystem:
                 image_info = self._equation_image_size_info[name]
                 image_composition = self._equation_image_space_composition[name]
                 # et the information produced in set_equations directly.
-                new_manager._equation_image_space_composition.update(
+                new_equation_system._equation_image_space_composition.update(
                     {name: image_composition}
                 )
-                new_manager._equation_image_size_info.update({name: image_info})
-                new_manager._equations.update({name: equation})
+                new_equation_system._equation_image_size_info.update({name: image_info})
+                new_equation_system._equations.update({name: equation})
 
-        return new_manager
+        return new_equation_system
 
     @property
     def equations(self) -> dict[str, Operator]:
@@ -278,13 +282,15 @@ class EquationSystem:
 
     @property
     def variables(self) -> list[Variable]:
-        """List containing all Variables known to this system."""
+        """List containing all :class:`~porepy.numerics.ad.Variable`s known to this
+        system.
+
+        """
         return self._variables
 
     @property
     def variable_domains(self) -> list[pp.GridLike]:
         """List containing all domains where at least one variable is defined."""
-        # IS: We might want an equiation_domain method.
         domains = set()
         for var in self._variables:
             domains.add(var.domain)
@@ -299,15 +305,16 @@ class EquationSystem:
 
         Parameters:
             name (str): Name of the mixed-dimensional variable.
-            grids (optional): List of grids where the variable is defined. If None (default),
-                all grids where the variable is defined are used.
+            grids (optional): List of grids where the variable is defined. If None
+                (default), all grids where the variable is defined are used.
 
         Returns:
-            MixedDimensionalVariable: The mixed-dimensional variable.
+            A mixed-dimensional variable.
 
         Raises:
-            ValueError if variables called name exist on both grids and interfaces and
-                domain type is not specified (grids is None).
+            ValueError: If variables name exist on both grids and interfaces and domain
+                type is not specified (grids is None).
+
         """
         if grids is None:
             variables = [var for var in self._variables if var.name == name]
@@ -347,28 +354,21 @@ class EquationSystem:
         """Creates new variables according to specifications.
 
         This method does not assign any values to the variable. This has to be done in a
-        subsequent step (using e.g. :meth:`set_var_values`).
-
-        Notes:
-            This method provides support for creating variables on **all** subdomains
-            or interfaces, without having to pass them all as arguments.
-            If the argument ``subdomains`` is an empty list, the method will use all
-            subdomains found in the mixed-dimensional grid.
-            If the argument ``interfaces`` is an empty list, the method will use all
-            interfaces found in the mixed-dimensional list.
+        subsequent step (e.g. using :meth:`set_var_values`).
 
         Examples:
             An example on how to define a pressure variable with cell-wise one DOF
             (default) on **all** subdomains and **no** interfaces would be
 
-            >>> p = ad_system.create_variables('pressure', subdomains=mdg.subdomains())
+            .. code:: Python
+
+                p = ad_system.create_variables('pressure', subdomains=mdg.subdomains())
 
         Parameters:
-            name: used here as an identifier. Can be used to associate the variable with
-                some physical quantity like ``'pressure'``.
-            dof_info: dictionary containing information about number of DOFs per
+            name: Name of the variable.
+            dof_info: Dictionary containing information about number of DOFs per
                 admissible type. Defaults to ``{'cells':1}``.
-            subdomains (optional): list of subdomains on which the variable is defined.
+            subdomains (optional): List of subdomains on which the variable is defined.
                 If None, then it will not be defined on any subdomain.
             interfaces (optional): list of interfaces on which the variable is defined.
                 If None, then it will not be defined on any interface.
@@ -377,12 +377,12 @@ class EquationSystem:
                 using :meth:`update_variable_tags`.
 
         Returns:
-            a mixed-dimensional variable with above specifications.
+            A mixed-dimensional variable with above specifications.
 
         Raises:
-            ValueError: if non-admissible DOF types are used as local DOFs.
-            ValueError: if one attempts to create a variable not defined on any grid.
-            KeyError: if a variable with given name is already defined.
+            ValueError: If non-admissible DOF types are used as local DOFs.
+            ValueError: If one attempts to create a variable not defined on any grid.
+            KeyError: If a variable with given name is already defined.
 
         """
         # Set default value for dof_info. This is a mutable object, so we need to
@@ -390,22 +390,22 @@ class EquationSystem:
         if dof_info is None:
             dof_info = {"cells": 1}
 
-        # sanity check for admissible DOF types
+        # Sanity check for admissible DOF types.
         requested_type = set(dof_info.keys())
         if not requested_type.issubset(set(self.admissible_dof_types)):
             non_admissible = requested_type.difference(self.admissible_dof_types)
             raise ValueError(f"Non-admissible DOF types {non_admissible} requested.")
 
-        # sanity check if variable is defined anywhere
+        # Sanity check if variable is defined anywhere.
         if subdomains is None and interfaces is None:
             raise ValueError(
                 "Cannot create variable not defined on any subdomain or interface."
             )
 
         # Container for all grid variables.
-        variables = list()
+        variables = []
 
-        # Merge subdomains and interfaces into a single list
+        # Merge subdomains and interfaces into a single list.
         assert subdomains is not None or interfaces is not None  # for mypy
         grids: Sequence[pp.GridLike] = subdomains if subdomains else interfaces  # type: ignore
 
@@ -416,8 +416,6 @@ class EquationSystem:
 
         if grids:
             for grid in grids:
-                # check if the grid is known to the system
-
                 if subdomains:
                     assert isinstance(grid, pp.Grid)  # mypy
                     data = self.mdg.subdomain_data(grid)
@@ -425,20 +423,20 @@ class EquationSystem:
                     assert isinstance(grid, pp.MortarGrid)  # mypy
                     data = self.mdg.interface_data(grid)
 
-                # prepare data dictionary if this was not done already
+                # Prepare data dictionary if this was not done already.
                 if pp.STATE not in data:
                     data[pp.STATE] = dict()
                 if pp.ITERATE not in data[pp.STATE]:
                     data[pp.STATE][pp.ITERATE] = dict()
 
-                # create grid variable
+                # Create grid variable.
                 new_variable = Variable(name, dof_info, domain=grid, tags=tags)
 
                 # Store it in the system
                 variables.append(new_variable)
                 self._variables.append(new_variable)
 
-                # append the new DOFs to the global system
+                # Append the new DOFs to the global system.
                 self._variable_dof_type[new_variable] = dof_info
                 self._append_dofs(new_variable)
 
@@ -459,10 +457,9 @@ class EquationSystem:
             tag_name: Tag dictionary (tag-value pairs). This will be assigned to all
                 variables in the list.
             variables: List of variables to which the tag should be assigned. None is
-                interpreted as all variables.
-
-                NOTE: If a mixed-dimensional variable is passed, the tags will be
-                assigned to its sub-variables (living on individual grids).
+                interpreted as all variables. If a mixed-dimensional variable is passed,
+                the tags will be assigned to its sub-variables (living on individual
+                grids).
 
         """
         assert isinstance(variables, list)
@@ -484,18 +481,16 @@ class EquationSystem:
         system.
 
         Parameters:
-            variables: list of variables to filter. If None, all variables in the system
+            variables: List of variables to filter. If None, all variables in the system
                 are included.
-            grids: list of grids to filter on. If None, all grids are included.
-            tag_name: name of the tag to filter on. If None, no filtering on tags.
-            tag_value: value of the tag to filter on. If None, no filtering on tag
-                values.
-
-            If tag_name is not None, but tag_value is None, all variables with the given
-            tag_name are returned regardless of value.
+            grids: List of grids to filter on. If None, all grids are included.
+            tag_name: Name of the tag to filter on. If None, no filtering on tags.
+            tag_value: Value of the tag to filter on. If None, no filtering on tag
+                values. If tag_name is not None, but tag_value is None, all variables
+                with the given tag_name are returned regardless of value.
 
         Returns:
-            list of filtered variables.
+            List of filtered variables.
 
         """
         # Shortcut for efficiency.
@@ -537,8 +532,6 @@ class EquationSystem:
 
         The global order is preserved and independent of the order of the argument.
 
-        Notes:
-            The resulting array is of any size between 0 and ``num_dofs``.
 
         Parameters:
             variables (optional): VariableType input for which the values are
@@ -547,11 +540,13 @@ class EquationSystem:
                 instead of STATE (default).
 
         Returns:
-            the respective (sub) vector in numerical format.
+            The respective (sub) vector in numerical format, size anywhere between 0 and
+                :meth:`num_dofs`.
+
 
         Raises:
-            KeyError: if no values are stored for the VariableType input.
-            ValueError: if unknown VariableType arguments are passed.
+            KeyError: If no values are stored for the VariableType input.
+            ValueError: If unknown VariableType arguments are passed.
 
         """
         variables = self._parse_variable_type(variables)
@@ -596,30 +591,30 @@ class EquationSystem:
         to_iterate: bool = False,
         additive: bool = False,
     ) -> None:
-        """Sets values for a (sub) vector of the global vector of unknowns specified by
-        ``variables``.
+        """Sets values for a (sub) vector of the global vector of unknowns.
 
         The order of values is assumed to fit the global order.
 
-        Notes:
+        Note:
             The vector is assumed to be of proper size and will be dissected according
             to the global order, starting with the index 0.
             Mismatches of is-size and should-be-size according to the subspace specified
             by ``variables`` will raise respective errors by numpy.
 
         Parameters:
-            values: vector of corresponding size.
+            values: Vector of size corresponding to number of DOFs of the specified
+                variables.
             variables (optional): VariableType input for which the values are
                  requested. If None (default), the global vector of unknowns will be
                  set.
-            to_state (optional): Flag to write values to STATE.
-            to_iterate (optional): Flag to write values to ITERATE.
+            to_state (optional): Flag to write values to ``pp.STATE``.
+            to_iterate (optional): Flag to write values to ``pp.ITERATE``.
 
-            additive (optional): flag to write values *additively* to ITERATE or STATE.
-                To be used in iterative procedures.
+            additive (optional): Flag to write values additively. To be used in
+                iterative procedures.
 
         Raises:
-            ValueError: if unknown VariableType arguments are passed.
+            ValueError: If unknown VariableType arguments are passed.
 
         """
         # Start of dissection.
@@ -675,8 +670,6 @@ class EquationSystem:
 
         Must only be called by :meth:`create_variables`.
 
-        This method defines a preliminary global order of dofs:
-
         Parameters:
             variable: The newly created variable
 
@@ -718,9 +711,9 @@ class EquationSystem:
         The aim is to impose a more block-diagonal-like structure on the Jacobian where
         blocks in the column sense represent single grids in the following order:
 
-        Notes:
-            Off-diagonal blocks will still be present if subdomain-interface variables are
-            defined.
+        Note:
+            Off-diagonal blocks will still be present if subdomain-interface variables
+            are defined.
 
         1. For each grid in ``mdg.subdomains``
             1. For each variable defined on that grid
@@ -733,6 +726,7 @@ class EquationSystem:
         This method is called after each creation of variables and respective DOFs.
         TODO: Revisit. I think I have broken it by looping over _variables instead of
         subdomains and interfaces.
+
         """
         # Data stracture for the new order of dofs.
         new_variable_counter: int = 0
@@ -765,21 +759,22 @@ class EquationSystem:
         list of variables more flexibly.
 
         There is no filtering of the variables, for instance:
+
             - No assumptions should be made on the order of the parsed variables.
             - The variable list is not uniquified; if the same variable is passed twice
               (say, as a Variable and by its string), it will duplicated in the list of
               parsed variables.
 
         Parameters:
-            variables (dict or list): The input argument for the variable type.
+            variables: The input argument for the variable type.
                 The following interpretation rules are applied:
-                    - If None, return all variables
-                    - If a list of variables, return same
-                    - If a list of strings, return all variables with those names
-                    - If mixed-dimensional variable, return sub-variables
+                    - If None, return all variables.
+                    - If a list of variables, return same.
+                    - If a list of strings, return all variables with those names.
+                    - If mixed-dimensional variable, return sub-variables.
 
         Returns:
-            list: A list of Variables.
+            List of Variables.
 
         """
         if variables is None:
@@ -809,6 +804,8 @@ class EquationSystem:
         The grid-based complement consists of all variables known to this
         EquationSystem, but which are not in the passed list ``variables``.
 
+        TODO: Revisit. This method is not used anywhere, and I am not sure it is
+        correct/does what it is supposed to do.
         """
 
         # strings and md variables represent always a whole in the variable sense. Hence,
@@ -946,7 +943,7 @@ class EquationSystem:
         grids: DomainList,
         equations_per_grid_entity: dict[GridEntity, int],
     ) -> None:
-        """Sets an equation using the passed operator and uses its name as an identifier**.
+        """Sets an equation using the passed operator and uses its name as an identifier.
 
         If an equation already exists under that name, it is overwritten.
 
@@ -954,7 +951,7 @@ class EquationSystem:
         row slicing is possible. This will hopefully be provided automatically in the
         future.
 
-        Notes:
+        Note:
             Regarding the number of equations, this method assumes that the AD framework
             assembles row blocks per grid in subdomains, then per grid in interfaces,
             for each operator representing an equation. This is assumed to be the way
@@ -963,11 +960,8 @@ class EquationSystem:
         Parameters:
             equation: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
-                **The equation must be ready for evaluation, i.e. all involved variables
-                must have values set.**
-                An equation can be defined on sets of subdomains or interfaces, but
-                not on a combination.
-            grids: A list of grids on which the equation is defined.
+            grids: A list of subdomain *or* interface grids on which the equation is
+                defined.
             equations_per_grid_entity: a dictionary describing how many equations
                 ``equation_operator`` provides. This is a temporary work-around until
                 operators are able to provide information on their image space.
@@ -1285,26 +1279,30 @@ class EquationSystem:
         (identified by its name string) the indices which were excluded in the
         grid-sense.
 
-        Args:
-            equations: dictionary with equation names as keys and the corresponding
+        Parameters:
+            equations: Dictionary with equation names as keys and indices as values.
+                The indices are the indices of the rows in the global system that
+                were included in the last parsing of the equations.
 
-            TODO!!!
+        Returns:
+            A dictionary with the name of the equation as key and the grid-complement
+            as values. If the complement is empty, the value is None.
 
         """
         complement: dict[str, None | np.ndarray] = dict()
         for name, idx in equations.items():
-            # If indices where filtered based on grids, we find the complementing
+            # If indices were filtered based on grids, we find the complementing
             # indices.
             # If idx is None, this means no filtering was done.
             if idx is not None:
                 # Get the indices associated with this equation.
                 img_info = self._equation_image_space_composition[name]
 
-                # Assure ordering and uniqueness whole equation indexation
+                # Ensure ordering and uniqueness of equation indexation.
                 img_values: list[np.ndarray] = list(img_info.values())
                 all_idx = np.unique(np.hstack(img_values))
 
-                # Complementing indices are found by deleting the filtered indices
+                # Complementing indices are found by deleting the filtered indices.
                 complement_idx = np.delete(all_idx, idx)
                 complement.update({name: complement_idx})
 
@@ -1324,8 +1322,8 @@ class EquationSystem:
         identified and only discretized once.
 
         Parameters:
-            equations (optional): a subset of equations.
-                If not provided (None), all known equations will be discretized.
+            equations (optional): A subset of equations. If not provided (None), all
+                known equations will be discretized.
 
         """
         equation_names = list(self._parse_equations(equations).keys())
@@ -1350,19 +1348,21 @@ class EquationSystem:
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector of the whole system.
 
-        This is a shallow wrapper of :meth:`assemble_subsystem`, where the subsystem is
+        This is a shallow wrapper of :meth:`assemble_subsystem`. Here, the subsystem is
         the complete set of equations, variables and grids.
 
         Parameters:
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
 
         Returns:
-            sps.spmatrix: Jacobian matrix corresponding to the targeted state.
+            Tuple containing
+                sps.spmatrix: Jacobian matrix corresponding to the targeted state.
                 The ordering of the equations (rows) is determined by the order the
-                equations were added. The DOFs (columns) are ordered according the
+                equations were added. The DOFs (columns) are ordered according to the
                 global order.
-            np.ndarray: Residual vector corresponding to the targeted state,
-                scaled with -1 (moved to rhs).
+
+                np.ndarray: Residual vector corresponding to the targeted state, scaled
+                by -1 (moved to rhs).
 
         """
         return self.assemble_subsystem(state=state)
@@ -1379,36 +1379,38 @@ class EquationSystem:
         The method is intended for use in splitting algorithms. Matrix blocks not
         included will simply be sliced out.
 
-        Notes:
+        Note:
             The ordering of columns in the returned system are defined by the global
-            DOF. The row blocks are in the same order as equations were added to this
-            system. If an equation is defined on multiple grids, the respective
+            DOF order. The row blocks are in the same order as equations were added to
+            this system. If an equation is defined on multiple grids, the respective
             row-block is internally ordered as given by the mixed-dimensional grid
             (for sd in subdomains, for intf in interfaces).
 
-            The columns of hthe subsystem are assumed to be properly defined by
+            The columns of the subsystem are assumed to be properly defined by
             ``variables``, otherwise a matrix of shape ``(M,)`` is returned. This
-            happens if grid variables
-            are passed which are unknown to this EquationSystem.
+            happens if grid variables are passed which are unknown to this
+            :class:`EquationSystem`.
 
         Parameters:
             equations (optional): a subset of equations to which the subsystem should be
                 restricted. If not provided (None), all equations known to this
-                equation system manager will be included.
+                :class:`EquationSystem` will be included.
 
-                The user can specify grids per equation (name) to which the subsystem should be
-                restricted in the row-sense. Grids not belonging to the domain of an equation
-                will raise an error.
+                The user can specify grids per equation (name) to which the subsystem
+                should be restricted in the row-sense. Grids not belonging to the domain
+                of an equation will raise an error.
 
-            variables (optional): VariableType input specifying the subspace in column-sense.
-                If not provided (None), all variables will be included.
-            state (optional): State vector to assemble from. By default, the stored ITERATE or
-                STATE are used, in that order.
+            variables (optional): VariableType input specifying the subspace in
+                column-sense. If not provided (None), all variables will be included.
+            state (optional): State vector to assemble from. By default, the stored
+                ``pp.ITERATE`` or ``pp.STATE`` are used, in that order.
 
         Returns:
-            spmatrix: (Part of the) Jacobian matrix corresponding to the targeted variable
-                state, for the specified equations and variables.
-            ndarray: Residual vector corresponding to the targeted variable state,
+            Tuple with two elements
+
+                spmatrix: (Part of the) Jacobian matrix corresponding to the targeted
+                variable state, for the specified equations and variables.
+                ndarray: Residual vector corresponding to the targeted variable state,
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
@@ -1481,39 +1483,47 @@ class EquationSystem:
         inverter: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
-        """Assemble Jacobian matrix and residual vector using a Schur complement
+        r"""Assemble Jacobian matrix and residual vector using a Schur complement
         elimination of the variables and equations not to be included.
 
         The specified equations and variables will define blocks of the linearized
         system as
 
-            ``[A_pp, A_ps  [x_p   = [b_p``
-            `` A_sp, A_ss]  x_s]     b_s]``
+        .. math::
+            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix} \right]
+            \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
+            = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right]
+
 
         where subscripts p and s define primary and secondary blocks.
         The Schur complement system is then given by
 
-            ``(A_pp - A_ps * inv(A_ss) * A_sp) * x_p = b_p - A_ps * inv(A_ss) * b_s``
+        .. math::
 
-        The Schur complement is well-defined only if the inverse of A_ss exists,
-        and the efficiency of the approach assumes that an efficient inverter for
-        A_ss can be found.
+            \left( A_{pp} - A_{ps} * A_{ss}^{-1} * A_{sp}\right) * x_p
+            = b_p - A_{ps} * A_{ss} * b_s
+
+        The Schur complement is well-defined only if the inverse of :math:`A_{ss}`
+        exists, and the efficiency of the approach assumes that an efficient inverter
+        for :math:`A_{ss}` can be found.
         **The user must ensure both requirements are fulfilled.**
 
-        Notes:
+        Note:
             The optional arguments defining the secondary block, and the flag
             ``excl_loc_prim_to_sec`` are meant for nested Schur-complements and
             splitting solvers. This is an advanced usage and requires the user to be
-            careful, since the resulting blocks ``A_pp`` and ``A_ss`` might end up
-            to be not square. This will result in errors.
+            careful, since the resulting blocks :math:`A_{pp}` and :math:`A_{ss}` might
+            end up to be not square. This will result in errors.
 
         Examples:
             The default inverter can be defined by
 
-            >>> import scipy.sparse as sps
-            >>> inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
+            .. code-block:: python
 
-            It is costly in terms of computational time and memory though.
+                import scipy.sparse as sps
+                inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
+
+            It is costly in terms of computational time and memory, though.
 
             TODO: We should rather use the block inverter in pp.matrix_operations. This
             will require some work on ensuring the system is block-diagonal.
@@ -1523,22 +1533,26 @@ class EquationSystem:
                 row-sense.
             primary_variables: VariableType input specifying the primary subspace in
                 column-sense.
-            inverter (optional): callable object to compute the inverse of the matrix A_ss.
-                By default, the scipy direct sparse inverter is used.
+            inverter (optional): callable object to compute the inverse of the matrix
+                :math:`A_{ss}`. By default, the scipy direct sparse inverter is used.
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
 
         Returns:
-            sps.spmatrix: Jacobian matrix representing the Schur complement with respect to
-                the targeted state.
-            np.ndarray: Residual vector for the Schur complement with respect to the targeted
-                state. Scaled with -1 (moved to rhs).
+            Tuple containing
+
+                sps.spmatrix: Jacobian matrix representing the Schur complement with
+                respect to the targeted state.
+                np.ndarray: Residual vector for the Schur complement with respect to the
+                targeted state. Scaled with -1 (moved to rhs).
 
         Raises:
             AssertionError:
-                - if the primary block would have 0 rows or columns
-                - if the secondary block would have 0 rows or columns
-                - if the secondary block is not square
-            ValueError: if primary and secondary columns overlap
+
+                - If the primary block would have 0 rows or columns.
+                - If the secondary block would have 0 rows or columns.
+                - If the secondary block is not square.
+
+            ValueError: If primary and secondary columns overlap.
 
         """
         if inverter is None:
@@ -1669,19 +1683,22 @@ class EquationSystem:
     def expand_schur_complement_solution(
         self, reduced_solution: np.ndarray
     ) -> np.ndarray:
-        """Expands the solution of the **last assembled** Schur complement system to the
+        r"""Expands the solution of the *last assembled* Schur complement system to the
         whole solution.
 
-        I.e it takes x_p from
+        With ``reduced_solution`` as :math:`x_p` from
 
-            [A_pp, A_ps  [x_p   = [b_p
-             A_sp, A_ss]  x_s]     b_s]
+        .. math::
+            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix} \right]
+            \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
+            = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right],
 
-        and returns the whole [x_p, x_s] where
+        the method returns the whole vector :math:`[x_p, x_s]`, where
 
-            x_s = inv(A_ss) * (b_s - A_sp * x_p)
+        .. math::
+            x_s = A_{ss}^{-1} * (b_s - A_{sp} * x_p).
 
-        Notes:
+        Note:
             Independent of how the primary and secondary blocks were chosen, this method
             always returns a vector of size ``num_dofs``.
             Especially when the primary and secondary variables did not constitute the
@@ -1692,10 +1709,11 @@ class EquationSystem:
             reduced_solution: Solution to the linear system returned by
                 :meth:`assemble_schur_complement_system`.
 
-        Returns: the expanded Schur solution in global size.
+        Returns:
+            The expanded Schur solution in global size.
 
         Raises:
-            ValueError: if the Schur complement system was not assembled before.
+            ValueError: If the Schur complement system was not assembled before.
 
         """
         if self._Schur_complement is None:
