@@ -5,9 +5,9 @@ The classes identify faces of a grid which have Dirichlet, Neumann and Robin typ
 boundary conditions. There is one class for scalar problems and one for nd-vectors.
 """
 from __future__ import annotations
-from abc import ABC
 
 import warnings
+from abc import ABC
 from typing import List, Optional, Union
 
 import numpy as np
