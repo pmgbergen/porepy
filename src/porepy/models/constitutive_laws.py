@@ -1,6 +1,6 @@
 """Library of constitutive equations."""
 from functools import partial
-from typing import Callable, Optional, Sequence, Union, Literal
+from typing import Callable, Literal, Optional, Sequence, Union
 
 import numpy as np
 
@@ -1002,7 +1002,7 @@ class ThermalConductivityLTE:
     """
 
     def fluid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid thermal conductivity [W / (m K)]
+        """Fluid thermal conductivity [W / (m K)].
 
         Parameters:
             grids: List of subdomains where the thermal conductivity is defined.
@@ -1016,8 +1016,6 @@ class ThermalConductivityLTE:
 
     def solid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Solid thermal conductivity [W / (m K)].
-
-        The
 
         Parameters:
             grids: List of subdomains where the thermal conductivity is defined.
@@ -1089,10 +1087,10 @@ class ThermalConductivityLTE:
 
 
 class FouriersLaw:
-    """This class could be refactored to reuse for other diffusive fluxes, such as
-    heat conduction. It's somewhat cumbersome, though, since potential, discretization,
-    and boundary conditions all need to be passed around. Also, gravity effects are
-    not included, as opposed to the Darcy flux (see that class).
+    """This class could be refactored to reuse for other diffusive fluxes. It's somewhat
+    cumbersome, though, since potential, discretization, and boundary conditions all
+    need to be passed around. Also, gravity effects are not included, as opposed to the
+    Darcy flux (see that class).
     """
 
     subdomains_to_interfaces: Callable[
@@ -1419,8 +1417,8 @@ class SpecificHeatCapacities:
 
 
 class EnthalpyFromTemperature(SpecificHeatCapacities):
-    """Class for representing the ethalpy, computed from the perturbation from a reference
-    temperature.
+    """Class for representing the ethalpy, computed from the perturbation from a
+    reference temperature.
     """
 
     temperature: pp.ad.Operator
@@ -1435,9 +1433,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid enthalpy [J / m^3].
-
-        TODO: Check units here, and in solid_specific_heat_capacity.
+        """Fluid enthalpy [J / kg].
 
         The enthalpy is computed as a perturbation from a reference temperature as
         .. math::
@@ -1456,7 +1452,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         return enthalpy
 
     def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Solid enthalpy [J/kg/K].
+        """Solid enthalpy [J/kg].
 
         The enthalpy is computed as a perturbation from a reference temperature as
         .. math::
@@ -1488,8 +1484,6 @@ class GravityForce:
     gravity acceleration.
 
     To be used in fluid fluxes and as body force in the force/momentum balance equation.
-
-    TODO: Decide whether to use this or zero as default for Darcy fluxes.
 
     """
 
@@ -1706,10 +1700,10 @@ class PressureStress(LinearElasticMechanicalStress):
     To be used in poromechanical problems.
 
     .. note::
-            The below discretization assumes the stress is discretized with a Mpsa
-            finite volume discretization. Other discretizations may be possible, but are
-            not available in PorePy at the moment, and would likely require changes to
-            this method.
+        The below discretization assumes the stress is discretized with a Mpsa finite
+        volume discretization. Other discretizations may be possible, but are not
+        available in PorePy at the moment, and would likely require changes to this
+        method.
 
     """
 
@@ -1860,11 +1854,12 @@ class ThermoPressureStress(PressureStress):
     To be used in thermoporomechanical problems.
 
     .. note::
-            This class assumes both pressure and temperature stresses. To avoid having
-            to discretize twice, the pressure stress is discretized with a Mpsa
-            discretization, while the temperature stress computed as a scaled version of
-            the pressure stress. If pure thermomechanical problems are to be solved, a
-            different class must be used for the temperature stress.
+        This class assumes both pressure and temperature stresses. To avoid having
+        to discretize twice, the pressure stress is discretized with a Mpsa
+        discretization, while the temperature stress computed as a scaled version of
+        the pressure stress. If pure thermomechanical problems are to be solved, a
+        different class must be used for the temperature stress.
+
     """
 
     temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -1991,7 +1986,8 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
             subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
-            Cell-wise shear modulus operator. The value is picked from the solid constants.
+            Cell-wise shear modulus operator. The value is picked from the solid
+            constants.
 
         """
         return Scalar(self.solid.shear_modulus(), "shear_modulus")
@@ -2051,6 +2047,7 @@ class FracturedSolid:
     """Fractured rock properties.
 
     This class is intended for use with fracture deformation models.
+
     """
 
     nd: int
@@ -2334,6 +2331,7 @@ class PoroMechanicsPorosity:
 
         Returns:
             Cell-wise porosity operator [-].
+
         """
         if not all([sd.dim == self.nd for sd in subdomains]):
             raise ValueError("Subdomains must be of dimension nd.")
@@ -2361,8 +2359,8 @@ class PoroMechanicsPorosity:
             subdomains: List of subdomains where the divergence is defined.
 
         Returns:
-            Divergence operator accounting from contributions from interior of the domain
-            and from internal and external boundaries.
+            Divergence operator accounting from contributions from interior of the
+            domain and from internal and external boundaries.
 
         """
         # Sanity check on dimension
@@ -2452,49 +2450,3 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         phi = (Scalar(1) - phi_ref) * beta
         phi.set_name("thermal_porosity_expansion")
         return phi
-
-
-def boundary_values_from_operator(
-    operator: Callable[[list[pp.Grid]], pp.ad.Operator],
-    subdomain: pp.Grid,
-    faces: np.ndarray,
-    model,
-) -> np.ndarray:
-    """Extract Dirichlet values from an operator.
-
-    Parameters:
-        interior_operator: Operator to extract Dirichlet values from.
-        subdomain: Subdomain where the operator is defined.
-        faces: Faces where Dirichlet values are to be extracted.
-        equation_system: Equation system facilitating evaluation of the operator.
-
-    Returns:
-        Dirichlet values (sd.num_faces,).
-
-    """
-
-    # boundary = model.mdg.subdomain_to_boundary_grid(subdomain)
-    # # Extract Dirichlet values from the operator
-    # vals = np.zeros(subdomain.num_faces)
-
-    # boundary_vals = operator([boundary]).evaluate(model.equation_system)
-    # # Unlike Operators, wrapped constants (Scalar, Array) do not have val attribute.
-    # if hasattr(boundary_vals, "val"):
-    #     boundary_vals = boundary_vals.val
-
-    # if isinstance(boundary_vals, Number):
-    #     # Scalar value, simple assignment
-    #     vals[faces] = boundary_vals
-    # else:
-    #     # Array value, assumed to be cell-wise
-    #     assert isinstance(boundary_vals, np.ndarray)
-    #     face_vals = boundary.projection * boundary_vals
-    #     assert face_vals.shape == (subdomain.num_faces,)
-    #     vals[faces] = face_vals[faces]
-
-    # FIXME: Revisit BoundaryGrid. This is a hack to get the code to run.
-    #
-    # TODO: See previous comment! Fare, fare, krigsmann! (Norwegian for "farewell, my
-    # friend"). EK, IS. Which tags have I forgotten to mark this as important?
-    vals = np.zeros(subdomain.num_faces)
-    return vals

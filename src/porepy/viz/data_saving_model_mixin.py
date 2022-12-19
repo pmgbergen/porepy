@@ -37,7 +37,6 @@ class DataSavingMixin:
             self.exporter.write_vtu(
                 self.data_to_export(),
                 time_dependent=True,
-                time_step=self.time_manager.time,
             )
 
     def finalize_data_saving(self) -> None:

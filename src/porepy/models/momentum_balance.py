@@ -282,7 +282,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             (-1) * t_n
             # EK: I will take care of typing of this term when we have a better name for
             # the method.
-            - self.contact_mechanics_numerical_constant(subdomains) * (u_n - self.gap(subdomains)),
+            - self.contact_mechanics_numerical_constant(subdomains)
+            * (u_n - self.gap(subdomains)),
             zeros_frac,
         )
         equation.set_name("normal_fracture_deformation_equation")
@@ -741,7 +742,9 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
                     },
                 )
 
-    def contact_mechanics_numerical_constant(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+    def contact_mechanics_numerical_constant(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Scalar:
         """Numerical constant for the contact problem.
 
         The numerical constant is a cell-wise scalar, but we return a matrix to allow

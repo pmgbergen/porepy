@@ -480,7 +480,15 @@ class ModifiedBoundaryConditions:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+        tuple[
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+        ],
     ]
     """Utility function to access the domain boundary sides."""
 
