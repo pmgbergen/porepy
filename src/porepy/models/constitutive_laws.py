@@ -222,8 +222,8 @@ class DisplacementJumpAperture(DimensionReduction):
                 # The jump should be bounded below by gap function. This is not
                 # guaranteed in the non-converged state. As this (especially
                 # non-positive values) may give significant trouble in the aperture.
-                # Insert safeguard:
-                # EK: Safeguard in which sense?
+                # Insert safeguard by taking maximum of the jump and a residual
+                # aperture.
                 f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
 
                 a_ref = self.residual_aperture(subdomains_of_dim)
@@ -773,7 +773,9 @@ class DarcysLaw:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    outwards_internal_boundary_normals: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    outwards_internal_boundary_normals: Callable[
+        [list[pp.MortarGrid], bool], pp.ad.Operator
+    ]
     """Outwards normal vectors on internal boundaries. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -851,8 +853,7 @@ class DarcysLaw:
         ) - cell_volumes * self.normal_permeability(interfaces) * (
             projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
             - projection.secondary_to_mortar_avg * self.pressure(subdomains)
-            # TODO: Reintroduce the below term?
-            # + self.interface_vector_source(interfaces, material="fluid")
+            + self.interface_vector_source(interfaces, material="fluid")
         )
         eq.set_name("interface_darcy_flux_equation")
         return eq
@@ -884,7 +885,8 @@ class DarcysLaw:
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
-            defined. material: Name of the material. Could be either "fluid" or "solid".
+                defined.
+            material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
             Cell-wise nd-vector source term operator.
@@ -900,20 +902,26 @@ class DarcysLaw:
     ) -> pp.ad.Operator:
         """Interface vector source term.
 
-        The term is the product of unit normals and vector source values. Normalization
-        is needed to balance the integration done in the interface flux law.
+        The term is the dot product of unit normals and vector source values.
+        Normalization is needed to balance the integration done in the interface flux
+        law.
 
         Parameters:
             interfaces: List of interfaces where the vector source is defined.
 
         Returns:
-            Face-wise vector source term.
+            Cell-wise vector source term.
 
         """
         # Account for sign of boundary face normals.
         # No scaling with interface cell volumes.
         normals = self.outwards_internal_boundary_normals(interfaces, True)
-        return normals * self.vector_source(interfaces, material=material)
+        # Make dot product with vector source in two steps. First element-wise product.
+        element_product = normals * self.vector_source(interfaces, material=material)
+        # Then sum over the nd dimensions.
+        nd_to_scalar_sum = sum([e.T for e in self.basis(interfaces, self.nd)])
+        dot_product = nd_to_scalar_sum * element_product
+        return dot_product
 
 
 class ThermalExpansion:
@@ -1496,10 +1504,16 @@ class GravityForce:
 
     """
     e_i: Callable[[Union[list[pp.Grid], list[pp.MortarGrid]], int, int], pp.ad.Operator]
+    """Function that returns the unit vector in the i-th direction.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     nd: int
     """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
+    :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
 
