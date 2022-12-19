@@ -661,7 +661,7 @@ def test_time_differentiation():
     # Differentiate the variable on the highest-dimensional subdomain
     sd = mdg.subdomains(dim=mdg.dim_max())[0]
     var_1 = eq_system.get_variables(["foo"], [sd])[0]
-    sdt_var_1 = pp.ad.dt(var_1, time_step)
+    dt_var_1 = pp.ad.dt(var_1, time_step)
     assert np.allclose(dt_var_1.evaluate(eq_system).val, 2)
 
     # Also test the time difference function
