@@ -19,6 +19,7 @@ class EquationsFluidMassAndEnergy(
         """
         # Energy balance
         energy.EnergyBalanceEquations.set_equations(self)
+        # Mass balance
         mass.MassBalanceEquations.set_equations(self)
 
 
@@ -88,10 +89,7 @@ class SolutionStrategyFluidMassAndEnergy(
     pass
 
 
-sol = SolutionStrategyFluidMassAndEnergy()
-
-
-class MassAndEnergyBalance(
+class MassAndEnergyBalance(  # type: ignore
     EquationsFluidMassAndEnergy,
     VariablesFluidMassAndEnergy,
     ConstitutiveLawFluidMassAndEnergy,

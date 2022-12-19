@@ -54,7 +54,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     solid_enthalpy: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Solid enthalpy. Defined in a mixin class with a suitable constitutive relation.
     """
-    solid_density: Callable[[list[pp.Grid]], pp.ad.Operator]
+    solid_density: Callable[[list[pp.Grid]], pp.ad.Scalar]
     """Solid density. Defined in a mixin class with a suitable constitutive relation.
     """
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -117,9 +117,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    subdomains_to_interfaces: Callable[
-        [list[pp.Grid], Optional[list[int]]], list[pp.MortarGrid]
-    ]
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -308,7 +306,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         """
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
-        interfaces = self.subdomains_to_interfaces(subdomains)
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         flux = self.interface_enthalpy_flux(interfaces) + self.interface_fourier_flux(
             interfaces
@@ -569,8 +567,10 @@ class BoundaryConditionsEnergyBalance:
             bc_values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
-        bc_values = pp.wrap_as_ad_array(np.hstack(bc_values), name="bc_values_enthalpy")
-        return bc_values
+        bc_values_ad = pp.wrap_as_ad_array(
+            np.hstack(bc_values), name="bc_values_enthalpy"
+        )
+        return bc_values_ad
 
 
 class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
@@ -591,18 +591,18 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    thermal_conductivity: Callable[[list[pp.Grid]], np.ndarray]
     """Thermal conductivity. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
 
     """
-    bc_type_fourier: Callable[[pp.Grid], pp.ad.Array]
+    bc_type_fourier: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the Fourier flux. Normally
     defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
     """
-    bc_type_enthalpy: Callable[[pp.Grid], pp.ad.Array]
+    bc_type_enthalpy: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the enthalpy flux.
     Normally defined in a mixin instance
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.

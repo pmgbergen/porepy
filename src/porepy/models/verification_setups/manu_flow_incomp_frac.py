@@ -635,7 +635,7 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
             self.plot_results()
 
 
-class ManufacturedFlow2d(
+class ManufacturedFlow2d(  # type: ignore[misc]
     ModifiedGeometry,
     ModifiedBoundaryConditions,
     ModifiedBalanceEquation,
