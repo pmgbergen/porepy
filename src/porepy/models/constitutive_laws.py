@@ -20,12 +20,21 @@ class DimensionReduction:
     """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
-        """FIXME: Decide on how to treat interfaces."""
+        """Get the aperture of a single grid.
+
+        Parameters:
+            grid: Grid for which to compute the aperture.
+
+        Returns:
+            Aperture for each cell in the grid.
+
+        """
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
             aperture *= self.solid.residual_aperture()
@@ -37,7 +46,9 @@ class DimensionReduction:
         Aperture is a characteristic thickness of a cell, with units [m].
         1 in matrix, thickness of fractures and "side length" of cross-sectional
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
-        See also specific_volume.
+
+        See also:
+            :meth:specific_volume.
 
         Parameters:
             subdomains: List of subdomain grids.
@@ -76,7 +87,9 @@ class DimensionReduction:
         Aperture is a characteristic thickness of a cell, with units [m].
         1 in matrix, thickness of fractures and "side length" of cross-sectional
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
-        See also specific_volume.
+
+        See also:
+            :meth:aperture.
 
         Parameters:
             subdomains: List of subdomain grids.
@@ -284,7 +297,8 @@ class ConstantFluidDensity:
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -308,7 +322,8 @@ class FluidDensityFromPressure:
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
@@ -386,7 +401,8 @@ class FluidDensityFromTemperature:
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
@@ -449,10 +465,10 @@ class FluidDensityFromPressureAndTemperature(
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
-
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
     """Function that returns a perturbation from reference state. Normally provided by
     a mixin of instance :class:`~porepy.models.VariableMixin`.
@@ -552,7 +568,8 @@ class ConstantViscosity:
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -576,7 +593,8 @@ class ConstantPermeability:
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -897,12 +915,14 @@ class ThermalExpansion:
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -940,12 +960,14 @@ class ThermalConductivityLTE:
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -1342,12 +1364,14 @@ class SpecificHeatCapacities:
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -1456,11 +1480,13 @@ class GravityForce:
     To be used in fluid fluxes and as body force in the force/momentum balance equation.
 
     TODO: Decide whether to use this or zero as default for Darcy fluxes.
+
     """
 
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
     e_i: Callable[[Union[list[pp.Grid], list[pp.MortarGrid]], int, int], pp.ad.Operator]
@@ -1788,12 +1814,12 @@ class PressureStress(LinearElasticMechanicalStress):
         # All subdomains of the interfaces
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        
+
         # Consistent sign of the normal vectors.
         # Note the unitary scaling here, we will scale the pressure with the area
         # of the interface (equivalently face area in the matrix subdomains) elsewhere.
         outwards_normal = self.outwards_internal_boundary_normals(interfaces, True)
-        
+
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
         scalar_to_nd: pp.ad.Operator = sum([e_i for e_i in self.basis(interfaces)])
@@ -1845,10 +1871,12 @@ class ThermoPressureStress(PressureStress):
     solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal expansion coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
+
     """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
     stress_keyword: str
@@ -1902,7 +1930,8 @@ class ConstantSolidDensity:
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -1931,7 +1960,8 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -2024,7 +2054,8 @@ class FracturedSolid:
     """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -2136,7 +2167,8 @@ class BiotCoefficient:
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -2157,7 +2189,8 @@ class ConstantPorosity:
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -2182,10 +2215,10 @@ class PoroMechanicsPorosity:
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin TODO
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
-
     nd: int
     """Ambient dimension of the problem. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.

@@ -194,11 +194,8 @@ class SolutionStrategy(abc.ABC):
             setattr(self, name, const)
 
     def before_newton_loop(self) -> None:
-        """Wrap for legacy reasons.
-
-        TODO: Remove and call before_nonlinear_loop directly.
-
-        """
+        """Wrap for legacy reasons. Call :meth:`before_nonlinear_loop` instead."""
+        # TODO: Remove and call before_nonlinear_loop directly.
         self.before_nonlinear_loop()
 
     def discretize(self) -> None:

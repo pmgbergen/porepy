@@ -1012,7 +1012,10 @@ class EquationSystem:
 
         all_subdomains = all([isinstance(g, pp.Grid) for g in grids])
         all_interfaces = all([isinstance(g, pp.MortarGrid) for g in grids])
-        # FIXME: Is it allowed to have no domain or should we change to == 1?
+
+        # Allow for no subdomains or interfaces here (case < 1). This is relevant for
+        # equations stated for general md problems, but on domains that happened not to
+        # have, e.g., fractures.
         if not all_interfaces + all_subdomains <= 1:
             raise AssertionError(
                 "An equation should not be defined on both subdomains and interfaces."
@@ -1330,7 +1333,8 @@ class EquationSystem:
 
         # List containing all discretizations
         discr: list = []
-        # TODO: the search can be done once (in some kind of initialization)
+        # TODO: the search can be done once (in some kind of initialization). Revisit
+        # this during update of the Ad machinery.
         for name in equation_names:
             # this raises a key error if a given equation name is unknown
             eqn = self._equations[name]
