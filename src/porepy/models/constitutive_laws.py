@@ -1788,13 +1788,17 @@ class PressureStress(LinearElasticMechanicalStress):
         # All subdomains of the interfaces
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        
         # Consistent sign of the normal vectors.
         # Note the unitary scaling here, we will scale the pressure with the area
         # of the interface (equivalently face area in the matrix subdomains) elsewhere.
         outwards_normal = self.outwards_internal_boundary_normals(interfaces, True)
+        
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
         scalar_to_nd: pp.ad.Operator = sum([e_i for e_i in self.basis(interfaces)])
+        # Spelled out, from the right: Project the pressure from the fracture to the
+        # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
         stress = (
             outwards_normal
             * scalar_to_nd

@@ -211,9 +211,26 @@ class ModelGeometry:
     ) -> list[pp.ad.Matrix]:
         """Return a cell-wise basis for all subdomains.
 
+        The basis is represented as a list of matrices, each of which represents a
+        basis function. The individual matrices have shape ``Nc * dim, Nc`` where ``Nc``
+        is the total number of cells in the subdomains.
+
+        Examples:
+            To extend a cell-wise scalar to a vector field, use
+            ``sum([e_i for e_i in basis(subdomains)])``. To restrict to a vector in the
+            tangential direction only, use
+            ``sum([e_i for e_i in basis(subdomains, dim=nd-1)])``
+
+        See also:
+            :meth:`e_i` for the construction of a single basis function.
+            :meth:`normal_component` for the construction of a restriction to the
+                normal component of a vector only.
+            :meth:`tangential_component` for the construction of a restriction to the
+                tangential component of a vector only.
+
         Parameters:
             grids: List of grids on which the basis is defined.
-            dim: Dimension of the base. Defaults to ``self.nd``.
+            dim: Dimension of the basis. Defaults to ``self.nd``.
 
         Returns:
             List of pp.ad.Matrix, each of which represents a basis function.
@@ -249,6 +266,9 @@ class ModelGeometry:
                        [0., 0.],
                        [0., 1.],
                        [0., 0.]])
+
+        See also:
+            :meth:`basis` for the construction of a full basis.
 
         Parameters:
             grids: List of grids on which the basis vector is defined.
@@ -328,24 +348,27 @@ class ModelGeometry:
         components of a vector are stored with a dimension-major ordering (the dimension
         varies fastest).
 
+        See also:
+            :meth:`e_i` for the definition of the basis functions.
+            :meth:`tangential_component` for the definition of the tangential space.
+
         Parameters:
             subdomains: List of grids on which the vector field is defined.
 
         Returns:
-            Operator extracting normal component of the vector field and expressing it
-            in normal basis.
+            Matrix extracting normal component of the vector field and expressing it
+            in normal basis. The size of the matrix is `(Nc, Nc * self.nd)`, where
+            `Nc` is the total number of cells in the subdomains.
 
         """
+        # Create the basis function for the normal component (which is known to be the
+        # last component).
         e_n = self.e_i(subdomains, self.nd - 1, self.nd)
         e_n.set_name("normal_component")
         return e_n.T
 
     def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         """Ad wrapper around tangential_normal_projections for fractures.
-
-        TODO: Extend to all subdomains, not only codimension 1?
-        TODO: Revise this method if we every assign a reference mapping attribute to
-        all grids.
 
         Parameters:
             subdomains: List of subdomains for which to compute the local coordinates.
@@ -354,7 +377,11 @@ class ModelGeometry:
             Local coordinates as a pp.ad.Matrix.
 
         """
-        # For now, assert all subdomains are fractures, i.e. dim == nd - 1
+        # TODO: If we ever implement a mapping to reference space for all subdomains,
+        # the present method should be revisiting.
+
+        # For now, assert all subdomains are fractures, i.e. dim == nd - 1.
+        # TODO: Extend to all subdomains, not only codimension 1?
         assert all([sd.dim == self.nd - 1 for sd in subdomains])
         if len(subdomains) > 0:
             # Compute the local coordinates for each subdomain. For this, we use the
@@ -553,7 +580,9 @@ class ModelGeometry:
                 interfaces, "cell_volumes", inverse=True
             )
 
-            # Expand cell volumes to nd.
+            # Expand cell volumes to nd by (from the right) mapping from nd to 1 (e.T),
+            # multiplying with the cell volumes, mapping back to nd (e), and summing
+            # over all dimensions.
             # EK: It should be possible to do this in a better, less opaque, way. A
             # Kronecker product comes to mind, but this will require an extension of the
             # Ad matrix.
@@ -563,4 +592,5 @@ class ModelGeometry:
             # Scale normals.
             outwards_normals = cell_volumes_inv_nd * outwards_normals
             outwards_normals.set_name("unitary_outwards_internal_boundary_normals")
+
         return outwards_normals

@@ -326,8 +326,16 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Mapping from a full vector to the tangential component
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
-        # Basis vectors for the tangential component
+        # Basis vectors for the tangential components. This is a list of Ad matrices,
+        # each of which represents a cell-wise basis vector which is non-zero in one
+        # dimension (and this is known to be in the tangential plane of the subdomains).
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+
+        # To map a scalar to the tangential plane, we need to sum the basis vectors.
+        # The individual basis functions have shape (Nc * (self.nd - 1), Nc), where
+        # Nc is the total number of cells in the subdomain. The sum will have the same
+        # shape, but the row corresponding to each cell will be non-zero in all rows
+        # corresponding to the tangential basis vectors of this cell.
         scalar_to_tangential = sum([e_i for e_i in tangential_basis])
 
         # Variables: The tangential component of the contact traction and the
@@ -363,8 +371,15 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Expanding using only left multiplication to with scalar_to_tangential does not
         # work for an array, unlike the operators below. Arrays need right
         # multiplication as well.
-        c_num = self.numerical_constant(subdomains)
-        c_num = sum([e_i * c_num * e_i.T for e_i in tangential_basis])
+        c_num_as_scalar = self.numerical_constant(subdomains)
+
+        # The numerical parameter is a cell-wise scalar which must be extended to a
+        # vector quantity to be used in the equation (multiplied from the right).
+        # Spelled out, from the right: Restrict the vector quantity to one dimension in
+        # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
+        # to the full vector quantity (e_i), and sum over all all directions in the
+        # tangential plane.
+        c_num = sum([e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis])
 
         # Combine the above into expressions that enter the equation
         tangential_sum = t_t + c_num * u_t_increment
