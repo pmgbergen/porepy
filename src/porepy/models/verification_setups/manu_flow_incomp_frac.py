@@ -5,6 +5,9 @@ vertical fracture in the middle of the domain.
 
 For the details, we refer to https://doi.org/10.1515/jnma-2022-0038
 
+TODO: The placement of this module is not ideal. It will be moved to a more appropriate
+location in the future.
+
 """
 from typing import Callable
 
@@ -417,6 +420,9 @@ class ModifiedGeometry(pp.ModelGeometry):
     params: dict
     """Simulation model parameters"""
 
+    fracture_network: pp.FractureNetwork2d
+    """Fracture network. Set in :meth:`set_fracture_network`."""
+
     def set_fracture_network(self) -> None:
         """Create fracture network.
 
@@ -452,7 +458,21 @@ class ModifiedGeometry(pp.ModelGeometry):
         self.mdg = self.fracture_network.mesh(
             self.mesh_arguments(), constraints=np.array([1, 2])
         )
-        self.box = self.fracture_network.domain
+        domain = self.fracture_network.domain
+        # Convert domain to dictionary if it is given as a numpy array.
+        # TODO: We should rather unify the way we define the domain.in the
+        # FractureNetwork2d class.
+        if isinstance(domain, np.ndarray):
+            assert domain.shape == (2, 2)
+            self.domain = {
+                "xmin": domain[0, 0],
+                "xmax": domain[1, 0],
+                "ymin": domain[0, 1],
+                "ymax": domain[1, 1],
+            }
+        else:
+            assert isinstance(domain, dict)
+            self.domain = domain
 
 
 class ModifiedBoundaryConditions:
