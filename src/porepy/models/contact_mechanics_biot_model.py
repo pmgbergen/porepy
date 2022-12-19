@@ -92,6 +92,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     """
 
+    # Declare the ad objects to be of Biot type, or else mypy takes it to be for
+    # contact mechanics only.
+    _ad: ContactMechanicsBiotAdObjects
+
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
