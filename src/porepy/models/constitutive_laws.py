@@ -208,7 +208,9 @@ class DisplacementJumpAperture(DimensionReduction):
         # same order as will be returned by an iteration over the subdomains of the
         # mixed-dimensional grid. If the order in input argument subdomains is
         # different, the result will likely be wrong.
-        for dim in range(self.nd, -1, -1):
+        # Only consider subdomains of lower dimension, there is no aperture for the top
+        # dimension.
+        for dim in range(self.nd - 1, -1, -1):
             subdomains_of_dim = [sd for sd in subdomains if sd.dim == dim]
             if len(subdomains_of_dim) == 0:
                 continue
