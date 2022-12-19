@@ -57,6 +57,7 @@ class VerificationUtils:
             else:
                 meas = grid.cell_volumes.repeat(grid.dim)
         else:
+            assert isinstance(grid, pp.Grid)
             if is_scalar:
                 meas = grid.face_areas
             else:

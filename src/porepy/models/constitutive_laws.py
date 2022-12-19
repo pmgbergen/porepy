@@ -1,6 +1,6 @@
 """Library of constitutive equations."""
 from functools import partial
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Optional, Sequence, Union, Literal
 
 import numpy as np
 
@@ -105,9 +105,11 @@ class DimensionReduction:
 
         # Loop over dimensions, and add the contribution from each subdomain within
         # that dimension.
-        # TODO: Will looping over subdomains shuffle the order of the cells? If so,
-        # this will be a problem.
-        for dim in range(self.nd + 1):
+        # NOTE: The loop is reversed, to ensure that the subdomains are processed in the
+        # same order as will be returned by an iteration over the subdomains of the
+        # mixed-dimensional grid. If the order in input argument subdomains is
+        # different, the result will likely be wrong.
+        for dim in range(self.nd, -1, -1):
             sd_dim = [sd for sd in subdomains if sd.dim == dim]
             if len(sd_dim) == 0:
                 continue
@@ -202,9 +204,11 @@ class DisplacementJumpAperture(DimensionReduction):
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) * one
 
-        # TODO: Same comments as in DimensionReduction.specific_volume() regarding
-        # the order of the subdomains.
-        for dim in range(self.nd):
+        # NOTE: The loop is reversed, to ensure that the subdomains are processed in the
+        # same order as will be returned by an iteration over the subdomains of the
+        # mixed-dimensional grid. If the order in input argument subdomains is
+        # different, the result will likely be wrong.
+        for dim in range(self.nd, -1, -1):
             subdomains_of_dim = [sd for sd in subdomains if sd.dim == dim]
             if len(subdomains_of_dim) == 0:
                 continue
@@ -1498,12 +1502,11 @@ class GravityForce:
     """
 
     def gravity_force(
-        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str
+        self,
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        material: Literal["fluid", "solid"],
     ) -> pp.ad.Operator:
-        """Vector source term.
-
-        TODO: Is it deliberate that we have Union[list[pp.Grid], list[pp.MortarGrid]] here,
-        but list[pp.GridLike] in other places in this module?
+        """Vector source term on either subdomains or interfaces.
 
         Represents gravity effects. EK: Let's discuss how to name/think about this term.
         Note that it appears slightly differently in a flux and a force/momentum
@@ -1511,7 +1514,8 @@ class GravityForce:
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
-            defined. material: Name of the material. Could be either "fluid" or "solid".
+                defined.
+            material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
             Cell-wise nd-vector source term operator.
@@ -1822,7 +1826,10 @@ class PressureStress(LinearElasticMechanicalStress):
 
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
-        scalar_to_nd: pp.ad.Operator = sum([e_i for e_i in self.basis(interfaces)])
+        # Mypy seems to believe that sum always returns a scalar. Ignore errors.
+        scalar_to_nd: pp.ad.Operator = sum(
+            [e_i for e_i in self.basis(interfaces)]  # type: ignore
+        )
         # Spelled out, from the right: Project the pressure from the fracture to the
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
         stress = (
@@ -2016,15 +2023,12 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
     def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
         """Stiffness tensor [Pa].
 
-        TODO: It makes sense to return a fourth order tensor here. Does that mean we
-        should return a second order tensor for the permeability and conductivity
-        tensors (right now, we give numpy arrays).
-
         Parameters:
             subdomain: Subdomain where the stiffness tensor is defined.
 
         Returns:
             Cell-wise stiffness tensor in SI units.
+
         """
         lmbda = self.solid.lame_lambda() * np.ones(subdomain.num_cells)
         mu = self.solid.shear_modulus() * np.ones(subdomain.num_cells)

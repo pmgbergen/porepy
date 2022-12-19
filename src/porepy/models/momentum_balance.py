@@ -751,13 +751,12 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             subdomains: List of subdomains. Only the first is used.
 
         Returns:
-            c_num: Numerical constant, as a matrix.
+            c_num: Numerical constant, as scalar.
 
         """
         # Conversion unnecessary for dimensionless parameters, but included as good
         # practice.
         val = self.solid.convert_units(1, "-")
-        # TODO: Fix return type, should it be scalar or matrix?
         return pp.ad.Scalar(val, name="c_num")
 
     def _is_nonlinear_problem(self) -> bool:

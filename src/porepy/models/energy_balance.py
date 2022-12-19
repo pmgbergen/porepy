@@ -171,7 +171,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         energy_density = self.fluid_density(subdomains) * self.fluid_enthalpy(
             subdomains
         ) - self.pressure(subdomains)
-        # TODO: Fix typing if we do
         energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("fluid_internal_energy")
         return energy
