@@ -107,6 +107,8 @@ class THM(pp.ContactMechanicsBiot):
     the class.
 
     """
+    _ad: THMAdObjects
+    
 
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
