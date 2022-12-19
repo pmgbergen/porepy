@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence, Union
+from typing import Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -93,13 +93,13 @@ class ModelGeometry:
                 self.box = pp.geometry.bounding_box.from_points(domain)
 
     def subdomains_to_interfaces(
-        self, subdomains: list[pp.Grid], codims: Optional[list[int]] = None
+        self, subdomains: list[pp.Grid], codims: list[int]
     ) -> list[pp.MortarGrid]:
         """Interfaces neighbouring any of the subdomains.
 
         Parameters:
             subdomains: Subdomains for which to find interfaces.
-            codims: Codimension of interfaces to return. Defaults to [1], i.e.
+            codims: Codimension of interfaces to return. The common option is [1], i.e.
                 only interfaces between subdomains one dimension apart.
 
         Returns:
@@ -108,9 +108,6 @@ class ModelGeometry:
             grid.
 
         """
-        if codims is None:
-            codims = [1]
-
         # Initialize list of interfaces, build it up one subdomain at a time.
         interfaces: list[pp.MortarGrid] = []
         for sd in subdomains:
@@ -144,7 +141,8 @@ class ModelGeometry:
         self,
         grids: Sequence[pp.GridLike],
         attr: str,
-        dim: Optional[int] = None,
+        *,
+        dim: int,
         inverse: bool = False,
     ) -> pp.ad.Matrix:
         """Wrap a grid attribute as an ad matrix.
@@ -206,9 +204,7 @@ class ModelGeometry:
         ad_matrix.set_name(f"Matrix wrapping attribute {attr} on {len(grids)} grids")
         return ad_matrix
 
-    def basis(
-        self, grids: Sequence[pp.GridLike], dim: Optional[int] = None
-    ) -> list[pp.ad.Matrix]:
+    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Matrix]:
         """Return a cell-wise basis for all subdomains.
 
         The basis is represented as a list of matrices, each of which represents a
@@ -230,26 +226,22 @@ class ModelGeometry:
 
         Parameters:
             grids: List of grids on which the basis is defined.
-            dim: Dimension of the basis. Defaults to ``self.nd``.
+            dim: Dimension of the basis.
 
         Returns:
             List of pp.ad.Matrix, each of which represents a basis function.
 
         """
-        if dim is None:
-            dim = self.nd
 
         assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         # Collect the basis functions for each dimension
         basis: list[pp.ad.Matrix] = []
         for i in range(dim):
-            basis.append(self.e_i(grids, i, dim))
+            basis.append(self.e_i(grids, i=i, dim=dim))
         # Stack the basis functions horizontally
         return basis
 
-    def e_i(
-        self, grids: Sequence[pp.GridLike], i: int, dim: Optional[int] = None
-    ) -> pp.ad.Matrix:
+    def e_i(self, grids: Sequence[pp.GridLike], *, i: int, dim: int) -> pp.ad.Matrix:
         """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
@@ -286,7 +278,7 @@ class ModelGeometry:
         """
         # TODO: Should we expand this to grids not aligned with the coordinate axes, and
         # possibly unify with ``porepy.utils.projections.TangentialNormalProjection``?
-        # This is not a priority for the mmoment, though.
+        # This is not a priority for the moment, though.
 
         if dim is None:
             dim = self.nd
@@ -331,8 +323,8 @@ class ModelGeometry:
         # secondly t_i (column vector).
         op: pp.ad.Operator = sum(
             [
-                self.e_i(subdomains, i, self.nd - 1)
-                * self.e_i(subdomains, i, self.nd).T
+                self.e_i(subdomains, i=i, dim=self.nd - 1)
+                * self.e_i(subdomains, i=i, dim=self.nd).T
                 for i in range(self.nd - 1)
             ]
         )
@@ -363,7 +355,7 @@ class ModelGeometry:
         """
         # Create the basis function for the normal component (which is known to be the
         # last component).
-        e_n = self.e_i(subdomains, self.nd - 1, self.nd)
+        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
         e_n.set_name("normal_component")
         return e_n.T
 
@@ -465,6 +457,7 @@ class ModelGeometry:
     def internal_boundary_normal_to_outwards(
         self,
         subdomains: list[pp.Grid],
+        *,
         dim: int,
     ) -> pp.ad.Operator:
         """Obtain a vector for flipping normal vectors on internal boundaries.
@@ -517,7 +510,8 @@ class ModelGeometry:
     def outwards_internal_boundary_normals(
         self,
         interfaces: list[pp.MortarGrid],
-        unitary: bool = False,
+        *,
+        unitary: bool,
     ) -> pp.ad.Operator:
         """Compute outward normal vectors on internal boundaries.
 
@@ -553,13 +547,16 @@ class ModelGeometry:
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
-        # Face normals on the primary subdomains
+        # Ignore mypy complaint about unexpected keyword arguments.
         primary_face_normals = self.wrap_grid_attribute(
-            primary_subdomains, "face_normals", dim=self.nd
+            primary_subdomains, "face_normals", dim=self.nd, inverse=False  # type: ignore
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.
-        flip = self.internal_boundary_normal_to_outwards(primary_subdomains, self.nd)
+        # Ignore mypy complaint about unexpected keyword arguments.
+        flip = self.internal_boundary_normal_to_outwards(
+            primary_subdomains, dim=self.nd  # type: ignore
+        )
         # Flip the normal vectors. Unravelled from the right: Restrict from faces on all
         # subdomains to the primary ones, multiply with the face normals, flip the
         # signs, and project back up to all subdomains.
@@ -576,8 +573,9 @@ class ModelGeometry:
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
+            # Ignore mypy complaint about unexpected keyword arguments.
             cell_volumes_inv = self.wrap_grid_attribute(
-                interfaces, "cell_volumes", inverse=True
+                interfaces, "cell_volumes", dim=self.nd, inverse=True  # type: ignore
             )
 
             # Expand cell volumes to nd by (from the right) mapping from nd to 1 (e.T),

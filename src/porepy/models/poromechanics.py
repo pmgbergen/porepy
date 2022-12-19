@@ -139,7 +139,15 @@ class SolutionStrategyPoromechanics(
         return True
 
 
-class Poromechanics(
+# Note that we ignore a mypy error here. There are some inconsistencies in the method
+# definitions of the mixins, related to the enforcement of keyword-only arguments. The
+# type Callable is poorly supported, except if protocols are used and we really do not
+# want to go there. Specifically, method definitions that contains a *, for instance,
+#   def method(a: int, *, b: int) -> None: pass
+# which should be types as Callable[[int, int], None], cannot be parsed by mypy.
+# For this reason, we ignore the error here, and rely on the tests to catch any
+# inconsistencies.
+class Poromechanics(  # type: ignore[misc]
     EquationsPoromechanics,
     VariablesPoromechanics,
     ConstitutiveLawsPoromechanics,

@@ -111,9 +111,7 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
-    subdomains_to_interfaces: Callable[
-        [list[pp.Grid], Optional[list[int]]], list[pp.MortarGrid]
-    ]
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -256,7 +254,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
-        interfaces = self.subdomains_to_interfaces(subdomains)
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         source = projection.mortar_to_secondary_int * self.interface_fluid_flux(
             interfaces
@@ -529,7 +527,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    permeability: Callable[[list[pp.Grid]], list[np.ndarray]]
+    permeability: Callable[[list[pp.Grid]], np.ndarray]
     """Function that returns the permeability of a subdomain. Normally provided by a
     mixin class with a suitable permeability definition.
 
@@ -679,7 +677,15 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         self.discretize()
 
 
-class SinglePhaseFlow(
+# Note that we ignore a mypy error here. There are some inconsistencies in the method
+# definitions of the mixins, related to the enforcement of keyword-only arguments. The
+# type Callable is poorly supported, except if protocols are used and we really do not
+# want to go there. Specifically, method definitions that contains a *, for instance,
+#   def method(a: int, *, b: int) -> None: pass
+# which should be types as Callable[[int, int], None], cannot be parsed by mypy.
+# For this reason, we ignore the error here, and rely on the tests to catch any
+# inconsistencies.
+class SinglePhaseFlow(  # type: ignore[misc]
     MassBalanceEquations,
     VariablesSinglePhaseFlow,
     ConstitutiveLawsSinglePhaseFlow,

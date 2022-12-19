@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Callable, Optional, Sequence
+from typing import Callable, Sequence, Optional
 
 import numpy as np
 
@@ -30,11 +30,6 @@ logger = logging.getLogger(__name__)
 class MomentumBalanceEquations(pp.BalanceEquation):
     """Class for momentum balance equations and fracture deformation equations."""
 
-    subdomain_projections: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Projections between subdomains. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Stress on the grid faces. Provided by a suitable mixin class that specifies the
     physical laws governing the stress.
@@ -62,17 +57,17 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.PressureStress`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], Optional[int]], list[pp.ad.Matrix]]
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Matrix]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    normal_component: Callable[[list[pp.Grid]], pp.ad.Matrix]
     """Operator giving the normal component of vectors. Normally defined in a mixin
     instance of :class:`~porepy.models.models.ModelGeometry`.
 
     """
-    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    tangential_component: Callable[[list[pp.Grid]], pp.ad.Matrix]
     """Operator giving the tangential component of vectors. Normally defined in a mixin
     instance of :class:`~porepy.models.models.ModelGeometry`.
 
@@ -224,7 +219,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         contact_from_primary_mortar = (
             mortar_projection.primary_to_mortar_int
             * proj.face_prolongation(matrix_subdomains)
-            * self.internal_boundary_normal_to_outwards(matrix_subdomains, self.nd)
+            * self.internal_boundary_normal_to_outwards(
+                matrix_subdomains, dim=self.nd  # type: ignore
+            )
             * self.stress(matrix_subdomains)
         )
         # Traction from the actual contact force.
@@ -335,7 +332,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Basis vectors for the tangential components. This is a list of Ad matrices,
         # each of which represents a cell-wise basis vector which is non-zero in one
         # dimension (and this is known to be in the tangential plane of the subdomains).
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        # Ignore mypy complaint on unknown keyword argument
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)  # type: ignore
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors.
         # The individual basis functions have shape (Nc * (self.nd - 1), Nc), where
@@ -491,9 +489,7 @@ class VariablesMomentumBalance:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    subdomains_to_interfaces: Callable[
-        [list[pp.Grid], Optional[list[int]]], list[pp.MortarGrid]
-    ]
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -620,7 +616,7 @@ class VariablesMomentumBalance:
         if not all([sd.dim == self.nd - 1 for sd in subdomains]):
             raise ValueError("Displacement jump only defined on fractures")
 
-        interfaces = self.subdomains_to_interfaces(subdomains)
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
         # Only use matrix-fracture interfaces
         interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
         mortar_projection = pp.ad.MortarProjections(
@@ -821,7 +817,15 @@ class BoundaryConditionsMomentumBalance:
         return pp.wrap_as_ad_array(0, num_faces * self.nd, "bc_vals_mechanics")
 
 
-class MomentumBalance(
+# Note that we ignore a mypy error here. There are some inconsistencies in the method
+# definitions of the mixins, related to the enforcement of keyword-only arguments. The
+# type Callable is poorly supported, except if protocols are used and we really do not
+# want to go there. Specifically, method definitions that contains a *, for instance,
+#   def method(a: int, *, b: int) -> None: pass
+# which should be types as Callable[[int, int], None], cannot be parsed by mypy.
+# For this reason, we ignore the error here, and rely on the tests to catch any
+# inconsistencies.
+class MomentumBalance(  # type: ignore[misc]
     MomentumBalanceEquations,
     VariablesMomentumBalance,
     ConstitutiveLawsMomentumBalance,
