@@ -185,14 +185,12 @@ class Operator:
                 if isinstance(
                     op, (Variable, MixedDimensionalVariable, TimeDependentArray)
                 ):
-                    # IMPLEMENTATION NOTE: We need to use a copy, not a deep copy here. A
-                    # deep copy would change the underlying grids and mortar grids. For
-                    # variables (atomic and merged) this would render a KeyValue if the
-                    # grid is used to fetch the relevant degree of freedom in the global
-                    # ordering, as is done by the DofManager.
-                    # If other time-dependent other operators are added, they will have to
-                    # override this previous_timestep method.
-                    return copy.copy(op).previous_timestep()
+                    # Use the previous_timestep() method of the operator to get the
+                    # operator evaluated at the previous time step. This in effect
+                    # creates a copy of the operator.
+                    # If other time-dependent other operators are added, they will have
+                    # to override this previous_timestep method.
+                    return op.previous_timestep()
 
                 else:
                     # No need to use a copy here.
@@ -208,11 +206,11 @@ class Operator:
                     new_children.append(_traverse_tree(child))
 
                 # We would like to return a new operator which represents the same
-                # calculation as op, though with a different set of children. We cannot use
-                # copy.copy (shallow copy), since this will identify the lists of children
-                # in the old and new operator. Also, we cannot do a deep copy, since this
-                # will copy grids in individual subdomains - see implementation not in the
-                # above treatment of Variables.
+                # calculation as op, though with a different set of children. We cannot
+                # use copy.copy (shallow copy), since this will identify the lists of
+                # children in the old and new operator. Also, we cannot do a deep copy,
+                # since this will copy grids in individual subdomains - see
+                # implementation not in the above treatment of Variables.
                 # The solution is to make a new Tree with the same operation as the old
                 # operator, but with the new list of children.
                 new_tree = Tree(op.tree.op, children=new_children)
@@ -1335,11 +1333,17 @@ class Variable(Operator):
     def previous_timestep(self) -> Variable:
         """Return a representation of this variable on the previous time step.
 
+        If the variable is already a representation of the previous time step, the
+        method returns itself.
+
         Returns:
             A representation of this variable at the previous time step,
             with its ``prev_time`` attribute set to ``True``.
 
         """
+        if self.prev_time:
+            return self
+
         ndof: dict[Literal["cells", "faces", "nodes"], int] = {
             "cells": self._cells,
             "faces": self._faces,
@@ -1422,6 +1426,7 @@ class MixedDimensionalVariable(Variable):
 
         This attribute is used by the methods :meth:`Variable.previous_timestep` and
         :meth:`Variable.previous_iteration` to keep a link to the original variable.
+
         """
 
         ### PRIVATE
@@ -1490,11 +1495,16 @@ class MixedDimensionalVariable(Variable):
         """Return a representation of this mixed-dimensional variable on the previous
         time step.
 
+        If the md-variable is already defined on the previous time step, return itself.
+
         Returns:
             A representation of this merged variable on the previous time
             iteration, with its ``prev_iter`` attribute set to ``True``.
 
         """
+        if self.prev_time:
+            return self
+
         new_subs = [var.previous_timestep() for var in self.sub_vars]
         new_var = MixedDimensionalVariable(new_subs)
         new_var.prev_time = True
