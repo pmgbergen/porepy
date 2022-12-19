@@ -557,7 +557,11 @@ class Composition(abc.ABC):
     ### Subsystem assembly method ------------------------------------------------------
 
     def linearize_subsystem(
-        self, flash_type: Literal["isenthalpic", "isothermal"]
+        self,
+        flash_type: Literal["isenthalpic", "isothermal"],
+        other_vars: Optional[list[str]] = None,
+        other_eqns: Optional[list[str]] = None,
+        state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assembles the linearized system of respective flash type.
 
@@ -567,165 +571,53 @@ class Composition(abc.ABC):
         Also, child classes can override this method to implement additional steps
         necessary for respective mixture models.
 
+        This method allows additionally for including other variables and equations,
+        which will be straight forward passed to the AD system. I.e., if there are any
+        issues, the AD system will raise respective errors (or not...).
+
         Parameters:
             flash_type:
                 - ``'isenthalpic'``: Assembles the subsystem stored in
                   :data:`ph_subsystem`.
                 - ``'isothermal'``: Assembles the subsystem stored in
                   :data:`pT_subsystem`.
+            other_vars: ``default=None``
+
+                A list of additional variable names to be included as columns.
+
+                This is meant for flash algorithms,
+                which introduce additional variables.
+            other_eqns: ``default=None``
+
+                A list of additional equations (names) to be included as rows.
+
+                This is meant for flash algorithms,
+                which introduce additional equations.
+            state: ``default=None``
+
+                A state vector w.r.t. which the system should be assembled
+                (see :meth:`~porepy.numerics.ad.ad_system.assemble_subsystem`).
 
         Raises:
             ValueError: If ``flash_type`` unknown.
 
         """
+
         if flash_type == "isenthalpic":
-            pass
+            equations = self.ph_subsystem["equations"]
+            variables = self.ph_subsystem["primary_vars"]
         elif flash_type == "isothermal":
-            pass
+            equations = self.pT_subsystem["equations"]
+            variables = self.pT_subsystem["primary_vars"]
         else:
             raise ValueError(f"Unknown flash type {flash_type}.")
 
-    def _Newton_min(
-        self,
-        subsystem: FlashSystemDict,
-    ) -> bool:
-        """Performs a semi-smooth newton (Newton-min),
-        where the complementary conditions are the semi-smooth part.
+        if other_vars:
+            variables += other_vars
+        if other_eqns:
+            equations += other_eqns
 
-        Note:
-            This looks exactly like a regular Newton since the semi-smooth part,
-            since the assembly of the sub-gradients are wrapped in a special operator.
-
-        Parameters:
-            subsystem: Specially structured dict containing equation and variable names.
-
-        Returns:
-            A bool indicating the success of the method.
-
-        """
-        success = False
-        var_names = subsystem["primary_vars"]
-        equations = subsystem["equations"]
-
-        # assemble linear system of eq for semi-smooth subsystem
-        A, b = self.ad_system.assemble_subsystem(equations, var_names)
-
-        # if residual is already small enough
-        if np.linalg.norm(b) <= self.flash_tolerance:
-            success = True
-            iter_final = 0
-        else:
-            # column slicing to relevant variables
-            prolongation = self.ad_system.dof_manager.projection_to(
-                var_names
-            ).transpose()
-
-            for i in range(self.max_iter_flash):
-
-                # solve iteration and add to ITERATE state additively
-                dx = sps.linalg.spsolve(A, b)
-                DX = prolongation * dx
-                self.ad_system.dof_manager.distribute_variable(
-                    DX,
-                    variables=var_names,
-                    additive=True,
-                    to_iterate=True,
-                )
-                # counting necessary number of iterations
-                iter_final = i + 1  # shift since range() starts with zero
-                A, b = self.ad_system.assemble_subsystem(equations, var_names)
-
-                # in case of convergence
-                if np.linalg.norm(b) <= self.flash_tolerance:
-                    success = True
-                    break
-
-        # append history entry
-        self._history_entry(
-            flash="isenthalpic" if self.T_name in var_names else "isothermal",
-            method="newton-min",
-            iterations=iter_final,
-            success=success,
-            variables=var_names,
-            equations=equations,
-        )
-
-        return success
-
-    def _NPIPM(
-        self,
-        subsystem: FlashSystemDict,
-    ) -> bool:
-        """Performs a non-parametric interior point algorithm to find the solution
-        inside the compositional space.
-
-        Includes an Armijo line-search to find a descending step size.
-
-        Root-finding is still performed using Newton, with semi-smooth parts.
-
-        Parameters:
-            subsystem: Specially structured dict containing equation and variable names.
-
-        Returns:
-            A bool indicating the success of the method.
-
-        """
-        success = False
-        # adding the algorithmic variables
-        var_names = subsystem["primary_vars"] + self._npipm_vars
-        # adding the additional equations for the NPIPM
-        equations: list[str] = subsystem["equations"] + self._npipm_equations
-        # removing semi-smooth CC, which are not part of the NPIPM system
-        for name in self._cc_eqn:
-            equations.remove(name)
-
-        # assemble linear system of eq for semi-smooth subsystem
-        A, b = self.ad_system.assemble_subsystem(equations, var_names)
-
-        # if residual is already small enough
-        if np.linalg.norm(b) <= self.flash_tolerance:
-            success = True
-            iter_final = 0
-        else:
-            # column slicing to relevant variables
-            prolongation = self.ad_system.dof_manager.projection_to(
-                var_names
-            ).transpose()
-
-            for i in range(self.max_iter_flash):
-
-                # solve iteration and add to ITERATE state additively
-                dx = sps.linalg.spsolve(A, b)
-                DX = prolongation * dx
-                # get step size using Armijo line search
-                step_size = self._Armijo_line_search(DX, equations, var_names)
-
-                self.ad_system.dof_manager.distribute_variable(
-                    step_size * DX,
-                    variables=var_names,
-                    additive=True,
-                    to_iterate=True,
-                )
-                # counting necessary number of iterations
-                iter_final = i + 1  # shift since range() starts with zero
-                A, b = self.ad_system.assemble_subsystem(equations, var_names)
-
-                # in case of convergence
-                if np.linalg.norm(b) <= self.flash_tolerance:
-                    success = True
-                    break
-
-        # append history entry
-        self._history_entry(
-            flash="isenthalpic" if self.T_name in var_names else "isothermal",
-            method="npipm",
-            iterations=iter_final,
-            success=success,
-            variables=var_names,
-            equations=equations,
-        )
-
-        return success
+        return self.ad_system.assemble_subsystem(equations, variables, state=state)
 
     ### Model equations ----------------------------------------------------------------
 

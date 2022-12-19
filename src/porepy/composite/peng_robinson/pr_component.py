@@ -16,7 +16,7 @@ from .pr_utils import A_CRIT, B_CRIT, _power, _sqrt
 class PR_Component(Component):
     """Intermediate abstraction layer for (fluid) components in a Peng-Robinson mixture.
 
-    Serves for the abstraction of attraction and co-volume in the Peng-Robinson EoS,
+    Serves for the abstraction of cohesion and covolume in the Peng-Robinson EoS,
     associated with this component.
 
     """
@@ -36,12 +36,12 @@ class PR_Component(Component):
         pass
 
     @property
-    def attraction_critical(self) -> float:
-        """The critical attraction parameter
+    def critical_cohesion(self) -> float:
+        """The critical cohesion parameter
 
             ``a_critical = A_CRIT * (R_IDEAL**2 * T_critical**2) / p_critical``
 
-        is part of the attraction ``a``
+        is part of the cohesion ``a``
 
             ``a = a_critical * alpha(T_reduced, omega)``.
 
@@ -53,11 +53,11 @@ class PR_Component(Component):
         )
 
     @property
-    def attraction_correction_weight(self) -> float:
+    def cohesion_correction_weight(self) -> float:
         """Weight ``kappa`` of the linearized alpha-correction of the
-        attraction parameter:
+        cohesion parameter:
 
-            ``a = a_cricital * alpha``,
+            ``a = a_critical * alpha``,
             ``alpha = 1 + kappa * (1 - sqrt(T_reduced))``.
 
         References:
@@ -79,18 +79,43 @@ class PR_Component(Component):
                 + 0.016666 * self.acentric_factor**3
             )
 
-    def attraction_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
-        """Returns the linearized alpha-correction for the attraction parameter"""
+    def cohesion_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+        """Returns the linearized alpha-correction for the cohesion parameter"""
 
-        alpha_root = 1 + self.attraction_correction_weight * (
+        alpha_root = 1 + self.cohesion_correction_weight * (
             1 - _sqrt(T / self.critical_temperature())
         )
 
         return alpha_root * alpha_root
 
+    def cohesion(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+        """Returns an expression for ``a`` in the EoS for this component."""
+        return self.critical_cohesion * self.cohesion_correction(T)
+
+    def dT_cohesion(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+        """Returns an expression for the derivative of ``a`` with respect to
+        temperature."""
+        T_r = T / self.critical_temperature()
+
+        # external derivative of cohesion correction squared
+        dt_a = (
+            self.critical_cohesion
+            * 2
+            * (1 + self.cohesion_correction_weight * (1 - _sqrt(T_r)))
+        )
+        # internal derivative of cohesion correction
+        dt_a *= (
+            self.cohesion_correction_weight
+            / (-2)
+            / self.critical_temperature()
+            * _power(T_r, -1 / 2)
+        )
+
+        return dt_a
+
     @property
     def covolume(self) -> pp.ad.Operator:
-        """The constant co-volume ``b`` in the Peng-Robinson EoS
+        """The constant covolume ``b`` in the Peng-Robinson EoS
 
             ``b = B_CRIT * (R_IDEAL * T_critical) / p_critical
 
@@ -101,45 +126,20 @@ class PR_Component(Component):
             B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
 
-    def attraction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
-        """Returns an expression for ``a`` in the EoS for this component."""
-        return self.attraction_critical * self.attraction_correction(T)
-
-    def dT_attraction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
-        """Returns an expression for the derivative of ``a`` with respect to
-        temperature."""
-        T_r = T / self.critical_temperature()
-
-        # external derivative of attraction correction squared
-        dt_a = (
-            self.attraction_critical
-            * 2
-            * (1 + self.attraction_correction_weight * (1 - _sqrt(T_r)))
-        )
-        # internal derivative of attraction correction
-        dt_a *= (
-            self.attraction_correction_weight
-            / (-2)
-            / self.critical_temperature()
-            * _power(T_r, -1 / 2)
-        )
-
-        return dt_a
-
 
 class PR_Compound(PR_Component, Compound):
     """Intermediate abstraction layer for (fluid) compounds in a Peng-Robinson mixture.
 
-    Serves for the abstraction of attraction and co-volume in the Peng-Robinson EoS,
+    Serves for the abstraction of cohesion and covolume in the Peng-Robinson EoS,
     associated with this component.
 
-    Compared to the PR-component, the attraction correction ``alpha`` remains abstract,
+    Compared to the PR-component, the cohesion correction ``alpha`` remains abstract,
     since it depends on the present solutes.
 
     """
 
     @abc.abstractmethod
-    def attraction_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+    def cohesion_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
         """Abstraction of the corrective term in ``a``.
 
         To be implemented in child classes using heuristic laws depending on present

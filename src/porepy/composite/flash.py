@@ -2,7 +2,7 @@
 (flash)."""
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Callable, Literal, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -126,23 +126,17 @@ class Flash:
         """A list of strings representing names of complementary conditions (KKT)
         for the unified flash problem."""
 
-        self.algorithmic_variables: list[str] = npipm_vars
-        """A list containing algorithmic variables in the AD framework, which are
+        self.npipm_variables: list[str] = npipm_vars
+        """A list containing algorithmic variables in for the NPIPM, which are
         neither physical nor must they be used in extended problems e.g., flow.
-
-        Warning:
-            This list is filled only upon initialization.
 
         """
 
-        self.algorithmic_equations: list[str] = npipm_eqn
-        """A list containing equations in the AD framework, which are
+        self.npipm_equations: list[str] = npipm_eqn
+        """A list containing equations for the NPIPM, which are
         neither physical nor must they be used in extended problems e.g., flow.
 
         They result from specific algorithms chosen for the flash.
-
-        Warning:
-            This list is filled only upon initialization.
 
         """
 
@@ -338,8 +332,6 @@ class Flash:
         method: str = "standard",
         iterations: int = 0,
         success: bool = False,
-        variables: list[str] = list(),
-        equations: list[str] = list(),
         **kwargs,
     ) -> None:
         """Makes an entry in the flash history."""
@@ -350,8 +342,6 @@ class Flash:
                 "method": method,
                 "iterations": iterations,
                 "success": success,
-                "variables": str(variables),
-                "equations": str(equations),
                 "other": str(kwargs),
             }
         )
@@ -419,25 +409,24 @@ class Flash:
         success = False
 
         if flash_type == "isothermal":
-            subsystem = self._C.pT_subsystem
+            var_names = self._C.pT_subsystem["primary_vars"]
         elif flash_type == "isenthalpic":
-            subsystem = self._C.ph_subsystem
+            var_names = self._C.ph_subsystem["primary_vars"]
         else:
             raise ValueError(f"Unknown flash type {flash_type}.")
 
         self._set_initial_guess(initial_guess)
 
         if method == "newton-min":
-            success = self._Newton_min(subsystem)
+            success = self._Newton_min(flash_type)
         elif method == "npipm":
             self._set_NPIPM_initial_guess()
-            success = self._NPIPM(subsystem)
+            success = self._NPIPM(flash_type)
         else:
             raise ValueError(f"Unknown method {method}.")
 
         # setting STATE to newly found solution
         if copy_to_state and success:
-            var_names = subsystem["primary_vars"]
             X = self._C.ad_system.dof_manager.assemble_variable(
                 variables=var_names, from_iterate=True
             )
@@ -616,18 +605,123 @@ class Flash:
 
     ### Numerical methods --------------------------------------------------------------
 
-    def _Armijo_line_search(
-        self, DX: np.ndarray, equations: list[str], variables: list[str]
-    ) -> float:
-        """Performs the Armijo line-search for a given system of equations, variables
-        and a preliminary update, using the least-square potential.
+    def _Newton_min(
+        self,
+        flash_type: Literal["isothermal", "isenthalpic"],
+    ) -> bool:
+        """Performs a semi-smooth newton (Newton-min),
+        where the complementary conditions are the semi-smooth part.
 
-        By default, the values stored as ``ITERATE`` are used for evaluation.
+        Note:
+            This looks exactly like a regular Newton since the semi-smooth part,
+            since the assembly of the sub-gradients are wrapped in a special operator.
+
+        Parameters:
+            flash_type: Name of the flash type.
+
+        Returns:
+            A bool indicating the success of the method.
+
+        """
+        success = False
+
+        # at this point we know by logic which values flash_type can have.
+        if flash_type == "isothermal":
+            var_names = self._C.pT_subsystem["primary_vars"]
+        else:
+            var_names = self._C.ph_subsystem["primary_vars"]
+
+        # Construct a callable representing the chosen subsystem (which is square),
+        # including the complementary conditions.
+        # The dependency on X is optional, since the AD framework uses ITERATE/STATE
+        # by default, but we include it for Armijo line-search.
+        def F(X: Optional[np.ndarray] = None) -> tuple[sps.spmatrix, np.ndarray]:
+            return self._C.linearize_subsystem(
+                flash_type, other_eqns=self.complementary_equations, state=X
+            )
+
+        # Perform Newton iterations with above F(x)
+        success, iter_final = self._newton_iterations(F, var_names, False)
+
+        # append history entry
+        self._history_entry(
+            flash=flash_type,
+            method="newton-min",
+            iterations=iter_final,
+            success=success,
+        )
+
+        return success
+
+    def _NPIPM(
+        self,
+        flash_type: Literal["isothermal", "isenthalpic"],
+    ) -> bool:
+        """Performs a non-parametric interior point algorithm to find the solution
+        inside the compositional space.
+
+        Includes an Armijo line-search to find a descending step size.
+
+        Root-finding is still performed using Newton iterations, with semi-smooth parts.
+
+        Parameters:
+            flash_type: Name of the flash type.
+
+        Returns:
+            A bool indicating the success of the method.
+
+        """
+        success = False
+
+        # at this point we know by logic which values flash_type can have.
+        if flash_type == "isothermal":
+            var_names = self._C.pT_subsystem["primary_vars"]
+        else:
+            var_names = self._C.ph_subsystem["primary_vars"]
+
+        # the NPIPM has some algorithmic variables
+        var_names += self.npipm_variables
+
+        # Construct a callable representing the chosen subsystem (which is square),
+        # including the NPIPM variables and equations.
+        # The dependency on X is optional, since the AD framework uses ITERATE/STATE
+        # by default, but we include it for Armijo line-search.
+        def F(X: Optional[np.ndarray] = None) -> tuple[sps.spmatrix, np.ndarray]:
+            return self._C.linearize_subsystem(
+                flash_type,
+                other_vars=self.npipm_variables,
+                other_eqns=self.npipm_equations,
+                state=X,
+            )
+
+        success, iter_final = self._newton_iterations(F, var_names, True)
+
+        # append history entry
+        self._history_entry(
+            flash=flash_type,
+            method="npipm",
+            iterations=iter_final,
+            success=success,
+        )
+
+        return success
+
+    def _Armijo_line_search(
+        self,
+        DX: np.ndarray,
+        F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
+    ) -> float:
+        """Performs the Armijo line-search for a given function ``F(X)``
+        and a preliminary update ``DX``, using the least-square potential.
 
         Parameters:
             DX: Preliminary update to solution vector.
-            equations: Names of equations in system for which the search is requested.
-            var_names: Names of variables in the system.
+            F: A callable representing the function for which a potential-reducing
+                step-size should be found.
+
+                The callable ``F(X)`` must be such that the input argument ``X`` is
+                optional (None), which makes the AD-system chose values stored as
+                ``ITERATE``.
 
         Raises:
             RuntimeError: If line-search in defined interval does not yield any results.
@@ -641,16 +735,13 @@ class Flash:
         rho = self.armijo_parameters["rho"]
         j_max = self.armijo_parameters["j_max"]
 
-        ad_system = self._C.ad_system
-
         # get starting point from current ITERATE state at iteration k
-        _, b_k = ad_system.assemble_subsystem(equations, variables)
+        _, b_k = F()
         b_k_pot = np.dot(b_k, b_k) / 2  # -b0 since above method returns rhs
-        X_k = ad_system.dof_manager.assemble_variable(from_iterate=True)
+        X_k = self._C.ad_system.dof_manager.assemble_variable(from_iterate=True)
 
-        _, b_1 = ad_system.assemble_subsystem(
-            equations, variables, state=(X_k + rho * DX)
-        )
+        _, b_1 = F(X_k + rho * DX)
+
         # start with first step size. If sufficient, return rho
         if np.dot(b_1, b_1) <= (1 - 2 * kappa * rho) * b_k_pot:
             return rho
@@ -662,9 +753,7 @@ class Flash:
                     rho_j = rho**j
 
                     # compute system state at preliminary step-size
-                    _, b_j = ad_system.assemble_subsystem(
-                        equations, variables, state=(X_k + rho_j * DX)
-                    )
+                    _, b_j = F(X_k + rho_j * DX)
 
                     # check potential and return if reduced.
                     if np.dot(b_j, b_j) <= (1 - 2 * kappa * rho_j) * b_k_pot:
@@ -680,20 +769,92 @@ class Flash:
                 # prepare for while loop
                 rho_j = rho * rho
                 # compute system state at preliminary step-size
-                _, b_j = ad_system.assemble_subsystem(
-                    equations, variables, state=(X_k + rho_j * DX)
-                )
+                _, b_j = F(X_k + rho_j * DX)
 
                 # while potential not decreasing, compute next step-size
                 while np.dot(b_j, b_j) > (1 - 2 * kappa * rho_j) * b_k_pot:
                     # next power of step-size
                     rho_j *= rho
-                    _, b_j = ad_system.assemble_subsystem(
-                        equations, variables, state=(X_k + rho_j * DX)
-                    )
+                    _, b_j = F(X_k + rho_j * DX)
                 # if potential decreases, return step-size
                 else:
                     return rho_j
+
+    def _newton_iterations(
+        self,
+        F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
+        var_names: list[str],
+        use_armijo: bool = False,
+    ) -> tuple[bool, int]:
+        """Performs standard Newton iterations using the matrix and rhs-vector returned
+        by ``F``, until (possibly) the L2-norm of the rhs-vector reaches the convergence
+        criterion.
+
+        Parameters:
+            F: A callable representing the function for which the roots should be found.
+
+                The callable ``F(X)`` must be such that the input vector ``X`` is
+                optional (None), which makes the AD-system chose values stored as
+                ``ITERATE``.
+
+                It further more must return a tuple containing its Jacobian matrix and
+                the residual vector, in this case ``-F(X)``.
+
+                The user must ensure that the Jacobian is invertible.
+            var_names: A list of variable names, such that ``F`` is solvable.
+                This list is used to construct a prolongation matrix and to update
+                respective components of the global solution vector.
+            use_armijo: ``default=False``
+
+                An indicator to use the Armijo line-search for global convergence.
+
+        Returns:
+            A 2-tuple containing a bool and an integer, representing the success-
+            indicator and the final number of iteration performed.
+
+        """
+        success: bool = False
+        iter_final: int = 0
+
+        # assemble linear system of eq for semi-smooth subsystem
+        A, b = F()
+
+        # if residual is already small enough
+        if np.linalg.norm(b) <= self.flash_tolerance:
+            success = True
+        else:
+            # column slicing to relevant variables
+            prolongation = self._C.ad_system.dof_manager.projection_to(
+                var_names
+            ).transpose()
+
+            for i in range(self.max_iter_flash):
+
+                # solve iteration and add to ITERATE state additively
+                dx = sps.linalg.spsolve(A, b)
+                DX = prolongation * dx
+
+                if use_armijo:
+                    # get step size using Armijo line search
+                    step_size = self._Armijo_line_search(DX, F)
+                    DX = step_size * DX
+
+                self._C.ad_system.dof_manager.distribute_variable(
+                    DX,
+                    variables=var_names,
+                    additive=True,
+                    to_iterate=True,
+                )
+                # counting necessary number of iterations
+                iter_final = i + 1  # shift since range() starts with zero
+                A, b = F()
+
+                # in case of convergence
+                if np.linalg.norm(b) <= self.flash_tolerance:
+                    success = True
+                    break
+
+        return success, iter_final
 
     ### Saturation evaluation methods --------------------------------------------------
 
