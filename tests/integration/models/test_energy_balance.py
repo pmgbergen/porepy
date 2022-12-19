@@ -11,7 +11,7 @@ from .test_mass_balance import BoundaryConditionLinearPressure
 
 
 class BoundaryCondition(BoundaryConditionLinearPressure):
-    def bc_values_fourier_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
 
         Parameters:

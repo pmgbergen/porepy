@@ -97,6 +97,11 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.FrictionBound`.
 
     """
+    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
+    """Numerical constant for contact mechanics. Normally provided by a mixin instance
+    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
+
+    """
 
     def set_equations(self):
         """Set equations for the subdomains and interfaces.
@@ -277,7 +282,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             (-1) * t_n
             # EK: I will take care of typing of this term when we have a better name for
             # the method.
-            - self.numerical_constant(subdomains) * (u_n - self.gap(subdomains)),
+            - self.contact_mechanics_numerical_constant(subdomains) * (u_n - self.gap(subdomains)),
             zeros_frac,
         )
         equation.set_name("normal_fracture_deformation_equation")
@@ -371,7 +376,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Expanding using only left multiplication to with scalar_to_tangential does not
         # work for an array, unlike the operators below. Arrays need right
         # multiplication as well.
-        c_num_as_scalar = self.numerical_constant(subdomains)
+        c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
         # The numerical parameter is a cell-wise scalar which must be extended to a
         # vector quantity to be used in the equation (multiplied from the right).
@@ -736,7 +741,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
                     },
                 )
 
-    def numerical_constant(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+    def contact_mechanics_numerical_constant(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Numerical constant for the contact problem.
 
         The numerical constant is a cell-wise scalar, but we return a matrix to allow

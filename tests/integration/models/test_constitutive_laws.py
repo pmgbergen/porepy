@@ -21,7 +21,7 @@ from . import setup_utils
 @pytest.mark.parametrize(
     "model_type,method_name,only_codimension",
     [  # Fluid mass balance
-        ("mass_balance", "bc_values_darcy_flux", None),
+        ("mass_balance", "bc_values_darcy", None),
         ("mass_balance", "bc_values_mobrho", None),
         ("mass_balance", "fluid_viscosity", None),
         ("mass_balance", "fluid_source", None),

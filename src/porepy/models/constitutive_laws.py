@@ -728,7 +728,7 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    bc_values_darcy_flux: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_darcy: Callable[[list[pp.Grid]], pp.ad.Array]
     """Darcy flux boundary conditions. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
@@ -796,7 +796,7 @@ class DarcysLaw:
             discr.bound_pressure_cell * p
             + discr.bound_pressure_face
             * (projection.mortar_to_primary_int * self.interface_darcy_flux(interfaces))
-            + discr.bound_pressure_face * self.bc_values_darcy_flux(subdomains)
+            + discr.bound_pressure_face * self.bc_values_darcy(subdomains)
             + discr.vector_source * self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
@@ -818,7 +818,7 @@ class DarcysLaw:
             discr.flux * self.pressure(subdomains)
             + discr.bound_flux
             * (
-                self.bc_values_darcy_flux(subdomains)
+                self.bc_values_darcy(subdomains)
                 + projection.mortar_to_primary_int
                 * self.interface_darcy_flux(interfaces)
             )
@@ -1118,7 +1118,7 @@ class FouriersLaw:
    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    bc_values_fourier_flux: Callable[[list[pp.Grid]], np.ndarray]
+    bc_values_fourier: Callable[[list[pp.Grid]], np.ndarray]
     """Fourier flux boundary conditions. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
@@ -1168,7 +1168,7 @@ class FouriersLaw:
                 projection.mortar_to_primary_int
                 * self.interface_fourier_flux(interfaces)
             )
-            + discr.bound_pressure_face * self.bc_values_fourier_flux(subdomains)
+            + discr.bound_pressure_face * self.bc_values_fourier(subdomains)
         )
         return temperature_trace
 
@@ -1196,7 +1196,7 @@ class FouriersLaw:
         flux: pp.ad.Operator = discr.flux * self.temperature(
             subdomains
         ) + discr.bound_flux * (
-            self.bc_values_fourier_flux(subdomains)
+            self.bc_values_fourier(subdomains)
             + projection.mortar_to_primary_int * self.interface_fourier_flux(interfaces)
         )
         flux.set_name("Darcy_flux")
