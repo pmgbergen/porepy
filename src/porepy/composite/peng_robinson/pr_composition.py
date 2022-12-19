@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Callable, Generator, Literal, Optional
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -68,7 +69,7 @@ class PR_Composition(Composition):
         self._Z_L: np.ndarray
         self._Z_G: np.ndarray
 
-        # attraction and co-volume, assembled during initialization
+        # attraction and covolume, assembled during initialization
         # (based on mixing-rule and present components)
         self._a: pp.ad.Operator
         self._dT_a: pp.ad.Operator
@@ -134,7 +135,7 @@ class PR_Composition(Composition):
         Before initializing the p-h and p-T subsystems,
         this method additionally assigns callables for thd. properties of phases,
         according to the equation of state and present components,
-        and constructs the attraction and co-volume factors in the EoS.
+        and constructs the cohesion and covolume factors in the EoS.
 
         After that, it performs a super-call to :meth:`~Composition.initialize`.
 
@@ -150,7 +151,7 @@ class PR_Composition(Composition):
 
         ## defining the attraction value
         self._assign_attraction()
-        ## defining the co-volume
+        ## defining the covolume
         self._assign_covolume()
         ## setting callables representing the phase densities
         self._assign_phase_densities()
@@ -196,12 +197,12 @@ class PR_Composition(Composition):
     ### EoS parameters -----------------------------------------------------------------
 
     @property
-    def attraction(self) -> pp.ad.Operator:
+    def cohesion(self) -> pp.ad.Operator:
         """An operator representing ``a`` in the Peng-Robinson EoS."""
         return self._a
 
     @property
-    def dT_attraction(self) -> pp.ad.Operator:
+    def dT_cohesion(self) -> pp.ad.Operator:
         """An operator representing the derivative of :meth:`attraction` w.r.t.
         temperature."""
         return self._dT_a
@@ -214,29 +215,26 @@ class PR_Composition(Composition):
     @property
     def A(self) -> pp.ad.Operator:
         """An operator representing ``A`` in the characteristic polynomial of the EoS."""
-        return (self.attraction * self.p) / (R_IDEAL**2 * self.T * self.T)
+        return (self.cohesion * self.p) / (R_IDEAL**2 * self.T * self.T)
 
     @property
     def B(self) -> pp.ad.Operator:
         """An operator representing ``B`` in the characteristic polynomial of the EoS."""
         return (self.covolume * self.p) / (R_IDEAL * self.T)
 
-    ### Flash extension ----------------------------------------------------------------
+    ### Subsystem assembly method ------------------------------------------------------
 
-    def flash(
+    def linearize_subsystem(
         self,
-        flash_type: Literal["isothermal", "isenthalpic"] = "isothermal",
-        method: Literal["newton-min", "npipm"] = "newton-min",
-        initial_guess: Literal["feed", "iterate", "uniform"] | str = "iterate",
-        copy_to_state: bool = False,
-    ) -> bool:
-        """The Peng-Robinson EoS introduces a new initial-guess-strategy based on
-        feed fractions and evaluation of fugacity-values.
-
-        This initial guess strategy is conform with the equilibrium equations and
-        provides compositional values inside the compositional space.
-        """
-        return super().flash(flash_type, method, initial_guess, copy_to_state)
+        flash_type: Literal["isenthalpic", "isothermal"],
+        other_vars: Optional[list[str]] = None,
+        other_eqns: Optional[list[str]] = None,
+        state: Optional[np.ndarray] = None,
+    ) -> tuple[sps.spmatrix, np.ndarray]:
+        """Before the system is linearized by a super call to the parent method,
+        the PR mixture computes the EoS Roots for (iterative) updates."""
+        self.roots.compute_roots()
+        return super().linearize_subsystem(flash_type, other_vars, other_eqns, state)
 
     def _set_initial_guess(self, initial_guess: str) -> None:
         """Initial guess strategy based on feed and evaluation of fugacity values is
@@ -360,7 +358,7 @@ class PR_Composition(Composition):
         # for different components, the expression is more complex
         if comp_i != comp_j:
             # first part without BIP
-            a_ij = _sqrt(comp_i.attraction(self.T) * comp_j.attraction(self.T))
+            a_ij = _sqrt(comp_i.cohesion(self.T) * comp_j.cohesion(self.T))
             # get bip
             bip, _, order = get_PR_BIP(comp_i.name, comp_j.name)
             # assert there is a bip, to appease mypy
@@ -374,7 +372,7 @@ class PR_Composition(Composition):
                 a_ij *= 1 - bip(self.T, comp_j, comp_i)
         # for same components, the expression can be simplified
         else:
-            a_ij = comp_i.attraction(self.T)
+            a_ij = comp_i.cohesion(self.T)
 
         # multiply with fractions and return
         if multiply_fractions:
@@ -394,12 +392,12 @@ class PR_Composition(Composition):
         if comp_i != comp_j:
             # the derivative of a_ij
             dT_a_ij = (
-                _power(comp_i.attraction(self.T), _div_sqrt)
-                * comp_i.dT_attraction(self.T)
-                * _sqrt(comp_j.attraction(self.T))
-                + _sqrt(comp_i.attraction(self.T))
-                * _power(comp_j.attraction(self.T), _div_sqrt)
-                * comp_j.dT_attraction(self.T)
+                _power(comp_i.cohesion(self.T), _div_sqrt)
+                * comp_i.dT_cohesion(self.T)
+                * _sqrt(comp_j.cohesion(self.T))
+                + _sqrt(comp_i.cohesion(self.T))
+                * _power(comp_j.cohesion(self.T), _div_sqrt)
+                * comp_j.dT_cohesion(self.T)
             ) / 2
 
             bip, dT_bip, order = get_PR_BIP(comp_i.name, comp_j.name)
@@ -414,7 +412,7 @@ class PR_Composition(Composition):
                 # if the derivative of the BIP is not trivial, add respective part
                 if dT_bip:
                     dT_a_ij -= _sqrt(
-                        comp_i.attraction(self.T) * comp_j.attraction(self.T)
+                        comp_i.cohesion(self.T) * comp_j.cohesion(self.T)
                     ) * dT_bip(self.T, comp_i, comp_j)
             else:
                 dT_a_ij *= 1 - bip(self.T, comp_j, comp_i)
@@ -422,11 +420,11 @@ class PR_Composition(Composition):
                 # if the derivative of the BIP is not trivial, add respective part
                 if dT_bip:
                     dT_a_ij -= _sqrt(
-                        comp_i.attraction(self.T) * comp_j.attraction(self.T)
+                        comp_i.cohesion(self.T) * comp_j.cohesion(self.T)
                     ) * dT_bip(self.T, comp_j, comp_i)
         # if the components are the same, the expression simplifies
         else:
-            dT_a_ij = comp_i.dT_attraction(self.T)
+            dT_a_ij = comp_i.dT_cohesion(self.T)
 
         # multiply with fractions and return
         if multiply_fractions:
@@ -435,7 +433,7 @@ class PR_Composition(Composition):
             return dT_a_ij
 
     def _assign_covolume(self) -> None:
-        """Creates the co-volume of the mixture according to van der Waals- mixing rule."""
+        """Creates the covolume of the mixture according to van der Waals- mixing rule."""
         components: list[PR_Component] = [c for c in self.components]  # type: ignore
 
         b = components[0].fraction * components[0].covolume
@@ -494,7 +492,7 @@ class PR_Composition(Composition):
         coeff = (
             _power(2 * self.covolume, pp.ad.Scalar(-1 / 2))
             / 2
-            * (self.T * self.dT_attraction - self.attraction)
+            * (self.T * self.dT_cohesion - self.cohesion)
         )
 
         def h_Z(p, T, *X):
@@ -587,10 +585,10 @@ class PR_Composition(Composition):
         phi_c_G = (
             b_c / self.covolume * (Z - 1)
             - _log(Z - self.B)
-            - self.attraction
+            - self.cohesion
             / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
             * _log((Z + (1 + np.sqrt(2)) * self.B) / (Z + (1 - np.sqrt(2)) * self.B))
-            * (2 * a_c / self.attraction - b_c / self.covolume)
+            * (2 * a_c / self.cohesion - b_c / self.covolume)
         )
 
         return phi_c_G

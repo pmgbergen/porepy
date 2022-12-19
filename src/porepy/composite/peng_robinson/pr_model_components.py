@@ -230,7 +230,7 @@ class NaClBrine(PR_Compound, H2O):
         self.NaCl: PseudoComponent = solute
         """Reference to the pseudo-component representing NaCl."""
 
-    def attraction_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+    def cohesion_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
         """The attraction correction for NaCl-brine based on molal salinity can be found
         in
         `Soereide (1992), equation 9 <https://doi.org/10.1016/0378-3812(92)85105-H>`_
