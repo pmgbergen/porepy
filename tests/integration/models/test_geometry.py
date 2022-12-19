@@ -318,9 +318,6 @@ def test_internal_boundary_normal_to_outwards(
         offset += sd.num_faces * dim
 
 
-# test_internal_boundary_normal_to_outwards(geometry_list[2])
-
-
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
 def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> None:
@@ -332,7 +329,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     """
     # Define the geometry
     geometry: pp.ModelGeometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
+    geometry.params = {"num_fracs": num_fracs}  # type: ignore
     geometry.units = pp.Units()
     geometry.set_geometry()
     dim = geometry.nd
@@ -364,6 +361,18 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     # Check that the normals are unit vectors
     assert np.allclose(np.linalg.norm(normals_reshaped, axis=0), 1)
 
+    # Also construct the normal vectors without normalization, and check that their
+    # norms are equal to the volumes of the interface cells.
+    normal_op_not_unitary = geometry.outwards_internal_boundary_normals(
+        interfaces, unitary=False
+    )
+    normals_not_unitary = normal_op_not_unitary.evaluate(eq_sys)
+    diag_not_unitary = normals_not_unitary.diagonal()
+    normals_reshaped_not_unitary = np.reshape(diag_not_unitary, (dim, -1), order="F")
+
+    volumes = np.hstack([intf.cell_volumes for intf in interfaces])
+    assert np.allclose(np.linalg.norm(normals_reshaped_not_unitary, axis=0), volumes)
+
     # Check that the normals are outward. This is done by checking that the dot product
     # of the normal and the vector from the center of the interface to the center of the
     # neighboring subdomain cell is positive.
@@ -394,17 +403,30 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     # of length dim*num_intf_cells.
     size = dim * sum([intf.num_cells for intf in interfaces])
     dim_vec = pp.ad.Array(np.ones(size))
+
+    # Left multiply with the normal operator; in essense this extracts the normal vector
+    # (in the geometric sense) as a vector (in the algebraic sense).
     product = (normal_op * dim_vec).evaluate(eq_sys)
     assert product.shape == (size,)
+
+    # Each vector should have unit length, as is checked by by the lines below.
     inner_product = np.linalg.norm(product.reshape((dim, -1), order="F"), axis=0)
     assert np.allclose(np.abs(inner_product), 1)
-    # The following operation is used in models, and is therefore tested here.
-    # TODO: Extract method for inner product using a basis?
-    # EK: This test fails at the moment, to be revisited.
+
+    # Also sum the components of the normal vector. This is equivalent to taking the dot
+    # product between the normal vector and a vector of ones.
+    dot_product = np.sum(product.reshape((dim, -1), order="F"), axis=0)
+
+    # The summing can also be done by constructing an nd-to-scalar mapping, using the
+    # basis vectors. A similar operation (actually the transpose, scalar-to-nd) is used
+    # in the model classes to expand scalars to vectors (e.g., pressure as a potential
+    # to pressure as a force).
     basis = geometry.basis(interfaces, dim)
     nd_to_scalar_sum = sum([e.T for e in basis])
     inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
-    assert np.allclose(inner_op.evaluate(eq_sys), inner_product)
+
+    # The two operations should give the same result
+    assert np.allclose(inner_op.evaluate(eq_sys), dot_product)
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
