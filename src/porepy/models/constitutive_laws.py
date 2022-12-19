@@ -879,10 +879,6 @@ class DarcysLaw:
     ) -> pp.ad.Operator:
         """Vector source term. Represents gravity effects.
 
-        TODO: EK: Let's discuss how to name/think about this term.
-        Note that it appears slightly differently in a flux and a force/momentum
-        balance.
-
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
                 defined.
