@@ -52,7 +52,7 @@ from . import setup_utils
         ("momentum_balance", "friction_bound", 1),
         # Energy balance
         ("energy_balance", "bc_values_enthalpy_flux", None),
-        ("energy_balance", "bc_values_fourier_flux", None),
+        ("energy_balance", "bc_values_fourier", None),
         ("energy_balance", "energy_source", None),
         ("energy_balance", "enthalpy_flux", None),
         ("energy_balance", "fourier_flux", None),

@@ -31,7 +31,7 @@ class BoundaryConditionLinearPressure:
         # Define Dirichlet conditions on the left and right boundaries
         return pp.BoundaryCondition(sd, east + west, "dir")
 
-    def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
         Not sure where this one should reside.
         Note that we could remove the grid_operator BC and DirBC, probably also

@@ -530,7 +530,7 @@ class BoundaryConditionsEnergyBalance:
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, all_bf, "dir")
 
-    def bc_values_fourier_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary values for the Fourier flux.
 
         Parameters:
