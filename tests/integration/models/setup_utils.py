@@ -114,7 +114,7 @@ class BoundaryConditionsThermoporomechanicsDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, north + south, "dir")
 
-    def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,

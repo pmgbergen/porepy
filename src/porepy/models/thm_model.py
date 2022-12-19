@@ -107,8 +107,10 @@ class THM(pp.ContactMechanicsBiot):
     the class.
 
     """
+
+    # Declare the ad objects to be of THM type, or else mypy takes it to be for
+    # contact mechanics only.
     _ad: THMAdObjects
-    
 
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
