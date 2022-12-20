@@ -62,7 +62,7 @@ DesiredError = namedtuple(
     "error_intf_flux",
 )
 
-desired_errors: list[DesiredError, DesiredError, DesiredError] = [
+desired_errors: list[DesiredError] = [
     # t = 0.2 [s]
     DesiredError(
         error_rock_pressure=0.0036348942968626903,
