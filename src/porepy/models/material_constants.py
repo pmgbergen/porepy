@@ -10,6 +10,7 @@ problems with scaling/rounding errors and condition numbers.
 
 """
 from __future__ import annotations
+
 from typing import Optional
 
 import porepy as pp

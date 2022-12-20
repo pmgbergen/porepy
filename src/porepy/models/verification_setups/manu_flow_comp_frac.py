@@ -12,6 +12,7 @@ FIXME: There is significant code duplication with the incompressible verificatio
 
 """
 from __future__ import annotations
+
 from typing import Callable
 
 import matplotlib.pyplot as plt
