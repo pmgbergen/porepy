@@ -29,8 +29,8 @@ AQAAAACAAABgAAAAHQAAAA==eJxjYoAANijNCKVZ0MSZ0OTZcahjRVMHAAlAAC4=
 <DataArray type="Int64" Name="grid_dim" format="binary">
 AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=
 </DataArray>
-<DataArray type="Int64" Name="grid_edge_number" format="binary">
-AQAAAACAAABgAAAADgAAAA==eJxjYKAMMBKgAQCwAAU=
+<DataArray type="Int64" Name="interface_id" format="binary">
+AQAAAACAAABgAAAAEQAAAA==eJxjYYAAFjJpVgI0AApwADU=
 </DataArray>
 <DataArray type="Int64" Name="is_mortar" format="binary">
 AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=
