@@ -516,7 +516,7 @@ class UnitSquare(pp.ModelGeometry):
 
     def set_md_grid(self) -> None:
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-        self.box = self.fracture_network.domain
+        self.domain_bounds = self.fracture_network.domain
 
 
 # --------> Equations
