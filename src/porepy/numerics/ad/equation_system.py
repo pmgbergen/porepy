@@ -8,6 +8,7 @@ from typing import Any, Callable, Literal, Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
+from typing_extensions import TypeAlias
 
 import porepy as pp
 
@@ -20,12 +21,19 @@ GridLike = Union[pp.Grid, pp.MortarGrid]
 """A union type representing a domain either by a grid or mortar grid.
 FIXME: Rename to Domain? Or GridLikeList/GridList below?"""
 
-DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]
+# For Python3.8, a direct definition of type aliases with list is apparently not posible
+# (DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]]), the same applies to dict
+# and presumably tuple etc. As a temporary solution, we use a TypeAlias together with a
+# string representation of the type. This can be replaced with the more straightforward
+# definition when we drop support for Python3.8.
+DomainList: TypeAlias = "Union[list[pp.Grid], list[pp.MortarGrid]]"
 """A union type representing a list of grids or mortar grids.
 This is *not* a list of GridLike, as that would allow a list of mixed grids and
 mortar grids."""
 
-VariableList = Union[list[str], list[Variable], list[MixedDimensionalVariable]]
+VariableList: TypeAlias = (
+    "Union[list[str], list[Variable], list[MixedDimensionalVariable]]"
+)
 """A union type representing variables
 
 Variables are defined through either
@@ -39,7 +47,7 @@ This type is accepted as input to various methods and parsed to a list of
 
 """
 
-EquationList = Union[list[str], list[Operator]]
+EquationList: TypeAlias = "Union[list[str], list[Operator]]"
 """A union type representing equations through either names (:class:`str`), or
 :class:`~porepy.numerics.ad.operators.Operator`.
 
@@ -49,7 +57,7 @@ This type is accepted as input to various methods and parsed to a list of
 
 """
 
-EquationRestriction = dict[Union[str, Operator], DomainList]
+EquationRestriction: TypeAlias = "dict[Union[str, Operator], DomainList]"
 """A dictionary mapping equations to a list of domains on which the equation should be
 applied.
 

@@ -18,12 +18,20 @@ viz: Visualization; paraview, matplotlib.
 isort:skip_file
 
 """
-import os
+import os, sys
 from pathlib import Path
 import configparser
+import warnings
 
 __version__ = "1.6.0"
 
+# Give a deprecation warning if the user is using python 3.8 or older
+if sys.version_info.major <= 3 and sys.version_info.minor <= 8:
+    warnings.warn(
+        "Python 3.8 or older will soon be deprecated."
+        " Please upgrade to Python 3.9 or newer.",
+        DeprecationWarning,
+    )
 
 # Try to read the config file from the directory where python process was launched
 try:
