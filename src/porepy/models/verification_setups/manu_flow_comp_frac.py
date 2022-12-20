@@ -692,7 +692,7 @@ class ModifiedGeometry(pp.ModelGeometry):
         self.mdg = self.fracture_network.mesh(
             self.mesh_arguments(), constraints=np.array([1, 2])
         )
-        self.box = self.fracture_network.domain
+        self.domain_bounds = self.fracture_network.domain
 
 
 class ModifiedBoundaryConditions:
@@ -912,7 +912,7 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         plt.show()
 
 
-class ManufacturedCompFlow2d(
+class ManufacturedCompFlow2d(  # type: ignore[misc]
     ModifiedGeometry,
     ModifiedBoundaryConditions,
     ModifiedBalanceEquation,

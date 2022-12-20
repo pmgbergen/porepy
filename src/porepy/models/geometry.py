@@ -22,7 +22,7 @@ class ModelGeometry:
     """Well network."""
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`"""
-    box: dict[str, float]
+    domain_bounds: dict[str, float]
     """Box-shaped domain. Set by the method :meth:`set_md_grid`
 
     FIXME: change to "domain"?
@@ -78,7 +78,7 @@ class ModelGeometry:
             # Mono-dimensional grid by default
             phys_dims = np.array([1, 1]) * ls
             n_cells = np.array([2, 2])
-            self.box = pp.geometry.bounding_box.from_points(
+            self.domain_bounds = pp.geometry.bounding_box.from_points(
                 np.array([[0, 0], phys_dims]).T
             )
             g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
@@ -88,9 +88,9 @@ class ModelGeometry:
             self.mdg = self.fracture_network.mesh(self.mesh_arguments())
             domain = self.fracture_network.domain
             if isinstance(domain, dict):
-                self.box = domain
+                self.domain_bounds = domain
             elif isinstance(domain, np.ndarray):
-                self.box = pp.geometry.bounding_box.from_points(domain)
+                self.domain_bounds = pp.geometry.bounding_box.from_points(domain)
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
@@ -436,7 +436,7 @@ class ModelGeometry:
 
         """
         tol = 1e-10
-        box = self.box
+        box = self.domain_bounds
         east = g.face_centers[0] > box["xmax"] - tol
         west = g.face_centers[0] < box["xmin"] + tol
         if self.nd == 1:
