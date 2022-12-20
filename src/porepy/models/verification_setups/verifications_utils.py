@@ -1,6 +1,7 @@
 """
 This module contains utility functions for verification setups.
 """
+from __future__ import annotations
 
 from typing import Union
 

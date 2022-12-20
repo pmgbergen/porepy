@@ -98,7 +98,7 @@ class SolutionStrategy(abc.ABC):
         :class:`~porepy.models.geometry.ModelGeometry`.
 
         """
-        self.box: dict
+        self.domain_bounds: dict
         """Bounding box of the domain. Will normally be set by a mixin instance of
         :class:`~porepy.models.geometry.ModelGeometry`.
 

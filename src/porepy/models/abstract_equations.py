@@ -6,7 +6,7 @@ Contains:
 """
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Sequence, Union
 
 import porepy as pp
 
@@ -28,9 +28,7 @@ class BalanceEquation:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    wrap_grid_attribute: Callable[
-        [Sequence[pp.GridLike], str, Optional[int], bool], pp.ad.Operator
-    ]
+    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -40,7 +38,7 @@ class BalanceEquation:
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], Optional[int]], list[pp.ad.Matrix]]
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Matrix]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -112,7 +110,10 @@ class BalanceEquation:
         # (below).
 
         # First account for cell volumes.
-        cell_volumes = self.wrap_grid_attribute(grids, "cell_volumes")
+        # Ignore mypy complaint about unexpected keyword arguments.
+        cell_volumes = self.wrap_grid_attribute(
+            grids, "cell_volumes", dim=1, inverse=False  # type: ignore
+        )
 
         # Next, include the effects of reduced dimensions, expressed as specific
         # volumes.
@@ -145,7 +146,7 @@ class BalanceEquation:
         else:
             # For vector problems, we need to expand the integrand to a vector. Do this
             # by left and right multiplication with e_i and e_i.T
-            basis: list[pp.ad.Matrix] = self.basis(grids, dim)
+            basis: list[pp.ad.Matrix] = self.basis(grids, dim=dim)  # type: ignore
             volumes_nd = sum([e * volumes * e.T for e in basis])
 
             return volumes_nd * integrand
