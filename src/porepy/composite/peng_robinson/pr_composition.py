@@ -75,11 +75,6 @@ class PR_Composition(Composition):
         self._dT_a: pp.ad.Operator
         self._b: pp.ad.Operator
 
-        # name of equilibrium equation
-        self._fugacity_equation: str = "flash_fugacity_PR"
-        # dictionary containing fugacity functions per component per phase
-        self._fugacities: dict[PR_Component, dict[PR_Phase, pp.ad.Operator]] = dict()
-
     def add_component(self, component: PR_Component | list[PR_Component]) -> None:
         """This child class method checks additionally if BIPs are defined for
         components to be added and components already added.
@@ -153,6 +148,10 @@ class PR_Composition(Composition):
         self._assign_attraction()
         ## defining the covolume
         self._assign_covolume()
+
+        ## create roots object
+        self.roots = PR_Roots(self.ad_system, self.A, self.B)
+
         ## setting callables representing the phase densities
         self._assign_phase_densities()
         ## setting callables representing the specific phase enthalpies
@@ -160,33 +159,9 @@ class PR_Composition(Composition):
         ## setting callables defining the viscosity and conductivity of phases
         self._assign_phase_viscosities()
         self._assign_phase_conductivities()
-        ## settings callables for fugacities
-        self._assign_fugacities()
-
-        ## create roots object
-        self.roots = PR_Roots(self.ad_system, self.A, self.B)
 
         # super call to initialize p-h and p-T subsystems
         super().initialize()
-
-        ### equilibrium equations
-        equations = dict()
-        for component in self.components:
-            name = f"{self._fugacity_equation}_{component.name}"
-            equ = self.get_equilibrium_equation(component)
-            equations.update({name: equ})
-
-        # append equation names to both subsystems
-        for name in equations.keys():
-            self.pT_subsystem["equations"].append(name)
-            self.ph_subsystem["equations"].append(name)
-
-        # adding equations to AD system
-        image_info = dict()
-        for sd in self.ad_system.dof_manager.mdg.subdomains():
-            image_info.update({sd: {"cells": 1}})
-        for name, equ in equations.items():
-            self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
 
     @property
     def components(self) -> Generator[PR_Component, None, None]:
@@ -236,81 +211,7 @@ class PR_Composition(Composition):
         self.roots.compute_roots()
         return super().linearize_subsystem(flash_type, other_vars, other_eqns, state)
 
-    def _set_initial_guess(self, initial_guess: str) -> None:
-        """Initial guess strategy based on feed and evaluation of fugacity values is
-        introduced here."""
-
-        if initial_guess == "feed":
-            # use feed fractions as basis for all initial guesses
-            feed: dict[PR_Component, np.ndarray] = dict()
-            # setting the values for liquid and gas phase composition
-            L = self._phases[0]
-            G = self._phases[1]
-            for component in self.components:
-                k_val_L = (
-                    self._fugacities[component][L]
-                    .evaluate(self.ad_system.dof_manager)
-                    .val
-                )
-                k_val_G = (
-                    self._fugacities[component][G]
-                    .evaluate(self.ad_system.dof_manager)
-                    .val
-                )
-                z_c = self.ad_system.get_var_values(component.fraction_name, True)
-                feed.update({component: z_c})
-
-                # this initial guess fulfils the equilibrium equation for component c
-                xi_c_G = z_c
-                xi_c_L = (k_val_G / k_val_L) * xi_c_G
-
-                self.ad_system.set_var_values(
-                    G.fraction_of_component_name(component),
-                    xi_c_G,
-                )
-                self.ad_system.set_var_values(
-                    L.fraction_of_component_name(component),
-                    xi_c_L,
-                )
-            # for an initial guess for gas fraction we take the feed of
-            # the reference component
-            # if its only one component, we use 0.5
-            if self.num_components == 1:
-                y_G = feed[self.reference_component] * 0.5
-            else:
-                y_G = feed[self.reference_component]
-            y_L = 1 - y_G
-            self.ad_system.set_var_values(
-                L.fraction_name,
-                y_L,
-            )
-            self.ad_system.set_var_values(
-                G.fraction_name,
-                y_G,
-            )
-        else:
-            super()._set_initial_guess(initial_guess)
-
     ### Model equations ----------------------------------------------------------------
-
-    def get_equilibrium_equation(self, component: PR_Component) -> pp.ad.Operator:
-        """The equilibrium equation for the Peng-Robinson EoS is defined using
-        fugacities
-
-            ``f_cG(p,T,X) * xi_cG - f_cL(p,T,X) * xi_cR = 0``,
-
-        where ``f_cG, f_cR`` are fugacities for component ``c`` in gaseous and liquid
-        phase respectively.
-
-        """
-        L = self._phases[0]
-        G = self._phases[1]
-
-        equation = self._fugacities[component][G] * G.fraction_of_component(
-            component
-        ) - self._fugacities[component][L] * L.fraction_of_component(component)
-
-        return equation
 
     def _assign_attraction(self) -> None:
         """Creates the attraction parameter for a mixture according to PR,
@@ -549,12 +450,11 @@ class PR_Composition(Composition):
 
         return kappa_Z
 
-    def _assign_fugacities(self) -> None:
-        """Creates and stores operators representing fugacities ``f_ce(p,T,X)``
-        per component per phase."""
+    def set_fugacities(self) -> None:
+        """Creates fugacities for each component using the liquid and gas root."""
 
         for component in self.components:
-            self._fugacities[component] = {
+            self.fugacities[component] = {
                 self._phases[0]: self._phi_c_Z(component, self.roots.liquid_root),
                 self._phases[1]: self._phi_c_Z(component, self.roots.gas_root),
             }

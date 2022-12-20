@@ -96,7 +96,6 @@ class SimpleComposition(Composition):
     - the liquid phase is represented by an incompressible fluid
     - the gaseous phase is represented by the ideal gas law
     - constant k-values must be set for each component
-    - the initial guess strategy ``feed`` based on feed fractions is implemented
 
     Constant k-values must be set per component using :data:`k_values`.
 
@@ -126,94 +125,19 @@ class SimpleComposition(Composition):
 
         """
 
-        # name of equilibrium equation
-        self._equilibrium: str = "flash_k-value"
+    def set_fugacities(self) -> None:
+        """Sets constant fugacities for this simple model, where the fugacity in the
+        gas phase is set to 1 and the fugacity in the liquid phase is equal the
+        set :data:`k_values`."""
+        L = self._phases[0]
+        G = self._phases[1]
 
-    def initialize(self) -> None:
-        """Sets the equilibrium equations using constant k-values,
-        after the super-call to the parent-method."""
+        one = pp.ad.Scalar(1.0)
 
-        super().initialize()
+        for comp in self.components:
+            k_val = pp.ad.Scalar(self.k_values[comp])
 
-        ### equilibrium equations
-        equations = dict()
-        for component in self.components:
-            name = f"{self._equilibrium}_{component.name}"
-            equ = self.get_equilibrium_equation(component)
-            equations.update({name: equ})
-
-        # append equation names to both subsystems
-        for name in equations.keys():
-            self.pT_subsystem["equations"].append(name)
-            self.ph_subsystem["equations"].append(name)
-
-        # adding equations to AD system
-        image_info = dict()
-        for sd in self.ad_system.dof_manager.mdg.subdomains():
-            image_info.update({sd: {"cells": 1}})
-        for name, equ in equations.items():
-            self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
-
-    def get_equilibrium_equation(self, component: Component) -> pp.ad.Operator:
-        """Constant k-value equations for a given component.
-
-            ``xi_cG - k_c * xi_cL = 0``
-
-        Parameters:
-            component: A component in this composition.
-
-        Returns:
-            AD operator representing the left-hand side of the equation (rhs=0).
-
-        """
-        equation = self._phases[1].fraction_of_component(component) - self.k_values[
-            component
-        ] * self._phases[0].fraction_of_component(component)
-        return equation
-
-    def _set_initial_guess(self, initial_guess: str) -> None:
-        """Initial guess strategy based on feed is introduced here."""
-
-        if initial_guess == "feed":
-            # use feed fractions as basis for all initial guesses
-            feed: dict[Component, np.ndarray] = dict()
-            # setting the values for liquid and gas phase composition
-            liquid = self._phases[0]
-            gas = self._phases[1]
-            for component in self.components:
-                k_val = self.k_values[component]
-                z_c = self.ad_system.get_var_values(component.fraction_name, True)
-                feed.update({component: z_c})
-                # this initial guess fullfils the k-value equation for component c
-                xi_c_L = z_c
-                xi_c_V = k_val * xi_c_L
-
-                self.ad_system.set_var_values(
-                    liquid.fraction_of_component_name(component),
-                    xi_c_L,
-                )
-                self.ad_system.set_var_values(
-                    gas.fraction_of_component_name(component),
-                    xi_c_V,
-                )
-            # for an initial guess for gas fraction we take the feed of the
-            # reference component
-            # if its only one component, we use 0.5
-            if self.num_components == 1:
-                y_V = feed[self.reference_component] * 0.5
-            else:
-                y_V = feed[self.reference_component]
-            y_L = 1 - y_V
-            self.ad_system.set_var_values(
-                liquid.fraction_name,
-                y_L,
-            )
-            self.ad_system.set_var_values(
-                gas.fraction_name,
-                y_V,
-            )
-        else:
-            super()._set_initial_guess(initial_guess)
+            self.fugacities[comp] = {L: k_val, G: one}
 
     def print_state(self, from_iterate: bool = False) -> None:
         """Helper method to print the state of the composition to the console."""

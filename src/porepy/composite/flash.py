@@ -25,6 +25,10 @@ class Flash:
           I.e. the computations can be done smarter or parallelized.
           This is not yet exploited.
 
+    Warning:
+        The flash methods here are focused on vapor liquid equilibria, assuming the
+        liquid phase to be the reference phase.
+
     While the molar fractions are the actual unknowns in the flash procedure,
     the saturation values can be computed once the equilibrium converges using
     :meth:`evaluate_saturations`.
@@ -87,13 +91,17 @@ class Flash:
         """
 
         self.flash_tolerance: float = 1e-7
-        """Convergence criterion for the flash algorithm."""
+        """Convergence criterion for the flash algorithm. Defaults to ``1e-7``."""
 
         self.max_iter_flash: int = 100
-        """Maximal number of iterations for the flash algorithms."""
+        """Maximal number of iterations for the flash algorithms. Defaults to 100."""
 
         self.eps: float = 1e-12
-        """Small number to define the numerical zero."""
+        """Small number to define the numerical zero. Defaults to ``1e-12``."""
+
+        self.use_armijo: bool = True
+        """A bool indicating if an Armijo line-search should be performed after an
+        update direction has been found. Defaults to True."""
 
         self.npipm_parameters: dict[str, float] = {
             "eta": 0.5,
@@ -354,7 +362,7 @@ class Flash:
         self,
         flash_type: Literal["isothermal", "isenthalpic"] = "isothermal",
         method: Literal["newton-min", "npipm"] = "newton-min",
-        initial_guess: Literal["iterate", "uniform"] | str = "iterate",
+        initial_guess: Literal["iterate", "feed", "uniform"] | str = "iterate",
         copy_to_state: bool = False,
     ) -> bool:
         """Performs a flash procedure based on the arguments.
@@ -388,6 +396,8 @@ class Flash:
                 Strategy for choosing the initial guess:
 
                 - ``'iterate'``: values from ITERATE or STATE, if ITERATE not existent.
+                - ``'feed'``: feed fractions and k-values are used to compute initial
+                  guesses.
                 - ``'uniform'``: uniform fractions adding up to 1 are used as initial
                   guesses.
 
@@ -600,6 +610,43 @@ class Flash:
                         phase.fraction_of_component_name(component),
                         val * np.ones(nc),
                     )
+        elif initial_guess == "feed":
+            nc = ad_system.dof_manager.mdg.num_subdomain_cells()
+            phases = [p for p in self._C.phases if p != self._C.reference_phase]
+            for component in self._C.components:
+
+                # first get the feed fractions
+                feed_c = component.fraction.evaluate(ad_system.dof_manager).val
+
+                # then iterate over other phases and use k-values to compute their
+                # compositions. This initial guess fulfils the equilibrium equations.
+                for phase in phases:
+                    k_ce = (
+                        self._C.get_k_value(component, phase)
+                        .evaluate(ad_system.dof_manager)
+                        .val
+                    )
+
+                    x_ce = feed_c
+                    x_cR = feed_c / k_ce
+
+                    ad_system.set_var_values(
+                        phase.fraction_of_component_name(component), np.copy(x_ce)
+                    )
+                    ad_system.set_var_values(
+                        self._C.reference_phase.fraction_of_component_name(component),
+                        np.copy(x_cR),
+                    )
+
+            # use the feed fraction of the reference component to set an initial guess
+            # for the phase fractions
+            feed_R = self._C.reference_component.fraction.evaluate(
+                ad_system.dof_manager
+            ).val
+            # re-normalize to set fractions fulfilling the unity constraint
+            feed_R = feed_R / len(phases)
+            for phase in phases:
+                ad_system.set_var_values(phase.fraction_name, np.copy(feed_R))
         else:
             raise ValueError(f"Unknown initial-guess-strategy {initial_guess}.")
 
@@ -641,7 +688,7 @@ class Flash:
             )
 
         # Perform Newton iterations with above F(x)
-        success, iter_final = self._newton_iterations(F, var_names, False)
+        success, iter_final = self._newton_iterations(F, var_names)
 
         # append history entry
         self._history_entry(
@@ -694,7 +741,7 @@ class Flash:
                 state=X,
             )
 
-        success, iter_final = self._newton_iterations(F, var_names, True)
+        success, iter_final = self._newton_iterations(F, var_names)
 
         # append history entry
         self._history_entry(
@@ -784,7 +831,6 @@ class Flash:
         self,
         F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
         var_names: list[str],
-        use_armijo: bool = False,
     ) -> tuple[bool, int]:
         """Performs standard Newton iterations using the matrix and rhs-vector returned
         by ``F``, until (possibly) the L2-norm of the rhs-vector reaches the convergence
@@ -804,9 +850,6 @@ class Flash:
             var_names: A list of variable names, such that ``F`` is solvable.
                 This list is used to construct a prolongation matrix and to update
                 respective components of the global solution vector.
-            use_armijo: ``default=False``
-
-                An indicator to use the Armijo line-search for global convergence.
 
         Returns:
             A 2-tuple containing a bool and an integer, representing the success-
@@ -834,7 +877,7 @@ class Flash:
                 dx = sps.linalg.spsolve(A, b)
                 DX = prolongation * dx
 
-                if use_armijo:
+                if self.use_armijo:
                     # get step size using Armijo line search
                     step_size = self._Armijo_line_search(DX, F)
                     DX = step_size * DX
