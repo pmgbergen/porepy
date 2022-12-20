@@ -10,6 +10,7 @@ location in the future.
 
 """
 from __future__ import annotations
+
 from typing import Callable
 
 import matplotlib.pyplot as plt
