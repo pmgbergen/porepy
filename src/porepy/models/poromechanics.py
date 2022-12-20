@@ -13,6 +13,8 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
 
 """
+from __future__ import annotations
+
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
