@@ -186,7 +186,9 @@ class Exporter:
         self, keys: Union[str, list[str]], file_names: Union[str, list[str]], **kwargs
     ) -> None:
         """
-        Import state variables from vtu file.
+        Import state variables from vtu file. It is assumed that the vtu file was created using PorePy,
+        e.g., that the file names follow PorePy conventions, the mixed-dimensional grid is split
+        in the usual way etc.
 
         Args:
             keys (string or list of strings): keywords addressing cell data to be transferred.
@@ -331,6 +333,7 @@ class Exporter:
             for key in keys:
 
                 # Only continue if the key is present in the data
+                # IMPLEMENTATION NOTE: To also consider node data, add an else below.
                 if key in vtu_data.cell_data:
 
                     # Data is stored in a list with each element storing data for one specific
