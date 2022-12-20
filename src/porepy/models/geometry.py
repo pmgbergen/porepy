@@ -21,16 +21,11 @@ class ModelGeometry:
     well_network: pp.WellNetwork3d
     """Well network."""
     mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`"""
+    """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
     domain_bounds: dict[str, float]
-    """Box-shaped domain. Set by the method :meth:`set_md_grid`
-
-    FIXME: change to "domain"?
-
-    """
+    """Box-shaped domain. Set by the method :meth:`set_md_grid`."""
     nd: int
     """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
-
     units: pp.Units
     """Unit system."""
 

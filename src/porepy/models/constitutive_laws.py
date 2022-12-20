@@ -1,6 +1,6 @@
 """Library of constitutive equations."""
 from functools import partial
-from typing import Callable, Literal, Optional, Sequence, Union
+from typing import Callable, Literal, Sequence, Union
 
 import numpy as np
 

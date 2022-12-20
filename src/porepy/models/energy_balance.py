@@ -477,8 +477,6 @@ class BoundaryConditionsEnergyBalance:
 
     Boundary type and value for both diffusive Fourier flux and advective enthalpy flux.
 
-    TODO: Unify method names. With or without flux? See also other model classes.
-
     """
 
     domain_boundary_sides: Callable[
