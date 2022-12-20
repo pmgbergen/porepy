@@ -9,6 +9,7 @@ TODO: The placement of this module is not ideal. It will be moved to a more appr
 location in the future.
 
 """
+from __future__ import annotations
 from typing import Callable
 
 import matplotlib.pyplot as plt
