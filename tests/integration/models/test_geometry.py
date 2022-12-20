@@ -42,14 +42,14 @@ def test_set_fracture_network(geometry_class, num_fracs):
 def test_set_geometry(geometry_class):
     """Test the method set_geometry."""
     geometry = geometry_class()
-    # Testing with a single fracture should be sufficient here
+    # Testing with a single fracture should be sufficient here.
     geometry.params = {"num_fracs": 1}
     geometry.units = pp.Units()
     geometry.set_geometry()
-    for attr in ["mdg", "box", "nd", "fracture_network"]:
+    for attr in ["mdg", "domain_bounds", "nd", "fracture_network"]:
         assert hasattr(geometry, attr)
-    # For now, the default is not to assign a well network. Assert to remind ourselves to
-    # add testing if default is changed.
+    # For now, the default is not to assign a well network. Assert to remind ourselves
+    # to add testing if default is changed.
     assert not hasattr(geometry, "well_network")
 
 
