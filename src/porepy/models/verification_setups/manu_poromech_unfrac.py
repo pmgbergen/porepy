@@ -3,6 +3,7 @@ This module contains an implementation of a verification setup for a poromechani
 system (without fractures) using a two-dimensional manufactured solution.
 
 For the exact solution, we refer to https://doi.org/10.1137/15M1014280.
+
 """
 
 import porepy as pp
@@ -30,14 +31,14 @@ class ExactSolution:
         # Physical parameters
         lame_lmbda = 1.0  # [Pa] Lamé parameter
         lame_mu = 1.0  # [Pa] Lamé parameter
-        alpha = .8  # [-] Biot's coefficient
+        alpha = 0.8  # [-] Biot's coefficient
         rho_0 = 1.0  # [kg * m^-3] Reference fluid density
         phi_0 = 0.10  # [-] Reference porosity
         p_0 = 0.0  # [Pa] Reference fluid pressure
         c_f = 0.15  # [Pa^-1] Fluid compressibility
         k = 1.0  # [m^2] Permeability
         mu_f = 1.0  # [Pa * s] Dynamic fluid viscosity
-        K_d = lame_lmbda + (2/3) * lame_mu  # [Pa] Bulk modulus TODO: Is this right?
+        K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus TODO: Is this right?
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")
@@ -67,11 +68,7 @@ class ExactSolution:
         div_u = sym.diff(u[0], x) + sym.diff(u[1], y)
 
         # Exact poromechanical porosity
-        phi = (
-                phi_0
-                + ((alpha - phi_0) * (1 - alpha) / K_d) * (p - p_0)
-                + alpha * div_u
-        )
+        phi = phi_0 + ((alpha - phi_0) * (1 - alpha) / K_d) * (p - p_0) + alpha * div_u
 
         # Exact flow accumulation
         accum_flow = sym.diff(phi * rho, t)
@@ -82,24 +79,21 @@ class ExactSolution:
         # Exact gradient of the displacement
         grad_u = [
             [sym.diff(u[0], x), sym.diff(u[0], y)],
-            [sym.diff(u[1], x), sym.diff(u[1], y)]
+            [sym.diff(u[1], x), sym.diff(u[1], y)],
         ]
 
         # Exact transpose of the gradient of the displacement
-        trans_grad_u = [
-            [grad_u[0][0], grad_u[1][0]],
-            [grad_u[0][1], grad_u[1][1]]
-        ]
+        trans_grad_u = [[grad_u[0][0], grad_u[1][0]], [grad_u[0][1], grad_u[1][1]]]
 
         # Exact strain
         epsilon = [
             [
                 0.5 * (grad_u[0][0] + trans_grad_u[0][0]),
-                0.5 * (grad_u[0][1] + trans_grad_u[0][1])
+                0.5 * (grad_u[0][1] + trans_grad_u[0][1]),
             ],
             [
                 0.5 * (grad_u[1][0] + trans_grad_u[1][0]),
-                0.5 * (grad_u[1][1] + trans_grad_u[1][1])
+                0.5 * (grad_u[1][1] + trans_grad_u[1][1]),
             ],
         ]
 
@@ -110,30 +104,24 @@ class ExactSolution:
         sigma_elas = [
             [
                 lame_lmbda * tr_epsilon + 2 * lame_mu * epsilon[0][0],
-                2 * lame_mu * epsilon[0][1]
+                2 * lame_mu * epsilon[0][1],
             ],
             [
                 2 * lame_mu * epsilon[1][0],
-                lame_lmbda * tr_epsilon + 2 * lame_mu * epsilon[1][1]
-            ]
+                lame_lmbda * tr_epsilon + 2 * lame_mu * epsilon[1][1],
+            ],
         ]
 
         # Exact poroelastic stress
         sigma_total = [
-            [
-                sigma_elas[0][0] - alpha * p,
-                sigma_elas[0][1]
-            ],
-            [
-                sigma_elas[1][0],
-                sigma_elas[1][1] - alpha * p
-            ]
+            [sigma_elas[0][0] - alpha * p, sigma_elas[0][1]],
+            [sigma_elas[1][0], sigma_elas[1][1] - alpha * p],
         ]
 
         # Mechanics source term
         source_mech = [
             sym.diff(sigma_total[0][0], x) + sym.diff(sigma_total[1][0], y),
-            sym.diff(sigma_total[0][1], x) + sym.diff(sigma_total[1][1], y)
+            sym.diff(sigma_total[0][1], x) + sym.diff(sigma_total[1][1], y),
         ]
 
         # Public attributes
@@ -196,13 +184,13 @@ class ExactSolution:
         cc = sd.cell_centers
 
         # Lambdify expression
-        u_fun: list[Callable, Callable] = [
+        u_fun: list[Callable] = [
             sym.lambdify((x, y, t), self.u[0], "numpy"),
             sym.lambdify((x, y, t), self.u[1], "numpy"),
         ]
 
         # Cell-centered displacements
-        u_cc: list[np.ndarray, np.ndarray] = [
+        u_cc: list[np.ndarray] = [
             u_fun[0](cc[0], cc[1], time),
             u_fun[1](cc[0], cc[1], time),
         ]
@@ -212,7 +200,7 @@ class ExactSolution:
 
         return u_flat
 
-    def elastic_force(self, sd: pp.Grid, time:float) -> np.ndarray:
+    def elastic_force(self, sd: pp.Grid, time: float) -> np.ndarray:
         """Evaluate exact elastic force [N] at the face centers.
 
         Parameters:
@@ -236,7 +224,7 @@ class ExactSolution:
         fn = sd.face_normals
 
         # Lambdify expression
-        sigma_elas_fun: list[list[Callable, Callable], list[Callable, Callable]] = [
+        sigma_elas_fun: list[list[Callable]] = [
             [
                 sym.lambdify((x, y, t), self.sigma_elast[0][0], "numpy"),
                 sym.lambdify((x, y, t), self.sigma_elast[0][1], "numpy"),
@@ -244,16 +232,14 @@ class ExactSolution:
             [
                 sym.lambdify((x, y, t), self.sigma_elast[1][0], "numpy"),
                 sym.lambdify((x, y, t), self.sigma_elast[1][1], "numpy"),
-            ]
+            ],
         ]
 
         # Face-centered elastic force
-        force_elast_fc: list[np.ndarray, np.ndarray] = [
-
+        force_elast_fc: list[np.ndarray] = [
             # (sigma_xx * n_x + sigma_xy * n_y) * face_area
             sigma_elas_fun[0][0](fc[0], fc[1], time) * fn[0]
             + sigma_elas_fun[0][1](fc[0], fc[1], time) * fn[1],
-
             # (sigma_yx * n_x + sigma_yy * n_y) * face_area
             sigma_elas_fun[1][0](fc[0], fc[1], time) * fn[0]
             + sigma_elas_fun[1][1](fc[0], fc[1], time) * fn[1],
@@ -289,7 +275,7 @@ class ExactSolution:
         fn = sd.face_normals
 
         # Lambdify expression
-        sigma_total_fun: list[list[Callable, Callable], list[Callable, Callable]] = [
+        sigma_total_fun: list[list[Callable]] = [
             [
                 sym.lambdify((x, y, t), self.sigma_total[0][0], "numpy"),
                 sym.lambdify((x, y, t), self.sigma_total[0][1], "numpy"),
@@ -297,16 +283,14 @@ class ExactSolution:
             [
                 sym.lambdify((x, y, t), self.sigma_total[1][0], "numpy"),
                 sym.lambdify((x, y, t), self.sigma_total[1][1], "numpy"),
-            ]
+            ],
         ]
 
         # Face-centered poroelastic force
-        force_total_fc: list[np.ndarray, np.ndarray] = [
-
+        force_total_fc: list[np.ndarray] = [
             # (sigma_xx * n_x + sigma_xy * n_y) * face_area
             sigma_total_fun[0][0](fc[0], fc[1], time) * fn[0]
             + sigma_total_fun[0][1](fc[0], fc[1], time) * fn[1],
-
             # (sigma_yx * n_x + sigma_yy * n_y) * face_area
             sigma_total_fun[1][0](fc[0], fc[1], time) * fn[0]
             + sigma_total_fun[1][1](fc[0], fc[1], time) * fn[1],
@@ -347,8 +331,7 @@ class ExactSolution:
 
         # Face-centered Darcy fluxes
         q_fc: np.ndarray = (
-            q_fun[0](fc[0], fc[1], time) * fn[0]
-            + q_fun[1](fc[0], fc[1], time) * fn[1]
+            q_fun[0](fc[0], fc[1], time) * fn[0] + q_fun[1](fc[0], fc[1], time) * fn[1]
         )
 
         return q_fc
@@ -380,8 +363,8 @@ class ExactSolution:
 
         # Face-centered mass fluxes
         mf_fc: np.ndarray = (
-                mf_fun[0](fc[0], fc[1], time) * fn[0]
-                + mf_fun[1](fc[0], fc[1], time) * fn[1]
+            mf_fun[0](fc[0], fc[1], time) * fn[0]
+            + mf_fun[1](fc[0], fc[1], time) * fn[1]
         )
 
         return mf_fc
@@ -409,13 +392,13 @@ class ExactSolution:
         vol = sd.cell_volumes
 
         # Lambdify expression
-        source_mech_fun: list[Callable, Callable] = [
+        source_mech_fun: list[Callable] = [
             sym.lambdify((x, y, t), self.source_mech[0], "numpy"),
             sym.lambdify((x, y, t), self.source_mech[1], "numpy"),
         ]
 
         # Evaluate and integrate source
-        source_mech: list[np.ndarray, np.ndarray] = [
+        source_mech: list[np.ndarray] = [
             source_mech_fun[0](cc[0], cc[1], time) * vol,
             source_mech_fun[1](cc[0], cc[1], time) * vol,
         ]
@@ -523,7 +506,6 @@ class StoreResults(VerificationUtils):
 
 # --------> Geometry
 class UnitSquare(pp.ModelGeometry):
-
     def set_fracture_network(self) -> None:
         domain = {"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0}
         self.fracture_network = pp.FractureNetwork2d(None, None, domain)
@@ -560,7 +542,6 @@ class ModifiedMassBalance(mass.MassBalanceEquations):
 
 
 class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
-
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mechanics source term."""
 
@@ -573,10 +554,7 @@ class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
         return external_sources
 
 
-class ModifiedEquationsPoromechanics(
-    ModifiedMassBalance,
-    ModifiedMomentumBalance
-):
+class ModifiedEquationsPoromechanics(ModifiedMassBalance, ModifiedMomentumBalance):
     ...
 
 
@@ -678,33 +656,20 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         u_num = self.results[-1].approx_displacement
 
         # Horizontal displacement
-        pp.plot_grid(
-            sd, u_ex[::2], plot_2d=True, linewidth=0, title="u_x (Exact)"
-        )
-        pp.plot_grid(
-            sd, u_num[::2], plot_2d=True, linewidth=0, title="u_x (MPFA)"
-        )
+        pp.plot_grid(sd, u_ex[::2], plot_2d=True, linewidth=0, title="u_x (Exact)")
+        pp.plot_grid(sd, u_num[::2], plot_2d=True, linewidth=0, title="u_x (MPFA)")
 
         # Vertical displacement
-        pp.plot_grid(
-            sd, u_ex[1::2], plot_2d=True, linewidth=0, title="u_y (Exact)"
-        )
-        pp.plot_grid(
-            sd, u_num[1::2], plot_2d=True, linewidth=0, title="u_y (MPFA)"
-        )
+        pp.plot_grid(sd, u_ex[1::2], plot_2d=True, linewidth=0, title="u_y (Exact)")
+        pp.plot_grid(sd, u_num[1::2], plot_2d=True, linewidth=0, title="u_y (MPFA)")
 
     def _plot_pressure(self):
         sd = self.mdg.subdomains()[0]
         p_ex = self.results[-1].exact_pressure
         p_num = self.results[-1].approx_pressure
 
-        pp.plot_grid(
-            sd, p_ex, plot_2d=True, linewidth=0, title="p (Exact)"
-        )
-        pp.plot_grid(
-            sd, p_num, plot_2d=True, linewidth=0, title="p (MPFA)"
-        )
-
+        pp.plot_grid(sd, p_ex, plot_2d=True, linewidth=0, title="p (Exact)")
+        pp.plot_grid(sd, p_num, plot_2d=True, linewidth=0, title="p (MPFA)")
 
 
 # ---------> Mixer class
@@ -712,39 +677,41 @@ class ManuPoromechanics2d(
     UnitSquare,
     ModifiedEquationsPoromechanics,
     ModifiedSolutionStrategy,
-    poromechanics.Poromechanics
+    poromechanics.Poromechanics,
 ):
     """
-        Mixer class for the verification setup.
+    Mixer class for the verification setup.
 
-        Examples:
+    Examples:
 
-            .. code:: python
+        .. code:: python
 
-                # Import modules
-                import porepy as pp
-                from time import time
+            # Import modules
+            import porepy as pp
+            from time import time
 
-                # Run verification setup
-                tic = time()
-                params = {"plot_results": True}
-                setup = ManuPoromechanics2d(params)
-                print("Simulation started...")
-                pp.run_time_dependent_model(setup, params)
-                toc = time()
-                print(f"Simulation finished in {round(toc - tic)} seconds.")
-        """
+            # Run verification setup
+            tic = time()
+            params = {"plot_results": True}
+            setup = ManuPoromechanics2d(params)
+            print("Simulation started...")
+            pp.run_time_dependent_model(setup, params)
+            toc = time()
+            print(f"Simulation finished in {round(toc - tic)} seconds.")
+
+    """
 
     ...
 
 
 #%% Runner
 from time import time
+
 tic = time()
 params = {
     "plot_results": True,
     "stored_times": [1.0],
-    "mesh_arguments": {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05}
+    "mesh_arguments": {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05},
 }
 setup = ManuPoromechanics2d(params)
 print("Simulation started...")
