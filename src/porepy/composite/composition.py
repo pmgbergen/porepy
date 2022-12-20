@@ -70,8 +70,8 @@ class Composition(abc.ABC):
     This class can be used to program composition classes which implement a specific
     equations of state.
 
-    Child classes have to implement their own phases and equilibrium equations.
-    The other equations in the unified flash procedure are set by this class.
+    Child classes have to implement their own phases and fugacities.
+    The equations in the unified flash procedure are set by this class.
 
     Notes:
         - The first phase is treated as the reference phase: its molar fraction will not
@@ -141,6 +141,8 @@ class Composition(abc.ABC):
         """Used to name mass balance operators"""
         self._enthalpy_constraint: str = "enthalpy_constraint"
         """Used to name the enthalpy constraint operator in the p-h flash."""
+        self._equilibrium: str = "equilibrium"
+        """Used to name the equilibrium equations per component per phase."""
 
         ### PUBLIC
 
@@ -174,6 +176,15 @@ class Composition(abc.ABC):
 
         - enthalpy constraint (1 equation)
         - temperature (1 primary variable)
+
+        """
+
+        self.fugacities: dict[Component, dict[Phase, pp.ad.Operator]] = dict()
+        """A nested dictionary containing an operator representing the fugacity (value)
+        for a given ``[component][phase]``.
+
+        This dictionary must be created in :meth:`set_fugacities`, which in return
+        is called during :meth:`initialize`.
 
         """
 
@@ -437,12 +448,8 @@ class Composition(abc.ABC):
         p-h flash.
 
         Note:
-            Every derived composition class has to override this method and implement
-            the setting of class-specific equilibrium equations.
-
-            After a a super-call to ``initialize``, the equations must be set in the
-            AD system and stored in respective subsystem dictionaries using the keyword
-            ``'equations'``.
+            :meth:`set_fugacities`  is called here before the equilibrium equations
+            are set as a last step.
 
         Raises:
             AssertionError: If the mixture is empty (no components).
@@ -491,6 +498,24 @@ class Composition(abc.ABC):
         equation = self.get_enthalpy_constraint(True)
         equations.update({self._enthalpy_constraint: equation})
         ph_subsystem["equations"].append(self._enthalpy_constraint)
+
+        ### setting fugacities and and equilibrium equation
+        self.set_fugacities()
+        ref_phase = self.reference_phase
+
+        for comp in self.components:
+            for phase in self.phases:
+                if phase != ref_phase:
+
+                    equation = self.get_equilibrium_equation(comp, phase)
+                    name = (
+                        f"{self._equilibrium}_{comp.name}_{phase.name}_{ref_phase.name}"
+                    )
+
+                    equations.update({name: equation})
+
+                    pT_subsystem["equations"].append(name)
+                    ph_subsystem["equations"].append(name)
 
         # adding equations to AD system
         # every equation in the unified flash is a cell-wise scalar equation
@@ -850,21 +875,85 @@ class Composition(abc.ABC):
         """
         return (phase.fraction, self.get_composition_unity_for(phase))
 
-    @abc.abstractmethod
-    def get_equilibrium_equation(self, component: Component) -> pp.ad.Operator:
-        """Abstract method to create a equilibrium equation for a component of the form
+    def get_equilibrium_equation(
+        self, component: Component, other_phase: Phase
+    ) -> pp.ad.Operator:
+        """Creates an equilibrium equation for a given ``component`` between
+        ``other_phase`` and the reference phase
 
-            ``f(x) = 0``
+            ``x_ce * phi_ce - x_cR * phi_cR = 0``,
 
-        Note:
-            Equilibrium equations must be formulated with respect to the reference
-            phase.
+        where ``e`` is the index for ``other_phase`` and ``R`` for the reference phase.
 
         Parameters:
             component: A component in this composition.
+            phase: A phase other than the reference phase in this composition.
+
+        Raises:
+            KeyError: If fugacities were not assigned (see :meth:`set_fugacities`).
+            ValueError: If ``other_phase`` is the reference phase.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
+
+        """
+        # sanity check
+        if other_phase == self.reference_phase:
+            raise ValueError(
+                "Cannot construct equilibrium equation between reference phase and "
+                "itself."
+            )
+
+        # will raise a key error if not assigned
+        phi_ce = self.fugacities[component][other_phase]
+        phi_cR = self.fugacities[component][self.reference_phase]
+
+        equation = phi_ce * other_phase.fraction_of_component(
+            component
+        ) - phi_cR * self.reference_phase.fraction_of_component(component)
+
+        return equation
+
+    def get_k_value(self, component: Component, other_phase: Phase) -> pp.ad.Operator:
+        """Once the fugacities are set (see :meth:`set_fugacities`), the k-values
+        are obtained w.r.t. the reference phase
+
+            ``x_ce * phi_ce - x_cR * phi_cR = 0``,
+            ``x_ce - k_ce * x_cR = 0``,
+
+        where
+
+            ``k_ce = phi_cR / phi_ce``,
+
+        ``e`` is the index of ``other_phase`` and ``R`` is the index of the reference
+        phase.
+
+        Parameters:
+            component: A component in this mixture.
+            other_phase: A phase other than the reference phase in this composition.
+
+        Raises:
+            KeyError: If fugacities are not found for given input.
+
+        Returns:
+            An operator representing ``k_ce`` in above equations.
+
+        """
+        phi_ce = self.fugacities[component][other_phase]
+        phi_cR = self.fugacities[component][self.reference_phase]
+
+        return phi_cR / phi_ce
+
+    @abc.abstractmethod
+    def set_fugacities(self) -> None:
+        """Abstract method to create fugacity operators for a component in a specific
+        phase.
+
+        This method should fill the dictionary :data:`fugacities`.
+
+        Note:
+            Equilibrium equations are formulated using fugacities,
+            with respect to the reference phase.
 
         """
         pass
