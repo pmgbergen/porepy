@@ -11,13 +11,16 @@ FIXME: There is significant code duplication with the incompressible verificatio
  Consider recycling classes.
 
 """
-import porepy as pp
+from __future__ import annotations
+
+from typing import Callable
+
+import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sym
-import matplotlib.pyplot as plt
 
+import porepy as pp
 from porepy.models.verification_setups.verifications_utils import VerificationUtils
-from typing import Callable
 
 
 class ExactSolution:
@@ -692,7 +695,8 @@ class ModifiedGeometry(pp.ModelGeometry):
         self.mdg = self.fracture_network.mesh(
             self.mesh_arguments(), constraints=np.array([1, 2])
         )
-        self.box = self.fracture_network.domain
+        assert isinstance(self.fracture_network.domain, dict)
+        self.domain_bounds = self.fracture_network.domain  # type: ignore
 
 
 class ModifiedBoundaryConditions:
@@ -762,7 +766,7 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
     fluid: pp.FluidConstants
     mdg: pp.MixedDimensionalGrid
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    results: StoreResults
+    results: list[StoreResults]
 
     def __init__(self, params: dict):
 
@@ -912,7 +916,7 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         plt.show()
 
 
-class ManufacturedCompFlow2d(
+class ManufacturedCompFlow2d(  # type: ignore[misc]
     ModifiedGeometry,
     ModifiedBoundaryConditions,
     ModifiedBalanceEquation,

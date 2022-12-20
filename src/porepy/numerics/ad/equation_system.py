@@ -2,7 +2,6 @@
 using the AD framework.
 
 """
-
 from __future__ import annotations
 
 from typing import Any, Callable, Literal, Optional, Sequence, Union

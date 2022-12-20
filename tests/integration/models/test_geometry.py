@@ -42,14 +42,14 @@ def test_set_fracture_network(geometry_class, num_fracs):
 def test_set_geometry(geometry_class):
     """Test the method set_geometry."""
     geometry = geometry_class()
-    # Testing with a single fracture should be sufficient here
+    # Testing with a single fracture should be sufficient here.
     geometry.params = {"num_fracs": 1}
     geometry.units = pp.Units()
     geometry.set_geometry()
-    for attr in ["mdg", "box", "nd", "fracture_network"]:
+    for attr in ["mdg", "domain_bounds", "nd", "fracture_network"]:
         assert hasattr(geometry, attr)
-    # For now, the default is not to assign a well network. Assert to remind ourselves to
-    # add testing if default is changed.
+    # For now, the default is not to assign a well network. Assert to remind ourselves
+    # to add testing if default is changed.
     assert not hasattr(geometry, "well_network")
 
 
@@ -124,12 +124,14 @@ def test_wrap_grid_attributes(
 
     # Test that an error is raised if the grid does not have such an attribute
     with pytest.raises(ValueError):
-        geometry.wrap_grid_attribute(top_subdomain, "no_such_attribute")
+        geometry.wrap_grid_attribute(
+            top_subdomain, "no_such_attribute", dim=1, inverse=False
+        )
     # Test that the an error is raised if we try to wrap a field which is not an
     # ndarray.
     with pytest.raises(ValueError):
         # This will return a string
-        geometry.wrap_grid_attribute(top_subdomain, "name")
+        geometry.wrap_grid_attribute(top_subdomain, "name", dim=1, inverse=False)
 
     # One loop for both subdomains and interfaces.
     for grids in test_subdomains + test_interfaces:
@@ -156,9 +158,9 @@ def test_wrap_grid_attributes(
         # Loop over attributes and corresponding dimensions.
         for attr, dim in zip(attr_list, dim_list):
             # Get hold of the wrapped attribute and the wrapping with inverse=True
-            wrapped_value = geometry.wrap_grid_attribute(grids, attr, dim=dim).evaluate(
-                eq_system
-            )
+            wrapped_value = geometry.wrap_grid_attribute(
+                grids, attr, dim=dim, inverse=False
+            ).evaluate(eq_system)
             wrapped_value_inverse = geometry.wrap_grid_attribute(
                 grids, attr, dim=dim, inverse=True
             ).evaluate(eq_system)
@@ -220,7 +222,7 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
     all_interfaces = geometry.mdg.interfaces()
 
     returned_subdomains = geometry.interfaces_to_subdomains(all_interfaces)
-    returned_interfaces = geometry.subdomains_to_interfaces(all_subdomains)
+    returned_interfaces = geometry.subdomains_to_interfaces(all_subdomains, [1])
     if all_interfaces == []:
         assert returned_subdomains == []
         assert returned_interfaces == []
@@ -230,7 +232,7 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
 
     # Empty list passed should return empty list for both methods.
     no_subdomains = geometry.interfaces_to_subdomains([])
-    no_interfaces = geometry.subdomains_to_interfaces([])
+    no_interfaces = geometry.subdomains_to_interfaces([], [1])
     assert no_subdomains == []
     assert no_interfaces == []
     if getattr(geometry, "num_fracs", 0) > 1:
@@ -239,9 +241,11 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
         # Only those interfaces involving one of the two fractures are expected.
         interfaces = []
         for sd in two_fractures:
-            interfaces += geometry.mdg.subdomain_to_interfaces(sd)
+            interfaces += geometry.mdg.subdomain_to_interfaces(sd, [1])
         sorted_interfaces = geometry.mdg.sort_interfaces(interfaces)
-        assert sorted_interfaces == geometry.subdomains_to_interfaces(two_fractures)
+        assert sorted_interfaces == geometry.subdomains_to_interfaces(
+            two_fractures, [1]
+        )
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
@@ -483,7 +487,9 @@ def test_basis_normal_tangential_components(
             if basis_dim == dim:
                 # the dimension of the basis vector space is not specified, the value
                 # should be the same as for basis_dim = dim
-                e_None = geometry.e_i(subdomains + interfaces, i=i).evaluate(eq_sys)
+                e_None = geometry.e_i(subdomains + interfaces, i=i, dim=dim).evaluate(
+                    eq_sys
+                )
                 assert np.allclose((e_None - e_i).data, 0)
 
     # Next, test the methods to extract normal and tangential components.
@@ -532,6 +538,3 @@ def test_basis_normal_tangential_components(
     )
 
     assert np.allclose((known_tangential_component - tangential_component).data, 0)
-
-
-# test_basis_normal_tangential_components(geometry_list[3])

@@ -9,6 +9,8 @@ TODO: The placement of this module is not ideal. It will be moved to a more appr
 location in the future.
 
 """
+from __future__ import annotations
+
 from typing import Callable
 
 import matplotlib.pyplot as plt
@@ -635,7 +637,7 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
             self.plot_results()
 
 
-class ManufacturedFlow2d(
+class ManufacturedFlow2d(  # type: ignore[misc]
     ModifiedGeometry,
     ModifiedBoundaryConditions,
     ModifiedBalanceEquation,
