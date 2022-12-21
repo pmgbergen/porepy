@@ -2456,9 +2456,11 @@ class PoroMechanicsPorosity:
             raise ValueError("Biot stabilization only defined in nd.")
 
         discr = pp.ad.BiotStabilizationAd(self.darcy_keyword, subdomains)
-        # TODO: Should this be perturbation from reference pressure?
-        p = self.pressure(subdomains)
-        stabilization_integrated = discr.stabilization * p
+        # The stabilization is based on perturbation. If pressure is used directly,
+        # results will not match if the reference state is not zero, see
+        # :func:`test_without_fracture` in test_poromechanics.py.
+        dp = self.perturbation_from_reference("pressure", subdomains)
+        stabilization_integrated = discr.stabilization * dp
 
         # Divide by cell volumes to counteract integration.
         # The stabilization discretization contains a volume integral. Since the

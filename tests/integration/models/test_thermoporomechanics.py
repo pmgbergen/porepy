@@ -252,4 +252,4 @@ def test_positive_p_frac_positive_opening():
 
     # Fracture pressure and temperature is positive.
     assert np.all(p_frac > 1e-3)
-    assert np.allclose(t_frac, 6.1e-5, atol=1e-6)
+    assert np.allclose(t_frac, 6.4e-5, atol=1e-6)
