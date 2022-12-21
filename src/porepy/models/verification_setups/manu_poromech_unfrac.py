@@ -671,6 +671,42 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         pp.plot_grid(sd, p_ex, plot_2d=True, linewidth=0, title="p (Exact)")
         pp.plot_grid(sd, p_num, plot_2d=True, linewidth=0, title="p (MPFA)")
 
+    def _plot_source(self):
+        sd = self.mdg.subdomains()[0]
+        sr = self.exact_sol.flow_source(self.mdg.subdomains()[0], time=1)
+        vol = sd.cell_volumes
+
+        pp.plot_grid(sd, sr / vol, plot_2d=True, linewidth=0, title="source (Exact)")
+
+
+class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanics):
+    """Boundary conditions for the verification setup."""
+
+    domain_boundary_sides: Callable[
+        [pp.Grid],
+        tuple[
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+        ],
+    ]
+    """Utility function to access the domain boundary sides."""
+
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """Boundary values for mobility density product."""
+
+        val = self.fluid.density() / self.fluid.viscosity()
+        sd = subdomains[0]
+        values = np.zeros(sd.num_faces)
+        all_bf, *_ = self.domain_boundary_sides(sd)
+        values[all_bf] = val
+        bc_vals = pp.wrap_as_ad_array(values, name="bc_values_mobrho")
+        return bc_vals
+
 
 # ---------> Mixer class
 class ManuPoromechanics2d(
