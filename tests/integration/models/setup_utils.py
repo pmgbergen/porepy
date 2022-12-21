@@ -9,6 +9,17 @@ import porepy as pp
 
 
 class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
+    """A 2d domain with up to two orthogonal fractures.
+
+    The fractures have constant x and y coordinates equal to 0.5, respectively, and are
+    situated in a unit square domain. The number of fractures is controlled by the
+    parameter `num_fracs`, which can be 0, 1 or 2.
+
+    """
+
+    params: dict
+    """Parameters for the model."""
+
     def set_fracture_network(self) -> None:
         # Length scale:
         ls = 1 / self.units.m

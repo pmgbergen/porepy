@@ -316,7 +316,7 @@ def test_permeability_values(constitutive_mixin, domain_dimension, expected):
     ],
 )
 def test_dimension_reduction_values(
-    geometry: type[pp.ModelGeometry], domain_dimension: int, expected: list[float]
+    geometry: pp.ModelGeometry, domain_dimension: int, expected: list[float]
 ):
     """Test that the value of the parsed operator is as expected.
 

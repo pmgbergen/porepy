@@ -658,7 +658,7 @@ class ModifiedGeometry(pp.ModelGeometry):
     """Generate fracture network and mixed-dimensional grid."""
 
     params: dict
-    """Simulation model parameters"""
+    """Simulation model parameters."""
 
     def set_fracture_network(self) -> None:
         """Create fracture network.
@@ -671,7 +671,7 @@ class ModifiedGeometry(pp.ModelGeometry):
 
         """
         # Unit square domain
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        domain = {"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0}
 
         # Point coordinates
         point_coordinates = np.array(
@@ -710,7 +710,15 @@ class ModifiedBoundaryConditions:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+        tuple[
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+        ],
     ]
     """Utility function to access the domain boundary sides."""
 

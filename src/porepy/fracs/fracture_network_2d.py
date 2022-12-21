@@ -57,7 +57,7 @@ class FractureNetwork2d:
         self,
         pts: Optional[np.ndarray] = None,
         edges: Optional[np.ndarray] = None,
-        domain: Optional[dict | np.ndarray] = None,
+        domain: Optional[dict[str, float] | np.ndarray] = None,
         tol: float = 1e-8,
     ) -> None:
         """Define the fracture set.
@@ -87,7 +87,10 @@ class FractureNetwork2d:
 
         """
 
-        self.domain = domain
+        if isinstance(domain, np.ndarray):
+            domain = pp.bounding_box.from_points(domain)
+
+        self.domain: dict[str, float] | None = domain
         """The domain for this fracture network.
 
         The domain is defined by a dictionary with keys 'xmin', 'xmax', 'ymin', 'ymax'.

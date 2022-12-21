@@ -1,6 +1,7 @@
 """Tests for energy balance.
 
 """
+from typing import Callable
 import numpy as np
 import pytest
 
@@ -11,6 +12,22 @@ from .test_mass_balance import BoundaryConditionLinearPressure
 
 
 class BoundaryCondition(BoundaryConditionLinearPressure):
+    domain_boundary_sides: Callable[
+        [pp.Grid],
+        tuple[
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+        ],
+    ]
+    """Utility function to access the domain boundary sides."""
+    fluid: pp.FluidConstants
+    """Fluid object."""
+
     def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
 
@@ -56,7 +73,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
 
         """
         # List for all subdomains
-        bc_values = []
+        values = []
 
         # Loop over subdomains to collect boundary values
         for sd in subdomains:
@@ -65,10 +82,10 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
             vals = np.zeros(sd.num_faces)
             vals[west] = self.fluid.specific_heat_capacity() * 1
             # Append to list of boundary values
-            bc_values.append(vals)
+            values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
-        bc_values = pp.wrap_as_ad_array(np.hstack(bc_values), name="bc_values_enthalpy")
+        bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_enthalpy")
         return bc_values
 
 
