@@ -2233,6 +2233,18 @@ class ConstantPorosity:
 
 
 class PoroMechanicsPorosity:
+    """Porosity for poromechanical models.
+
+    Note:
+        For legacy reasons, the discretization matrices for the
+        :math:`\nabla \cdot \mathbf{u}` and stabilization terms include a volume
+        integral. That factor is counteracted in :meth:`displacement_divergence` and
+        :meth:`biot_stabilization`, respectively. This ensure that the returned
+        operators correspond to intensive quantities and are compatible with the rest
+        of this class. The assumption is that the porosity will be integrated over
+        cell volumes later before entering the equation.
+
+    """
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
@@ -2293,13 +2305,32 @@ class PoroMechanicsPorosity:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
+    pressure: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
+    """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference porosity.
+
+        Parameters:
+            subdomains: List of subdomains where the reference porosity is defined.
+
+        Returns:
+            Reference porosity operator.
+
+        """
         return Scalar(self.solid.porosity(), "reference_porosity")
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -2330,7 +2361,7 @@ class PoroMechanicsPorosity:
         return rho
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Porosity [-].
+        """Porosity in the nd-dimensional matrix [-].
 
         Parameters:
             subdomains: List of subdomains where the porosity is defined.
@@ -2349,7 +2380,11 @@ class PoroMechanicsPorosity:
         # 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
         n_inv = (alpha - phi_ref) * (1 - alpha) / bulk
 
+        # Add the three contributions to the porosity.
         phi = phi_ref + n_inv * dp + alpha * self.displacement_divergence(subdomains)
+        # Add stabilization term. TODO: Should this be handled elsewhere?
+        phi = phi + self.biot_stabilization(subdomains)
+        phi.set_name("stabilized_matrix_porosity")
         return phi
 
     def displacement_divergence(
@@ -2386,14 +2421,56 @@ class PoroMechanicsPorosity:
         bc_values = self.bc_values_mechanics(subdomains)
 
         # Compose operator.
-        div_u = discr.div_u * self.displacement(subdomains) + discr.bound_div_u * (
+        div_u_integrated = discr.div_u * self.displacement(
+            subdomains
+        ) + discr.bound_div_u * (
             bc_values
             + sd_projection.face_restriction(subdomains)
             * mortar_projection.mortar_to_primary_avg
             * self.interface_displacement(interfaces)
         )
+        # Divide by cell volumes to counteract integration.
+        # The div_u discretization contains a volume integral. Since div u is used here
+        # together with intensive quantities, we need to divide by cell volumes.
+        div_u = (
+            self.wrap_grid_attribute(subdomains, "cell_volumes", dim=1, inverse=True)
+            * div_u_integrated
+        )
         div_u.set_name("div_u")
         return div_u
+
+    def biot_stabilization(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Biot stabilization term.
+
+        TODO: Determine if this is the correct place to include stabilitzation.
+
+        Parameters:
+            subdomains: List of subdomains where the stabilization is defined.
+
+        Returns:
+            Biot stabilization operator.
+
+        """
+        # Sanity check on dimension
+        if not all(sd.dim == self.nd for sd in subdomains):
+            raise ValueError("Biot stabilization only defined in nd.")
+
+        discr = pp.ad.BiotStabilizationAd(self.darcy_keyword, subdomains)
+        # TODO: Should this be perturbation from reference pressure?
+        p = self.pressure(subdomains)
+        stabilization_integrated = discr.stabilization * p
+
+        # Divide by cell volumes to counteract integration.
+        # The stabilization discretization contains a volume integral. Since the
+        # stabilization term is used here together with intensive quantities, we need to
+        # divide by cell volumes.
+        stabilization = (
+            self.wrap_grid_attribute(subdomains, "cell_volumes", dim=1, inverse=True)
+            * stabilization_integrated
+        )
+
+        stabilization.set_name("biot_stabilization")
+        return stabilization
 
 
 class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
