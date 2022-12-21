@@ -6,17 +6,16 @@ For the exact solution, we refer to https://doi.org/10.1137/15M1014280.
 
 """
 
-import porepy as pp
+from typing import Callable
+
 import numpy as np
 import sympy as sym
 
+import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
-
 from porepy.models.verification_setups.verifications_utils import VerificationUtils
-
-from typing import Callable
 
 
 # ----> Manufactured solution
@@ -718,6 +717,7 @@ class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanic
 # ---------> Mixer class
 class ManuPoromechanics2d(
     UnitSquare,
+    ModifiedBoundaryConditions,
     ModifiedEquationsPoromechanics,
     ModifiedSolutionStrategy,
     poromechanics.Poromechanics,
