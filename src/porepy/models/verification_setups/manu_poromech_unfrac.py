@@ -9,7 +9,6 @@ For the exact solution, we refer to https://doi.org/10.1137/15M1014280.
 import porepy as pp
 import numpy as np
 import sympy as sym
-import matplotlib.pyplot as plt
 
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
@@ -324,7 +323,7 @@ class ExactSolution:
         fn = sd.face_normals
 
         # Lambdify expression
-        q_fun: list[Callable, Callable] = [
+        q_fun: list[Callable] = [
             sym.lambdify((x, y, t), self.q[0], "numpy"),
             sym.lambdify((x, y, t), self.q[1], "numpy"),
         ]
@@ -356,7 +355,7 @@ class ExactSolution:
         fn = sd.face_normals
 
         # Lambdify expression
-        mf_fun: list[Callable, Callable] = [
+        mf_fun: list[Callable] = [
             sym.lambdify((x, y, t), self.mf[0], "numpy"),
             sym.lambdify((x, y, t), self.mf[1], "numpy"),
         ]
@@ -506,6 +505,14 @@ class StoreResults(VerificationUtils):
 
 # --------> Geometry
 class UnitSquare(pp.ModelGeometry):
+    """Class for setting up the geometry of the unit square domain."""
+
+    params: dict
+    """Simulation model parameters."""
+
+    fracture_network: pp.FractureNetwork2d
+    """Fracture network. Empty in this case."""
+
     def set_fracture_network(self) -> None:
         domain = {"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0}
         self.fracture_network = pp.FractureNetwork2d(None, None, domain)

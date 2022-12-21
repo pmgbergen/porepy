@@ -462,11 +462,11 @@ class ModifiedGeometry(pp.ModelGeometry):
         )
         domain = self.fracture_network.domain
         # Convert domain to dictionary if it is given as a numpy array.
-        # TODO: We should rather unify the way we define the domain.in the
+        # TODO: We should rather unify the way we define the domain in the
         # FractureNetwork2d class.
         if isinstance(domain, np.ndarray):
             assert domain.shape == (2, 2)
-            self.domain = {
+            self.domain: dict[str, float] = {
                 "xmin": domain[0, 0],
                 "xmax": domain[1, 0],
                 "ymin": domain[0, 1],
