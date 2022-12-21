@@ -339,7 +339,7 @@ def test_without_fracture(biot_coefficient):
     else:
         assert np.all(p < -tol)
         # Stronger test, could be relaxed.
-        assert np.allclose(p, -1.05526141e-05)
+        assert np.allclose(p, -4.16490713e-05)
 
 
 def test_pull_north_positive_opening():
