@@ -22,22 +22,21 @@ from porepy.models.verification_setups.verifications_utils import VerificationUt
 class ExactSolution:
     """Parent class for the manufactured poromechanical solution."""
 
-    def __init__(self):
+    def __init__(self, setup):
         """Constructor of the class."""
 
         # FIXME: Retrieve physical parameters from the `setup`
         # Physical parameters
-        lame_lmbda = 1.0  # [Pa] Lamé parameter
-        lame_mu = 1.0  # [Pa] Lamé parameter
-        alpha = 1.0  # [-] Biot's coefficient
-        rho_0 = 1.0  # [kg * m^-3] Reference fluid density
-        phi_0 = 0.1  # [-] Reference porosity
-        p_0 = 0.0  # [Pa] Reference fluid pressure
-        c_f = 0.0  # [Pa^-1] Fluid compressibility
-        k = 1000.0  # [m^2] Permeability
-        mu_f = 1.0  # [Pa * s] Dynamic fluid viscosity
+        lame_lmbda = setup.solid.lame_lambda()  # [Pa] Lamé parameter
+        lame_mu = setup.solid.shear_modulus()  # [Pa] Lamé parameter
+        alpha = setup.solid.biot_coefficient()  # [-] Biot coefficient
+        rho_0 = setup.fluid.density()  # [kg / m^3] Reference density
+        phi_0 = setup.solid.porosity()  # [-] Reference porosity
+        p_0 = setup.fluid.pressure()  # [Pa] Reference pressure
+        c_f = setup.fluid.compressibility()  # [Pa^-1] Fluid compressibility
+        k = setup.solid.permeability()  # [m^2] Permeability
+        mu_f = setup.fluid.viscosity()  # [Pa * s] Fluid viscosity
         K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus
-
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")
@@ -48,17 +47,14 @@ class ExactSolution:
         # Exact displacement
         u = [
             t * x * (1 - x) * y * (1 - y),  # * sym.sin(sym.pi * x),
-            t * x * (1 - x) * y * (1 - y)  # * sym.cos(sym.pi * y)
+            t * x * (1 - x) * y * (1 - y),  # * sym.cos(sym.pi * y)
         ]
 
         # Exact density
         rho = rho_0 * sym.exp(c_f * (p - p_0))
 
         # Exact darcy flux
-        q = [
-            - 1 * (k / mu_f) * sym.diff(p, x),
-            - 1 * (k / mu_f) * sym.diff(p, y)
-        ]
+        q = [-1 * (k / mu_f) * sym.diff(p, x), -1 * (k / mu_f) * sym.diff(p, y)]
 
         # Exact mass flux
         mf = [rho * q[0], rho * q[1]]
@@ -234,8 +230,7 @@ class ExactSolution:
 
         # Face-centered Darcy fluxes
         q_fc: np.ndarray = (
-            q_fun[0](fc[0], fc[1], time) * fn[0]
-            + q_fun[1](fc[0], fc[1], time) * fn[1]
+            q_fun[0](fc[0], fc[1], time) * fn[0] + q_fun[1](fc[0], fc[1], time) * fn[1]
         )
 
         return q_fc
@@ -315,13 +310,13 @@ class ExactSolution:
         vol = sd.cell_volumes
 
         # Lambdify expression
-        source_mech_fun: list[Callable, Callable] = [
+        source_mech_fun: list[Callable] = [
             sym.lambdify((x, y, t), self.source_mech[0], "numpy"),
             sym.lambdify((x, y, t), self.source_mech[1], "numpy"),
         ]
 
         # Evaluate and integrate source
-        source_mech: list[np.ndarray, np.ndarray] = [
+        source_mech: list[np.ndarray] = [
             source_mech_fun[0](cc[0], cc[1], time) * vol,
             source_mech_fun[1](cc[0], cc[1], time) * vol,
         ]
@@ -399,8 +394,8 @@ class ExactSolution:
 
         # Face-centered mass fluxes
         mf_fc: np.ndarray = (
-                mf_fun[0](fc[0], fc[1], time) * fn[0]
-                + mf_fun[1](fc[0], fc[1], time) * fn[1]
+            mf_fun[0](fc[0], fc[1], time) * fn[0]
+            + mf_fun[1](fc[0], fc[1], time) * fn[1]
         )
 
         return mf_fc
@@ -551,23 +546,7 @@ class ModifiedMassBalance(mass.MassBalanceEquations):
             previous_timestep=True,
         )
 
-        # Biot stabilization
-        stabilization_discr = pp.ad.BiotStabilizationAd(
-            self.darcy_keyword, subdomains
-        )
-        # The stabilization term is also defined on a time increment, but only
-        # considers the matrix subdomain and no boundary contributions.
-        stabilization_term: pp.ad.Operator = (
-                stabilization_discr.stabilization
-                * self.subdomain_projections(dim=1).cell_restriction(subdomains)
-                * (
-                        self.pressure(subdomains)
-                        - self.pressure(subdomains).previous_timestep()
-                )
-        )
-        stabilization_term.set_name("Biot stabilization")
-
-        return internal_sources + external_sources - stabilization_term
+        return internal_sources + external_sources
 
 
 class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
@@ -616,12 +595,20 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         super().__init__(params)
 
         # Exact solution
-        self.exact_sol = ExactSolution()
+        self.exact_sol: ExactSolution
         """Exact solution object"""
 
         # Prepare object to store solutions after each time step
         self.results: list[StoreResults] = []
         """Object that stores exact and approximated solutions and L2 errors"""
+
+    def set_materials(self):
+        """Set material parameters.
+
+        Add exact solution object to the simulation model after materials have been set.
+        """
+        super().set_materials()
+        self.exact_sol = ExactSolution(self)
 
     def before_nonlinear_loop(self) -> None:
         """Update values of external sources."""
@@ -689,17 +676,11 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
         # Horizontal displacement
 
-        pp.plot_grid(
-            sd, u_ex[::2], plot_2d=True, linewidth=0, title="u_x (Exact)"
-        )
-        pp.plot_grid(
-            sd, u_num[::2], plot_2d=True, linewidth=0, title="u_x (Numerical)"
-        )
+        pp.plot_grid(sd, u_ex[::2], plot_2d=True, linewidth=0, title="u_x (Exact)")
+        pp.plot_grid(sd, u_num[::2], plot_2d=True, linewidth=0, title="u_x (Numerical)")
 
         # Vertical displacement
-        pp.plot_grid(
-            sd, u_ex[1::2], plot_2d=True, linewidth=0, title="u_y (Exact)"
-        )
+        pp.plot_grid(sd, u_ex[1::2], plot_2d=True, linewidth=0, title="u_y (Exact)")
         pp.plot_grid(
             sd, u_num[1::2], plot_2d=True, linewidth=0, title="u_y (Numerical)"
         )
@@ -708,7 +689,8 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         sd = self.mdg.subdomains()[0]
         p_ex = self.results[-1].exact_pressure
         p_num = self.results[-1].approx_pressure
-
+        pp.plot_grid(sd, p_ex, plot_2d=True, linewidth=0, title="pressure (Exact)")
+        pp.plot_grid(sd, p_num, plot_2d=True, linewidth=0, title="pressure (Numerical)")
 
     def _plot_source(self):
         sd = self.mdg.subdomains()[0]
@@ -716,6 +698,7 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         vol = sd.cell_volumes
 
         pp.plot_grid(sd, sr / vol, plot_2d=True, linewidth=0, title="source (Exact)")
+
 
 class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanics):
     """Boundary conditions for the verification setup."""
@@ -745,19 +728,12 @@ class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanic
         bc_vals = pp.wrap_as_ad_array(values, name="bc_values_mobrho")
         return bc_vals
 
-
     def _plot_sources(self):
         ex = ExactSolution()
         sd = self.mdg.subdomains()[0]
         t = self.time_manager.time_final
         source_flow = ex.flow_source(sd, t)
-        pp.plot_grid(
-            sd,
-            source_flow,
-            plot_2d=True,
-            linewidth=0,
-            title="Flow source"
-        )
+        pp.plot_grid(sd, source_flow, plot_2d=True, linewidth=0, title="Flow source")
 
         source_mech = ex.mechanics_source(sd, t)
         pp.plot_grid(
@@ -765,14 +741,14 @@ class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanic
             source_mech[::2] / sd.cell_volumes,
             plot_2d=True,
             linewidth=0,
-            title="Horizontal mechanics source"
+            title="Horizontal mechanics source",
         )
         pp.plot_grid(
             sd,
             source_mech[1::2] / sd.cell_volumes,
             plot_2d=True,
             linewidth=0,
-            title="Vertical mechanics source"
+            title="Vertical mechanics source",
         )
 
     def _plot_porosity(self) -> None:
@@ -780,26 +756,14 @@ class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanic
         sd = self.mdg.subdomains()[0]
         t = self.time_manager.time_final
         phi = ex.poromechanics_porosity(sd, t)
-        pp.plot_grid(
-            sd,
-            phi,
-            plot_2d=True,
-            linewidth=0,
-            title="Poromechanics Porosity"
-        )
+        pp.plot_grid(sd, phi, plot_2d=True, linewidth=0, title="Poromechanics Porosity")
 
     def _plot_density(self) -> None:
         ex = self.exact_sol
         sd = self.mdg.subdomains()[0]
         t = self.time_manager.time_final
         rho = ex.density(sd, t)
-        pp.plot_grid(
-            sd,
-            rho,
-            plot_2d=True,
-            linewidth=0,
-            title="Fluid density"
-        )
+        pp.plot_grid(sd, rho, plot_2d=True, linewidth=0, title="Fluid density")
 
     def _plot_fluid_mass(self) -> None:
         ex = self.exact_sol
@@ -807,13 +771,7 @@ class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanic
         t = self.time_manager.time_final
         phi = ex.poromechanics_porosity(sd, t)
         rho = ex.density(sd, t)
-        pp.plot_grid(
-            sd,
-            rho * phi,
-            plot_2d=True,
-            linewidth=0,
-            title="Fluid mass"
-        )
+        pp.plot_grid(sd, rho * phi, plot_2d=True, linewidth=0, title="Fluid mass")
 
 
 # ---------> Mixer class
@@ -872,4 +830,3 @@ class ManuPoromechanics2d(
 # pp.run_time_dependent_model(setup, params)
 # toc = time()
 # print(f"Simulation finished in {round(toc - tic)} seconds.")
-
