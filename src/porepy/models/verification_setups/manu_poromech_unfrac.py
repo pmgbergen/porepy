@@ -223,7 +223,7 @@ class ExactSolution:
 
         # Lambdify expression
 
-        q_fun: list[Callable, Callable] = [
+        q_fun: list[Callable] = [
             sym.lambdify((x, y, t), self.q[0], "numpy"),
             sym.lambdify((x, y, t), self.q[1], "numpy"),
         ]
@@ -387,7 +387,7 @@ class ExactSolution:
         fn = sd.face_normals
 
         # Lambdify expression
-        mf_fun: list[Callable, Callable] = [
+        mf_fun: list[Callable] = [
             sym.lambdify((x, y, t), self.mf[0], "numpy"),
             sym.lambdify((x, y, t), self.mf[1], "numpy"),
         ]

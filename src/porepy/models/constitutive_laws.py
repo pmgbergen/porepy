@@ -2305,7 +2305,7 @@ class PoroMechanicsPorosity:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.Variable]
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
