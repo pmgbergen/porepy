@@ -1,7 +1,7 @@
-import numpy as np
-import porepy as pp
 import matplotlib.pyplot as plt
+import numpy as np
 
+import porepy as pp
 from porepy.models.verification_setups.manu_poromech_unfrac import ManuPoromechanics2d
 
 mesh_sizes = [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625]
@@ -14,9 +14,7 @@ for mesh_size in mesh_sizes:
     mesh_arguments = {"mesh_size_frac": mesh_size, "mesh_size_bound": mesh_size}
     fluid = pp.FluidConstants({"compressibility": 0.0})
     solid = pp.SolidConstants(
-        {"porosity": 0.1,
-         "biot_coefficient": 1.0,
-         "permeability": 1000}
+        {"porosity": 0.1, "biot_coefficient": 1.0, "permeability": 1000}
     )
     material_constants = {"fluid": fluid, "solid": solid}
     params = {
