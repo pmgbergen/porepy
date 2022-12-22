@@ -22,7 +22,7 @@ from porepy.models.verification_setups.verifications_utils import VerificationUt
 class ExactSolution:
     """Parent class for the manufactured poromechanical solution."""
 
-    def __init__(self, setup, manufactured_sol: str = "parabolic"):
+    def __init__(self, setup):
         """Constructor of the class."""
 
         # Physical parameters
@@ -42,6 +42,7 @@ class ExactSolution:
         pi = sym.pi
 
         # Exact pressure and displacement solutions
+        manufactured_sol = setup.params.get("manufactured_solution", "parabolic")
         if manufactured_sol == "parabolic":
             p = t * x * (1 - x) * y * (1 - y)
             u = [p, p]
@@ -552,14 +553,20 @@ class ModifiedMassBalance(mass.MassBalanceEquations):
             subdomains=self.mdg.subdomains(),
             previous_timestep=True,
         )
+
+        # The following is a hack to include cross term missing from the dt operator.
+        # This reduces the discretization error significantly, but we don't include it
+        # since the purpose of this verification setup is to be used in functional
+        # test to test the correct *default* behaviour of the models.
         # Add cross term missing from dt operator relative to proper
         # application of the product rule.
-        rho = self.fluid_density(subdomains)
-        phi = self.volume_integral(self.porosity(subdomains), subdomains, dim=1)
-        dt_op = pp.ad.time_derivatives.dt
-        dt = pp.ad.Scalar(self.time_manager.dt, name="delta_t")
-        prod = dt_op(rho, dt) * dt_op(phi, dt)
-        return internal_sources + external_sources - prod
+        # rho = self.fluid_density(subdomains)
+        # phi = self.volume_integral(self.porosity(subdomains), subdomains, dim=1)
+        # dt_op = pp.ad.time_derivatives.dt
+        # dt = pp.ad.Scalar(self.time_manager.dt, name="delta_t")
+        # prod = dt_op(rho, dt) * dt_op(phi, dt)
+
+        return internal_sources + external_sources  # - prod
 
 
 class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
@@ -588,6 +595,7 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     results: list[StoreResults]
+    exact_sol: ExactSolution
 
     def __init__(self, params: dict):
         """Constructor for the class"""
@@ -633,6 +641,7 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     ) -> None:
         """Method to be called after the non-linear solver has converged."""
         super().after_nonlinear_convergence(solution, errors, iteration_counter)
+
         # Subdomain grid and data dictionary
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
@@ -661,7 +670,7 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     # -----> Plotting-related methods
     def plot_results(self) -> None:
         """Plotting results"""
-        # self._plot_displacement()
+        self._plot_displacement()
         self._plot_pressure()
 
     def _plot_pressure(self):
@@ -701,40 +710,24 @@ class ManuPoromechanics2d(
 
         .. code:: python
 
-            # Import modules
-            import porepy as pp
-            from time import time
+        import time as time
 
-            # Run verification setup
-            tic = time()
-            params = {"plot_results": True}
-            setup = ManuPoromechanics2d(params)
-            print("Simulation started...")
-            pp.run_time_dependent_model(setup, params)
-            toc = time()
-            print(f"Simulation finished in {round(toc - tic)} seconds.")
+        tic = time()
+        fluid = pp.FluidConstants({"compressibility": 0.02})
+        solid = pp.SolidConstants({"biot_coefficient": 0.75})
+        material_constants = {"fluid": fluid, "solid": solid}
+        params = {
+            "plot_results": True,
+            "time_manager": pp.TimeManager([0, 0.2, 0.4, 0.6, 0.8, 1], 0.2, True),
+            "material_constants": material_constants,
+            "manufactured_solution": "nordbotten_2016"
+        }
+        setup = ManuPoromechanics2d(params)
+        print("Simulation started...")
+        pp.run_time_dependent_model(setup, params)
+        toc = time()
+        print(f"Simulation finished in {round(toc - tic)} seconds.")
 
     """
 
     ...
-
-
-#%% Runner
-from time import time
-
-tic = time()
-fluid = pp.FluidConstants({"compressibility": 0.0})
-solid = pp.SolidConstants({"biot_coefficient": 1.0})
-material_constants = {"fluid": fluid, "solid": solid}
-params = {
-    "plot_results": False,
-    "mesh_arguments": {"mesh_size_frac": 0.1, "mesh_size_bound": 0.1},
-    "time_manager": pp.TimeManager([0, 2], 1, True),
-    "material_constants": material_constants,
-}
-setup = ManuPoromechanics2d(params)
-print("Simulation started...")
-pp.run_time_dependent_model(setup, params)
-toc = time()
-print(f"Simulation finished in {round(toc - tic)} seconds.")
-print(setup.results[0].error_pressure)

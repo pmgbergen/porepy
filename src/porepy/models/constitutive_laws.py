@@ -2453,7 +2453,7 @@ class PoroMechanicsPorosity:
     def biot_stabilization(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Biot stabilization term.
 
-        TODO: Determine if this is the correct place to include stabilitzation.
+        TODO: Determine if this is the correct place to include stabilization.
 
         Parameters:
             subdomains: List of subdomains where the stabilization is defined.
