@@ -52,7 +52,7 @@ class ExactSolution:
             p = t * x * (1 - x) * y * (1 - y) * sym.sin(pi * x) * sym.sin(pi * y)
             u = [
                 t * x * (1 - x) * y * (1 - y) * sym.sin(pi * x),
-                t * x * (1 - x) * y * (1 - y) * sym.cos(pi * x)
+                t * x * (1 - x) * y * (1 - y) * sym.cos(pi * x),
             ]
         else:
             NotImplementedError("Manufactured solution is not available.")
@@ -626,7 +626,7 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         """Method to be called after the non-linear solver has converged."""
-
+        super().after_nonlinear_convergence(solution, errors, iteration_counter)
         # Subdomain grid and data dictionary
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
@@ -655,7 +655,7 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     # -----> Plotting-related methods
     def plot_results(self) -> None:
         """Plotting results"""
-        #self._plot_displacement()
+        # self._plot_displacement()
         self._plot_pressure()
 
     def _plot_pressure(self):
@@ -681,39 +681,9 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         )
 
 
-
-# class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanics):
-#     """Boundary conditions for the verification setup."""
-#
-#     domain_boundary_sides: Callable[
-#         [pp.Grid],
-#         tuple[
-#             np.ndarray,
-#             np.ndarray,
-#             np.ndarray,
-#             np.ndarray,
-#             np.ndarray,
-#             np.ndarray,
-#             np.ndarray,
-#         ],
-#     ]
-#     """Utility function to access the domain boundary sides."""
-#
-#     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-#         """Boundary values for mobility density product."""
-#
-#         val = self.fluid.density() / self.fluid.viscosity()
-#         sd = subdomains[0]
-#         values = np.zeros(sd.num_faces)
-#         all_bf, *_ = self.domain_boundary_sides(sd)
-#         values[all_bf] = val
-#         bc_vals = pp.wrap_as_ad_array(values, name="bc_values_mobrho")
-#         return bc_vals
-
 # ---------> Mixer class
 class ManuPoromechanics2d(
     UnitSquare,
-    # ModifiedBoundaryConditions,
     ModifiedEquationsPoromechanics,
     ModifiedSolutionStrategy,
     poromechanics.Poromechanics,
@@ -745,13 +715,14 @@ class ManuPoromechanics2d(
 
 #%% Runner
 from time import time
+
 tic = time()
 fluid = pp.FluidConstants({"compressibility": 0.0})
 solid = pp.SolidConstants({"biot_coefficient": 1.0})
 material_constants = {"fluid": fluid, "solid": solid}
 params = {
-    "plot_results": True,
-    "mesh_arguments": {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05},
+    "plot_results": False,
+    "mesh_arguments": {"mesh_size_frac": 0.1, "mesh_size_bound": 0.1},
     "time_manager": pp.TimeManager([0, 2], 1, True),
     "material_constants": material_constants,
 }
@@ -760,3 +731,4 @@ print("Simulation started...")
 pp.run_time_dependent_model(setup, params)
 toc = time()
 print(f"Simulation finished in {round(toc - tic)} seconds.")
+print(setup.results[0].error_pressure)
