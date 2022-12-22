@@ -22,10 +22,9 @@ from porepy.models.verification_setups.verifications_utils import VerificationUt
 class ExactSolution:
     """Parent class for the manufactured poromechanical solution."""
 
-    def __init__(self, setup):
+    def __init__(self, setup, manufactured_sol: str = "parabolic"):
         """Constructor of the class."""
 
-        # FIXME: Retrieve physical parameters from the `setup`
         # Physical parameters
         lame_lmbda = setup.solid.lame_lambda()  # [Pa] Lamé parameter
         lame_mu = setup.solid.shear_modulus()  # [Pa] Lamé parameter
@@ -40,15 +39,23 @@ class ExactSolution:
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")
+        pi = sym.pi
 
-        # Exact pressure
-        p = t * x * (1 - x) * y * (1 - y)  # * sym.sin(sym.pi * x) * sym.cos(sym.pi * y)
-
-        # Exact displacement
-        u = [
-            t * x * (1 - x) * y * (1 - y),  # * sym.sin(sym.pi * x),
-            t * x * (1 - x) * y * (1 - y),  # * sym.cos(sym.pi * y)
-        ]
+        # Exact pressure and displacement solutions
+        if manufactured_sol == "parabolic":
+            p = t * x * (1 - x) * y * (1 - y)
+            u = [p, p]
+        elif manufactured_sol == "nordbotten_2016":
+            p = t * x * (1 - x) * sym.sin(2 * pi * y)
+            u = [p, t * sym.sin(2 * pi * x) * sym.sin(2 * pi * y)]
+        elif manufactured_sol == "varela_2021":
+            p = t * x * (1 - x) * y * (1 - y) * sym.sin(pi * x) * sym.sin(pi * y)
+            u = [
+                t * x * (1 - x) * y * (1 - y) * sym.sin(pi * x),
+                t * x * (1 - x) * y * (1 - y) * sym.cos(pi * x)
+            ]
+        else:
+            NotImplementedError("Manufactured solution is not available.")
 
         # Exact density
         rho = rho_0 * sym.exp(c_f * (p - p_0))
@@ -579,26 +586,13 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     def __init__(self, params: dict):
         """Constructor for the class"""
 
-        # Parameters associated with the verification setup. The below parameters
-        # cannot be changed since they're associated with the exact solution
-        # fluid = pp.FluidConstants({"compressibility": 0.10})
-        # solid = pp.SolidConstants({"porosity": 0.10, "biot_coefficient": 1.0})
-        # material_constants = {"fluid": fluid, "solid": solid}
-        # required_params = {"material_constants": material_constants}
-        # params.update(required_params)
-        # Default time manager
-        # default_time_manager = pp.TimeManager(
-        #     schedule=[0, 0.2, 0.4, 0.6, 0.8, 1.0], dt_init=0.2, constant_dt=True
-        # )
-        # params.update({"time_manager": default_time_manager})
-
         super().__init__(params)
 
         # Exact solution
         self.exact_sol: ExactSolution
         """Exact solution object"""
 
-        # Prepare object to store solutions after each time step
+        # Prepare object to store solutions after each `stored_time`.
         self.results: list[StoreResults] = []
         """Object that stores exact and approximated solutions and L2 errors"""
 
@@ -631,153 +625,95 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     def after_nonlinear_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        """Method to be called after convergence."""
+        """Method to be called after the non-linear solver has converged."""
 
-        # Subomain grid and data dictionary
+        # Subdomain grid and data dictionary
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
 
-        # Recover Darcy fluxes and store in pp.ITERATE
+        # Recover Darcy flux and store it in pp.ITERATE
         darcy_flux_ad = self.darcy_flux([sd])
         darcy_flux_vals = darcy_flux_ad.evaluate(self.equation_system).val
         data[pp.STATE][pp.ITERATE]["darcy_flux"] = darcy_flux_vals
 
-        # Recover poroelastic force and store in pp.ITERATE
+        # Recover poroelastic force and store it in pp.ITERATE
         force_ad = self.stress([sd])
         force_vals = force_ad.evaluate(self.equation_system).val
         data[pp.STATE][pp.ITERATE]["poroelastic_force"] = force_vals
 
         # Store results
         t = self.time_manager.time
-        if np.any(np.isclose(t, self.params["stored_times"])):
+        tf = self.time_manager.time_final
+        if np.any(np.isclose(t, self.params.get("stored_times", [tf]))):
             self.results.append(StoreResults(self))
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
-
         if self.params.get("plot_results", False):
             self.plot_results()
 
     # -----> Plotting-related methods
     def plot_results(self) -> None:
         """Plotting results"""
-
-        self._plot_displacement()
+        #self._plot_displacement()
         self._plot_pressure()
-        self._plot_sources()
-        self._plot_porosity()
-        self._plot_density()
-        self._plot_fluid_mass()
-
-    def _plot_displacement(self):
-        sd = self.mdg.subdomains()[0]
-        u_ex = self.results[-1].exact_displacement
-        u_num = self.results[-1].approx_displacement
-
-        # Horizontal displacement
-
-        pp.plot_grid(sd, u_ex[::2], plot_2d=True, linewidth=0, title="u_x (Exact)")
-        pp.plot_grid(sd, u_num[::2], plot_2d=True, linewidth=0, title="u_x (Numerical)")
-
-        # Vertical displacement
-        pp.plot_grid(sd, u_ex[1::2], plot_2d=True, linewidth=0, title="u_y (Exact)")
-        pp.plot_grid(
-            sd, u_num[1::2], plot_2d=True, linewidth=0, title="u_y (Numerical)"
-        )
 
     def _plot_pressure(self):
+        """Plot exact and numerical pressures"""
         sd = self.mdg.subdomains()[0]
         p_ex = self.results[-1].exact_pressure
         p_num = self.results[-1].approx_pressure
         pp.plot_grid(sd, p_ex, plot_2d=True, linewidth=0, title="pressure (Exact)")
         pp.plot_grid(sd, p_num, plot_2d=True, linewidth=0, title="pressure (Numerical)")
 
-    def _plot_source(self):
+    def _plot_displacement(self):
+        """Plot exact and numerical displacements."""
         sd = self.mdg.subdomains()[0]
-        sr = self.exact_sol.flow_source(self.mdg.subdomains()[0], time=1)
-        vol = sd.cell_volumes
-
-        pp.plot_grid(sd, sr / vol, plot_2d=True, linewidth=0, title="source (Exact)")
-
-
-class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanics):
-    """Boundary conditions for the verification setup."""
-
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
-    ]
-    """Utility function to access the domain boundary sides."""
-
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """Boundary values for mobility density product."""
-
-        val = self.fluid.density() / self.fluid.viscosity()
-        sd = subdomains[0]
-        values = np.zeros(sd.num_faces)
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        values[all_bf] = val
-        bc_vals = pp.wrap_as_ad_array(values, name="bc_values_mobrho")
-        return bc_vals
-
-    def _plot_sources(self):
-        ex = ExactSolution()
-        sd = self.mdg.subdomains()[0]
-        t = self.time_manager.time_final
-        source_flow = ex.flow_source(sd, t)
-        pp.plot_grid(sd, source_flow, plot_2d=True, linewidth=0, title="Flow source")
-
-        source_mech = ex.mechanics_source(sd, t)
+        u_ex = self.results[-1].exact_displacement
+        u_num = self.results[-1].approx_displacement
+        # Horizontal displacement
+        pp.plot_grid(sd, u_ex[::2], plot_2d=True, linewidth=0, title="u_x (Exact)")
+        pp.plot_grid(sd, u_num[::2], plot_2d=True, linewidth=0, title="u_x (Numerical)")
+        # Vertical displacement
+        pp.plot_grid(sd, u_ex[1::2], plot_2d=True, linewidth=0, title="u_y (Exact)")
         pp.plot_grid(
-            sd,
-            source_mech[::2] / sd.cell_volumes,
-            plot_2d=True,
-            linewidth=0,
-            title="Horizontal mechanics source",
-        )
-        pp.plot_grid(
-            sd,
-            source_mech[1::2] / sd.cell_volumes,
-            plot_2d=True,
-            linewidth=0,
-            title="Vertical mechanics source",
+            sd, u_num[1::2], plot_2d=True, linewidth=0, title="u_y (Numerical)"
         )
 
-    def _plot_porosity(self) -> None:
-        ex = self.exact_sol
-        sd = self.mdg.subdomains()[0]
-        t = self.time_manager.time_final
-        phi = ex.poromechanics_porosity(sd, t)
-        pp.plot_grid(sd, phi, plot_2d=True, linewidth=0, title="Poromechanics Porosity")
 
-    def _plot_density(self) -> None:
-        ex = self.exact_sol
-        sd = self.mdg.subdomains()[0]
-        t = self.time_manager.time_final
-        rho = ex.density(sd, t)
-        pp.plot_grid(sd, rho, plot_2d=True, linewidth=0, title="Fluid density")
 
-    def _plot_fluid_mass(self) -> None:
-        ex = self.exact_sol
-        sd = self.mdg.subdomains()[0]
-        t = self.time_manager.time_final
-        phi = ex.poromechanics_porosity(sd, t)
-        rho = ex.density(sd, t)
-        pp.plot_grid(sd, rho * phi, plot_2d=True, linewidth=0, title="Fluid mass")
-
+# class ModifiedBoundaryConditions(pp.poromechanics.BoundaryConditionsPoromechanics):
+#     """Boundary conditions for the verification setup."""
+#
+#     domain_boundary_sides: Callable[
+#         [pp.Grid],
+#         tuple[
+#             np.ndarray,
+#             np.ndarray,
+#             np.ndarray,
+#             np.ndarray,
+#             np.ndarray,
+#             np.ndarray,
+#             np.ndarray,
+#         ],
+#     ]
+#     """Utility function to access the domain boundary sides."""
+#
+#     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+#         """Boundary values for mobility density product."""
+#
+#         val = self.fluid.density() / self.fluid.viscosity()
+#         sd = subdomains[0]
+#         values = np.zeros(sd.num_faces)
+#         all_bf, *_ = self.domain_boundary_sides(sd)
+#         values[all_bf] = val
+#         bc_vals = pp.wrap_as_ad_array(values, name="bc_values_mobrho")
+#         return bc_vals
 
 # ---------> Mixer class
 class ManuPoromechanics2d(
     UnitSquare,
-    ModifiedBoundaryConditions,
+    # ModifiedBoundaryConditions,
     ModifiedEquationsPoromechanics,
     ModifiedSolutionStrategy,
     poromechanics.Poromechanics,
@@ -808,25 +744,19 @@ class ManuPoromechanics2d(
 
 
 #%% Runner
-# time_levels = 1
-# from time import time
-# tic = time()
-# fluid = pp.FluidConstants({"compressibility": 0.1})
-# solid = pp.SolidConstants(
-#     {"porosity": 0.1,
-#      "biot_coefficient": 1.0,
-#      "permeability": 1000}
-# )
-# material_constants = {"fluid": fluid, "solid": solid}
-# params = {
-#     "plot_results": True,
-#     "stored_times": [1.0],
-#     "mesh_arguments": {"mesh_size_frac": 0.1, "mesh_size_bound": 0.05},
-#     "time_manager": pp.TimeManager([0, 1], 1, True),
-#     "material_constants": material_constants,
-# }
-# setup = ManuPoromechanics2d(params)
-# print("Simulation started...")
-# pp.run_time_dependent_model(setup, params)
-# toc = time()
-# print(f"Simulation finished in {round(toc - tic)} seconds.")
+from time import time
+tic = time()
+fluid = pp.FluidConstants({"compressibility": 0.0})
+solid = pp.SolidConstants({"biot_coefficient": 1.0})
+material_constants = {"fluid": fluid, "solid": solid}
+params = {
+    "plot_results": True,
+    "mesh_arguments": {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05},
+    "time_manager": pp.TimeManager([0, 2], 1, True),
+    "material_constants": material_constants,
+}
+setup = ManuPoromechanics2d(params)
+print("Simulation started...")
+pp.run_time_dependent_model(setup, params)
+toc = time()
+print(f"Simulation finished in {round(toc - tic)} seconds.")
