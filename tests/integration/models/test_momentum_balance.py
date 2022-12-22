@@ -1,18 +1,16 @@
 """Tests for model variables.
 
 """
+from __future__ import annotations
 import numpy as np
 import pytest
 
 import porepy as pp
 
-from .setup_utils import (
-    BoundaryConditionsThermoporomechanicsDirNorthSouth,
-    MomentumBalance,
-)
+from .setup_utils import BoundaryConditionsMechanicsDirNorthSouth, MomentumBalance
 
 
-class LinearModel(BoundaryConditionsThermoporomechanicsDirNorthSouth, MomentumBalance):
+class LinearModel(BoundaryConditionsMechanicsDirNorthSouth, MomentumBalance):
     pass
 
 

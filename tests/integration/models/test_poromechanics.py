@@ -5,14 +5,16 @@ This is needed to avoid degenerate mass balance equation in fracture.
 
 TODO: Clean up.
 """
+from __future__ import annotations
 import numpy as np
 import pytest
 
 import porepy as pp
 
 from .setup_utils import (
-    BoundaryConditionsThermoporomechanicsDirNorthSouth,
+    BoundaryConditionsMassAndEnergyDirNorthSouth,
     Poromechanics,
+    TimeDependentMechanicalBCsDirNorthSouth,
 )
 
 
@@ -78,33 +80,6 @@ class NonzeroFractureGapPoromechanics:
                 to_iterate=True,
             )
 
-        # Bc values for stress
-        _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
-        val_loc = np.zeros((self.nd, sd.num_faces))
-        # Only add if there is a fracture.
-        frac_val = 0.042 * (len(self.mdg.subdomains()) > 1)
-        val_loc[1, north] = frac_val
-        sd_data[pp.STATE].update({"bc_values_mechanics": val_loc.ravel("F")})
-        val_loc[1, north] = self.params.get("uy_north", 0) + frac_val
-        val_loc[1, south] = self.params.get("uy_south", 0)
-        sd_data[pp.STATE][pp.ITERATE].update(
-            {"bc_values_mechanics": val_loc.ravel("F")}
-        )
-
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """Boundary values for mechanics.
-
-        Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
-
-        Returns:
-            Array of boundary values.
-
-        """
-        # Use time dependent array to allow for time dependent boundary conditions in
-        # the div(u) term.
-        return pp.ad.TimeDependentArray("bc_values_mechanics", subdomains)
-
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Fracture stress on interfaces.
 
@@ -162,13 +137,27 @@ class NonzeroFractureGapPoromechanics:
 
 class TailoredPoromechanics(
     NonzeroFractureGapPoromechanics,
-    BoundaryConditionsThermoporomechanicsDirNorthSouth,
+    TimeDependentMechanicalBCsDirNorthSouth,
+    BoundaryConditionsMassAndEnergyDirNorthSouth,
     Poromechanics,
 ):
     pass
 
 
 def create_fractured_setup(solid_vals, fluid_vals, uy_north):
+    """Create a setup for a fractured domain.
+
+    The domain is a unit square with two intersecting fractures.
+
+    Parameters:
+        solid_vals (dict): Parameters for the solid mechanics model.
+        fluid_vals (dict): Parameters for the fluid mechanics model.
+        uy_north (float): Displacement in y-direction on the north boundary.
+
+    Returns:
+        TailoredPoromechanics: A setup for a fractured domain.
+
+    """
     # Instantiate constants and store in params.
     solid_vals["fracture_gap"] = 0.042
     solid_vals["residual_aperture"] = 1e-10
@@ -187,8 +176,23 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
     return setup
 
 
-def get_variables(setup):
-    # Check that the pressure is linear
+def get_variables(
+    setup: TailoredPoromechanics,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Utility function to extract variables from a setup.
+
+    Parameters:
+        setup (TailoredPoromechanics): A setup for a fractured domain.
+
+    Returns:
+        Tuple containing the following variables:
+            np.ndarray: Displacement values.
+            np.ndarray: Pressure values.
+            np.ndarray: Fracture pressure values.
+            np.ndarray: Displacement jump values.
+            np.ndarray: Contact traction values.
+
+    """
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
     u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
     u_vals = setup.equation_system.get_variable_values(u_var).reshape(

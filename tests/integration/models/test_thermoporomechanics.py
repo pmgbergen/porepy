@@ -5,14 +5,16 @@ This is needed to avoid degenerate mass and energy balance equations in the frac
 
 TODO: Clean up.
 """
+from __future__ import annotations
 import numpy as np
 import pytest
 
 import porepy as pp
 
 from .setup_utils import (
-    BoundaryConditionsThermoporomechanicsDirNorthSouth,
+    BoundaryConditionsMassAndEnergyDirNorthSouth,
     Thermoporomechanics,
+    TimeDependentMechanicalBCsDirNorthSouth,
 )
 from .test_poromechanics import NonzeroFractureGapPoromechanics
 from .test_poromechanics import get_variables as get_variables_poromechanics
@@ -20,7 +22,8 @@ from .test_poromechanics import get_variables as get_variables_poromechanics
 
 class TailoredThermoporomechanics(
     NonzeroFractureGapPoromechanics,
-    BoundaryConditionsThermoporomechanicsDirNorthSouth,
+    TimeDependentMechanicalBCsDirNorthSouth,
+    BoundaryConditionsMassAndEnergyDirNorthSouth,
     Thermoporomechanics,
 ):
     pass
