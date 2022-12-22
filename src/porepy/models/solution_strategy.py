@@ -431,8 +431,8 @@ class SolutionStrategy(abc.ABC):
 
         solver = self.linear_solver
         if solver == "pypardiso":
-            # This is the default option which is invoked unless explicitly overridden by the
-            # user. We need to check if the pypardiso package is available.
+            # This is the default option which is invoked unless explicitly overridden
+            # by the user. We need to check if the pypardiso package is available.
             try:
                 from pypardiso import spsolve as sparse_solver  # type: ignore
             except ImportError:
@@ -466,3 +466,14 @@ class SolutionStrategy(abc.ABC):
 
         """
         return True
+
+    def update_time_dependent_ad_arrays(self, initial: bool) -> None:
+        """Update the time dependent arrays for the mechanics boundary conditions.
+
+        Parameters:
+            initial: If True, the array generating method is called for both state and
+                iterate. If False, the array generating method is called only for the
+                iterate, and the state is updated by copying the iterate.
+
+        """
+        pass

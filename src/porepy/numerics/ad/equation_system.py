@@ -477,7 +477,7 @@ class EquationSystem:
 
     def get_variables(
         self,
-        variables: Optional[list[Variable]] = None,
+        variables: Optional[VariableList] = None,
         grids: Optional[list[pp.GridLike]] = None,
         tag_name: Optional[str] = None,
         tag_value: Optional[Any] = None,
@@ -489,7 +489,8 @@ class EquationSystem:
 
         Parameters:
             variables: List of variables to filter. If None, all variables in the system
-                are included.
+                are included. Variables can be given as a list of variables, mixed-
+                dimensional variables, or variable names (strings).
             grids: List of grids to filter on. If None, all grids are included.
             tag_name: Name of the tag to filter on. If None, no filtering on tags.
             tag_value: Value of the tag to filter on. If None, no filtering on tag

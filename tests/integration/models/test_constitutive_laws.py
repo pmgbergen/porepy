@@ -9,6 +9,7 @@ compound classes contain the specified constitutive laws, thus revealing mistake
 the classes are refactored.
 
 """
+from __future__ import annotations
 import numpy as np
 import pytest
 
