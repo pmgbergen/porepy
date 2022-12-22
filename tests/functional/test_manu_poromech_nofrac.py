@@ -45,7 +45,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.models.verification_setups.manu_poromech_unfrac import ManuPoromechanics2d
+from porepy.models.verification_setups.manu_poromech_nofrac import ManuPoromechanics2d
 
 # Run verification setup and retrieve results for three different times
 fluid = pp.FluidConstants({"compressibility": 0.02})
