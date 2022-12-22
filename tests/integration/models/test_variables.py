@@ -1,6 +1,7 @@
 """Tests for model variables.
 
 """
+from __future__ import annotations
 from inspect import signature
 
 import pytest

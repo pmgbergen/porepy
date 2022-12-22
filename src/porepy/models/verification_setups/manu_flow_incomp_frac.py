@@ -436,7 +436,7 @@ class ModifiedGeometry(pp.ModelGeometry):
 
         """
         # Unit square domain
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        domain: dict[str, float] = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
         # Point coordinates
         point_coordinates = np.array(

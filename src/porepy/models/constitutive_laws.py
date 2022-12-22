@@ -852,7 +852,7 @@ class DarcysLaw:
 
         # Ignore mypy complaint about unexpected keyword arguments.
         cell_volumes = self.wrap_grid_attribute(
-            interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore
+            interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
         )
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity
@@ -920,13 +920,19 @@ class DarcysLaw:
         # Account for sign of boundary face normals.
         # No scaling with interface cell volumes.
         normals = self.outwards_internal_boundary_normals(
-            interfaces, unitary=True  # type: ignore
+            interfaces, unitary=True  # type: ignore[call-arg]
         )
         # Make dot product with vector source in two steps. First element-wise product.
         element_product = normals * self.vector_source(interfaces, material=material)
         # Then sum over the nd dimensions.
+        # We need to surpress mypy complaints on e being a list of integers (error code
+        # misc, EK has no idea why mypy thinks this is actually happening) and the
+        # standard problem with basis having keyword-only arguments.
         nd_to_scalar_sum = sum(
-            [e.T for e in self.basis(interfaces, dim=self.nd)]  # type: ignore
+            [
+                e.T  # type: ignore[misc]
+                for e in self.basis(interfaces, dim=self.nd)  # type: ignore[call-arg]
+            ]
         )
         dot_product = nd_to_scalar_sum * element_product
         return dot_product
@@ -1233,7 +1239,7 @@ class FouriersLaw:
 
         # Ignore mypy complaint about unexpected keyword arguments.
         cell_volumes = self.wrap_grid_attribute(
-            interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore
+            interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
         )
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity
@@ -1545,7 +1551,7 @@ class GravityForce:
 
         # Ignore type error, can't get mypy to understand keyword-only arguments in
         # mixin
-        e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)  # type: ignore
+        e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)  # type: ignore[call-arg]
         source = (-1) * rho * e_n * gravity
         source.set_name("gravity_force")
         return source
@@ -1835,14 +1841,17 @@ class PressureStress(LinearElasticMechanicalStress):
         # Note the unitary scaling here, we will scale the pressure with the area
         # of the interface (equivalently face area in the matrix subdomains) elsewhere.
         outwards_normal = self.outwards_internal_boundary_normals(
-            interfaces, unitary=True  # type: ignore
+            interfaces, unitary=True  # type: ignore[call-arg]
         )
 
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
         # Mypy seems to believe that sum always returns a scalar. Ignore errors.
-        scalar_to_nd: pp.ad.Operator = sum(
-            [e_i for e_i in self.basis(interfaces, dim=self.nd)]  # type: ignore
+        scalar_to_nd: pp.ad.Operator = sum(  # type: ignore[assignment]
+            [
+                e_i  # type: ignore[misc]
+                for e_i in self.basis(interfaces, dim=self.nd)  # type: ignore[call-arg]
+            ]
         )
         # Spelled out, from the right: Project the pressure from the fracture to the
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
@@ -2433,7 +2442,9 @@ class PoroMechanicsPorosity:
         # The div_u discretization contains a volume integral. Since div u is used here
         # together with intensive quantities, we need to divide by cell volumes.
         div_u = (
-            self.wrap_grid_attribute(subdomains, "cell_volumes", dim=1, inverse=True)
+            self.wrap_grid_attribute(  # type: ignore[call-arg]
+                subdomains, "cell_volumes", dim=1, inverse=True
+            )
             * div_u_integrated
         )
         div_u.set_name("div_u")
@@ -2467,7 +2478,9 @@ class PoroMechanicsPorosity:
         # stabilization term is used here together with intensive quantities, we need to
         # divide by cell volumes.
         stabilization = (
-            self.wrap_grid_attribute(subdomains, "cell_volumes", dim=1, inverse=True)
+            self.wrap_grid_attribute(  # type: ignore[call-arg]
+                subdomains, "cell_volumes", dim=1, inverse=True
+            )
             * stabilization_integrated
         )
 
