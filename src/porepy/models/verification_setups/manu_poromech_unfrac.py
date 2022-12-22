@@ -552,8 +552,14 @@ class ModifiedMassBalance(mass.MassBalanceEquations):
             subdomains=self.mdg.subdomains(),
             previous_timestep=True,
         )
-
-        return internal_sources + external_sources
+        # Add cross term missing from dt operator relative to proper
+        # application of the product rule.
+        rho = self.fluid_density(subdomains)
+        phi = self.volume_integral(self.porosity(subdomains), subdomains, dim=1)
+        dt_op = pp.ad.time_derivatives.dt
+        dt = pp.ad.Scalar(self.time_manager.dt, name="delta_t")
+        prod = dt_op(rho, dt) * dt_op(phi, dt)
+        return internal_sources + external_sources - prod
 
 
 class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
