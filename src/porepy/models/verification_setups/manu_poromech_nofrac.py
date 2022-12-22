@@ -6,6 +6,7 @@ For the exact solution, we refer to https://doi.org/10.1137/15M1014280.
 
 """
 from __future__ import annotations
+
 from typing import Callable
 
 import numpy as np
