@@ -10,133 +10,6 @@ import pytest
 
 import porepy as pp
 
-
-def test_md_flow():
-    # Three fractures, will create intersection lines and point
-    frac_1 = np.array([[2, 4, 4, 2], [3, 3, 3, 3], [0, 0, 6, 6]])
-    frac_2 = np.array([[3, 3, 3, 3], [2, 4, 4, 2], [0, 0, 6, 6]])
-    frac_3 = np.array([[0, 6, 6, 0], [2, 2, 4, 4], [3, 3, 3, 3]])
-
-    mdg = pp.meshing.cart_grid(fracs=[frac_1, frac_2, frac_3], nx=np.array([6, 6, 6]))
-    mdg.compute_geometry()
-
-    pressure_variable = "pressure"
-    flux_variable = "mortar_flux"
-
-    keyword = "flow"
-    discr = pp.Tpfa(keyword)
-    source_discr = pp.ScalarSource(keyword)
-    coupling_discr = pp.RobinCoupling(keyword, discr, discr)
-
-    for sd, sd_data in mdg.subdomains(return_data=True):
-
-        # Assign data
-        if sd.dim == mdg.dim_max():
-            upper_left_ind = np.argmax(np.linalg.norm(sd.face_centers, axis=0))
-            bc = pp.BoundaryCondition(sd, np.array([0, upper_left_ind]), ["dir", "dir"])
-            bc_values = np.zeros(sd.num_faces)
-            bc_values[0] = 1
-            sources = np.random.rand(sd.num_cells) * sd.cell_volumes
-            specified_parameters = {"bc": bc, "bc_values": bc_values, "source": sources}
-        else:
-            sources = np.random.rand(sd.num_cells) * sd.cell_volumes
-            specified_parameters = {"source": sources}
-
-        # Initialize data
-        pp.initialize_default_data(sd, sd_data, keyword, specified_parameters)
-
-        # Declare grid primary variable
-        sd_data[pp.PRIMARY_VARIABLES] = {pressure_variable: {"cells": 1}}
-
-        # Assign discretization
-        sd_data[pp.DISCRETIZATION] = {
-            pressure_variable: {"diff": discr, "source": source_discr}
-        }
-
-        # Initialize state
-        sd_data[pp.STATE] = {
-            pressure_variable: np.zeros(sd.num_cells),
-            pp.ITERATE: {pressure_variable: np.zeros(sd.num_cells)},
-        }
-    for intf, intf_data in mdg.interfaces(return_data=True):
-        sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
-        pp.initialize_data(intf, intf_data, keyword, {"normal_diffusivity": 1})
-
-        intf_data[pp.PRIMARY_VARIABLES] = {flux_variable: {"cells": 1}}
-        intf_data[pp.COUPLING_DISCRETIZATION] = {}
-        intf_data[pp.COUPLING_DISCRETIZATION]["coupling"] = {
-            sd_primary: (pressure_variable, "diff"),
-            sd_secondary: (pressure_variable, "diff"),
-            intf: (flux_variable, coupling_discr),
-        }
-        intf_data[pp.STATE] = {
-            flux_variable: np.zeros(intf.num_cells),
-            pp.ITERATE: {flux_variable: np.zeros(intf.num_cells)},
-        }
-
-    dof_manager = pp.DofManager(mdg)
-    assembler = pp.Assembler(mdg, dof_manager)
-    assembler.discretize()
-
-    # Reference discretization
-    A_ref, b_ref = assembler.assemble_matrix_rhs()
-
-    manager = pp.ad.EquationManager(mdg, dof_manager)
-
-    subdomains = mdg.subdomains()
-    interfaces = mdg.interfaces()
-
-    node_discr = pp.ad.MpfaAd(keyword, subdomains)
-
-    edge_discr = pp.ad.RobinCouplingAd(keyword, interfaces)
-
-    bc_val = pp.ad.BoundaryCondition(keyword, subdomains)
-
-    source = pp.ad.ParameterArray(
-        param_keyword=keyword, array_keyword="source", subdomains=subdomains
-    )
-
-    projections = pp.ad.MortarProjections(
-        mdg=mdg, subdomains=subdomains, interfaces=interfaces
-    )
-    div = pp.ad.Divergence(subdomains=subdomains)
-
-    p = manager.merge_variables([(sd, pressure_variable) for sd in subdomains])
-    lmbda = manager.merge_variables([(intf, flux_variable) for intf in interfaces])
-
-    flux = (
-        node_discr.flux * p
-        + node_discr.bound_flux * bc_val
-        + node_discr.bound_flux * projections.mortar_to_primary_int * lmbda
-    )
-    flow_eq = div * flux - projections.mortar_to_secondary_int * lmbda - source
-
-    interface_flux = (
-        edge_discr.mortar_discr
-        * projections.primary_to_mortar_avg
-        * node_discr.bound_pressure_cell
-        * p
-        + edge_discr.mortar_discr
-        * projections.primary_to_mortar_avg
-        * node_discr.bound_pressure_face
-        * projections.mortar_to_primary_int
-        * lmbda
-        - edge_discr.mortar_discr * projections.secondary_to_mortar_avg * p
-        + lmbda
-    )
-
-    flow_eq.discretize(mdg)
-
-    manager.equations.update({"matrix_flow": flow_eq, "mortar_flow": interface_flux})
-
-    state = np.zeros(mdg.num_subdomain_cells() + mdg.num_interface_cells())
-    A, b = manager.assemble(state=state)
-    diff = A - A_ref
-    if diff.data.size > 0:
-        assert np.max(np.abs(diff.data)) < 1e-10
-    assert np.max(np.abs(b - b_ref)) < 1e-10
-
-
 # Below are grid bucket generators to be used for tests of contact-mechanics models
 
 
@@ -391,7 +264,7 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True) -> None:
     prev_sol_as = model_as.dof_manager.assemble_variable(from_iterate=False)
     init_sol_as = prev_sol_as
 
-    prev_sol_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
+    prev_sol_ad = model_ad.equation_system.get_variable_values(from_iterate=False)
     init_sol_ad = prev_sol_ad.copy()
 
     tol = 1e-12

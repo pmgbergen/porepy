@@ -34,11 +34,10 @@ def run_stationary_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def run_time_dependent_model(model, params) -> None:
-    """
-    Run a time dependent model.
+def run_time_dependent_model(model, params: dict) -> None:
+    """Run a time dependent model.
 
-    Args:
+    Parameters:
         model: Model class containing all information on parameters, variables,
             discretization, geometry. Various methods such as those relating to solving
             the system, see the appropriate solver for documentation.

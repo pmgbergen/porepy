@@ -126,18 +126,26 @@ class ContactMechanics(AbstractModel):
 
         """
         self._nonlinear_iteration += 1
-        self.dof_manager.distribute_variable(
-            values=solution_vector, additive=self._use_ad, to_iterate=True
-        )
+        if self._use_ad:
+            self.equation_system.set_variable_values(
+                solution_vector, additive=True, to_iterate=True
+            )
+        else:
+            self.dof_manager.distribute_variable(
+                values=solution_vector, additive=False, to_iterate=True
+            )
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         if self._use_ad:
             # Fetch iterate solution, which was updated in after_newton_iteration
-            solution = self.dof_manager.assemble_variable(from_iterate=True)
+            solution = self.equation_system.get_variable_values(from_iterate=True)
             # Distribute to pp.STATE
-            self.dof_manager.distribute_variable(values=solution, additive=False)
+            self.equation_system.set_variable_values(
+                solution, additive=False, to_state=True
+            )
+
         else:
             self.assembler.distribute_variable(solution)
         self.convergence_status = True
@@ -384,10 +392,12 @@ class ContactMechanics(AbstractModel):
         pp.contact_conditions.set_projections(self.mdg)
 
         # Variables and parameters
+        if not hasattr(self, "equation_system"):
+            self.equation_system = pp.ad.EquationSystem(self.mdg)
         self._assign_variables()
         if self._use_ad:
             self._create_ad_variables()
-        if not hasattr(self, "dof_manager"):
+        if not hasattr(self, "dof_manager") and not self._use_ad:
             self.dof_manager = pp.DofManager(self.mdg)
         self._initial_condition()
         self._set_parameters()
@@ -396,7 +406,7 @@ class ContactMechanics(AbstractModel):
         self._assign_discretizations()
         # Once we have defined all discretizations, it's time to instantiate an
         # equation manager (needs to know which terms it should treat)
-        if not self._use_ad:
+        if not self._use_ad and not self._use_ad:
             self.assembler: pp.Assembler = pp.Assembler(self.mdg, self.dof_manager)
 
         # Initial discretization.
@@ -643,26 +653,43 @@ class ContactMechanics(AbstractModel):
         """
         Assign variables to the subdomains and interfaces of the mixed-dimensional grid.
         """
-        for sd, data in self.mdg.subdomains(return_data=True):
-            if sd.dim == self.nd:
-                data[pp.PRIMARY_VARIABLES] = {
-                    self.displacement_variable: {"cells": self.nd}
-                }
-            elif sd.dim == self.nd - 1:
-                data[pp.PRIMARY_VARIABLES] = {
-                    self.contact_traction_variable: {"cells": self.nd}
-                }
-            else:
-                data[pp.PRIMARY_VARIABLES] = {}
+        if self._use_ad:
+            self.equation_system.create_variables(
+                self.displacement_variable,
+                {"cells": self.nd},
+                subdomains=self.mdg.subdomains(dim=self.nd),
+            )
+            self.equation_system.create_variables(
+                self.contact_traction_variable,
+                {"cells": self.nd},
+                subdomains=self.mdg.subdomains(dim=self.nd - 1),
+            )
+            self.equation_system.create_variables(
+                self.mortar_displacement_variable,
+                {"cells": self.nd},
+                interfaces=self.mdg.interfaces(dim=self.nd - 1),
+            )
+        else:
+            for sd, data in self.mdg.subdomains(return_data=True):
+                if sd.dim == self.nd:
+                    data[pp.PRIMARY_VARIABLES] = {
+                        self.displacement_variable: {"cells": self.nd}
+                    }
+                elif sd.dim == self.nd - 1:
+                    data[pp.PRIMARY_VARIABLES] = {
+                        self.contact_traction_variable: {"cells": self.nd}
+                    }
+                else:
+                    data[pp.PRIMARY_VARIABLES] = {}
 
-        for intf, data in self.mdg.interfaces(return_data=True):
-            if intf.dim == self.nd - 1:
-                data[pp.PRIMARY_VARIABLES] = {
-                    self.mortar_displacement_variable: {"cells": self.nd}
-                }
+            for intf, data in self.mdg.interfaces(return_data=True):
+                if intf.dim == self.nd - 1:
+                    data[pp.PRIMARY_VARIABLES] = {
+                        self.mortar_displacement_variable: {"cells": self.nd}
+                    }
 
-            else:
-                data[pp.PRIMARY_VARIABLES] = {}
+                else:
+                    data[pp.PRIMARY_VARIABLES] = {}
 
     def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
@@ -690,9 +717,6 @@ class ContactMechanics(AbstractModel):
 
         # Ad variables
         mdg, nd = self.mdg, self.nd
-        if not hasattr(self, "dof_manager"):
-            self.dof_manager = pp.DofManager(mdg)
-        self._eq_manager = pp.ad.EquationManager(mdg, self.dof_manager)
         sd_primary: pp.Grid = self._nd_subdomain()
         fracture_subdomains: List[pp.Grid] = mdg.subdomains(dim=nd - 1)
         self._num_frac_cells = np.sum([sd.num_cells for sd in fracture_subdomains])
@@ -711,17 +735,14 @@ class ContactMechanics(AbstractModel):
         self._set_ad_projections()
 
         # Primary variables on Ad form
-        self._ad.displacement = self._eq_manager.variable(
-            sd_primary, self.displacement_variable
+        self._ad.displacement = self.equation_system.md_variable(
+            self.displacement_variable, [sd_primary]
         )
-        self._ad.interface_displacement = self._eq_manager.merge_variables(
-            [
-                (intf, self.mortar_displacement_variable)
-                for intf in matrix_fracture_interfaces
-            ]
+        self._ad.interface_displacement = self.equation_system.md_variable(
+            self.mortar_displacement_variable, matrix_fracture_interfaces
         )
-        self._ad.contact_force = self._eq_manager.merge_variables(
-            [(sd, self.contact_traction_variable) for sd in fracture_subdomains]
+        self._ad.contact_force = self.equation_system.md_variable(
+            self.contact_traction_variable, fracture_subdomains
         )
         discr = pp.ad.ContactTractionAd(
             self.mechanics_parameter_key,
@@ -747,7 +768,7 @@ class ContactMechanics(AbstractModel):
         # For the Nd domain we solve linear elasticity with mpsa.
         nd = self.nd
         mdg = self.mdg
-        if not hasattr(self, "dof_manager"):
+        if not hasattr(self, "dof_manager") and not self._use_ad:
             self.dof_manager = pp.DofManager(mdg)
         if not self._use_ad:
             mpsa = pp.Mpsa(self.mechanics_parameter_key)
@@ -833,13 +854,24 @@ class ContactMechanics(AbstractModel):
             matrix_fracture_interfaces,
         )
         # Assign equations to manager
-        self._eq_manager.name_and_assign_equations(
-            {
-                "momentum": momentum_eq,
-                "contact_mechanics_normal": contact_n,
-                "contact_mechanics_tangential": contact_t,
-                "force_balance": force_balance_eq,
-            },
+        for eq, name in zip(
+            [momentum_eq, contact_n, contact_t, force_balance_eq],
+            [
+                "momentum",
+                "contact_mechanics_normal",
+                "contact_mechanics_tangential",
+                "force_balance",
+            ],
+        ):
+            eq.set_name(name)
+
+        self.equation_system.set_equation(momentum_eq, [sd_nd], {"cells": self.nd})
+        self.equation_system.set_equation(contact_n, fracture_subdomains, {"cells": 1})
+        self.equation_system.set_equation(
+            contact_t, fracture_subdomains, {"cells": self.nd - 1}
+        )
+        self.equation_system.set_equation(
+            force_balance_eq, matrix_fracture_interfaces, {"cells": self.nd}
         )
 
     def _set_ad_projections(
@@ -1331,7 +1363,7 @@ class ContactMechanics(AbstractModel):
         tic = time.time()
         logger.info("Discretize")
         if self._use_ad:
-            self._eq_manager.discretize(self.mdg)
+            self.equation_system.discretize()
         else:
             self.assembler.discretize()
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
