@@ -93,8 +93,8 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         return mesh_sizes
 
 
-class BoundaryConditionsThermoporomechanicsDirNorthSouth(
-    pp.thermoporomechanics.BoundaryConditionsThermoporomechanics
+class BoundaryConditionsMassAndEnergyDirNorthSouth(
+    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy
 ):
     """Boundary conditions for the thermoporomechanics problem.
 
@@ -147,23 +147,6 @@ class BoundaryConditionsThermoporomechanicsDirNorthSouth(
             vals_loc[north + south] = self.fluid.pressure()
             vals.append(vals_loc)
         return pp.wrap_as_ad_array(np.hstack(vals), name="bc_values_darcy")
-
-    def bc_type_mechanics(self, sd):
-        """Boundary condition type for mechanics.
-
-        Dirichlet boundary conditions are defined on the north and south boundaries.
-
-        Parameters:
-            sd: Subdomain for which to define boundary conditions.
-
-        Returns:
-            bc: Boundary condition object.
-
-        """
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, north + south, "dir")
-        bc.internal_to_dirichlet(sd)
-        return bc
 
     def bc_type_mobrho(self, sd):
         """Boundary condition type for the density-mobility product.
@@ -240,6 +223,27 @@ class BoundaryConditionsThermoporomechanicsDirNorthSouth(
         bc_values = pp.wrap_as_ad_array(np.hstack(bc_values), name="bc_values_mobility")
         return bc_values
 
+
+class BoundaryConditionsMechanicsDirNorthSouth(
+    pp.momentum_balance.BoundaryConditionsMomentumBalance
+):
+    def bc_type_mechanics(self, sd):
+        """Boundary condition type for mechanics.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, north + south, "dir")
+        bc.internal_to_dirichlet(sd)
+        return bc
+
     def bc_values_mechanics_np(self, sd: pp.Grid) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
@@ -284,6 +288,32 @@ class BoundaryConditionsThermoporomechanicsDirNorthSouth(
             np.hstack(bc_values), name="bc_values_mechanics"
         )
         return ad_values
+
+
+class TimeDependentMechanicalBCsDirNorthSouth:
+    """Time dependent displacement boundary conditions.
+
+    For use in (thermo)poremechanics.
+    """
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return BoundaryConditionsMechanicsDirNorthSouth.bc_type_mechanics(self, sd)
+
+    def time_dependent_bc_values_mechanics(
+        self, subdomains: list[pp.Grid]
+    ) -> np.ndarray:
+        assert len(subdomains) == 1
+        sd = subdomains[0]
+
+        _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
+        values = np.zeros((self.nd, sd.num_faces))
+        # Add fracture width on top if there is a fracture.
+        frac_val = [0.042 if len(self.mdg.subdomains()) > 1 else 0]
+        values[1, north] = frac_val
+        if self.time_manager.time > 1e-5:
+            values[1, north] += self.params.get("uy_north", 0)
+            values[1, south] += self.params.get("uy_south", 0)
+        return values.ravel("F")
 
 
 class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):

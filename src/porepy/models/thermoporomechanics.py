@@ -22,6 +22,7 @@ import porepy as pp
 from . import energy_balance as energy
 from . import fluid_mass_balance as mass
 from . import momentum_balance as momentum
+from . import poromechanics
 
 
 class ConstitutiveLawsThermoporomechanics(
@@ -116,7 +117,7 @@ class VariablesThermoporomechanics(
 class BoundaryConditionsThermoporomechanics(
     energy.BoundaryConditionsEnergyBalance,
     mass.BoundaryConditionsSinglePhaseFlow,
-    momentum.BoundaryConditionsMomentumBalance,
+    poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
     """Combines energy, mass and momentum balance boundary conditions.
 
@@ -127,10 +128,9 @@ class BoundaryConditionsThermoporomechanics(
 
     """
 
-    pass
-
 
 class SolutionStrategyThermoporomechanics(
+    poromechanics.SolutionStrategyTimeDependentBCs,
     energy.SolutionStrategyEnergyBalance,
     mass.SolutionStrategySinglePhaseFlow,
     momentum.SolutionStrategyMomentumBalance,
