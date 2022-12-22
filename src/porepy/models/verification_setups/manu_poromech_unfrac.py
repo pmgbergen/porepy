@@ -710,11 +710,11 @@ class ManuPoromechanics2d(
 
         .. code:: python
 
-        import time as time
+        from time import time
 
         tic = time()
         fluid = pp.FluidConstants({"compressibility": 0.02})
-        solid = pp.SolidConstants({"biot_coefficient": 0.75})
+        solid = pp.SolidConstants({"biot_coefficient": 0.50})
         material_constants = {"fluid": fluid, "solid": solid}
         params = {
             "plot_results": True,
