@@ -14,6 +14,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
 
 """
 from __future__ import annotations
+
 from typing import Callable, Optional
 
 import numpy as np
@@ -93,34 +94,17 @@ class VariablesPoromechanics(
         momentum.VariablesMomentumBalance.create_variables(self)
 
 
-class BoundaryConditionsPoromechanics(
-    mass.BoundaryConditionsSinglePhaseFlow,
+class BoundaryConditionsMechanicsTimeDependent(
     momentum.BoundaryConditionsMomentumBalance,
 ):
-    """Combines mass and momentum balance boundary conditions.
-
-    Note:
-        The mechanical boundary conditions are differentiated wrt time in the div_u
-        term. Thus, time dependent values must be defined using
-        :class:`~porepy.numerics.ad.operators.TimeDependentArray`.
-
-        To modify the values of the mechanical boundary conditions, the user must
-        redefine the method
-        :meth:`~porepy.models.poromechanics.BoundaryConditionsPoromechanics.
-        time_dependent_bc_values_mechanics`, which is called by the methods
-        :meth:`~porepy.models.poromechanics.SolutionStrategyPoromechanics.
-        initial_condition` and :meth:`~porepy.models.poromechanics.
-        SolutionStrategyPoromechanics.before_nonlinear_loop` to update the boundary
-        conditions in `data[pp.STATE]` and `data[pp.STATE][pp.ITERATE]`.
-
-    """
-
     bc_values_mechanics_key: str
     """Key for the mechanical boundary conditions in the state and iterate dictionaries.
 
     """
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mechanics(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.TimeDependentArray:
         """Boundary values for mechanics.
 
         Parameters:
@@ -157,7 +141,85 @@ class BoundaryConditionsPoromechanics(
         return vals.ravel("F")
 
 
+class BoundaryConditionsPoromechanics(
+    mass.BoundaryConditionsSinglePhaseFlow,
+    BoundaryConditionsMechanicsTimeDependent,
+):
+    """Combines mass and momentum balance boundary conditions.
+
+    Note:
+        The mechanical boundary conditions are differentiated wrt time in the div_u
+        term. Thus, time dependent values must be defined using
+        :class:`~porepy.numerics.ad.operators.TimeDependentArray`.
+
+        To modify the values of the mechanical boundary conditions, the user must
+        redefine the method
+        :meth:`~porepy.models.poromechanics.BoundaryConditionsPoromechanics.
+        time_dependent_bc_values_mechanics`, which is called by the methods
+        :meth:`~porepy.models.poromechanics.SolutionStrategyPoromechanics.
+        initial_condition` and :meth:`~porepy.models.poromechanics.
+        SolutionStrategyPoromechanics.before_nonlinear_loop` to update the boundary
+        conditions in `data[pp.STATE]` and `data[pp.STATE][pp.ITERATE]`.
+
+    """
+
+
+class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
+    @property
+    def bc_values_mechanics_key(self) -> str:
+        """Key for the mechanical boundary conditions in the state and iterate
+        dictionaries.
+
+        """
+        return "bc_values_mechanics"
+
+    def initial_condition(self) -> None:
+        """Set initial condition for the coupled problem.
+
+        The initial condition for the coupled problem is the initial condition for the
+        subproblems.
+
+        """
+        # Set initial condition for the subproblems.
+        super().initial_condition()
+
+        self.update_time_dependent_ad_arrays(initial=True)
+
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()
+        # Update the mechanical boundary conditions to both the state and iterate.
+        self.update_time_dependent_ad_arrays(initial=False)
+
+    def update_time_dependent_ad_arrays(self, initial: bool) -> None:
+        """Update the time dependent arrays for the mechanics boundary conditions.
+
+        Parameters:
+            initial: If True, the array generating method is called for both state and
+                iterate. If False, the array generating method is called only for the
+                iterate, and the state is updated by copying the iterate.
+
+        """
+        # Call super in case class is combined with other classes implementing this
+        # method.
+        super().update_time_dependent_ad_arrays(initial)
+        # Update the mechanical boundary conditions to both the state and iterate.
+        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
+            if initial:
+                data[pp.STATE][
+                    self.bc_values_mechanics_key
+                ] = self.time_dependent_bc_values_mechanics([sd])
+            else:
+                # Copy old values from iterate to state.
+                data[pp.STATE][self.bc_values_mechanics_key] = data[pp.STATE][
+                    pp.ITERATE
+                ][self.bc_values_mechanics_key]
+            data[pp.STATE][pp.ITERATE][
+                self.bc_values_mechanics_key
+            ] = self.time_dependent_bc_values_mechanics([sd])
+
+
 class SolutionStrategyPoromechanics(
+    SolutionStrategyTimeDependentBCs,
     mass.SolutionStrategySinglePhaseFlow,
     momentum.SolutionStrategyMomentumBalance,
 ):
@@ -175,17 +237,6 @@ class SolutionStrategyPoromechanics(
 
     time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
     """Method for time dependent boundary values for mechanics."""
-
-    def __init__(self, params: Optional[dict] = None) -> None:
-        super().__init__(params)
-        self.bc_values_mechanics_key = "time_dependent_bc_values_mechanics"
-        """Key for the time dependent boundary values for mechanics.
-
-        The boundary values for mechanics are defined using a
-        :class:`~porepy.numerics.ad.operators.TimeDependentArray` because the
-        :math:`\\nabla \\cdot u` term in the momentum balance is time dependent.
-
-        """
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
@@ -206,38 +257,6 @@ class SolutionStrategyPoromechanics(
     def _is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""
         return True
-
-    def initial_condition(self) -> None:
-        """Set initial condition for the coupled problem.
-
-        The initial condition for the coupled problem is the initial condition for the
-        subproblems.
-
-        """
-        # Set initial condition for the subproblems.
-        super().initial_condition()
-
-        # Update the mechanical boundary conditions to both the state and iterate.
-        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
-            data[pp.STATE][
-                self.bc_values_mechanics_key
-            ] = self.time_dependent_bc_values_mechanics([sd])
-            data[pp.STATE][pp.ITERATE][
-                self.bc_values_mechanics_key
-            ] = self.time_dependent_bc_values_mechanics([sd])
-
-    def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()
-        # Update the mechanical boundary conditions to both the state and iterate.
-        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
-            # Copy old values from iterate to state.
-            data[pp.STATE][self.bc_values_mechanics_key] = data[pp.STATE][pp.ITERATE][
-                self.bc_values_mechanics_key
-            ]
-            # Update the mechanical boundary conditions in the iterate.
-            data[pp.STATE][pp.ITERATE][
-                self.bc_values_mechanics_key
-            ] = self.time_dependent_bc_values_mechanics([sd])
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
