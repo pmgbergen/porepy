@@ -532,7 +532,18 @@ class UnitSquare(pp.ModelGeometry):
 
     def set_md_grid(self) -> None:
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-        self.domain_bounds = self.fracture_network.domain
+        domain = self.fracture_network.domain
+        if isinstance(domain, np.ndarray):
+            assert domain.shape == (2, 2)
+            self.domain: dict[str, float] = {
+                "xmin": domain[0, 0],
+                "xmax": domain[1, 0],
+                "ymin": domain[0, 1],
+                "ymax": domain[1, 1],
+            }
+        else:
+            assert isinstance(domain, dict)
+            self.domain = domain
 
 
 # --------> Equations
@@ -697,7 +708,7 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
 
 # ---------> Mixer class
-class ManuPoromechanics2d(
+class ManuPoromechanics2d(  # type: ignore
     UnitSquare,
     ModifiedEquationsPoromechanics,
     ModifiedSolutionStrategy,
