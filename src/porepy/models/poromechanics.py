@@ -15,7 +15,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
 """
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 
@@ -165,6 +165,10 @@ class BoundaryConditionsPoromechanics(
 
 
 class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
+
+    time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
+    """Method for time dependent boundary conditions for mechanics."""
+
     @property
     def bc_values_mechanics_key(self) -> str:
         """Key for the mechanical boundary conditions in the state and iterate

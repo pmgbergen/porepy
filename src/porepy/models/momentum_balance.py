@@ -335,7 +335,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Ignore mypy complaint on unknown keyword argument
         tangential_basis = self.basis(
             subdomains, dim=self.nd - 1  # type: ignore[call-arg]
-            )
+        )
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors.
         # The individual basis functions have shape (Nc * (self.nd - 1), Nc), where

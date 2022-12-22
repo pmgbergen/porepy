@@ -26,6 +26,11 @@ class SolutionStrategy(abc.ABC):
 
     """
 
+    nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
     set_geometry: Callable[[], None]
     """Set the geometry of the model. Normally provided by a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
