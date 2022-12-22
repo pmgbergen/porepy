@@ -362,7 +362,7 @@ class BoundaryConditionsSinglePhaseFlow:
         num_faces = sum([sd.num_faces for sd in subdomains])
         # Ignore typing error below, the parameter in _ad_wrapper forces it to be an
         # Array.
-        return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")  # type: ignore
+        return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")
 
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary condition values for the mobility times density.
@@ -404,7 +404,7 @@ class BoundaryConditionsSinglePhaseFlow:
         bc_values_array: pp.ad.Array = pp.wrap_as_ad_array(  # type: ignore
             np.hstack(bc_values), name="bc_values_mobility"
         )
-        return bc_values_array  # type: ignore
+        return bc_values_array
 
 
 class VariablesSinglePhaseFlow(pp.VariableMixin):

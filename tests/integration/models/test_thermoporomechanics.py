@@ -5,6 +5,7 @@ This is needed to avoid degenerate mass and energy balance equations in the frac
 
 TODO: Clean up.
 """
+from __future__ import annotations
 import numpy as np
 import pytest
 

@@ -95,8 +95,3 @@ def test_parse_equations(
     # terms and factors (e.g., grids, parameters, variables, other methods etc.) to form
     # an Ad operator object.
     setup.equation_system.assemble_subsystem({equation_name: domains})
-
-
-# test_parse_equations(
-#    "momentum_balance", "tangential_fracture_deformation_equation", 1, 1, 3
-# )

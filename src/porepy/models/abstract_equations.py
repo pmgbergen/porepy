@@ -112,7 +112,7 @@ class BalanceEquation:
         # First account for cell volumes.
         # Ignore mypy complaint about unexpected keyword arguments.
         cell_volumes = self.wrap_grid_attribute(
-            grids, "cell_volumes", dim=1, inverse=False  # type: ignore
+            grids, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
         )
 
         # Next, include the effects of reduced dimensions, expressed as specific
@@ -146,7 +146,9 @@ class BalanceEquation:
         else:
             # For vector problems, we need to expand the integrand to a vector. Do this
             # by left and right multiplication with e_i and e_i.T
-            basis: list[pp.ad.Matrix] = self.basis(grids, dim=dim)  # type: ignore
+            basis: list[pp.ad.Matrix] = self.basis(
+                grids, dim=dim  # type: ignore[call-arg]
+            )
             volumes_nd = sum([e * volumes * e.T for e in basis])
 
             return volumes_nd * integrand
