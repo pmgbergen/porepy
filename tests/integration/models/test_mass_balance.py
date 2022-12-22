@@ -1,7 +1,7 @@
 """Tests for the mass balance model.
 
 """
-from __future__
+from __future__ import annotations
 import numpy as np
 import pytest
 
