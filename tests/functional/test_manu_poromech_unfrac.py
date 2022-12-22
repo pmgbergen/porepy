@@ -9,11 +9,11 @@ dependency of the fluid density with the pressure as given in [1, 2]:
 
 where rho_0 and p_0 are the fluid density and pressure at reference states, and c_f
 is the (constant) fluid compressibility. For this setup, we employ rho_0=1 [kg * m^-3],
-c_f=2.0 [Pa^-1], and p_0=0 [Pa].
+c_f=0.02 [Pa^-1], and p_0=0 [Pa].
 
 The rest of the physical parameters are given unitary values, except, the reference
-porosity phi_ref=0.1 [-]. For the exact pressure and displacement solutions,
-we use the ones employed in [3].
+porosity phi_ref=0.1 [-] and the Biot coefficient alpha=0.5 [-]. For the exact pressure
+and displacement solutions, we use the ones employed in [3].
 
 Tests should pass as long as the `desired_error` matches the `actual_error`,
 up to absolute (1e-5) and relative (1e-3) tolerances. The values of such tolerances
@@ -48,8 +48,16 @@ import porepy as pp
 from porepy.models.verification_setups.manu_poromech_unfrac import ManuPoromechanics2d
 
 # Run verification setup and retrieve results for three different times
-stored_times = [0.2, 0.6, 1.0]
-params = {"stored_times": stored_times}
+fluid = pp.FluidConstants({"compressibility": 0.02})
+solid = pp.SolidConstants({"biot_coefficient": 0.5})
+material_constants = {"fluid": fluid, "solid": solid}
+params = {
+    "mesh_arguments": {"mesh_size_frac": 0.1, "mesh_size_bound": 0.1},
+    "manufactured_solution": "nordbotten_2016",
+    "material_constants": material_constants,
+    "time_manager": pp.TimeManager([0, 0.2, 0.4, 0.6, 0.8, 1], 0.2, True),
+    "stored_times": [0.2, 0.6, 1.0],
+}
 setup = ManuPoromechanics2d(params)
 pp.run_time_dependent_model(setup, params)
 
@@ -62,24 +70,24 @@ DesiredError = namedtuple(
 desired_errors: list[DesiredError] = [
     # t = 0.2 [s]
     DesiredError(
-        error_pressure=None,
-        error_flux=None,
-        error_displacement=None,
-        error_force=None,
+        error_pressure=0.02726034893861471,
+        error_flux=0.024928149988902644,
+        error_displacement=0.037379176860992194,
+        error_force=0.03376791679431919,
     ),
     # t = 0.6 [s]
     DesiredError(
-        error_pressure=None,
-        error_flux=None,
-        error_displacement=None,
-        error_force=None,
+        error_pressure=0.02132896228706064,
+        error_flux=0.015744995552258594,
+        error_displacement=0.037343144687286826,
+        error_force=0.03376572087148504,
     ),
     # t = 1.0 [s]
     DesiredError(
-        error_pressure=None,
-        error_flux=None,
-        error_displacement=None,
-        error_force=None,
+        error_pressure=0.020586932670543838,
+        error_flux=0.014707480468287515,
+        error_displacement=0.03733585022249853,
+        error_force=0.03376572087148504,
     ),
 ]
 
