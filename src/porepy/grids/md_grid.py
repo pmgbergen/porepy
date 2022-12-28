@@ -1,9 +1,6 @@
 """
 Module to store the grid hierarchy formed by a set of fractures and their
-intersections  along with a surrounding matrix in the form of a MixedDimensionalGrid.
-
-
-
+intersections along with a surrounding matrix in the form of a MixedDimensionalGrid.
 
 """
 from __future__ import annotations
@@ -24,10 +21,19 @@ class MixedDimensionalGrid:
     """
 
     def __init__(self) -> None:
-        self._subdomain_data: dict[pp.Grid, dict] = {}
-        self._interface_data: dict[pp.MortarGrid, dict] = {}
-        self._interface_to_subdomains: dict[pp.MortarGrid, tuple[pp.Grid, pp.Grid]] = {}
         self.name = "Mixed-dimensional grid"
+
+        self._subdomain_data: dict[pp.Grid, dict] = {}
+        """Dictionary storing data associated with subdomains."""
+
+        self._interface_data: dict[pp.MortarGrid, dict] = {}
+        """Dictionary storing data associated with interfaces."""
+
+        self._interface_to_subdomains: dict[pp.MortarGrid, tuple[pp.Grid, pp.Grid]] = {}
+        """Dictionary storing the mapping from interfaces to the adjacent subdomains."""
+
+        self._subdomain_boundary_grids: dict[pp.Grid, pp.BoundaryGrid] = {}
+        """Dictionary storing the boundary grids associated with subdomains."""
 
     def __contains__(self, key: Any) -> bool:
         """Overload __contains__.
@@ -158,6 +164,34 @@ class MixedDimensionalGrid:
         else:
             return [interfaces[i] for i in sort_ind]
 
+    def boundaries(self, dim: Optional[int] = None) -> list[pp.BoundaryGrid]:
+        """Get a sorted list of boundary grids in the mixed-dimensional grid.
+
+        Optionally, the boundary grids can be filtered on dimension.
+
+        Sorting by descending boundary dimension and increasing BoundaryGrid id,
+        see argsort_grids.
+
+        Args:
+            dim (int, optional): If provided, only boundary grids of the specified
+                dimension will be returned.
+
+        Returns:
+            list: List of boundary grids.
+
+        """
+        if self._subdomain_data and not self._subdomain_boundary_grids:
+            raise ValueError(
+                "There are subdomains in the mixed-dimensional grid, but no boundary "
+                "grids. This is probably not intended."
+            )
+        boundaries: list[pp.BoundaryGrid] = list()
+        for bg in self._subdomain_boundary_grids.values():
+            if dim is None or dim == bg.dim:
+                boundaries.append(bg)
+        sort_ind = self.argsort_grids(boundaries)
+        return [boundaries[i] for i in sort_ind]
+
     # ---------- Navigate within the graph --------
 
     def interface_to_subdomain_pair(
@@ -228,6 +262,18 @@ class MixedDimensionalGrid:
             if sd_pair[0] == sd or sd_pair[1] == sd:
                 interfaces.append(intf)
         return self.sort_interfaces(interfaces)
+
+    def subdomain_to_boundary_grid(self, sd: pp.Grid) -> pp.BoundaryGrid:
+        """Get the boundary grid associated with a subdomain.
+
+        Args:
+            sd: A subdomain in the mixed-dimensional grid.
+
+        Returns:
+            The BoundaryGrid associated with this subdomain.
+
+        """
+        return self._subdomain_boundary_grids[sd]
 
     def neighboring_subdomains(
         self, sd: pp.Grid, only_higher: bool = False, only_lower: bool = False
@@ -508,6 +554,9 @@ class MixedDimensionalGrid:
         """Compute geometric quantities for the grids."""
         for sd in self.subdomains():
             sd.compute_geometry()
+            if sd.dim > 0:
+                # Generate a boundary grid for this grid
+                self._subdomain_boundary_grids[sd] = pp.BoundaryGrid(g=sd)
 
         for intf in self.interfaces():
             intf.compute_geometry()

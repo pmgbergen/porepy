@@ -132,7 +132,7 @@ class MortarGrid:
         s = (
             "Mortar grid with history "
             + ", ".join(self.name)
-            + "\n"
+            + f" and id {self.id}.\n"
             + f"Dimension {self.dim} and codimension {self.codim}\n"
             + f"Number of cells {self.num_cells}\n"
             + f"Number of sides {len(self.side_grids)}\n"
@@ -156,7 +156,7 @@ class MortarGrid:
         s = (
             "Mortar grid with history "
             + ", ".join(self.name)
-            + "\n"
+            + f" and id {self.id}.\n"
             + f"Dimension {self.dim} and codimension {self.codim}\n"
             + f"Number of cells {self.num_cells}"
         )

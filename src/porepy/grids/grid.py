@@ -69,7 +69,7 @@ class Grid:
         external_tags: Optional[dict[str, np.ndarray]] = None,
     ) -> None:
         if not (dim >= 0 and dim <= 3):
-            raise ValueError("A grid has to be 0, 1, 2, or 3.")
+            raise ValueError("A grid has to be of dimension 0, 1, 2, or 3.")
 
         self.dim: int = dim
         """Grid dimension. Should be 0 or 1 or 2 or 3."""
@@ -261,7 +261,7 @@ class Grid:
 
     def __repr__(self) -> str:
         """Implementation of __repr__"""
-        s = f"Grid with name {self.name}" + "\n"
+        s = f"Grid with name {self.name} and id {self.id}" + "\n"
         s = "Grid history: " + ", ".join(self.history) + "\n"
         s += "Number of cells " + str(self.num_cells) + "\n"
         s += "Number of faces " + str(self.num_faces) + "\n"
