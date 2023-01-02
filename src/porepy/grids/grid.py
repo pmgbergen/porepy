@@ -1,11 +1,11 @@
-""" Module containing the parent class for all grids.
+"""Module containing the parent class for all grids.
 
-See documentation of the Grid class for further details.
+See documentation of class :class:`Grid` for further details.
 
-Acknowledgements:
-    The data structure for the grid is inspired by that used in the Matlab
-    Reservoir Simulation Toolbox (MRST) developed by SINTEF ICT, see
-    https://sintef.no/projectweb/mrst/ . Some of the methods, in particular
+.. rubric:: Acknowledgements
+    The data structure for the grid is inspired by that used in the
+    `Matlab Reservoir Simulation Toolbox (MRST) <www.sintef.no/projectweb/mrst/>`_
+    developed by SINTEF ICT. Some of the methods, in particular
     :meth:`~Grid.compute_geometry` and its subfunctions is to a large degree
     translations of the corresponding functions in MRST.
 
@@ -32,28 +32,38 @@ class Grid:
     to be initialized.
 
     Note:
-        Implementation
-
-        As of yet, there is no structure for tags (face or cell) is the grid.
+        As of yet, there is no structure for tags (face or cell) in the grid.
         This will be introduced later.
 
     Parameters:
         dim: Grid dimension.
-        nodes (shape=(ambient_dimension, num_nodes)): Node coordinates.
-        face_nodes (shape=(num_nodes, num_faces)): Face-node relations.
-        cell_faces (shape=(num_faces, num_cells)): Cell-face relations.
+        nodes: ``shape=(ambient_dimension, num_nodes)``
+
+            Node coordinates, where ``ambient_dimension is the dimension of the grid.
+        face_nodes: ``shape=(num_nodes, num_faces)``
+
+            A map from faces to respective nodes spanning the face.
+        cell_faces: ``shape=(num_faces, num_cells)``
+
+            A map from cells to faces bordering the respective cell.
         name: Name of grid.
-        history (optional): Information on the formation of the grid.
-        external_tags (optional): External tags for nodes and grids.
-            Will be added to :attr:`~tags`.
+        history: ``default=None``
+
+            Information on the formation of the grid.
+        external_tags (optional): ``default=None``
+
+            External tags for nodes and grids. Will be added to :attr:`~tags`.
+
     """
 
     _counter = count(0)
-    """Counter of instantiated grids. See :meth:`~__new__` and id."""
+    """Counter of instantiated grids. See :meth:`__new__` and :meth:`id`."""
     __id: int
+    """Name-mangled reference to assigned ID."""
 
     def __new__(cls, *args, **kwargs) -> Grid:
-        """Make object and set id according to class counter."""
+        """Make object and set ID by forwarding :attr:`_counter`."""
+
         obj = object.__new__(cls)
         obj.__id = next(cls._counter)
         return obj
@@ -72,29 +82,41 @@ class Grid:
             raise ValueError("A grid has to be of dimension 0, 1, 2, or 3.")
 
         self.dim: int = dim
-        """Grid dimension. Should be 0 or 1 or 2 or 3."""
+        """Grid dimension. Should be in ``{0, 1, 2, 3}``."""
+
         self.nodes: np.ndarray = nodes
-        """Node coordinates ``(shape=(ambient_dimension, num_nodes))``."""
+        """An array with ``shape=(ambient_dimension, num_nodes)`` containing node
+        coordinates column-wise."""
+
         self.cell_faces: sps.csc_matrix = cell_faces
-        """Cell-face relationships ``(shape=(num_faces, num_cells))``.
+        """An array with ``shape=(num_faces, num_cells)`` representing the map from
+        cells to faces bordering respective cell.
+
         Matrix elements have value +-1, where + corresponds to the face normal vector
         being outwards.
 
         """
         self.face_nodes: sps.csc_matrix = face_nodes
-        """Face-node relationships ``(shape=(num_nodes, num_faces))``.
+        """An array with ``shape=(num_nodes, num_faces)`` representing the map from
+        faces to nodes spanning respective face.
+
         Assumes the nodes of each face are ordered according to the right-hand rule.
 
         Note:
-            To use :meth:`~compute_geometry` later, the field
+            To use :meth:`compute_geometry` later, the field
             ``face_nodes.indices`` should store the nodes of each face sorted.
             ``face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]``
             are the nodes of face i, which should be ordered counter-clockwise.
+
             By counter-clockwise we mean as seen from cell ``cell_faces[i,:] == -1``.
+
             Equivalently the nodes will be clockwise as seen from cell
-            ``cell_faces[i,:] == 1``. Note that operations on the face_nodes matrix
+            ``cell_faces[i,:] == 1``.
+
+            Note that operations on the face_nodes matrix
             (such as converting it to a csr-matrix) may change the ordering of
-            the nodes (face_nodes.indices), which will break :meth:`~compute_geometry`.
+            the nodes (``face_nodes.indices``),
+            which will break :meth:`compute_geometry`.
 
         """
 
@@ -106,6 +128,7 @@ class Grid:
         constructor, computations of geometry etc.
 
         """
+
         if history is None:
             self.history = []
         elif isinstance(history, list):
@@ -125,30 +148,35 @@ class Grid:
         # Use with caution.
         self.frac_num: int = -1
         """Index of the fracture the grid corresponds to. Take
-        value (0, 1, ...) if the grid corresponds to a fracture, -1 if not.
+        value ``(0, 1, ...)`` if the grid corresponds to a fracture, -1 if not.
 
         """
+
         self.parent_cell_ind: np.ndarray = np.arange(self.num_cells)
-        """For grids that have refined or are subgrids
-        of larger grids, index of parent the cell in the parent grid.
-        Defaults to a mapping to its own index.
-        ``(shape=(num_cells,))``
+        """Index of parent the cell in the parent grid for grids that have refined
+        sub-grids or are sub-grids of larger grids.
+
+        Defaults to a mapping to its own index with ``shape=(num_cells,)``.
 
         """
+
         self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
-        """Index of each point, assigned during processing
-        of mixed-dimensional grids created by gmsh. Used to identify points that
-        are geometrically equal, though on different grids. Could potentially be
-        used to identify such geometrically equal points at a later stage, but
-        there is no guarantee that this will work.
-        ``(shape=(num_nodes,))``
+        """An array with ``shape=(num_nodes,)`` containing indices of each point,
+        assigned during processing of mixed-dimensional grids created by gmsh.
+
+        Used to identify points that are geometrically equal, though on different grids.
+
+        Could potentially be used to identify such geometrically equal points at a
+        later stage, but there is no guarantee that this will work.
 
         """
+
         self._physical_name_index: int = -1
         """Used to keep track of processing of grids generated by gmsh."""
+
         self.well_num: int = -1
-        """Index of the well associated to the grid. Take value in
-        (0, 1, ..) if the grid corresponds to a well, -1 if not.
+        """Index of the well associated to the grid. Takes a value in
+        ``(0, 1, ..)`` if the grid corresponds to a well, -1 if not.
 
         """
 
@@ -158,7 +186,8 @@ class Grid:
 
         Face index ``periodic_face_map[0, i]`` is periodic with
         face index ``periodic_face_map[1, i]``.
-        This attribute is set with :meth:`~set_periodic_map`.
+        This attribute is set with :meth:`set_periodic_map`.
+
         """
 
         self.frac_pairs: np.ndarray = np.array([[]], dtype=int)
@@ -188,30 +217,37 @@ class Grid:
             self.tags = external_tags
             self._check_tags()
 
-        # NOTE: These attrebutes are defined in compute_geometry.
+        # NOTE: These attributes are defined in compute_geometry.
         self.face_areas: np.ndarray
         """Areas of all faces ``(shape=(num_cells,))``.
         Available after calling :meth:`~compute_geometry`.
 
         """
         self.face_centers: np.ndarray
-        """Centers of all faces. ``(shape=(ambient_dimenaion, num_faces))``
+        """Centers of all faces. ``(shape=(ambient_dimension, num_faces))``.
         Available after calling :meth:`~compute_geometry`.
 
         """
         self.face_normals: np.ndarray
-        """Normal vectors of all faces ``(shape=(ambient_dimenaion, num_faces))``.
-        See also :attr:`~cell_faces`.
-        Available after calling :meth:`~compute_geometry`.
+        """An array containing column-wise normal vectors of all faces with
+        ``shape=(ambient_dimenaion, num_faces)``.
+
+        See also :attr:`cell_faces`.
+
+        Available after calling :meth:`compute_geometry`.
 
         """
         self.cell_centers: np.ndarray
-        """Centers of all cells ``(shape=(ambient_dimenaion, num_cells))``.
+        """An array containing column-wise the centers of all cells with
+        ``shape=(ambient_dimension, num_cells)``.
+
         Available after calling :meth:`~compute_geometry`.
 
         """
         self.cell_volumes: np.ndarray
-        """Volumes of all cells ``(shape=(num_cells,))``.
+        """An array containing column-wise the volumes per cell with
+        ``shape=(num_cells,)``.
+
         Available after calling :meth:`~compute_geometry`.
 
         """
@@ -220,11 +256,13 @@ class Grid:
     def id(self) -> int:
         """Grid ID.
 
-        The returned attribute should not be changed.
+        The returned attribute must not be changed.
         This may severely compromise other parts of the code,
         such as sorting in md grids.
-        The attribute is set in :meth:`~__new__`.
-        This avoids calls to ``super().__init__`` in subclasses.
+
+        The attribute is set in :meth:`__new__`.
+        This avoids calls to ``super().__init__`` in child classes.
+
         """
         return self.__id
 
@@ -260,7 +298,8 @@ class Grid:
         return h
 
     def __repr__(self) -> str:
-        """Implementation of __repr__"""
+        """Returns a string representation of the grid including topological information
+        ."""
         s = f"Grid with name {self.name} and id {self.id}" + "\n"
         s = "Grid history: " + ", ".join(self.history) + "\n"
         s += "Number of cells " + str(self.num_cells) + "\n"
@@ -270,7 +309,8 @@ class Grid:
         return s
 
     def __str__(self) -> str:
-        """Implementation of __str__"""
+        """Returns a simplified string representation including the given name and some
+        topological information."""
         s = str()
 
         # Special treatment of point grids.
@@ -309,6 +349,8 @@ class Grid:
         in cases where the grid is modified after the initial construction (
         say, grid refinement), this may lead to costly, unnecessary computations.
 
+        Computes the face areas, face centers, face normals and cell volumes.
+
         """
 
         self.history.append("Compute geometry")
@@ -337,7 +379,7 @@ class Grid:
         # self.cell_centers = self.cell_centers
 
     def _compute_geometry_1d(self) -> None:
-        """Compute 1D geometry"""
+        """Auxiliary function to compute the geometry for 1D grids."""
 
         self.face_areas = np.ones(self.num_faces)
 
@@ -379,7 +421,11 @@ class Grid:
         self.face_normals[:, flip] *= -1
 
     def _compute_geometry_2d(self) -> None:
-        """Compute 2D geometry, with method motivated by similar MRST function"""
+        """Auxiliary function to compute the geometry for 2D grids.
+
+        The method is motivated by MRTS.
+
+        """
 
         R = pp.map_geometry.project_plane_matrix(self.nodes)
         self.nodes = np.dot(R, self.nodes)
@@ -456,13 +502,13 @@ class Grid:
         self.cell_centers = np.dot(R.T, self.cell_centers)
 
     def _compute_geometry_3d(self) -> None:
-        """
-        Helper function to compute geometry for 3D grids
+        """Auxiliary function to compute the geometry for 3D grids.
 
         The implementation is motivated by the similar MRST function.
 
-        NOTE: The function is very long, and could have been broken up into
-        parts (face and cell computations are an obvious solution).
+        Note:
+            The function is very long, and could have been broken up into
+            parts (face and cell computations are an obvious solution).
 
         """
         num_face_nodes = self.face_nodes.nnz
@@ -661,29 +707,29 @@ class Grid:
         """Obtain mapping between cells and nodes.
 
         Returns:
-            A matrix ``(shape=(num_nodes, num_cells))``
-            where value 1 indicates a connection between cell and node.
+            An array with ``shape=(num_nodes, num_cells)`` representing the mapping from
+            cells to nodes spanning respective cell.
+
+            The value 1 indicates a connection between a cell and node column-wise.
 
         """
         mat = (self.face_nodes * np.abs(self.cell_faces)) > 0
         return mat
 
     def num_cell_nodes(self) -> np.ndarray:
-        """Number of nodes per cell.
-
+        """
         Returns:
-             Number of nodes per cell, ``(shape=(num_cells,))``.
+            An array with ``shape=(num_cells,)`` containing the number of nodes per
+            cell.
 
         """
         return self.cell_nodes().sum(axis=0).A.ravel("F")
 
     def get_internal_nodes(self) -> np.ndarray:
         """
-        Get internal node indices of the grid.
-
         Returns:
-            Indices of internal nodes,
-            ``(shape=(num_internal_nodes,))``.
+            An array with ``shape=(num_internal_nodes,)`` containing the indices of
+            internal nodes.
 
         """
         internal_nodes = np.setdiff1d(
@@ -692,43 +738,38 @@ class Grid:
         return internal_nodes
 
     def get_all_boundary_faces(self) -> np.ndarray:
-        """Get indices of all faces tagged as either fractures, domain boundary or
-        tip.
-
+        """
         Returns:
-            Indices of all boundary faces,
-            ``(shape=(num_boundary_faces,))``.
+            An array with ``shape=(num_boundary_faces,)`` containing the indices of
+            all faces tagged as either fractures, domain boundary or tip.
 
         """
         return self._indices(tags.all_face_tags(self.tags))
 
     def get_all_boundary_nodes(self) -> np.ndarray:
-        """Get indices of all nodes tagged as either fractures, domain boundary or
-        tip.
-
+        """
         Returns:
-            Indices of all boundary nodes,
-            ``(shape=(num_boundary_nodes,))``.
+            An array with Indices of all boundary nodes ``shape=(num_boundary_nodes,)``
+            containing the indices of all faces tagged as either fractures,
+            domain boundary or tip.
 
         """
         return self._indices(tags.all_node_tags(self.tags))
 
     def get_boundary_faces(self) -> np.ndarray:
-        """Get indices of all faces tagged as domain boundary.
-
+        """
         Returns:
-            ``n`` indices of all domain boundary faces,
-            ``(shape=(n,))``.
+            An array with ``shape=(n,)`` containing the indices of all faces tagged as
+            domain boundary.
 
         """
         return self._indices(self.tags["domain_boundary_faces"])
 
     def get_internal_faces(self) -> np.ndarray:
-        """Get internal face indices of the grid.
-
+        """
         Returns:
-            Indices of internal faces,
-            ``(shape=(num_internal_faces,))``.
+            An array with ``shape=(num_internal_faces,)`` containing indices of internal
+            faces.
 
         """
         return np.setdiff1d(
@@ -736,17 +777,16 @@ class Grid:
         )
 
     def get_boundary_nodes(self) -> np.ndarray:
-        """Get nodes on the domain boundary.
-
+        """
         Returns:
-            ``n`` indices of all domain boundary nodes,
-            ``(shape=(n,))``.
+            An array with ``shape=(n,)`` containing indices of all domain
+            boundary nodes.
 
         """
         return self._indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self) -> None:
-        """Tag faces on the boundary of the grid with boundary tag."""
+        """Tags faces on the boundary of the grid with boundary tag."""
         zeros = np.zeros(self.num_faces, dtype=bool)
         self.tags["domain_boundary_faces"] = zeros
         if self.dim > 0:  # by default no 0d grid at the boundary of the domain
@@ -754,21 +794,27 @@ class Grid:
             self.tags["domain_boundary_faces"][bd_faces] = True
 
     def set_periodic_map(self, periodic_face_map: np.ndarray) -> None:
-        """
-        Set the index map between periodic boundary faces. The mapping assumes
-        a one to one mapping between the periodic boundary faces (i.e., matching
-        faces).
+        """Sets the index map between periodic boundary faces.
+
+        The mapping assumes a one to one mapping between the periodic boundary faces
+        (i.e., matching faces).
 
         Note:
             This method changes the attribute ``self.tags["domain_boundary_faces"]``.
             The domain boundary tags are set to ``False`` for all faces
-            in periodic_face_map.
+            in ``periodic_face_map``.
 
         Parameters:
-            periodic_face_map (shape=(2, num_periodic_faces), dtype=int): Defines the
-                periodic faces. Face index ``periodic_face_map[0, i]`` is periodic with
+            periodic_face_map: ``shape=(2, num_periodic_faces), dtype=int``
+
+                Defines the periodic faces.
+                Face index ``periodic_face_map[0, i]`` is periodic with
                 face index ``periodic_face_map[1, i]``.
-                The given map is stored to the attribute :attr:`~periodic_face_map`.
+                The given map is stored to the attribute :attr:`periodic_face_map`.
+
+        Raises:
+            ValueError: If ``periodic_face_map`` is of wrong shape or contains negative
+                values.
 
         """
         if periodic_face_map.shape[0] != 2:
@@ -782,7 +828,7 @@ class Grid:
         self.tags["domain_boundary_faces"][self.periodic_face_map.ravel("C")] = False
 
     def update_boundary_node_tag(self) -> None:
-        """Tag nodes on the boundary of the grid with boundary tag."""
+        """Tags nodes on the boundary of the grid with boundary tag."""
 
         mask = {
             "domain_boundary_faces": "domain_boundary_nodes",
@@ -801,14 +847,17 @@ class Grid:
                 self.tags[node_tag][nodes] = True
 
     def cell_diameters(self, cn: Optional[sps.spmatrix] = None) -> np.ndarray:
-        """Compute the cell diameters. If ``self.dim == 0``, return 0.
+        """Computes the cell diameters.
 
         Parameters:
-            cn (optional): cell nodes map, previously already computed.
-                Otherwise, a call to ``self.cell_nodes`` is provided.
+            cn: ``default=None``
+                Cell-to-nodes map, already computed previously.
+                If None, a call to :meth:`cell_nodes` is provided.
 
         Returns:
             Values of the cell diameter for each cell, ``(shape=(num_cells))``.
+
+            If the dimension of the grid is zero, returns 0.
 
         """
         if self.dim == 0:
@@ -834,16 +883,17 @@ class Grid:
         )
 
     def cell_face_as_dense(self) -> np.ndarray:
-        """
-        Obtain the cell-face relation in the form of two rows, rather than a
-        sparse matrix. This alternative format can be useful in some cases.
+        """Obtain the cell-face relation in the form of two rows, rather than a
+        sparse matrix.
+
+        This alternative format can be useful in some cases.
 
         Each column in the array corresponds to a face, and the elements in
         that column refers to cell indices. The value -1 signifies a boundary.
         The normal vector of the face points from the first to the second row.
 
         Returns:
-            Array representation of face-cell relations, ``(shape=(2, num_faces)))``.
+            Array representation of face-cell relations with ``shape=(2, num_faces)``.
 
         """
         if self.num_faces == 0:
@@ -864,13 +914,13 @@ class Grid:
         return neighs[::-1]
 
     def cell_connection_map(self) -> sps.csr_matrix:
-        """
-        Get a matrix representation of cell-cell connections, as defined by
+        """Get a matrix representation of cell-cell connections, as defined by
         two cells sharing a face.
 
         Returns:
-            A matrix, ``(shape=(num_cells, num_cells), dtype=bool)``.
-            Element ``(i,j)`` is true if cells ``i`` and ``j`` share a face.
+            A sparse matrix with ``(shape=(num_cells, num_cells), dtype=bool)``.
+
+            Element ``(i,j)`` is True if cells ``i`` and ``j`` share a face.
             The matrix is thus symmetric.
 
         """
@@ -893,24 +943,30 @@ class Grid:
         self, faces: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """Get the direction of the normal vector (inward or outwards from a cell)
-        and the cell neighbour of **boundary** faces.
+        and the cell neighbor of **boundary** faces.
 
         Parameters:
-            faces (shape=(n,)): Indices of ``n`` faces that you want to know the sign
+            faces: ``shape=(n,)``
+
+                Indices of ``n`` faces that you want to know the sign
                 for. The faces must be boundary faces.
 
-        Returns:
-            A tuple of two arrays.
+        Raises:
+            ValueError: If a target face is internal.
 
-            ndarray ``(shape=(n,))``:
+        Returns:
+            A 2-tuple containing:
+
+            :obj:`~numpy.ndarray`:
+                ``shape=(n,)``
+
                 The sign of the faces . Will be +1 if the face normal vector
                 points out of the cell, -1 if the normal vector is pointing inwards.
 
-            ndarray ``(shape=(n,))``:
-                For each face, index of the cell next to the boundary.
+            :obj:`~numpy.ndarray`:
+                ``shape=(n,)``
 
-        Raises:
-            ValueError: if a target face is internal.
+                For each face, index of the cell next to the boundary.
 
         """
 
@@ -938,12 +994,20 @@ class Grid:
         of the grid.
 
         Parameters:
-            p (shape=(3, n)): Coordinates of ``n`` points. If ``p.shape[0] < 3``,
+            p: ``shape=(3, n)``
+
+                Coordinates of ``n`` points. If ``p.shape[0] < 3``,
                 additional points will be treated as zeros.
+            return_distance: A flag indicating whether the distances should be returned
+                as well.
 
         Returns:
-            For each point, index of the cell with center closest to the point,
-            ``(shape=(n,), dtype=int)``
+            An array with ``(shape=(n,), dtype=int)`` containing for each point
+            the index of the cell with center closest to the point.
+
+            If ``return_distance`` is True, returns a 2-tuple, where the second array
+            contains the distances to respective centers for each point.
+
 
         """
         p = np.atleast_2d(p)
@@ -968,23 +1032,23 @@ class Grid:
             return ci
 
     def initiate_face_tags(self) -> None:
-        """Create zero arrays for the standard face tags and update :attr:`~tags`."""
+        """Create zero arrays for the standard face tags and update :attr:`tags`."""
         keys = tags.standard_face_tags()
         values = [np.zeros(self.num_faces, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
     def initiate_node_tags(self) -> None:
-        """Create zero arrays for the standard node tags and update :attr:`~tags`."""
+        """Create zero arrays for the standard node tags and update :attr:`tags`."""
         keys = tags.standard_node_tags()
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
     def _check_tags(self) -> None:
-        """Check if all the standard tags are specified in :attr:`~tags`,
+        """Check if all the standard tags are specified in :attr:`tags`,
         and the tag arrays have correct sizes.
 
         Raises:
-            ValueError: if inconsistency in tags is found.
+            ValueError: If any inconsistency among tags is found.
 
         """
         for key in tags.standard_node_tags():
@@ -1003,5 +1067,5 @@ class Grid:
 
     @staticmethod
     def _indices(true_false: np.ndarray) -> np.ndarray:
-        """Shorthand for np.argwhere."""
+        """Auxiliary function for :obj:`~numpy.argwhere` with ``ravel('F')."""
         return np.argwhere(true_false).ravel("F")

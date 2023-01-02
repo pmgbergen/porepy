@@ -60,9 +60,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
 
 
 def partition_structured(
-    g: pp.TensorGrid,
-    num_part: int = 1,
-    coarse_dims: Optional[np.ndarray] = None
+    g: pp.TensorGrid, num_part: int = 1, coarse_dims: Optional[np.ndarray] = None
 ) -> np.ndarray:
     """Define a partitioning of a grid based on logical Cartesian indexing.
 
@@ -140,9 +138,7 @@ def partition_structured(
 
 
 def partition_coordinates(
-    g: pp.Grid,
-    num_coarse: int,
-    check_connectivity: bool = True
+    g: pp.Grid, num_coarse: int, check_connectivity: bool = True
 ) -> np.ndarray:
     """Brute force partitioning of a grid based on cell center coordinates.
 
@@ -479,8 +475,7 @@ def extract_subgrid(
 
 
 def _extract_submatrix(
-    mat: sps.spmatrix,
-    ind: np.ndarray
+    mat: sps.spmatrix, ind: np.ndarray
 ) -> tuple[sps.spmatrix, np.ndarray]:
     """Extracts a submatrix from a matrix.
 
@@ -514,9 +509,7 @@ def _extract_submatrix(
 
 
 def _extract_cells_from_faces(
-    g: pp.Grid,
-    f: np.ndarray,
-    is_planar: bool
+    g: pp.Grid, f: np.ndarray, is_planar: bool
 ) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extract a lower-dimensional grid from the faces of a higher dimensional grid.
 
@@ -562,8 +555,7 @@ def _extract_cells_from_faces(
 
 
 def _extract_cells_from_faces_1d(
-    g: pp.Grid,
-    f: np.ndarray
+    g: pp.Grid, f: np.ndarray
 ) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extracts a 0D grid from a 1D grid
 
@@ -590,8 +582,7 @@ def _extract_cells_from_faces_1d(
 
 
 def _extract_cells_from_faces_2d(
-    g: pp.Grid,
-    f: np.ndarray
+    g: pp.Grid, f: np.ndarray
 ) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extracts a 1D grid from a 2D grid
 
@@ -650,10 +641,8 @@ def _extract_cells_from_faces_2d(
 
 
 def _extract_cells_from_faces_3d(
-    g: pp.Grid,
-    f: np.ndarray,
-    is_planar: bool = True
-)-> tuple[pp.Grid, np.ndarray, np.ndarray]:
+    g: pp.Grid, f: np.ndarray, is_planar: bool = True
+) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extract a 2D grid from the faces of a 3D grid.
 
     One of the uses of this function is to obtain a 2D MortarGrid from the boundary of a
@@ -750,8 +739,7 @@ def _extract_cells_from_faces_3d(
 
 
 def partition_grid(
-    g: pp.Grid,
-    ind: np.ndarray
+    g: pp.Grid, ind: np.ndarray
 ) -> tuple[list[pp.Grid], list[np.ndarray], list[np.ndarray]]:
     """Partition a grid into multiple subgrids based on an index set.
 
@@ -796,10 +784,7 @@ def partition_grid(
 
 
 def overlap(
-    g: pp.Grid,
-    cell_ind: np.ndarray,
-    num_layers: int,
-    criterion: str = "node"
+    g: pp.Grid, cell_ind: np.ndarray, num_layers: int, criterion: str = "node"
 ) -> np.ndarray:
     """Finds an extended set of cells that forms an overlap.
 
@@ -881,8 +866,7 @@ def overlap(
 
 
 def grid_is_connected(
-    g: pp.Grid,
-    cell_ind: Optional[np.ndarray] = None
+    g: pp.Grid, cell_ind: Optional[np.ndarray] = None
 ) -> tuple[bool, list[np.ndarray]]:
     """Check if a grid is fully connected, as defined by its cell_connection_map().
 

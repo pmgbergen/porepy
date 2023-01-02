@@ -1,8 +1,9 @@
-"""Module contains various functions to find overlaps between grid cells.
+"""This module contains various functions to find overlaps between grid cells.
 
-The module is primarily intended used for replacing individual grids in the
-MixedDimensionalGrid. It is called mostly inside
+The module is primarily intended for replacing individual grids in the
+mixed-dimensional grid. It is called mostly inside
 :class:`~porepy.grids.mortar_grid.MortarGrid`.
+
 That is, the methods herein should as a rule not be invoked directly.
 
 """
@@ -26,9 +27,9 @@ def match_1d(
     tol: float,
     scaling: Optional[Literal["averaged", "integrated"]] = None,
 ) -> sps.csr_matrix:
-    """Obtain mappings between the cells of non-matching 1d grids.
+    """Obtain mappings between the cells of non-matching 1D grids.
 
-    The overlaps are identified as a sparse matrix which maps from cells in the old to
+    The overlapping is identified as a sparse matrix which maps from cells in the old to
     the new grid.
 
     It is assumed that the two grids are aligned, with common start and endpoints.
@@ -38,19 +39,24 @@ def match_1d(
         old_g: Original grid. Should have dimension 1.
         tol: Tolerance used to filter away false overlaps caused by
              numerical errors. Should be scaled relative to the cell size.
-        scaling (optional): Control weights of the returned matrix, see return
-            values for specification.
+        scaling: ``default=None``.
+
+            Control weights of the returned matrix, see return values for specification.
 
     Returns:
         Mapping from the cells in the old to the new grid.
+
         The values in the matrix depend on the parameter ``scaling``.
+
         If set to 'averaged', a mapping fit for intensive quantities
         (e.g., pressure) is returned (all rows sum to unity).
+
         If set to 'integrated', the matrix is a mapping for extensive
         quantities (column sum is 1).
-        If not provided, the matrix elements are 1 for cell-pairs (new and old grid)
-        that overlap; overlaps with areas less
-        than the parameter tol will be ignored.
+
+        If None, the matrix elements are 1 for cell-pairs (new and old grid)
+        that overlap. Overlaps with areas less
+        than the parameter ``tol`` will be ignored.
 
     """
     # Cell-node relation between grids - we know there are two nodes per cell
@@ -109,7 +115,7 @@ def match_2d(
     tol: float,
     scaling: Optional[Literal["averaged", "integrated"]] = None,
 ) -> sps.csr_matrix:
-    """Match two simplex tesselations to identify overlapping cells.
+    """Match two simplex tessellations to identify overlapping cells.
 
     The overlaps are identified as a sparse matrix which maps from cells in the old to
     the new grid.
@@ -122,15 +128,22 @@ def match_2d(
         old_g: Original grid. Should have dimension 2.
         tol: Tolerance used to filter away false overlaps caused by
              numerical errors. Should be scaled relative to the cell size.
-        scaling (optional): Control weights of the returned matrix, see return
-            values for specification.
+        scaling: ``default=None``
+
+            Control weights of the returned matrix, see return values for specification.
 
     Returns:
-        Mapping from the cells in the old to the new grid. The values in
-        the matrix depends on the parameter scaling: If set to 'averaged', a mapping
-        fit for intensive quantities (e.g., pressure) is returned (all rows sum to
-        unity). If set to 'integrated', the matrix is a mapping for extensive
-        quantities (column sum is 1). If not provided, the matrix elements are 1
+        Mapping from the cells in the old to the new grid.
+
+        The values in the matrix depends on the parameter scaling.
+
+        If set to 'averaged', a mapping fit for intensive quantities (e.g., pressure)
+        is returned (all rows sum to unity).
+
+        If set to 'integrated', the matrix is a mapping for extensive
+        quantities (column sum is 1).
+
+        If None, the matrix elements are 1
         for cell-pairs (new and old grid) that overlap; overlaps with areas less
         than the parameter tol will be ignored.
 
@@ -239,13 +252,13 @@ def match_grids_along_1d_mortar(
             primary should be set for this grid.
         tol: Tolerance used in comparison of geometric quantities.
         scaling: Control weights of the returned matrix, see return
-            values for specification.
-
-    Returns:
-        Mapping from the new to the old grid.
+            values of :func:`match_2d` for specification.
 
     Raises:
         ValueError: If the matching procedure goes wrong.
+
+    Returns:
+        Mapping from the new to the old grid.
 
     """
     # IMPLEMENTATION NOTE: Contrary to the related methods match_1d/match_2d, the
@@ -497,16 +510,17 @@ def mdg_refinement(
     tol: float = 1e-8,
     mode: Literal["nested"] = "nested",
 ) -> None:
-    """Wrapper for coarse_fine_cell_mapping to construct mapping for grids in
-    MixedDimensionalGrid.
+    """Wrapper for ``'coarse_fine_cell_mapping'`` in the grid data dictionaries
+    to construct mapping for grids in mixed-dimensional grid.
 
-    Adds a node_prop to each grid in mdg. The key is 'coarse_fine_cell_mapping',
-    and is the mapping generated by 'coarse_fine_cell_mapping(...)'.
+    Adds a data dictionary entry to each grid in mdg.
+    The key is ``'coarse_fine_cell_mapping'``.
 
     Currently, only nested refinement is supported; more general cases are also
     possible.
 
-    Acknowledgement:
+    ..rubric:: Acknowledgement
+
         The code was contributed by Haakon Ervik.
 
     Note:
@@ -515,9 +529,12 @@ def mdg_refinement(
     Parameters:
         mdg: Coarse mixed-dimensional grid.
         mdg_ref: Refined mixed-dimensional grid.
-        tol (optional): Tolerance for point_in_poly* -methods
-        mode (optional): Refinement mode. Defaults to 'nested',
-            corresponds to refinement by splitting.
+        tol: ``default=1e-8``
+
+            Tolerance for point_in_poly* -methods
+        mode: ``default='nested'``
+
+            Refinement mode. ``'nested'`` corresponds to refinement by splitting.
 
     """
 
@@ -556,15 +573,24 @@ def structured_refinement(
     I.e. a cell in the refined grid is completely contained within a cell in the
     coarse grid.
 
-    Acknowledgement:
+    .. rubric:: Acknowledgement
+
         The code was contributed by Haakon Ervik.
 
     Parameters:
         g: Coarse grid.
         g_ref: Refined grid.
-        point_in_poly_tol (optional): Tolerance for
-            :func:`~porepy.geometry_property_checks.point_in_polyhedron`.
-            Default is 1e-8.
+        point_in_poly_tol: ``default=1e-8``
+
+            Tolerance for :func:`~porepy.geometry_property_checks.point_in_polyhedron`.
+
+    Raises:
+        AssertionError: If ``g_ref`` has more cells than ``g`` or if they are of unequal
+            dimension.
+        AssertionError: Depending on the dimension of ``g``, a certain number of nodes
+            must be available.
+        AssertionError: If any cell in the finer grid is not contained in exactly one
+            cell of the coarser grid.
 
     Returns:
         Column major sparse matrix mapping from coarse to fine cells.

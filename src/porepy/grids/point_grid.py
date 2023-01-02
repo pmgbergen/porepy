@@ -1,4 +1,4 @@
-"""Module for creating point grids"""
+"""Module for creating point grids."""
 
 from typing import Optional
 
@@ -9,13 +9,18 @@ from porepy.grids.grid import Grid
 
 
 class PointGrid(Grid):
-    """Constructor for 0D grids.
+    """Representation of a 0D grids.
 
-     Parameters:
-         pt (shape=(3,)): Point which represents the grid.
-         name: Name of grid, passed to super constructor.
+    Parameters:
+        pt: ``shape=(3,)``
 
-     """
+           Point which represents the grid.
+        name: ``default=None``
+
+           Name of grid, passed to super constructor.
+
+    """
+
     def __init__(self, pt: np.ndarray, name: Optional[str] = None) -> None:
         # check input
         if np.asarray(pt).shape[0] != 3:

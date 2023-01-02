@@ -1,15 +1,13 @@
-"""
-Module to increase the dimensions of grids by extrusion in the z-direction.
+"""This module contains functionality to to increase the dimensions of grids by
+extrusion in the z-direction.
 
-Both individual grids and mixed-dimensional grid_buckets can be extruded. The
+Both, single grids and mixed-dimensional grids can be extruded. The
 dimension of the highest-dimensional grid should be 2 at most.
 
-The main methods in the module are
+The two functions performing above are
 
-    extrude_grid_bucket()
-    extrude_grid()
-
-All other functions are helpers.
+- :func:`extrude_grid_bucket`,
+- :func:`extrude_grid`.
 
 """
 from __future__ import annotations
@@ -27,31 +25,35 @@ from porepy.grids import mortar_grid
 def extrude_grid_bucket(
     mdg: pp.MixedDimensionalGrid, z: np.ndarray
 ) -> tuple[pp.MixedDimensionalGrid, dict]:
-    """Extrude a MixedDimensionalGrid by extending all fixed-dimensional grids in the
+    """Extrude a mixed-dimensional grid by extending all fixed-dimensional grids in the
     z-direction.
 
-    In practice, the original grid bucket will be 2d, and the result is 3d.
+    In practice, the original grid bucket will be 2D, and the result is 3D.
 
-    The returned MixedDimensionalGrid is fully functional, including mortar grids on the
-    mdg edges. The data dictionaries on subdomains and interfaces are mainly empty. Data
-    can be transferred from the original MixedDimensionalGrid via the returned map
+    The returned mixed-dimensional grid is fully functional,
+    including mortar grids on the mdg edges.
+    The data dictionaries on subdomains and interfaces are mainly empty.
+    Data can be transferred from the original md-grid via the returned map
     between old and new grids.
 
-    Args:
-        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid to be extruded. Should be
-            2d.
-        z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
-            either non-negative or non-positive, and be sorted in increasing or
-            decreasing order, respectively.
+    Parameters:
+        mdg: Mixed-dimensional grid to be extruded. The highest dimension should be 2D.
+        z: An array containing z-coordinates per node for the extruded grid.
+            Should be either non-negative or non-positive,
+            and be sorted in increasing or decreasing order, respectively.
 
     Returns:
-        mdg_new (pp.MixedDimensionalGrid): Mixed-dimensional grid, 3d. The data
+        A 2-tuple containing:
+
+        :class:`~porepy.grids.md_grid.MixedDimensionalGrid`:
+            A mixed-dimensional grid with highest dimension 3. The data
             dictionaries on subdomains and interfaces are mostly empty.
-        dict: Mapping from individual grids in the old mixed-dimensional grid to the
+        :obj:`dict`:
+            Mapping from individual grids in the old mixed-dimensional grid to the
             corresponding extruded grids in the new one. The dictionary values are a
-            namedtuple with elements grid (new grid), cell_map and face_map, where the
-            two latter describe mapping between the new and old grid, see extrude_grid
-            for details.
+            named tuple with elements grid (new grid), cell_map and face_map, where the
+            two latter describe mapping between the new and old grid,
+            see :func:`extrude_grid` for details.
 
     """
 
@@ -158,31 +160,36 @@ def extrude_grid_bucket(
 
 
 def extrude_grid(g: pp.Grid, z: np.ndarray) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """Increase the dimension of a given grid by 1, by extruding the grid in the
+    """Increases the dimension of a given grid by 1, by extruding the grid in the
     z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
     z-direction is ignored.
 
-    Both the original and the new grid will have their geometry computed.
+    Both, the original and the new grid will have their geometry computed.
 
-    Args:
-        g (pp.Grid): Original grid to be extruded. Should have dimension 0, 1 or 2.
-        z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
-            either non-negative or non-positive, and be sorted in increasing or
-            decreasing order, respectively.
-
-    Returns:
-        pp.Grid: A grid of dimension g.dim + 1.
-        np.array of np.arrays: Cell mappings, so that element ci gives all indices of
-            cells in the extruded grid that comes from cell ci in the original grid.
-        np.array of np.arrays: Face mappings, so that element fi gives all indices of
-            faces in the extruded grid that comes from face fi in the original grid.
+    Parameters:
+        g: Original grid to be extruded. Must have dimension 0, 1 or 2.
+        z: An array containing z-coordinates per node for the extruded grid.
+            Should be either non-negative or non-positive,
+            and be sorted in increasing or decreasing order, respectively.
 
     Raises:
         ValueError: If the z-coordinates for nodes contain both positive and negative
             values.
-        ValueError: If a 3d grid is provided for extrusion.
+        ValueError: If a 3D grid is provided for extrusion.
+
+    Returns:
+        A 3-tuple containing
+
+        :class:`~porepy.grids.grid.Grid`:
+            The extruded grid of dimension ``g.dim + 1``.
+        :obj:`~numpy.ndarray`:
+            Cell mappings, such that that row ``i`` gives all indices of
+            cells in the extruded grid that comes from cell ``i`` in the original grid.
+        :obj:`~numpy.ndarray`:
+            Face mappings, s.t. row ``i`` gives all indices of
+            faces in the extruded grid that come from face ``i`` in the original grid.
 
     """
     if not (np.all(z >= 0) or np.all(z <= 0)):
@@ -201,25 +208,25 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> tuple[pp.Grid, np.ndarray, np.nda
 def _extrude_2d(
     g: pp.Grid, z: np.ndarray[Any, np.dtype[np.float64]]
 ) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """Extrude a 2d grid into 3d by prismatic extension.
-
-    The original grid is assumed to be in the xy-plane, that is, any existing non-zero
-    z-direction is ignored.
-
-    Both the original and the new grid will have their geometry computed.
+    """Auxiliary function to extrude a 2D grid into 3D by prismatic extension.
 
     Parameters:
-        g (pp.Grid): Original grid to be extruded. Should have dimension 2.
-        z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
-            either non-negative or non-positive, and be sorted in increasing or
-            decreasing order, respectively.
+        g: Original grid to be extruded. Should have dimension 2.
+        z: An array containing z-coordinates per node for the extruded grid.
+            Should be either non-negative or non-positive,
+            and be sorted in increasing or decreasing order, respectively.
 
     Returns:
-        pp.Grid: A grid of dimension 3.
-        np.array of np.arrays: Cell mappings, so that element ci gives all indices of
-            cells in the extruded grid that comes from cell ci in the original grid.
-        np.array of np.arrays: Face mappings, so that element fi gives all indices of
-            faces in the extruded grid that comes from face fi in the original grid.
+        A 3-tuple containing
+
+        :class:`~porepy.grids.grid.Grid`:
+            The extruded grid of dimension 3.
+        :obj:`~numpy.ndarray`:
+            Cell mappings, such that that row ``i`` gives all indices of
+            cells in the extruded grid that comes from cell ``i`` in the original grid.
+        :obj:`~numpy.ndarray`:
+            Face mappings, s.t. row ``i`` gives all indices of
+            faces in the extruded grid that come from face ``i`` in the original grid.
 
     """
 
@@ -378,7 +385,7 @@ def _extrude_2d(
             else:
                 cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind[::-1]]
         else:
-            raise ValueError("this should not happen. Is the cell non-convex??")
+            raise ValueError("This should not happen. Is the cell non-convex??")
 
     # Compressed column storage for horizontal faces: Store node indices
     fn_rows_horizontal = np.array([], dtype=int)
@@ -534,7 +541,7 @@ def _extrude_2d(
 def _extrude_1d(
     g: pp.TensorGrid, z: np.ndarray
 ) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """Extrude a 1d grid into 2d by prismatic extension in the z-direction.
+    """Extrude a 1D grid into 2D by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
     z-direction is ignored.
@@ -542,17 +549,22 @@ def _extrude_1d(
     Both the original and the new grid will have their geometry computed.
 
     Parameters:
-        g (pp.Grid): Original grid to be extruded. Should have dimension 1.
-        z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
-            either non-negative or non-positive, and be sorted in increasing or
-            decreasing order, respectively.
+        g: Original grid to be extruded. Should have dimension 1.
+        z: An array containing z-coordinates per node for the extruded grid.
+            Should be either non-negative or non-positive,
+            and be sorted in increasing or decreasing order, respectively.
 
     Returns:
-        pp.Grid: A grid of dimension 2.
-        np.array of np.arrays: Cell mappings, so that element ci gives all indices of
-            cells in the extruded grid that comes from cell ci in the original grid.
-        np.array of np.arrays: Face mappings, so that element fi gives all indices of
-            faces in the extruded grid that comes from face fi in the original grid.
+        A 3-tuple containing
+
+        :class:`~porepy.grids.grid.Grid`:
+            The extruded grid of dimension 2.
+        :obj:`~numpy.ndarray`:
+            Cell mappings, such that that row ``i`` gives all indices of
+            cells in the extruded grid that comes from cell ``i`` in the original grid.
+        :obj:`~numpy.ndarray`:
+            Face mappings, s.t. row ``i`` gives all indices of
+            faces in the extruded grid that come from face ``i`` in the original grid.
 
     """
     # Number of cells in the grid
@@ -649,25 +661,25 @@ def _extrude_1d(
 def _extrude_0d(
     g: pp.PointGrid, z: np.ndarray
 ) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """Extrude a 0d grid into 1d by prismatic extension in the z-direction.
-
-    The original grid is assumed to be in the xy-plane, that is, any existing non-zero
-    z-direction is ignored.
-
-    Both the original and the new grid will have their geometry computed.
+    """Extrude a 0D grid into 1D by prismatic extension in the z-direction.
 
     Parameters:
-        g (pp.Grid): Original grid to be extruded. Should have dimension 1.
-        z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
-            either non-negative or non-positive, and be sorted in increasing or
-            decreasing order, respectively.
+        g: Original grid to be extruded. Should have dimension 1.
+        z: An array containing z-coordinates per node for the extruded grid.
+            Should be either non-negative or non-positive,
+            and be sorted in increasing or decreasing order, respectively.
 
     Returns:
-        pp.TensorGrid: A grid of dimension 1.
-        np.array of np.arrays: Cell mappings, so that element ci gives all indices of
-            cells in the extruded grid that comes from cell ci in the original grid.
-        np.array of np.arrays: Face mappings, so that element fi gives all indices of
-            faces in the extruded grid that comes from face fi in the original grid.
+        A 3-tuple containing
+
+        :class:`~porepy.grids.grid.Grid`:
+            The extruded grid of dimension 1.
+        :obj:`~numpy.ndarray`:
+            Cell mappings, such that that row ``i`` gives all indices of
+            cells in the extruded grid that comes from cell ``i`` in the original grid.
+        :obj:`~numpy.ndarray`:
+            Face mappings, s.t. row ``i`` gives all indices of
+            faces in the extruded grid that come from face ``i`` in the original grid.
 
     """
     # Number of nodes
@@ -701,23 +713,23 @@ def _extrude_0d(
 
 
 def _define_tags(g: pp.Grid, num_cell_layers: int) -> dict[str, np.ndarray]:
-    """Define all standard tags (face and nodes) for the extruded grids
+    """Define all standard tags (face and nodes) for the extruded grid.
 
     The extrusion functions do not explicitly account for split nodes and faces due to
     intersections with other grids (because of fractures). The standard tag construction
-    in the Grid __init__ will therefore not work. Instead, construct the information
-    from the original grid.
+    in the constructor of :class:`~porepy.grids.grid.Grid` will therefore not work.
+    Instead, construct the information from the original grid.
 
     For the face tags, the implementation assumes that the vertical faces are indexed
     first, then the horizontal ones.
 
     Parameters:
-        g (pp.Grid): Original grid.
-        num_cell_layers (int): Number of cell extrusion layers.
+        g: Original grid.
+        num_cell_layers: Number of cell extrusion layers.
 
     Returns:
-        dict: The standard tags (see pp.utils.tags) for faces and nodes for the
-            extruded grid.
+        A dictionary containing the standard tags (see :mod:`porepy.utils.tags`)
+        for faces and nodes for the extruded grid.
 
     """
     # Bookkeeping
@@ -791,6 +803,9 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> dict[str, np.ndarray]:
 def _create_mappings(
     g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Auxiliary function to create the extruded cell and face maps for
+    :func:`extrude_grid` and :func:`extrude_grid_bucket`."""
+
     cell_map = np.empty(g.num_cells, dtype=object)
     for c in range(g.num_cells):
         cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)

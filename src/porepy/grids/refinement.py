@@ -19,9 +19,7 @@ from porepy.grids.structured import TensorGrid
 
 
 def distort_grid_1d(
-    g: pp.Grid,
-    ratio: float = 0.1,
-    fixed_nodes: Optional[np.ndarray] = None
+    g: pp.Grid, ratio: float = 0.1, fixed_nodes: Optional[np.ndarray] = None
 ) -> pp.Grid:
     """Randomly distort internal nodes in a 1d grid.
 
@@ -112,7 +110,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
 
         # Add coordinate of the startpoint to the node array if relevant
         if if_add_loc[0]:
-            x[:, pos: (pos + 1)] = g.nodes[:, start, np.newaxis]
+            x[:, pos : (pos + 1)] = g.nodes[:, start, np.newaxis]
             pos += 1
 
         # Add coordinates of the internal nodes
@@ -124,7 +122,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
 
         # Add coordinate to the endpoint, if relevant
         if if_add_loc[1]:
-            x[:, pos: (pos + 1)] = g.nodes[:, end, np.newaxis]
+            x[:, pos : (pos + 1)] = g.nodes[:, end, np.newaxis]
             pos += 1
 
     # For 1d grids, there is a 1-1 relation between faces and nodes
@@ -197,7 +195,8 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
         # equal is now 2xnum_cells. To pick out the right elements, consider the raveled
         # index, and construct the corresponding raveled array
         equal_n = loc_n.ravel()[
-            np.ravel_multi_index(equal.T, loc_n.shape)]  # type: ignore
+            np.ravel_multi_index(equal.T, loc_n.shape)
+        ]  # type: ignore
 
         # Define node combination. Both nodes associated with a face have their offset
         # adjusted.
@@ -244,8 +243,8 @@ def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: float = 1e-6) -> pp.Grid:
     start, end = g_old.get_all_boundary_nodes()
     # Not sure why the new axis was necessary.
     nodes = g_old.nodes[:, start, np.newaxis] * theta + g_old.nodes[
-                                                        :, end, np.newaxis
-                                                        ] * (1.0 - theta)
+        :, end, np.newaxis
+    ] * (1.0 - theta)
 
     # Create the new grid, and assign nodes.
     g = TensorGrid(nodes[0, :])
@@ -349,9 +348,7 @@ class GridSequenceFactory(abc.ABC):
     """
 
     def __init__(
-            self,
-            network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d],
-            params: dict
+        self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: dict
     ) -> None:
         self._network = network.copy()
         self._counter: int = 0

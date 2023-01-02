@@ -1,12 +1,14 @@
-""" Module with methods to coarsen a grid. The main method is coarsen(), see this for
-more information.
+"""This module contains methods to coarsen grids.
 
+The main function is :func:`~porepy.grids.coarsening.coarsen`
+(see there for more information).
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 import scipy.sparse as sps
 
 import porepy as pp
@@ -14,20 +16,37 @@ from porepy.grids import grid
 from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
-def coarsen(
-    g: Union[pp.Grid, pp.MixedDimensionalGrid], method: str, **method_kwargs
-) -> Union[None, sps.spmatrix]:
-    """Create a coarse grid from a given grid. If a grid bucket is passed the
-    procedure is applied to the higher in dimension.
-    Note: the grid is modified in place.
-    Note: do not call compute_geometry afterward.
+def coarsen(g: pp.Grid | pp.MixedDimensionalGrid, method: str, **method_kwargs) -> None:
+    """Create a coarse grid from a given grid.
+
+    If a md-grid is passed, the procedure is applied to the grid of highest dimension.
+
+    Notes:
+
+        - The passed grid is modified.
+        - Do not call :meth:`~porepy.grids.grid.Grid.compute_geometry` afterwards.
+
     Parameters:
-        g: the grid or grid bucket
-        method: string which define the method to coarse. Current options:
-            'by_volume' (the coarsening is based on the cell volumes) or 'by_tpfa'
-            (using the algebraic multigrid method coarse/fine-splittings based on
-            direct couplings)
-        method_kwargs: the arguments for each method
+        g: The grid or mixed-dimensional grid to be coarsened.
+        method: A string defining the coarsening method.
+
+            The available options are:
+
+            - ``'by_volume'``: The coarsening is based on the cell volume.
+            - ``'by_tpfa'``: Uses the AMG method's coarse/fine-splittings based on
+              direct couplings
+
+        method_kwargs: Arguments for each ``method``.
+
+            For the ``'by_volume'``- method, see :func:`create_aggregations` for an
+            overview on admissible keyword arguments.
+
+            For the ``'by_tpfa'``- method, see :func:`create_partition`.
+            Additionally, a keyword argument ``if_seeds`` of boolean type is supported.
+            If ``True``, :func:`generate_seeds` is called to create seeds.
+
+    Raises:
+        ValueError: If ``method`` is not among the supported options.
 
     """
 
@@ -42,38 +61,49 @@ def coarsen(
         partition = create_partition(matrix, g, seeds=seeds, **method_kwargs)
 
     else:
-        raise ValueError("Undefined coarsening algorithm")
+        raise ValueError(f"Undefined method `{method}` for coarsening algorithm.")
 
-    return generate_coarse_grid(g, partition)
+    generate_coarse_grid(g, partition)
 
 
-def generate_coarse_grid(g, subdiv):
-    """Generate a coarse grid clustering the cells according to the flags
-    given by subdiv. Subdiv should be long as the number of cells in the
+def generate_coarse_grid(
+    g: pp.Grid | pp.MixedDimensionalGrid,
+    subdiv: npt.ArrayLike | dict[Any, tuple[Any, npt.ArrayLike]],
+) -> None:
+    """Generates a coarse grid by clustering the cells according to the flags
+    given by ``subdiv``.
+
+    ``subdiv`` must be as long as the number of cells in the
     original grid, it contains integers (possibly not continuous) which
-    represent the cells in the final mesh. If a grid bucket is given the
-    coarsening is applied to the higher dimensional grid.
+    represent the cell IDs in the final, coarser mesh. I.e. it is a cell map from
+    finer to coarser.
 
-    The values computed in "compute_geometry" are not preserved and they should
-    be computed out from this function.
+    If ``g`` is a mixed-dimensional grid, the coarsening is applied to the
+    higher dimensional grid.
 
-    Note: there is no check for disconnected cells in the final grid.
+    Warning:
+        This method effectively overwrites every grid property computed by
+        :meth:`~porepy.grids.grid.Grid.compute_geometry`. Do not call that method
+        after calling this one.
+
+    Note:
+        There is no check for disconnected cells in the final grid.
+
+    Example:
+
+        >>> g = ...  # some grid with 12 cells
+        >>> subdiv = np.array([0,0,1,1,2,2,3,3,4,4,5,5])  # coarser grid with 6 cells
+        >>> generate_coarse_grid(g, subdiv)
 
     Parameters:
-        g: the grid or grid bucket
-        subdiv: a list of flags, one for each cell of the original grid
+        g: A grid or mixed-dimensional grid.
+        subdiv: If ``g`` is a single grid, a single array-like object as in above
+            example suffices.
 
-    Return:
-        grid: if a grid is given as input, its coarser version is returned.
-        If a grid bucket is given as input, the grid is updated in place.
+            If ``g`` is a mixed-dimensional grid, a dictionary containing per grid (key)
+            a 2-tuple, where the second entry is the partition map as seen above.
+            This special structure is passed by :func:`coarsen`.
 
-    How to use:
-    subdiv = np.array([0,0,1,1,1,1,3,4,6,4,6,4])
-    g = generate_coarse_grid(g, subdiv)
-
-    or with a grid bucket:
-    subdiv = np.array([0,0,1,1,1,1,3,4,6,4,6,4])
-    generate_coarse_grid(mdg, subdiv)
 
     """
     if isinstance(g, grid.Grid):
@@ -87,20 +117,18 @@ def generate_coarse_grid(g, subdiv):
         _generate_coarse_grid_mdg(g, subdiv)
 
 
-# ------------------------------------------------------------------------------#
-
-
 def reorder_partition(
-    subdiv: Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]
-) -> Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]:
-    """
-    Re-order the partition id in case to obtain contiguous numbers.
+    subdiv: np.ndarray | dict[Any, tuple[Any, np.ndarray]],
+) -> np.ndarray | dict[Any, tuple[Any, np.ndarray]]:
+    """Re-order the partition IDs in order to obtain contiguous numbers.
 
     Parameters:
-        subdiv: array where for each cell one id
+        subdiv: A subdivision/partition as an array containing an ID for each cell, or
+            a dictionary containing the previous in a 2-tuple for any key.
 
     Return:
-        the subdivision written in a contiguous way
+        The subdivision stored in a contiguous way.
+
     """
     if isinstance(subdiv, dict):
         for _, (_, partition) in subdiv.items():
@@ -115,219 +143,20 @@ def reorder_partition(
     return subdiv
 
 
-def _generate_coarse_grid_single(g, subdiv, face_map):
-    """
-    Specific function for a single grid. Use the common interface instead.
-    """
+def generate_seeds(mdg: pp.Grid | pp.MixedDimensionalGrid) -> np.ndarray:
+    """Generates a priory seeds (cells) for coarsening a mixed-dimensional grid based
+    on topological information about the highest-dimensional grid.
 
-    subdiv = np.asarray(subdiv)
-    assert subdiv.size == g.num_cells
+    Parameters:
+        mdg: A grid or mixed-dimensional grid.
 
-    # declare the storage array to build the cell_faces map
-    cell_faces = np.empty(0, dtype=g.cell_faces.indptr.dtype)
-    cells = np.empty(0, dtype=cell_faces.dtype)
-    orient = np.empty(0, dtype=g.cell_faces.data.dtype)
+    Returns:
+        If ``mdg`` is a single grid, this function returns an empty array.
 
-    # declare the storage array to build the face_nodes map
-    face_nodes = np.empty(0, dtype=g.face_nodes.indptr.dtype)
-    nodes = np.empty(0, dtype=face_nodes.dtype)
-    visit = np.zeros(g.num_faces, dtype=bool)
+        If ``mdg`` is a mixed-dimensional grid, this function returns an initial seed
+        for the coarsening based on the mortar projections between the grid of highest
+        dimension and grids of co-dimension 1.
 
-    # compute the face_node indexes
-    num_nodes_per_face = g.face_nodes.indptr[1:] - g.face_nodes.indptr[:-1]
-    face_node_ind = pp.matrix_operations.rldecode(
-        np.arange(g.num_faces), num_nodes_per_face
-    )
-
-    cells_list = np.unique(subdiv)
-    cell_volumes = np.zeros(cells_list.size)
-    cell_centers = np.zeros((3, cells_list.size))
-
-    for cellId, cell in enumerate(cells_list):
-        # extract the cells of the original mesh associated to a specific label
-        cells_old = np.where(subdiv == cell)[0]
-
-        # compute the volume
-        cell_volumes[cellId] = np.sum(g.cell_volumes[cells_old])
-        cell_centers[:, cellId] = np.average(g.cell_centers[:, cells_old], axis=1)
-
-        # reconstruct the cell_faces mapping
-        faces_old, _, orient_old = sps.find(g.cell_faces[:, cells_old])
-        mask = np.ones(faces_old.size, dtype=bool)
-        mask[np.unique(faces_old, return_index=True)[1]] = False
-        # extract the indexes of the internal edges, to be discared
-        index = np.array(
-            [np.where(faces_old == f)[0] for f in faces_old[mask]], dtype=int
-        ).ravel()
-        faces_new = np.delete(faces_old, index)
-        cell_faces = np.r_[cell_faces, faces_new]
-        cells = np.r_[cells, np.repeat(cellId, faces_new.shape[0])]
-        orient = np.r_[orient, np.delete(orient_old, index)]
-
-        # reconstruct the face_nodes mapping
-        # consider only the unvisited faces
-        not_visit = ~visit[faces_new]
-        if not_visit.size == 0 or np.all(~not_visit):
-            continue
-        # mask to consider only the external faces
-        mask = np.atleast_1d(
-            np.sum(
-                [face_node_ind == f for f in faces_new[not_visit]],
-                axis=0,
-                dtype=bool,
-            )
-        )
-        face_nodes = np.r_[face_nodes, face_node_ind[mask]]
-
-        nodes_new = g.face_nodes.indices[mask]
-        nodes = np.r_[nodes, nodes_new]
-        visit[faces_new] = True
-
-    # Rename the faces
-    cell_faces_unique = np.unique(cell_faces)
-    cell_faces_id = np.arange(cell_faces_unique.size, dtype=cell_faces.dtype)
-    cell_faces = np.array(
-        [cell_faces_id[np.where(cell_faces_unique == f)[0]] for f in cell_faces]
-    ).ravel()
-    shape = (cell_faces_unique.size, cells_list.size)
-    cell_faces = sps.csc_matrix((orient, (cell_faces, cells)), shape=shape)
-
-    # Rename the nodes
-    face_nodes = np.array(
-        [cell_faces_id[np.where(cell_faces_unique == f)[0]] for f in face_nodes]
-    ).ravel()
-    nodes_list = np.unique(nodes)
-    nodes_id = np.arange(nodes_list.size, dtype=nodes.dtype)
-    nodes = np.array([nodes_id[np.where(nodes_list == n)[0]] for n in nodes]).ravel()
-
-    # sort the nodes
-    nodes = nodes[np.argsort(face_nodes, kind="mergesort")]
-    data = np.ones(nodes.size, dtype=g.face_nodes.data.dtype)
-    indptr = np.r_[0, np.cumsum(np.bincount(face_nodes))]
-    face_nodes = sps.csc_matrix((data, nodes, indptr))
-
-    g.name = "Coarsened grid"
-    # store again the data in the same grid
-    g.history.append("coarse")
-
-    g.nodes = g.nodes[:, nodes_list]
-    g.num_nodes = g.nodes.shape[1]
-
-    g.face_nodes = face_nodes
-    g.num_faces = g.face_nodes.shape[1]
-    g.face_areas = g.face_areas[cell_faces_unique]
-    g.tags = tags.extract(g.tags, cell_faces_unique, tags.standard_face_tags())
-    g.face_normals = g.face_normals[:, cell_faces_unique]
-    g.face_centers = g.face_centers[:, cell_faces_unique]
-
-    g.cell_faces = cell_faces
-    g.num_cells = g.cell_faces.shape[1]
-    g.cell_volumes = cell_volumes
-    g.cell_centers = grid_utils.star_shape_cell_centers(g, as_nan=True)
-    is_nan = np.isnan(g.cell_centers[0, :])
-    g.cell_centers[:, is_nan] = cell_centers[:, is_nan]
-
-    if face_map:
-        return np.array([cell_faces_unique, cell_faces_id])
-
-
-def _generate_coarse_grid_mdg(mdg, subdiv):
-    """
-    Specific function for a grid bucket. Use the common interface instead.
-    """
-
-    if not isinstance(subdiv, dict):
-        g = mdg.subdomains(dim=mdg.dim_max())[0]
-        subdiv = {g: subdiv}
-
-    for g, (_, partition) in subdiv.items():
-
-        # Construct the coarse grids
-        face_map = _generate_coarse_grid_single(g, partition, True)
-
-        # Update all the primary_to_mortar_int for all the 'edges' connected to the grid
-        # We update also all the face_cells
-        for intf in mdg.subdomain_to_interfaces(g):
-            # The indices that need to be mapped to the new grid
-
-            data = mdg.interface_data(intf)
-
-            projections = [
-                intf.primary_to_mortar_int().tocsr(),
-                intf.primary_to_mortar_avg().tocsr(),
-            ]
-
-            for ind, mat in enumerate(projections):
-                indices = mat.indices
-
-                # Map indices
-                mask = np.argsort(indices)
-                indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
-                # Reverse the ordering
-                indices = indices[np.argsort(mask)]
-
-                # Create the new matrix
-                shape = (mat.shape[0], g.num_faces)
-                projections[ind] = sps.csr_matrix(
-                    (mat.data, indices, mat.indptr), shape=shape
-                )
-
-            # Update mortar projection
-            intf._primary_to_mortar_int = projections[0].tocsc()
-            intf._primary_to_mortar_avg = projections[1].tocsc()
-
-            # Also update all other projections to primary
-            intf._set_projections(secondary=False)
-
-            # update also the face_cells map
-            face_cells = data["face_cells"].tocsr()
-            indices = face_cells.indices
-
-            # map indices
-            mask = np.argsort(indices)
-            indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
-            face_cells.indices = indices[np.argsort(mask)]
-
-            # update the map
-            data["face_cells"] = face_cells.tocsc()
-
-
-def _tpfa_matrix(g, perm=None):
-    """
-    Compute a two-point flux approximation matrix useful related to a call of
-    create_partition.
-
-    Parameters
-    ----------
-    g: the grid
-    perm: (optional) permeability, the it is not given unitary tensor is assumed
-
-    Returns
-    -------
-    out: sparse matrix
-        Two-point flux approximation matrix
-
-    """
-    if isinstance(g, pp.MixedDimensionalGrid):
-        g = g.subdomains(dim=g.dim_max())[0]
-
-    if perm is None:
-        perm = pp.SecondOrderTensor(np.ones(g.num_cells))
-
-    solver = pp.Tpfa("flow")
-    specified_parameters = {
-        "second_order_tensor": perm,
-        "bc": pp.BoundaryCondition(g, np.empty(0), ""),
-    }
-    data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-    solver.discretize(g, data)
-    return solver.assemble_matrix(g, data)
-
-
-def generate_seeds(mdg):
-    """
-    Giving the higher dimensional grid in a grid bucket, generate the seed for
-    the tip of lower
     """
     seeds = np.empty(0, dtype=int)
 
@@ -362,14 +191,20 @@ def generate_seeds(mdg):
     return seeds
 
 
-def create_aggregations(grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs):
-    """Create a cell partition based on their volumes.
+def create_aggregations(
+    grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs
+) -> dict[pp.Grid, np.ndarray]:
+    """Creates a cell partition based on their volumes.
 
-    Parameter:
-        grid (pp.Grid, or pp.MixedDimensionalGrid): subdomain or mixed-dimensional grid
+    Parameters:
+        grid: A single grid or mixed-dimensional grid.
+        **kwargs: Following keyword arguments are supported:
 
-    Return:
-        partition: partition of the cells for the coarsening algorithm
+            - ``'weight'``: A float serving as weight for the mean of the cell volumes.
+              Defaults to 1.
+
+    Returns:
+        A dictionary containing a partition per grid.
 
     """
     # Extract the higher dimensional grids and store in a list
@@ -389,7 +224,7 @@ def create_aggregations(grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs)
         volumes_checked = volumes.copy()
         c2c = g.cell_connection_map()
 
-        # Compute the inverse of the harminc mean
+        # Compute the inverse of the harmonic mean
         weight = kwargs.get("weight", 1.0)
         mean = weight * np.mean(volumes)
 
@@ -466,50 +301,46 @@ def create_aggregations(grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs)
     return partition
 
 
-def __get_neigh(cells_id, c2c, partition):
-    """Support function for create_aggregations"""
-    neighbors = np.empty(0, dtype=int)
+def create_partition(
+    A: sps.spmatrix,
+    g: pp.Grid | pp.MixedDimensionalGrid,
+    seeds: Optional[np.ndarray] = None,
+    **kwargs,
+) -> dict[pp.Grid, tuple[pp.Grid, np.ndarray]]:
+    """Create the partition based on an input matrix using the AMG
+    method's coarse/fine-splittings based on direct couplings.
 
-    for cell_id in np.atleast_1d(cells_id):
-        # Extract the neighbors of the current cell
-        loc = slice(c2c.indptr[cell_id], c2c.indptr[cell_id + 1])
-        neighbors = np.hstack((neighbors, c2c.indices[loc]))
+    The standard values for ``cdepth`` and ``epsilon`` are taken from the reference
+    below.
 
-    neighbors = np.unique(neighbors)
-    partition_neighbors = partition[neighbors]
+    Example:
 
-    # Check if some neighbor has already a coarse id
-    return np.sort(neighbors[partition_neighbors < 0])
+        >>> part = create_partition(tpfa_matrix(g))
+        >>> g = generate_coarse_grid(g, part)
 
+    References:
+        U. Trottenberg, C. W. Oosterlee, and A. Schuller (200):
+        Multigrid, Academic press.
 
-def create_partition(A, g, seeds=None, **kwargs):
-    """
-    Create the partition based on an input matrix using the algebraic multigrid
-    method coarse/fine-splittings based on direct couplings. The standard values
-    for cdepth and epsilon are taken from the following reference.
+    Parameters:
+        A: A sparse matrix used for the agglomeration.
+        g: A single grid or mixed-dimensional grid.
+        seeds: ``default=None``
 
-    For more information see: U. Trottenberg, C. W. Oosterlee, and A. Schuller.
-    Multigrid. Academic press, 2000.
+            A-priory defined cells of the coarser grid.
+        **kwargs: The following keyword arguments are supported:
 
-    Parameters
-    ----------
-    A: sparse matrix used for the agglomeration
-    g: grid or grid bucket
-    seeds: (optional) to define a-priori coarse cells
-    cdepth: the greather is the more intense the aggregation will be, e.g. less
-        cells if it is used combined with generate_coarse_grid
-    epsilon: weight for the off-diagonal entries to define the "strong
-        negatively cupling"
+            - ``'cdepth'``: A number to define the strength of the aggregation, i.e. a
+              a greater number results in lesser cells. Defaults to 2.
+            - ``'epsilon'``: A float representing the weight for the off-diagonal
+              entries to define the *strong negative coupling*. Defaults to 0.25.
 
+    Returns:
+        A dictionary containing the a 2-tuple per grid. The 2-tuple contains the grid
+        with the highest dimension and the map from finer to coarser grid containing as
+        an array of agglomeration indices.
 
-    Returns
-    -------
-    out: map from old to the new grid with agglomeration indices
-
-    How to use
-    ----------
-    part = create_partition(tpfa_matrix(g))
-    g = generate_coarse_grid(g, part)
+        If ``g`` is a single grid, the grid of highest dimension is ``g`` itself.
 
     """
 
@@ -690,3 +521,261 @@ def create_partition(A, g, seeds=None, **kwargs):
     coarse, fine = primal.tocsr().nonzero()
     partition = {g_high: (g_high.copy(), coarse[np.argsort(fine)])}
     return partition
+
+
+def _generate_coarse_grid_single(
+    g: pp.Grid, subdiv: np.ndarray, face_map: bool
+) -> None | np.ndarray:
+    """Auxiliary function to create a coarsening for a given single grid.
+
+    Parameters:
+        g: A single-dimensional grid.
+        subdiv: A coarsening map containing cell IDs of the coarser grid for each ID
+            in the finer grid
+        face_map: A bool indicating if the face map for the coarser grid should be
+            returned
+
+    Returns:
+        If ``face_map`` is True, returns the cell-to-face map of the coarser grid.
+
+    """
+
+    subdiv = np.asarray(subdiv)
+    assert subdiv.size == g.num_cells
+
+    # declare the storage array to build the cell_faces map
+    cell_faces = np.empty(0, dtype=g.cell_faces.indptr.dtype)
+    cells = np.empty(0, dtype=cell_faces.dtype)
+    orient = np.empty(0, dtype=g.cell_faces.data.dtype)
+
+    # declare the storage array to build the face_nodes map
+    face_nodes = np.empty(0, dtype=g.face_nodes.indptr.dtype)
+    nodes = np.empty(0, dtype=face_nodes.dtype)
+    visit = np.zeros(g.num_faces, dtype=bool)
+
+    # compute the face_node indexes
+    num_nodes_per_face = g.face_nodes.indptr[1:] - g.face_nodes.indptr[:-1]
+    face_node_ind = pp.matrix_operations.rldecode(
+        np.arange(g.num_faces), num_nodes_per_face
+    )
+
+    cells_list = np.unique(subdiv)
+    cell_volumes = np.zeros(cells_list.size)
+    cell_centers = np.zeros((3, cells_list.size))
+
+    for cellId, cell in enumerate(cells_list):
+        # extract the cells of the original mesh associated to a specific label
+        cells_old = np.where(subdiv == cell)[0]
+
+        # compute the volume
+        cell_volumes[cellId] = np.sum(g.cell_volumes[cells_old])
+        cell_centers[:, cellId] = np.average(g.cell_centers[:, cells_old], axis=1)
+
+        # reconstruct the cell_faces mapping
+        faces_old, _, orient_old = sps.find(g.cell_faces[:, cells_old])
+        mask = np.ones(faces_old.size, dtype=bool)
+        mask[np.unique(faces_old, return_index=True)[1]] = False
+        # extract the indexes of the internal edges, to be discared
+        index = np.array(
+            [np.where(faces_old == f)[0] for f in faces_old[mask]], dtype=int
+        ).ravel()
+        faces_new = np.delete(faces_old, index)
+        cell_faces = np.r_[cell_faces, faces_new]
+        cells = np.r_[cells, np.repeat(cellId, faces_new.shape[0])]
+        orient = np.r_[orient, np.delete(orient_old, index)]
+
+        # reconstruct the face_nodes mapping
+        # consider only the unvisited faces
+        not_visit = ~visit[faces_new]
+        if not_visit.size == 0 or np.all(~not_visit):
+            continue
+        # mask to consider only the external faces
+        mask = np.atleast_1d(
+            np.sum(
+                [face_node_ind == f for f in faces_new[not_visit]],
+                axis=0,
+                dtype=bool,
+            )
+        )
+        face_nodes = np.r_[face_nodes, face_node_ind[mask]]
+
+        nodes_new = g.face_nodes.indices[mask]
+        nodes = np.r_[nodes, nodes_new]
+        visit[faces_new] = True
+
+    # Rename the faces
+    cell_faces_unique = np.unique(cell_faces)
+    cell_faces_id = np.arange(cell_faces_unique.size, dtype=cell_faces.dtype)
+    cell_faces = np.array(
+        [cell_faces_id[np.where(cell_faces_unique == f)[0]] for f in cell_faces]
+    ).ravel()
+    shape = (cell_faces_unique.size, cells_list.size)
+    cell_faces = sps.csc_matrix((orient, (cell_faces, cells)), shape=shape)
+
+    # Rename the nodes
+    face_nodes = np.array(
+        [cell_faces_id[np.where(cell_faces_unique == f)[0]] for f in face_nodes]
+    ).ravel()
+    nodes_list = np.unique(nodes)
+    nodes_id = np.arange(nodes_list.size, dtype=nodes.dtype)
+    nodes = np.array([nodes_id[np.where(nodes_list == n)[0]] for n in nodes]).ravel()
+
+    # sort the nodes
+    nodes = nodes[np.argsort(face_nodes, kind="mergesort")]
+    data = np.ones(nodes.size, dtype=g.face_nodes.data.dtype)
+    indptr = np.r_[0, np.cumsum(np.bincount(face_nodes))]
+    face_nodes = sps.csc_matrix((data, nodes, indptr))
+
+    g.name = "Coarsened grid"
+    # store again the data in the same grid
+    g.history.append("coarse")
+
+    g.nodes = g.nodes[:, nodes_list]
+    g.num_nodes = g.nodes.shape[1]
+
+    g.face_nodes = face_nodes
+    g.num_faces = g.face_nodes.shape[1]
+    g.face_areas = g.face_areas[cell_faces_unique]
+    g.tags = tags.extract(g.tags, cell_faces_unique, tags.standard_face_tags())
+    g.face_normals = g.face_normals[:, cell_faces_unique]
+    g.face_centers = g.face_centers[:, cell_faces_unique]
+
+    g.cell_faces = cell_faces
+    g.num_cells = g.cell_faces.shape[1]
+    g.cell_volumes = cell_volumes
+    g.cell_centers = grid_utils.star_shape_cell_centers(g, as_nan=True)
+    is_nan = np.isnan(g.cell_centers[0, :])
+    g.cell_centers[:, is_nan] = cell_centers[:, is_nan]
+
+    if face_map:
+        return np.array([cell_faces_unique, cell_faces_id])
+
+
+def _generate_coarse_grid_mdg(
+    mdg: pp.MixedDimensionalGrid,
+    subdiv: np.ndarray | dict[pp.Grid, tuple[pp.Grid, np.ndarray]],
+):
+    """Auxiliary function to create a coarsening for a given mixed-dimensional grid.
+
+    Parameters:
+        mdg: A mixed-dimensional grid.
+        subdiv: A subdivision containing the coarsening map for each grid in a 2-tuple.
+
+    """
+
+    if not isinstance(subdiv, dict):
+        g = mdg.subdomains(dim=mdg.dim_max())[0]
+        subdiv = {g: subdiv}
+
+    for g, (_, partition) in subdiv.items():
+
+        # Construct the coarse grids
+        face_map = _generate_coarse_grid_single(g, partition, True)
+
+        # Update all the primary_to_mortar_int for all the 'edges' connected to the grid
+        # We update also all the face_cells
+        for intf in mdg.subdomain_to_interfaces(g):
+            # The indices that need to be mapped to the new grid
+
+            data = mdg.interface_data(intf)
+
+            projections = [
+                intf.primary_to_mortar_int().tocsr(),
+                intf.primary_to_mortar_avg().tocsr(),
+            ]
+
+            for ind, mat in enumerate(projections):
+                indices = mat.indices
+
+                # Map indices
+                mask = np.argsort(indices)
+                indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+                # Reverse the ordering
+                indices = indices[np.argsort(mask)]
+
+                # Create the new matrix
+                shape = (mat.shape[0], g.num_faces)
+                projections[ind] = sps.csr_matrix(
+                    (mat.data, indices, mat.indptr), shape=shape
+                )
+
+            # Update mortar projection
+            intf._primary_to_mortar_int = projections[0].tocsc()
+            intf._primary_to_mortar_avg = projections[1].tocsc()
+
+            # Also update all other projections to primary
+            intf._set_projections(secondary=False)
+
+            # update also the face_cells map
+            face_cells = data["face_cells"].tocsr()
+            indices = face_cells.indices
+
+            # map indices
+            mask = np.argsort(indices)
+            indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+            face_cells.indices = indices[np.argsort(mask)]
+
+            # update the map
+            data["face_cells"] = face_cells.tocsc()
+
+
+def _tpfa_matrix(
+    g: pp.Grid | pp.MixedDimensionalGrid, perm: Optional[pp.SecondOrderTensor] = None
+) -> sps.spmatrix:
+    """Compute a two-point flux approximation for a given grid
+
+    This is a helper method for :func:`create_partition`.
+
+    Parameters:
+        g: A single grid or mixed-dimensional grid.
+        perm: ``default=None``
+
+            The permeability as a tensor. If not given, defaults to the unit tensor.
+
+    Returns:
+        The TPFA matrix for given grid and permeability.
+
+    """
+    if isinstance(g, pp.MixedDimensionalGrid):
+        g = g.subdomains(dim=g.dim_max())[0]
+
+    if perm is None:
+        perm = pp.SecondOrderTensor(np.ones(g.num_cells))
+
+    solver = pp.Tpfa("flow")
+    specified_parameters = {
+        "second_order_tensor": perm,
+        "bc": pp.BoundaryCondition(g, np.empty(0), ""),
+    }
+    data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+    solver.discretize(g, data)
+    return solver.assemble_matrix(g, data)
+
+
+def __get_neigh(
+    cells_id: np.ndarray, c2c: sps.spmatrix, partition: np.ndarray
+) -> np.ndarray:
+    """An auxiliary function for :func:`create_aggregations` to get neighbouring cells.
+
+    Parameters:
+        cells_id: An array containing cell IDs.
+        c2c: A sparse map between cells sharing a face.
+        partition: A partition map containing indices of the coarser grid for each cell
+            in the finer grid.
+
+    Returns:
+        Neighbouring cell IDs in the ``partition``.
+
+    """
+    neighbors = np.empty(0, dtype=int)
+
+    for cell_id in np.atleast_1d(cells_id):
+        # Extract the neighbors of the current cell
+        loc = slice(c2c.indptr[cell_id], c2c.indptr[cell_id + 1])
+        neighbors = np.hstack((neighbors, c2c.indices[loc]))
+
+    neighbors = np.unique(neighbors)
+    partition_neighbors = partition[neighbors]
+
+    # Check if some neighbor has already a coarse id
+    return np.sort(neighbors[partition_neighbors < 0])
