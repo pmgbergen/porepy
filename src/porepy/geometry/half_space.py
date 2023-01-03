@@ -1,5 +1,4 @@
-""" Module contains functions for computations relating to half spaces.
-"""
+"""This module contains functions for computations relating to half spaces."""
 import numpy as np
 from scipy import optimize
 from scipy.spatial import HalfspaceIntersection
@@ -12,6 +11,7 @@ def point_inside_half_space_intersection(
     Find the points that lie in the intersection of half spaces (in 3D).
 
     Examples:
+
         >>> import numpy as np
         >>> n = np.array([[0, 1], [1, 0], [0, 0]])
         >>> x0 = np.array([[0, -1], [0, 0], [0, 0]])
@@ -20,21 +20,27 @@ def point_inside_half_space_intersection(
         array([False,  True, False], dtype=bool)
 
     Parameters:
-        n (shape=(3, num_planes)): The normal vectors of the half planes. The normal
-            vectors are assumed to point out of the half spaces.
-        x0 (shape=(3, num_planes)): Point on the boundary of the half-spaces. Half space
-            ``i`` is given by all points satisfying ``(x - x0[:,i])*n[:,i]<=0``.
-        pts (shape=(3, np)): The points to be tested if they are in the
-            intersection of all half-spaces or not.
+        n: ``shape=(3, num_planes)``
 
-    Returns:
-        A logical array with ``shape=(np, )``.
-        ``out[i]`` is True if ``pts[:, i]`` is in all half-spaces.
+            The normal vectors of the half planes. The normal
+            vectors are assumed to point out of the half spaces.
+        x0: ``shape=(3, num_planes)``
+
+            Point on the boundary of the half-spaces. Half space
+            ``i`` is given by all points satisfying ``(x - x0[:,i])*n[:,i]<=0``.
+        pts: ``shape=(3, np)``
+
+            The points to be tested if they are in the
+            intersection of all half-spaces or not.
 
     Raises:
         ValueError: If either of the parameters ``n``, ``x0`` or ``pts`` are not
             three dimensional.
         ValueError: If the number of columns in ``n`` and ``x0`` are not equal.
+
+    Returns:
+        A logical array with ``shape=(np, )``.
+        ``out[i]`` is True if ``pts[:, i]`` is in all half-spaces.
 
     """
     if n.shape[0] != 3 or x0.shape[0] != 3 or pts.shape[0] != 3:
@@ -82,21 +88,29 @@ def half_space_interior_point(
         For more information, see http://www.qhull.org/html/qhalf.htm#notes
 
     Parameters:
-        n (shape=(3, num_planes)): This is the normal vectors of the half planes. The
+        n: ``shape=(3, num_planes)``
+
+            This is the normal vectors of the half planes. The
             normal vectors are assumed to be coherently oriented for all the half spaces
             (inward or outward).
-        x0 (shape=(3, num_planes)): Point on the boundary of the half-spaces. Half space
-            ``i`` is given by all points satisfying ``(x - x0[:, i]) * n[:, i] <= 0``.
-        pts (shape=(3, np)): Points used to bound the search space for interior point.
-            The optimum solution will be sought within
-            ``(pts.min(axis=1), pts.max(axis=1)).
-        recompute: If the algorithm fails, try again with flipped normals.
+        x0: ``shape=(3, num_planes)``
 
-    Returns:
-        Interior point of the halfspaces with ``shape=(np, )``.
+            Point on the boundary of the half-spaces. Half space
+            ``i`` is given by all points satisfying ``(x - x0[:, i]) * n[:, i] <= 0``.
+        pts: ``shape=(3, np)``
+
+            Points used to bound the search space for interior point.
+            The optimum solution will be sought within
+            ``(pts.min(axis=1), pts.max(axis=1))``.
+        recompute: ``default=True``
+
+            If the algorithm fails, try again with flipped normals.
 
     Raises:
         ValueError: If the inequalities define an empty half space.
+
+    Returns:
+        Interior point of the halfspaces with ``shape=(np, )``.
 
     """
     import scipy.optimize as opt
@@ -137,17 +151,21 @@ def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
         The function has been tested for 2d and 3d domains.
 
     Parameters:
-        A (shape=(num_planes, nd)): Matrix of normal vectors (in rows) for the half
-            planes. Should be oriented so that ``A * x + b < 0``
-        b (shape=(num_planes,)): Constants used to define inequalities of the half spaces.
-            Should be scaled so that ``A * x + b < 0``.
+        A: ``shape=(num_planes, nd)``
 
-    Returns:
-        Vertexes of a convex domain.
+            Matrix of normal vectors (in rows) for the half
+            planes. Should be oriented so that ``A * x + b < 0``
+        b: ``shape=(num_planes,)``
+
+            Constants used to define inequalities of the half spaces.
+            Should be scaled so that ``A * x + b < 0``.
 
     Raises:
         QhullError: QhullError: If ``A`` and ``b`` are not set up right (e.g. sign
             errors that imply that the inequalities do not form a closed domain).
+
+    Returns:
+        Vertexes of a convex domain.
 
     """
     b = b.reshape((-1, 1))

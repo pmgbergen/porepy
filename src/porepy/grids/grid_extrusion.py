@@ -43,7 +43,7 @@ def extrude_grid_bucket(
             and be sorted in increasing or decreasing order, respectively.
 
     Returns:
-        A 2-tuple containing:
+        A 2-tuple containing
 
         :class:`~porepy.grids.md_grid.MixedDimensionalGrid`:
             A mixed-dimensional grid with highest dimension 3. The data

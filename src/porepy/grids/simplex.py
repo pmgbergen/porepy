@@ -2,10 +2,10 @@
 
 .. rubric:: Acknowledgement
 
-    The implementation of structured grids is in practice a translation of the
-    corresponding functions found in the
-    `Matlab Reservoir Simulation Toolbox (MRST) <www.sintef.no/projectweb/mrst/>`_
-    developed by SINTEF ICT.
+The implementation of structured grids is in practice a translation of the
+corresponding functions found in the
+`Matlab Reservoir Simulation Toolbox (MRST) <www.sintef.no/projectweb/mrst/>`_
+developed by SINTEF ICT.
 
 """
 from typing import Optional

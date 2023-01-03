@@ -15,7 +15,7 @@ from __future__ import annotations
 import copy
 import itertools
 from itertools import count
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -28,7 +28,7 @@ class Grid:
     """Parent class for all grids.
 
     The grid stores topological information, as well as geometric
-    information. Geometric information requires calling :meth:`~compute_geometry`
+    information. Geometric information requires calling :meth:`compute_geometry`
     to be initialized.
 
     Note:
@@ -39,7 +39,7 @@ class Grid:
         dim: Grid dimension.
         nodes: ``shape=(ambient_dimension, num_nodes)``
 
-            Node coordinates, where ``ambient_dimension is the dimension of the grid.
+            Node coordinates, where ``ambient_dimension`` is the dimension of the grid.
         face_nodes: ``shape=(num_nodes, num_faces)``
 
             A map from faces to respective nodes spanning the face.
@@ -50,7 +50,7 @@ class Grid:
         history: ``default=None``
 
             Information on the formation of the grid.
-        external_tags (optional): ``default=None``
+        external_tags: ``default=None``
 
             External tags for nodes and grids. Will be added to :attr:`~tags`.
 
@@ -75,7 +75,7 @@ class Grid:
         face_nodes: sps.csc_matrix,
         cell_faces: sps.csc_matrix,
         name: str,
-        history: Optional[list[str] | str] = None,
+        history: Optional[Union[str, list[str]]] = None,
         external_tags: Optional[dict[str, np.ndarray]] = None,
     ) -> None:
         if not (dim >= 0 and dim <= 3):
@@ -955,7 +955,7 @@ class Grid:
             ValueError: If a target face is internal.
 
         Returns:
-            A 2-tuple containing:
+            A 2-tuple containing
 
             :obj:`~numpy.ndarray`:
                 ``shape=(n,)``
@@ -984,7 +984,7 @@ class Grid:
 
     def closest_cell(
         self, p: np.ndarray, return_distance: bool = False
-    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
         """For a set of points, find closest cell by cell center.
 
         If several centers have the same distance, one of them will be

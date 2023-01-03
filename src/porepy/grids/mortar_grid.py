@@ -7,7 +7,7 @@ from __future__ import annotations
 import warnings
 from enum import Enum
 from itertools import count
-from typing import Generator, Optional
+from typing import Generator, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -62,13 +62,13 @@ class MortarGrid:
             If not provided, duplicate faces will be inferred from the indices of the
             faces.
 
-            Will only be used if ``len(side_Grids) == 2``.
+            Will only be used if ``len(side_Grids)==2``.
         tol: ``default=1e-6``
 
             Tolerance used in geometric computations.
 
     Raises:
-        ValueError: If ``dim==3``. The mortar grid can not be three-dimensional.
+        ValueError: If ``dim==3`` , The mortar grid can not be three-dimensional.
         ValueError: If the mortar grids have different dimensions.
         ValueError: If the number of sides is not 1 or 2.
         ValueError: If ``face_duplicate_ind`` is not ``None`` and the co-dimension is 2.
@@ -92,7 +92,7 @@ class MortarGrid:
         side_grids: dict[MortarSides, pp.Grid],
         primary_secondary: Optional[sps.spmatrix] = None,
         codim: int = 1,
-        name: str | list[str] = "",
+        name: Union[str, list[str]] = "",
         face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
     ) -> None:
@@ -162,7 +162,7 @@ class MortarGrid:
         such as sorting in md grids.
 
         The attribute is set in :meth:`__new__`.
-        This avoids calls to ``super().__init__`` in child classes.
+        This avoids calls to the super constructor in child classes.
 
         """
         return self.__id
@@ -531,10 +531,11 @@ class MortarGrid:
         combining cells on all the sides, to the specific side grids.
 
         Yields:
-            A 2-tuple containing:
+            A 2-tuple containing
 
-            :obj:`~scipy.sparse.csc_matrix~:
+            :obj:`~scipy.sparse.csc_matrix`:
                 Projection from the mortar cells to this side grid.
+
             :class:`~porepy.grids.grid.Grid`:
                 PorePy grid representing one of the sides of the mortar grid. Can
                 be used for standard discretizations.
@@ -554,6 +555,7 @@ class MortarGrid:
             yield proj, grid
 
     ## Methods to construct projection matrices
+
     def primary_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of primary to the mortar, by summing quantities
         from the primary side.
@@ -572,7 +574,7 @@ class MortarGrid:
 
         Returns:
             Projection matrix with column sum unity and
-            ``shape=(nd * g_primary.num_faces, nd * mortar_grid.num_cells)``.
+            ``shape=(nd*g_primary.num_faces, nd*mortar_grid.num_cells)``.
 
         """
         return self._convert_to_vector_variable(self._primary_to_mortar_int, nd)
@@ -595,7 +597,7 @@ class MortarGrid:
 
         Returns:
             Projection matrix with column sum unity and
-            ``shape=(nd * g_secondary.num_cells, nd * mortar_grid.num_cells)``.
+            ``shape=(nd*g_secondary.num_cells, nd*mortar_grid.num_cells)``.
 
         """
         return self._convert_to_vector_variable(self._secondary_to_mortar_int, nd)
@@ -619,7 +621,7 @@ class MortarGrid:
 
         Returns:
             Projection matrix with row sum unity and
-            ``shape=(nd * g_primary.num_faces, nd * mortar_grid.num_cells)``.
+            ``shape=(nd*g_primary.num_faces, nd*mortar_grid.num_cells)``.
 
         """
         return self._convert_to_vector_variable(self._primary_to_mortar_avg, nd)
@@ -643,7 +645,7 @@ class MortarGrid:
 
         Returns:
             Projection matrix with row sum unity and
-            ``shape=(nd * g_secondary.num_cells, nd * mortar_grid.num_cells)``.
+            ``shape=(nd*g_secondary.num_cells, nd*mortar_grid.num_cells)``.
 
         """
         return self._convert_to_vector_variable(self._secondary_to_mortar_avg, nd)
@@ -666,7 +668,7 @@ class MortarGrid:
 
         Returns:
             Projection matrix with column sum unity and
-            ``shape=(nd * mortar_grid.num_cells, nd * g_primary.num_faces)``.
+            ``shape=(nd*mortar_grid.num_cells, nd*g_primary.num_faces)``.
 
         """
         return self._convert_to_vector_variable(self._mortar_to_primary_int, nd)
@@ -689,7 +691,7 @@ class MortarGrid:
 
         Returns:
             Projection matrix with column sum unity and
-            ``shape=(nd * mortar_grid.num_cells, nd * g_secondary.num_faces)``.
+            ``shape=(nd*mortar_grid.num_cells, nd*g_secondary.num_faces)``.
 
 
         """
@@ -714,7 +716,7 @@ class MortarGrid:
 
         Returns:
             Projection matrix with row sum unity and
-            ``shape=(nd * mortar_grid.num_cells, nd * g_primary.num_faces)``.
+            ``shape=(nd*mortar_grid.num_cells, nd*g_primary.num_faces)``.
 
         """
         return self._convert_to_vector_variable(self._mortar_to_primary_avg, nd)
@@ -738,7 +740,7 @@ class MortarGrid:
 
         Returns:
             Projection matrix with row sum unity and
-            ``shape=(nd * mortar_grid.num_cells, nd * g_secondary.num_faces)``.
+            ``shape=(nd*mortar_grid.num_cells, nd*g_secondary.num_faces)``.
 
         """
         return self._convert_to_vector_variable(self._mortar_to_secondary_avg, nd)
@@ -767,6 +769,7 @@ class MortarGrid:
         mortar sides.
 
         Example:
+
             Take the difference between right and left variables, and project to the
             secondary grid by
 
@@ -789,7 +792,7 @@ class MortarGrid:
         Returns:
             Diagonal matrix with positive signs on variables belonging to the first of
             the side_grids and
-            ``shape=(nd * mortar_grid.num_cells, nd * mortar_grid.num_cells)``.
+            ``shape=(nd*mortar_grid.num_cells, nd*mortar_grid.num_cells)``.
 
         """
         nc = self.num_cells
@@ -813,7 +816,7 @@ class MortarGrid:
         """
         Returns:
             An array containing the diameters of each cell in the mortar grid and
-            ``shape=(mortar_grid.num_cells, )``.
+            ``shape=(mortar_grid.num_cells,)``.
 
         """
         diams = np.empty(self.num_sides(), dtype=object)
@@ -854,7 +857,7 @@ class MortarGrid:
 
                 If not provided, duplicate
                 faces will be inferred from the indices of the faces. Will only be used
-                if ``len(side_Grids) == 2``.
+                if ``len(side_Grids)==2``.
 
         Raises:
             ValueError: If there are two sides and a face of the primary grid is not
@@ -951,7 +954,7 @@ class MortarGrid:
 
     def _set_projections(self, primary: bool = True, secondary: bool = True) -> None:
         """Set projections to and from primary from the current state of
-        ``_primary_to_mortar_int`` and ``_secondary_to_mortar_int``.
+        ``_primary_to_mortar_int`` and ``_secondary_to_mortar_int`` .
 
         """
 

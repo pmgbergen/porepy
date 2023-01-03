@@ -1,7 +1,4 @@
-"""
-Module with functions for computing intersections between geometric objects.
-
-"""
+"""Module with functions for computing intersections between geometric objects."""
 from __future__ import annotations
 
 import logging
@@ -59,15 +56,15 @@ def segments_2d(
         end_2: Coordinates of end point for first line.
         tol: Tolerance for detecting parallel lines.
 
+    Raises:
+        ValueError: If the start and endpoints of a line are the same.
+
     Returns:
         Coordinates of intersection point, or the endpoints of the intersection segments
         if relevant. In the case of a segment, the first point (column) will be closest
         to ``start_1``. Shape is ``(2, np)``, where ``np`` is ``1`` for a point
         intersection, or ``2`` for a segment intersection. If the lines do not
         intersect, ``None`` is returned.
-
-    Raises:
-        ValueError: If the start and endpoints of a line are the same.
 
     """
     start_1 = np.asarray(start_1).astype(float)
@@ -390,39 +387,49 @@ def polygons_3d(
         - Contact between polygons in a single point may not be accurately calculated.
 
     Parameters:
-        polys (shape=(3, np)): Each list item represents a polygon, specified by its
+        polys: ``shape=(3, np)``
+
+            Each list item represents a polygon, specified by its
             vertices as a numpy array. There should be at least three vertices in the
             polygon.
-        target_poly: Index in poly of the polygons that should be targeted for
-            intersection findings. These will be compared with the whole set in poly. If
-            not provided, all polygons are compared with each other.
-        tol: Geometric tolerance for the computations.
-        include_point_contact: If True (default) point contacts will be considered an
+        target_poly: ``default=None``
+
+            Index in poly of the polygons that should be targeted for
+            intersection findings. These will be compared with the whole set in poly.
+
+            If not provided, all polygons are compared with each other.
+        tol: ``default=1e-8``
+
+            Geometric tolerance for the computations.
+        include_point_contact: ``default=True``
+
+            If True, point contacts will be considered an
             intersection. This is an experimental feature, use with care.
 
     Returns:
         Returns a tuple consisting of:
 
-        ndarray ``(shape=(3, np))``:
+        :obj:`~numpy.ndarray`: ``shape=(3, np)``
+
             Intersection coordinates.
-        ndarray:
+        :obj:`~numpy.ndarray`:
             For each of the polygons, give the index of the intersection points,
             referring to the columns of the intersection coordinates.
-        ndarray:
+        :obj:`~numpy.ndarray`:
             For each polygon, a list telling whether each of the intersections is on the
             boundary of the polygon or not. For polygon ``i``, the first element in this
             list tells whether the point formed by point-indices ``0`` and ``1`` in the
             previous return argument is on the boundary.
-        list:
+        :obj:`list`:
             Each list element is a 2-tuple with the indices of intersecting polygons.
-        ndarray:
+        :obj:`~numpy.ndarray`:
             For each polygon, for all intersection points (same order as the second
             return value), a 2-tuple, where the first value gives an index, the second
             is a Boolean, ``True`` if the intersection is on a segment, ``False`` if
             vertex. The index identifies the vertex, or the first vertex of the segment.
             If the intersection is in the interior of a polygon, the tuple is replaced
             by an empty list.
-        ndarray:
+        :obj:`~numpy.ndarray`:
             For each polygon, for all intersection points, ``True`` if this intersection
             is formed by a single point.
 
@@ -1382,24 +1389,9 @@ def segments_polygon(
     """Compute the internal intersection from line segments to a polygon in 3d.
     Intersections with the boundary of the polygon are not computed.
 
-    Parameters:
-        start (shape=(nd, num_segments)): One endpoint of segments.
-        end (shape=(nd, num_segments)): Other endpoint of segments.
-        poly (shape=(nd, num_vertices)): Vertices of polygon.
-        tol (float): Tolerance for the geometric computations.
-
     Note:
         It is required that all points lie in a plane. A sanity check will be
         performed.
-
-    Returns:
-        A tuple consisting of
-
-        ndarray ``(shape=(num_segments))``:
-            boolean array, identifying whether a segment has an intersection with the
-            polygon (useful to filter the second return parameter).
-        ndarray ``(shape=(nd, num_segments))``:
-            float array containing the intersection points.
 
     Example:
         >>> import numpy as np
@@ -1410,6 +1402,31 @@ def segments_polygon(
         >>> is_cross, pt = pp.intersections.segments_polygon(start, end, poly)
         >>> print(is_cross)
         >>> print(pt)
+
+    Parameters:
+        start: ``shape=(nd, num_segments)``
+
+            One endpoint of segments.
+        end: ``shape=(nd, num_segments)``
+
+            Other endpoint of segments.
+        poly: ``shape=(nd, num_vertices)``
+
+            Vertices of polygon.
+        tol: ``default=1e-5``
+
+            Tolerance for the geometric computations.
+
+    Returns:
+        A tuple consisting of
+
+        :obj:`~numpy.ndarray`: ``shape=(num_segments)``
+
+            boolean array, identifying whether a segment has an intersection with the
+            polygon (useful to filter the second return parameter).
+        :obj:`~numpy.ndarray`: ``shape=(nd, num_segments)``
+
+            float array containing the intersection points.
 
     """
     # Reshape if only one point is given
@@ -1484,33 +1501,13 @@ def segments_polyhedron(
 
     Note:
         There are four possibilities for each segment:
+
         1. the segment is completely inside the polyhedron, meaning that its vertices
         are both inside the polyhedron;
         2. the segment has only one vertex in the polyhedron;
         3. the segment is completely outside the polyhedron;
         4. the segment has in intersection but both vertices are outside the
         polyhedron.
-
-    Parameters:
-        start (shape=(nd, num_segments)): One endpoint of segments.
-        end (shape=(nd, num_segments)): Other endpoint of segments.
-        poly (shape(nd, num_vertices)): Vertices of polyhedron organised face by face.
-        tol: Tolerance for the geometric computations.
-
-    Returns:
-        A tuple consisting of
-
-        ndarray ``(shape=(num_segments,))``:
-            Intersection points with the polyhedron, start and end points are not
-            included in this list.
-        ndarray ``(shape=(num_segments,))``:
-            Boolean array indicating whether the start of a segment is inside the
-            polyhedron.
-        ndarray ``(shape=(num_segments,))``:
-            Boolean array indicating whether the end of a segment is inside the
-            polyhedron.
-        ndarray ``(shape=(num_segments,))``:
-            Length percentage of a segment inside the polyhedron.
 
     Example:
 
@@ -1529,6 +1526,39 @@ def segments_polyhedron(
         >>>     ]
         >>> )
         >>> pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+
+    Parameters:
+        start: ``shape=(nd, num_segments)``
+
+            One endpoint of segments.
+        end: ``shape=(nd, num_segments)``
+
+            Other endpoint of segments.
+        poly: ``shape(nd, num_vertices)``
+
+            Vertices of polyhedron organised face by face.
+        tol: ``default=1e-5``
+
+            Tolerance for the geometric computations.
+
+    Returns:
+        A tuple consisting of
+
+        :obj:`~numpy.ndarray`: ``shape=(num_segments,)``
+
+            Intersection points with the polyhedron, start and end points are not
+            included in this list.
+        :obj:`~numpy.ndarray`: ``shape=(num_segments,)``
+
+            Boolean array indicating whether the start of a segment is inside the
+            polyhedron.
+        :obj:`~numpy.ndarray`: ``shape=(num_segments,)``
+
+            Boolean array indicating whether the end of a segment is inside the
+            polyhedron.
+        :obj:`~numpy.ndarray`: ``shape=(num_segments,)``
+
+            Length percentage of a segment inside the polyhedron.
 
     """
     # For a single point make its shape consistent
@@ -1582,14 +1612,20 @@ def _point_in_or_on_polygon(
     to whether it is on a segment or vertex.
 
     Parameters:
-        p (len=nd): Point.
-        poly (shape=(nd, num_vertices)): Vertices of polygon.
-        tol: Tolerance for the geometric computations.
+        p: ``shape=(nd,)``
+
+            Point.
+        poly: ``shape=(nd, num_vertices)``
+
+            Vertices of polygon.
+        tol: ``default=1e-8``
+
+            Tolerance for the geometric computations.
 
     Returns:
         A tuple consisting of
 
-        int:
+        :obj:`int`:
             value ``0`` for 'outside', ``1`` for 'on boundatry', and ``2`` for
             'interior'.
 
@@ -1641,26 +1677,33 @@ def triangulations(
     Note:
         The function relies on the intersection algorithm in shapely.geometry.Polygon.
 
+    See also:
+        :meth:`surface_tessellations`
+
     Parameters:
-        p_1 (shape=(2, n_p1)): Points in first tessellation.
-        p_2 (shape=(2, n_p2)): Points in second tessellation.
-        t_1 (shape=(3, n_tri_1)): Triangles in first tessellation, referring
+        p_1: ``shape=(2, n_p1)``
+
+            Points in first tessellation.
+        p_2: ``shape=(2, n_p2)``
+
+            Points in second tessellation.
+        t_1: ``shape=(3, n_tri_1)``
+
+            Triangles in first tessellation, referring
             to indices in p_1.
-        t_2 (shape = (3, n_tri_1)): Triangles in second tessellation, referring
-            to indices in p_2.
+        t_2: ``shape = (3, n_tri_1)``
+
+            Triangles in second tessellation, referring to indices in p_2.
 
     Returns:
         List of tuples with each representing an overlap. The tuple consists of
 
-        int:
+        :obj:`int`:
             the index of the triangle in the first tesselation.
-        int:
+        :obj:`int`:
             the index of the triangle in the second tesselation.
-        float:
-            the common area of the two triangles in the two tessalations.
-
-    See also:
-        :meth:`surface_tessellations`
+        :obj:`float`:
+            the common area of the two triangles in the two tessellations.
 
     """
 
@@ -1744,26 +1787,32 @@ def line_tessellation(
     l2, and compute their common length.
 
     Parameters:
-        p1 (shape=(3, n_p1)): Points in first tessellation.
-        p2 (shape=(3, n_p2)): Points in second tessellation.
-        l1 (shape=(2, n_tri_1)): Line segments in first tessellation, referring
-            to indices in ``p2``.
-        l2 (shape= (2, n_tri_1)): Line segments in second tessellation, referring
-            to indices in ``p2``.
+        p1: ``shape=(3, n_p1)``
 
-    Returns:
-        List of tuples with each representing an overlap. The tuple consists of
+            Points in first tessellation.
+        p2: ``shape=(3, n_p2)``
 
-        int:
-            the index of the segment in the first tesselation.
-        int:
-            the index of the segment in the second tesselation.
-        float:
-            the common length of the two segments in the two tessalations.
+            Points in second tessellation.
+        l1: ``shape=(2, n_tri_1)``
+
+            Line segments in first tessellation, referring to indices in ``p2``.
+        l2: ``shape= (2, n_tri_1)``
+
+            Line segments in second tessellation, referring to indices in ``p2``.
 
     Raise:
         AssertionError: If ``porepy.intersections.segments_3d`` returns an unknown
             shape.
+
+    Returns:
+        List of tuples with each representing an overlap. The tuple consists of
+
+        :obj:`int`:
+            the index of the segment in the first tesselation.
+        :obj:`int`:
+            the index of the segment in the second tesselation.
+        :obj:`float`:
+            the common length of the two segments in the two tessellations.
 
     """
     # Loop over both set of lines, use segment intersection method to compute common
@@ -1800,25 +1849,27 @@ def surface_tessellations(
 
     Parameters:
         poly_sets: Lists of polygons to be intersected.
-        return_simplexes: If True, the subdivision is further split into a
+        return_simplexes: ``default=False``
+
+            If True, the subdivision is further split into a
             triangulation. The mappings from the original polygons is updated
-            accordingly. Defaults to False.
-
-    Returns:
-        Tuple consisting of
-
-        list[ndarray]:
-            Each element being a polygon so that the list together form a subdivision
-            of the intersection of all polygons in the input sets.
-        list[sps.csr_matrix]:
-            Mappings from each of the input polygons to the intersected polygons. If
-            the mapping's ``item[i][j, k]`` is non-zero, polygon ``k`` in set ``i``
-            has a (generally partial) overlap with polygon ``j`` in the intersected
-            polygon set. Specifically the value will be ``1``.
+            accordingly.
 
     Raises:
         NotImplementedError: If a triangulation of a non-convex polygon is attempted.
             Can only happen if ``return_simplexes`` is ``True``.
+
+    Returns:
+        Tuple consisting of
+
+        list of :obj:`~numpy.ndarray`:
+            Each element being a polygon so that the list together form a subdivision
+            of the intersection of all polygons in the input sets.
+        list of :obj:`~scipy.sparse.spmatrix`:
+            Mappings from each of the input polygons to the intersected polygons. If
+            the mapping's ``item[i][j, k]`` is non-zero, polygon ``k`` in set ``i``
+            has a (generally partial) overlap with polygon ``j`` in the intersected
+            polygon set. Specifically the value will be ``1``.
 
     """
 
@@ -2078,28 +2129,39 @@ def split_intersecting_segments_2d(
         uniquification. The other can be reconstructed by using the third output.
 
     Parameters:
-        p (shape=(2, n_pt)): Coordinates of points to be processed.
-        e (shape=(n, n_con)): Connections between lines. n >= 2, row
+        p: ``shape=(2, n_pt)``
+
+            Coordinates of points to be processed.
+        e: ``shape=(n, n_con)``
+
+            Connections between lines. n >= 2, row
             0 and 1 are index of start and endpoints, additional rows are tags.
-        tol : Tolerance used for comparing equal points.
-        return_argsort: Return the mapping between the input segments and the output
+        tol: ``default=1e-8``
+
+            Tolerance used for comparing equal points.
+        return_argsort: ``default=False``
+
+            Return the mapping between the input segments and the output
             segments.
 
     Returns:
         A tuple with three or four entries (last only returned if ``return_argsort``
         is ``True``). The entries are as follows
 
-        npdarray ``(shape=(2, n_pt))``:.
-            points.
-        ndarray ``(shape=)2, n_edges))``:
+        :obj:`~numpy.ndarray`: ``shape=(2, n_pt)``
+
+            Points.
+        :obj:`~numpy.ndarray`: ``shape=)2, n_edges)``
+
             new, non-intersecting edges.
-        tuple[ndarray, ndarray]:
+        2-tuple of :obj:`~numpy.ndarray`:
             two arrays with length ``n_con`` with the first item being a set of tags,
             before uniquification of the edges, and the second being a column mapping
             from the unique edges to all edges. To recover lost tags associated with
             the points in column ``i``, first find all original columns which maps
             to ``i`` (``tuple[1] == i``), then recover the tags by the hits.
-        ndarray ``(shape=(n_edges,))``
+        :obj:`~numpy.ndarray`: ``shape=(n_edges,)``
+
             mapping of the new edges to the input edges.
 
     """
@@ -2339,20 +2401,24 @@ def _axis_aligned_bounding_box_2d(
     the points.
 
     Parameters:
-        p (shape = (2, n_pt)): Coordinates of points to be processed.
-        e (shape = (n, n_con)): Connections between lines. n >= 2, row 0 and 1 are
+        p: ``shape=(2, n_pt)``
+
+            Coordinates of points to be processed.
+        e: ``shape = (n, n_con)``
+
+            Connections between lines. ``n >= 2``, row 0 and 1 are
             indices of start and endpoints, additional rows are tags
 
     Returns:
         Tuple consisting of
 
-        ndarray: ``(len=n_pt)``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
             Minimum x-coordinate for all lines.
-        ndarray: ``(len=n_pt)``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
             Maximum x-coordinate for all lines.
-        ndarray: ``(len=n_pt)``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
             Minimum y-coordinate for all lines.
-        ndarray: ``(len=n_pt)``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
             Maximum y-coordinate for all lines.
 
     """
@@ -2380,23 +2446,31 @@ def _axis_aligned_bounding_box_3d(
     The polygons are specified as a list of numpy arrays.
 
     Parameters:
-        p (entries with shape=(3, n_pt)): Each list element specifies a polygon,
+        p: ``shape=(3, n_pt)``
+
+            Each list element specifies a polygon,
             described by its vertices in a ``(3, num_points)`` array.
 
     Returns:
         Tuple consisting of
 
-        ndarray ``(shape=(n_pt,))``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
+
             Minimum x-coordinate for all lines.
-        ndarray ``(shape=(n_pt,))``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
+
             Maximum x-coordinate for all lines.
-        ndarray ``(shape=(n_pt,))``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
+
             Minimum y-coordinate for all lines.
-        ndarray ``(shape=(n_pt,))``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
+
             Maximum y-coordinate for all lines.
-        ndarray ``(shape=(n_pt,))``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
+
             Minimum z-coordinate for all lines.
-        ndarray ``(shape=(n_pt,))``:
+        :obj:`~numpy.ndarray`: ``shape=(n_pt,)``
+
             Maximum z-coordinate for all lines.
 
     """
@@ -2427,13 +2501,17 @@ def _identify_overlapping_intervals(left: np.ndarray, right: np.ndarray) -> np.n
     """Based on a set of start and end coordinates for intervals, identify pairs of
     overlapping intervals.
 
-    Parameters:
-        left (shape=(num_intervals,)): Minimum coordinates of the intervals.
-        right (shape=(num_intervals,)): Maximum coordinates of the intervals.
-
     Note:
         For all corresponding entries in ``left`` and ``right``, ``left <= right``
         is required, but equality is allowed.
+
+    Parameters:
+        left: ``shape=(num_intervals,)``
+
+            Minimum coordinates of the intervals.
+        right: ``shape=(num_intervals,)``
+
+            Maximum coordinates of the intervals.
 
     Returns:
         Array with shape ``(2, num_overlaps)`` with each column containing a pair of
@@ -2509,29 +2587,36 @@ def _identify_overlapping_rectangles(
     """Based on a set of start and end coordinates for bounding boxes, identify pairs
     of overlapping rectangles.
 
-
-    Parameters:
-        xmin (shape=(num_rectangles,)): Minimum coordinates of the rectangle on the
-            first axis.
-        xmax (shape=(num_rectangles,)): Maximum coordinates of the rectangle on the
-            first axis.
-        ymin (shape=(num_rectangles,)): Minimum coordinates of the rectangle on the
-            second axis.
-        ymax (shape=(num_rectangles,)): Maximum coordinates of the rectangle on the
-            second axis.
-
     Note:
         For all corresponding entries it has to hold ``xmin <= xmax``, but equality
         is allowed. Analogously for the y-components.
+
+    Note:
+        The algorithm was found in 'A fast method for fracture intersection detection in
+        discrete fracture networks' by Dong et al, Computers and Geotechniques 2018.
+
+    Parameters:
+        xmin: ``shape=(num_rectangles,)``
+
+            Minimum coordinates of the rectangle on the
+            first axis.
+        xmax: ``shape=(num_rectangles,)``
+
+            Maximum coordinates of the rectangle on the
+            first axis.
+        ymin: ``shape=(num_rectangles,)``
+
+            Minimum coordinates of the rectangle on the
+            second axis.
+        ymax: ``shape=(num_rectangles,)``
+
+            Maximum coordinates of the rectangle on the
+            second axis.
 
     Returns:
         Array with shape ``(2, num_overlaps)`` with each column containing a pair of
         overlapping intervals, refering to their placement in left and right. The pairs
         are sorted so that the lowest index is in the first column.
-
-    Note:
-        The algorithm was found in 'A fast method for fracture intersection detection in
-        discrete fracture networks' by Dong et al, Computers and Geotechniques 2018.
 
     """
     # There can be no overlaps if there is less than two rectangles
@@ -2603,8 +2688,12 @@ def _intersect_pairs(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     """For two lists containing pair of indices, find the intersection.
 
     Parameters:
-        p1 (shape=(2, n)): Each column contains a pair of indices.
-        p2 (shape=(2, m)): Each column contains a pair of indices.
+        p1: ``shape=(2, n)``
+
+            Each column contains a pair of indices.
+        p2: ``shape=(2, m)``
+
+            Each column contains a pair of indices.
 
     Returns:
         Array with shape ``(2, k)`` where ``k <= min(n, m)`` with each column containing

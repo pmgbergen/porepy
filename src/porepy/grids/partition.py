@@ -6,7 +6,7 @@ Intended support is by Cartesian indexing, and METIS-based.
 Several functions require ``pymetis`` to be installed, which can be done using ``pip``
 in a Python environment using
 
-    pip install pymetis
+    ``pip install pymetis``
 
 This will install metis itself in addition to the python bindings. There are other
 python bindings for metis as well, but pymetis has behaved well so far.
@@ -31,7 +31,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
 
     Parameters:
         g: Grid to be partitioned.
-            The attribute :attr:`~porepy.grids.grid.Grid.cell_face`is required.
+            The attribute :attr:`~porepy.grids.grid.Grid.cell_faces` is required.
         num_part: Number of partitions.
 
     Returns:
@@ -81,7 +81,7 @@ def partition_structured(
 
     Parameters:
         g: Grid to be partitioned.
-            The attribute :attr:`~porepy.grids.grid.Grid.cell_face`is required.
+            The attribute :attr:`~porepy.grids.grid.Grid.cell_face` is required.
         num_part: ``default=1``
 
             Number of partitions.
@@ -437,7 +437,7 @@ def extract_subgrid(
         IndexError: If index is as boolean and does not match the array size.
 
     Returns:
-        A tuple of 3 elements:
+        A 3-tuple containing
 
         :class:`~porepy.grids.grid.Grid`:
             Extracted subgrid. Will share (note, *not* copy) geometric fields with the
@@ -517,7 +517,7 @@ def _extract_submatrix(
         ValueError: If the matrix is not in csc format.
 
     Returns:
-        A tuple of 2 elements:
+        A 2-tuple containing
 
         :obj:`~scipy.sparse.spmatrix`:
             Extracted submatrix.
@@ -561,7 +561,7 @@ def _extract_cells_from_faces(
             or 3.
 
     Returns:
-        A tuple of 3 elements:
+        A 3-tuple containing
 
         :class:`~porepy.grids.grid.Grid`:
             The extracted subgrid.
@@ -593,7 +593,7 @@ def _extract_cells_from_faces_1d(
         f: Faces of the 1D grid.
 
     Returns:
-        A tuple of 3 elements:
+        A 3-tuple containing
 
         :class:`~porepy.grids.grid.Grid`:
             The extracted subgrid.
@@ -622,7 +622,7 @@ def _extract_cells_from_faces_2d(
         f: Faces of the 2D grid.
 
     Returns:
-        A tuple of 3 elements:
+        A 3-tuple containing
 
         :class:`~porepy.grids.grid.Grid`:
             The extracted subgrid.
@@ -705,10 +705,10 @@ def _extract_cells_from_faces_3d(
             risk.
 
     Raises:
-        ValueError: If the given faces is not planar and ``is_planar == True``.
+        ValueError: If the given faces is not planar and ``is_planar==True``.
 
     Returns:
-        A tuple of 3 elements:
+        A 3-tuple containing
 
         :class:`~porepy.grids.grid.Grid`:
             A 2D grid extracted from the 3D grid ``g``.
@@ -814,7 +814,7 @@ def partition_grid(
         ind: Partition vector, one per cell. Should be 0-offset.
 
     Returns:
-        A tuple of 3 elements:
+        A 3-tuple containing
 
         :obj:`list`:
             List of grids, each element representing a grid.
@@ -969,7 +969,7 @@ def grid_is_connected(
             Defaults to all cells in the grid.
 
     Returns:
-        A tuple of 2 elements:
+        A 2-tuple containing
 
         :obj:`bool`:
             ``True``, if the grid is connected.

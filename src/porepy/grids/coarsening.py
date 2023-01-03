@@ -5,7 +5,7 @@ The main function is :func:`~porepy.grids.coarsening.coarsen`
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +16,9 @@ from porepy.grids import grid
 from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
-def coarsen(g: pp.Grid | pp.MixedDimensionalGrid, method: str, **method_kwargs) -> None:
+def coarsen(
+    g: Union[pp.Grid, pp.MixedDimensionalGrid], method: str, **method_kwargs
+) -> None:
     """Create a coarse grid from a given grid.
 
     If a md-grid is passed, the procedure is applied to the grid of highest dimension.
@@ -69,8 +71,8 @@ def coarsen(g: pp.Grid | pp.MixedDimensionalGrid, method: str, **method_kwargs) 
 
 
 def generate_coarse_grid(
-    g: pp.Grid | pp.MixedDimensionalGrid,
-    subdiv: npt.ArrayLike | dict[Any, tuple[Any, npt.ArrayLike]],
+    g: Union[pp.Grid, pp.MixedDimensionalGrid],
+    subdiv: Union[npt.ArrayLike, dict[Any, tuple[Any, npt.ArrayLike]]],
 ) -> None:
     """Generates a coarse grid by clustering the cells according to the flags
     given by ``subdiv``.
@@ -120,8 +122,8 @@ def generate_coarse_grid(
 
 
 def reorder_partition(
-    subdiv: np.ndarray | dict[Any, tuple[Any, np.ndarray]],
-) -> np.ndarray | dict[Any, tuple[Any, np.ndarray]]:
+    subdiv: Union[np.ndarray, dict[Any, tuple[Any, np.ndarray]]],
+) -> Union[np.ndarray, dict[Any, tuple[Any, np.ndarray]]]:
     """Re-order the partition IDs in order to obtain contiguous numbers.
 
     Parameters:
@@ -145,7 +147,7 @@ def reorder_partition(
     return subdiv
 
 
-def generate_seeds(mdg: pp.Grid | pp.MixedDimensionalGrid) -> np.ndarray:
+def generate_seeds(mdg: Union[pp.Grid, pp.MixedDimensionalGrid]) -> np.ndarray:
     """Generates a priory seeds (cells) for coarsening a mixed-dimensional grid based
     on topological information about the highest-dimensional grid.
 
@@ -194,7 +196,7 @@ def generate_seeds(mdg: pp.Grid | pp.MixedDimensionalGrid) -> np.ndarray:
 
 
 def create_aggregations(
-    grid: pp.Grid | pp.MixedDimensionalGrid, **kwargs
+    grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs
 ) -> dict[pp.Grid, np.ndarray]:
     """Creates a cell partition based on their volumes.
 
@@ -305,7 +307,7 @@ def create_aggregations(
 
 def create_partition(
     A: sps.spmatrix,
-    g: pp.Grid | pp.MixedDimensionalGrid,
+    g: Union[pp.Grid, pp.MixedDimensionalGrid],
     seeds: Optional[np.ndarray] = None,
     **kwargs,
 ) -> dict[pp.Grid, tuple[pp.Grid, np.ndarray]]:
@@ -527,7 +529,7 @@ def create_partition(
 
 def _generate_coarse_grid_single(
     g: pp.Grid, subdiv: np.ndarray, face_map: bool
-) -> None | np.ndarray:
+) -> Union[np.ndarray, None]:
     """Auxiliary function to create a coarsening for a given single grid.
 
     Parameters:
@@ -655,7 +657,7 @@ def _generate_coarse_grid_single(
 
 def _generate_coarse_grid_mdg(
     mdg: pp.MixedDimensionalGrid,
-    subdiv: np.ndarray | dict[pp.Grid, tuple[pp.Grid, np.ndarray]],
+    subdiv: Union[np.ndarray, dict[pp.Grid, tuple[pp.Grid, np.ndarray]]],
 ):
     """Auxiliary function to create a coarsening for a given mixed-dimensional grid.
 
@@ -722,7 +724,8 @@ def _generate_coarse_grid_mdg(
 
 
 def _tpfa_matrix(
-    g: pp.Grid | pp.MixedDimensionalGrid, perm: Optional[pp.SecondOrderTensor] = None
+    g: Union[pp.Grid, pp.MixedDimensionalGrid],
+    perm: Optional[pp.SecondOrderTensor] = None,
 ) -> sps.spmatrix:
     """Compute a two-point flux approximation for a given grid
 

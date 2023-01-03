@@ -1,4 +1,4 @@
-""" Module with various functions to constrain a geometry.
+"""Module with various functions to constrain a geometry.
 
 Examples are to cut objects to lie within other objects, etc.
 """
@@ -21,21 +21,27 @@ def lines_by_polygon(
     ``(x, y)``.
 
     Parameters:
-        poly_pts (shape=(nd, np)): points that define the polygon.
-        pts (shape=(nd, np)): points associated to the lines.
-        edges (shape=(2, np)): for each column the id of the points for the line.
+        poly_pts: ``shape=(nd, np)``
+
+            Points that define the polygon.
+        pts: ``shape=(nd, np)``
+
+            Points associated to the lines.
+        edges: ``shape=(2, np)``
+
+            for each column the id of the points for the line.
 
     Returns:
-        A tuple with three elements.
+        A 3-tuple containing
 
-        ndarray ``(shape=(2, np))``:
+        :obj:`~numpy.ndarray`: ``shape=(2, np)``
             Points associated to the lines after the intersection.
 
-        ndarray ``(shape=(2, np), dtype=int)``:
+        :obj:`~numpy.ndarray`: ``(shape=(2, np), dtype=int)``
             For each column the id of the points for the line after the intersection. If
             the input edges have tags, stored in ``rows[2:]``, these will be preserved.
 
-        ndarray ``(shape=(np, ), dtype=int)``:
+        :obj:`~numpy.ndarray`: ``(shape=(np, ), dtype=int)``
             Column index of the kept edges. This will have recurring values if an edge
             is cut by a non-convex domain.
 
@@ -123,17 +129,22 @@ def polygons_by_polyhedron(
     Parameters:
         polygons: Each element is an array of ``shape=(3, num_vertex)``, describing the
             vertexes of a polygon.
-        polyhedron: Each element is an array of ``shape=(3, num_vertex)``, describing the
-            vertexes of the polygons that together form the polygon.
-        tol: Tolerance used to compare points.
+        polyhedron: Each element is an array of ``shape=(3, num_vertex)``,
+            describing the vertexes of the polygons that together form the polygon.
+        tol: ``default=1e-8``
+
+            Tolerance used to compare points.
 
     Returns:
         A tuple with two elements.
 
-        list of ndarray:
-            Polygons lying inside the polyhedra. Each array has ``shape=(3, num_vertex)``.
+        list of :obj:`~numpy.ndarray`:
 
-        ndarray ``(shape=(num_polygons, ), dytpe=int)``:
+            Polygons lying inside the polyhedra.
+            Each array has ``shape=(3, num_vertex)``.
+
+        :obj:`~numpy.ndarray`: ``(shape=(num_polygons, ), dytpe=int)``
+
             For each constrained polygon, corresponding list of its original polygon.
 
     """
@@ -598,15 +609,22 @@ def snap_points_to_segments(
     by the snapping. Thus, the modified point set may have duplicate coordinates.
 
     Parameters:
-        p_edges (shape=(nd, np)): Points defining endpoints of segments.
+        p_edges: ``shape=(nd, np)``
 
-        edges (shape=(2, num_edges)): Connection between lines in ``p_edges``. If
+            Points defining endpoints of segments.
+
+        edges: ``shape=(2, num_edges)``
+
+            Connection between lines in ``p_edges``. If
             ``edges.shape[0] > 2``, the extra rows are ignored.
 
         tol: Tolerance for snapping, points that are closer will be snapped.
 
-        p_to_snap (shape=(nd, np_to_snap)): The points to snap. If not
-            provided, ``p_edges`` will be snapped, that is, the lines will be modified.
+        p_to_snap: ``(shape=(nd, np_to_snap), default=None)``
+
+            The points to snap.
+            If not provided, ``p_edges`` will be snapped,
+            that is, the lines will be modified.
 
     Returns:
         A copy of ``p_to_snap`` (or ``p_edges``) with modified coordinates of

@@ -2,15 +2,15 @@
 
 .. rubric:: Acknowledgement
 
-    The implementation of structured grids is in practice a translation of the
-    corresponding functions found in the
-    `Matlab Reservoir Simulation Toolbox (MRST) <www.sintef.no/projectweb/mrst/>`_
-    developed by SINTEF ICT.
+The implementation of structured grids is in practice a translation of the
+corresponding functions found in the
+`Matlab Reservoir Simulation Toolbox (MRST) <www.sintef.no/projectweb/mrst/>`_
+developed by SINTEF ICT.
 
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import scipy as sp
@@ -357,7 +357,9 @@ class CartGrid(TensorGrid):
     """
 
     def __init__(
-        self, nx: np.ndarray, physdims: Optional[np.ndarray | dict[str, float]] = None
+        self,
+        nx: np.ndarray,
+        physdims: Optional[Union[np.ndarray, dict[str, float]]] = None,
     ) -> None:
 
         dims = np.asarray(nx).shape

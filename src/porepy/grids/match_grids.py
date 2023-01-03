@@ -575,7 +575,7 @@ def structured_refinement(
 
     .. rubric:: Acknowledgement
 
-        The code was contributed by Haakon Ervik.
+    The code was contributed by Haakon Ervik.
 
     Parameters:
         g: Coarse grid.

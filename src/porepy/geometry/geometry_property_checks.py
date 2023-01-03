@@ -1,7 +1,5 @@
-"""
-Functions for (boolean) inquiries about geometric objects, and relations between
-objects.
-"""
+"""This module contains functions for (boolean) inquiries about geometric objects,
+and relations between objects."""
 from __future__ import annotations
 
 from typing import Optional, Union
@@ -26,9 +24,9 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
         ordered in a natural fashion, that is, not self-intersecting.
 
     Examples:
+
         >>> is_ccw_polygon(np.array([[0, 1, 0], [0, 0, 1]]))
         True
-
         >>> is_ccw_polygon(np.array([[0, 0, 1], [0, 1, 0]]))
         False
 
@@ -42,7 +40,9 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
         :meth:`~porepy.geometry.geometry_property_checks.is_ccw_polyline`
 
     Parameters:
-        poly (shape=(2, n)): Polygon vertices. n is number of points.
+        poly: ``shape=(2, n)``
+
+            Polygon vertices. n is number of points.
 
     Returns:
         True if the polygon is ccw.
@@ -97,18 +97,29 @@ def is_ccw_polyline(
         :func:`is_ccw_polygon`
 
     Parameters:
-        p1 (shape=(2,)): First point on dividing line.
-        p2 (shape=(2,)): Second point on dividing line.
-        p3 (shape=(2,) or shape=(2, n)): Point(s) to be tested. For one point, only
-            arrays of shape=(2,) is accepted. For two or more points the array will have
-            shape=(2, n), where the first row corresponds to x-coordinates and the
-            second row corresponds to y-coordinates. See examples.
-        tol (optional): Tolerance used in the comparison, can be used to
-            account for rounding errors. Defaults to zero.
+        p1: ``shape=(2,)``
 
-        default: Mode returned if the point is within the tolerance. Should be set
+            First point on dividing line.
+        p2: ``shape=(2,)``
+
+            Second point on dividing line.
+        p3: ``(shape=(2,) or shape=(2, n))``
+
+            Point(s) to be tested. For one point, only
+            arrays of ``shape=(2,)`` is accepted.
+            For two or more points the array will have ``shape=(2, n)``,
+            where the first row corresponds to x-coordinates and the
+            second row corresponds to y-coordinates. See examples.
+        tol: ``default=0``
+
+            Tolerance used in the comparison, can be used to
+            account for rounding errors.
+
+        default: ``default=False``
+
+            Mode returned if the point is within the tolerance. Should be set
             according to what is desired behavior of the function (will vary with
-            application). Defaults to False.
+            application).
 
     Returns:
         An array of booleans, with one entry for each point in ``p3``. True if the point
@@ -148,14 +159,21 @@ def point_in_polygon(
            <https://github.com/mdickinson/polyhedron/blob/master/polygon.py>`_
 
     Parameters:
-        poly (shape=(2, num_poly)): vertexes of polygon. The segments are formed by
+        poly: ``shape=(2, num_poly)``
+
+            Vertexes of polygon. The segments are formed by
             connecting subsequent columns of poly.
-        p (shape=(2, num_pt)): Points to be tested.
-        default (optional): Default behavior if the point is close to the boundary of
-            the polygon. Defaults to ``False``.
+        p: ``shape=(2, num_pt)``
+
+            Points to be tested.
+        default: ``default=False``
+
+            Default behavior if the point is close to the boundary of
+            the polygon.
 
     Returns:
-        Length equal to n2. True for each of the points that are inside polygon.
+        A boolean array containing ``True`` for each of the points that are inside
+        polygon.
 
     """
     if p.ndim == 1:
@@ -226,12 +244,16 @@ def point_in_polyhedron(
     """Test whether a set of point is inside a polyhedron.
 
     Parameters:
-        polyhedron (shape=(num_sides, 3, num_polygon_vertices)): Each outer element
-            represents a side of the polyhedron, and each side is assumed to be a
-            convex polygon.
-        test_points (shape=(3, np)): Points to be tested.
-        tol (optional): Geometric tolerance, used in comparison of points. Defaults to
-            ``1e-10``.
+        polyhedron: ``shape=(num_sides, 3, num_polygon_vertices)``
+
+            Each outer element represents a side of the polyhedron,
+            and each side is assumed to be a convex polygon.
+        test_points: ``shape=(3, np)``
+
+            Points to be tested.
+        tol: ``default=1e-10``
+
+            Geometric tolerance, used in comparison of points.
 
     Returns:
         For each point, element ``i`` is ``True`` if ``test_points[:, i]`` is inside the
@@ -317,8 +339,15 @@ def points_are_planar(
     """Check if the points lie on a plane.
 
     Parameters:
-        pts (shape=(3, np)): The points.
-        normal (optional): The normal of the plane, otherwise three points are required.
+        pts: ``shape=(3, np)``
+
+            The points.
+        normal: ``default=None``
+
+            The normal of the plane, otherwise at least three points are required.
+        tol: ``default=1e-5``
+
+            Geometric tolerance for test.
 
     Returns:
         ``True`` if the points lie on a plane.
@@ -346,15 +375,21 @@ def point_in_cell(poly: np.ndarray, p: np.ndarray, if_make_planar: bool = True) 
     """Check whether a point is inside a cell.
 
     Note:
-        A similar behaviour could be reached using :func:`is_inside_polygon`, however
+        A similar behavior could be reached using :func:`is_inside_polygon`, however
         the current implementation deals with concave cells as well. Not sure which is
         the best, in terms of performance, for convex cells.
 
     Parameters:
-        poly (shape=(3, n)): Vertexes of polygon. The segments are formed by connecting
+        poly: ``shape=(3, n)``
+
+            Vertexes of polygon. The segments are formed by connecting
             subsequent columns of poly.
-        p (shape=(3, 1)): Point to be tested.
-        if_make_planar (optional): The cell needs to lie on (s, t) plane. If not already
+        p: ``shape=(3, 1)``
+
+            Point to be tested.
+        if_make_planar: ``default=True``
+
+            The cell needs to lie on (s, t) plane. If not already
             done, this flag need to be used. Projects the points to the plane of the
             polygon.
 
@@ -392,8 +427,12 @@ def points_are_collinear(pts: np.ndarray, tol: float = 1e-5) -> bool:
     """Check if the points lie on a line.
 
     Parameters:
-        pts (shape=(3, n)): The points.
-        tol (optional): Absolute tolerance used in comparison. Defaults to ``1e-5``.
+        pts: ``shape=(3, n)``
+
+            The points.
+        tol: ``default=1e-5``
+
+            Absolute tolerance used in comparison.
 
     Returns:
         ``True`` if the points lie on a line.
@@ -424,13 +463,18 @@ def polygon_hanging_nodes(
     """Find hanging nodes of a polygon.
 
     Parameters:
-        p (shape=(nd, n_pt)): Point coordinates. Number of rows is number of dimensions,
+        p: ``shape=(nd, n_pt)``
+
+            Point coordinates. Number of rows is number of dimensions,
             number of columns is number of points.
-        edges (shape=(2, num_edges)): Indices, referring to columns in p, of edges in
+        edges: ``shape=(2, num_edges)``
+
+            Indices, referring to columns in p, of edges in
             the polygon. Should be ordered so that ``edges[1, i] == edges[0, i+1]``,
             and ``edges[0, 0] == edges[1, -1]``.
-        tol (optional): Tolerance for when two segments will be considered parallel.
-            Defaults to 1e-8.
+        tol: ``default=1e-8``
+
+            Tolerance for when two segments will be considered parallel.
 
     Returns:
         Index of edges with hanging nodes. For an index i, the lines defined by

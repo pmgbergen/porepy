@@ -4,7 +4,7 @@ intersections along with a surrounding matrix in the form of a mixed-dimensional
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, Literal, Optional, overload
+from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
 
 import numpy as np
 from scipy import sparse as sps
@@ -80,7 +80,7 @@ class MixedDimensionalGrid:
 
     def subdomains(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> list[pp.Grid] | list[tuple[pp.Grid, dict]]:
+    ) -> Union[list[pp.Grid], list[tuple[pp.Grid, dict]]]:
         """Get a sorted list of subdomains in the mixed-dimensional grid.
 
         Optionally, the subdomains can be filtered by dimension. Also, the data
@@ -135,7 +135,7 @@ class MixedDimensionalGrid:
 
     def interfaces(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> list[pp.MortarGrid] | list[tuple[pp.MortarGrid, dict]]:
+    ) -> Union[list[pp.MortarGrid], list[tuple[pp.MortarGrid, dict]]]:
         """Get a sorted list of interfaces in the mixed-dimensional grid.
 
         Optionally, the interfaces can be filtered on dimension. Also, the data
@@ -354,7 +354,7 @@ class MixedDimensionalGrid:
 
     # ------------ Add new subdomains and interfaces ----------
 
-    def add_subdomains(self, new_subdomains: pp.Grid | Iterable[pp.Grid]) -> None:
+    def add_subdomains(self, new_subdomains: Union[pp.Grid, Iterable[pp.Grid]]) -> None:
         """Add new subdomains to the mixed-dimensional grid.
 
         Parameters:
@@ -515,7 +515,9 @@ class MixedDimensionalGrid:
         sorted_interfaces = [interfaces[i] for i in inds]
         return sorted_interfaces
 
-    def argsort_grids(self, grids: Iterable[pp.Grid | pp.MortarGrid]) -> np.ndarray:
+    def argsort_grids(
+        self, grids: Iterable[Union[pp.Grid, pp.MortarGrid]]
+    ) -> np.ndarray:
         """Return indices that would sort the subdomains or interfaces.
 
         Sorting is done according to two criteria:
@@ -592,7 +594,7 @@ class MixedDimensionalGrid:
         intf_map: Optional[
             dict[
                 pp.MortarGrid,
-                pp.MortarGrid | dict[mortar_grid.MortarSides, pp.Grid],
+                Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
             ]
         ] = None,
         tol: float = 1e-6,
@@ -674,7 +676,7 @@ class MixedDimensionalGrid:
     # ---- Methods for getting information on the bucket, or its components ----
 
     def diameter(
-        self, cond: Optional[Callable[[pp.Grid | pp.MortarGrid], bool]] = None
+        self, cond: Optional[Callable[[Union[pp.Grid, pp.MortarGrid]], bool]] = None
     ) -> float:
         """Compute the cell diameter (mesh size) of the mixed-dimensional grid.
 

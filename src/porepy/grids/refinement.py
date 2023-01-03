@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import abc
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import gmsh
 import numpy as np
@@ -162,7 +162,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
         g: The triangle grid that is to be refined.
 
     Returns:
-        A tuple of 2 elements:
+        A 2-tuple containing
 
         :class:`~porepy.grids.simplex.TriangleGrid`:
             New grid, with ``nd+2`` times as many cells as ``g``.
@@ -358,7 +358,7 @@ class GridSequenceFactory(abc.ABC):
 
     .. rubric:: Acknowledgements
 
-        The design idea and the majority of the code was contributed to by Haakon Ervik.
+    The design idea and the majority of the code was contributed to by Haakon Ervik.
 
     Parameters:
         network: Define the domain that is to be discretized.
@@ -370,7 +370,7 @@ class GridSequenceFactory(abc.ABC):
     """
 
     def __init__(
-        self, network: pp.FractureNetwork2d | pp.FractureNetwork3d, params: dict
+        self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: dict
     ) -> None:
         self._network = network.copy()
         self._counter: int = 0
