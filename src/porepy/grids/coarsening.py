@@ -5,7 +5,7 @@ The main function is :func:`~porepy.grids.coarsening.coarsen`
 """
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -58,12 +58,14 @@ def coarsen(g: pp.Grid | pp.MixedDimensionalGrid, method: str, **method_kwargs) 
         if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
         matrix = _tpfa_matrix(g)
-        partition = create_partition(matrix, g, seeds=seeds, **method_kwargs)
+        partition = create_partition(
+            matrix, g, seeds=seeds, **method_kwargs
+        )  # type: ignore
 
     else:
         raise ValueError(f"Undefined method `{method}` for coarsening algorithm.")
 
-    generate_coarse_grid(g, partition)
+    generate_coarse_grid(g, partition)  # type: ignore
 
 
 def generate_coarse_grid(
@@ -192,7 +194,7 @@ def generate_seeds(mdg: pp.Grid | pp.MixedDimensionalGrid) -> np.ndarray:
 
 
 def create_aggregations(
-    grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs
+    grid: pp.Grid | pp.MixedDimensionalGrid, **kwargs
 ) -> dict[pp.Grid, np.ndarray]:
     """Creates a cell partition based on their volumes.
 
@@ -665,7 +667,7 @@ def _generate_coarse_grid_mdg(
 
     if not isinstance(subdiv, dict):
         g = mdg.subdomains(dim=mdg.dim_max())[0]
-        subdiv = {g: subdiv}
+        subdiv = {g: subdiv}  # type: ignore
 
     for g, (_, partition) in subdiv.items():
 

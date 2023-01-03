@@ -1,7 +1,18 @@
-"""
-Module for partitioning of grids based on various methods.
+"""This module contains functionality for the partitioning of grids
+based on various methods.
 
 Intended support is by Cartesian indexing, and METIS-based.
+
+Several functions require ``pymetis`` to be installed, which can be done using ``pip``
+in a Python environment using
+
+    pip install pymetis
+
+This will install metis itself in addition to the python bindings. There are other
+python bindings for metis as well, but pymetis has behaved well so far.
+
+The main method in this module is :func:`partition`, which is a wrapper for all
+available methods.
 
 """
 from __future__ import annotations
@@ -16,22 +27,16 @@ import porepy as pp
 
 
 def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
-    """Partition a grid using metis.
-
-    This function requires that pymetis is installed, as can be done by
-
-        pip install pymetis
-
-    This will install metis itself in addition to the python bindings. There are other
-    python bindings for metis as well, but pymetis has behaved well so far.
+    """Partition a grid using ``metis``.
 
     Parameters:
-        g: Grid to be partitioned. Only the ``cell_face`` attribute is used.
+        g: Grid to be partitioned.
+            The attribute :attr:`~porepy.grids.grid.Grid.cell_face`is required.
         num_part: Number of partitions.
 
     Returns:
-        Partition vector consisting of one number in [0, num_part) for each cell in the
-        grid.
+        Partition vector with ``shape=(g.num_cells,)`` containing numbers
+        ``[0, num_part)`` indicating which cell belongs to which partition.
 
     """
     try:
@@ -64,25 +69,32 @@ def partition_structured(
 ) -> np.ndarray:
     """Define a partitioning of a grid based on logical Cartesian indexing.
 
-    The grid should have a field cart_dims, describing the Cartesian dimensions of the
-    grid.
+    The grid should have the attribute
+    :attr:`~porepy.grids.structured.TensorGrid.cart_dims`,
+    describing the Cartesian dimensions of the grid.
 
-    The coarse grid can be specified either by its Cartesian dimensions (parameter
-    coarse_dims), or by its total number of partitions (num_part). In the latter case, a
-    partitioning will be inferred from the fine-scale Cartesian dimensions, in a way
-    that gives roughly the same number of cells in each direction.
+    The coarse grid can be specified either by its Cartesian dimensions ``coarse_dims``,
+    or by its total number of partitions ``num_part``.
+    In the latter case, a partitioning will be inferred from the
+    fine-scale Cartesian dimensions, in a way that gives roughly the same number of
+    cells in each direction.
 
     Parameters:
-        g: To be partitioned. Only the cell_face attribute is used.
-        num_part: Number of partitions.
-        coarse_dims (optional): Cartesian dimensions of the coarse grids.
+        g: Grid to be partitioned.
+            The attribute :attr:`~porepy.grids.grid.Grid.cell_face`is required.
+        num_part: ``default=1``
 
-    Returns:
-        Partition vector consisting of one number in [0, num_part) for each cell in the
-        grid.
+            Number of partitions.
+        coarse_dims: ``default=None``
+
+            Cartesian dimensions of the coarse grids.
 
     Raises:
         ValueError: If both ``coarse_dims`` and ``num_part`` are ``None``.
+
+    Returns:
+        Partition vector with ``shape=(g.num_cells,)`` containing numbers
+        ``[0, num_part)`` indicating which cell belongs to which partition.
 
     """
 
@@ -144,7 +156,7 @@ def partition_coordinates(
 
     The intention at the time of implementation is to provide a partitioning for
     general grids that does not rely on METIS being available. However, if METIS is
-    available, partition_metis should be preferred.
+    available, :func:`partition_metis` should be preferred.
 
     The idea is to divide the domain into a coarse Cartesian grid, and then assign a
     coarse partitioning based on the cell center coordinates.
@@ -154,19 +166,22 @@ def partition_coordinates(
     non-convex cells). We optionally check for connectivity and raise an error if this
     is not fulfilled.
 
-    The method assumes that the cells have a center, that is, g.compute_geometry() has
-    been called. If g does not have a field cell_centers, compute_geometry() will be
+    The method assumes that the cells have a center, that is,
+    :meth:`~porepy.grids.grid.Grid.compute_geometry` has
+    been called. If g does not have a field cell_centers, ``compute_geometry()`` will be
     called.
 
     Parameters:
         g: Grid to be partitioned.
         num_coarse: Target number of coarse cells. The real number of coarse cells will
             be close, but not necessarily equal.
-        check_connectivity (optional): Check if the partitioning form connected coarse
-            grids. Defaults to True.
+        check_connectivity: ``default=True``
+
+            Check if the partitioning form connected coarse grids. Defaults to True.
 
     Returns:
-        Partition vector``(shape=(g.num_cells,))``.
+        Partition vector with ``shape=(g.num_cells,)`` containing numbers indicating
+        which cell belongs to which partitions.
 
     Raises:
         ValueError: If the partitioning is found to not form connected subgrids.
@@ -259,16 +274,19 @@ def partition(g: pp.Grid, num_coarse: int) -> np.ndarray:
     otherwise), the partition_structured will be applied if the grid is Cartesian. The
     last resort is partitioning based on coordinates.
 
-    See also:
-        :meth:`partition_metis()`, :meth:`partition_structured()`
-        and :meth:`partition_coordinates()` for further details.
+    See Also:
+
+        - :meth:`partition_metis`,
+        - :meth:`partition_structured` and
+        - :meth:`partition_coordinates` for further details.
 
     Parameters:
         g: Grid to be partitioned.
         num_coarse: Target number of coarse cells.
 
     Returns:
-        Partition vector ``(shape=(g.num_cells,))`` of integers.
+        Partition vector with ``shape=(g.num_cells,)`` containing numbers indicating
+        which cell belongs to which partitions.
 
     """
     try:
@@ -286,22 +304,23 @@ def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarra
     The coarse partitioning of the grid is based on a target number of coarse cells.
 
     The target size in general will not be a product of the possible grid dimensions (it
-    may be a prime, or it may be outside the bounds [1, fine_size]). For concreteness,
-    we seek to have roughly the same number of cells in each direction (given by the
-    Nd-root of the target). If this requires more coarse cells in a dimension than there
-    are fine cells there, the coarse size is set equal to the fine, and the remaining
+    may be a prime, or it may be outside the bounds ``[1, fine_size]``).
+    For concreteness, we seek to have roughly the same number of cells in each direction
+    (given by the Nd-root of the target).
+    If this requires more coarse cells in a dimension than there are fine cells there,
+    the coarse size is set equal to the fine, and the remaining
     cells are distributed to the other dimensions.
 
     Parameters:
         target: Target number of coarse cells.
         fine_size: Number of fine-scale cells in each dimension
 
-    Returns:
-        Coarse dimension sizes.
-
     Raises:
         ValueError: If the while-loop runs more iterations than the number of
             dimensions. This should not happen, in practice it means there is bug.
+
+    Returns:
+        Coarse dimension sizes.
 
     """
 
@@ -400,30 +419,38 @@ def extract_subgrid(
     Parameters:
         g: Grid object, parent.
         c: Indices of cells to be extracted.
-        sort: If ``True`` (default), ``c`` is sorted.
-        faces: If ``True``, ``c`` is interpreted as faces, and the extracted grid will
+        sort: ``default=True``
+
+            If ``True``, ``c`` is sorted.
+        faces: ``default=False``
+
+            If ``True``, ``c`` is interpreted as faces, and the extracted grid will
             be a lower dimensional grid defined by the these faces.
-        is_planar (optional): defaults to ``True``. Only used when extracting faces from
-            a 3d grid. If ``True``, the faces must be planar. Set to ``False`` to
+        is_planar: ``default=True``
+
+            Only used when extracting faces from a 3D grid.
+
+            If ``True``, the faces must be planar. Set to ``False`` to
             use this function for extracting a non-planar 2D grid, but use at own risk.
 
-    Returns:
-        A tuple of 3 elements.
+    Raises:
+        IndexError: If index is as boolean and does not match the array size.
 
-        pp.Grid:
+    Returns:
+        A tuple of 3 elements:
+
+        :class:`~porepy.grids.grid.Grid`:
             Extracted subgrid. Will share (note, *not* copy) geometric fields with the
             parent grid. Also has an additional field parent_cell_ind giving
             correspondence between parent and child cells.
 
-        np.ndarray:
+        :obj:`~numpy.ndarray`:
             Index of the extracted faces, ordered so that element ``i`` is the global
             index of face ``i`` in the subgrid.
-        np.ndarray:
+
+        :obj:`~numpy.ndarray`:
             Index of the extracted nodes, ordered so that element ``i`` is the global
             index of node i in the subgrid.
-
-    Raises:
-        IndexError: If index is as boolean and do not match the array size.
 
     """
     if np.asarray(c).dtype == "bool":
@@ -486,16 +513,17 @@ def _extract_submatrix(
         mat: Matrix that will have a submatrix extracted from it.
         ind: Indices of the columns that are to be extracted.
 
-    Returns:
-        A tuple of 2 elements.
-
-        sps.spmatrix:
-            Extracted submatrix.
-        np.ndarray:
-            Mapping from global to local row number.
-
     Raises:
-        ValueError: When the matrix does not have csc format.
+        ValueError: If the matrix is not in csc format.
+
+    Returns:
+        A tuple of 2 elements:
+
+        :obj:`~scipy.sparse.spmatrix`:
+            Extracted submatrix.
+
+        :obj:`~numpy.ndarray`:
+            Mapping from global to local row number.
 
     """
     if mat.getformat() != "csc":
@@ -522,26 +550,27 @@ def _extract_cells_from_faces(
 
     Parameters:
         g: The grid whose faces are going to be extracted as a new, lower-dimensional
-        grid.
+            grid.
         f: Faces of the 3D grid that will be used as cells in the 2D grid.
         is_planar: If ``False`` the faces f must be planar. Set ``False`` to use this
             function for a non-planar 2D grid, but use at own risk. This parameter is
             only used in :func:`_extract_cells_from_faces_3d`.
 
-    Returns:
-        A tuple of 3 elements.
-
-        pp.Grid:
-            The extracted subgrid.
-        np.ndarray:
-            Faces f of the new grid.
-        np.ndarray:
-            Nodes of the new grid.
-
-
     Raises:
         NotImplementedError: If the dimension of grid ``g`` is anything else than 1, 2
             or 3.
+
+    Returns:
+        A tuple of 3 elements:
+
+        :class:`~porepy.grids.grid.Grid`:
+            The extracted subgrid.
+
+        :obj:`~numpy.ndarray`:
+            Faces f of the new grid.
+
+        :obj:`~numpy.ndarray`:
+            Nodes of the new grid.
 
     """
     if g.dim == 3:
@@ -557,20 +586,22 @@ def _extract_cells_from_faces(
 def _extract_cells_from_faces_1d(
     g: pp.Grid, f: np.ndarray
 ) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """Extracts a 0D grid from a 1D grid
+    """Extracts a 0D grid from a 1D grid.
 
     Parameters:
         g: 1D grid whose faces will be cells of 0D grid.
-        f: Faces of the 1D grid
+        f: Faces of the 1D grid.
 
     Returns:
-        A tuple of 3 elements.
+        A tuple of 3 elements:
 
-        pp.Grid:
+        :class:`~porepy.grids.grid.Grid`:
             The extracted subgrid.
-        np.ndarray:
+
+        :obj:`~numpy.ndarray`:
             Faces f of the new grid.
-        np.ndarray:
+
+        :obj:`~numpy.ndarray`:
             Nodes of the new grid.
 
     """
@@ -584,20 +615,22 @@ def _extract_cells_from_faces_1d(
 def _extract_cells_from_faces_2d(
     g: pp.Grid, f: np.ndarray
 ) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """Extracts a 1D grid from a 2D grid
+    """Extracts a 1D grid from a 2D grid.
 
     Parameters:
         g: 2D grid whose faces will be cells of 1D grid.
-        f: Faces of the 2D grid
+        f: Faces of the 2D grid.
 
     Returns:
-        A tuple of 3 elements.
+        A tuple of 3 elements:
 
-        pp.Grid:
+        :class:`~porepy.grids.grid.Grid`:
             The extracted subgrid.
-        np.ndarray:
+
+        :obj:`~numpy.ndarray`:
             Faces f of the new grid.
-        np.ndarray:
+
+        :obj:`~numpy.ndarray`:
             Nodes of the new grid.
 
     """
@@ -627,7 +660,14 @@ def _extract_cells_from_faces_2d(
     name = list(g.name)
     name.append("Extract subgrid")
 
-    h = pp.Grid(g.dim - 1, g.nodes[:, unique_nodes], face_nodes, cell_faces, name)
+    h = pp.Grid(
+        g.dim - 1,
+        g.nodes[:, unique_nodes],
+        face_nodes,
+        cell_faces,
+        name[0],
+        history=name,
+    )
 
     h.compute_geometry()
 
@@ -646,31 +686,38 @@ def _extract_cells_from_faces_3d(
     """Extract a 2D grid from the faces of a 3D grid.
 
     One of the uses of this function is to obtain a 2D MortarGrid from the boundary of a
-    3D grid. The faces ``f`` are by default assumed to be planar, however, this is
-    mainly because compute_geometry does not handle non-planar grids. compute_geometry
-    is used to do a sanity check of the extracted grid. if is_planar is set to False,
-    this function should handle non-planar grids, however, this has not been tested
-    thoroughly, and it does not perform the geometric sanity checks.
+    3D grid.
+    The faces ``f`` are by default assumed to be planar,
+    however, this is mainly because :meth:`~porepy.grids.grid.Grid.compute_geometry`
+    does not handle non-planar grids.
+    ``compute_geometry`` is used to do a sanity check of the extracted grid.
+    If ``is_planar`` is set to ``False``, this function should handle non-planar grids,
+    however, this has not been tested thoroughly,
+    and it does not perform the geometric sanity checks.
 
     Parameters:
         g: 3D grid whose faces will be cells of 2D grid.
-        f: faces of the 3D grid to be used as cells in the 2D grid
-        is_planar (optional): defaults to ``True``. If ``False`` the faces f must be planar.
+        f: Faces of the 3D grid to be used as cells in the 2D grid.
+        is_planar: ``default=True``
+
+            If ``False`` the faces f must be planar.
             Set ``False`` to use this function for a non-planar 2D grid, but use at own
             risk.
+
+    Raises:
+        ValueError: If the given faces is not planar and ``is_planar == True``.
 
     Returns:
         A tuple of 3 elements:
 
-        pp.Grid:
-            A 2D grid extracted from the 3D grid, g.
-        np.ndarray:
-            Faces of the extracted grid.
-        np.ndarray:
-            Nodes of the extracted grid.
+        :class:`~porepy.grids.grid.Grid`:
+            A 2D grid extracted from the 3D grid ``g``.
 
-    Raises:
-        ValueError: If the given faces is not planar and ``is_planar == True``.
+        :obj:`~numpy.ndarray`:
+            Faces of the extracted grid.
+
+        :obj:`~numpy.ndarray`:
+            Nodes of the extracted grid.
 
     """
     # Local cell-face and face-node maps.
@@ -715,7 +762,14 @@ def _extract_cells_from_faces_3d(
     name = list(g.name)
     name.append("Extract subgrid")
 
-    h = pp.Grid(g.dim - 1, g.nodes[:, unique_nodes], face_nodes, cell_faces, name)
+    h = pp.Grid(
+        g.dim - 1,
+        g.nodes[:, unique_nodes],
+        face_nodes,
+        cell_faces,
+        name[0],
+        history=name,
+    )
 
     if is_planar:
         # We could now just copy the corresponding geometric values from g to h, but we
@@ -747,6 +801,7 @@ def partition_grid(
         No tests are made on whether the resulting grids are connected.
 
     Example:
+
         >>> import numpy as np
         >>> import porepy as pp
         >>> import porepy.grids.partition as part
@@ -759,13 +814,15 @@ def partition_grid(
         ind: Partition vector, one per cell. Should be 0-offset.
 
     Returns:
-        A tuple of 3 elements.
+        A tuple of 3 elements:
 
-        list:
+        :obj:`list`:
             List of grids, each element representing a grid.
-        list:
+
+        :obj:`list`:
             Each element contains the global indices of the local faces.
-        list:
+
+        :obj:`list`:
             Each element contains the global indices of the local nodes.
 
     """
@@ -794,11 +851,10 @@ def overlap(
     The cell set is increased by including all cells that share at least one node with
     the existing set. When multiple layers are asked for, this process is repeated.
 
-    The definition of neighborship is specified by criterion. Possible options are
-    'face' (each layer will add cells that share a face with the active face set), or
-    'node' (each layer will add cells sharing a vertex with the active set).
+    The definition of neighborhood is specified by ``criterion``.
 
     Example:
+
         >>> import numpy as np
         >>> import porepy as pp
         >>> import porepy.grids.partition as part
@@ -811,8 +867,14 @@ def overlap(
         g: The grid; the cell-node relation will be used to extend the cell set.
         cell_ind: Cell indices of the initial cell set.
         num_layers: Number of overlap layers.
-        criterion (optional): Which definition of neighborship to apply. Should be
-            either 'face' or 'node'. Default is 'node'.
+        criterion: ``default='node'``
+
+            Which definition of neighborhood to apply:
+
+            - ``'face'``: Each layer will add cells that share a face with the active
+              face set.
+            - ``'node'``: Each layer will add cells sharing a vertex with the active
+              set.
 
     Returns:
         Indices of the extended cell set.
@@ -868,15 +930,18 @@ def overlap(
 def grid_is_connected(
     g: pp.Grid, cell_ind: Optional[np.ndarray] = None
 ) -> tuple[bool, list[np.ndarray]]:
-    """Check if a grid is fully connected, as defined by its cell_connection_map().
+    """Check if a grid is fully connected, as defined by its
+    :meth:`~porepy.grids.grid.Grid.cell_connection_map`.
 
     The function is intended used in one of two ways:
-        1.  To test if a subgrid will be connected before it is extracted. In this case,
-            the cells to be tested is specified by cell_ind.
-        2.  To check if an existing grid is composed of a single component. In this
-            case, all cells are should be included in the analyzis.
+
+    1.  To test if a subgrid will be connected before it is extracted. In this case,
+        the cells to be tested is specified by cell_ind.
+    2.  To check if an existing grid is composed of a single component. In this
+        case, all cells are should be included in the analyzis.
 
     Examples:
+
         >>> import numpy as np
         >>> import porepy as pp
         >>> import porepy.grids.partition as part
@@ -896,16 +961,20 @@ def grid_is_connected(
         False
 
     Parameters:
-        g: Grid to be tested. Only its cell_faces map is used.
-        cell_ind (optional): Index of cells to be included when looking for connections.
+        g: Grid to be tested.
+            Only its :attr:`~porepy.grids.grid.Grid.cell_faces` map is used.
+        cell_ind: ``default=None``
+
+            Index of cells to be included when looking for connections.
             Defaults to all cells in the grid.
 
     Returns:
-        A tuple of 2 elements.
+        A tuple of 2 elements:
 
-        bool:
-            ``True`` if the grid is connected.
-        list:
+        :obj:`bool`:
+            ``True``, if the grid is connected.
+
+        :obj:`list`:
             Each list item contains an array with cell indices of a connected
             component.
 

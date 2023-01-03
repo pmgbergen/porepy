@@ -4,7 +4,7 @@ intersections along with a surrounding matrix in the form of a mixed-dimensional
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
+from typing import Any, Callable, Iterable, Literal, Optional, overload
 
 import numpy as np
 from scipy import sparse as sps
@@ -80,7 +80,7 @@ class MixedDimensionalGrid:
 
     def subdomains(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> Union[list[pp.Grid], list[tuple[pp.Grid, dict]]]:
+    ) -> list[pp.Grid] | list[tuple[pp.Grid, dict]]:
         """Get a sorted list of subdomains in the mixed-dimensional grid.
 
         Optionally, the subdomains can be filtered by dimension. Also, the data
@@ -135,7 +135,7 @@ class MixedDimensionalGrid:
 
     def interfaces(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> Union[list[pp.MortarGrid], list[tuple[pp.MortarGrid, dict]]]:
+    ) -> list[pp.MortarGrid] | list[tuple[pp.MortarGrid, dict]]:
         """Get a sorted list of interfaces in the mixed-dimensional grid.
 
         Optionally, the interfaces can be filtered on dimension. Also, the data
@@ -515,9 +515,7 @@ class MixedDimensionalGrid:
         sorted_interfaces = [interfaces[i] for i in inds]
         return sorted_interfaces
 
-    def argsort_grids(
-        self, grids: Iterable[Union[pp.Grid, pp.MortarGrid]]
-    ) -> np.ndarray:
+    def argsort_grids(self, grids: Iterable[pp.Grid | pp.MortarGrid]) -> np.ndarray:
         """Return indices that would sort the subdomains or interfaces.
 
         Sorting is done according to two criteria:
@@ -547,8 +545,6 @@ class MixedDimensionalGrid:
             inds_in_all_dims: list[int] = list()
             # Node ids of this dimension
             ids_dim: list[int] = list()
-            ind: int
-            grid: Union[pp.Grid, pp.MortarGrid]
             for ind, grid in enumerate(grids):
                 if grid.dim == dim:
                     inds_in_all_dims.append(ind)

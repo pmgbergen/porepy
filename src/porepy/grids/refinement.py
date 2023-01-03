@@ -1,12 +1,14 @@
-"""
-Various methods to refine a grid.
+"""This module contains various methods to refine a grid.
+
+It furthermore contains classes to define sequences of refined grids, and a factory
+class to generate sets of refined grids.
 
 """
 from __future__ import annotations
 
 import abc
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import gmsh
 import numpy as np
@@ -28,13 +30,17 @@ def distort_grid_1d(
 
     Parameters:
          g: The grid that will be perturbed. Modifications will happen in place.
-         ratio (optional): Perturbation ratio. A node can be moved at most half the
-                distance in towards any of its neighboring nodes. The ratio will
-                multiply the chosen distortion. Should be less than 1 to preserve grid
-                topology. Defaults to 0.1.
-         fixed_nodes (optional): Index of nodes to keep fixed under distortion. Boundary
-                nodes will always be fixed, even if not explicitly included as
-                fixed_node.
+         ratio: ``default=0.1``
+
+            Perturbation ratio. A node can be moved at most half the
+            distance in towards any of its neighboring nodes. The ratio will
+            multiply the chosen distortion. Should be less than 1 to preserve grid
+            topology.
+         fixed_nodes: ``default=None``
+
+            Index of nodes to keep fixed under distortion. Boundary
+            nodes will always be fixed, even if not explicitly included as
+            fixed_node.
 
     Returns:
          The grid, but with distorted nodes.
@@ -58,11 +64,13 @@ def distort_grid_1d(
 
 
 def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
-    """Refine the cells in a 1d grid.
+    """Refine the cells in a 1D grid.
 
     Parameters:
-        g: The 1d grid that is to be refined.
-        ratio (optional): Refinement level. Defaults to 2.
+        g: The 1D grid that is to be refined.
+        ratio: ``default=2``
+
+            Refinement level.
 
     Returns:
         A new, more refined, grid.
@@ -141,7 +149,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
 
 
 def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
-    """Uniform refinement of triangle grid
+    """Uniform refinement of triangular grids.
 
     All cells are split into four subcells by combining existing nodes and face centers.
 
@@ -154,11 +162,13 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
         g: The triangle grid that is to be refined.
 
     Returns:
-        A tuple of 2 elements.
+        A tuple of 2 elements:
 
-        TriangleGrid:
-            New grid, with nd+2 times as many cells as g.
-        ndarray ``(shape=(g.num_cells*(nd+2),))``:
+        :class:`~porepy.grids.simplex.TriangleGrid`:
+            New grid, with ``nd+2`` times as many cells as ``g``.
+
+        :obj:`~numpy.ndarray`: ``shape=(g.num_cells*(nd+2),)``
+
             Mapping from new to old cells.
 
     """
@@ -276,9 +286,9 @@ def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: float = 1e-6) -> pp.Grid:
 
 
 class GridSequenceIterator:
-    """Iterator for generating successively refined grids by the use of a grid factory
+    """Iterator for generating successively refined grids by the use of a grid factory.
 
-    See also:
+    See Also:
         :class:`GridSequenceFactory`
 
     Parameters:
@@ -288,7 +298,9 @@ class GridSequenceIterator:
 
     def __init__(self, factory: GridSequenceFactory) -> None:
         self._factory = factory
+        """The factory instance passed at instantiation."""
         self._counter: int = 0
+        """A counter for the iterator."""
 
     def __next__(self) -> pp.MixedDimensionalGrid:
         """Choose the next grid in grid iterator.
@@ -319,45 +331,58 @@ class GridSequenceFactory(abc.ABC):
     """Factory class to generate a set of refined grids.
 
     To define new refinement types, inherit from this class and override the
-    :meth:`_generate()` method.
+    :meth:`_generate` method.
 
-    The class can be used in (for now) two ways: Either by nested or unstructured
-    refinement. This is set by setting the parameter mode to 'nested' or
-    'unstructured', respectively.
+    The class can be used in (for now) two ways:
 
-    The number of refinement is set by the parameter 'num_refinements'.
+    Either by nested or unstructured refinement.
+    This is set by setting the parameter mode to ``'nested'`` or ``'unstructured'``
+    respectively.
 
-    Mesh sizes are set by the standard FractureNetwork.mesh() arguments
+    The number of refinement is set by the parameter ``'num_refinements'``.
+
+    Mesh sizes are set by the standard ``FractureNetwork.mesh()`` arguments
     ``mesh_size_fracs`` and ``mesh_size_bound``. These are set by the parameter
-    ``mesh_param``. If the mode is 'nested', ``mesh_param`` should be a single
-    dictionary; subsequent mesh refinements are then set by nested refinement. If the
-    mode is 'unstructured', mesh_params should be a list, where each list element is a
-    dictionary with mesh size parameters to be passed to the FractureNetwork.
+    ``mesh_param``.
+
+    If the mode is ``'nested'``, ``mesh_param`` should be a single
+    dictionary; subsequent mesh refinements are then set by nested refinement.
+
+    If the mode is ``'unstructured'``,
+    mesh_params should be a list, where each list element is a
+    dictionary with mesh size parameters to be passed to the ``FractureNetwork``.
 
     Further argument, such as fractures that are really constraints, can be given by
-    ``params[grid_params]``. These are passed on the FractureNetwork.mesh(),
-    essentially as ``**kwargs``.
+    ``params['grid_params']``.
+    These are passed on the ``FractureNetwork.mesh()``, essentially as ``**kwargs``.
 
-    Acknowledgements:
+    .. rubric:: Acknowledgements
+
         The design idea and the majority of the code was contributed to by Haakon Ervik.
 
     Parameters:
         network: Define the domain that is to be discretized.
-        params: Parameter dictionary.
+        params: Parameter dictionary. See above for more details on admissible keywords.
+
+            Note that entries for every keyword are **required** and will raise an error
+            if not available.
 
     """
 
     def __init__(
-        self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: dict
+        self, network: pp.FractureNetwork2d | pp.FractureNetwork3d, params: dict
     ) -> None:
         self._network = network.copy()
         self._counter: int = 0
         self._set_parameters(params)
 
+        self.dim: int
+        """Dimension of the fracture network."""
+
         if isinstance(network, pp.FractureNetwork2d):
-            self.dim: int = 2
+            self.dim = 2
         elif isinstance(network, pp.FractureNetwork3d):
-            self.dim: int = 3
+            self.dim = 3
         else:
             raise ValueError("Invalid type for fracture network")
 
@@ -369,7 +394,7 @@ class GridSequenceFactory(abc.ABC):
 
         See also:
             1. `Documentation of Python built in __iter__ function
-            <https://docs.python.org/3/library/functions.html#iter>`_
+               <https://docs.python.org/3/library/functions.html#iter>`_
 
         Returns:
             The grid sequence iterator.
@@ -378,9 +403,9 @@ class GridSequenceFactory(abc.ABC):
         return GridSequenceIterator(self)
 
     def close(self) -> None:
-        """Method for finalizing gmsh.
+        """Method for finalizing ``gmsh``.
 
-        gmsh will be informed that it should be finalized. Final method to be called
+        ``gmsh`` will be informed that it should be finalized. Final method to be called
         when the iteration is going to be stopped.
 
         """
@@ -414,10 +439,10 @@ class GridSequenceFactory(abc.ABC):
             return self._generate_unstructured(counter)
 
     def _prepare_nested(self) -> None:
-        """Prepare nested refinement
+        """Prepare nested refinement.
 
-        Nested refinement is in this method prepared by initializing gmsh and generating
-        the first grid.
+        Nested refinement is in this method prepared by initializing ``gmsh`` and
+        generating the first grid.
 
         """
         # Operate on a deep copy of the network to avoid that fractures etc. are
