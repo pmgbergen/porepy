@@ -368,6 +368,7 @@ def polygons_3d(
     """Compute the intersection between polygons embedded in 3d.
 
     In addition to intersection points, the function also decides:
+
         1) Whether intersection points lie in the interior, on a segment or a vertex.
            If segment or vertex, the index of the segment or vertex is returned.
         2) Whether a pair of intersection points lie on the same boundary segment of a
@@ -375,6 +376,7 @@ def polygons_3d(
            polygon.
 
     Assumptions:
+
         - All polygons are convex. Non-convex polygons will simply be treated in a wrong
           way. To circumvent this, split the non-convex polygon into convex parts.
         - No polygon contains three points on a line, that is, an angle of pi. This can
