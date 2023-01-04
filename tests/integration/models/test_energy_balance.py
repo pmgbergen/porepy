@@ -2,6 +2,8 @@
 
 """
 from __future__ import annotations
+
+import copy
 from typing import Callable
 
 import numpy as np
@@ -9,7 +11,11 @@ import pytest
 
 import porepy as pp
 
-from .setup_utils import MassAndEnergyBalance
+from .setup_utils import (
+    MassAndEnergyBalance,
+    compare_scaled_model_quantities,
+    compare_scaled_primary_variables,
+)
 from .test_mass_balance import BoundaryConditionLinearPressure
 
 
@@ -45,9 +51,14 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
         for sd in subdomains:
             _, _, west, *_ = self.domain_boundary_sides(sd)
             val_loc = np.zeros(sd.num_faces)
-            val_loc[west] = 1
+            val_loc[west] = self.fluid.convert_units(1, "K")
             values.append(val_loc)
-        return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_fourier")
+        # Concatenate to single array.
+        if len(values) > 0:
+            bc_values = np.hstack(values)
+        else:
+            bc_values = np.empty(0)
+        return pp.wrap_as_ad_array(bc_values, name="bc_values_fourier")
 
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -57,6 +68,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
 
         Returns:
             Boundary condition object.
+
         """
         # Define boundary regions
         _, east, west, *_ = self.domain_boundary_sides(sd)
@@ -65,7 +77,6 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
 
     def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary values for the enthalpy.
-
 
         Parameters:
             subdomains: List of subdomains.
@@ -82,7 +93,12 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
             # Get enthalpy values on boundary faces applying trace to interior values.
             _, _, west, *_ = self.domain_boundary_sides(sd)
             vals = np.zeros(sd.num_faces)
-            vals[west] = self.fluid.specific_heat_capacity() * 1
+            temperature = self.fluid.convert_units(1, "K")
+            density = self.fluid.density()
+            mobility = 1 / self.fluid.viscosity()
+            vals[west] = (
+                self.fluid.specific_heat_capacity() * temperature * density * mobility
+            )
             # Append to list of boundary values
             values.append(vals)
 
@@ -99,7 +115,10 @@ class EnergyBalanceTailoredBCs(BoundaryCondition, MassAndEnergyBalance):
     "fluid_vals,solid_vals",
     [
         (
-            {"thermal_conductivity": 1e-10},
+            {
+                "thermal_conductivity": 1e-10,
+                "specific_heat_capacity": 1e3,
+            },
             {
                 "thermal_conductivity": 1e-10,
                 "permeability": 1e-2,
@@ -177,3 +196,46 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         )
         expected = setup.fluid.specific_heat_capacity() * setup.solid.permeability() / 2
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
+
+
+@pytest.mark.parametrize(
+    "units",
+    [
+        {"m": 2, "kg": 3, "s": 1, "K": 7},
+    ],
+)
+def test_unit_conversion(units):
+    """Test that solution is independent of units.
+
+    Parameters:
+        units (dict): Dictionary with keys as those in
+            :class:`~pp.models.material_constants.MaterialConstants`.
+
+    """
+    params = {"suppress_export": True, "num_fracs": 2, "cartesian": True}
+    # Create model and run simulation
+    reference_params = copy.deepcopy(params)
+    reference_params["file_name"] = "unit_conversion_reference"
+    reference_setup = EnergyBalanceTailoredBCs(reference_params)
+    pp.run_time_dependent_model(reference_setup, reference_params)
+
+    params["units"] = pp.Units(**units)
+    setup = EnergyBalanceTailoredBCs(params)
+
+    pp.run_time_dependent_model(setup, params)
+    variable_names = [
+        setup.temperature_variable,
+        setup.pressure_variable,
+        setup.interface_darcy_flux_variable,
+    ]
+    variable_units = ["K", "Pa", "m^2 * s^-1 * Pa"]
+    secondary_variables = ["darcy_flux", "enthalpy_flux", "fourier_flux"]
+    secondary_units = ["m^2 * s^-1 * Pa", "m^-1 * s^-1 * J", "m^-1 * s^-1 * J"]
+    # No domain restrictions.
+    domain_dimensions = [None, None, None]
+    compare_scaled_primary_variables(
+        setup, reference_setup, variable_names, variable_units
+    )
+    compare_scaled_model_quantities(
+        setup, reference_setup, secondary_variables, secondary_units, domain_dimensions
+    )

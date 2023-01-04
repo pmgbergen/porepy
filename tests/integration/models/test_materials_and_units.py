@@ -9,6 +9,7 @@ Constitutive library tests.
         - Setting modified values TODO
 """
 from __future__ import annotations
+
 import numpy as np
 import pytest
 

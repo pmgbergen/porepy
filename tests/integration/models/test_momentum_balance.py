@@ -2,12 +2,20 @@
 
 """
 from __future__ import annotations
+
+import copy
+
 import numpy as np
 import pytest
 
 import porepy as pp
 
-from .setup_utils import BoundaryConditionsMechanicsDirNorthSouth, MomentumBalance
+from .setup_utils import (
+    BoundaryConditionsMechanicsDirNorthSouth,
+    MomentumBalance,
+    compare_scaled_model_quantities,
+    compare_scaled_primary_variables,
+)
 
 
 class LinearModel(BoundaryConditionsMechanicsDirNorthSouth, MomentumBalance):
@@ -100,3 +108,48 @@ def test_2d_single_fracture(solid_vals, north_displacement):
             assert np.all(traction[setup.nd - 1 :: setup.nd] <= 0)
         else:
             assert np.allclose(traction, 0)
+
+
+@pytest.mark.parametrize("units", [{"m": 0.29, "kg": 0.31, "K": 4.1}])
+@pytest.mark.parametrize("uy_north", [0.2, -0.1])
+def test_unit_conversion(units, uy_north):
+    """Test that solution is independent of units.
+
+    We avoid the value uy
+
+    Parameters:
+        units (dict): Dictionary with keys as those in
+            :class:`~pp.models.material_constants.MaterialConstants`.
+
+    """
+
+    params = {
+        "suppress_export": True,  # Suppress output for tests
+        "num_fracs": 2,
+        "cartesian": True,
+        "uy_north": uy_north,
+        "max_iterations": 10,
+    }
+    reference_params = copy.deepcopy(params)
+
+    # Create model and run simulation
+    setup_0 = LinearModel(reference_params)
+    pp.run_time_dependent_model(setup_0, reference_params)
+
+    params["units"] = pp.Units(**units)
+    setup_1 = LinearModel(params)
+
+    pp.run_time_dependent_model(setup_1, params)
+    variables = [
+        setup_1.displacement_variable,
+        setup_1.interface_displacement_variable,
+        setup_1.contact_traction_variable,
+    ]
+    variable_units = ["m", "m", "Pa"]
+    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    secondary_variables = ["stress", "displacement_jump"]
+    secondary_units = ["Pa * m", "m"]
+    domain_dimensions = [2, 1]
+    compare_scaled_model_quantities(
+        setup_0, setup_1, secondary_variables, secondary_units, domain_dimensions
+    )
