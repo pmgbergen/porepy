@@ -787,6 +787,16 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Specific volume. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
+
+    """
+    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Aperture. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
+
+    """
 
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
@@ -1181,6 +1191,16 @@ class FouriersLaw:
     wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Specific volume. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
+
+    """
+    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Aperture. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
     """
 

@@ -68,8 +68,8 @@ class MaterialConstants:
         return self._constants
 
     def convert_units(
-        self, value: number | np.ndarray, units: str, to_si: Optional[bool] = False
-    ) -> number | np.ndarray:
+        self, value: number, units: str, to_si: Optional[bool] = False
+    ) -> number:
         """Convert value between SI and user specified units.
 
         The method divides the value by the units as defined by the user. As an example,
