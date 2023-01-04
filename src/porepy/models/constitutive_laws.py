@@ -100,6 +100,8 @@ class DimensionReduction:
             Specific volume for each cell.
 
         """
+        if len(subdomains) == 0:
+            return pp.wrap_as_ad_array(0, size=0)
         # Compute specific volume as the cross-sectional area/volume
         # of the cell, i.e. raise to the power nd-dim
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
@@ -813,6 +815,12 @@ class DarcysLaw:
     def darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
+        Note:
+            The fluid mobility is not included in the Darcy flux. This is because we
+            discretize it with an upstream scheme. This means that the fluid mobility
+            may have to be included when using the flux in a transport equation.
+            The units of the Darcy flux are [m^2 Pa / s].
+
         Parameters:
             subdomains: List of subdomains where the Darcy flux is defined.
 
@@ -839,6 +847,8 @@ class DarcysLaw:
     def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
         """Darcy flux on interfaces.
 
+        The units of the Darcy flux are [m^2 Pa / s], see note in :meth:`darcy_flux`.
+
         Parameters:
             interfaces: List of interface grids.
 
@@ -854,14 +864,28 @@ class DarcysLaw:
         cell_volumes = self.wrap_grid_attribute(
             interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
         )
+        specific_volume = self.specific_volume(subdomains)
+        trace = pp.ad.Trace(subdomains, dim=1)
+
+        # Gradient operator in the normal direction. The collapsed distance is
+        # :math:`\frac{a}{2}` on either side of the fracture.
+        normal_gradient = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg * self.aperture(subdomains) ** (-1)
+        )
+
         # Project the two pressures to the interface and multiply with the normal
-        # diffusivity
-        eq = self.interface_darcy_flux(
-            interfaces
-        ) - cell_volumes * self.normal_permeability(interfaces) * (
-            projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
-            - projection.secondary_to_mortar_avg * self.pressure(subdomains)
-            + self.interface_vector_source(interfaces, material="fluid")
+        # diffusivity.
+
+        eq = self.interface_darcy_flux(interfaces) - (
+            cell_volumes
+            * normal_gradient
+            * self.normal_permeability(interfaces)
+            * (projection.primary_to_mortar_avg * trace.trace * specific_volume)
+            * (
+                projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
+                - projection.secondary_to_mortar_avg * self.pressure(subdomains)
+                + self.interface_vector_source(interfaces, material="fluid")
+            )
         )
         eq.set_name("interface_darcy_flux_equation")
         return eq
@@ -1241,13 +1265,27 @@ class FouriersLaw:
         cell_volumes = self.wrap_grid_attribute(
             interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
         )
+        specific_volume = self.specific_volume(subdomains)
+        trace = pp.ad.Trace(subdomains, dim=1)
+
+        # Gradient operator in the normal direction. The collapsed distance is
+        # :math:`\frac{a}{2}` on either side of the fracture.
+        normal_gradient = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg * self.aperture(subdomains) ** (-1)
+        )
+        normal_gradient.set_name("normal_gradient")
+
         # Project the two pressures to the interface and multiply with the normal
-        # diffusivity
-        eq = self.interface_fourier_flux(
-            interfaces
-        ) - cell_volumes * self.normal_thermal_conductivity(interfaces) * (
-            projection.primary_to_mortar_avg * self.temperature_trace(subdomains)
-            - projection.secondary_to_mortar_avg * self.temperature(subdomains)
+        # diffusivity.
+        eq = self.interface_fourier_flux(interfaces) - (
+            cell_volumes
+            * normal_gradient
+            * self.normal_thermal_conductivity(interfaces)
+            * (projection.primary_to_mortar_avg * trace.trace * specific_volume)
+            * (
+                projection.primary_to_mortar_avg * self.temperature_trace(subdomains)
+                - projection.secondary_to_mortar_avg * self.temperature(subdomains)
+            )
         )
         eq.set_name("interface_fourier_flux_equation")
         return eq
