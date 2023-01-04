@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import numpy as np
+
 import porepy as pp
 
 number = pp.number
@@ -66,8 +68,8 @@ class MaterialConstants:
         return self._constants
 
     def convert_units(
-        self, value: number, units: str, to_si: Optional[bool] = False
-    ) -> number:
+        self, value: number | np.ndarray, units: str, to_si: Optional[bool] = False
+    ) -> number | np.ndarray:
         """Convert value between SI and user specified units.
 
         The method divides the value by the units as defined by the user. As an example,
@@ -76,7 +78,8 @@ class MaterialConstants:
         will be converted to SI units, i.e. a value of 1e-2 results in 1e-2 * 1e6 = 1e4.
 
         Parameters:
-            value: Value to be converted. units: Units of value defined as a string in
+            value: Value to be converted.
+            units: Units of value defined as a string in
                 the form of ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3/kg"``.
                 Valid units are the attributes and properties of the Units class. Valid
                 operators are * and ^, including negative powers (e.g. m^-2). A
@@ -89,6 +92,8 @@ class MaterialConstants:
             Value in the user specified units to be used in the simulation.
 
         """
+        # Make a copy of the value to avoid modifying the original.
+        value = value.copy() if hasattr(value, "copy") else value
         # Trim any spaces
         units = units.replace(" ", "")
         if units in ["", "1", "-"]:
@@ -149,6 +154,11 @@ class FluidConstants(MaterialConstants):
             "viscosity": 1,
         }
         if constants is not None:
+            if "s" in constants:
+                if not np.isclose(constants["s"], 1):
+                    raise NotImplementedError(
+                        "Non-unitary time scaling is not implemented."
+                    )
             default_constants.update(constants)
         super().__init__(default_constants)
 
