@@ -36,6 +36,8 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
             p = np.array([[0, 2, 0.5, 0.5], [0.5, 0.5, 0, 1]]) * ls
             e = np.array([[0, 2], [1, 3]])
         elif num_fracs == 3:
+            if self.params.get("cartesian", False):
+                raise ValueError("Only up to 2 fractures supported in cartesian mode.")
             p = np.array([[0, 2, 0.5, 0.5, 0.3, 0.7], [0.5, 0.5, 0, 1, 0.3, 0.7]]) * ls
             e = np.array([[0, 2, 4], [1, 3, 5]])
         else:
@@ -46,6 +48,23 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         # Length scale:
         ls = 1 / self.units.m
         return {"mesh_size_frac": 0.5 * ls, "mesh_size_bound": 0.5 * ls}
+
+    def set_md_grid(self) -> None:
+        if not self.params.get("cartesian", False):
+            return super().set_md_grid()
+
+        # Length scale:
+        ls = 1 / self.units.m
+        # Mono-dimensional grid by default
+        phys_dims = np.array([2, 1]) * ls
+        n_cells = np.array([8, 2])
+        domain_bounds = np.array([[0, 0], phys_dims]).T
+        self.domain_bounds = pp.geometry.bounding_box.from_points(domain_bounds)
+        # Translate fracture network to cart_grid format
+        fracs = []
+        for f in self.fracture_network.edges.T:
+            fracs.append(self.fracture_network.pts[:, f])
+        self.mdg = pp.fracs.meshing.cart_grid(fracs, n_cells, physdims=phys_dims)
 
 
 class OrthogonalFractures3d(pp.ModelGeometry):
@@ -261,10 +280,10 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         """
         _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
         values = np.zeros((sd.dim, sd.num_faces))
-        values[0, south] = self.params.get("ux_south", 0)
-        values[1, south] = self.params.get("uy_south", 0)
-        values[0, north] = self.params.get("ux_north", 0)
-        values[1, north] = self.params.get("uy_north", 0)
+        values[1, north] = self.solid.convert_units(self.params.get("uy_north", 0), "m")
+        values[1, south] = self.solid.convert_units(self.params.get("uy_south", 0), "m")
+        values[0, north] = self.solid.convert_units(self.params.get("ux_north", 0), "m")
+        values[0, south] = self.solid.convert_units(self.params.get("ux_south", 0), "m")
         return values.ravel("F")
 
     def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
@@ -308,11 +327,18 @@ class TimeDependentMechanicalBCsDirNorthSouth:
         _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
         values = np.zeros((self.nd, sd.num_faces))
         # Add fracture width on top if there is a fracture.
-        frac_val = [0.042 if len(self.mdg.subdomains()) > 1 else 0]
+        if len(self.mdg.subdomains()) > 1:
+            frac_val = self.solid.convert_units(0.042, "m")
+        else:
+            frac_val = 0
         values[1, north] = frac_val
         if self.time_manager.time > 1e-5:
-            values[1, north] += self.params.get("uy_north", 0)
-            values[1, south] += self.params.get("uy_south", 0)
+            values[1, north] += self.solid.convert_units(
+                self.params.get("uy_north", 0), "m"
+            )
+            values[1, south] += self.solid.convert_units(
+                self.params.get("uy_south", 0), "m"
+            )
         return values.ravel("F")
 
 
@@ -477,3 +503,95 @@ water_values = {
     "thermal_conductivity": 0.6,
     "thermal_expansion": 2.1e-4,
 }
+
+
+def compare_scaled_primary_variables(
+    setup_0: pp.SolutionStrategy,
+    setup_1: pp.SolutionStrategy,
+    variable_names: list[str],
+    variable_units: list[str],
+    cell_wise: bool = True,
+):
+    """Compare the solution of two simulations.
+
+    The two simulations are assumed to be identical, except for the scaling of the
+    variables. The method compares the values of the variables in SI units.
+
+    Parameters:
+        setup_0: First simulation.
+        setup_1: Second simulation.
+        variable_names: Names of the variables to be compared.
+        variable_units: Units of the variables to be compared.
+
+    """
+    for var_name, var_unit in zip(variable_names, variable_units):
+        # Obtain scaled values.
+        scaled_values_0 = setup_0.equation_system.get_variable_values([var_name])
+        scaled_values_1 = setup_1.equation_system.get_variable_values([var_name])
+        # Convert back to SI units.
+        values_0 = setup_0.fluid.convert_units(scaled_values_0, var_unit, to_si=True)
+        values_1 = setup_1.fluid.convert_units(scaled_values_1, var_unit, to_si=True)
+        compare_values(values_0, values_1, cell_wise=cell_wise)
+
+
+def compare_scaled_model_quantities(
+    setup_0: pp.SolutionStrategy,
+    setup_1: pp.SolutionStrategy,
+    method_names: list[str],
+    method_units: list[str],
+    dimensions: list[int | None],
+    cell_wise: bool = True,
+):
+    """Compare the solution of two simulations.
+
+    The two simulations are assumed to be identical, except for the scaling of the
+    variables. The method compares the values of the variables in SI units.
+
+    Parameters:
+        setup_0: First simulation.
+        setup_1: Second simulation.
+        method_names: Names of the methods to be compared.
+        method_units: Units of the methods to be compared.
+        cell_wise: If True, the values are compared cell-wise. If False, the values are
+            compared globally.
+
+    """
+    for method_name, method_unit, dim in zip(method_names, method_units, dimensions):
+        values = []
+        for setup in [setup_0, setup_1]:
+            # Obtain scaled values.
+            method = getattr(setup, method_name)
+            domains = domains_from_method_name(setup.mdg, method, domain_dimension=dim)
+            # Convert back to SI units.
+            value = method(domains).evaluate(setup.equation_system)
+            if isinstance(value, pp.ad.Ad_array):
+                value = value.val
+            values.append(setup.fluid.convert_units(value, method_unit, to_si=True))
+        compare_values(values[0], values[1], cell_wise=cell_wise)
+
+
+def compare_values(
+    values_0: np.ndarray,
+    values_1: np.ndarray,
+    cell_wise: bool = True,
+):
+    """Compare two arrays of values.
+
+    Parameters:
+        values_0: First array of values.
+        values_1: Second array of values.
+        cell_wise: If True, compare cell-wise values. If False, compare sums of values.
+
+    """
+    # Compare values.
+    if cell_wise:
+        # Compare cell-wise values.
+        assert np.allclose(values_0, values_1)
+    else:
+        # Compare sums instead of individual values, to avoid
+        # errors due to different grids generated by gmsh (particularly for different
+        # length scales).
+        # Tolerance relative to the sum of the absolute values, not the differences.
+        # Add a small absolute tolerance to avoid problems with zero values.
+        rtol = 1e-5 * np.sum(np.abs(values_0))
+        assert np.isclose(np.sum(values_0 - values_1), 0, atol=1e-10 + rtol)
