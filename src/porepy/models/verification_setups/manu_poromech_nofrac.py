@@ -536,7 +536,7 @@ class UnitSquare(pp.ModelGeometry):
         domain = self.fracture_network.domain
         if isinstance(domain, np.ndarray):
             assert domain.shape == (2, 2)
-            self.domain: dict[str, float] = {
+            self.domain_bounds: dict[str, float] = {
                 "xmin": domain[0, 0],
                 "xmax": domain[1, 0],
                 "ymin": domain[0, 1],
@@ -544,7 +544,7 @@ class UnitSquare(pp.ModelGeometry):
             }
         else:
             assert isinstance(domain, dict)
-            self.domain = domain
+            self.domain_bounds = domain
 
 
 # --------> Equations
