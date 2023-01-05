@@ -51,6 +51,7 @@ class DataSavingMixin:
 
         Returns:
             List containing all variable names.
+
         """
         var_names = [var.name for var in self.equation_system.variables]
         return var_names
@@ -61,6 +62,7 @@ class DataSavingMixin:
         This method is called by :meth:`prepare_simulation` to initialize the exporter,
         and any other data saving functionality (e.g., empty data containers to be
         appended in :meth:`save_data_time_step`).
+
         """
         self.exporter = pp.Exporter(
             self.mdg,

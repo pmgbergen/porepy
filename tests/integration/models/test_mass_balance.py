@@ -2,12 +2,19 @@
 
 """
 from __future__ import annotations
+
+import copy
+
 import numpy as np
 import pytest
 
 import porepy as pp
 
-from .setup_utils import MassBalance
+from .setup_utils import (
+    MassBalance,
+    compare_scaled_model_quantities,
+    compare_scaled_primary_variables,
+)
 
 
 class BoundaryConditionLinearPressure:
@@ -26,6 +33,7 @@ class BoundaryConditionLinearPressure:
 
         Returns:
             Boundary condition object.
+
         """
         # Define boundary regions
         all_bf, east, west, *_ = self.domain_boundary_sides(sd)
@@ -33,11 +41,8 @@ class BoundaryConditionLinearPressure:
         return pp.BoundaryCondition(sd, east + west, "dir")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
-        Not sure where this one should reside.
-        Note that we could remove the grid_operator BC and DirBC, probably also
-        ParameterArray/Matrix (unless needed to get rid of pp.ad.Discretization. I don't see
-        how it would be, though).
+        """Boundary values for the pressure.
+
         Parameters:
             subdomains: List of subdomains on which to define boundary conditions.
 
@@ -45,21 +50,21 @@ class BoundaryConditionLinearPressure:
             Array of boundary values.
 
         """
-        # Define boundary regions
         values = []
         for sd in subdomains:
             _, _, west, *_ = self.domain_boundary_sides(sd)
             val_loc = np.zeros(sd.num_faces)
-            val_loc[west] = 1
+            val_loc[west] = self.fluid.convert_units(1, "Pa")
             values.append(val_loc)
-        return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_darcy")
+        if len(values) > 0:
+            bc_values = np.hstack(values)
+        else:
+            bc_values = np.empty(0)
+        return pp.wrap_as_ad_array(bc_values, name="bc_values_darcy")
 
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
-        Not sure where this one should reside.
-        Note that we could remove the grid_operator BC and DirBC, probably also
-        ParameterArray/Matrix (unless needed to get rid of pp.ad.Discretization. I don't see
-        how it would be, though).
+        """Boundary values for the mobility times density.
+
         Parameters:
             subdomains: List of subdomains on which to define boundary conditions.
 
@@ -133,3 +138,45 @@ def test_linear_pressure(fluid_vals, solid_vals):
         k = setup.solid.permeability() / setup.fluid.viscosity()
         grad = 1 / setup.domain_bounds["xmax"]
         assert np.allclose(np.abs(val), normals * grad * k)
+
+
+@pytest.mark.parametrize(
+    "units",
+    [
+        {"m": 2, "kg": 3, "s": 1, "K": 1},
+    ],
+)
+def test_unit_conversion(units):
+    """Test that solution is independent of units.
+
+    Parameters:
+        units (dict): Dictionary with keys as those in
+            :class:`~pp.models.material_constants.MaterialConstants`.
+
+    """
+    params = {
+        "suppress_export": True,  # Suppress output for tests
+        "num_fracs": 2,
+        "cartesian": True,
+    }
+    reference_params = copy.deepcopy(params)
+    reference_params["file_name"] = "unit_conversion_reference"
+
+    # Create model and run simulation
+    setup_0 = LinearModel(reference_params)
+    pp.run_time_dependent_model(setup_0, reference_params)
+
+    params["units"] = pp.Units(**units)
+    setup_1 = LinearModel(params)
+
+    pp.run_time_dependent_model(setup_1, params)
+    variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
+    variable_units = ["Pa", "Pa * m^2 * s^-1"]
+    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    flux_names = ["darcy_flux", "fluid_flux"]
+    flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1"]
+    # No domain restrictions.
+    domain_dimensions = [None, None]
+    compare_scaled_model_quantities(
+        setup_0, setup_1, flux_names, flux_units, domain_dimensions
+    )

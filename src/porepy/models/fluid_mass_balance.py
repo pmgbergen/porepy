@@ -174,7 +174,6 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the cell-wise fluid mass.
 
         """
-
         mass_density = self.fluid_density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("fluid_mass")
