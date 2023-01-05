@@ -879,13 +879,19 @@ class DarcysLaw:
 
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
+        # We assume here that :meth:`apeture` is implemented to give a meaningful value
+        # also for subdomains of co-dimension > 1.
         normal_gradient = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg * self.aperture(subdomains) ** (-1)
         )
 
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity.
-
+        # The cell volumes are scaled in two stages:
+        # The term cell_volumes carries the volume of the cells in the mortar grids,
+        # while the volume scaling from reduced dimensions is picked from the
+        # specific volumes of the higher dimension (variable `specific_volume`)
+        # and projected to the interface via a trace operator.
         eq = self.interface_darcy_flux(interfaces) - (
             cell_volumes
             * normal_gradient
@@ -1295,8 +1301,10 @@ class FouriersLaw:
         )
         normal_gradient.set_name("normal_gradient")
 
-        # Project the two pressures to the interface and multiply with the normal
-        # diffusivity.
+        # Project the two temperatures to the interface and multiply with the normal
+        # conductivity.
+        # See comments in :meth:`interface_darcy_flux_equation` for more information on
+        # the terms in the below equation.
         eq = self.interface_fourier_flux(interfaces) - (
             cell_volumes
             * normal_gradient

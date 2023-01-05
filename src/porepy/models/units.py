@@ -88,6 +88,9 @@ class Units:
         """Length unit in meters."""
         self.s: number = kwargs.get("s", 1)
         """Time unit in seconds."""
+        if not np.isclose(self.s, 1):
+            raise NotImplementedError("Non-unitary time scaling is not implemented.")
+
         self.kg: number = kwargs.get("kg", 1)
         """Mass unit in kilograms."""
         self.K: number = kwargs.get("K", 1)

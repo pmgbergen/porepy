@@ -37,7 +37,7 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
             e = np.array([[0, 2], [1, 3]])
         elif num_fracs == 3:
             if self.params.get("cartesian", False):
-                raise ValueError("Only up to 2 fractures supported in cartesian mode.")
+                raise ValueError("Only up to 2 fractures supported in Cartesian mode.")
             p = np.array([[0, 2, 0.5, 0.5, 0.3, 0.7], [0.5, 0.5, 0, 1, 0.3, 0.7]]) * ls
             e = np.array([[0, 2, 4], [1, 3, 5]])
         else:
@@ -539,7 +539,7 @@ def compare_scaled_model_quantities(
     setup_1: pp.SolutionStrategy,
     method_names: list[str],
     method_units: list[str],
-    dimensions: list[int | None],
+    domain_dimensions: list[int | None],
     cell_wise: bool = True,
 ):
     """Compare the solution of two simulations.
@@ -552,11 +552,15 @@ def compare_scaled_model_quantities(
         setup_1: Second simulation.
         method_names: Names of the methods to be compared.
         method_units: Units of the methods to be compared.
+        domain_dimensions: Dimensions of the domains to be tested. If None, the method
+            will be tested for all dimensions.
         cell_wise: If True, the values are compared cell-wise. If False, the values are
             compared globally.
 
     """
-    for method_name, method_unit, dim in zip(method_names, method_units, dimensions):
+    for method_name, method_unit, dim in zip(
+        method_names, method_units, domain_dimensions
+    ):
         values = []
         for setup in [setup_0, setup_1]:
             # Obtain scaled values.

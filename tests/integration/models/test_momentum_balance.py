@@ -115,11 +115,10 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 def test_unit_conversion(units, uy_north):
     """Test that solution is independent of units.
 
-    We avoid the value uy
-
     Parameters:
         units (dict): Dictionary with keys as those in
             :class:`~pp.models.material_constants.MaterialConstants`.
+        uy_north (float): Value of displacement on the north boundary.
 
     """
 
