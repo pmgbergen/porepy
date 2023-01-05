@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-import numpy as np
-
 import porepy as pp
 
 number = pp.number
@@ -93,6 +91,8 @@ class MaterialConstants:
 
         """
         # Make a copy of the value to avoid modifying the original.
+        # This is not strictly necessary for scalars, but is done in case the method is
+        # used for arrays.
         value = value.copy() if hasattr(value, "copy") else value
         # Trim any spaces
         units = units.replace(" ", "")
@@ -154,11 +154,6 @@ class FluidConstants(MaterialConstants):
             "viscosity": 1,
         }
         if constants is not None:
-            if "s" in constants:
-                if not np.isclose(constants["s"], 1):
-                    raise NotImplementedError(
-                        "Non-unitary time scaling is not implemented."
-                    )
             default_constants.update(constants)
         super().__init__(default_constants)
 
