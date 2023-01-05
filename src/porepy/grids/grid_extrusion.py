@@ -30,30 +30,29 @@ def extrude_grid_bucket(
 
     In practice, the original grid bucket will be 2D, and the result is 3D.
 
-    The returned mixed-dimensional grid is fully functional,
-    including mortar grids on the mdg edges.
-    The data dictionaries on subdomains and interfaces are mainly empty.
-    Data can be transferred from the original md-grid via the returned map
-    between old and new grids.
+    The returned mixed-dimensional grid is fully functional, including mortar grids on
+    the mdg edges. The data dictionaries on subdomains and interfaces are mainly empty.
+    Data can be transferred from the original md-grid via the returned map between old
+    and new grids.
 
     Parameters:
         mdg: Mixed-dimensional grid to be extruded. The highest dimension should be 2D.
         z: An array containing z-coordinates per node for the extruded grid.
-            Should be either non-negative or non-positive,
-            and be sorted in increasing or decreasing order, respectively.
+            Should be either non-negative or non-positive, and be sorted in increasing
+            or decreasing order, respectively.
 
     Returns:
         A 2-tuple containing
 
         :class:`~porepy.grids.md_grid.MixedDimensionalGrid`:
-            A mixed-dimensional grid with highest dimension 3. The data
-            dictionaries on subdomains and interfaces are mostly empty.
+            A mixed-dimensional grid with highest dimension 3. The data dictionaries on
+            subdomains and interfaces are mostly empty.
         :obj:`dict`:
             Mapping from individual grids in the old mixed-dimensional grid to the
             corresponding extruded grids in the new one. The dictionary values are a
             named tuple with elements grid (new grid), cell_map and face_map, where the
-            two latter describe mapping between the new and old grid,
-            see :func:`extrude_grid` for details.
+            two latter describe mapping between the new and old grid, see
+            :func:`extrude_grid` for details.
 
     """
 
@@ -77,8 +76,8 @@ def extrude_grid_bucket(
 
         g_map[sd] = Mapping(g_new, cell_map, face_map)
 
-    # Loop over all interfaces in the old grid, create corresponding edges in the new mdg.
-    # Also define mortar_grids
+    # Loop over all interfaces in the old grid, create corresponding edges in the new
+    # mdg. Also define mortar_grids.
     for intf, intf_data in mdg.interfaces(return_data=True):
 
         # grids of the old edge, extruded version of each grid
@@ -90,8 +89,8 @@ def extrude_grid_bucket(
         # The idea is to first find the old map, then replace each cell-face relation
         # with the set of cells and faces (exploiting first that the new grids are
         # matching due to the extrusion algorithm, and second that the cell-map and
-        # face-map stores indices in increasing layer index, so that the first cell
-        # and first face both are in the first layer, thus they match, etc.).
+        # face-map stores indices in increasing layer index, so that the first cell and
+        # first face both are in the first layer, thus they match, etc.).
         face_cells_old = intf_data["face_cells"]
 
         # cells (in low-dim grid) and faces in high-dim grid that define the same
@@ -113,7 +112,7 @@ def extrude_grid_bucket(
         face_on_other_side = np.empty(0, dtype=int)
 
         # Loop over cells in gl would not have been as clean, as each cell is associated
-        # with faces on both sides
+        # with faces on both sides.
         # Faces are found from the high-dim grid, cells in the low-dim grid
         for idx in range(faces.size):
             rows = np.hstack((rows, cell_map[cells[idx]]))
@@ -171,8 +170,8 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> tuple[pp.Grid, np.ndarray, np.nda
     Parameters:
         g: Original grid to be extruded. Must have dimension 0, 1 or 2.
         z: An array containing z-coordinates per node for the extruded grid.
-            Should be either non-negative or non-positive,
-            and be sorted in increasing or decreasing order, respectively.
+            Should be either non-negative or non-positive, and be sorted in increasing
+            or decreasing order, respectively.
 
     Raises:
         ValueError: If the z-coordinates for nodes contain both positive and negative
@@ -213,8 +212,8 @@ def _extrude_2d(
     Parameters:
         g: Original grid to be extruded. Should have dimension 2.
         z: An array containing z-coordinates per node for the extruded grid.
-            Should be either non-negative or non-positive,
-            and be sorted in increasing or decreasing order, respectively.
+            Should be either non-negative or non-positive, and be sorted in increasing
+            or decreasing order, respectively.
 
     Returns:
         A 3-tuple containing
@@ -247,7 +246,7 @@ def _extrude_2d(
     nn_2d = g.num_nodes
 
     # The number of nodes in the 3d grid is given by the number of 2d nodes, and the
-    # number of node layers
+    # number of node layers.
     nn_3d = nn_2d * num_node_layers
     # The 3d cell count is similar to that for the nodes
     nc_3d = nc_2d * num_cell_layers
@@ -273,7 +272,7 @@ def _extrude_2d(
     ## Face-node relations
     # The 3d grid has two types of faces: Those formed by faces in the 2d grid, termed
     # 'vertical' below, and those on the top and bottom of the 3d cells, termed
-    # horizontal
+    # horizontal.
 
     # Face-node relation for the 2d grid. We know there are exactly two nodes in each
     # 2d face.
@@ -289,7 +288,7 @@ def _extrude_2d(
     # face-node relation (and the same is true for several other geometric quantities).
     # This requires that the face-nodes are sorted in a CCW order when seen from the
     # side of a positive cell_face value. To sort this out, we need to flip some of the
-    # columns in fn_layer
+    # columns in fn_layer.
 
     # Faces, cells and values of the 2d cell-face map
     [fi, ci, sgn] = sps.find(g.cell_faces)
@@ -370,9 +369,9 @@ def _extrude_2d(
             g.cell_centers[:, ci].reshape((-1, 1)),
         )
         # Indices that sort the nodes. The sort function contains a rotation, which
-        # implies that it is unknown whether the ordering is cw or ccw
-        # If the sorted points are ccw, we store them, unless the extrusion is negative
-        # in which case the ordering should be cw, and the points are turned.
+        # implies that it is unknown whether the ordering is cw or ccw. If the sorted
+        # points are ccw, we store them, unless the extrusion is negative in which case
+        # the ordering should be cw, and the points are turned.
         if pp.geometry_property_checks.is_ccw_polygon(coord[:, sort_ind]):
             if negative_extrusion:
                 cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind[::-1]]
@@ -391,10 +390,10 @@ def _extrude_2d(
     fn_rows_horizontal = np.array([], dtype=int)
     # ... and pointers to the start of new faces
     fn_cols_horizontal = np.array(0, dtype=int)
-    # Loop over all layers of nodes (one more than number of cells)
-    # This means that the horizontal faces of a given cell is given by its index (bottom)
-    # and its index + the number of 2d cells, both offset with the total number of
-    # vertical faces
+    # Loop over all layers of nodes (one more than number of cells).
+    # This means that the horizontal faces of a given cell is given by its index
+    # (bottom) and its index + the number of 2d cells, both offset with the total number
+    # of vertical faces
     for k in range(num_node_layers):
         # The horizontal cell-node relation for this layer is the bottom one, plus an
         # offset of the number of 2d nodes, per layer
@@ -429,10 +428,10 @@ def _extrude_2d(
     # IMPLEMENTATION NOTE: Since all cells have both horizontal and vertical faces, and
     # these are found in separate operations, the easiest way to assemble the 3d
     # cell-face matrix is to construct information for a coo-matrix (not compressed
-    # storage), and then convert later. This has some overhead, but the alternative
-    # is to combine and sort the face indices in the horizontal and vertical components
-    # so that all faces of any cell is stored together. This is most conveniently
-    # left to scipy sparse .tocsc() function
+    # storage), and then convert later. This has some overhead, but the alternative is
+    # to combine and sort the face indices in the horizontal and vertical components so
+    # that all faces of any cell is stored together. This is most conveniently left to
+    # scipy sparse .tocsc() function
 
     ## Vertical faces
     # For the vertical faces, the information from the 2d grid can be copied
@@ -625,8 +624,8 @@ def _extrude_1d(
 
         # Put horizontal faces on top and bottom
         cf_hor_this = np.vstack((np.arange(nc_old), np.arange(nc_old) + nc_old))
-        # Add an offset of the number of vertical faces in the grid + previous horizontal
-        # faces
+        # Add an offset of the number of vertical faces in the grid + previous
+        # horizontal faces
         cf_hor_this += nf_old * num_cell_layers + k * nc_old
 
         cf_rows = np.hstack((cf_rows, np.vstack((cf_vert_this, cf_hor_this))))
@@ -666,8 +665,8 @@ def _extrude_0d(
     Parameters:
         g: Original grid to be extruded. Should have dimension 1.
         z: An array containing z-coordinates per node for the extruded grid.
-            Should be either non-negative or non-positive,
-            and be sorted in increasing or decreasing order, respectively.
+            Should be either non-negative or non-positive, and be sorted in increasing
+            or decreasing order, respectively.
 
     Returns:
         A 3-tuple containing
@@ -689,9 +688,9 @@ def _extrude_0d(
     x = g.cell_centers[0, 0] * np.ones(num_pt)
     y = g.cell_centers[1, 0] * np.ones(num_pt)
 
-    # Initial 1d grid. Coordinates are wrong, but this we will fix later
-    # There is no need to do anything special with tags here; the tags of a 0d grid are
-    # trivial, and the 1d extrusion can be based on this.
+    # Initial 1d grid. Coordinates are wrong, but this we will fix later. There is no
+    # need to do anything special with tags here; the tags of a 0d grid are trivial, and
+    # the 1d extrusion can be based on this.
     name = f"{g.name} extruded 0d->1d"
     g_new = pp.TensorGrid(x, name=name)
 

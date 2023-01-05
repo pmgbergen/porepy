@@ -7,7 +7,8 @@ See documentation of class :class:`Grid` for further details.
     `Matlab Reservoir Simulation Toolbox (MRST) <www.sintef.no/projectweb/mrst/>`_
     developed by SINTEF ICT. Some of the methods, in particular
     :meth:`~Grid.compute_geometry` and its subfunctions is to a large degree
-    translations of the corresponding functions in MRST.
+    translations of the corresponding functions in MRST as they were defined around
+    2016.
 
 """
 from __future__ import annotations
@@ -27,13 +28,12 @@ from porepy.utils import mcolon, tags
 class Grid:
     """Parent class for all grids.
 
-    The grid stores topological information, as well as geometric
-    information. Geometric information requires calling :meth:`compute_geometry`
-    to be initialized.
+    The grid stores topological information, as well as geometric information. Geometric
+    information requires calling :meth:`compute_geometry` to be initialized.
 
     Note:
-        As of yet, there is no structure for tags (face or cell) in the grid.
-        This will be introduced later.
+        As of yet, there is no structure for tags (face or cell) in the grid. This may
+        be introduced later.
 
     Parameters:
         dim: Grid dimension.
@@ -256,9 +256,8 @@ class Grid:
     def id(self) -> int:
         """Grid ID.
 
-        The returned attribute must not be changed.
-        This may severely compromise other parts of the code,
-        such as sorting in md grids.
+        The returned attribute must not be changed. This may severely compromise other
+        parts of the code, such as sorting in md grids.
 
         The attribute is set in :meth:`__new__`.
         This avoids calls to ``super().__init__`` in child classes.
@@ -345,9 +344,9 @@ class Grid:
     def compute_geometry(self) -> None:
         """Compute geometric quantities for the grid.
 
-        The method could have been called from the constructor, however,
-        in cases where the grid is modified after the initial construction (
-        say, grid refinement), this may lead to costly, unnecessary computations.
+        The method could have been called from the constructor, however, in cases where
+        the grid is modified after the initial construction ( say, grid refinement),
+        this may lead to costly, unnecessary computations.
 
         Computes the face areas, face centers, face normals and cell volumes.
 
@@ -423,7 +422,7 @@ class Grid:
     def _compute_geometry_2d(self) -> None:
         """Auxiliary function to compute the geometry for 2D grids.
 
-        The method is motivated by MRTS.
+        The method is motivated by MRST.
 
         """
 
@@ -483,9 +482,8 @@ class Grid:
         fc = self.face_centers[:, fi[idx]]
         cc = self.cell_centers[:, ci[idx]]
         v = fc - cc
-        # Prolong the vector from cell to face center in the direction of the
-        # normal vector. If the prolonged vector is shorter, the normal should
-        # be flipped
+        # Prolong the vector from cell to face center in the direction of the normal
+        # vector. If the prolonged vector is shorter, the normal should be flipped
         vn = (
             v
             + nrm(v) * self.face_normals[:, fi[idx]] / self.face_areas[fi[idx]] * 0.001
@@ -516,17 +514,17 @@ class Grid:
 
         num_nodes_per_face = face_node_ptr[1:] - face_node_ptr[:-1]
 
-        # Face-node relationships. Note that the elements here will also
-        # serve as a representation of an edge along the face (face_nodes[i]
-        #  represents the edge running from face_nodes[i] to face_nodes[i+1])
+        # Face-node relationships. Note that the elements here will also serve as a
+        # representation of an edge along the face (face_nodes[i] represents the edge
+        #  running from face_nodes[i] to face_nodes[i+1]).
         face_nodes = self.face_nodes.indices
         # For each node, index of its parent face
         face_node_ind = pp.matrix_operations.rldecode(
             np.arange(self.num_faces), num_nodes_per_face
         )
 
-        # Index of next node on the edge list. Note that this assumes the
-        # elements in face_nodes is stored in an ordered fashion
+        # Index of next node on the edge list. Note that this assumes the elements in
+        # face_nodes is stored in an ordered fashion
         next_node = np.arange(num_face_nodes) + 1
         # Close loops, for face i, the next node is the first of face i
         next_node[face_node_ptr[1:] - 1] = face_node_ptr[:-1]
@@ -546,10 +544,9 @@ class Grid:
         # Vector from face center to start node of each edge
         face_2_node = tmp_face_center.transpose() - self.nodes[:, face_nodes]
 
-        # Assign a normal vector with this edge, by taking the cross product
-        # between along_edge and face_2_node
-        # Divide by two to ensure that the normal vector has length equal to
-        # the area of the face triangle (by properties of cross product)
+        # Assign a normal vector with this edge, by taking the cross product between
+        # along_edge and face_2_node. Divide by two to ensure that the normal vector has
+        # length equal to the area of the face triangle (by properties of cross product)
         sub_normals = (
             np.vstack(
                 (
@@ -564,13 +561,12 @@ class Grid:
         def nrm(v):
             return np.sqrt(np.sum(v * v, axis=0))
 
-        # Calculate area of sub-face associated with each edge - note that
-        # the sub-normals are area weighted
+        # Calculate area of sub-face associated with each edge - note that the
+        # sub-normals are area weighted
         sub_areas = nrm(sub_normals)
 
-        # Centers of sub-faces are given by the centroid coordinates,
-        # e.g. the mean coordinate of the edge endpoints and the temporary
-        # face center
+        # Centers of sub-faces are given by the centroid coordinates, e.g. the mean
+        # coordinate of the edge endpoints and the temporary face center
         sub_centroids = (
             self.nodes[:, face_nodes]
             + self.nodes[:, face_nodes[next_node]]
@@ -582,10 +578,10 @@ class Grid:
         # Similar with face areas
         face_areas = edge_2_face.transpose() * sub_areas
 
-        # Test whether the sub-normals are pointing in the same direction as
-        # the main normal: Distribute the main normal onto the edges,
-        # and take scalar product by element-wise multiplication with
-        # sub-normals, and sum over the components (axis=0).
+        # Test whether the sub-normals are pointing in the same direction as the main
+        # normal: Distribute the main normal onto the edges, and take scalar product by
+        # element-wise multiplication with sub-normals, and sum over the components
+        # (axis=0).
         # NOTE: There should be a built-in function for this in numpy?
         sub_normals_sign = np.sign(
             np.sum(
@@ -605,33 +601,30 @@ class Grid:
 
         # Cells
 
-        # Temporary cell center coordinates as the mean of the face center
-        # coordinates. The cells are divided into sub-tetrahedra (
-        # corresponding to triangular sub-faces above), with the temporary
-        # cell center as the final node
+        # Temporary cell center coordinates as the mean of the face center coordinates.
+        # The cells are divided into sub-tetrahedra ( corresponding to triangular
+        # sub-faces above), with the temporary cell center as the final node
 
-        # Mapping from edges to cells. Take absolute value of cell_faces,
-        # since the elements are signed (contains the divergence).
-        # Note that edge_2_cell will contain more elements than edge_2_face,
-        # since the former will count internal faces twice (one for each
-        # adjacent cell)
+        # Mapping from edges to cells. Take absolute value of cell_faces, since the
+        # elements are signed (contains the divergence). Note that edge_2_cell will
+        # contain more elements than edge_2_face, since the former will count internal
+        # faces twice (one for each adjacent cell)
         edge_2_cell = edge_2_face * np.abs(self.cell_faces)
         # Sort indices to avoid messing up the mappings later
         edge_2_cell.sort_indices()
 
-        # Obtain relations between edges, faces and cells, in the form of
-        # index lists. Each element in the list corresponds to an edge seen
-        # from a cell (e.g. edges on internal faces are seen twice).
+        # Obtain relations between edges, faces and cells, in the form of index lists.
+        # Each element in the list corresponds to an edge seen from a cell (e.g. edges
+        # on internal faces are seen twice).
 
         # Cell numbers are obtained from the columns in edge_2_cell.
         cell_numbers = pp.matrix_operations.rldecode(
             np.arange(self.num_cells), np.diff(edge_2_cell.indptr)
         )
-        # Edge numbers from the rows. Here it is crucial that the indices
-        # are sorted
+        # Edge numbers from the rows. Here it is crucial that the indices are sorted
         edge_numbers = edge_2_cell.indices
-        # Face numbers are obtained from the face-node relations (with the
-        # nodes doubling as representation of edges)
+        # Face numbers are obtained from the face-node relations (with the nodes
+        # doubling as representation of edges)
         face_numbers = face_node_ind[edge_numbers]
 
         # Number of edges per cell
@@ -652,8 +645,8 @@ class Grid:
                 count[iter1] = np.bincount(arr, weights=weights[iter1], minlength=sz)
             return count
 
-        # First estimate of cell centers as the mean of its faces' centers
-        # Divide by num_cell_edges here since all edges bring in their faces
+        # First estimate of cell centers as the mean of its faces' centers Divide by
+        # num_cell_edges here since all edges bring in their faces
         tmp_cell_centers = bincount_nd(
             cell_numbers, face_centers[:, face_numbers] / num_cell_edges[cell_numbers]
         )
@@ -664,27 +657,24 @@ class Grid:
             sub_centroids[:, edge_numbers] - tmp_cell_centers[:, cell_numbers]
         )
 
-        # Get sign of normal vectors, seen from all faces.
-        # Make sure we get a numpy ndarray, and not a matrix (.A), and that
-        # the array is 1D (squeeze)
+        # Get sign of normal vectors, seen from all faces. Make sure we get a numpy
+        # ndarray, and not a matrix (.A), and that the array is 1D (squeeze)
         orientation = np.squeeze(self.cell_faces[face_numbers, cell_numbers].A)
 
-        # Get outwards pointing sub-normals for all sub-faces: We need to
-        # account for both the orientation of the face, and the orientation
-        # of sub-faces relative to faces.
+        # Get outwards pointing sub-normals for all sub-faces: We need to account for
+        # both the orientation of the face, and the orientation of sub-faces relative to
+        # faces.
         outer_normals = (
             sub_normals[:, edge_numbers] * orientation * sub_normals_sign[edge_numbers]
         )
 
-        # Volumes of tetrahedra are now given by the dot product between the
-        #  outer normal (which is area weighted, and thus represent the base
-        #  of the tet), with the distance from temporary cell center (the
-        # dot product gives the height).
+        # Volumes of tetrahedra are now given by the dot product between the outer
+        #  normal (which is area weighted, and thus represent the base of the tet), with
+        #  the distance from temporary cell center (the dot product gives the height).
         tet_volumes = np.sum(dist_cellcenter_subface * outer_normals, axis=0) / 3
 
-        # Sometimes the sub-tet volumes can have a volume of numerical zero.
-        # Why this is so is not clear, but for the moment, we allow for a
-        # slightly negative value.
+        # Sometimes the sub-tet volumes can have a volume of numerical zero. Why this is
+        # so is not clear, but for the moment, we allow for a slightly negative value.
         if not np.all(tet_volumes > -1e-12):  # On the fly test
             raise ValueError("Some tetrahedra have negative volume")
 
@@ -692,8 +682,8 @@ class Grid:
         cell_volumes = np.bincount(cell_numbers, weights=tet_volumes)
         tri_centroids = 3 / 4 * dist_cellcenter_subface
 
-        # Compute a correction to the temporary cell center, by a volume
-        # weighted sum of the sub-tetrahedra
+        # Compute a correction to the temporary cell center, by a volume weighted sum of
+        # the sub-tetrahedra
         rel_centroid = (
             bincount_nd(cell_numbers, tet_volumes * tri_centroids) / cell_volumes
         )
@@ -888,9 +878,9 @@ class Grid:
 
         This alternative format can be useful in some cases.
 
-        Each column in the array corresponds to a face, and the elements in
-        that column refers to cell indices. The value -1 signifies a boundary.
-        The normal vector of the face points from the first to the second row.
+        Each column in the array corresponds to a face, and the elements in that column
+        refers to cell indices. The value -1 signifies a boundary. The normal vector of
+        the face points from the first to the second row.
 
         Returns:
             Array representation of face-cell relations with ``shape=(2, num_faces)``.
@@ -948,8 +938,8 @@ class Grid:
         Parameters:
             faces: ``shape=(n,)``
 
-                Indices of ``n`` faces that you want to know the sign
-                for. The faces must be boundary faces.
+                Indices of ``n`` faces that you want to know the sign for. The faces
+                must be boundary faces.
 
         Raises:
             ValueError: If a target face is internal.
@@ -960,8 +950,8 @@ class Grid:
             :obj:`~numpy.ndarray`:
                 ``shape=(n,)``
 
-                The sign of the faces . Will be +1 if the face normal vector
-                points out of the cell, -1 if the normal vector is pointing inwards.
+                The sign of the faces. Will be +1 if the face normal vector points out
+                of the cell, -1 if the normal vector is pointing inwards.
 
             :obj:`~numpy.ndarray`:
                 ``shape=(n,)``
@@ -987,8 +977,7 @@ class Grid:
     ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
         """For a set of points, find closest cell by cell center.
 
-        If several centers have the same distance, one of them will be
-        returned.
+        If several centers have the same distance, one of them will be returned.
 
         For ``dim < 3``, no checks are made if the point is in the plane / line
         of the grid.
@@ -1002,8 +991,8 @@ class Grid:
                 as well.
 
         Returns:
-            An array with ``(shape=(n,), dtype=int)`` containing for each point
-            the index of the cell with center closest to the point.
+            An array with ``(shape=(n,), dtype=int)`` containing for each point the
+            index of the cell with center closest to the point.
 
             If ``return_distance`` is True, returns a 2-tuple, where the second array
             contains the distances to respective centers for each point.

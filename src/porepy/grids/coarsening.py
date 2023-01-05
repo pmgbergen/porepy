@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Any, Optional, Union
 
 import numpy as np
-import numpy.typing as npt
 import scipy.sparse as sps
 
 import porepy as pp
@@ -72,23 +71,22 @@ def coarsen(
 
 def generate_coarse_grid(
     g: Union[pp.Grid, pp.MixedDimensionalGrid],
-    subdiv: Union[npt.ArrayLike, dict[Any, tuple[Any, npt.ArrayLike]]],
+    subdiv: Union[np.ndarray, dict[pp.Grid, tuple[Any, np.ndarray]]],
 ) -> None:
     """Generates a coarse grid by clustering the cells according to the flags
     given by ``subdiv``.
 
-    ``subdiv`` must be as long as the number of cells in the
-    original grid, it contains integers (possibly not continuous) which
-    represent the cell IDs in the final, coarser mesh. I.e. it is a cell map from
-    finer to coarser.
+    ``subdiv`` must be as long as the number of cells in the original grid, it contains
+    integers (possibly not continuous) which represent the cell IDs in the final,
+    coarser mesh. I.e. it is a cell map from finer to coarser.
 
-    If ``g`` is a mixed-dimensional grid, the coarsening is applied to the
-    higher dimensional grid.
+    If ``g`` is a mixed-dimensional grid, the coarsening is applied to the higher
+    dimensional grid.
 
     Warning:
         This method effectively overwrites every grid property computed by
-        :meth:`~porepy.grids.grid.Grid.compute_geometry`. Do not call that method
-        after calling this one.
+        :meth:`~porepy.grids.grid.Grid.compute_geometry`. Do not call that method after
+        calling this one.
 
     Note:
         There is no check for disconnected cells in the final grid.
@@ -107,7 +105,6 @@ def generate_coarse_grid(
             If ``g`` is a mixed-dimensional grid, a dictionary containing per grid (key)
             a 2-tuple, where the second entry is the partition map as seen above.
             This special structure is passed by :func:`coarsen`.
-
 
     """
     if isinstance(g, grid.Grid):
@@ -197,7 +194,7 @@ def generate_seeds(mdg: Union[pp.Grid, pp.MixedDimensionalGrid]) -> np.ndarray:
 
 def create_aggregations(
     grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs
-) -> dict[pp.Grid, np.ndarray]:
+) -> dict[pp.Grid, tuple[pp.Grid, np.ndarray]]:
     """Creates a cell partition based on their volumes.
 
     Parameters:
@@ -219,7 +216,7 @@ def create_aggregations(
     else:
         raise ValueError("Only subdomains and mixed-dimensional grids supported.")
 
-    partition = dict()
+    partition: dict[pp.Grid, tuple[pp.Grid, np.ndarray]] = {}
 
     for g in grid_list:
         partition_local = -np.ones(g.num_cells, dtype=int)
@@ -358,7 +355,8 @@ def create_partition(
         g_high = g
 
     if A.size == 0:
-        return np.zeros(1)
+        return {g_high: (g_high.copy(), np.zeros(1))}
+
     Nc = A.shape[0]
 
     # For each node, which other nodes are strongly connected to it
@@ -443,9 +441,10 @@ def create_partition(
     if pairs.size:
         pairs = setmembership.unique_rows(np.sort(pairs, axis=1))[0]
         for ij in pairs:
-            A_val = np.array(A[ij, ij]).ravel()
+            A_val = A[ij, ij].A.ravel()
             ids = ij[np.argsort(A_val)]
-            ids = np.setdiff1d(ids, seeds, assume_unique=True)
+            if seeds is not None:
+                ids = np.setdiff1d(ids, seeds, assume_unique=True)
             if ids.size:
                 is_coarse[ids[0]] = False
                 is_fine[ids[0]] = True
@@ -653,6 +652,9 @@ def _generate_coarse_grid_single(
 
     if face_map:
         return np.array([cell_faces_unique, cell_faces_id])
+    else:
+        # Explicitly return None to make mypy happy.
+        return None
 
 
 def _generate_coarse_grid_mdg(
@@ -675,6 +677,7 @@ def _generate_coarse_grid_mdg(
 
         # Construct the coarse grids
         face_map = _generate_coarse_grid_single(g, partition, True)
+        assert face_map is not None  # make mypy happy
 
         # Update all the primary_to_mortar_int for all the 'edges' connected to the grid
         # We update also all the face_cells

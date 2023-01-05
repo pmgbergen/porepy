@@ -30,8 +30,8 @@ def point_inside_half_space_intersection(
             ``i`` is given by all points satisfying ``(x - x0[:,i])*n[:,i]<=0``.
         pts: ``shape=(3, np)``
 
-            The points to be tested if they are in the
-            intersection of all half-spaces or not.
+            The points to be tested if they are in the intersection of all half-spaces
+            or not.
 
     Raises:
         ValueError: If either of the parameters ``n``, ``x0`` or ``pts`` are not

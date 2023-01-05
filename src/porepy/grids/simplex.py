@@ -2,10 +2,9 @@
 
 .. rubric:: Acknowledgement
 
-The implementation of structured grids is in practice a translation of the
-corresponding functions found in the
-`Matlab Reservoir Simulation Toolbox (MRST) <www.sintef.no/projectweb/mrst/>`_
-developed by SINTEF ICT.
+The implementation of structured grids is in practice a translation of the corresponding
+functions found in the `Matlab Reservoir Simulation Toolbox (MRST)
+<www.sintef.no/projectweb/mrst/>`_ developed by SINTEF ICT.
 
 """
 from typing import Optional
@@ -185,15 +184,15 @@ class StructuredTriangleGrid(TriangleGrid):
         ind_3 = nx[0] + 2 + tmp_ind  # Upper left node
         ind_4 = nx[0] + 1 + tmp_ind  # Upper right node
 
-        # The first triangle is defined by (i1, i2, i3), the next by
-        # (i1, i3, i4). Stack these vertically, and reshape so that the
-        # first quad is split into cells 0 and 1 and so on
+        # The first triangle is defined by (i1, i2, i3), the next by (i1, i3, i4). Stack
+        # these vertically, and reshape so that the first quad is split into cells 0 and
+        # 1 and so on
         tri_base = np.vstack((ind_1, ind_2, ind_3, ind_1, ind_3, ind_4)).reshape(
             (3, -1), order="F"
         )
-        # Initialize array of triangles. For the moment, we will append the
-        # cells here, but we do know how many cells there are in advance,
-        # so pre-allocation is possible if this turns out to be a bottleneck
+        # Initialize array of triangles. For the moment, we will append the cells here,
+        # but we do know how many cells there are in advance, so pre-allocation is
+        # possible if this turns out to be a bottleneck
         tri = tri_base
 
         # Loop over all remaining rows in the y-direction.
@@ -232,8 +231,8 @@ class TetrahedralGrid(Grid):
 
         self.dim = 3
 
-        # Transform points to column vector if necessary (scipy.Delaunay
-        # requires this format)
+        # Transform points to column vector if necessary (scipy.Delaunay requires this
+        # format)
         if tet is None:
             tesselation = scipy.spatial.qhull.Delaunay(p.transpose())
             tet = tesselation.simplices.transpose()
@@ -251,13 +250,12 @@ class TetrahedralGrid(Grid):
         # This is apparently needed to appease mypy
         assert tet is not None
 
-        # Define face-nodes so that the first column contains fn of cell 0,
-        # etc.
+        # Define face-nodes so that the first column contains fn of cell 0, etc.
         face_nodes = np.vstack(
             (tet[[1, 0, 2]], tet[[0, 1, 3]], tet[[2, 0, 3]], tet[[1, 2, 3]])
         )
-        # Reshape face-nodes into a 3x 4*num_cells-matrix, with the four first
-        # columns belonging to cell 0.
+        # Reshape face-nodes into a 3x 4*num_cells-matrix, with the four first columns
+        # belonging to cell 0.
         face_nodes = face_nodes.reshape((3, 4 * num_cells), order="F")
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
@@ -442,9 +440,9 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
                 ind_8,
             )
         ).reshape((4, -1), order="F")
-        # Initialize array of triangles. For the moment, we will append the
-        # cells here, but we do know how many cells there are in advance,
-        # so pre-allocation is possible if this turns out to be a bottleneck
+        # Initialize array of triangles. For the moment, we will append the cells here,
+        # but we do know how many cells there are in advance, so pre-allocation is
+        # possible if this turns out to be a bottleneck.
 
         # Loop over all remaining rows in the y-direction.
         for iter2 in range(nx[2].astype(int)):

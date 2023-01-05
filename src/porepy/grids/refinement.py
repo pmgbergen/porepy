@@ -32,15 +32,13 @@ def distort_grid_1d(
          g: The grid that will be perturbed. Modifications will happen in place.
          ratio: ``default=0.1``
 
-            Perturbation ratio. A node can be moved at most half the
-            distance in towards any of its neighboring nodes. The ratio will
-            multiply the chosen distortion. Should be less than 1 to preserve grid
-            topology.
+            Perturbation ratio. A node can be moved at most half the distance in towards
+            any of its neighboring nodes. The ratio will multiply the chosen distortion.
+            Should be less than 1 to preserve grid topology.
          fixed_nodes: ``default=None``
 
-            Index of nodes to keep fixed under distortion. Boundary
-            nodes will always be fixed, even if not explicitly included as
-            fixed_node.
+            Index of nodes to keep fixed under distortion. Boundary nodes will always be
+            fixed, even if not explicitly included as fixed_node.
 
     Returns:
          The grid, but with distorted nodes.
@@ -205,8 +203,8 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
         # equal is now 2xnum_cells. To pick out the right elements, consider the raveled
         # index, and construct the corresponding raveled array
         equal_n = loc_n.ravel()[
-            np.ravel_multi_index(equal.T, loc_n.shape)
-        ]  # type: ignore
+            np.ravel_multi_index(equal.T, dims=loc_n.shape)  # type: ignore
+        ] 
 
         # Define node combination. Both nodes associated with a face have their offset
         # adjusted.
@@ -410,7 +408,7 @@ class GridSequenceFactory(abc.ABC):
 
         """
         if hasattr(self, "_gmsh"):
-            self._gmsh.finalize()
+            self._gmsh.finalize()  # type: ignore
             # Also inform the GmshWriter class that gmsh is no longer initialized.
             pp.fracs.gmsh_interface.GmshWriter.gmsh_initialized = False
 
@@ -429,6 +427,9 @@ class GridSequenceFactory(abc.ABC):
         Parameters:
             counter: Refinement counter.
 
+        Raises:
+            ValueError if the refinement mode is not recognized.
+
         Returns:
             The refined mixed dimensional grid.
 
@@ -437,6 +438,8 @@ class GridSequenceFactory(abc.ABC):
             return self._generate_nested(counter)
         elif self._refinement_mode == "unstructured":
             return self._generate_unstructured(counter)
+        else:
+            raise ValueError(f"Unknown refinement mode {self._refinement_mode}")
 
     def _prepare_nested(self) -> None:
         """Prepare nested refinement.

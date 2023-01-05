@@ -48,15 +48,14 @@ def match_1d(
 
         The values in the matrix depend on the parameter ``scaling``.
 
-        If set to 'averaged', a mapping fit for intensive quantities
-        (e.g., pressure) is returned (all rows sum to unity).
+        If set to 'averaged', a mapping fit for intensive quantities (e.g., pressure) is
+        returned (all rows sum to unity).
 
-        If set to 'integrated', the matrix is a mapping for extensive
-        quantities (column sum is 1).
+        If set to 'integrated', the matrix is a mapping for extensive quantities (column
+        sum is 1).
 
-        If None, the matrix elements are 1 for cell-pairs (new and old grid)
-        that overlap. Overlaps with areas less
-        than the parameter ``tol`` will be ignored.
+        If None, the matrix elements are 1 for cell-pairs (new and old grid) that
+        overlap. Overlaps with areas less than the parameter ``tol`` will be ignored.
 
     """
     # Cell-node relation between grids - we know there are two nodes per cell
@@ -76,9 +75,9 @@ def match_1d(
     p_new = new_g.nodes
     p_old = old_g.nodes
 
-    # Compute the intersection between the two tessellations.
-    # intersect is a list, every list member is a tuple with overlapping
-    # cells in grid 1 and 2, and their common area.
+    # Compute the intersection between the two tessellations. intersect is a list, every
+    # list member is a tuple with overlapping cells in grid 1 and 2, and their common
+    # area.
     intersect = pp.intersections.line_tessellation(p_new, p_old, lines_new, lines_old)
 
     num = len(intersect)
@@ -120,8 +119,7 @@ def match_2d(
     The overlaps are identified as a sparse matrix which maps from cells in the old to
     the new grid.
 
-    It is assumed that the two grids are aligned, with common start and
-    endpoints.
+    It is assumed that the two grids are aligned, with common start and endpoints.
 
     Parameters:
         new_g: Target grid for the mapping. Should have dimension 2.
@@ -140,12 +138,11 @@ def match_2d(
         If set to 'averaged', a mapping fit for intensive quantities (e.g., pressure)
         is returned (all rows sum to unity).
 
-        If set to 'integrated', the matrix is a mapping for extensive
-        quantities (column sum is 1).
+        If set to 'integrated', the matrix is a mapping for extensive quantities (column
+        sum is 1).
 
-        If None, the matrix elements are 1
-        for cell-pairs (new and old grid) that overlap; overlaps with areas less
-        than the parameter tol will be ignored.
+        If None, the matrix elements are 1 for cell-pairs (new and old grid) that
+        overlap; overlaps with areas less than the parameter tol will be ignored.
 
     """
 
@@ -161,10 +158,10 @@ def match_2d(
     # to the external library shapely, which has efficient methods for matching
     # tessallations.
     #
-    # IMPLEMENTATION NOTE: For now, the interface to shapely can only deal with
-    # simplex cells. This is not a limitation of shapely itself, which can handle
-    # general polygons. Thus the below restrictions (look for ValueError) can be relaxed
-    # by modifying the interface pp.intersections.triangulations.
+    # IMPLEMENTATION NOTE: For now, the interface to shapely can only deal with simplex
+    # cells. This is not a limitation of shapely itself, which can handle general
+    # polygons. Thus the below restrictions (look for ValueError) can be relaxed by
+    # modifying the interface pp.intersections.triangulations.
     cn_new = new_g.cell_nodes().tocsc()
     if not np.all(np.diff(cn_new.indptr) == (new_g.dim + 1)):
         # See above implementation note for how to relax this restriction.
@@ -319,20 +316,18 @@ def match_grids_along_1d_mortar(
         return nodes
 
     def face_to_cell_map(g_2d, g_1d, loc_faces, loc_nodes):
-        # Match faces in a 2d grid and cells in a 1d grid by identifying
-        # face-nodes and cell-node relations.
-        # loc_faces are faces in 2d grid that are known to coincide with
-        # cells.
-        # loc_nodes are indices of 2d nodes along the segment, sorted so that
-        # the ordering coincides with nodes in 1d grid
+        # Match faces in a 2d grid and cells in a 1d grid by identifying face-nodes and
+        # cell-node relations.
+        # loc_faces are faces in 2d grid that are known to coincide with cells.
+        # loc_nodes are indices of 2d nodes along the segment, sorted so that the
+        # ordering coincides with nodes in 1d grid
 
         # face-node relation in higher dimensional grid
         fn = g_2d.face_nodes.indices.reshape((g_2d.dim, g_2d.num_faces), order="F")
         # Reduce to faces along segment
         fn_loc = fn[:, loc_faces]
-        # Mapping from global (2d) indices to the local indices used in 1d
-        # grid. This also account for a sorting of the nodes, so that the
-        # nodes.
+        # Mapping from global (2d) indices to the local indices used in 1d grid. This
+        # also account for a sorting of the nodes, so that the nodes.
         ind_map = np.zeros(g_2d.num_faces, dtype=int)
         ind_map[loc_nodes] = np.arange(loc_nodes.size)
         # Face-node in local indices
@@ -392,26 +387,25 @@ def match_grids_along_1d_mortar(
 
     both_sides_old = [pos_side_old, neg_side_old]
 
-    # Then virtual 1d grid for the new grid. This is a bit more involved,
-    # since we need to identify the nodes by their coordinates.
-    # This part will be prone to rounding errors, in particular for
-    # badly shaped cells.
+    # Then virtual 1d grid for the new grid. This is a bit more involved, since we need
+    # to identify the nodes by their coordinates. This part will be prone to rounding
+    # errors, in particular for badly shaped cells.
     nodes_new = g_new.nodes
 
-    # Represent the 1d line by its start and end point, as pulled
-    # from the old 1d grid (known coordinates)
+    # Represent the 1d line by its start and end point, as pulled from the old 1d grid
+    # (known coordinates).
     # Find distance from the nodes to the line defined by the mortar grid.
     dist, _ = pp.distances.points_segments(nodes_new, start, end)
     # Look for points in the new grid with a small distance to the line.
     hit = np.argwhere(dist.ravel() < tol).reshape((1, -1))[0]
 
-    # Depending on geometric tolerance and grid quality, hit
-    # may contain nodes that are close to the 1d line, but not on it
-    # To improve the results, also require that the faces are boundary faces
+    # Depending on geometric tolerance and grid quality, hit may contain nodes that are
+    # close to the 1d line, but not on it To improve the results, also require that the
+    # faces are boundary faces
 
-    # We know we are in 2d, thus all faces have two nodes
-    # We can do the same trick in 3d, provided we have simplex grids
-    # but this will fail on Cartesian or polyhedral grids
+    # We know we are in 2d, thus all faces have two nodes We can do the same trick in
+    # 3d, provided we have simplex grids but this will fail on Cartesian or polyhedral
+    # grids
     fn = g_new.face_nodes.indices.reshape((2, g_new.num_faces), order="F")
     fn_in_hit = np.isin(fn, hit)
     # Faces where all points are found in hit
@@ -468,9 +462,9 @@ def match_grids_along_1d_mortar(
             shape=(n_loc_new, g_new.num_faces),
         )
 
-        # Map from faces along segment in old to new grid. Consists of three
-        # stages: faces in old to cells in 1d version of old, between 1d cells
-        # in old and new, cells in new to faces in new
+        # Map from faces along segment in old to new grid. Consists of three stages:
+        # faces in old to cells in 1d version of old, between 1d cells in old and new,
+        # cells in new to faces in new
 
         # From faces to cells in old grid
         rows = face_to_cell_map(
@@ -553,8 +547,8 @@ def mdg_refinement(
         sd, sd_ref = subdomains[i], subdomains_ref[i]
         assert sd.id == sd_ref, "Strongly check that grids refer to same domain."
 
-        # Compute the mapping for this subdomain-pair,
-        # and assign the result to the node of the coarse mdg
+        # Compute the mapping for this subdomain-pair, and assign the result to the node
+        # of the coarse mdg
         if mode == "nested":
             mapping = structured_refinement(sd, sd_ref, point_in_poly_tol=tol)
         else:
@@ -648,8 +642,7 @@ def structured_refinement(
 
     # 3. Step: If the grids are in 1D or 2D, we can simplify the calculation by rotating
     # the coordinate system to local coordinates. For example, a 2D grid embedded in 3D
-    # would be "rotated" so that each coordinate
-    #           is of the form (x, y, 0).
+    # would be "rotated" so that each coordinate is of the form (x, y, 0).
     if g.dim == 1:
         # Rotate coarse nodes and fine cell centers to align with the x-axis
         tangent = pp.map_geometry.compute_tangent(nodes)

@@ -16,12 +16,12 @@ class BoundaryGrid(pp.Grid):
     The boundary grid is intended as a holder of boundary conditions only.
 
     Todo:
-        The BoundaryGrid is not a full grid, and should not be used as such. The
-        current inheritance from Grid is a hack to get the BoundaryGrid to work with
-        methods that expect a Grid.
-        The natural solution is to make an abc superclass, say, GridBase,
-        which is inherited by both Grid and BoundaryGrid, and then use GridBase
-        in type hints when either a Grid or a BoundaryGrid can be used.
+        The BoundaryGrid is not a full grid, and should not be used as such. The current
+        inheritance from Grid is a hack to get the BoundaryGrid to work with methods
+        that expect a Grid.
+        The natural solution is to make an abc superclass, say, GridBase, which is
+        inherited by both Grid and BoundaryGrid, and then use GridBase in type hints
+        when either a Grid or a BoundaryGrid can be used.
 
     Note:
         Boundary grids have a id counter, which is shared with the parent class Grid.
@@ -72,7 +72,7 @@ class BoundaryGrid(pp.Grid):
         """Projection matrix from the parent grid to the boundary grid.
 
         The projection matrix is a sparse matrix,
-        with size num_cells x num_faces_parent,
+        with  ``shape=(num_cells, num_faces_parent)``,
         which maps face-wise values on the parent grid to the boundary grid.
 
         """

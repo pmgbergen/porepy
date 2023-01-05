@@ -540,8 +540,8 @@ class MixedDimensionalGrid:
 
         """
         sort_inds_all: list[np.ndarray] = list()
-        # Traverse dimensions in descending order. Progress to 0 in case dim_min is greater
-        # than minimum dimension of interface grids.
+        # Traverse dimensions in descending order. Progress to 0 in case dim_min is
+        # greater than minimum dimension of interface grids.
         for dim in np.arange(self.dim_max(), -1, -1):
             # Map from this dimension to all dimensions
             inds_in_all_dims: list[int] = list()
@@ -608,12 +608,12 @@ class MixedDimensionalGrid:
                 grids, and values are the new grids.
             intf_map: ``default=None``
 
-                Mapping between the old mortar grid and new (side grids
-                of the) mortar grid. Keys are the old mortar grids, and values are
-                dictionaries with side grid number as keys, and side grids as
-                values. Optionally, the mapping can be directly from old to new
-                mortar grid (sometimes it is easier to construct the new mortar grid
-                right away, before replacing it in the mixed-dimensional grid).
+                Mapping between the old mortar grid and new (side grids of the) mortar
+                grid. Keys are the old mortar grids, and values are dictionaries with
+                side grid number as keys, and side grids as values. Optionally, the
+                mapping can be directly from old to new mortar grid (sometimes it is
+                easier to construct the new mortar grid right away, before replacing it
+                in the mixed-dimensional grid).
             tol: ``default=1e-6``
 
                 Geometric tolerance used when updating mortar projections.
@@ -808,8 +808,8 @@ class MixedDimensionalGrid:
                 num_cells += sd.num_cells
 
             s += (
-                f"{len(list(self.subdomains(dim=dim)))} grids of dimension {dim}, with in "
-                f"total {num_cells} cells and {num_nodes} nodes. \n"
+                f"{len(list(self.subdomains(dim=dim)))} grids of dimension {dim}, with "
+                f"in total {num_cells} cells and {num_nodes} nodes. \n"
             )
 
         s += f"Total number of interfaces: {self.num_subdomains()}\n"
@@ -854,8 +854,8 @@ class MixedDimensionalGrid:
                     num_intf_cells += intf.num_cells
 
                 s += (
-                    f"{num_intf} interfaces between grids of dimension {dim} and {dim-1}"
-                    f" with in total {num_intf_cells} mortar cells\n"
+                    f"{num_intf} interfaces between grids of dimension {dim} and"
+                    f" {dim-1} with in total {num_intf_cells} mortar cells\n"
                 )
 
         return s

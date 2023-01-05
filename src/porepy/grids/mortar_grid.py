@@ -259,8 +259,8 @@ class MortarGrid:
         # Build mappings for integrated and averaged quantities separately.
         split_matrix_int, split_matrix_avg = {}, {}
 
-        # For each side we compute the mapping between the old and the new mortar
-        # grids, we store them in a dictionary with SideTag as key.
+        # For each side we compute the mapping between the old and the new mortar grids,
+        # we store them in a dictionary with SideTag as key.
         for side, new_g in new_side_grids.items():
             g = self.side_grids[side]
             if g.dim != new_g.dim:
@@ -271,8 +271,8 @@ class MortarGrid:
                 return
             elif g.dim == 1:
                 # The mapping between grids will be left-multiplied by the existing
-                # mapping from primary to mortar. Therefore, we construct mappings
-                # from the old to the new grid.
+                # mapping from primary to mortar. Therefore, we construct mappings from
+                # the old to the new grid.
                 mat_avg = pp.match_grids.match_1d(new_g, g, tol, scaling="averaged")
                 mat_int = pp.match_grids.match_1d(new_g, g, tol, scaling="integrated")
             elif g.dim == 2:
@@ -286,10 +286,10 @@ class MortarGrid:
             split_matrix_avg[side] = mat_avg
             split_matrix_int[side] = mat_int
 
-        # In the case of different side ordering between the input data and the
-        # stored we need to remap it. The resulting matrix will be a block
-        # diagonal matrix, where in each block we have the mapping between the
-        # (relative to side) old grid and the new one.
+        # In the case of different side ordering between the input data and the stored
+        # we need to remap it. The resulting matrix will be a block diagonal matrix,
+        # where in each block we have the mapping between the (relative to side) old
+        # grid and the new one.
         matrix_blocks_avg: np.ndarray = np.empty(
             (self.num_sides(), self.num_sides()), dtype=object
         )
@@ -385,12 +385,12 @@ class MortarGrid:
         # Build mappings for integrated and averaged quantities separately.
         split_matrix_avg, split_matrix_int = {}, {}
 
-        # For each side we compute the mapping between the new lower dimensional
-        # grid and the mortar grid, we store them in a dictionary with MortarSide as key.
+        # For each side we compute the mapping between the new lower dimensional grid
+        # and the mortar grid, we store them in a dictionary with MortarSide as key.
         # IMPLEMENTATION NOTE: The loop, and some of the complexity below, is necessary
-        # to allow for different grids on the mortar sides (if more than one). It is
-        # not clear that our full implementation supports this (no obvious weak points),
-        # but AFAIK, it has never been tested, but we will keep the generality for now.
+        # to allow for different grids on the mortar sides (if more than one). It is not
+        # clear that our full implementation supports this (no obvious weak points), but
+        # AFAIK, it has never been tested, but we will keep the generality for now.
         for side, g in self.side_grids.items():
             if g.dim != new_g.dim:
                 raise ValueError("Grid dimension has to be the same")
@@ -413,10 +413,10 @@ class MortarGrid:
 
             split_matrix_avg[side] = mat_avg
             split_matrix_int[side] = mat_int
-        # In the case of different side ordering between the input data and the
-        # stored we need to remap it. The resulting matrix will be a block
-        # matrix, where in each block we have the mapping between the
-        # (relative to side) the new grid and the mortar grid.
+        # In the case of different side ordering between the input data and the stored
+        # we need to remap it. The resulting matrix will be a block matrix, where in
+        # each block we have the mapping between the (relative to side) the new grid and
+        # the mortar grid.
         matrix_avg = np.empty((self.num_sides(), 1), dtype=object)
         matrix_int = np.empty((self.num_sides(), 1), dtype=object)
 
@@ -459,7 +459,8 @@ class MortarGrid:
 
         """
         # IMPLEMENTATION NOTE: The signature of this method is different from
-        # update_secondary(), since the latter must also take care of for the side grids.
+        # update_secondary(), since the latter must also take care of for the side
+        # grids.
 
         if tol is None:
             tol = self.tol
@@ -866,13 +867,13 @@ class MortarGrid:
                 is not one-to-one.
 
         """
-        # primary_secondary is a mapping from the cells (faces if secondary.dim == primary.dim)
-        # of the secondary grid to the faces of the primary grid.
+        # primary_secondary is a mapping from the cells (faces if secondary.dim ==
+        # primary.dim) of the secondary grid to the faces of the primary grid.
         secondary_f, primary_f, data = sps.find(primary_secondary)
 
         # If the face_duplicate_ind is given we have to reorder the primary face indices
-        # such that the original faces comes first, then the duplicate faces.
-        # If the face_duplicate_ind is not given, we then assume that the primary side faces
+        # such that the original faces comes first, then the duplicate faces. If the
+        # face_duplicate_ind is not given, we then assume that the primary side faces
         # already have this ordering. If the grid is created using the pp.split_grid.py
         # module this should be the case.
         if (
@@ -889,27 +890,27 @@ class MortarGrid:
 
         # Store index of the faces on the 'other' side of the mortar grid.
         if self.num_sides() == 2:
-            # After the above sorting, we know that the faces on the other side is in the
-            # second half of primary_f, also if face_duplicate_ind is given.
+            # After the above sorting, we know that the faces on the other side is in
+            # the second half of primary_f, also if face_duplicate_ind is given.
             # ASSUMPTION: The mortar grids on the two sides should match each other, or
-            # else, the below indexing is wrong. This also means that the size of primary_f
-            # is an even number.
+            # else, the below indexing is wrong. This also means that the size of
+            # primary_f is an even number.
             sz = int(primary_f.size / 2)
             self._ind_face_on_other_side = primary_f[sz:]
 
-        # We assumed that the cells of the given side grid(s) is(are) ordered
-        # by the secondary side index. In other words: cell "n" of the side grid(s) should
-        # correspond to the element with the n'th lowest index in secondary_f. We therefore
-        # sort secondary_f to obtaint the side grid ordering. The primary faces should now be
-        # sorted such that the left side comes first, then the right side. We use stable
-        # sort to not mix up the ordering if there is two sides.
+        # We assumed that the cells of the given side grid(s) is(are) ordered by the
+        # secondary side index. In other words: cell "n" of the side grid(s) should
+        # correspond to the element with the n'th lowest index in secondary_f. We
+        # therefore sort secondary_f to obtaint the side grid ordering. The primary
+        # faces should now be sorted such that the left side comes first, then the right
+        # side. We use stable sort to not mix up the ordering if there is two sides.
         ix = np.argsort(secondary_f, kind="stable")
         if self.num_sides() == 2 and self.codim < 2:
             # If there are two sides we are in the case of a secondary grid of equal
-            # dimension as the mortar grid. The mapping primary_secondary is then a mapping
-            # from faces-cells, and we assume the higher dimensional grid is split and
-            # there are exactly two primary faces mapping to each secondary cell. Check
-            # this:
+            # dimension as the mortar grid. The mapping primary_secondary is then a
+            # mapping from faces-cells, and we assume the higher dimensional grid is
+            # split and there are exactly two primary faces mapping to each secondary
+            # cell. Check this:
             if not np.allclose(np.bincount(secondary_f), 2):
                 raise ValueError(
                     """Each face in the higher dimensional grid must map to
@@ -929,7 +930,8 @@ class MortarGrid:
         if not self.num_cells == cells.size:
             raise ValueError(
                 """In the construction of MortarGrid it is assumed
-            to be a one to one mapping between the mortar grid and the secondary mapping"""
+            to be a one to one mapping between the mortar grid and the
+            secondary mapping"""
             )
 
         shape_primary = (self.num_cells, primary_secondary.shape[1])

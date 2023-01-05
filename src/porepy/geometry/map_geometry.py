@@ -23,7 +23,9 @@ def force_point_collinearity(
             be on one extremum of the line.
 
     Returns:
-        An array (shape=(3, np)), representing the corrected points.
+        :obj:`~numpy.ndarray`: ``shape=(3, np)``
+
+            An array representing the corrected points.
 
     """
     assert pts.shape[1] > 1
@@ -186,8 +188,8 @@ def project_points_to_line(
     Parameters:
         p: ``shape=(nd, np)``
 
-            An array representation of coordinates of the points. Should
-            be co-linear, but can have random ordering along the common line.
+            An array representation of coordinates of the points. Should be co-linear,
+            but can have random ordering along the common line.
         tol: ``default=1e-4``
 
             Tolerance used for testing of co-linearity.
@@ -207,6 +209,7 @@ def project_points_to_line(
             Rotation matrix used for mapping the points onto a coordinate axis.
 
         :obj:`int`:
+
             The dimension onto which the point coordinates were mapped.
 
         :obj:`~numpy.ndarray`: ``(shape=(np,))``
@@ -229,8 +232,8 @@ def project_points_to_line(
     rot = project_line_matrix(p, tangent)
 
     p_1d = rot.dot(p)
-    # The points are now 1d along one of the coordinate axis, but we
-    # don't know which yet. Find this.
+    # The points are now 1d along one of the coordinate axis, but we don't know which
+    # yet. Find this.
     sum_coord = np.sum(np.abs(p_1d), axis=1)
     sum_coord /= np.amax(sum_coord)
     active_dimension = np.logical_not(np.isclose(sum_coord, 0, atol=tol, rtol=0))

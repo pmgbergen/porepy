@@ -17,8 +17,8 @@ def from_points(pts: np.ndarray, overlap: float = 0) -> dict[str, float]:
             Point cloud. nd should be 2 or 3.
         overlap: ``default=0``
 
-            Extension of the bounding box outside the point cloud. Scaled with
-            extent of the point cloud in the respective dimension.
+            Extension of the bounding box outside the point cloud. Scaled with extent of
+            the point cloud in the respective dimension.
 
     Returns:
         The domain represented as a dictionary with keywords ``xmin``, ``xmax``,
@@ -76,15 +76,15 @@ def from_md_grid(
         mdg: Mixed-dimensional grid for which the bounding box is to be computed.
         as_dict: ``default=False``
 
-            If ``True``, the bounding box is returned as a dictionary, if
-            ``False``, it is represented by arrays with max and min values.
+            If ``True``, the bounding box is returned as a dictionary, if ``False``, it
+            is represented by arrays with max and min values.
 
     Returns:
         If ``as_dict`` is ``True``, the bounding box is represented as a dictionary with
         keys ``xmin``, ``xmax``, ``ymin``, ``ymax``, ``zmin``, and ``zmax``.
 
-        Else, two ``ndarrays`` are returned,
-        containing the min and max values of the coordinates, respectively.
+        Else, two ``ndarrays`` are returned, containing the min and max values of the
+        coordinates, respectively.
 
     """
     c_0s = np.empty((3, mdg.num_subdomains()))

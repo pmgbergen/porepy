@@ -67,9 +67,10 @@ def is_ccw_polyline(
 ) -> np.ndarray:
     """Checks if a polyline of three points goes in a counterclockwise direction.
 
-    The line segment going from ``p1`` to ``p2`` is tested vs. a third point to determine
-    whether the combined line segments (polyline) is part of a counterclockwise circle.
-    The function can test both one and several points vs. the same line segment.
+    The line segment going from ``p1`` to ``p2`` is tested vs. a third point to
+    determine whether the combined line segments (polyline) is part of a
+    counterclockwise circle. The function can test both one and several points vs. the
+    same line segment.
 
     The test is positive if the test point lies to left of the line running from ``p1``
     to ``p2``.
@@ -105,11 +106,10 @@ def is_ccw_polyline(
             Second point on dividing line.
         p3: ``(shape=(2,) or shape=(2, n))``
 
-            Point(s) to be tested. For one point, only
-            arrays of ``shape=(2,)`` is accepted.
-            For two or more points the array will have ``shape=(2, n)``,
-            where the first row corresponds to x-coordinates and the
-            second row corresponds to y-coordinates. See examples.
+            Point(s) to be tested. For one point, only arrays of ``shape=(2,)`` is
+            accepted. For two or more points the array will have ``shape=(2, n)``,
+            where the first row corresponds to x-coordinates and the second row
+            corresponds to y-coordinates. See examples.
         tol: ``default=0``
 
             Tolerance used in the comparison, can be used to
@@ -117,9 +117,8 @@ def is_ccw_polyline(
 
         default: ``default=False``
 
-            Mode returned if the point is within the tolerance. Should be set
-            according to what is desired behavior of the function (will vary with
-            application).
+            Mode returned if the point is within the tolerance. Should be set according
+            to what is desired behavior of the function (will vary with application).
 
     Returns:
         An array of booleans, with one entry for each point in ``p3``. True if the point
@@ -161,15 +160,14 @@ def point_in_polygon(
     Parameters:
         poly: ``shape=(2, num_poly)``
 
-            Vertexes of polygon. The segments are formed by
-            connecting subsequent columns of poly.
+            Vertexes of polygon. The segments are formed by connecting subsequent
+            columns of poly.
         p: ``shape=(2, num_pt)``
 
             Points to be tested.
         default: ``default=False``
 
-            Default behavior if the point is close to the boundary of
-            the polygon.
+            Default behavior if the point is close to the boundary of the polygon.
 
     Returns:
         A boolean array containing ``True`` for each of the points that are inside
@@ -246,8 +244,8 @@ def point_in_polyhedron(
     Parameters:
         polyhedron: ``shape=(num_sides, 3, num_polygon_vertices)``
 
-            Each outer element represents a side of the polyhedron,
-            and each side is assumed to be a convex polygon.
+            Each outer element represents a side of the polyhedron, and each side is
+            assumed to be a convex polygon.
         test_points: ``shape=(3, np)``
 
             Points to be tested.
@@ -375,9 +373,9 @@ def point_in_cell(poly: np.ndarray, p: np.ndarray, if_make_planar: bool = True) 
     """Check whether a point is inside a cell.
 
     Note:
-        A similar behavior could be reached using :func:`is_inside_polygon`, however
-        the current implementation deals with concave cells as well. Not sure which is
-        the best, in terms of performance, for convex cells.
+        A similar behavior could be reached using :func:`is_inside_polygon`, however the
+        current implementation deals with concave cells as well. Not sure which is the
+        best, in terms of performance, for convex cells.
 
     Parameters:
         poly: ``shape=(3, n)``
@@ -389,9 +387,8 @@ def point_in_cell(poly: np.ndarray, p: np.ndarray, if_make_planar: bool = True) 
             Point to be tested.
         if_make_planar: ``default=True``
 
-            The cell needs to lie on (s, t) plane. If not already
-            done, this flag need to be used. Projects the points to the plane of the
-            polygon.
+            The cell needs to lie on (s, t) plane. If not already done, this flag need
+            to be used. Projects the points to the plane of the polygon.
 
     Returns:
         ``True`` if the point is inside the cell. If a point is on the boundary of the
@@ -465,8 +462,8 @@ def polygon_hanging_nodes(
     Parameters:
         p: ``shape=(nd, n_pt)``
 
-            Point coordinates. Number of rows is number of dimensions,
-            number of columns is number of points.
+            Point coordinates. Number of rows is number of dimensions, number of columns
+            is number of points.
         edges: ``shape=(2, num_edges)``
 
             Indices, referring to columns in p, of edges in

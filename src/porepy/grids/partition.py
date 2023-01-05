@@ -74,10 +74,9 @@ def partition_structured(
     describing the Cartesian dimensions of the grid.
 
     The coarse grid can be specified either by its Cartesian dimensions ``coarse_dims``,
-    or by its total number of partitions ``num_part``.
-    In the latter case, a partitioning will be inferred from the
-    fine-scale Cartesian dimensions, in a way that gives roughly the same number of
-    cells in each direction.
+    or by its total number of partitions ``num_part``. In the latter case, a
+    partitioning will be inferred from the fine-scale Cartesian dimensions, in a way
+    that gives roughly the same number of cells in each direction.
 
     Parameters:
         g: Grid to be partitioned.
@@ -119,8 +118,8 @@ def partition_structured(
         # Fine indexes where the coarse index will increase
         incr_ind = np.arange(0, fine_dims[i], fine_per_coarse[i], dtype="i")
 
-        # If the coarse dimension is not an exact multiple of the fine, there will be
-        # an extra cell in this dimension. Remove this.
+        # If the coarse dimension is not an exact multiple of the fine, there will be an
+        # extra cell in this dimension. Remove this.
         if incr_ind.size > coarse_dims[i]:
             incr_ind = incr_ind[:-1]
 
@@ -154,9 +153,9 @@ def partition_coordinates(
 ) -> np.ndarray:
     """Brute force partitioning of a grid based on cell center coordinates.
 
-    The intention at the time of implementation is to provide a partitioning for
-    general grids that does not rely on METIS being available. However, if METIS is
-    available, :func:`partition_metis` should be preferred.
+    The intention at the time of implementation is to provide a partitioning for general
+    grids that does not rely on METIS being available. However, if METIS is available,
+    :func:`partition_metis` should be preferred.
 
     The idea is to divide the domain into a coarse Cartesian grid, and then assign a
     coarse partitioning based on the cell center coordinates.
@@ -221,11 +220,10 @@ def partition_coordinates(
 
     delta = max_coord - min_coord
 
-    # Estimate of the number of coarse Cartesian cells in each dimension:
-    # Distribute the target number over all dimensions. Then multiply with relative
-    # distances.
-    # Use ceil to round up, and thus avoid zeros. This may not be perfect, but it should
-    # be robust.
+    # Estimate of the number of coarse Cartesian cells in each dimension: Distribute the
+    # target number over all dimensions. Then multiply with relative distances. Use ceil
+    # to round up, and thus avoid zeros. This may not be perfect, but it should be
+    # robust.
     delta_int = np.ceil(np.power(num_coarse, 1 / g.dim) * delta / np.min(delta)).astype(
         "int"
     )
@@ -304,12 +302,11 @@ def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarra
     The coarse partitioning of the grid is based on a target number of coarse cells.
 
     The target size in general will not be a product of the possible grid dimensions (it
-    may be a prime, or it may be outside the bounds ``[1, fine_size]``).
-    For concreteness, we seek to have roughly the same number of cells in each direction
-    (given by the Nd-root of the target).
-    If this requires more coarse cells in a dimension than there are fine cells there,
-    the coarse size is set equal to the fine, and the remaining
-    cells are distributed to the other dimensions.
+    may be a prime, or it may be outside the bounds ``[1, fine_size]``). For
+    concreteness, we seek to have roughly the same number of cells in each direction
+    (given by the Nd-root of the target). If this requires more coarse cells in a
+    dimension than there are fine cells there, the coarse size is set equal to the fine,
+    and the remaining cells are distributed to the other dimensions.
 
     Parameters:
         target: Target number of coarse cells.
@@ -348,9 +345,9 @@ def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarra
 
         # The simplest option is to take the Nd-root of the target number. This will
         # generally not give integers, and we will therefore settle for the combination
-        # of rounding up and down which brings us closest to the target.
-        # There should be at least one coarse cell in each dimension, and at maximum as
-        # many cells as on the fine scale.
+        # of rounding up and down which brings us closest to the target. There should be
+        # at least one coarse cell in each dimension, and at maximum as many cells as on
+        # the fine scale.
         s_num = np.power(target_now, 1 / (nd - found.sum()))
         s_low = np.maximum(np.ones(nd), np.floor(s_num))
         s_high = np.minimum(fine_size, np.ceil(s_num))
@@ -676,7 +673,7 @@ def _extract_cells_from_faces_2d(
     assert np.all(np.isclose(g.face_centers[:, f], h.cell_centers))
     h.cell_centers = g.face_centers[:, f]
 
-    h.parent_face_ind = f
+    h.parent_face_ind = f  # type: ignore
     return h, f, unique_nodes
 
 
@@ -686,14 +683,12 @@ def _extract_cells_from_faces_3d(
     """Extract a 2D grid from the faces of a 3D grid.
 
     One of the uses of this function is to obtain a 2D MortarGrid from the boundary of a
-    3D grid.
-    The faces ``f`` are by default assumed to be planar,
-    however, this is mainly because :meth:`~porepy.grids.grid.Grid.compute_geometry`
-    does not handle non-planar grids.
-    ``compute_geometry`` is used to do a sanity check of the extracted grid.
-    If ``is_planar`` is set to ``False``, this function should handle non-planar grids,
-    however, this has not been tested thoroughly,
-    and it does not perform the geometric sanity checks.
+    3D grid. The faces ``f`` are by default assumed to be planar, however, this is
+    mainly because :meth:`~porepy.grids.grid.Grid.compute_geometry` does not handle
+    non-planar grids. ``compute_geometry`` is used to do a sanity check of the extracted
+    grid. If ``is_planar`` is set to ``False``, this function should handle non-planar
+    grids, however, this has not been tested thoroughly, and it does not perform the
+    geometric sanity checks.
 
     Parameters:
         g: 3D grid whose faces will be cells of 2D grid.
@@ -788,7 +783,7 @@ def _extract_cells_from_faces_3d(
     h.cell_volumes = g.face_areas[f]
     h.cell_centers = g.face_centers[:, f]
 
-    h.parent_face_ind = f
+    h.parent_face_ind = f  # type: ignore
     return h, f, unique_nodes
 
 
@@ -935,10 +930,10 @@ def grid_is_connected(
 
     The function is intended used in one of two ways:
 
-    1.  To test if a subgrid will be connected before it is extracted. In this case,
-        the cells to be tested is specified by cell_ind.
-    2.  To check if an existing grid is composed of a single component. In this
-        case, all cells are should be included in the analyzis.
+    1.  To test if a subgrid will be connected before it is extracted. In this case, the
+        cells to be tested is specified by cell_ind.
+    2.  To check if an existing grid is composed of a single component. In this case,
+        all cells are should be included in the analyzis.
 
     Examples:
 
