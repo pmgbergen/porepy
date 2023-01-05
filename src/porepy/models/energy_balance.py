@@ -64,6 +64,11 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
     """
+    mobility: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Fluid mobility. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FluidMobility`.
+
+    """
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
@@ -168,9 +173,10 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid energy.
 
         """
-        energy_density = self.fluid_density(subdomains) * self.fluid_enthalpy(
-            subdomains
-        ) - self.pressure(subdomains)
+        energy_density = (
+            self.fluid_density(subdomains) * self.fluid_enthalpy(subdomains)
+            - self.pressure(subdomains)
+        ) * self.porosity(subdomains)
         energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("fluid_internal_energy")
         return energy
@@ -258,7 +264,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = pp.ad.UpwindAd(self.enthalpy_keyword, subdomains)
         flux = self.advective_flux(
             subdomains,
-            self.fluid_enthalpy(subdomains),
+            self.fluid_enthalpy(subdomains)
+            * self.mobility(subdomains)
+            * self.fluid_density(subdomains),
             discr,
             self.bc_values_enthalpy_flux(subdomains),
             self.interface_enthalpy_flux,
@@ -282,7 +290,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
         flux = self.interface_advective_flux(
             interfaces,
-            self.fluid_enthalpy(subdomains),
+            self.fluid_enthalpy(subdomains)
+            * self.mobility(subdomains)
+            * self.fluid_density(subdomains),
             discr,
         )
 

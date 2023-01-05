@@ -779,9 +779,13 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
     def __init__(self, params: dict):
 
         # Parameters associated with the verification setup. The below parameters
-        # cannot be changed since they're associated with the exact solution
+        # cannot be changed since they're associated with the exact solution.
+        # Normal permeability of 1/2 counteracts division by a/2 in the normal Darcy
+        # equation.
         fluid = pp.FluidConstants({"compressibility": 0.2})
-        solid = pp.SolidConstants({"porosity": 0.1, "residual_aperture": 1})
+        solid = pp.SolidConstants(
+            {"porosity": 0.1, "residual_aperture": 1, "normal_permeability": 1 / 2}
+        )
         material_constants = {"fluid": fluid, "solid": solid}
         required_params = {"material_constants": material_constants}
         params.update(required_params)

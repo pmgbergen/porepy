@@ -76,7 +76,8 @@ class MaterialConstants:
         will be converted to SI units, i.e. a value of 1e-2 results in 1e-2 * 1e6 = 1e4.
 
         Parameters:
-            value: Value to be converted. units: Units of value defined as a string in
+            value: Value to be converted.
+            units: Units of value defined as a string in
                 the form of ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3/kg"``.
                 Valid units are the attributes and properties of the Units class. Valid
                 operators are * and ^, including negative powers (e.g. m^-2). A
@@ -89,6 +90,10 @@ class MaterialConstants:
             Value in the user specified units to be used in the simulation.
 
         """
+        # Make a copy of the value to avoid modifying the original.
+        # This is not strictly necessary for scalars, but is done in case the method is
+        # used for arrays.
+        value = value.copy() if hasattr(value, "copy") else value
         # Trim any spaces
         units = units.replace(" ", "")
         if units in ["", "1", "-"]:
