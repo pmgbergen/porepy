@@ -227,8 +227,9 @@ def test_unit_conversion(units):
         setup.temperature_variable,
         setup.pressure_variable,
         setup.interface_darcy_flux_variable,
+        setup.interface_enthalpy_flux_variable,
     ]
-    variable_units = ["K", "Pa", "m^2 * s^-1 * Pa"]
+    variable_units = ["K", "Pa", "m^2 * s^-1 * Pa", "m^-1 * s^-1 * J"]
     secondary_variables = ["darcy_flux", "enthalpy_flux", "fourier_flux"]
     secondary_units = ["m^2 * s^-1 * Pa", "m^-1 * s^-1 * J", "m^-1 * s^-1 * J"]
     # No domain restrictions.
