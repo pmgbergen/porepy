@@ -204,7 +204,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
         # index, and construct the corresponding raveled array
         equal_n = loc_n.ravel()[
             np.ravel_multi_index(equal.T, dims=loc_n.shape)  # type: ignore
-        ] 
+        ]
 
         # Define node combination. Both nodes associated with a face have their offset
         # adjusted.
@@ -461,7 +461,7 @@ class GridSequenceFactory(abc.ABC):
         # Initialize gmsh model with the relevant data. The data will be accessible in
         # gmsh.model.mesh (that is the way the Gmsh Python API works)
         writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_data)
-        # Generate the first grid
+        # Generate the first grid.
         # Do not finalize gmsh; this should be done by a call to self.close()
         writer.generate(file_name=file_name, finalize=False, clear_gmsh=False)
         self._out_file = file_name

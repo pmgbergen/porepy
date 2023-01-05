@@ -51,19 +51,19 @@ def segments_2d(
 
     Parameters:
         start_1: ``shape=(2,)``
-        
+
             Coordinates of start point for first line.
         end_1: ``shape=(2,)``
-        
+
             Coordinates of end point for first line.
         start_2: ``shape=(2,)``
-        
+
             Coordinates of start point for first line.
         end_2: ``shape=(2,)``
-        
+
             Coordinates of end point for first line.
         tol: ``default=1e-8``
-        
+
             Tolerance for detecting parallel lines.
 
     Raises:
