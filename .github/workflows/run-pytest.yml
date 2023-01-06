@@ -55,13 +55,6 @@ jobs:
         # Hash both ordinary requirements and those specific for developmnet.
         key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt', '**/requirements-dev.txt') }}
 
-    - name: Cache mypy
-      uses: actions/cache@v3
-      id: cache-mypy
-      with:
-        path: mypy-cache-${{ matrix.python-version}}
-        key: ${{ runner.os }}-mypy
-
     - name: Install external libraries
       run: |
         # Various packages that must be installed 
