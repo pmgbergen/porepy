@@ -1,6 +1,5 @@
-# Code Quality workflow for black, flake8, mypy
-
-name: Build Test
+# Run unit, integration, and functional tests.
+name: Pytest
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events for the main and develop branches
@@ -87,26 +86,16 @@ jobs:
         pip install .
         pip freeze       
 
-    - name: black
-      if: ${{ always() }}
-      run: black --check src
-
-    - name: isort
-      if: ${{always()}}
-      run: isort --check src
-
-    - name: flake8
-      if: ${{ always() }}
-      run: flake8 src 
-
     - name: unit tests
       if: ${{always()}}
       run: pytest tests/unit
 
-    - name: mypy
-      if: ${{ always() }}
-      run: mypy src --cache-dir mypy-cache-${{ matrix.python-version}}
-
     - name: integration tests
       if: ${{always()}}
       run: pytest tests/integration
+
+    - name: functional tests
+      if: ${{always()}}
+      run: pytest tests/functional
+
+
