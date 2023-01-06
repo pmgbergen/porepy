@@ -15,6 +15,8 @@ import numpy as np
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
+from porepy.fracs.line_fracture import LineFracture
+from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
 
 from .gmsh_interface import GmshData2d, GmshWriter
 from .gmsh_interface import Tags as GmshInterfaceTags
@@ -55,27 +57,25 @@ class FractureNetwork2d:
 
     def __init__(
         self,
-        pts: Optional[np.ndarray] = None,
-        edges: Optional[np.ndarray] = None,
+        fractures: Optional[list[LineFracture]] = None,
         domain: Optional[dict[str, float] | np.ndarray] = None,
         tol: float = 1e-8,
     ) -> None:
         """Define the fracture set.
 
         Parameters:
-            pts (np.array, 2 x n): Start and endpoints of the fractures. Points
-            can be shared by fractures.
-        edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
-            indices, refering to pts, of the start and end points of the fractures.
-            Additional rows are optional tags of the fractures.
-        tol (double, optional): Tolerance used in geometric computations. Defaults to
-            1e-8.
+            fractures: Fractures that make up the network.
+                Defaults to None, which will create a domain empty of fractures.
+            domain: Domain specification. See ``self.impose_external_boundary()`` for
+            details.
+            tol: Tolerance used in geometric computations. Defaults to 1e-8.
 
         """
-        self.pts = np.zeros((2, 0)) if pts is None else pts
+
+        self.pts: np.ndarray
         """Start and endpoints of the fractures. Points can be shared by fractures."""
 
-        self.edges = np.zeros((2, 0), dtype=int) if edges is None else edges
+        self.edges: np.ndarray
         """The fractures as an array of start and end points, referring to ``pts``
 
         Additional rows are optional tags of the fractures. In the standard form, the
@@ -84,8 +84,22 @@ class FractureNetwork2d:
         numbering of the edges (referring to the original order of the edges) in
         geometry processing like intersection removal. Additional tags can be assigned
         by the user.
-
+        # TODO: Figure out if removing the ability to pass tags along the edges breaks
+        anything.
+        # TODO: Find an alternate way to pass tags.
         """
+
+        self._fractures = [] if fractures is None else fractures
+        """List of fractures.
+        
+        Internally transformed to points and edges.
+        """
+
+        if fractures is not None:
+            self.pts, self.edges = linefractures_to_pts_edges(self._fractures)
+        else:
+            self.pts = np.zeros((2, 0))
+            self.edges = np.zeros((2, 0), dtype=int)
 
         if isinstance(domain, np.ndarray):
             domain = pp.bounding_box.from_points(domain)
@@ -119,27 +133,25 @@ class FractureNetwork2d:
         This will include intersection points identified.
         """
 
-        if pts is None and edges is None:
+        if not self._fractures:
             logger.info("Generated empty fracture set")
-        elif pts is not None and edges is not None:
-            logger.info("Generated a fracture set with %i fractures", self.num_frac())
-            if pts.size > 0:
+        elif self.pts is not None and self.edges is not None:
+            logger.info(f"Generated a fracture set with {self.num_frac()} fractures")
+            if self.pts.size > 0:
                 logger.info(
-                    "Minimum point coordinates x: %.2f, y: %.2f",
-                    pts[0].min(),
-                    pts[1].min(),
+                    f"Minimum point coordinates x: {self.pts[0].min():.2f}, \
+                        y: {self.pts[1].min():.2f}",
                 )
                 logger.info(
-                    "Maximum point coordinates x: %.2f, y: %.2f",
-                    pts[0].max(),
-                    pts[1].max(),
+                    f"Maximum point coordinates x: {self.pts[0].max():.2f}, \
+                        y: {self.pts[1].max():.2f}",
                 )
         else:
             raise ValueError(
                 "Specify both points and connections for a 2d fracture network."
             )
         if domain is not None:
-            logger.info("Domain specification :" + str(domain))
+            logger.info(f"Domain specification : {str(domain)}")
 
     def add_network(self, fs):
         """Add this fracture set to another one, and return a new set.
@@ -213,7 +225,8 @@ class FractureNetwork2d:
         else:
             domain = None
 
-        fn = FractureNetwork2d(p, e, domain, self.tol)
+        fracs = pts_edges_to_linefractures(p, e)
+        fn = FractureNetwork2d(fracs, domain, self.tol)
         fn.tags = tags
         return fn
 
@@ -977,8 +990,9 @@ class FractureNetwork2d:
         p_domain = self._domain_to_points(domain)
 
         p, e, _ = pp.constrain_geometry.lines_by_polygon(p_domain, self.pts, self.edges)
+        fracs = pts_edges_to_linefractures(p, e)
 
-        return FractureNetwork2d(p, e, domain, self.tol)
+        return FractureNetwork2d(fracs, domain, self.tol)
 
     def _domain_to_points(self, domain):
         """Helper function to convert a domain specification in the form of
@@ -1015,13 +1029,12 @@ class FractureNetwork2d:
             self.snapped_copy(), self.copy_with_split_intersections()
 
         """
-        p_new = np.copy(self.pts)
-        edges_new = np.copy(self.edges)
+        fractures_new = copy.deepcopy(self._fractures)
         domain = self.domain
         if domain is not None:
             # Get a deep copy of domain, but no need to do that if domain is None
             domain = copy.deepcopy(domain)
-        fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
+        fn = FractureNetwork2d(fractures_new, domain, self.tol)
         fn.tags = self.tags.copy()
 
         return fn
@@ -1047,8 +1060,9 @@ class FractureNetwork2d:
 
         # Prolong
         p = pp.constrain_geometry.snap_points_to_segments(p, e, tol)
+        fracs = pts_edges_to_linefractures(p, e)
 
-        return FractureNetwork2d(p, e, self.domain, self.tol)
+        return FractureNetwork2d(fracs, self.domain, self.tol)
 
     def copy_with_split_intersections(
         self, tol: Optional[float] = None
@@ -1084,7 +1098,8 @@ class FractureNetwork2d:
         for key, value in self.tags.items():
             tags[key] = value[argsort]
 
-        fn = FractureNetwork2d(p, e, self.domain, tol=tol)
+        fracs = pts_edges_to_linefractures(p, e)
+        fn = FractureNetwork2d(fracs, self.domain, tol=tol)
         fn.tags = tags
 
         return fn
