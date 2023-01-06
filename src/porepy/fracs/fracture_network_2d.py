@@ -64,7 +64,7 @@ class FractureNetwork2d:
             fractures: Fractures that make up the network. Defaults to None, which will
                 create a domain empty of fractures.
             domain: Domain specification. See ``self.impose_external_boundary()`` for
-                details.
+            details.
             tol: Tolerance used in geometric computations. Defaults to 1e-8.
 
         """
@@ -979,6 +979,7 @@ class FractureNetwork2d:
         fracs = pts_edges_to_linefractures(p, e)
 
         return FractureNetwork2d(fracs, domain, self.tol)
+
 
     def _bounding_box_to_points(self, box: dict[str, pp.number]) -> np.ndarray:
         """Helper function to convert a bounding box in the form of a dictionary into
