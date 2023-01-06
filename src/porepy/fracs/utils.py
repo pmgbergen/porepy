@@ -6,6 +6,7 @@ import logging
 import numpy as np
 
 import porepy as pp
+from porepy import LineFracture
 
 # Module level logger
 logger = logging.getLogger(__name__)
@@ -65,3 +66,57 @@ def uniquify_points(pts, edges, tol):
     e_unique = np.delete(e_unique_p, point_edge, axis=1)
 
     return p_unique, e_unique, point_edge
+
+
+def linefractures_to_pts_edges(
+    fractures: list[LineFracture],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Convert a list of fractures into two numpy arrays of the corresponding points and
+    edges.
+
+    Parameters:
+        fractures: List of fractures.
+
+    Returns:
+        pts ``(shape=(2, np))``: Coordinates of the start- and endpoints of the
+        fractures.
+        edges ``(shape=(len(fractures), 2), dtype=int)``: Indices for the start- and
+        endpoint of each fracture. Note, that one point in ``pts`` may be the start-
+        and/or endpoint of multiple fractures.
+
+    """
+    pts_list: list[np.ndarray] = []
+    edges_list: list[list[int]] = []
+    for frac in fractures:
+        edge = []
+        for point in frac.points():
+            compare_points = [np.allclose(point, x) for x in pts_list]
+            if not any(compare_points):
+                pts_list.append(point)
+                edge.append(len(pts_list) - 1)
+            else:
+                edge.append(compare_points.index(True))
+        edges_list.append(edge)
+    pts = np.array(pts_list).squeeze().T
+    edges = np.array(edges_list, dtype=int).T
+    return pts, edges
+
+
+def pts_edges_to_linefractures(
+    pts: np.ndarray, edges: np.ndarray
+) -> list[LineFracture]:
+    """Convert points and edges into a list of fractures
+
+    Parameters:
+        pts ``(shape=(2, np))``: _description_
+        edges ``(shape=(len(fractures), 2), dtype=int)``: _description_
+
+    Returns:
+        List of fractures.
+    """
+    fractures: list[LineFracture] = []
+    for start_index, end_index in zip(edges[0, :], edges[1, :]):
+        fractures.append(
+            LineFracture(np.array([pts[:, start_index], pts[:, end_index]]).T)
+        )
+    return fractures
