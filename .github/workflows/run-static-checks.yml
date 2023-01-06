@@ -55,9 +55,7 @@ jobs:
         # Cache the full python environment, this is more efficient than just caching pip
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         path: ${{ env.pythonLocation }}
-        # We will install only the development requirements, since we will not actually
-        # install PorePy (just analyze the source code).
-        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements-dev.txt') }}
+        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt', '**/requirements-dev.txt') }}
 
     - name: Cache mypy
       uses: actions/cache@v3
@@ -65,6 +63,14 @@ jobs:
       with:
         path: mypy-cache-${{ matrix.python-version}}
         key: ${{ runner.os }}-mypy
+
+    # Install the requirements. Mypy needs this to access stubs for numpy etc.
+    - name: Install requirements
+      run: |
+        pip install -U pip
+        # Install requirements, using eager updates to avoid stalled dependencies due to caching
+        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
+        pip install --upgrade --upgrade-strategy eager -r requirements.txt
 
     # Install the requirements needed for development. This will give access to black,
     # isort, mypy, and flake8
