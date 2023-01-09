@@ -47,7 +47,7 @@ class DofManager:
                 mixed-dimensional grid.
 
         """
-
+        DeprecationWarning("The DofManager will be replaced by EquationSystem.")
         self.mdg = mdg
 
         # Counter for block index
@@ -99,6 +99,37 @@ class DofManager:
         # Array version of the number of dofs per node/edge and variable
         self.full_dof: np.ndarray = np.array(full_dof)
         self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
+
+    def dofs_of(self, variables: list[pp.ad.Variable]) -> np.ndarray:
+        """Get the indices in the global vector of unknowns belonging to the variables.
+
+        Method mirrors that of equation_system to allow for a smooth transition as this
+        class is phased out.
+
+        Parameters:
+            variables: VariableType input for which the indices are requested.
+
+        Returns:
+            an order-preserving array of indices of DOFs belonging to the VariableType input.
+
+        Raises:
+            ValueError: if unknown VariableType arguments are passed.
+
+        """
+        if not all(isinstance(v, pp.ad.Variable) for v in variables):
+            raise ValueError("Input must be a VariableType or a list of VariableType.")
+
+        dofs = []
+        for v in variables:
+            # if isinstance(v, pp.ad.MixedDimensionalVariable):
+            #     for sv in v.sub_vars:
+            #         dofs.append(self.grid_and_variable_to_dofs(sv.domain, sv.name))
+            # else:
+            dofs.append(self.grid_and_variable_to_dofs(v.domain, v.name))
+        if len(dofs) > 0:
+            return np.concatenate(dofs, dtype=int)
+        else:
+            return np.array([], dtype=int)
 
     def grid_and_variable_to_dofs(self, grid: GridLike, variable: str) -> np.ndarray:
         """Get the indices in the global system of variables associated with a
@@ -272,6 +303,65 @@ class DofManager:
         }
         return inv_block_dof[block_ind]  # type: ignore
 
+    def get_variable_values(
+        self, variables=None, from_iterate: bool = False
+    ) -> np.ndarray:
+        """Assembles an array containing values for the passed variable-like argument.
+
+        The global order is preserved and independent of the order of the argument.
+
+        The method mimics that of EquationSystem to ensure compatibility in Operation
+        evaluation during the transition period until this class is removed.
+
+        Notes:
+            The resulting array is of any size between 0 and ``num_dofs``.
+
+        Parameters:
+            variables (optional): VariableType input for which the values are
+                requested. If None (default), the global vector of unknowns is returned.
+            from_iterate (optional): flag to return values stored as ITERATE,
+                instead of STATE (default).
+
+        Returns:
+            the respective (sub) vector in numerical format.
+
+        Raises:
+            KeyError: if no values are stored for the VariableType input.
+            ValueError: if unknown VariableType arguments are passed.
+
+        """
+        if variables is not None:
+            raise NotImplementedError("Only None is supported as input for now")
+        # storage for atomic blocks of the sub vector (identified by name-grid pairs)
+        values = []
+
+        # loop over all blocks and process those requested
+        # this ensures uniqueness and correct order
+        for grid, name in self.block_dof.items():
+            if isinstance(grid, pp.Grid):
+                data: dict = self.mdg.subdomain_data(grid)
+            elif isinstance(grid, pp.MortarGrid):
+                data = self.mdg.interface_data(grid)
+            # extract a copy of requested values
+            try:
+                if from_iterate:
+                    values.append(data[pp.STATE][pp.ITERATE][name].copy())
+                else:
+                    values.append(data[pp.STATE][name].copy())
+            except KeyError:
+                raise KeyError(
+                    f"No values stored for variable {name}, "
+                    f"from_iterate={from_iterate}"
+                    f"\non grid {grid}."
+                )
+
+        # if there are matching blocks, concatenate and return
+        if values:
+            return np.concatenate(values)
+        # else return an empty vector
+        else:
+            return np.array([])
+
     def _block_range_from_grid_and_var(
         self, g: GridLike, variable: str
     ) -> Tuple[int, int]:
@@ -285,7 +375,7 @@ class DofManager:
 
         Returns:
             tuple(int, int): Start and end of the block for this grid-variable combination.
-                The end index is the start of the next block.
+            The end index is the start of the next block.
 
         """
         block_ind = self.block_dof[(g, variable)]
