@@ -290,6 +290,7 @@ class SolidConstants(MaterialConstants):
             "residual_aperture": 0.1,
             "shear_modulus": 1,
             "specific_heat_capacity": 1,
+            "specific_storage": 1,
             "temperature": 0,
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
@@ -392,6 +393,15 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["shear_modulus"], "Pa")
+
+    def specific_storage(self) -> number:
+        """Specific storage [1/Pa].
+
+        Returns:
+            Specific storage in converted pressure units.
+
+        """
+        return self.convert_units(self.constants["specific_storage"], "Pa^-1")
 
     def lame_lambda(self) -> number:
         """Lame's first parameter [Pa].
