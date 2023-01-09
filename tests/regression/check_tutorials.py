@@ -1,7 +1,9 @@
-import os, glob
+import os
+import glob
+from typing import Optional
 
 
-def run_all(files: list[str] = None):
+def run_all(files: Optional[list[str]] = None):
     os.chdir("../../tutorials")
     failed = False
     failed_files = []
