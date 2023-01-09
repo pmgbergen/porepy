@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -436,43 +436,67 @@ class ModelGeometry:
         return proj
 
     def domain_boundary_sides(
-        self, g: pp.Grid
-    ) -> tuple[
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-    ]:
-        """Obtain indices of grid faces on the different parts of the domain boundary.
+        self, sd: pp.Grid, tol: Optional[float] = 1e-10
+    ) -> pp.bounding_box.DomainSides:
+        """Obtain indices of the faces lying on the sides of the domain boundaries.
 
-        It is assumed the domain is box shaped.
+        The method is primarily intended for box-shaped domains. However, it can also be
+        applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
+        provided `tol` is tuned accordingly.
 
-        TODO: Update this from develop before merging.
         Parameters:
-            g: Grid for which to obtain the boundary faces.
+            sd: Subdomain grid.
+            tol: Tolerance used to determine whether a face center lies on a boundary side.
+
+        Returns:
+            NamedTuple containing the domain boundary sides. Available attributes are:
+
+                - all_bf (np.ndarray of int): indices of the boundary faces.
+                - east (np.ndarray of bool): flags of the faces lying on the East side.
+                - west (np.ndarray of bool): flags of the faces lying on the West side.
+                - north (np.ndarray of bool): flags of the faces lying on the North side.
+                - south (np.ndarray of bool): flags of the faces lying on the South side.
+                - top (np.ndarray of bool): flags of the faces lying on the Top side.
+                - bottom (np.ndarray of bool): flags of the faces lying on Bottom side.
+
+        Examples:
+
+            .. code:: python
+
+                model = pp.SinglePhaseFlow({})
+                model.prepare_simulation()
+                sd = model.mdg.subdomains()[0]
+                sides = model.domain_boundary_sides(sd)
+                # Access north faces using index or name is equivalent:
+                north_by_index = sides[3]
+                north_by_name = sides.north
+                assert all(north_by_index == north_by_name)
 
         """
-        tol = 1e-10
+        # Get domain boundary sides
         box = self.domain_bounds
-        east = g.face_centers[0] > box["xmax"] - tol
-        west = g.face_centers[0] < box["xmin"] + tol
-        if self.nd == 1:
-            north = np.zeros(g.num_faces, dtype=bool)
+        east = np.abs(box["xmax"] - sd.face_centers[0]) <= tol
+        west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
+        if self.mdg.dim_max() == 1:
+            north = np.zeros(sd.num_faces, dtype=bool)
             south = north.copy()
         else:
-            north = g.face_centers[1] > box["ymax"] - tol
-            south = g.face_centers[1] < box["ymin"] + tol
-        if self.nd < 3:
-            top = np.zeros(g.num_faces, dtype=bool)
+            north = np.abs(box["ymax"] - sd.face_centers[1]) <= tol
+            south = np.abs(box["ymin"] - sd.face_centers[1]) <= tol
+        if self.mdg.dim_max() < 3:
+            top = np.zeros(sd.num_faces, dtype=bool)
             bottom = top.copy()
         else:
-            top = g.face_centers[2] > box["zmax"] - tol
-            bottom = g.face_centers[2] < box["zmin"] + tol
-        all_bf = g.get_boundary_faces()
-        return all_bf, east, west, north, south, top, bottom
+            top = np.abs(box["zmax"] - sd.face_centers[2]) <= tol
+            bottom = np.abs(box["zmin"] - sd.face_centers[2]) <= tol
+        all_bf = sd.get_boundary_faces()
+
+        # Create a namedtuple to store the arrays
+        domain_sides = pp.bounding_box.DomainSides(
+            all_bf, east, west, north, south, top, bottom
+        )
+
+        return domain_sides
 
     def internal_boundary_normal_to_outwards(
         self,
@@ -535,7 +559,7 @@ class ModelGeometry:
     ) -> pp.ad.Operator:
         """Compute outward normal vectors on internal boundaries.
 
-        Args:
+        Parameters:
             interfaces: List of interfaces.
             unitary: If True, return unit vectors, i.e. normalize by face area.
 

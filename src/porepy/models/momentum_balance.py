@@ -781,6 +781,7 @@ class BoundaryConditionsMomentumBalance:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
@@ -794,8 +795,9 @@ class BoundaryConditionsMomentumBalance:
             Dirichlet also on fracture faces.
 
         """
-        all_bf = sd.get_boundary_faces()
-        bc = pp.BoundaryConditionVectorial(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        bc = pp.BoundaryConditionVectorial(sd, boundary_faces, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the fracture
         # faces.
