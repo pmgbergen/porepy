@@ -482,40 +482,32 @@ class ModifiedBoundaryConditions:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
+        pp.bounding_box.DomainSides,
     ]
     """Utility function to access the domain boundary sides."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        if sd.dim == 2:
-            # Define boundary regions
-            all_bf, *_ = self.domain_boundary_sides(sd)
-            # Define boundary condition on faces
-            return pp.BoundaryCondition(sd, all_bf, "dir")
-        else:
-            # Define boundary regions
-            all_bf, *_ = self.domain_boundary_sides(sd)
-            # Define boundary condition on faces
-            return pp.BoundaryCondition(sd, all_bf, "neu")
+        if sd.dim == 2:  # Dirichlet for the rock
+            # Define boundary faces.
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+        else:  # Neumann for the fracture tips
+            # Define boundary faces.
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         # Define boundary regions
         values = []
         for sd in subdomains:
-            all_bf, *_ = self.domain_boundary_sides(sd)
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
             val_loc = np.zeros(sd.num_faces)
             # See section on scaling for explanation of the conversion.
             if sd.dim == 2:
                 ex = ExactSolution()
-                val_loc[all_bf] = ex.boundary_values(sd_rock=sd)[all_bf]
+                val_loc[boundary_faces] = ex.boundary_values(sd_rock=sd)[boundary_faces]
             values.append(val_loc)
         return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_darcy")
 

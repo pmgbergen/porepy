@@ -294,15 +294,7 @@ class BoundaryConditionsSinglePhaseFlow:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
+        pp.bounding_box.DomainSides,
     ]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -325,10 +317,10 @@ class BoundaryConditionsSinglePhaseFlow:
             Boundary condition object.
 
         """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -340,10 +332,10 @@ class BoundaryConditionsSinglePhaseFlow:
             Boundary condition object.
 
         """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
@@ -391,10 +383,11 @@ class BoundaryConditionsSinglePhaseFlow:
         for sd in subdomains:
             # Get density and viscosity values on boundary faces applying trace to
             # interior values.
-            all_bf, *_ = self.domain_boundary_sides(sd)
+            # Define boundary faces.
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
             # Append to list of boundary values
             vals = np.zeros(sd.num_faces)
-            vals[all_bf] = self.fluid.density() / self.fluid.viscosity()
+            vals[boundary_faces] = self.fluid.density() / self.fluid.viscosity()
             bc_values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array

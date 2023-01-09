@@ -493,15 +493,7 @@ class BoundaryConditionsEnergyBalance:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
+        pp.bounding_box.DomainSides,
     ]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -518,10 +510,10 @@ class BoundaryConditionsEnergyBalance:
             Boundary condition object.
 
         """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -533,10 +525,10 @@ class BoundaryConditionsEnergyBalance:
             Boundary condition object.
 
         """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary values for the Fourier flux.
@@ -571,8 +563,8 @@ class BoundaryConditionsEnergyBalance:
         for sd in subdomains:
             vals = np.zeros(sd.num_faces)
             # If you know the boundary temperature, do something like:
-            # all_bf, *_ = self.domain_boundary_sides(sd)
-            # vals[all_bf] = self.fluid.specific_heat_capacity() * dirichlet_values
+            # boundary_faces = self.domain_boundary_sides(sd).all_bf
+            # vals[boundary_faces] = self.fluid.specific_heat_capacity() * dirichlet_values
             # Append to list of boundary values
             bc_values.append(vals)
 
