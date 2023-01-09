@@ -355,81 +355,61 @@ class Grid:
         self.face_normals[:, flip] *= -1
 
     def _compute_geometry_2d(self) -> None:
-        """Compute 2D geometry, with method motivated by similar MRST function"""
+        """Compute 2D geometry"""
 
-        R = pp.map_geometry.project_plane_matrix(self.nodes)
-        self.nodes = np.dot(R, self.nodes)
+        # Each face is determiend by a start and end node, the tangent is given by
+        # the x_end - x_start. The face normal is a 90 degree clock-wise rotation
+        # of the tangent.
+        # It is assumed that this normal is consistent with the self.cell_faces.
 
-        fn = self.face_nodes.indices
-        edge1 = fn[::2]
-        edge2 = fn[1::2]
+        # Define an oriented face to nodes mapping, the orientation is determined by the
+        # ordering in self.face_nodes.indices. The start node gets a -1 and the end node a +1.
+        fn_orient = self.face_nodes.copy()
+        fn_orient.data = -np.power(-1, np.arange(fn_orient.data.size))
 
-        xe1 = self.nodes[:, edge1]
-        xe2 = self.nodes[:, edge2]
+        # Check consistency between face_nodes and cell_faces
+        assert (fn_orient * self.cell_faces).nnz == 0, "face_nodes and cell_faces are inconsistent"
 
-        edge_length_x = xe2[0] - xe1[0]
-        edge_length_y = xe2[1] - xe1[1]
-        edge_length_z = xe2[2] - xe1[2]
-        self.face_areas = np.sqrt(
-            np.power(edge_length_x, 2)
-            + np.power(edge_length_y, 2)
-            + np.power(edge_length_z, 2)
-        )
-        self.face_centers = 0.5 * (xe1 + xe2)
-        n = edge_length_z.shape[0]
-        self.face_normals = np.vstack((edge_length_y, -edge_length_x, np.zeros(n)))
+        # Compute the tangent vectors and use them to compute face attributes
+        tangent = self.nodes * fn_orient
+        self.face_areas = np.sqrt(np.square(tangent).sum(axis=0))
+        self.face_centers = 0.5 * self.nodes * np.abs(fn_orient)
 
-        cell_faces, cellno = self.cell_faces.nonzero()
-        cx = np.bincount(cellno, weights=self.face_centers[0, cell_faces])
-        cy = np.bincount(cellno, weights=self.face_centers[1, cell_faces])
-        cz = np.bincount(cellno, weights=self.face_centers[2, cell_faces])
-        self.cell_centers = np.vstack((cx, cy, cz)) / np.bincount(cellno)
+        # Compute the temporary cell centers as average of the cell nodes
+        faceno, cellno, cf_orient = sps.find(self.cell_faces)
+        cx = np.bincount(cellno, weights=self.face_centers[0, faceno])
+        cy = np.bincount(cellno, weights=self.face_centers[1, faceno])
+        cz = np.bincount(cellno, weights=self.face_centers[2, faceno])
+        temp_cell_centers = np.vstack((cx, cy, cz)) / np.bincount(cellno)
 
-        a = xe1[:, cell_faces] - self.cell_centers[:, cellno]
-        b = xe2[:, cell_faces] - self.cell_centers[:, cellno]
+        # Create sub-simplexes based on (face, cell center) pairs.
+        # Compute the vectors that is normal to the sub-simplex and who's length is the
+        # area.
+        height = temp_cell_centers[:, cellno] - self.face_centers[:, faceno]
+        subsimplex_normals = 0.5 * np.cross(cf_orient * tangent[:, faceno], height, axis=0)
 
-        sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
-        self.cell_volumes = np.bincount(cellno, weights=sub_volumes).astype(float)
+        # Construct the unit normal of the grid as planar object
+        plane_normal = subsimplex_normals.sum(axis=1)
+        plane_normal /= np.linalg.norm(plane_normal)
 
+        # Compute the face normals by rotating the tangent according to the orientation
+        # of the plane
+        self.face_normals = np.cross(tangent, plane_normal, axis=0)
+
+        # Compute the signed volumes of sub-simplexes. For convex cells these are all positive.
+        subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
+        # Compute the cell volumes by adding all relevant sub-simplex volumes.
+        self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
+
+        # Compute cells centroids as weighted average of the sub-simplex centroids
         sub_centroids = (
-            self.cell_centers[:, cellno] + 2 * self.face_centers[:, cell_faces]
+            temp_cell_centers[:, cellno] + 2 * self.face_centers[:, faceno]
         ) / 3
-
-        ccx = np.bincount(cellno, weights=sub_volumes * sub_centroids[0])
-        ccy = np.bincount(cellno, weights=sub_volumes * sub_centroids[1])
-        ccz = np.bincount(cellno, weights=sub_volumes * sub_centroids[2])
+        ccx = np.bincount(cellno, weights=subsimplex_volumes * sub_centroids[0])
+        ccy = np.bincount(cellno, weights=subsimplex_volumes * sub_centroids[1])
+        ccz = np.bincount(cellno, weights=subsimplex_volumes * sub_centroids[2])
 
         self.cell_centers = np.vstack((ccx, ccy, ccz)) / self.cell_volumes
-
-        # Ensure that normal vector direction corresponds with sign convention
-        # in self.cellFaces
-
-        def nrm(u):
-            return np.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2])
-
-        [fi, ci, val] = sps.find(self.cell_faces)
-        _, idx = np.unique(fi, return_index=True)
-        sgn = val[idx]
-        fc = self.face_centers[:, fi[idx]]
-        cc = self.cell_centers[:, ci[idx]]
-        v = fc - cc
-        # Prolong the vector from cell to face center in the direction of the
-        # normal vector. If the prolonged vector is shorter, the normal should
-        # be flipped
-        vn = (
-            v
-            + nrm(v) * self.face_normals[:, fi[idx]] / self.face_areas[fi[idx]] * 0.001
-        )
-        flip = np.logical_or(
-            np.logical_and(nrm(v) > nrm(vn), sgn > 0),
-            np.logical_and(nrm(v) < nrm(vn), sgn < 0),
-        )
-        self.face_normals[:, flip] *= -1
-
-        self.nodes = np.dot(R.T, self.nodes)
-        self.face_normals = np.dot(R.T, self.face_normals)
-        self.face_centers = np.dot(R.T, self.face_centers)
-        self.cell_centers = np.dot(R.T, self.cell_centers)
 
     def _compute_geometry_3d(self) -> None:
         """
