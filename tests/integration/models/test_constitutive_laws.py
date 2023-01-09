@@ -302,10 +302,9 @@ def test_permeability_values(constitutive_mixin, domain_dimension, expected):
 
     for sd in setup.mdg.subdomains(dim=domain_dimension):
         # Call the method with the domain as argument.
-        value = setup.permeability([sd])
-        if isinstance(value, pp.ad.Ad_array):
-            value = value.val
-        assert np.allclose(value, expected)
+        tensor = setup.permeability_tensor(sd)
+        values = tensor.values[0, 0]
+        assert np.allclose(values, expected)
 
 
 @pytest.mark.parametrize(
