@@ -5,8 +5,6 @@ Created on Wed Apr 13 15:36:14 2016
 """
 from __future__ import division
 
-import random
-
 import numpy as np
 import pytest
 
@@ -140,7 +138,3 @@ def test_symmetry_periodic_pressure_field_2d(method):
 
     p_diff = pr[5:15] - np.hstack((pr[-5:], pr[-10:-5]))
     assert np.max(np.abs(p_diff)) < 1e-10
-
-
-if __name__ == "__main__":
-    unittest.main()

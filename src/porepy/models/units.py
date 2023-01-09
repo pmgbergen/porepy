@@ -71,7 +71,7 @@ class Units:
     rad: number
     """Angle unit, defaults to 1 rad."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initialize the units."""
         # Sanity check on input values
         for key, value in kwargs.items():
