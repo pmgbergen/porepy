@@ -2281,6 +2281,32 @@ class BiotCoefficient:
         return Scalar(self.solid.biot_coefficient(), "biot_coefficient")
 
 
+class SpecificStorage:
+    """Specific storage."""
+
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+    def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Specific storage [1/Pa], i.e. inverse of the Biot modulus.
+
+        Parameters:
+            subdomains: List of subdomains where the specific storage is defined.
+
+        Returns:
+            Specific storage operator.
+
+        Note:
+            Only used when :class:`BiotPoromechanicsPorosity` is used as a part of the
+            constitutive laws.
+
+        """
+        return Scalar(self.solid.specific_storage(), "specific_storage")
+
+
 class ConstantPorosity:
 
     solid: pp.SolidConstants
@@ -2552,6 +2578,52 @@ class PoroMechanicsPorosity:
 
         stabilization.set_name("biot_stabilization")
         return stabilization
+
+
+class BiotPoromechanicsPorosity(PoroMechanicsPorosity):
+    """Porosity for poromechanical models following classical Biot's theory.
+
+    The porosity is defined such that, after the chain rule is applied to the
+    accumulation term, the classical conservation equation from the Biot
+    equations is recovered.
+
+    Note that we assume constant fluid density and constant specific storage.
+
+    """
+
+    specific_storage: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Specific storage. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+
+    """
+
+    def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity in the nd-dimensional matrix [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise porosity operator [-].
+
+        """
+        if not all([sd.dim == self.nd for sd in subdomains]):
+            raise ValueError("Subdomains must be of dimension nd.")
+        phi_ref = self.reference_porosity(subdomains)
+        dp = self.perturbation_from_reference("pressure", subdomains)
+        alpha = self.biot_coefficient(subdomains)
+        specific_storage = self.specific_storage(subdomains)
+
+        # Add the three contributions to the porosity.
+        phi = (
+                phi_ref
+                + specific_storage * dp
+                + alpha * self.displacement_divergence(subdomains)
+        )
+        # Add stabilization term. TODO: Should this be handled elsewhere?
+        phi = phi + self.biot_stabilization(subdomains)
+        phi.set_name("stabilized_matrix_porosity")
+        return phi
 
 
 class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
