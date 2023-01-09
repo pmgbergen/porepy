@@ -519,7 +519,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    permeability: Callable[[list[pp.Grid]], np.ndarray]
+    permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function that returns the permeability of a subdomain. Normally provided by a
     mixin class with a suitable permeability definition.
 
@@ -599,36 +599,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """
         super().set_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
-
-            specific_volume_mat = self.specific_volume([sd]).evaluate(
-                self.equation_system
-            )
-            # The result may be an Ad_array, in which case we need to extract the
-            # underlying array.
-            if isinstance(specific_volume_mat, pp.ad.Ad_array):
-                specific_volume_mat = specific_volume_mat.val
-
-            # Extract diagonal of the specific volume matrix.
-            specific_volume = specific_volume_mat * np.ones(sd.num_cells)
-
-            # Check that the matrix is actually diagonal.
-            assert np.all(np.isclose(specific_volume, specific_volume_mat.data))
-
-            kappa = self.permeability([sd])
-            # The result may be an Ad_array, in which case we need to extract the
-            # underlying array.
-            if isinstance(kappa, pp.ad.Ad_array):
-                kappa = kappa.val
-
-            diffusivity = pp.SecondOrderTensor(kappa * specific_volume)
-
             pp.initialize_data(
                 sd,
                 data,
                 self.darcy_keyword,
                 {
                     "bc": self.bc_type_darcy(sd),
-                    "second_order_tensor": diffusivity,
+                    "second_order_tensor": self.permeability_tensor(sd),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -651,6 +628,26 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                     "ambient_dimension": self.nd,
                 },
             )
+
+    def permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
+        """Convert ad permeability to :class:`~pp.params.tensor.SecondOrderTensor`.
+
+        Override this method if the permeability is anisotropic.
+
+        Parameters:
+            sd: Subdomain for which the permeability is requested.
+
+        Returns:
+            Permeability tensor.
+
+        """
+        permeability_ad = self.specific_volume([sd]) * self.permeability([sd])
+        permeability = permeability_ad.evaluate(self.equation_system)
+        # The result may be an Ad_array, in which case we need to extract the
+        # underlying array.
+        if isinstance(permeability, pp.ad.Ad_array):
+            permeability = permeability.val
+        return pp.SecondOrderTensor(permeability)
 
     def before_nonlinear_iteration(self):
         """
