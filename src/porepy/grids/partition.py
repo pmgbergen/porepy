@@ -819,7 +819,7 @@ def grid_is_connected(
     c2c = c2c.tocsr()[cell_ind, :].tocsc()[:, cell_ind]
 
     # Represent the connections as a networkx graph and check for connectivity
-    graph = networkx.from_scipy_sparse_matrix(c2c)
+    graph = networkx.from_scipy_sparse_array(c2c)
     is_connected = networkx.is_connected(graph)
 
     # Get the connected components of the network.
