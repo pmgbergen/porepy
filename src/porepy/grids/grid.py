@@ -16,6 +16,7 @@ import copy
 import itertools
 from itertools import count
 from typing import Any, Optional, Union
+import warnings
 
 import numpy as np
 from scipy import sparse as sps
@@ -367,9 +368,6 @@ class Grid:
         fn_orient = self.face_nodes.copy()
         fn_orient.data = -np.power(-1, np.arange(fn_orient.data.size))
 
-        # Check consistency between face_nodes and cell_faces
-        assert (fn_orient * self.cell_faces).nnz == 0, "face_nodes and cell_faces are inconsistent"
-
         # Compute the tangent vectors and use them to compute face attributes
         tangent = self.nodes * fn_orient
         self.face_areas = np.sqrt(np.square(tangent).sum(axis=0))
@@ -385,8 +383,8 @@ class Grid:
         # Create sub-simplexes based on (face, cell center) pairs.
         # Compute the vectors that is normal to the sub-simplex and who's length is the
         # area.
-        height = temp_cell_centers[:, cellno] - self.face_centers[:, faceno]
-        subsimplex_normals = 0.5 * np.cross(cf_orient * tangent[:, faceno], height, axis=0)
+        heights = self.face_centers[:, faceno] - temp_cell_centers[:, cellno]
+        subsimplex_normals = 0.5 * np.cross(heights, cf_orient * tangent[:, faceno], axis=0)
 
         # Construct the unit normal of the grid as planar object
         plane_normal = subsimplex_normals.sum(axis=1)
@@ -398,6 +396,16 @@ class Grid:
 
         # Compute the signed volumes of sub-simplexes. For convex cells these are all positive.
         subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
+
+        # Check consistency between face_nodes and cell_faces
+        if (fn_orient * self.cell_faces).nnz != 0:
+            warnings.warn("Orientations in face_nodes and cell_faces are inconsistent, we will now assume convex cells.")
+
+            subsimplex_volumes = np.abs(subsimplex_volumes)
+            flip = (cf_orient * np.sum(heights * self.face_normals[:, faceno], axis=0)) < 0
+            flip = np.bincount(faceno, weights=flip).astype(bool)
+            self.face_normals[:, flip] *= -1
+
         # Compute the cell volumes by adding all relevant sub-simplex volumes.
         self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
 
