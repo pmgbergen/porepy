@@ -6,6 +6,9 @@ This is needed to avoid degenerate mass and energy balance equations in the frac
 TODO: Clean up.
 """
 from __future__ import annotations
+
+import copy
+
 import numpy as np
 import pytest
 
@@ -15,6 +18,8 @@ from .setup_utils import (
     BoundaryConditionsMassAndEnergyDirNorthSouth,
     Thermoporomechanics,
     TimeDependentMechanicalBCsDirNorthSouth,
+    compare_scaled_model_quantities,
+    compare_scaled_primary_variables,
 )
 from .test_poromechanics import NonzeroFractureGapPoromechanics
 from .test_poromechanics import get_variables as get_variables_poromechanics
@@ -239,9 +244,9 @@ def test_positive_p_frac_positive_opening():
 
     setup = create_fractured_setup({}, {}, {"fracture_source_value": 0.001})
     pp.run_time_dependent_model(setup, {})
-    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+    _, _, p_frac, jump, traction, _, t_frac = get_variables(setup)
 
-    # All components should be open in the normal direction
+    # All components should be open in the normal direction.
     assert np.all(jump[1] > 0.042)
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
@@ -253,6 +258,64 @@ def test_positive_p_frac_positive_opening():
     # NB: This assumes the contact force is expressed in local coordinates.
     assert np.all(np.abs(traction) < 1e-7)
 
-    # Fracture pressure and temperature is positive.
-    assert np.all(p_frac > 1e-3)
-    assert np.allclose(t_frac, 6.4e-5, atol=1e-6)
+    # Fracture pressure and temperature are both positive.
+    assert np.allclose(p_frac, 4.8e-4, atol=1e-5)
+    assert np.allclose(t_frac, 8.3e-6, atol=1e-7)
+
+
+@pytest.mark.parametrize(
+    "units",
+    [
+        {"m": 0.29, "kg": 0.31, "K": 4.1},
+    ],
+)
+def test_unit_conversion(units):
+    """Test that solution is independent of units.
+
+    Parameters:
+        units (dict): Dictionary with keys as those in
+            :class:`~pp.models.material_constants.MaterialConstants`.
+
+    """
+
+    params = {
+        "suppress_export": True,  # Suppress output for tests
+        "num_fracs": 1,
+        "cartesian": True,
+        "uy_north": -0.1,
+    }
+    reference_params = copy.deepcopy(params)
+
+    # Create model and run simulation
+    setup_0 = TailoredThermoporomechanics(reference_params)
+    pp.run_time_dependent_model(setup_0, reference_params)
+
+    params["units"] = pp.Units(**units)
+    setup_1 = TailoredThermoporomechanics(params)
+
+    pp.run_time_dependent_model(setup_1, params)
+    variables = [
+        setup_1.pressure_variable,
+        setup_1.interface_darcy_flux_variable,
+        setup_1.displacement_variable,
+        setup_1.interface_displacement_variable,
+        setup_1.temperature_variable,
+        setup_1.interface_fourier_flux_variable,
+        setup_1.interface_enthalpy_flux_variable,
+    ]
+    variable_units = [
+        "Pa",
+        "Pa * m^2 * s^-1",
+        "m",
+        "m",
+        "K",
+        "m^-1 * s^-1 * J",
+        "m^-1 * s^-1 * J",
+    ]
+    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    secondary_variables = ["darcy_flux", "fluid_flux", "stress", "porosity"]
+    secondary_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1", "Pa * m", "-"]
+    domain_dimensions = [None, None, 2, None]
+    compare_scaled_model_quantities(
+        setup_0, setup_1, secondary_variables, secondary_units, domain_dimensions
+    )

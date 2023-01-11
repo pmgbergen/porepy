@@ -119,6 +119,12 @@ class SolutionStrategy(abc.ABC):
         self.units: pp.Units = params.get("units", pp.Units())
         """Units of the model. See also :meth:`set_units`."""
 
+        self.fluid: pp.FluidConstants
+        """Fluid constants. See also :meth:`set_materials`."""
+
+        self.solid: pp.SolidConstants
+        """Solid constants. See also :meth:`set_materials`."""
+
         self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
@@ -321,7 +327,7 @@ class SolutionStrategy(abc.ABC):
                 solver.
         """
         if self._is_nonlinear_problem():
-            raise ValueError("Newton iterations did not converge")
+            raise ValueError("Newton iterations did not converge.")
         else:
             raise ValueError("Tried solving singular matrix for the linear problem.")
 
