@@ -80,10 +80,6 @@ class Flash:
         )
         """Variable ``nu`` representing the IPM parameter."""
 
-        ### setting if flash equations
-        cc_eqn = self._set_complementary_conditions()
-        npipm_eqn, npipm_vars = self._set_npipm_eqn_vars()
-
         ### PUBLIC
 
         self.flash_history: list[dict[str, Any]] = list()
@@ -121,7 +117,7 @@ class Flash:
         self.armijo_parameters: dict[str, float] = {
             "kappa": 0.4,
             "rho": 0.99,
-            "j_max": 20,
+            "j_max": 100,
         }
         """A dictionary containing per parameter name (str, key) the respective
         parameter for the Armijo line-search.
@@ -129,6 +125,10 @@ class Flash:
         Values can be set directly by modifying the values of this dictionary.
 
         """
+
+        ### setting if flash equations
+        cc_eqn = self._set_complementary_conditions()
+        npipm_eqn, npipm_vars = self._set_npipm_eqn_vars()
 
         self.complementary_equations: list[str] = cc_eqn
         """A list of strings representing names of complementary conditions (KKT)
@@ -207,7 +207,11 @@ class Flash:
 
         """
         npipm_eqn: list[str] = []
-        npipm_vars: list[str] = []
+        npipm_vars: list[str] = [self._nu_name]
+        nc = self._C.ad_system.dof_manager.mdg.num_subdomain_cells()
+
+        # set initial values of zero for all npipm vars
+        self._C.ad_system.set_var_values(self._nu_name, np.zeros(nc), True)
 
         # every equation in the unified flash is a cell-wise scalar equation
         image_info = dict()
@@ -221,12 +225,14 @@ class Flash:
             name = f"{self._V_name}_{phase.name}"
             V_e = self._C.ad_system.create_variable(name)
             npipm_vars.append(name)
+            self._C.ad_system.set_var_values(name, np.zeros(nc), True)
             self._V_of_phase[phase] = V_e
 
             # create W_e
             name = f"{self._W_name}_{phase.name}"
             W_e = self._C.ad_system.create_variable(name)
             npipm_vars.append(name)
+            self._C.ad_system.set_var_values(name, np.zeros(nc), True)
             self._W_of_phase[phase] = W_e
 
             # V_e extension equation, create and store
@@ -256,20 +262,21 @@ class Flash:
         coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self._C.num_phases**2)
         neg = pp.ad.SemiSmoothNegative()
         pos = pp.ad.SemiSmoothPositive()
-        dot = pp.ad.ScalarProduct()
+        # dot = pp.ad.ScalarProduct()
 
-        phase_parts = list()
+        norm_parts = list()
+        dot_parts = list()
         for phase in self._C.phases:
             v_e = self._V_of_phase[phase]
             w_e = self._W_of_phase[phase]
 
-            phase_parts.append(
-                dot(neg(v_e), neg(v_e))
-                + dot(neg(w_e), neg(w_e))
-                + coeff * pos(dot(v_e, w_e)) * pos(dot(v_e, w_e))
-            )
+            norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
+            dot_parts.append(v_e * w_e)
 
-        equation = eta * self._nu + self._nu * self._nu + sum(phase_parts) / 2
+        dot_part = pos(sum(dot_parts))
+        dot_part *= dot_part * coeff
+
+        equation = eta * self._nu + self._nu * self._nu + (sum(norm_parts) + dot_part) / 2
         self._C.ad_system.set_equation(
             "NPIPM_param", equation, num_equ_per_dof=image_info
         )
@@ -364,6 +371,7 @@ class Flash:
         method: Literal["newton-min", "npipm"] = "newton-min",
         initial_guess: Literal["iterate", "feed", "uniform"] | str = "iterate",
         copy_to_state: bool = False,
+        do_logging: bool = False
     ) -> bool:
         """Performs a flash procedure based on the arguments.
 
@@ -408,6 +416,10 @@ class Flash:
                     If not successful, the ITERATE will **not** be copied to the STATE,
                     even if flagged ``True`` by ``copy_to_state``.
 
+            do_logging: ``default=False``
+
+                A bool indicating if progress logs should be printed.
+
         Raises:
             ValueError: If either `flash_type`, `method` or `initial_guess` are
                 unsupported keywords.
@@ -428,10 +440,10 @@ class Flash:
         self._set_initial_guess(initial_guess)
 
         if method == "newton-min":
-            success = self._Newton_min(flash_type)
+            success = self._Newton_min(flash_type, do_logging)
         elif method == "npipm":
             self._set_NPIPM_initial_guess()
-            success = self._NPIPM(flash_type)
+            success = self._NPIPM(flash_type, do_logging)
         else:
             raise ValueError(f"Unknown method {method}.")
 
@@ -441,6 +453,9 @@ class Flash:
                 variables=var_names, from_iterate=True
             )
             self._C.ad_system.dof_manager.distribute_variable(X, variables=var_names)
+
+        if do_logging:
+            self.print_last_flash_results()
 
         return success
 
@@ -561,11 +576,11 @@ class Flash:
 
         for phase in self._C.phases:
             # initial value for V_e
-            v_name = self._V_name + phase.name
+            v_name = f"{self._V_name}_{phase.name}"
             val_v = phase.fraction.evaluate(ad_system.dof_manager).val
             ad_system.set_var_values(v_name, val_v, True)
             # initial value for W_e
-            w_name = self._W_name + phase.name
+            w_name = f"{self._W_name}_{phase.name}"
             val_w = (
                 self._C.get_composition_unity_for(phase)
                 .evaluate(ad_system.dof_manager)
@@ -578,11 +593,11 @@ class Flash:
 
         # initial guess for nu is cell-wise scalar product between concatenated V and W
         # for each phase
-        V = np.ndarray(V_mat).T  # num_cells X num_phases
-        W = np.ndarray(W_mat)  # num_phases X num_cells
+        V = np.vstack(V_mat).T  # num_cells X num_phases
+        W = np.vstack(W_mat)  # num_phases X num_cells
         # the diagonal of the product of above returns the cell-wise scalar product
         # TODO can this be optimized using a for loop over diagonal elements of product?
-        nu_mat = V * W
+        nu_mat = np.matmul(V, W)
         nu = np.diag(nu_mat)
         nu = nu / self._C.num_phases
 
@@ -647,6 +662,11 @@ class Flash:
             feed_R = feed_R / len(phases)
             for phase in phases:
                 ad_system.set_var_values(phase.fraction_name, np.copy(feed_R))
+            # evaluate reference phase fraction by unity
+            ad_system.set_var_values(
+                self._C.reference_phase.fraction_name,
+                self._y_R.evaluate(ad_system.dof_manager).val
+            )
         else:
             raise ValueError(f"Unknown initial-guess-strategy {initial_guess}.")
 
@@ -655,6 +675,7 @@ class Flash:
     def _Newton_min(
         self,
         flash_type: Literal["isothermal", "isenthalpic"],
+        do_logging: bool
     ) -> bool:
         """Performs a semi-smooth newton (Newton-min),
         where the complementary conditions are the semi-smooth part.
@@ -665,6 +686,7 @@ class Flash:
 
         Parameters:
             flash_type: Name of the flash type.
+            do_logging: Flag for printing progress logs.
 
         Returns:
             A bool indicating the success of the method.
@@ -688,7 +710,7 @@ class Flash:
             )
 
         # Perform Newton iterations with above F(x)
-        success, iter_final = self._newton_iterations(F, var_names)
+        success, iter_final = self._newton_iterations(F, var_names, do_logging)
 
         # append history entry
         self._history_entry(
@@ -703,6 +725,7 @@ class Flash:
     def _NPIPM(
         self,
         flash_type: Literal["isothermal", "isenthalpic"],
+        do_logging: bool,
     ) -> bool:
         """Performs a non-parametric interior point algorithm to find the solution
         inside the compositional space.
@@ -713,6 +736,7 @@ class Flash:
 
         Parameters:
             flash_type: Name of the flash type.
+            do_logging: Flag for printing progress logs.
 
         Returns:
             A bool indicating the success of the method.
@@ -726,9 +750,6 @@ class Flash:
         else:
             var_names = self._C.ph_subsystem["primary_vars"]
 
-        # the NPIPM has some algorithmic variables
-        var_names += self.npipm_variables
-
         # Construct a callable representing the chosen subsystem (which is square),
         # including the NPIPM variables and equations.
         # The dependency on X is optional, since the AD framework uses ITERATE/STATE
@@ -741,7 +762,10 @@ class Flash:
                 state=X,
             )
 
-        success, iter_final = self._newton_iterations(F, var_names)
+        # the NPIPM has some algorithmic variables
+        success, iter_final = self._newton_iterations(
+            F, var_names + self.npipm_variables, do_logging
+        )
 
         # append history entry
         self._history_entry(
@@ -757,6 +781,7 @@ class Flash:
         self,
         DX: np.ndarray,
         F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
+        do_logging: bool,
     ) -> float:
         """Performs the Armijo line-search for a given function ``F(X)``
         and a preliminary update ``DX``, using the least-square potential.
@@ -789,8 +814,14 @@ class Flash:
 
         _, b_1 = F(X_k + rho * DX)
 
+        if do_logging:
+            print("Armijo line search j=1", end='', flush=True)
+
         # start with first step size. If sufficient, return rho
         if np.dot(b_1, b_1) <= (1 - 2 * kappa * rho) * b_k_pot:
+            if do_logging:
+                print('\r    \r', end='', flush=True)
+                print("Armijo line search j=1: SUCCESS", end='', flush=True)
             return rho
         else:
             # if maximal line-search interval defined, use for-loop
@@ -802,8 +833,15 @@ class Flash:
                     # compute system state at preliminary step-size
                     _, b_j = F(X_k + rho_j * DX)
 
+                    if do_logging:
+                        print('\r    \r', end='', flush=True)
+                        print(f"Armijo line search j={j}", end='', flush=True)
+
                     # check potential and return if reduced.
                     if np.dot(b_j, b_j) <= (1 - 2 * kappa * rho_j) * b_k_pot:
+                        if do_logging:
+                            print('\r    \r', end='', flush=True)
+                            print(f"Armijo line search j={j}: SUCCESS", flush=True)
                         return rho_j
 
                 # if for-loop did not yield any results, raise error
@@ -817,20 +855,30 @@ class Flash:
                 rho_j = rho * rho
                 # compute system state at preliminary step-size
                 _, b_j = F(X_k + rho_j * DX)
+                j = 2
 
                 # while potential not decreasing, compute next step-size
                 while np.dot(b_j, b_j) > (1 - 2 * kappa * rho_j) * b_k_pot:
                     # next power of step-size
                     rho_j *= rho
                     _, b_j = F(X_k + rho_j * DX)
+                    j += 1
+
+                    if do_logging:
+                        print('\r    \r', end='', flush=True)
+                        print(f"Armijo line search j={j}", end='', flush=True)
                 # if potential decreases, return step-size
                 else:
+                    if do_logging:
+                        print('\r    \r', end='', flush=True)
+                        print(f"Armijo line search j={j}: SUCCESS", flush=True)
                     return rho_j
 
     def _newton_iterations(
         self,
         F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
         var_names: list[str],
+        do_logging: bool
     ) -> tuple[bool, int]:
         """Performs standard Newton iterations using the matrix and rhs-vector returned
         by ``F``, until (possibly) the L2-norm of the rhs-vector reaches the convergence
@@ -862,8 +910,18 @@ class Flash:
         # assemble linear system of eq for semi-smooth subsystem
         A, b = F()
 
+        if do_logging:
+            print("Newton iteration 0", end='', flush=True)
+
+        if self.use_armijo:
+            logging_end = "\n"
+        else:
+            logging_end = ''
+
         # if residual is already small enough
         if np.linalg.norm(b) <= self.flash_tolerance:
+            if do_logging:
+                print("Newton iteration 0: SUCCESS", flush=True)
             success = True
         else:
             # column slicing to relevant variables
@@ -871,7 +929,11 @@ class Flash:
                 var_names
             ).transpose()
 
-            for i in range(self.max_iter_flash):
+            for i in range(1, self.max_iter_flash + 1):
+
+                if do_logging:
+                    print('\r    \r', end='', flush=True)
+                    print(f"Newton iteration {i}", end=logging_end, flush=True)
 
                 # solve iteration and add to ITERATE state additively
                 dx = sps.linalg.spsolve(A, b)
@@ -879,7 +941,7 @@ class Flash:
 
                 if self.use_armijo:
                     # get step size using Armijo line search
-                    step_size = self._Armijo_line_search(DX, F)
+                    step_size = self._Armijo_line_search(DX, F, do_logging)
                     DX = step_size * DX
 
                 self._C.ad_system.dof_manager.distribute_variable(
@@ -888,12 +950,17 @@ class Flash:
                     additive=True,
                     to_iterate=True,
                 )
-                # counting necessary number of iterations
-                iter_final = i + 1  # shift since range() starts with zero
+
                 A, b = F()
 
                 # in case of convergence
                 if np.linalg.norm(b) <= self.flash_tolerance:
+                    # counting necessary number of iterations
+                    iter_final = i + 1  # shift since range() starts with zero
+                    if do_logging:
+                        if not self.use_armijo:
+                            print('\r    \r', end='', flush=True)
+                        print(f"Newton iteration {iter_final}: SUCCESS", flush=True)
                     success = True
                     break
 

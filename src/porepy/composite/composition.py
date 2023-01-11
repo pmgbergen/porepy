@@ -637,12 +637,10 @@ class Composition(abc.ABC):
         else:
             raise ValueError(f"Unknown flash type {flash_type}.")
 
-        if other_vars:
-            variables += other_vars
-        if other_eqns:
-            equations += other_eqns
-
-        return self.ad_system.assemble_subsystem(equations, variables, state=state)
+        return self.ad_system.assemble_subsystem(
+            equations + other_eqns if other_eqns else equations,
+            variables + other_vars if other_vars else variables,
+            state=state)
 
     ### Model equations ----------------------------------------------------------------
 

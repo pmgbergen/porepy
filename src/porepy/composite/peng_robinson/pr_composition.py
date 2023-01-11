@@ -108,7 +108,7 @@ class PR_Composition(Composition):
 
         # check for missing bips between new components
         for comp_1 in component:
-            for comp_2 in self.components:
+            for comp_2 in component:
                 # no bip between a component and itself
                 if comp_2 != comp_1:
                     bip, *_ = get_PR_BIP(comp_1.name, comp_2.name)

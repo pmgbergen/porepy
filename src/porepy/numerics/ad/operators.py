@@ -420,8 +420,7 @@ class Operator:
                 # otherwise the overloaded division wouldn't have been invoked
                 # We use the same strategy as in above case where the divisor is an Ad_array
                 if isinstance(results[1], pp.ad.Ad_array):
-                    # See remarks by EK in case ndarray / Ad_array
-                    return (results[0] * results[1] ** -1)[0]
+                    return results[0] * results[1] ** -1
                 elif isinstance(results[1], numbers.Real):  # trivial case
                     return results[0] / results[1]
                 elif isinstance(results[1], np.ndarray):

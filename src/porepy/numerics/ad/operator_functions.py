@@ -580,7 +580,7 @@ class ScalarProduct(AbstractFunction):
         # sum per column
         jac = jac.sum(axis=0)
 
-        return jac.tocsr()
+        return sps.csr_matrix(jac)
 
 
 ### FUNCTION DECORATOR -----------------------------------------------------------------
