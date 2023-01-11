@@ -309,13 +309,18 @@ def get_PR_BIP(
 
     """
     # try input order
-    BIP, dT_BIP = PR_BIP_MAP.get((component1, component2), None)
+    found_bip = PR_BIP_MAP.get((component1, component2), None)
     order = True
 
     # try reverse order
-    if BIP is None:
-        BIP, dT_BIP = PR_BIP_MAP.get((component2, component1), None)
+    if found_bip is None:
+        found_bip = PR_BIP_MAP.get((component2, component1), None)
         order = False
 
-    # return what is found, possibly None
-    return BIP, dT_BIP, order
+    if found_bip:
+        BIP, dT_BIP = found_bip
+        # return what is found
+        return BIP, dT_BIP, order
+    # if found_bip is None, we return None
+    else:
+        return None, None, order

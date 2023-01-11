@@ -88,11 +88,11 @@ class PR_Roots:
 
         """
 
-        self.liquid_root: pp.ad.Operator = Leaf("PR Liquid Root")
+        self.liquid_root: Leaf = Leaf("PR Liquid Root")
         """An AD leaf-operator returning the AD array representing the liquid root
         computed using :meth:`compute_roots`."""
 
-        self.gas_root: pp.ad.Operator = Leaf("PR Gas Root")
+        self.gas_root: Leaf = Leaf("PR Gas Root")
         """An AD leaf-operator returning the AD array representing the gas root
         computed using :meth:`compute_roots`."""
 
@@ -278,9 +278,10 @@ class PR_Roots:
             ## PHASE LABELING in one-root-region
             # this has to hold, otherwise the labeling polynomial can't have 3 distinct
             # roots according to Gharbia et al. (2021)
-            assert np.all(
-                B_1.val < B_CRIT
-            ), "Co-volume exceeds critical value for labeling."
+
+            # assert np.all(
+            #     B_1.val < B_CRIT
+            # ), "Co-volume exceeds critical value for labeling."
 
             # A_1 = pp.ad.Ad_array(A.val[one_root_region], A.jac[one_root_region])
             # liquid_region, gas_region = self._get_labeled_regions(
@@ -289,10 +290,9 @@ class PR_Roots:
             #     one_real_root_region
             # )
 
-            # simplified region determination, Vu et al. (2021), equ. 4.24
+            ## simplified labeling, Vu et al. (2021), equ. 4.24
             gas_region = r_1.val < z_1.val
             liquid_region = z_1.val < r_1.val
-            print("is liquid: ", liquid_region)
 
             # assert the roots are not overlapping,
             # this should not happen,

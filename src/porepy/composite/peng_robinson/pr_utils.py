@@ -56,4 +56,4 @@ class Leaf(pp.ad.Operator):
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Returns the value assigned to this operator."""
-        self.value
+        return self.value
