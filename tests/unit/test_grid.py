@@ -24,7 +24,7 @@ class TestDiameterComputation(unittest.TestCase):
     def test_cell_diameters_2d(self):
         g = pp.CartGrid([3, 2], np.array([1, 1]))
         cell_diameters = g.cell_diameters()
-        known = np.repeat(np.sqrt(0.5 ** 2 + 1.0 / 3.0 ** 2), g.num_cells)
+        known = np.repeat(np.sqrt(0.5**2 + 1.0 / 3.0**2), g.num_cells)
         self.assertTrue(np.allclose(cell_diameters, known))
 
     def test_cell_diameters_3d(self):
@@ -127,7 +127,7 @@ class TestComputeGeometry(unittest.TestCase):
         g = pp.CartGrid(np.array([1, 1]), [5000, 5000])
         g.compute_geometry()
         known_areas = 5000 * np.ones(4)
-        known_volumes = 5000 ** 2 * np.ones(1)
+        known_volumes = 5000**2 * np.ones(1)
         known_normals = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T * 5000
         known_f_centr = (
             np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T * 5000
