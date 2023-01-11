@@ -62,6 +62,7 @@ exclude_patterns = []
 
 porepy_type_alias_map = {
     'ArrayLike': 'ArrayLike',
+    'npt.ArrayLike': 'ArrayLike',
     'NDArray': 'NDArray',
     'DTypeLike': 'DTypeLike',
     'ExampleArrayLike': 'ExampleArrayLike',
@@ -116,7 +117,7 @@ napoleon_use_admonition_for_references = True
 napoleon_use_ivar = False
 napoleon_use_param = True
 napoleon_use_keyword = True
-napoleon_use_rtype = True
+napoleon_use_rtype = True  ### NOTE: Part of type hint position switch
 napoleon_preprocess_types = True
 napoleon_type_aliases = porepy_type_alias_map
 napoleon_attr_annotations = True
@@ -143,6 +144,7 @@ autodoc_typehints_format = "short"
 
 # uses type hints in signatures for e.g. linking (default)
 autodoc_typehints = "description"  # signature, description
+### NOTE: Part of type hint position switch
 
 # display types in signature which are documented, or all (by default)
 # all, documented, documented_params
