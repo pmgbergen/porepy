@@ -1,6 +1,5 @@
-# Code Quality workflow for black, flake8, mypy
-
-name: Build Test
+# Run unit, integration, and functional tests.
+name: Pytest
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events for the main and develop branches
@@ -56,13 +55,6 @@ jobs:
         # Hash both ordinary requirements and those specific for developmnet.
         key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt', '**/requirements-dev.txt') }}
 
-    - name: Cache mypy
-      uses: actions/cache@v3
-      id: cache-mypy
-      with:
-        path: mypy-cache-${{ matrix.python-version}}
-        key: ${{ runner.os }}-mypy
-
     - name: Install external libraries
       run: |
         # Various packages that must be installed 
@@ -87,26 +79,16 @@ jobs:
         pip install .
         pip freeze       
 
-    - name: black
-      if: ${{ always() }}
-      run: black --check src
-
-    - name: isort
-      if: ${{always()}}
-      run: isort --check src
-
-    - name: flake8
-      if: ${{ always() }}
-      run: flake8 src 
-
     - name: unit tests
       if: ${{always()}}
       run: pytest tests/unit
 
-    - name: mypy
-      if: ${{ always() }}
-      run: mypy src --cache-dir mypy-cache-${{ matrix.python-version}}
-
     - name: integration tests
       if: ${{always()}}
       run: pytest tests/integration
+
+    - name: functional tests
+      if: ${{always()}}
+      run: pytest tests/functional
+
+
