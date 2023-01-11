@@ -356,7 +356,12 @@ class Grid:
         self.face_normals[:, flip] *= -1
 
     def _compute_geometry_2d(self) -> None:
-        """Compute 2D geometry"""
+        """
+        Compute 2D geometry
+
+        We assume that either the cell_faces and face_nodes are consistently oriented or that the
+        grid is composed of convex cells.
+        """
 
         # Each face is determiend by a start and end node, the tangent is given by
         # the x_end - x_start. The face normal is a 90 degree clock-wise rotation
@@ -367,6 +372,13 @@ class Grid:
         # ordering in self.face_nodes.indices. The start node gets a -1 and the end node a +1.
         fn_orient = self.face_nodes.copy()
         fn_orient.data = -np.power(-1, np.arange(fn_orient.data.size))
+
+        # Check consistency
+        is_oriented = (fn_orient * self.cell_faces).nnz == 0
+        if not is_oriented:
+            warnings.warn(
+                "Orientations in face_nodes and cell_faces are inconsistent, we will now assume convex cells."
+            )
 
         # Compute the tangent vectors and use them to compute face attributes
         tangent = self.nodes * fn_orient
@@ -381,33 +393,43 @@ class Grid:
         temp_cell_centers = np.vstack((cx, cy, cz)) / np.bincount(cellno)
 
         # Create sub-simplexes based on (face, cell center) pairs.
-        # Compute the vectors that is normal to the sub-simplex and who's length is the
+        # Compute the vectors that is normal to the sub-simplex and whose length is the
         # area.
-        heights = self.face_centers[:, faceno] - temp_cell_centers[:, cellno]
-        subsimplex_normals = 0.5 * np.cross(heights, cf_orient * tangent[:, faceno], axis=0)
+        subsimplex_heights = self.face_centers[:, faceno] - temp_cell_centers[:, cellno]
+        subsimplex_normals = 0.5 * np.cross(
+            subsimplex_heights, cf_orient * tangent[:, faceno], axis=0
+        )
 
         # Construct the unit normal of the grid as planar object
-        plane_normal = subsimplex_normals.sum(axis=1)
-        plane_normal /= np.linalg.norm(plane_normal)
+        if is_oriented:
+            plane_normal = subsimplex_normals.sum(axis=1)
+            plane_normal /= np.linalg.norm(plane_normal)
+        else:
+            plane_normal = pp.map_geometry.compute_normal(self.nodes)
 
         # Compute the face normals by rotating the tangent according to the orientation
         # of the plane
         self.face_normals = np.cross(tangent, plane_normal, axis=0)
 
-        # Compute the signed volumes of sub-simplexes. For convex cells these are all positive.
+        # Compute the signed volumes of sub-simplexes.
+        # If the nodes are counter clock-wise these are positive values.
         subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
 
-        # Check consistency between face_nodes and cell_faces
-        if (fn_orient * self.cell_faces).nnz != 0:
-            warnings.warn("Orientations in face_nodes and cell_faces are inconsistent, we will now assume convex cells.")
-
+        # In case of inconsistent orientation, the sub-simplex volumes and normals need to be corrected
+        if not is_oriented:
             subsimplex_volumes = np.abs(subsimplex_volumes)
-            flip = (cf_orient * np.sum(heights * self.face_normals[:, faceno], axis=0)) < 0
+            flip = (
+                cf_orient
+                * np.sum(subsimplex_heights * self.face_normals[:, faceno], axis=0)
+            ) < 0
             flip = np.bincount(faceno, weights=flip).astype(bool)
             self.face_normals[:, flip] *= -1
 
         # Compute the cell volumes by adding all relevant sub-simplex volumes.
         self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
+
+        # Sanity check on the cell_volumes
+        assert np.all(self.cell_volumes >= 0)
 
         # Compute cells centroids as weighted average of the sub-simplex centroids
         sub_centroids = (
