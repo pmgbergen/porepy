@@ -44,7 +44,10 @@ class LinearSolver:
         """
 
         setup.before_newton_loop()
-        prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
+        if hasattr(setup, "equation_system"):
+            prev_sol = setup.equation_system.get_variable_values(from_iterate=False)
+        else:
+            prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
 
         # For linear problems, the tolerance is irrelevant
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters

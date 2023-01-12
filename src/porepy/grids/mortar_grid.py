@@ -1,4 +1,6 @@
-""" Module containing the class for the mortar grid.
+"""A module containing the class for the mortar grid, a geometric representation of
+interfaces between two subdomains in the mixed-dimensional sense.
+
 """
 from __future__ import annotations
 
@@ -14,6 +16,9 @@ import porepy as pp
 
 
 class MortarSides(Enum):
+    """A custom enumeration for the left, the right and empty side of an
+    interface represented by a mortar grid."""
+
     # Enum of constants used to identify the grids on each side of the mortar
     NONE_SIDE = 0
     LEFT_SIDE = 1
@@ -21,50 +26,62 @@ class MortarSides(Enum):
 
 
 class MortarGrid:
-    """
-    Parent class for mortar grids it contains two grids representing the left
-    and right part of the mortar grid and the weighted mapping from the primary
-    grid to the mortar grids and from the secondary grid to the mortar grids.
-    The two mortar grids can be different. The primary grid is assumed to be one
-    dimension higher than the mortar grids, while the secondary grid can either one
-    dimension higher or the same dimension as the mortar grids.
+    """Parent class for mortar grids.
 
-    NOTE: The mortar class is mostly tested for the case when the secondary grid has
-    the same dimension as the mortar grid. Especially, the updating of any grid
-    should not be expected to work and will most likely throw an error.
+    It contains two grids representing the left and right part of the mortar grid and
+    the weighted mapping from the primary grid to the mortar grids and from the
+    secondary grid to the mortar grids. The two mortar grids can be different. The
+    primary grid is assumed to be one dimension higher than the mortar grids, while the
+    secondary grid can either one dimension higher or the same dimension as the mortar
+    grids.
 
-    Attributes:
+    Note:
+        The mortar class is mostly tested for the case when the secondary grid has the
+        same dimension as the mortar grid. Especially, the updating of any grid should
+        not be expected to work and will most likely throw an error.
 
-        dim (int): dimension. Should be 0 or 1 or 2.
-        side_grids (dictionary of Grid): grid for each side. The key is an integer
-            with value {0, 1, 2}, and the value is a Grid.
-        sides (array of integers with values in {0, 1, 2}): ordering of the sides.
-        _primary_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
-            primary (often higher-dimensional) grid and the mortar grids. Matrix size:
-            num_faces x num_cells. In the beginning we assume matching grids,
-            but it can be modified by calling refine_mortar(). The matrix
-            elements represent the ratio between the geometrical objects.
-        _secondary_to_mortar_int (sps.csc-matrix): Cell-cell relationships between the
-            mortar grids and the secondary (often lower-dimensional) grid. Matrix size:
-            num_cells_secondary x num_cells_mortar. Matrix elements represent the ratio
-            between the geometrical objects.
-        name (list): Information on the formation of the grid, such as the
-            constructor, computations of geometry etc.
-        tol (double): Tolerance used when matching grids during update of mortar or
-            primary / secondary grids.
+    Parameters:
+        dim: Grid dimension.
+        side_grids: Grid on each side.
+        primary_secondary: ``default=None``
+
+            Cell-face relations between the higher dimensional grid and
+            the lower dimensional grid. It is possible to not give the projection to
+            create only the grid.
+        codim: ``default=1``
+
+            Dimension difference between the primary grid secondary grid.
+        name: ``default=''``
+
+            Name of the grid. Can also be used to set various information on the grid.
+        face_duplicate_ind: ``default=None``
+
+            Which faces should be considered duplicates, and
+            mapped to the second of the ``side_grids``.
+
+            If not provided, duplicate faces will be inferred from the indices of the
+            faces.
+
+            Will only be used if ``len(side_Grids)==2``.
+        tol: ``default=1e-6``
+
+            Tolerance used in geometric computations.
+
+    Raises:
+        ValueError: If ``dim==3`` , The mortar grid can not be three-dimensional.
+        ValueError: If the mortar grids have different dimensions.
+        ValueError: If the number of sides is not 1 or 2.
+        ValueError: If ``face_duplicate_ind`` is not ``None`` and the co-dimension is 2.
+            In this case there are no faces to duplicate.
 
     """
 
     _counter = count(0)
-    """Counter of instantiated grids. See __new__ and id."""
+    """Counter of instantiated mortar grids. See :meth:`__new__` and :meth:`id`."""
 
     def __new__(cls, *args, **kwargs):
-        """Make object and set id according to class counter.
+        """Make object and set ID by forwarding :attr:`_counter`."""
 
-        Args:
-            *args:
-            **kwargs:
-        """
         obj = object.__new__(cls)
         obj.__id = next(cls._counter)
         return obj
@@ -73,33 +90,12 @@ class MortarGrid:
         self,
         dim: int,
         side_grids: dict[MortarSides, pp.Grid],
-        primary_secondary: sps.spmatrix = None,
+        primary_secondary: Optional[sps.spmatrix] = None,
         codim: int = 1,
         name: Union[str, list[str]] = "",
         face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
     ) -> None:
-        """Initialize the mortar grid
-
-        See class documentation for further description of parameters.
-
-        Args:
-            dim (int): grid dimension
-            side_grids (dictionary of Grid): grid on each side.
-            primary_secondary (sps.csc_matrix): Cell-face relations between the higher
-                dimensional grid and the lower dimensional grid. It is possible to not
-                give the projection to create only the grid.
-            codim (int): dimension difference between the primary grid secondary grid.
-            name (str): Name of the grid. Can also be used to set various information on
-                the grid.
-            face_duplicate_ind (np.ndarray, optional): Which faces should be considered
-                duplicates, and mapped to the second of the side_grids. If not provided,
-                duplicate faces will be inferred from the indices of the faces. Will
-                only be used if len(side_Grids) == 2.
-            tol (double, optional): Tolerance used in geometric computations. Defaults
-                to 1e-6.
-
-        """
 
         if dim == 3:
             raise ValueError("A mortar grid cannot be 3d")
@@ -107,32 +103,51 @@ class MortarGrid:
             raise ValueError("All the mortar grids have to have the same dimension")
 
         self.dim = dim
+        """The ambient dimension of the mortar grid."""
+
         self.codim = codim
+        """The co-dimension of the mortar grid."""
+
         self.side_grids: dict[MortarSides, pp.Grid] = side_grids.copy()
+        """A dictionary containing for each enumeration :class:`MortarSides` the
+        respective side grid."""
+
         self.sides: np.ndarray = np.array(list(self.side_grids.keys()))
+        """An array containing the enumeration of each side grid
+        (keys of :attr:`side_grids`)."""
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
         if face_duplicate_ind is not None and codim == 2:
             raise ValueError("Co-dimension 2 interfaces have no faces to duplicate")
 
+        self.name: list[str]
+        """The name of mortar grid stored as a list of relevant information."""
         if isinstance(name, list):
             self.name = name
         else:
             self.name = [name]
         self.name.append("mortar_grid")
+
         self.tol = tol
+        """The tolerance given at instantiation."""
 
         # easy access attributes with a fixed ordering of the side grids
         self.num_cells: int = np.sum(  # type: ignore
             [g.num_cells for g in self.side_grids.values()], dtype=int
         )
+        """Total number of cells in all side grids."""
+
         self.cell_volumes: np.ndarray = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
         )
+        """Cell volumes of each cell in the side grids."""
+
         self.cell_centers: np.ndarray = np.hstack(
             [g.cell_centers for g in self.side_grids.values()]
         )
+        """Cell centers of each cell in the side grids."""
+
         # Set projections
         if not (primary_secondary is None):
             self._init_projections(primary_secondary, face_duplicate_ind)
@@ -142,23 +157,24 @@ class MortarGrid:
     def id(self):
         """Grid ID.
 
-        Returns:
-            Integer id.
+        The returned attribute must not be changed.
+        This may severely compromise other parts of the code,
+        such as sorting in md grids.
 
-        The returned attribute should not be changed. This may severely compromise other parts
-        of the code, such as sorting in md grids.
-        The attribute is set in __new__. This avoids calls to super().__init__ in subclasses.
+        The attribute is set in :meth:`__new__`.
+        This avoids calls to the super constructor in child classes.
+
         """
         return self.__id
 
     def __repr__(self) -> str:
-        """
-        Implementation of __repr__
-        """
+        """A string representation of the mortar grid including topological information
+        and information about side grids."""
+
         s = (
             "Mortar grid with history "
             + ", ".join(self.name)
-            + "\n"
+            + f" and id {self.id}.\n"
             + f"Dimension {self.dim} and codimension {self.codim}\n"
             + f"Number of cells {self.num_cells}\n"
             + f"Number of sides {len(self.side_grids)}\n"
@@ -179,20 +195,25 @@ class MortarGrid:
         return s
 
     def __str__(self) -> str:
-        """Implementation of __str__"""
+        """A simplified string representation of the mortar grid including the dimension
+        and some other information."""
+
         s = (
             "Mortar grid with history "
             + ", ".join(self.name)
-            + "\n"
+            + f" and id {self.id}.\n"
             + f"Dimension {self.dim} and codimension {self.codim}\n"
             + f"Number of cells {self.num_cells}"
         )
         return s
 
     def compute_geometry(self) -> None:
-        """
-        Compute the geometry of the mortar grids.
-        We assume that they are not aligned with x (1d) or x, y (2d).
+        """Compute the geometry of the mortar grids.
+
+        We assume that they are not aligned with the x-axis (1D) or the x-y-plane (2D).
+
+        Performs calls to each grid's :meth:`~porepy.grids.grid.Grid.compute_geometry`.
+
         """
         # Update the actual side grids
         for g in self.side_grids.values():
@@ -214,16 +235,23 @@ class MortarGrid:
     def update_mortar(
         self, new_side_grids: dict[MortarSides, pp.Grid], tol: Optional[float] = None
     ) -> None:
-        """
-        Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
-        are changed.
+        """Update the ``low_to_mortar_int`` and ``high_to_mortar_int`` maps when the
+        mortar grids are changed.
 
-        Parameter:
-            side_matrix (dict): for each side (identified with values {0, 1, 2}, as
-                used when this MortarGrid was defined) a matrix representing the
-                new mapping between the old and new mortar grids.
-            tol (double, optional): Tolerance used for matching the new and old grids.
-                Defaults to self.tol.
+        Parameters:
+            new_side_grids: A dictionary containing for each side
+                (identified with the enumeration :class:`MortarSides`) a matrix
+                representing the new mapping between the old and new mortar grids.
+            tol: ``default=None``
+
+                Tolerance used for matching the new and old grids.
+
+                If not provided, :attr:`tol` is used.
+
+        Raises:
+            ValueError: If the old and new mortar grids are not of the same dimension.
+            ValueError: If the mortar grid is not of dimension 0,1 or 2.
+
         """
         if tol is None:
             tol = self.tol
@@ -231,8 +259,8 @@ class MortarGrid:
         # Build mappings for integrated and averaged quantities separately.
         split_matrix_int, split_matrix_avg = {}, {}
 
-        # For each side we compute the mapping between the old and the new mortar
-        # grids, we store them in a dictionary with SideTag as key.
+        # For each side we compute the mapping between the old and the new mortar grids,
+        # we store them in a dictionary with SideTag as key.
         for side, new_g in new_side_grids.items():
             g = self.side_grids[side]
             if g.dim != new_g.dim:
@@ -243,8 +271,8 @@ class MortarGrid:
                 return
             elif g.dim == 1:
                 # The mapping between grids will be left-multiplied by the existing
-                # mapping from primary to mortar. Therefore, we construct mappings
-                # from the old to the new grid.
+                # mapping from primary to mortar. Therefore, we construct mappings from
+                # the old to the new grid.
                 mat_avg = pp.match_grids.match_1d(new_g, g, tol, scaling="averaged")
                 mat_int = pp.match_grids.match_1d(new_g, g, tol, scaling="integrated")
             elif g.dim == 2:
@@ -258,10 +286,10 @@ class MortarGrid:
             split_matrix_avg[side] = mat_avg
             split_matrix_int[side] = mat_int
 
-        # In the case of different side ordering between the input data and the
-        # stored we need to remap it. The resulting matrix will be a block
-        # diagonal matrix, where in each block we have the mapping between the
-        # (relative to side) old grid and the new one.
+        # In the case of different side ordering between the input data and the stored
+        # we need to remap it. The resulting matrix will be a block diagonal matrix,
+        # where in each block we have the mapping between the (relative to side) old
+        # grid and the new one.
         matrix_blocks_avg: np.ndarray = np.empty(
             (self.num_sides(), self.num_sides()), dtype=object
         )
@@ -320,16 +348,29 @@ class MortarGrid:
         self._check_mappings()
 
     def update_secondary(self, new_g: pp.Grid, tol: Optional[float] = None) -> None:
-        """Update the mappings between Mortar and secondary grid when the latter is changed.
+        """Update the mappings between mortar and secondary grid when the latter is
+        changed.
 
-        NOTE: This function assumes that the secondary grid is only updated once: A change
-        from matching to non-matching between the mortar and secondary grids is okay,
-        but replacing a non-matching secondary grid with another one will not work.
+        Note:
+            This function assumes that the secondary grid is only updated once: A change
+            from matching to non-matching between the mortar and secondary grids is
+            okay, but replacing a non-matching secondary grid with another one will not
+            work.
 
-        Parameter:
-            new_g (pp.Grid): The new secondary grid.
-            tol (double, optional): Tolerance used for matching the new and old grids.
-                Defaults to self.tol.
+        Parameters:
+            new_g: The new secondary grid.
+            tol: ``default=None``
+
+                Tolerance used for matching the new and old grids.
+
+                If not provided, :attr:`tol` is used.
+
+        Raises:
+            NotImplementedError: If the new secondary grid and the mortar grid are not
+                of the same dimension.
+            ValueError: If the old and new secondary grids are not of the same
+                dimension.
+            ValueError: If the mortar grid is not of dimension 0,1 or 2.
 
         """
         if tol is None:
@@ -344,12 +385,12 @@ class MortarGrid:
         # Build mappings for integrated and averaged quantities separately.
         split_matrix_avg, split_matrix_int = {}, {}
 
-        # For each side we compute the mapping between the new lower dimensional
-        # grid and the mortar grid, we store them in a dictionary with MortarSide as key.
+        # For each side we compute the mapping between the new lower dimensional grid
+        # and the mortar grid, we store them in a dictionary with MortarSide as key.
         # IMPLEMENTATION NOTE: The loop, and some of the complexity below, is necessary
-        # to allow for different grids on the mortar sides (if more than one). It is
-        # not clear that our full implementation supports this (no obvious weak points),
-        # but AFAIK, it has never been tested, but we will keep the generality for now.
+        # to allow for different grids on the mortar sides (if more than one). It is not
+        # clear that our full implementation supports this (no obvious weak points), but
+        # AFAIK, it has never been tested, but we will keep the generality for now.
         for side, g in self.side_grids.items():
             if g.dim != new_g.dim:
                 raise ValueError("Grid dimension has to be the same")
@@ -372,10 +413,10 @@ class MortarGrid:
 
             split_matrix_avg[side] = mat_avg
             split_matrix_int[side] = mat_int
-        # In the case of different side ordering between the input data and the
-        # stored we need to remap it. The resulting matrix will be a block
-        # matrix, where in each block we have the mapping between the
-        # (relative to side) the new grid and the mortar grid.
+        # In the case of different side ordering between the input data and the stored
+        # we need to remap it. The resulting matrix will be a block matrix, where in
+        # each block we have the mapping between the (relative to side) the new grid and
+        # the mortar grid.
         matrix_avg = np.empty((self.num_sides(), 1), dtype=object)
         matrix_int = np.empty((self.num_sides(), 1), dtype=object)
 
@@ -398,20 +439,28 @@ class MortarGrid:
     def update_primary(
         self, g_new: pp.Grid, g_old: pp.Grid, tol: Optional[float] = None
     ) -> None:
-        """
+        """Update the ``_primary_to_mortar_int`` map when the primary
+        (higher-dimensional) grid is changed.
 
-        Update the _primary_to_mortar_int map when the primary (higher-dimensional) grid is
-        changed.
+        Parameters:
+            g_new: The new primary grid.
+            g_old: The old primary grid.
+            tol: ``default=None``
 
-        Parameter:
-            g_new (pp.Grid): The new primary grid.
-            g_old (pp.Grid): The old primary grid.
-            tol (double, optional): Tolerance used for matching the new and old grids.
-                Defaults to self.tol.
+                Tolerance used for matching the new and old grids.
+
+                If not provided, :attr:`tol` is used.
+
+        Raises:
+            ValueError: For 0d mortar grids, if the faces of the old primary grid do
+                not correspond to the same physical point.
+            NotImplementedError: If the dimension of the mortar grid is >1 (this has not
+                been implemented yet).
 
         """
         # IMPLEMENTATION NOTE: The signature of this method is different from
-        # update_secondary(), since the latter must also take care of for the side grids.
+        # update_secondary(), since the latter must also take care of for the side
+        # grids.
 
         if tol is None:
             tol = self.tol
@@ -468,10 +517,10 @@ class MortarGrid:
         self._check_mappings()
 
     def num_sides(self) -> int:
-        """Shortcut to compute the number of sides, it has to be 2 or 1.
+        """Shortcut to compute the number of sides. It has to be 2 or 1.
 
         Returns:
-            int: Number of sides.
+            Number of sides.
 
         """
         return len(self.side_grids)
@@ -479,15 +528,18 @@ class MortarGrid:
     def project_to_side_grids(
         self,
     ) -> Generator[tuple[sps.spmatrix, pp.Grid], None, None]:
-        """Generator for the side grids (pp.Grid) representation of the mortar
-        cells, and projection operators from the mortar cells, combining cells on all
-        the sides, to the specific side grids.
+        """Generator for the side grids and projection operators from the mortar cells,
+        combining cells on all the sides, to the specific side grids.
 
         Yields:
-            pp.Grid: PorePy grid representing one of the sides of the
-                mortar grid. Can be used for standard discretizations.
-            sps.csc_matrix: Projection from the mortar cells to this
-                side grid.
+            A 2-tuple containing
+
+            :obj:`~scipy.sparse.csc_matrix`:
+                Projection from the mortar cells to this side grid.
+
+            :class:`~porepy.grids.grid.Grid`:
+                PorePy grid representing one of the sides of the mortar grid. Can
+                be used for standard discretizations.
 
         """
         counter = 0
@@ -504,44 +556,49 @@ class MortarGrid:
             yield proj, grid
 
     ## Methods to construct projection matrices
+
     def primary_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of primary to the mortar, by summing quantities
         from the primary side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
         on the primary side are distributed to the mortar according to the overlap
-        between a primary face and generally several mortar cells.
+        between a primary face and (in general several) mortar cells.
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
 
         Returns:
-            sps.matrix: Projection matrix with column sum unity.
-                Size: g_primary.num_faces x mortar_grid.num_cells.
+            Projection matrix with column sum unity and
+            ``shape=(nd*g_primary.num_faces, nd*mortar_grid.num_cells)``.
 
         """
         return self._convert_to_vector_variable(self._primary_to_mortar_int, nd)
 
     def secondary_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from cells on the secondary side to the mortar, by
-        summing quantities from the secondary side.
+        """Project values from cells on the secondary side to the mortar, by summing
+        quantities from the secondary side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
         on the secondary side are distributed to the mortar according to the overlap
-        between a secondary cell and generally several mortar cells.
+        between a secondary cell and (in general several) mortar cells.
 
         This mapping is intended for extensive properties, e.g. sources.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
 
         Returns:
-            sps.matrix: Projection matrix with column sum unity.
-                Size: g_secondary.num_cells x mortar_grid.num_cells.
+            Projection matrix with column sum unity and
+            ``shape=(nd*g_secondary.num_cells, nd*mortar_grid.num_cells)``.
 
         """
         return self._convert_to_vector_variable(self._secondary_to_mortar_int, nd)
@@ -550,20 +607,22 @@ class MortarGrid:
         """Project values from faces of primary to the mortar, by averaging quantities
         from the primary side.
 
-        The projection matrix is scaled so that the row sum is unity, that is, values
-        on the mortar side are computed as averages of values from the primary side,
-        according to the overlap between, general several, primary faces and a mortar
+        The projection matrix is scaled so that the row sum is unity, that is, values on
+        the mortar side are computed as averages of values from the primary side,
+        according to the overlap between (in general several) primary faces and a mortar
         cell.
 
         This mapping is intended for intensive properties, e.g. pressures.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
 
         Returns:
-            sps.matrix: Projection matrix with row sum unity.
-                Size: g_primary.num_faces x mortar_grid.num_cells.
+            Projection matrix with row sum unity and
+            ``shape=(nd*g_primary.num_faces, nd*mortar_grid.num_cells)``.
 
         """
         return self._convert_to_vector_variable(self._primary_to_mortar_avg, nd)
@@ -572,20 +631,23 @@ class MortarGrid:
         """Project values from cells at the secondary to the mortar, by averaging
         quantities from the secondary side.
 
-        The projection matrix is scaled so that the row sum is unity, that is, values
-        on the mortar side are computed as averages of values from the secondary side,
-        according to the overlap between, generally several primary cells and the mortar
-        cells.
+        The projection matrix is scaled so that the row sum is unity, that is, values on
+        the mortar side are computed as averages of values from the secondary side,
+        according to the overlap between (in general several) primary cells and the
+        mortar cells.
 
         This mapping is intended for intensive properties, e.g. pressures.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
 
         Returns:
-            sps.matrix: Projection matrix with row sum unity.
-                Size: g_secondary.num_cells x mortar_grid.num_cells.
+            Projection matrix with row sum unity and
+            ``shape=(nd*g_secondary.num_cells, nd*mortar_grid.num_cells)``.
+
         """
         return self._convert_to_vector_variable(self._secondary_to_mortar_avg, nd)
 
@@ -595,61 +657,67 @@ class MortarGrid:
 
         The projection matrix is scaled so that the column sum is unity, that is, values
         on the mortar side are distributed to the primary according to the overlap
-        between a mortar cell and, generally several primary faces.
+        between a mortar cell and (in general several) primary faces.
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
 
         Returns:
-            sps.matrix: Projection matrix with column sum unity.
-                Size: mortar_grid.num_cells x g_primary.num_faces.
+            Projection matrix with column sum unity and
+            ``shape=(nd*mortar_grid.num_cells, nd*g_primary.num_faces)``.
 
         """
         return self._convert_to_vector_variable(self._mortar_to_primary_int, nd)
 
     def mortar_to_secondary_int(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from the mortar to cells at the secondary, by summing quantities
-        from the mortar side.
+        """Project values from the mortar to cells at the secondary, by summing
+        quantities from the mortar side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
         on the mortar side are distributed to the secondary according to the overlap
-        between a mortar cell and, generally several secondary cells.
+        between a mortar cell and (in general several) secondary cells.
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
 
         Returns:
-            sps.matrix: Projection matrix with column sum unity.
-                Size: mortar_grid.num_cells x g_secondary.num_faces.
+            Projection matrix with column sum unity and
+            ``shape=(nd*mortar_grid.num_cells, nd*g_secondary.num_faces)``.
 
 
         """
         return self._convert_to_vector_variable(self._mortar_to_secondary_int, nd)
 
     def mortar_to_primary_avg(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from the mortar to faces of primary, by averaging
-        quantities from the mortar side.
+        """Project values from the mortar to faces of primary, by averaging quantities
+        from the mortar side.
 
-        The projection matrix is scaled so that the row sum is unity, that is, values
-        on the primary side are computed as averages of values from the mortar side,
-        according to the overlap between, general several, mortar cell and a primary
+        The projection matrix is scaled so that the row sum is unity, that is, values on
+        the primary side are computed as averages of values from the mortar side,
+        according to the overlap between (in general several) mortar cells and a primary
         face.
 
         This mapping is intended for intensive properties, e.g. pressures.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
 
         Returns:
-            sps.matrix: Projection matrix with row sum unity.
-                Size: mortar_grid.num_cells x g_primary.num_faces.
+            Projection matrix with row sum unity and
+            ``shape=(nd*mortar_grid.num_cells, nd*g_primary.num_faces)``.
 
         """
         return self._convert_to_vector_variable(self._mortar_to_primary_avg, nd)
@@ -658,20 +726,22 @@ class MortarGrid:
         """Project values from the mortar to secondary, by averaging quantities from the
         mortar side.
 
-        The projection matrix is scaled so that the row sum is unity, that is, values
-        on the secondary side are computed as averages of values from the mortar side,
-        according to the overlap between, general several, mortar cell and a secondary
-        cell.
+        The projection matrix is scaled so that the row sum is unity, that is, values on
+        the secondary side are computed as averages of values from the mortar side,
+        according to the overlap between (in general several) mortar cells and a
+        secondary cell.
 
         This mapping is intended for intensive properties, e.g. pressures.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
 
         Returns:
-            sps.matrix: Projection matrix with row sum unity.
-                Size: mortar_grid.num_cells x g_secondary.num_faces.
+            Projection matrix with row sum unity and
+            ``shape=(nd*mortar_grid.num_cells, nd*g_secondary.num_faces)``.
 
         """
         return self._convert_to_vector_variable(self._mortar_to_secondary_avg, nd)
@@ -680,8 +750,9 @@ class MortarGrid:
         self, matrix: sps.spmatrix, nd: int
     ) -> sps.spmatrix:
         """Convert the scalar projection to a vector quantity. If the prescribed
-        dimension is 1 (default for all the above methods), the projection matrix
-        will in effect not be altered.
+        dimension is 1 (default for all the above methods), the projection matrix will
+        in effect not be altered.
+
         """
         if nd == 1:
             # No need to do expansion for 1d variables.
@@ -692,31 +763,37 @@ class MortarGrid:
     def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
         """Assign positive or negative weight to the two sides of a mortar grid.
 
-        This is needed e.g. to make projection operators into signed projections,
-        for variables that have no particular defined sign conventions.
+        This is needed e.g. to make projection operators into signed projections, for
+        variables that have no particular defined sign conventions.
 
-        This function defines a convention for what is a positive jump between
-        the mortar sides.
+        This function defines a convention for what is a positive jump between the
+        mortar sides.
 
-        Example: Take the difference between right and left variables, and
-        project to the secondary grid by
+        Example:
 
-            mortar_to_secondary_avg() * sign_of_mortar_sides()
+            Take the difference between right and left variables, and project to the
+            secondary grid by
 
-        NOTE: The flux variables in flow and transport equations are defined as
-        positive from primary to secondary. Hence, the two sides have different
-        conventions, and there is no need to adjust the signs further.
+            >>> mortar_to_secondary_avg() * sign_of_mortar_sides()
 
-        IMPLEMENTATION NOTE: This method will probably not be meaningful if
-        applied to mortar grids where the two side grids are non-matching.
+        Notes:
+            The flux variables in flow and transport equations are defined as positive
+            from primary to secondary. Hence, the two sides have different conventions,
+            and there is no need to adjust the signs further.
 
-        Args:
-            nd (int, optional): Spatial dimension of the projected quantity.
-                Defaults to 1 (mapping for scalar quantities).
+            This method will probably not be meaningful if applied to mortar grids where
+            the two side grids are non-matching.
+
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities).
+
         Returns:
-            sps.diag_matrix: Diagonal matrix with positive signs on variables
-                belonging to the first of the side_grids.
-                Size: mortar_grid.num_cells x mortar_grid.num_cells
+            Diagonal matrix with positive signs on variables belonging to the first of
+            the side_grids and
+            ``shape=(nd*mortar_grid.num_cells, nd*mortar_grid.num_cells)``.
 
         """
         nc = self.num_cells
@@ -737,12 +814,25 @@ class MortarGrid:
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
 
     def cell_diameters(self) -> np.ndarray:
+        """
+        Returns:
+            An array containing the diameters of each cell in the mortar grid and
+            ``shape=(mortar_grid.num_cells,)``.
+
+        """
         diams = np.empty(self.num_sides(), dtype=object)
         for pos, (_, g) in enumerate(self.side_grids.items()):
             diams[pos] = g.cell_diameters()
         return np.concatenate(diams).ravel()
 
-    def _check_mappings(self, tol=1e-4) -> None:
+    def _check_mappings(self, tol: float = 1e-4) -> None:
+        """Check whether the tolerance for matching new and old grids is reached.
+
+        Raises:
+            ValueError: If the check is not satisfied for the primary grid.
+            ValueError: If the check is not satisfied for the secondary grid.
+
+        """
         row_sum = self._primary_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the primary grid")
@@ -758,22 +848,32 @@ class MortarGrid:
     ) -> None:
         """Initialize projections from primary and secondary to mortar.
 
-        Args:
-            primary_secondary (sps.spmatrix): projection from the primary to the secondary.
-                It is assumed that the primary, secondary and mortar grids are all matching.
-            face_duplicate_ind (np.ndarray, optional): Which faces should be considered
-                    duplicates, and mapped to the second of the side_grids. If not provided,
-                    duplicate faces will be inferred from the indices of the faces. Will
-                    only be used if len(side_Grids) == 2.
+        Parameters:
+            primary_secondary: Projection from the primary to the secondary. It is
+                assumed that the primary, secondary and mortar grids are all matching.
+            face_duplicate_ind: ``default=None``
+
+                Which faces should be considered duplicates,
+                and mapped to the second of the side_grids.
+
+                If not provided, duplicate
+                faces will be inferred from the indices of the faces. Will only be used
+                if ``len(side_Grids)==2``.
+
+        Raises:
+            ValueError: If there are two sides and a face of the primary grid is not
+                mapped to exactly two lower dimensional cells.
+            ValueError: If the mapping between the mortar grid and the secondary mapping
+                is not one-to-one.
 
         """
-        # primary_secondary is a mapping from the cells (faces if secondary.dim == primary.dim)
-        # of the secondary grid to the of the primary grid.
+        # primary_secondary is a mapping from the cells (faces if secondary.dim ==
+        # primary.dim) of the secondary grid to the faces of the primary grid.
         secondary_f, primary_f, data = sps.find(primary_secondary)
 
         # If the face_duplicate_ind is given we have to reorder the primary face indices
-        # such that the original faces comes first, then the duplicate faces.
-        # If the face_duplicate_ind is not given, we then assume that the primary side faces
+        # such that the original faces comes first, then the duplicate faces. If the
+        # face_duplicate_ind is not given, we then assume that the primary side faces
         # already have this ordering. If the grid is created using the pp.split_grid.py
         # module this should be the case.
         if (
@@ -790,26 +890,27 @@ class MortarGrid:
 
         # Store index of the faces on the 'other' side of the mortar grid.
         if self.num_sides() == 2:
-            # After the above sorting, we know that the faces on the other side is in the
-            # second half of primary_f, also if face_duplicate_ind is given.
+            # After the above sorting, we know that the faces on the other side is in
+            # the second half of primary_f, also if face_duplicate_ind is given.
             # ASSUMPTION: The mortar grids on the two sides should match each other, or
-            # else, the below indexing is wrong. This also means that the size of primary_f
-            # is an even number.
+            # else, the below indexing is wrong. This also means that the size of
+            # primary_f is an even number.
             sz = int(primary_f.size / 2)
             self._ind_face_on_other_side = primary_f[sz:]
 
-        # We assumed that the cells of the given side grid(s) is(are) ordered
-        # by the secondary side index. In other words: cell "n" of the side grid(s) should
-        # correspond to the element with the n'th lowest index in secondary_f. We therefore
-        # sort secondary_f to obtaint the side grid ordering. The primary faces should now be
-        # sorted such that the left side comes first, then the right side. We use stable
-        # sort to not mix up the ordering if there is two sides.
+        # We assumed that the cells of the given side grid(s) is(are) ordered by the
+        # secondary side index. In other words: cell "n" of the side grid(s) should
+        # correspond to the element with the n'th lowest index in secondary_f. We
+        # therefore sort secondary_f to obtaint the side grid ordering. The primary
+        # faces should now be sorted such that the left side comes first, then the right
+        # side. We use stable sort to not mix up the ordering if there is two sides.
         ix = np.argsort(secondary_f, kind="stable")
         if self.num_sides() == 2 and self.codim < 2:
             # If there are two sides we are in the case of a secondary grid of equal
-            # dimension as the mortar grid. The mapping primary_secondary is then a mapping
-            # from faces-cells, and we assume the higher dimensional grid is split and
-            # there is exactly two primary faces mapping to each secondary cell. Check this:
+            # dimension as the mortar grid. The mapping primary_secondary is then a
+            # mapping from faces-cells, and we assume the higher dimensional grid is
+            # split and there are exactly two primary faces mapping to each secondary
+            # cell. Check this:
             if not np.allclose(np.bincount(secondary_f), 2):
                 raise ValueError(
                     """Each face in the higher dimensional grid must map to
@@ -829,7 +930,8 @@ class MortarGrid:
         if not self.num_cells == cells.size:
             raise ValueError(
                 """In the construction of MortarGrid it is assumed
-            to be a one to one mapping between the mortar grid and the secondary mapping"""
+            to be a one to one mapping between the mortar grid and the
+            secondary mapping"""
             )
 
         shape_primary = (self.num_cells, primary_secondary.shape[1])
@@ -854,7 +956,8 @@ class MortarGrid:
 
     def _set_projections(self, primary: bool = True, secondary: bool = True) -> None:
         """Set projections to and from primary from the current state of
-        self._primary_to_mortar_int and self._secondary_to_mortar_int.
+        ``_primary_to_mortar_int`` and ``_secondary_to_mortar_int`` .
+
         """
 
         # IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.

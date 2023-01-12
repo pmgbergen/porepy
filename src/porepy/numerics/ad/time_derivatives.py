@@ -17,7 +17,7 @@ def dt(op: pp.ad.Operator, time_step: pp.ad.Scalar) -> pp.ad.Operator:
 
     This time derivative is obtained by taking a first-order finite difference.
 
-    The operator tree at the previous time step is created as a shalllow copy, and will
+    The operator tree at the previous time step is created as a shallow copy, and will
     thus be identical to the original operator, except that all time dependent operators
     are evaluated at the previous time step.
 
