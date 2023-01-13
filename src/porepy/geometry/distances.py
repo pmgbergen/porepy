@@ -1,6 +1,4 @@
-"""The module contains functions for distance computations.
-
-"""
+"""The module contains functions for distance computations."""
 from __future__ import annotations
 
 from typing import Union
@@ -15,15 +13,21 @@ def segment_set(start: np.ndarray, end: np.ndarray) -> tuple[np.ndarray, np.ndar
     """Compute distance and closest points between sets of line segments.
 
     Parameters:
-        start (shape=(nd, num_segments)): Start points of segments.
-        end (shape=(nd, num_segments)): End points of segments.
+        start: ``shape=(nd, num_segments)``
+
+            Start points of segments.
+        end: ``shape=(nd, num_segments)``
+
+            End points of segments.
 
     Returns:
         A tuple of 2 elements.
 
-        ndarray ``(shape=(num_segments, num_segments))``:
+        :obj:`~numpy.ndarray`: ``shape=(num_segments, num_segments)``
+
             Distances between segments.
-        ndarray ``(shape=(num_segments, num_segments, nd))``:
+        :obj:`~numpy.ndarray`: ``shape=(num_segments, num_segments, nd)``
+
             For segment ``i`` and ``j``, element ``[i, j]`` gives the point on ``i``
             closest to segment ``j``.
 
@@ -61,24 +65,36 @@ def segment_segment_set(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute distance and closest points between a segment and a set of segments.
 
-    .. note:: Algorithm can be found at http://geomalgorithms.com/code.html
+    Note:
+        Algorithm can be found at http://geomalgorithms.com/code.html
         (see file "C07_Line_Line_Distance.cpp",
         function ``dist3D_Segment_to_Segment()``).
 
     Parameters:
-        start (shape=(nd, 1)): Start point of the main segment.
-        end (shape=(nd, 1)): End point of the main segment.
-        start_set (shape=(nd, num_segments)): Start points for the segment set.
-        end_set (shape=(nd, num_segments)): End points for the segment set.
+        start:  ``shape=(nd, 1)``
+
+            Start point of the main segment.
+        end: ``shape=(nd, 1)``
+
+            End point of the main segment.
+        start_set: ``shape=(nd, num_segments)``
+
+            Start points for the segment set.
+        end_set: ``shape=(nd, num_segments)``
+
+            End points for the segment set.
 
     Returns:
         A tuple of 3 elements.
 
-        ndarray ``(shape=(num_segments,))``:
+        :obj:`~numpy.ndarray`: ``shape=(num_segments,)``
+
             The distance from the main segment to each of the segments in the set.
-        ndarray ``(shape=(nd, num_segments))``:
+        :obj:`~numpy.ndarray`: ``shape=(nd, num_segments)``
+
             For each segment in the segment set, the point closest on the main segment.
-        ndarray ``(shape=(nd, num_segments))``:
+        :obj:`~numpy.ndarray`: ``shape=(nd, num_segments)``
+
             For each segment in the segment set, the point closest on the secondary
             segment.
 
@@ -198,16 +214,24 @@ def points_segments(
     The function also returns the closest points on the segments.
 
     Parameters:
-        p (shape=(nd, num_points)): Individual points.
-        start (shape=(nd, num_segments)): Start points of segments.
-        end (shape=(nd, num_segments)): End point of segments.
+        p: ``shape=(nd, num_points)``
+
+            Individual points.
+        start: ``shape=(nd, num_segments)``
+
+            Start points of segments.
+        end: ``shape=(nd, num_segments)``
+
+            End point of segments.
 
     Returns:
         A tuple of 2 elements.
 
-        ndarray ``(shape=(num_points, num_segments))``:
+        :obj:`~numpy.ndarray`: ``shape=(num_points, num_segments)``
+
             Distances.
-        ndarray ``(shape=(num_points, num_segments, nd))``:
+        :obj:`~numpy.ndarray`: ``shape=(num_points, num_segments, nd)``
+
             Points on the segments closest to the individual points.
 
     """
@@ -246,8 +270,7 @@ def points_segments(
             v = p[:, pi].reshape((-1, 1)) - start
             proj = np.sum(v * line, axis=0) / lengths**2
 
-            # Projections with length less than zero have the closest point at
-            # start
+            # Projections with length less than zero have the closest point at start
             less = np.ma.less_equal(proj, 0)
             d[pi, less] = point_pointset(p[:, pi], start[:, less])
             cp[pi, less, :] = np.swapaxes(start[:, less], 1, 0)
@@ -268,8 +291,7 @@ def points_segments(
             v = p - start[:, ei].reshape((-1, 1))
             proj = np.sum(v * line[:, ei].reshape((-1, 1)), axis=0) / lengths[ei] ** 2
 
-            # Projections with length less than zero have the closest point at
-            # start.
+            # Projections with length less than zero have the closest point at start.
             less = np.ma.less_equal(proj, 0)
             d[less, ei] = point_pointset(start[:, ei], p[:, less])
             cp[less, ei, :] = start[:, ei]
@@ -296,9 +318,15 @@ def point_pointset(
     """Compute distance between a point and a set of points.
 
     Parameters:
-        p (shape=(nd, 1)): Point from which distances will be computed.
-        pset (shape=(nd, num_points)): Point cloud to which we compute distances.
-        exponent (optional): Exponent of the norm used. Defaults to 2.
+        p: ``shape=(nd, 1)``
+
+            Point from which distances will be computed.
+        pset: ``shape=(nd, num_points)``
+
+            Point cloud to which we compute distances.
+        exponent: ``default=2``
+
+            Exponent of the norm used.
 
     Returns:
         Array of distances ``(shape=(num_points,))``.
@@ -330,10 +358,13 @@ def pointset(p: np.ndarray, max_diag: bool = False) -> np.ndarray:
     """Compute mutual distance between all points in a point set.
 
     Parameters:
-        p (shape=(nd, num_points)): A set of points.
-        max_diag (optional): If True, the diagonal value corresponding to each point is
-            set to twice the maximum of the distances for that point, rather than 0.
-            Defaults to ``False``.
+        p: ``shape=(nd, num_points)``
+
+            A set of points.
+        max_diag: ``default=False``
+
+            If True, the diagonal value corresponding to each point is set to twice the
+            maximum of the distances for that point, rather than 0.
 
     Returns:
         Array of distances between points ``(shape=(num_points, num_points))``.
@@ -357,23 +388,31 @@ def pointset(p: np.ndarray, max_diag: bool = False) -> np.ndarray:
 def points_polygon(
     p: np.ndarray, poly: np.ndarray, tol: float = 1e-5
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Compute distance from points to a polygon. Also find closest point on
-    the polygon.
+    """Compute distance from points to a polygon. Also find closest point on the
+    polygon.
 
     Parameters:
-        p (shape=(nd, num_points)): Points for which we will compute distances.
-        poly (shape=(nd, num_vertexes)): Vertexes of polygon. Edges are formed by
-            subsequent points.
-        tol (optional): Tolerance to be used.
+        p: ``shape=(nd, num_points)``
+
+            Points for which we will compute distances.
+        poly: ``shape=(nd, num_vertexes)``
+
+            Vertexes of polygon. Edges are formed by subsequent points.
+        tol: ``default=1e-5``
+
+            Tolerance to be used.
 
     Returns:
         A tuple of 3 elements.
 
-        ndarray ``(shape=(num_points,))``:
+        :obj:`~numpy.ndarray`: ``shape=(num_points,)``
+
             Distance from points to polygon.
-        ndarray ``(shape=(nd, num_points,))``:
+        :obj:`~numpy.ndarray`: ``shape=(nd, num_points,)``
+
             For each point, the closest point on the polygon.
-        ndarray ``(shape=(num_points))``:
+        :obj:`~numpy.ndarray`: ``shape=(num_points)``
+
             ``True`` if the point is found in the interior,
             ``False`` if on a bounding segment.
 
@@ -416,12 +455,12 @@ def points_polygon(
     # Closest points
     cp = np.zeros((nd, num_p))
 
-    # For points that are located inside the extrusion of the polygon, the
-    # distance is simply the z-coordinate
+    # For points that are located inside the extrusion of the polygon, the distance is
+    # simply the z-coordinate
     d[in_poly] = np.abs(p[2, in_poly])
 
-    # The corresponding closest points are found by inverse rotation of the
-    # closest point on the polygon
+    # The corresponding closest points are found by inverse rotation of the closest
+    # point on the polygon
     cp_inpoly = p[:, in_poly]
     if cp_inpoly.size == 3:
         cp_inpoly = cp_inpoly.reshape((-1, 1))
@@ -431,8 +470,8 @@ def points_polygon(
     if np.all(in_poly):
         return d, cp, in_poly
 
-    # Next, points that are outside the extruded polygons. These will have
-    # their closest point among one of the edges
+    # Next, points that are outside the extruded polygons. These will have their closest
+    # point among one of the edges
     start = orig_poly
     end = orig_poly[:, (1 + np.arange(num_vert)) % num_vert]
 
@@ -454,17 +493,27 @@ def segments_polygon(
     """Compute the distance from line segments to a polygon.
 
     Parameters:
-        start (shape=(nd, num_segments)): One endpoint of segments.
-        end (shape=(nd, num_segments)): Other endpoint of segments.
-        poly (shape=(nd, n_vert)): Vertexes of polygon.
-        tol (optional): Tolerance to be used.
+        start: ``shape=(nd, num_segments)``
+
+            One endpoint of segments.
+        end: ``shape=(nd, num_segments)``
+
+            Other endpoint of segments.
+        poly: ``shape=(nd, n_vert)``
+
+            Vertexes of polygon.
+        tol: ``default=1e-5``
+
+            Tolerance to be used.
 
     Returns:
         A tuple of 2 elements.
 
-        ndarray ``(dtype=double, shape=(num_segments,))``:
+        :obj:`~numpy.ndarray`: ``(shape=(num_segments,), dtype=double)``
+
             Distance from segment to polygon.
-        ndarray ``(shape=(nd, num_segments))``:
+        :obj:`~numpy.ndarray`: ``shape=(nd, num_segments)``
+
             Closest point.
 
     """
@@ -518,18 +567,18 @@ def segments_polygon(
     )
 
     x0 = start + (end - start) * t
-    # Check if zero point is inside the polygon
+    # Check if zero point is inside the polygon.
     inside = pp.geometry_property_checks.point_in_polygon(poly_xy, x0[:2])
     crosses = np.logical_and(inside, zero_along_segment)
 
     # For points with zero incline, the z-coordinate should be zero for the
-    # point to be inside
+    # point to be inside.
     segment_in_plane = np.logical_and(
         np.abs(start[2]) < tol, np.logical_not(non_zero_incline)
     )
-    # Check if either start or endpoint is inside the polygon. This leaves the
-    # option of the segment crossing the polygon within the plane, but this
-    # will be handled by the crossing of segments below
+    # Check if either start or endpoint is inside the polygon. This leaves the option of
+    # the segment crossing the polygon within the plane, but this will be handled by the
+    # crossing of segments below.
     endpoint_in_polygon = np.logical_or(
         pp.geometry_property_checks.point_in_polygon(poly_xy, start[:2]),
         pp.geometry_property_checks.point_in_polygon(poly_xy, end[:2]),
@@ -542,19 +591,17 @@ def segments_polygon(
     x0[2, intersects] = 0
     cp[:, intersects] = center + irot.dot(x0[:, intersects])
 
-    # Check if we're done, or if we should consider proximity to polygon
-    # segments
+    # Check if we're done, or if we should consider proximity to polygon segments
     if np.all(intersects):
         # The distance is known to be zero, so no need to set it
         return d, cp
 
     not_found = np.where(np.logical_not(intersects))[0]
 
-    # If we reach this, the minimum is not zero for all segments. The point
-    # with minimum distance is then either 1) one endpoint of the segments
-    # (point-polygon), 2) found as a segment-segment minimum (segment and
-    # boundary of polygon), or 3) anywhere along the segment parallel with
-    # polygon.
+    # If we reach this, the minimum is not zero for all segments. The point with minimum
+    # distance is then either 1) one endpoint of the segments (point-polygon), 2) found
+    # as a segment-segment minimum (segment and boundary of polygon), or 3) anywhere
+    # along the segment parallel with polygon.
     poly = orig_poly
     start = orig_start
     end = orig_end
@@ -563,8 +610,8 @@ def segments_polygon(
     d_start_poly, cp_s_p, _ = points_polygon(start, poly)
     d_end_poly, cp_e_p, _ = points_polygon(end, poly)
 
-    # Loop over all segments that did not cross the polygon. The minimum is
-    # found either by the endpoints, or as between two segments.
+    # Loop over all segments that did not cross the polygon. The minimum is found either
+    # by the endpoints, or as between two segments.
     for si in not_found:
         # For starters, assume the closest point is on the start of the segment
         md = d_start_poly[si]
@@ -607,21 +654,33 @@ def segment_overlap_segment_set(
     The function currently works only for 2D geometries: ``nd == 2``.
 
     Parameters:
-        start (shape=(nd,)): Start point of a segment.
-        end (shape=(nd,)): End point of a segment.
-        start_set (shape=(nd, num_segments)): Start points of the set of segments.
-        end_set (shape=(nd, num_segments)): End points of the set of segments.
-        return_indices (optional): Whether the function should also return
-          indices of overlappings.
-        tol (optional): Tolerance to be used.
+        start: ``shape=(nd,)``
+
+            Start point of a segment.
+        end: ``shape=(nd,)``
+
+            End point of a segment.
+        start_set: ``shape=(nd, num_segments)``
+
+            Start points of the set of segments.
+        end_set: ``shape=(nd, num_segments)``
+
+            End points of the set of segments.
+        return_indices: ``default=False``
+
+            Whether the function should also return indices of overlappings.
+        tol: ``default=1e-5``
+
+            Tolerance to be used.
 
     Returns:
         If ``return_indices==True``, we return a tuple of 2 elements.
 
-        bool:
+        :obj:`bool`:
             ``True`` if the segment overlaps any of the segments in the set, ``False``
             otherwise.
-        ndarray ``(shape=(num_overlapping,))``:
+        :obj:`~numpy.ndarray`: ``shape=(num_overlapping,)``
+
             Indices of overlappings.
 
         Otherwise, the 0th element of the tuple is returned.

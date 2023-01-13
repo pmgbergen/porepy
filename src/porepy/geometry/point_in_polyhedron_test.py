@@ -19,10 +19,16 @@ class PointInPolyhedronTest:
     Implementation requires consistent orientation of the triangulated surface.
 
     Parameters:
-        vertices (shape=(num_pt, 3)): Triangulation vertices.
-        connectivity (shape=(num_triangles, 3)): Triangulation connectivity map.
-        tol (optional): Geometric tolerance, used in comparison of points, areas and
-            volumes. Defaults to 1e-10.
+        vertices: ``shape=(num_pt, 3)``
+
+            Triangulation vertices.
+        connectivity: ``shape=(num_triangles, 3)``
+
+            Triangulation connectivity map.
+        tol: ``default=1e-10``
+
+            Geometric tolerance, used in comparison of points, areas and
+            volumes.
 
     """
 
@@ -47,17 +53,19 @@ class PointInPolyhedronTest:
         segmentation using generalized winding numbers
         (https://doi.org/10.1145/2461912.2461916)
 
-        Args:
-            R (shape=(num_pt, 3)): Translated triangle's points at origin ``(0,0,0)``.
+        Raises:
+            ValueError: If the origin ``[0,0,0]`` point coincides with a vertex, is
+                collinear with the vertices, or is coplanar with the vertices.
+
+        Parameters:
+            R: ``shape=(num_pt, 3)``
+
+                Translated triangle's points at origin ``(0,0,0)``.
                 The original triangle's points need to be translated by subtracting the
                 arbitrary point P.
 
         Returns:
             The solid angle measured in steradians.
-
-        Raises:
-            ValueError: If the origin ``[0,0,0]`` point coincides with a vertex, is
-                collinear with the vertices, or is coplanar with the vertices.
 
         """
 
@@ -103,8 +111,10 @@ class PointInPolyhedronTest:
     def winding_number(self, point: np.ndarray[Any, np.dtype[np.float64]]) -> float:
         """Computes the winding number of a closed triangulated surface at given point.
 
-        Args:
-            point (shape=(1, 3)): The point being tested.
+        Parameters:
+            point: ``shape=(1, 3)``
+
+                The point being tested.
 
         Returns:
             The winding number generalized to R^3. Its absolute value ``|wn|`` is 0 for
