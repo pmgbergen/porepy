@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2. How to build documentation &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/howto/howto-build-docs.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="prev" title="1. How to docstring" href="howto-docstring.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active"><span class="section-number">2. </span>How to build documentation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-to-build-documentation">
+<h1><span class="section-number">2. </span>How to build documentation<a class="headerlink" href="#how-to-build-documentation" title="Permalink to this heading"></a></h1>
+<p>PorePy’s documentation is built using <a class="reference external" href="https://www.sphinx-doc.org/en/master/">Sphinx</a>.
+In this section you will find information on requirements and instructions on how to
+build and inspect the documentation of your source code, using PorePy’s configurations.</p>
+<p>The following packages are required:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sphinx</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sphinx-rtd-theme</span></code></p></li>
+</ol>
+<p>You can instal above packages using <code class="docutils literal notranslate"><span class="pre">pip</span></code> in your working environment. Make sure they
+are installed in the same environment as the PorePy version you are currently working with.</p>
+<p>After installing the required packages you need to get all files necessary for the build.
+They can be found on the <a class="reference external" href="https://github.com/pmgbergen/porepy/tree/docs">docs branch</a>
+on GitHub. Checkout this branch and copy the directory <code class="docutils literal notranslate"><span class="pre">/docs/</span></code> somewhere so you can access it
+after switching back to your branch or environment.</p>
+<p>Copy the <code class="docutils literal notranslate"><span class="pre">/docs/</span></code> directory into your <code class="docutils literal notranslate"><span class="pre">/porepy/</span></code> repository on the same level as <code class="docutils literal notranslate"><span class="pre">/porepy/src</span></code>,
+i.e. <code class="docutils literal notranslate"><span class="pre">/porepy/docs/</span></code>.
+Go to <code class="docutils literal notranslate"><span class="pre">/porepy/docs/</span></code> and run the following command:</p>
+<ul class="simple">
+<li><p>Linux: <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">html</span></code></p></li>
+<li><p>Windows (Powershell): <code class="docutils literal notranslate"><span class="pre">.\make.bat</span> <span class="pre">html</span></code></p></li>
+</ul>
+<p>This will run the Sphinx builder and create a local version of PorePy’s documentation in <code class="docutils literal notranslate"><span class="pre">/porepy/docs/html/</span></code>.</p>
+<p>To inspect the webpage, open <code class="docutils literal notranslate"><span class="pre">porepy/docs/index.html</span></code> in a browser.
+Navigate through the documentation and inspect what you want.</p>
+<section id="re-building-the-complete-api">
+<h2><span class="section-number">2.1. </span>Re-building the complete API<a class="headerlink" href="#re-building-the-complete-api" title="Permalink to this heading"></a></h2>
+<p>PorePy uses <code class="docutils literal notranslate"><span class="pre">sphinx-apidoc</span></code> to produce a complete documentation of the package.</p>
+<p>It will produce the complete webpage structure using <code class="docutils literal notranslate"><span class="pre">sphinx-autodoc</span></code> by importing Porepy as is.
+You do not have to (and should not) deal with the details, as PorePy has a complete Sphinx configuration in place.
+Your code must be compatible with the latest style guid and PorePy settings.</p>
+<p>If you want to re-build the webpage/rst structure from scratch, you can use the target <code class="docutils literal notranslate"><span class="pre">complete</span></code>:</p>
+<ul class="simple">
+<li><p>Linux: <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">complete</span> <span class="pre">html</span></code></p></li>
+<li><p>Windows (Powershell): <code class="docutils literal notranslate"><span class="pre">.\make.bat</span> <span class="pre">complete</span> <span class="pre">html</span></code></p></li>
+</ul>
+<p>This option will run <code class="docutils literal notranslate"><span class="pre">apidoc</span></code> as configured by PorePy before the builder,
+and it will produce the whole structure (stored in <code class="docutils literal notranslate"><span class="pre">/porepy/docs/docsrc/porepy/</span></code>).</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">porepy/docs/index.html</span></code> again as the entrypoint to inspect the docs.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Running the build from scratch is especially important if the structure of the PorePy package is modified.</p>
+<p>I.e. any new module or package, function, class or data which is added after the last run of <code class="docutils literal notranslate"><span class="pre">apidoc</span></code>
+(including modifications of <code class="docutils literal notranslate"><span class="pre">__all__</span></code> in Python files)
+must first be included into the webpage structure using <code class="docutils literal notranslate"><span class="pre">apidoc</span></code>.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>PorePy’s documentation is a work in progress. Not all docstrings have been re-worked such that they can be processed
+by Sphinx. Any compilation will as of now yield numerous errors and warnings.</p>
+<p>The builder should not fail though and you will obtain a displayable webpage.</p>
+</div>
+</section>
+<section id="building-the-documentation-for-latex">
+<h2><span class="section-number">2.2. </span>Building the documentation for <em>LaTex</em><a class="headerlink" href="#building-the-documentation-for-latex" title="Permalink to this heading"></a></h2>
+<p>If you want to build the documentation for LaTex, to be subsequently compiled into a pdf,
+use the target <code class="docutils literal notranslate"><span class="pre">latex</span></code> instead of <code class="docutils literal notranslate"><span class="pre">html</span></code></p>
+<ul class="simple">
+<li><p>Linux: <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">[complete]</span> <span class="pre">latex</span></code></p></li>
+<li><p>Windows (Powershell): <code class="docutils literal notranslate"><span class="pre">.\make.bat</span> <span class="pre">[complete]</span> <span class="pre">latex</span></code></p></li>
+</ul>
+<p>The output is stored in <code class="docutils literal notranslate"><span class="pre">/porepy/docs/latex/</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PorePy does not include a LaTex engine or respective compilation.
+You have to install an engine by yourself and compile the pdf manually using the files
+created in <code class="docutils literal notranslate"><span class="pre">/porepy/docs/latex/</span></code>.</p>
+</div>
+</section>
+<section id="building-and-inspecting-local-docs">
+<h2><span class="section-number">2.3. </span>Building and inspecting local docs<a class="headerlink" href="#building-and-inspecting-local-docs" title="Permalink to this heading"></a></h2>
+<p>During development it is often necessary to inspect the docs of a single module or Python code.</p>
+<p>It is time-consuming to build the whole PorePy documentation every time you make minor local changes.
+To avoid that you can build your own webpage which compiles only the docs you want to inspect.</p>
+<p>To do so, perform the following steps:</p>
+<ol class="arabic">
+<li><p>Create an own page <code class="docutils literal notranslate"><span class="pre">/porepy/docs/my_page.rst</span></code> as a rst file and write a title inside your file</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">=============</span>
+<span class="n">My</span> <span class="n">Page</span> <span class="n">Title</span>
+<span class="o">=============</span>
+</pre></div>
+</div>
+</li>
+<li><p>Open <code class="docutils literal notranslate"><span class="pre">/porepy/docs/index.rst</span></code> and navigate to the section <code class="docutils literal notranslate"><span class="pre">Documentation</span></code>.</p></li>
+<li><p>Modify the TOC tree such that it points to <code class="docutils literal notranslate"><span class="pre">my_page.rst</span></code>, i.e. replace</p>
+<p><code class="docutils literal notranslate"><span class="pre">docsrc/porepy/modules</span></code></p>
+<p>with</p>
+<p><code class="docutils literal notranslate"><span class="pre">my_page</span></code>.</p>
+<p>This will replace the PorePy pages with your own.</p>
+</li>
+<li><p>Use an <code class="docutils literal notranslate"><span class="pre">autodoc</span></code>-directive of your choice to import the code you wish to build.</p>
+<p>If you have created new code, say <code class="docutils literal notranslate"><span class="pre">/porepy/src/porepy/my_package/my_module.py</span></code>,
+you can add the following lines in <code class="docutils literal notranslate"><span class="pre">my_page.rst</span></code> to have your code included:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">automodule</span><span class="p">::</span> <span class="n">porepy</span><span class="o">.</span><span class="n">my_package</span><span class="o">.</span><span class="n">my_module</span>
+    <span class="p">:</span><span class="n">members</span><span class="p">:</span>
+    <span class="p">:</span><span class="n">undoc</span><span class="o">-</span><span class="n">members</span><span class="p">:</span>
+    <span class="p">:</span><span class="n">private</span><span class="o">-</span><span class="n">members</span><span class="p">:</span>
+    <span class="p">:</span><span class="n">special</span><span class="o">-</span><span class="n">members</span><span class="p">:</span>
+</pre></div>
+</div>
+<p>This will import every member available in your <code class="docutils literal notranslate"><span class="pre">my_module.py</span></code> file and build respective docs.</p>
+<p>Provide the <strong>complete</strong> namespace to your file, i.e. <code class="docutils literal notranslate"><span class="pre">porepy.my_package.my_module</span></code>.
+The file name alone will not suffice.</p>
+<p>Run the make command again to build your docs. It might be necessary to run it several times for Sphinx
+to realize the changes.</p>
+</li>
+<li><p>Open again <code class="docutils literal notranslate"><span class="pre">porepy/docs/index.html</span></code> and you will find a link to your webpage instead of a link to
+PorePy’s documentation on the main page.</p></li>
+<li><p>Inspect your documentation, modify your Python code, run make and repeat until you are done.</p></li>
+</ol>
+<p>There are solutions to update the webpage in realtime without having to re-run the Sphinx builder.
+They rely mostly on third-party software and are not included in PorePy.
+Feel free to use them on your own responsibility.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When working on docstrings and inspecting your documentation,
+make sure you resolve <strong>all</strong> errors and warnings Sphinx produces!</p>
+<p>If your code is to be included into the main branch, an error- and warning-free documentation will be required.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="howto-docstring.html" class="btn btn-neutral float-left" title="1. How to docstring" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

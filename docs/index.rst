@@ -42,6 +42,15 @@ more complex problems will likely require diving into parts of the source code.
 This is partly due to lack of resources from the developer side,
 but it also reflects that these are difficult problems for which robust and standardized setups cannot be defined.
 
+Documentation
+=============
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 1
+
+   docsrc/porepy/porepy
+
 For developers
 ==============
 
@@ -54,15 +63,7 @@ attempting a pull-request.
    :titlesonly:
    
    docsrc/howto/howto-docstring
-
-Documentation
-==================
-
-.. toctree::
-   :titlesonly:
-   :maxdepth: 1
-
-   docsrc/porepy/modules
+   docsrc/howto/howto-build-docs
 
 Indices and tables
 ==================

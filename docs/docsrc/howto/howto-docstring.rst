@@ -1,5 +1,5 @@
 ================
-How-To docstring
+How to docstring
 ================
 
 .. automodule:: example_docstrings

@@ -41,7 +41,9 @@ if "%1" == "complete" goto complete
 goto end
 
 :complete
+@DEL /F /Q "%POREPYDOCSRC%*.*" >NUL
 %SPHINXAPIDOC% -f -e -M -d 1 --implicit-namespaces -o %POREPYDOCSRC% %POREPYDIR%
+@DEL /F /Q "%POREPYDOCSRC%modules.rst" >NUL
 if NOT "%2" == "" (
 	%SPHINXBUILD% -M %2 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
 )

@@ -17,20 +17,22 @@ help:
 
 # complete target first, to build rst structure
 complete:
+	@rm -f "$(POREPYDOCSRC)*.*"
 	@$(SPHINXAPIDOC) -f -e -M -d 1 --implicit-namespaces -o "$(POREPYDOCSRC)" "$(POREPYDIR)"
+	@rm -f "$(POREPYDOCSRC)modules.rst"
 
 # html target
 html:
-	rm -rf ./doctrees/
-	rm -rf ./html/
-	rm -rf ./latex/
+	@rm -rf ./doctrees/
+	@rm -rf ./html/
+	@rm -rf ./latex/
 	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 # latex target
 latex:
-	rm -rf ./doctrees/
-	rm -rf ./html/
-	rm -rf ./latex/
+	@rm -rf ./doctrees/
+	@rm -rf ./html/
+	@rm -rf ./latex/
 	@$(SPHINXBUILD) -M latex "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 # Catch-all target: route all unknown targets to Sphinx
