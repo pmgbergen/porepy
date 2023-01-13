@@ -57,7 +57,7 @@ class ExactSolution:
         """Constructor of the class"""
         self.setup = setup
 
-    def pressure(self, y: np.ndarray, t: Union[float, int]) -> np.ndarray:
+    def pressure(self, y: np.ndarray, t: number) -> np.ndarray:
         """Compute exact pressure.
 
         Parameters:
@@ -89,7 +89,7 @@ class ExactSolution:
 
         return p
 
-    def consolidation_degree(self, t: Union[float, int]) -> float:
+    def consolidation_degree(self, t: number) -> float:
         """Compute exact degree of consolidation.
 
         Parameters:
@@ -468,21 +468,29 @@ class ModifiedBoundaryConditionsMechanicsTimeDependent(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
     mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid"""
+
     domain_boundary_sides: Callable[[pp.Grid], tuple]
+    """Named tuple containing the boundary sides indices."""
+
     stress_keyword: str
+    """Keyword for the mechanical subproblem."""
+
     bc_values_mechanics_key: str
+    """Keyword for accessing the boundary values for the mechanical subproblem."""
+
     params: dict
+    """Parameter dictionary of the verification setup."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
-
 
         Parameters:
             sd: Subdomain grid.
 
         Returns:
-            bc: Boundary condition representation. Dirichlet on all global boundaries,
-            Dirichlet also on fracture faces.
+            bc: Boundary condition representation. Neumann on the north, Dirichlet on
+              south, and rollers on the sides.
 
         """
         # Inherit bc from parent class. This sets all bc faces as Dirichlet.
@@ -516,7 +524,8 @@ class ModifiedBoundaryConditionsMechanicsTimeDependent(
             subdomains: List of subdomains on which to define boundary conditions.
 
         Returns:
-            Array of boundary values.
+            Array of boundary values. Only non-zero values are the ones associated to
+              the North side of the domain.
 
         """
         sd = subdomains[0]
@@ -537,7 +546,8 @@ class ModifiedBoundaryConditionsSinglePhaseFlow(
             sd: Subdomain grid.
 
         Returns:
-            Scalar boundary condition representation.
+            Scalar boundary condition representation. All sides no flow, except the
+              North side which is set to a constant pressure.
 
         """
         # Define boundary regions
@@ -557,21 +567,29 @@ class ModifiedPoromechanicsBoundaryConditions(
     ModifiedBoundaryConditionsSinglePhaseFlow,
     ModifiedBoundaryConditionsMechanicsTimeDependent,
 ):
-    ...
+    """Mixer class for poromechanics boundary conditions."""
 
 
 # -----> Solution strategy
 class ModifiedSolutionStrategy(
     poromechanics.SolutionStrategyPoromechanics,
 ):
-    """Constructor for the class"""
-
     results: list[StoreResults]
+    """List of store results objects."""
+
     exact_sol: ExactSolution
+    """Exact solution object."""
+
     plot_results: Callable
+    """Method that plots the presssure and degree of consolidation."""
 
-    def __init__(self, params: dict):
+    def __init__(self, params: dict) -> None:
+        """Constructor of the class.
 
+        Parameters:
+            params: Parameters of the verification setup.
+
+        """
         # Exact solution
         self.exact_sol: ExactSolution
         """Exact solution object"""
@@ -621,10 +639,10 @@ class ModifiedSolutionStrategy(
         self.exact_sol = ExactSolution(self)
 
     def initial_condition(self) -> None:
-        """Set initial condition.
+        """Set initial conditions.
 
         Terzaghi's problem assumes that the soil is initially unconsolidated and that
-        initial fluid pressure equals the vertical load.
+          the initial fluid pressure equals the vertical load.
 
         """
         super().initial_condition()
@@ -651,6 +669,7 @@ class ModifiedSolutionStrategy(
             self.results.append(StoreResults(self))  # type: ignore
 
     def _is_nonlinear_problem(self) -> bool:
+        """The problem is linear."""
         return False
 
     def after_simulation(self) -> None:
@@ -670,7 +689,6 @@ class TerzaghiSetup(
     """
     Mixer class for Terzaghi's consolidation problem.
 
-
     Examples:
 
         .. code::python
@@ -689,18 +707,3 @@ class TerzaghiSetup(
         print(f"Simulation finished in {round(toc - tic)} seconds.")
 
     """
-
-
-# # %% Runner
-# params = {
-#     "plot_results": True,
-#     "stored_times": [0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
-# }
-# setup = TerzaghiSetup(params)
-# pp.run_time_dependent_model(setup, params)
-#
-# sd = setup.mdg.subdomains()[0]
-# data = setup.mdg.subdomain_data(sd)
-#
-# p = data[pp.STATE]["pressure"]
-# pp.plot_grid(sd, p, plot_2d=True)
