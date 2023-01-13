@@ -338,10 +338,7 @@ class BoundaryConditionsSinglePhaseFlow:
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
-        Not sure where this one should reside. Note that we could remove the
-        grid_operator BC and DirBC, probably also ParameterArray/Matrix (unless needed
-        to get rid of pp.ad.Discretization. I don't see how it would be, though).
+        """Boundary condition values for the Darcy flux.
 
         Parameters:
             subdomains: List of subdomains.
@@ -642,11 +639,18 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
         """
         permeability_ad = self.specific_volume([sd]) * self.permeability([sd])
-        permeability = permeability_ad.evaluate(self.equation_system)
+        try:
+            permeability = permeability_ad.evaluate(self.equation_system)
+        except KeyError:
+            # If the permeability depends on an not yet computed discretization matrix,
+            # fall back on reference value
+            volume = self.specific_volume([sd]).evaluate(self.equation_system)
+            permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
         # The result may be an Ad_array, in which case we need to extract the
         # underlying array.
         if isinstance(permeability, pp.ad.Ad_array):
             permeability = permeability.val
+        # TODO: Safeguard against negative permeability?
         return pp.SecondOrderTensor(permeability)
 
     def before_nonlinear_iteration(self):
