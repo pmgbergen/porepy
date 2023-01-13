@@ -539,6 +539,21 @@ class ModifiedBoundaryConditionsMechanicsTimeDependent(
 class ModifiedBoundaryConditionsSinglePhaseFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
+
+    domain_boundary_sides: Callable[
+        [pp.Grid],
+        tuple[
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+        ],
+    ]
+    """Utility function to access the domain boundary sides."""
+
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the flow subproblem.
 
@@ -678,7 +693,7 @@ class ModifiedSolutionStrategy(
             self.plot_results()
 
 
-class TerzaghiSetup(
+class TerzaghiSetup(  # type: ignore
     ModifiedPoromechanicsBoundaryConditions,
     ModifiedSolutionStrategy,
     ModifiedGeometry,
