@@ -1,5 +1,4 @@
-"""Compute bounding boxes of geometric objects.
-"""
+"""Compute bounding boxes of geometric objects."""
 from __future__ import annotations
 
 from typing import Union
@@ -9,13 +8,17 @@ import numpy as np
 import porepy as pp
 
 
-def from_points(pts, overlap: float = 0) -> dict[str, float]:
+def from_points(pts: np.ndarray, overlap: float = 0) -> dict[str, float]:
     """Obtain a bounding box for a point cloud.
 
     Parameters:
-        pts: np.ndarray (nd x np). Point cloud. nd should be 2 or 3
-        overlap: Extension of the bounding box outside the point cloud. Scaled with
-            extent of the point cloud in the respective dimension. Defaults to 0.
+        pts: ``shape=(nd, np)``
+
+            Point cloud. nd should be 2 or 3.
+        overlap: ``default=0``
+
+            Extension of the bounding box outside the point cloud. Scaled with extent of
+            the point cloud in the respective dimension.
 
     Returns:
         The domain represented as a dictionary with keywords ``xmin``, ``xmax``,
@@ -46,10 +49,14 @@ def from_grid(g: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
         g: The grid for which the bounding box is to be computed.
 
     Returns:
-        ndarray ``(shape=(3,))``:
+        A 2-tuple containing
+
+        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+
             Minimum node coordinates in each direction.
 
-        ndarray ``(shape=(3,))``:
+        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+
             Maximum node coordinates in each direction.
 
     """
@@ -67,15 +74,17 @@ def from_md_grid(
 
     Parameters:
         mdg: Mixed-dimensional grid for which the bounding box is to be computed.
-        as_dict: If ``True``, the bounding box is returned as a dictionary, if
-            ``False``, it is represented by arrays with max and min values. Defaults to
-            ``False``.
+        as_dict: ``default=False``
+
+            If ``True``, the bounding box is returned as a dictionary, if ``False``, it
+            is represented by arrays with max and min values.
 
     Returns:
-        dictionary *or* tuple of np.ndarray: If ``as_dict`` is ``True``, the bounding box is
-            represented as a dictionary with keys ``xmin``, ``xmax``, ``ymin``,
-            ``ymax``, ``zmin``, and ``zmax``. Else, two ``ndarrays`` are returned,
-            containing the min and max values of the coordinates, respectively.
+        If ``as_dict`` is ``True``, the bounding box is represented as a dictionary with
+        keys ``xmin``, ``xmax``, ``ymin``, ``ymax``, ``zmin``, and ``zmax``.
+
+        Else, two ``ndarrays`` are returned, containing the min and max values of the
+        coordinates, respectively.
 
     """
     c_0s = np.empty((3, mdg.num_subdomains()))
@@ -111,7 +120,7 @@ def make_bounding_planes_from_box(box: dict[str, float]) -> list[np.ndarray]:
             ``zmin``, and ``zmax``.
 
     Returns:
-        list of the six bounding planes defined by 3 x 4 coordinate values.
+        List of the six bounding planes defined by 3 x 4 coordinate values.
 
     """
     x0 = box["xmin"]
