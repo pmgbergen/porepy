@@ -269,6 +269,7 @@ class SolidConstants(MaterialConstants):
                 - ``normal_permeability``: Normal permeability [m^2].
                 - ``lame_lambda``: Lame parameter lambda [Pa].
                 - ``shear_modulus``: Shear modulus [Pa].
+                - ``specific_storage``: Specific storage [Pa^-1].
                 - ``friction_coefficient``: Friction coefficient [-].
                 - ``fracture_gap``: Fracture gap [m].
                 - ``dilation_angle``: Dilation angle [radians].
