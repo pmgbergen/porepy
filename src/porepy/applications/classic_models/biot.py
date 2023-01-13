@@ -57,15 +57,14 @@ References:
 
 
 import porepy as pp
-
-from porepy.models.poromechanics import Poromechanics, ConstitutiveLawsPoromechanics
+from porepy.models.poromechanics import ConstitutiveLawsPoromechanics, Poromechanics
 
 
 class ConstitutiveLawsBiot(
     pp.constitutive_laws.SpecificStorage,
     pp.constitutive_laws.BiotPoromechanicsPorosity,
     pp.constitutive_laws.ConstantFluidDensity,
-    ConstitutiveLawsPoromechanics
+    ConstitutiveLawsPoromechanics,
 ):
     ...
 
