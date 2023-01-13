@@ -1364,7 +1364,7 @@ class AdvectiveFlux:
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
-    
+
     """
 
     def advective_flux(
@@ -2613,6 +2613,18 @@ class BiotPoromechanicsPorosity(PoroMechanicsPorosity):
     specific_storage: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Specific storage. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+
+    """
+
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from reference state. Normally provided by
+    a mixin of instance :class:`~porepy.models.VariableMixin`.
+
+    """
+
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
 
     """
 
