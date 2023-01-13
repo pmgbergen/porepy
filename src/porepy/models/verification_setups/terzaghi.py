@@ -684,7 +684,6 @@ class TerzaghiSetup(
     ModifiedGeometry,
     SetupUtilities,
     BiotPoromechanics,
-    # poromechanics.Poromechanics
 ):
     """
     Mixer class for Terzaghi's consolidation problem.
