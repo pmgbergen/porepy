@@ -99,7 +99,7 @@ class DofManager:
         # Array version of the number of dofs per node/edge and variable
         self.full_dof: np.ndarray = np.array(full_dof)
         self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
-
+        
     def dofs_of(self, variables: list[pp.ad.Variable]) -> np.ndarray:
         """Get the indices in the global vector of unknowns belonging to the variables.
 
@@ -334,10 +334,11 @@ class DofManager:
             raise NotImplementedError("Only None is supported as input for now")
         # storage for atomic blocks of the sub vector (identified by name-grid pairs)
         values = []
-
+        
         # loop over all blocks and process those requested
         # this ensures uniqueness and correct order
         for grid, name in self.block_dof.items():
+          
             if isinstance(grid, pp.Grid):
                 data: dict = self.mdg.subdomain_data(grid)
             elif isinstance(grid, pp.MortarGrid):

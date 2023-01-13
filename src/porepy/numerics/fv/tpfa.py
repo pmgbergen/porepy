@@ -218,8 +218,8 @@ class Tpfa(pp.FVElliptic):
 
         # Store the matrix in the right dictionary:
         eye_comp = sps.eye(num_components)
-        matrix_dictionary[self.flux_matrix_key] = sps.kron(flux, eye_comp)
-        matrix_dictionary[self.bound_flux_matrix_key] = sps.kron(bound_flux, eye_comp)
+        matrix_dictionary[self.flux_matrix_key] = sps.kron(flux, eye_comp).tocsr()
+        matrix_dictionary[self.bound_flux_matrix_key] = sps.kron(bound_flux, eye_comp).tocsr()
 
         # Next, construct operator to reconstruct pressure on boundaries
         # Fields for data storage
@@ -239,11 +239,11 @@ class Tpfa(pp.FVElliptic):
         ).tocsr()
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.kron(
             bound_pressure_cell, eye_comp
-            )
+            ).tocsr()
         matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.kron(
             bound_pressure_face, eye_comp
-            )
-
+            ).tocsr()
+        #if sd.dim==1:breakpoint()
         # Discretization of vector source
         # e.g. gravity in Darcy's law
         # Use harmonic average of cell transmissibilities
@@ -263,7 +263,7 @@ class Tpfa(pp.FVElliptic):
 
         matrix_dictionary[self.vector_source_matrix_key] = sps.kron(
             vector_source, eye_comp
-            )
+            ).tocsr()
 
         # Gravity contribution to pressure reconstruction
         # The pressure difference is computed as the dot product between the
@@ -275,4 +275,4 @@ class Tpfa(pp.FVElliptic):
         ).tocsr()
         matrix_dictionary[
             self.bound_pressure_vector_source_matrix_key
-        ] = sps.kron(bound_pressure_vector_source, eye_comp)
+        ] = sps.kron(bound_pressure_vector_source, eye_comp).tocsr()

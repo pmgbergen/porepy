@@ -704,7 +704,7 @@ class Operator:
         # state (this must be done jointly for all variables of the operator to get all
         # derivatives represented). Then parse the operator by traversing its
         # tree-representation, and parse and combine individual operators.
-
+        #breakpoint()
         prev_vals = system_manager.get_variable_values(from_iterate=False)
 
         if state is None:

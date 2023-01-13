@@ -210,7 +210,7 @@ class Mpfa(pp.FVElliptic):
             eliminate_face = np.where(
                 np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
             )[0]
-
+            
             pp.fvutils.remove_nonlocal_contribution(eliminate_face, 1, *discr_fields)
 
             # Split the discretization.
@@ -224,7 +224,7 @@ class Mpfa(pp.FVElliptic):
             ) = discr_fields
 
             # Next, transfer discretization matrices from the local to the active grid
-
+            
             if (
                 sub_sd.num_cells == active_grid.num_cells
                 and sub_sd.num_faces == active_grid.num_faces
@@ -265,6 +265,7 @@ class Mpfa(pp.FVElliptic):
                 active_bound_pressure_vector_source += (
                     face_map * loc_bound_pressure_vector_source * cell_map_vec
                 )
+        
 
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid
@@ -551,7 +552,7 @@ class Mpfa(pp.FVElliptic):
             }
             discr.discretize(sd, d)
             matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
-
+       
             return (
                 matrix_dictionary[self.flux_matrix_key],
                 matrix_dictionary[self.bound_flux_matrix_key],
@@ -981,7 +982,7 @@ class Mpfa(pp.FVElliptic):
 
         vector_source = hf2f * discr_vector_source * sc2c
         bound_pressure_vector_source = area_mat * vector_source_bound * sc2c
-
+        
         return (
             flux,
             bound_flux,
