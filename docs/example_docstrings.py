@@ -55,7 +55,6 @@ import numpy as np
 import scipy.sparse as sps
 from numpy.typing import ArrayLike, DTypeLike, NDArray
 
-
 example_var_1: str = "var"
 """Variables at the module level are documented inline after declaration."""
 
@@ -243,8 +242,8 @@ def example_function_3(
             If unclear to what the number refers, explain.
 
             Use explicitly ``shape`` for numpy arrays to describe as precise as possible
-            which dimensions are allowed. 
-            
+            which dimensions are allowed.
+
             Note:
                 In ``numpy`` and ``scipy`` it holds ``(3,) != (3, 1)``.
         matrix: ``shape=(3, num_cells)``
