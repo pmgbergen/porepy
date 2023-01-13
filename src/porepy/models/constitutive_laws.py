@@ -230,7 +230,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
 
                 a_ref = self.residual_aperture(subdomains_of_dim)
-                apertures_of_dim = f_max(normal_jump, a_ref)
+                apertures_of_dim = f_max(normal_jump + a_ref, a_ref)
                 apertures_of_dim.set_name("aperture_maximum_function")
                 apertures = (
                     apertures
@@ -680,29 +680,53 @@ class CubicLawPermeability(ConstantPermeability):
         """Permeability [m^2].
 
         Parameters:
-            subdomain: Subdomain where the permeability is defined. Should be of length
-                1; the list format is used for compatibility with similar methods.
+            subdomains: List of subdomains.
 
         Returns:
-            Cell-wise permeability tensor. The value is picked from the solid constants
-                for the matrix and computed from the fracture aperture for fractures and
-                intersections.
-
-        Raises:
-            ValueError: If more than one subdomain is provided.
+            Cell-wise permeability values.
 
         """
-        if len(subdomains) > 1:
-            raise ValueError("Only one subdomain is allowed.")
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        matrix = [sd for sd in subdomains if sd.dim == self.nd]
+        fractures_and_intersections: list[pp.Grid] = [
+            sd for sd in subdomains if sd.dim < self.nd
+        ]
 
-        if subdomains[0].dim == self.nd:
-            return super().permeability(subdomains)
+        permeability = projection.cell_prolongation(matrix) * self.matrix_permeability(
+            matrix
+        ) + projection.cell_prolongation(
+            fractures_and_intersections
+        ) * self.cubic_law_permeability(
+            fractures_and_intersections
+        )
+        return permeability
 
-        # Fracture or intersection
+    def cubic_law_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Cubic law permeability for fractures (or intersections).
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
         aperture = self.aperture(subdomains)
-        perm = aperture**2 / 12
-        # Scale by specific volume
+        perm = aperture**2 * pp.ad.Scalar(1 / 12)
+
         return perm
+
+    def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability of the matrix.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
+        return super().permeability(subdomains)
 
 
 class DarcysLaw:
