@@ -144,8 +144,8 @@ class SolutionStrategy(abc.ABC):
         self.set_materials()
         self.create_variables()
         self.initial_condition()
-        self.set_discretization_parameters()
         self.set_equations()
+        self.set_discretization_parameters()
 
         # Export initial condition
         self.initialize_data_saving()
