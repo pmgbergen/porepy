@@ -87,14 +87,10 @@ class FractureNetwork2d:
 
         """
 
-<<<<<<< HEAD
-        self.domain = domain
-=======
         if isinstance(domain, np.ndarray):
             domain = pp.bounding_box.from_points(domain)
 
         self.domain: dict[str, float] | None = domain
->>>>>>> develop
         """The domain for this fracture network.
 
         The domain is defined by a dictionary with keys 'xmin', 'xmax', 'ymin', 'ymax'.
