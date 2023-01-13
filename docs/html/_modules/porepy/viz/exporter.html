@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>porepy.viz.exporter &mdash; PorePy 1.5 documentation</title>
+  <title>porepy.viz.exporter &mdash; PorePy 1.6.0 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
     <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/viz/exporter.html" />
@@ -30,7 +30,7 @@
             <a href="../../../index.html" class="icon icon-home"> PorePy
           </a>
               <div class="version">
-                docs/alpha
+                1.6.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -44,178 +44,130 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
 </ul>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/modules.html">porepy</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
 </ul>
@@ -344,11 +296,11 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Initialization of Exporter.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            grid (Union[pp.Grid, pp.MixedDimensionalGrid]): subdomain or mixed-dimensional grid</span>
-<span class="sd">                containing all mesh information (and data in the latter case) to be exported.</span>
-<span class="sd">            file_name (str): basis for file names used for storing the output</span>
-<span class="sd">            folder_name (str, optional): name of the folder in which files are stored</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            grid: Subdomain or mixed-dimensional grid containing all mesh information</span>
+<span class="sd">                (and data in the latter case) to be exported.</span>
+<span class="sd">            file_name: Basis for file names used for storing the output.</span>
+<span class="sd">            folder_name: Name of the folder in which files are stored.</span>
 <span class="sd">            kwargs: Optional keywords arguments:</span>
 <span class="sd">                fixed_grid (boolean): to control whether the grid may be redefined later</span>
 <span class="sd">                    (default True)</span>
@@ -362,8 +314,10 @@
 <span class="sd">                    of storage.</span>
 
 <span class="sd">        Raises:</span>
-<span class="sd">            TypeError if grid has other type than pp.Grid or pp.MixedDimensional grid</span>
-<span class="sd">            TypeError if kwargs contains unexpected keyword arguments</span>
+<span class="sd">            TypeError: If grid has other type than :class:`~pp.grids.grid.Grid` or</span>
+<span class="sd">                :class:`~pp.grids.md_grid.MixedDimensionalGrid`.</span>
+<span class="sd">            TypeError: If kwargs contains unexpected keyword arguments.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Exporter is operating on mixed-dimensional grids. Convert to mixed-dimensional</span>
         <span class="c1"># grids if subdomain grid is provided.</span>
@@ -443,7 +397,7 @@
 <span class="sd">        which is varying in time. As part of the routine, the data is converted</span>
 <span class="sd">        to the same unified format.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            data (Union[DataInput, list[DataInput]], optional): subdomain and</span>
 <span class="sd">                interface data, prescribed through strings, or tuples of</span>
 <span class="sd">                subdomains/interfaces, keys and values. If not provided, only</span>
@@ -484,7 +438,7 @@
 <span class="sd">        triangle/quad, while in 3d as polyhedra/tetrahedra/hexahedra.</span>
 <span class="sd">        In all the dimensions the geometry of the mesh needs to be computed.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            data (Union[DataInput, list[DataInput]], optional): subdomain and</span>
 <span class="sd">                interface data, prescribed through strings, or tuples of</span>
 <span class="sd">                subdomains/interfaces, keys and values. If not provided only</span>
@@ -612,7 +566,7 @@
 <span class="sd">        We assume that the VTU associated files have the same name, and that.</span>
 <span class="sd">        the VTU associated files are in the working directory.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            times (np.ndarray, optional): array of actual times to be exported. These will</span>
 <span class="sd">                be the times associated with individual time steps in, say, ParaView.</span>
 <span class="sd">                By default, the times will be associated with the order in which the time</span>
@@ -737,22 +691,21 @@
         <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="c1"># ignore type which is essentially Union[DataInput, list[DataInput]]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">SubdomainData</span><span class="p">,</span> <span class="n">InterfaceData</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Preprocess data.</span>
+        <span class="sd">&quot;&quot;&quot;Preprocess data.</span>
 
 <span class="sd">        The routine has two goals:</span>
 <span class="sd">        1. Splitting data into subdomain and interface data.</span>
 <span class="sd">        2. Unify the data format. Store data in dictionaries, with keys given by</span>
 <span class="sd">            subdomains/interfaces and names, and values given by the data arrays.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            data (Union[DataInput, list[DataInput]], optional): data</span>
 <span class="sd">                provided by the user in the form of strings and/or tuples</span>
 <span class="sd">                of subdomains/interfaces.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            tuple[SubdomainData, InterfaceData]: Subdomain and interface data decomposed and</span>
-<span class="sd">                brought into unified format.</span>
+<span class="sd">            tuple[SubdomainData, InterfaceData]: Subdomain and interface data decomposed</span>
+<span class="sd">                and brought into unified format.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            ValueError if the data type provided is not supported</span>
@@ -779,13 +732,14 @@
 <span class="sd">            object, but do nothing if the data naturally can be interpreted as</span>
 <span class="sd">            scalar data.</span>
 
-<span class="sd">            Args:</span>
-<span class="sd">                value (np.ndarray): input array to be converted</span>
+<span class="sd">            Parameters:</span>
+<span class="sd">                value (np.ndarray): input array to be converted.</span>
 <span class="sd">                grid (pp.Grid or pp.MortarGrid): subdomain or interface to which value</span>
-<span class="sd">                    is associated to</span>
+<span class="sd">                    is associated to.</span>
 
 <span class="sd">            Raises:</span>
-<span class="sd">                ValueError if the value array is not compatible with the grid</span>
+<span class="sd">                ValueError if the value array is not compatible with the grid.</span>
+
 <span class="sd">            &quot;&quot;&quot;</span>
             <span class="c1"># Make some checks</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="o">.</span><span class="n">size</span> <span class="o">%</span> <span class="n">grid</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -1255,9 +1209,9 @@
 <span class="sd">        related to those subdomains will be exported simultaneously.</span>
 <span class="sd">        Analogously for interfaces.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            data (Union[SubdomainData, InterfaceData]): Subdomain or interface data.</span>
-<span class="sd">            time_step (int): time_step to be used to append the file name</span>
+<span class="sd">            time_step (int): time_step to be used to append the file name.</span>
 <span class="sd">            kwargs: Optional keyword arguments:</span>
 <span class="sd">                &#39;interface_data&#39; (boolean) indicates whether data is associated to</span>
 <span class="sd">                    an interface, default is False;</span>
@@ -1265,9 +1219,10 @@
 <span class="sd">                    constant in time, default is False.</span>
 
 <span class="sd">        Raises:</span>
-<span class="sd">            TypeError if keyword arguments contain unsupported keyword</span>
-<span class="sd">            ValueError if data provided for some but not all subdomains or interfaces</span>
-<span class="sd">                of particular dimension</span>
+<span class="sd">            TypeError: if keyword arguments contain unsupported keyword</span>
+<span class="sd">            ValueError: if data provided for some but not all subdomains or interfaces</span>
+<span class="sd">                of particular dimension.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Check for optional keywords</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interface_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;interface_data&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
@@ -1341,9 +1296,10 @@
 <span class="sd">        Routine to export to pvd format and collect all data scattered over</span>
 <span class="sd">        several files for distinct grid dimensions.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            file_name (str): storage path for pvd file</span>
-<span class="sd">            time_step (int): used as appendix for the file name</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            file_name (str): storage path for pvd file.</span>
+<span class="sd">            time_step (int): used as appendix for the file name.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Open the file</span>
         <span class="n">o_file</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
@@ -1444,7 +1400,7 @@
 <span class="sd">        Wrapper function to export grids of dimension dim. Calls the</span>
 <span class="sd">        appropriate dimension specific export function.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            grids (Iterable[pp.Grid]): Subdomains of same dimension.</span>
 <span class="sd">            dim (int): Dimension of the subdomains.</span>
 
@@ -1453,7 +1409,8 @@
 <span class="sd">            in correct meshio format.</span>
 
 <span class="sd">        Raises:</span>
-<span class="sd">            ValueError if dim not 0, 1, 2, 3</span>
+<span class="sd">            ValueError if dim not 0, 1, 2 or 3.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -1471,7 +1428,7 @@
 <span class="sd">        Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from the 1d PorePy grids to meshio.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            grids (Iterable[pp.Grid]): 1d grids.</span>
 
 <span class="sd">        Returns:</span>
@@ -1532,17 +1489,17 @@
     <span class="k">def</span> <span class="nf">_simplex_cell_to_nodes</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">grid</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Determine cell to node connectivity for a general n-simplex mesh.</span>
+        <span class="sd">&quot;&quot;&quot;Determine cell to node connectivity for a general n-simplex mesh.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            n (int): dimension of the simplices in the grid.</span>
 <span class="sd">            grid (pp.Grid): grid containing cells and nodes.</span>
-<span class="sd">            cells (np.ndarray, optional): all n-simplex cells</span>
+<span class="sd">            cells (np.ndarray, optional): all n-simplex cells.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            np.ndarray: cell to node connectivity array, in which for each row</span>
-<span class="sd">                (associated to cells) all associated nodes are marked.</span>
+<span class="sd">            (associated to cells) all associated nodes are marked.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Determine cell-node ptr</span>
         <span class="n">cn_indptr</span> <span class="o">=</span> <span class="p">(</span>
@@ -1568,16 +1525,16 @@
         <span class="k">return</span> <span class="n">cn_indices</span>
 
     <span class="k">def</span> <span class="nf">_export_grid_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Export the geometrical data (point coordinates) and connectivity</span>
+        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from the 2d PorePy grids to meshio.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            grids (Iterable[pp.Grid]): 2d grids.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            grids: 2d grids.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Meshio_Geom: Points, 2d cells (storing the connectivity), and</span>
 <span class="sd">            cell ids in correct meshio format.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># Use standard names for simple object types: in this routine only triangle</span>
@@ -1733,16 +1690,16 @@
         <span class="k">return</span> <span class="n">Meshio_Geom</span><span class="p">(</span><span class="n">meshio_pts</span><span class="p">,</span> <span class="n">meshio_cells</span><span class="p">,</span> <span class="n">meshio_cell_id</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_export_grid_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Export the geometrical data (point coordinates) and connectivity</span>
+        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from 3d PorePy grids to meshio.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            grids (Iterable[pp.Grid]): 3d grids.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            grids: 3d grids.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Meshio_Geom: Points, 3d cells (storing the connectivity), and</span>
 <span class="sd">            cell ids in correct meshio format.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># Three different cell types will be distinguished: Tetrahedra, hexahedra,</span>
@@ -1779,16 +1736,16 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_export_polyhedron_3d</span><span class="p">(</span><span class="n">grids</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_export_simplex_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Export the geometrical data (point coordinates) and connectivity</span>
+        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from 3d PorePy simplex grids to meshio.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            grids (Iterable[pp.Grid]): 3d simplex grids.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Meshio_Geom: Points, 3d cells (storing the connectivity), and</span>
 <span class="sd">            cell ids in correct meshio format.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># For the special meshio geometric type &quot;tetra&quot;, cell-&gt;nodes will</span>
         <span class="c1"># be used to store connectivity information. Each simplex has 4 nodes.</span>
@@ -1841,20 +1798,20 @@
         <span class="k">return</span> <span class="n">Meshio_Geom</span><span class="p">(</span><span class="n">meshio_pts</span><span class="p">,</span> <span class="n">meshio_cells</span><span class="p">,</span> <span class="n">meshio_cell_id</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_export_hexahedron_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Export the geometrical data (point coordinates) and connectivity</span>
+        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from 3d PorePy hexahedron grids to meshio.</span>
 
 <span class="sd">        NOTE: Optimally, a StructuredGrid would be exported in this case.</span>
 <span class="sd">        However, meshio does solely handle unstructured grids and cannot</span>
 <span class="sd">        for instance write to *.vtr format.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            grids (Iterable[pp.Grid]): 3d hexahedron grids.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Meshio_Geom: Points, 3d cells (storing the connectivity), and</span>
 <span class="sd">            cell ids in correct meshio format.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># For the special meshio geometric type &quot;hexahedron&quot;, cell-&gt;nodes will</span>
         <span class="c1"># be used to store connectivity information. Each hexahedron has 8 nodes.</span>
@@ -2037,16 +1994,16 @@
         <span class="k">return</span> <span class="n">_function_to_compile</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">cn_indices</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_export_polyhedron_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Export the geometrical data (point coordinates) and connectivity</span>
+        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from 3d PorePy polyhedron grids to meshio.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            grids (Iterable[pp.Grid]): 3d polyhedron grids.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            grids: 3d polyhedron grids.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Meshio_Geom: Points, 3d cells (storing the connectivity), and</span>
 <span class="sd">            cell ids in correct meshio format.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># For the general geometric type &quot;polyhedron&quot;, cell-&gt;faces-&gt;nodes will</span>
         <span class="c1"># be used to store connectivity information, which can become significantly</span>
@@ -2149,18 +2106,17 @@
     <span class="k">def</span> <span class="nf">_write</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">fields</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Field</span><span class="p">],</span> <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">meshio_geom</span><span class="p">:</span> <span class="n">Meshio_Geom</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Interface to meshio for exporting cell data.</span>
+        <span class="sd">&quot;&quot;&quot;Interface to meshio for exporting cell data.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            fields (iterable, Field): fields which shall be exported</span>
-<span class="sd">            file_name (str): name of final file of export</span>
-<span class="sd">            meshio_geom (Meshio_Geom): Namedtuple of points,</span>
-<span class="sd">                connectivity information, and cell ids in</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            fields: fields which shall be exported</span>
+<span class="sd">            file_name: name of final file of export.</span>
+<span class="sd">            meshio_geom: Namedtuple of points, connectivity information, and cell ids in</span>
 <span class="sd">                meshio format (for a single dimension).</span>
 
 <span class="sd">        Raises:</span>
-<span class="sd">            ValueError if some data has wrong dimension</span>
+<span class="sd">            ValueError if some data has wrong dimension.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Initialize empty cell data dictionary</span>
         <span class="n">cell_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -2195,16 +2151,16 @@
     <span class="k">def</span> <span class="nf">_append_folder_name</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">folder_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Auxiliary method setting up potentially non-existent folder structure and</span>
+        <span class="sd">&quot;&quot;&quot;Auxiliary method setting up potentially non-existent folder structure and</span>
 <span class="sd">        setting up a path for exporting.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            folder_name (str, optional): name of the folder</span>
-<span class="sd">            name (str): prefix of the name of the files to be written</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            folder_name: name of the folder.</span>
+<span class="sd">            name: prefix of the name of the files to be written.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            str: complete path to the files to be written.</span>
+<span class="sd">            Complete path to the files to be written.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># If no folder_name is prescribed, the files will be stored in the</span>
@@ -2226,22 +2182,21 @@
         <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">extension</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;.vtu&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Auxiliary method to setting up file name.</span>
+        <span class="sd">&quot;&quot;&quot;Auxiliary method to setting up file name.</span>
 
 <span class="sd">        The final name is built as combination of a prescribed prefix,</span>
 <span class="sd">        and possibly the dimension of underlying grid and time (step)</span>
 <span class="sd">        the related data is associated to.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            file_name (str): prefix of the name of file to be exported</span>
-<span class="sd">            time_step (Union[float int], optional): time or time step (index)</span>
-<span class="sd">            dim (int, optional): dimension of the exported grid</span>
-<span class="sd">            extension (str): extension of the file, typically file ending</span>
-<span class="sd">                defining the format</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            file_name: Prefix of the name of file to be exported.</span>
+<span class="sd">            time_step: Time or time step (index).</span>
+<span class="sd">            dim: Dimension of the exported grid.</span>
+<span class="sd">            extension: Extension of the file, typically file ending defining the format.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            str: complete name of file</span>
+<span class="sd">            Complete name of file.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># Define non-empty time step extension including zero padding.</span>

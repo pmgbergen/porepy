@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>porepy.geometry.geometry_property_checks module &mdash; PorePy 1.5 documentation</title>
+  <title>porepy.geometry.geometry_property_checks module &mdash; PorePy 1.6.0 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
     <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.geometry_property_checks.html" />
@@ -33,7 +33,7 @@
             <a href="../../index.html" class="icon icon-home"> PorePy
           </a>
               <div class="version">
-                docs/alpha
+                1.6.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -47,178 +47,130 @@
 <li class="toctree-l1"><a class="reference internal" href="../howto/howto-docstring.html">1. How-To docstring</a></li>
 </ul>
 <ul class="current">
-<li class="toctree-l1 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">porepy</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">porepy.geometry.geometry_property_checks module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid.html">porepy.grids.grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.html">porepy.models.verification_setups package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.units.html">porepy.models.units module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
 </ul>
@@ -239,6 +191,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">porepy</a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.geometry.html">porepy.geometry package</a></li>
       <li class="breadcrumb-item active">porepy.geometry.geometry_property_checks module</li>
@@ -252,111 +205,158 @@
              
   <section id="module-porepy.geometry.geometry_property_checks">
 <span id="porepy-geometry-geometry-property-checks-module"></span><h1>porepy.geometry.geometry_property_checks module<a class="headerlink" href="#module-porepy.geometry.geometry_property_checks" title="Permalink to this heading"></a></h1>
-<p>Functions for (boolean) inquires about geometric objects, and relations between
-objects.</p>
+<p>This module contains functions for (boolean) inquiries about geometric objects,
+and relations between objects.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.is_ccw_polygon">
 <span class="sig-name descname"><span class="pre">is_ccw_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#is_ccw_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.is_ccw_polygon" title="Permalink to this definition"></a></dt>
 <dd><p>Determine if the vertices of a polygon are sorted counterclockwise.</p>
-<dl class="simple">
-<dt>The method computes the winding number of the polygon, see</dt><dd><p><a class="reference external" href="http://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order">http://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order</a></p>
-</dd>
-<dt>and</dt><dd><p><a class="reference external" href="http://blog.element84.com/polygon-winding.html">http://blog.element84.com/polygon-winding.html</a></p>
-</dd>
-</dl>
-<p>for descriptions of the algorithm.</p>
+<p>The method computes the winding number of the polygon, see below references.</p>
 <p>The algorithm should work for non-convex polygons. If the polygon is
-self-intersecting (e.g. shaped like the number 8), the number returned will
-reflect whether the method is ‘mostly’ cw or ccw.</p>
-<p>NOTE: The test can <em>not</em> be used to determine whether the vertexes of a polygon are
+self-intersecting (e.g. shaped like the number 8), the number returned will reflect
+whether the method is ‘mostly’ cw or ccw.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The test can <em>not</em> be used to determine whether the vertexes of a polygon are
 ordered in a natural fashion, that is, not self-intersecting.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>poly</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">2xn</span></code>) – Polygon vertices.</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>boolean, True if the polygon is ccw.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
-</dd>
-</dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p>is_ccw_polyline</p>
 </div>
 <div class="admonition-examples admonition">
 <p class="admonition-title">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">is_ccw_polygon</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]))</span>
 <span class="go">True</span>
-</pre></div>
-</div>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">is_ccw_polygon</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">is_ccw_polygon</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]))</span>
 <span class="go">False</span>
 </pre></div>
 </div>
 </div>
+<div class="admonition-references admonition">
+<p class="admonition-title">References</p>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="http://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order">StackOverflow question 1165647</a></p></li>
+<li><p><a class="reference external" href="http://blog.element84.com/polygon-winding.html">http://blog.element84.com/polygon-winding.html</a></p></li>
+</ol>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#porepy.geometry.geometry_property_checks.is_ccw_polyline" title="porepy.geometry.geometry_property_checks.is_ccw_polyline"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_ccw_polyline()</span></code></a></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">n)</span></code></p>
+<p>Polygon vertices. n is number of points.</p>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if the polygon is ccw.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.is_ccw_polyline">
 <span class="sig-name descname"><span class="pre">is_ccw_polyline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#is_ccw_polyline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.is_ccw_polyline" title="Permalink to this definition"></a></dt>
-<dd><p>Check if the line segments formed by three points is part of a
-conuterclockwise circle. The function can also test several points vs a
-single segment.</p>
-<p>The test is positive if p3 lies to left of the line running through p1 and
-p2.</p>
-<p>The function is intended for 2D points; higher-dimensional coordinates will
-be ignored.</p>
-<p>Extensions to lines with more than three points should be straightforward,
-the input points should be merged into a 2d array.</p>
+<dd><p>Checks if a polyline of three points goes in a counterclockwise direction.</p>
+<p>The line segment going from <code class="docutils literal notranslate"><span class="pre">p1</span></code> to <code class="docutils literal notranslate"><span class="pre">p2</span></code> is tested vs. a third point to
+determine whether the combined line segments (polyline) is part of a
+counterclockwise circle. The function can test both one and several points vs. the
+same line segment.</p>
+<p>The test is positive if the test point lies to left of the line running from <code class="docutils literal notranslate"><span class="pre">p1</span></code>
+to <code class="docutils literal notranslate"><span class="pre">p2</span></code>.</p>
+<p>The function is intended for 2D points; higher-dimensional coordinates will be
+ignored.</p>
+<p>Extensions to lines with more than three points should be straightforward, the input
+points should be merged into a 2d array.</p>
+<div class="admonition-examples admonition">
+<p class="admonition-title">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">p1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">]])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">is_ccw_polyline</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">)</span>
+<span class="go">[False True False]</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">p1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">is_ccw_polyline</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">)</span>
+<span class="go">False</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#porepy.geometry.geometry_property_checks.is_ccw_polygon" title="porepy.geometry.geometry_property_checks.is_ccw_polygon"><code class="xref py py-func docutils literal notranslate"><span class="pre">is_ccw_polygon()</span></code></a></p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p1</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">length</span> <span class="pre">2</span></code>) – Point on dividing line</p></li>
-<li><p><strong>p2</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">length</span> <span class="pre">2</span></code>) – Point on dividing line</p></li>
-<li><p><strong>p3</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>) – Points to be tested</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double,</span> <span class="pre">optional</span></code>) – Tolerance used in the comparison, can be used
-to account for rounding errors. Defaults to zero.</p></li>
-<li><p><strong>default</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – Mode returned if the point is within the
-tolerance. Should be set according to what is desired behavior of
-the function (will vary with application). Defaults to False.</p></li>
+<li><p><strong>p1</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code></p>
+<p>First point on dividing line.</p>
+</p></li>
+<li><p><strong>p2</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code></p>
+<p>Second point on dividing line.</p>
+</p></li>
+<li><p><strong>p3</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(2,)</span> <span class="pre">or</span> <span class="pre">shape=(2,</span> <span class="pre">n))</span></code></p>
+<p>Point(s) to be tested. For one point, only arrays of <code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code> is
+accepted. For two or more points the array will have <code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">n)</span></code>,
+where the first row corresponds to x-coordinates and the second row
+corresponds to y-coordinates. See examples.</p>
+</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=0</span></code></p>
+<p>Tolerance used in the comparison, can be used to
+account for rounding errors.</p>
+</p></li>
+<li><p><strong>default</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<p>Mode returned if the point is within the tolerance. Should be set according
+to what is desired behavior of the function (will vary with application).</p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>boolean or np.array of booleans. true if the points form a ccw polyline.</dt><dd><p>An array is returned if more than one point is tested.</p>
+<dd class="field-even"><p>An array of booleans, with one entry for each point in <code class="docutils literal notranslate"><span class="pre">p3</span></code>. True if the point
+is to the left of the line segment <code class="docutils literal notranslate"><span class="pre">p1-p2</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
 </dd>
 </dl>
-</p>
-</dd>
-</dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p>is_ccw_polygon</p>
-</div>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.point_in_cell">
 <span class="sig-name descname"><span class="pre">point_in_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">if_make_planar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#point_in_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.point_in_cell" title="Permalink to this definition"></a></dt>
-<dd><p>Check whatever a point is inside a cell. Note a similar behaviour could be
-reached using the function is_inside_polygon, however the current
-implementation deals with concave cells as well. Not sure which is the best,
-in terms of performance, for convex cells.</p>
+<dd><p>Check whether a point is inside a cell.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A similar behavior could be reached using <code class="xref py py-func docutils literal notranslate"><span class="pre">is_inside_polygon()</span></code>, however the
+current implementation deals with concave cells as well. Not sure which is the
+best, in terms of performance, for convex cells.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>poly</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">3xn</span></code>) – vertexes of polygon. The segments are formed by
-connecting subsequent columns of poly.</p></li>
-<li><p><strong>p</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">3x1</span></code>) – Point to be tested.</p></li>
-<li><p><strong>if_make_planar</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional,</span> <span class="pre">default</span> <span class="pre">True</span></code>) – The cell needs to lie on (s, t)
-plane. If not already done, this flag need to be used.</p></li>
+<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
+<p>Vertexes of polygon. The segments are formed by connecting
+subsequent columns of poly.</p>
+</p></li>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">1)</span></code></p>
+<p>Point to be tested.</p>
+</p></li>
+<li><p><strong>if_make_planar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
+<p>The cell needs to lie on (s, t) plane. If not already done, this flag need
+to be used. Projects the points to the plane of the polygon.</p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>boolean, if the point is inside the cell. If a point is on the boundary
-of the cell the result may be either True or False.</p>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the point is inside the cell. If a point is on the boundary of the
+cell the result may be either <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -366,31 +366,33 @@ of the cell the result may be either True or False.</p>
 <span class="sig-name descname"><span class="pre">point_in_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#point_in_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.point_in_polygon" title="Permalink to this definition"></a></dt>
 <dd><p>Check if a set of points are inside a polygon.</p>
 <p>The polygon need not be convex.</p>
-<dl>
-<dt>Credit: The implementation is a translation of an implementation by</dt><dd><p>Mark Dickenson to the PorePy data format for polygons. The original
-source code can be found at:</p>
-<p><a class="reference external" href="https://github.com/mdickinson/polyhedron/blob/master/polygon.py">https://github.com/mdickinson/polyhedron/blob/master/polygon.py</a></p>
-</dd>
-</dl>
+<div class="admonition-references admonition">
+<p class="admonition-title">References</p>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://github.com/mdickinson/polyhedron/blob/master/polygon.py">Original source code from Mark Dickenson</a></p></li>
+</ol>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>poly</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">n</span></code>) – vertexes of polygon. The segments are formed by
-connecting subsequent columns of poly</p></li>
-<li><p><strong>p</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">n2</span></code>) – Points to be tested.</p></li>
-<li><p><strong>default</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – Default behavior if the point is close to
-the boundary of the polygon. Defaults to False.</p></li>
+<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_poly)</span></code></p>
+<p>Vertexes of polygon. The segments are formed by connecting subsequent
+columns of poly.</p>
+</p></li>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_pt)</span></code></p>
+<p>Points to be tested.</p>
+</p></li>
+<li><p><strong>default</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<p>Default behavior if the point is close to the boundary of the polygon.</p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Length equal to p, true if the point is inside the</dt><dd><p>polygon.</p>
-</dd>
-</dl>
-</p>
+<dd class="field-even"><p>A boolean array containing <code class="docutils literal notranslate"><span class="pre">True</span></code> for each of the points that are inside
+polygon.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>np.ndarray, boolean</p>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -402,22 +404,24 @@ the boundary of the polygon. Defaults to False.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>polyhedron</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">nested</span> <span class="pre">np.ndarray</span></code>) – Each outer element represents a side
-of the polyhedron. Each side is assumed to be a convex polygon.</p></li>
-<li><p><strong>test_points</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">3</span> <span class="pre">x</span> <span class="pre">num_pt</span></code>) – Points to be tested.</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double,</span> <span class="pre">optional</span></code>) – Geometric tolerance, used in comparison of
-points. Defaults to 1e-8.</p></li>
+<li><p><strong>polyhedron</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(num_sides,</span> <span class="pre">3,</span> <span class="pre">num_polygon_vertices)</span></code></p>
+<p>Each outer element represents a side of the polyhedron, and each side is
+assumed to be a convex polygon.</p>
+</p></li>
+<li><p><strong>test_points</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<p>Points to be tested.</p>
+</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-10</span></code></p>
+<p>Geometric tolerance, used in comparison of points.</p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Element i is 1 (True) if test_points[:, i] is</dt><dd><p>inside the polygon.</p>
-</dd>
-</dl>
-</p>
+<dd class="field-even"><p>For each point, element <code class="docutils literal notranslate"><span class="pre">i</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> if <code class="docutils literal notranslate"><span class="pre">test_points[:,</span> <span class="pre">i]</span></code> is inside the
+polygon, else it is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>np.ndarray, size num_pt</p>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -429,13 +433,19 @@ points. Defaults to 1e-8.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">3xn</span></code>) – the points.</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double,</span> <span class="pre">optional</span></code>) – Absolute tolerance used in comparison.
-Defaults to 1e-5.</p></li>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
+<p>The points.</p>
+</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<p>Absolute tolerance used in comparison.</p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>boolean, True if the points lie on a line.</p>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the points lie on a line.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -444,41 +454,57 @@ Defaults to 1e-5.</p></li>
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.points_are_planar">
 <span class="sig-name descname"><span class="pre">points_are_planar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#points_are_planar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.points_are_planar" title="Permalink to this definition"></a></dt>
 <dd><p>Check if the points lie on a plane.</p>
-<p>Parameters:
-pts (np.ndarray, 3xn): the points.
-normal: (optional) the normal of the plane, otherwise three points are</p>
-<blockquote>
-<div><p>required.</p>
-</div></blockquote>
-<p>Returns:
-check, bool, if the points lie on a plane or not.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<p>The points.</p>
+</p></li>
+<li><p><strong>normal</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<p>The normal of the plane, otherwise at least three points are required.</p>
+</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<p>Geometric tolerance for test.</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the points lie on a plane.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.polygon_hanging_nodes">
 <span class="sig-name descname"><span class="pre">polygon_hanging_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#polygon_hanging_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.polygon_hanging_nodes" title="Permalink to this definition"></a></dt>
-<dd><p>Find hanging nodes of a polygon</p>
+<dd><p>Find hanging nodes of a polygon.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">nd</span> <span class="pre">x</span> <span class="pre">n_pt</span></code>) – Point coordinates</p></li>
-<li><p><strong>edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">TYPE</span></code>) – Indices, referring to columns in p, of edges in the polygon.
-Should be ordered so that edges[1, i] == edges[0, i+1], and
-edges[0, 0] == edges[1, -1].</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">TYPE,</span> <span class="pre">optional</span></code>) – Tolerance for when two segments will be considered
-parallel. Defaults to 1e-8.</p></li>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">n_pt)</span></code></p>
+<p>Point coordinates. Number of rows is number of dimensions, number of columns
+is number of points.</p>
+</p></li>
+<li><p><strong>edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_edges)</span></code></p>
+<p>Indices, referring to columns in p, of edges in
+the polygon. Should be ordered so that <code class="docutils literal notranslate"><span class="pre">edges[1,</span> <span class="pre">i]</span> <span class="pre">==</span> <span class="pre">edges[0,</span> <span class="pre">i+1]</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">edges[0,</span> <span class="pre">0]</span> <span class="pre">==</span> <span class="pre">edges[1,</span> <span class="pre">-1]</span></code>.</p>
+</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
+<p>Tolerance for when two segments will be considered parallel.</p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Index of edges with hanging nodes. For an index i, the lines defined</dt><dd><p>by edges[:, i] and edges[:, i+1] (or edges[:, 0] if i == edges.shape[1] - 1)
-are parallel.</p>
-</dd>
-</dl>
-</p>
+<dd class="field-even"><p>Index of edges with hanging nodes. For an index i, the lines defined by
+<code class="docutils literal notranslate"><span class="pre">edges[:,</span> <span class="pre">i]</span></code> and <code class="docutils literal notranslate"><span class="pre">edges[:,</span> <span class="pre">i+1]</span></code> (or <code class="docutils literal notranslate"><span class="pre">edges[:,</span> <span class="pre">0]</span></code> if
+<code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">==</span> <span class="pre">edges.shape[1]</span></code> - 1) are parallel.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>np.array</p>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>

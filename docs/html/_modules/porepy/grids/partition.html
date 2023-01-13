@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>porepy.grids.partition &mdash; PorePy 1.5 documentation</title>
+  <title>porepy.grids.partition &mdash; PorePy 1.6.0 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
     <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/partition.html" />
@@ -30,7 +30,7 @@
             <a href="../../../index.html" class="icon icon-home"> PorePy
           </a>
               <div class="version">
-                docs/alpha
+                1.6.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -44,178 +44,130 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
 </ul>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/modules.html">porepy</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
 </ul>
@@ -247,10 +199,21 @@
            <div itemprop="articleBody">
              
   <h1>Source code for porepy.grids.partition</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Module for partitioning of grids based on various methods.</span>
+<span></span><span class="sd">&quot;&quot;&quot;This module contains functionality for the partitioning of grids</span>
+<span class="sd">based on various methods.</span>
 
 <span class="sd">Intended support is by Cartesian indexing, and METIS-based.</span>
+
+<span class="sd">Several functions require ``pymetis`` to be installed, which can be done using ``pip``</span>
+<span class="sd">in a Python environment using</span>
+
+<span class="sd">    ``pip install pymetis``</span>
+
+<span class="sd">This will install metis itself in addition to the python bindings. There are other</span>
+<span class="sd">python bindings for metis as well, but pymetis has behaved well so far.</span>
+
+<span class="sd">The main method in this module is :func:`partition`, which is a wrapper for all</span>
+<span class="sd">available methods.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
@@ -265,25 +228,16 @@
 
 
 <div class="viewcode-block" id="partition_metis"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.partition.html#porepy.grids.partition.partition_metis">[docs]</a><span class="k">def</span> <span class="nf">partition_metis</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">num_part</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Partition a grid using metis.</span>
+    <span class="sd">&quot;&quot;&quot;Partition a grid using ``metis``.</span>
 
-<span class="sd">    This function requires that pymetis is installed, as can be done by</span>
-
-<span class="sd">        pip install pymetis</span>
-
-<span class="sd">    This will install metis itself in addition to the python bindings. There</span>
-<span class="sd">    are other python bindings for metis as well, but pymetis has behaved well</span>
-<span class="sd">    so far.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        g (pp.Grid): To be partitioned. Only the cell_face attribute is</span>
-<span class="sd">            used.</span>
-<span class="sd">        num_part (int): Number of partitions.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: Grid to be partitioned.</span>
+<span class="sd">            The attribute :attr:`~porepy.grids.grid.Grid.cell_faces` is required.</span>
+<span class="sd">        num_part: Number of partitions.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        np.array (size:g.num_cells): Partition vector, one number in</span>
-<span class="sd">            [0, num_part) for each cell.</span>
+<span class="sd">        Partition vector with ``shape=(g.num_cells,)`` containing numbers</span>
+<span class="sd">        ``[0, num_part)`` indicating which cell belongs to which partition.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
@@ -316,27 +270,31 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Define a partitioning of a grid based on logical Cartesian indexing.</span>
 
-<span class="sd">    The grid should have a field cart_dims, describing the Cartesian dimensions</span>
-<span class="sd">    of the grid.</span>
+<span class="sd">    The grid should have the attribute</span>
+<span class="sd">    :attr:`~porepy.grids.structured.TensorGrid.cart_dims`,</span>
+<span class="sd">    describing the Cartesian dimensions of the grid.</span>
 
-<span class="sd">    The coarse grid can be specified either by its Cartesian dimensions</span>
-<span class="sd">    (parameter coarse_dims), or by its total number of partitions (num_part).</span>
-<span class="sd">    In the latter case, a partitioning will be inferred from the fine-scale</span>
-<span class="sd">    Cartesian dimensions, in a way that gives roughly the same number of cells</span>
-<span class="sd">    in each direction.</span>
+<span class="sd">    The coarse grid can be specified either by its Cartesian dimensions ``coarse_dims``,</span>
+<span class="sd">    or by its total number of partitions ``num_part``. In the latter case, a</span>
+<span class="sd">    partitioning will be inferred from the fine-scale Cartesian dimensions, in a way</span>
+<span class="sd">    that gives roughly the same number of cells in each direction.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        g (pp.Grid): To be partitioned. Only the cell_face attribute is</span>
-<span class="sd">            used.</span>
-<span class="sd">        num_part (int): Number of partitions.</span>
-<span class="sd">        coarse_dims (np.array): Cartesian dimensions of the coarse grids.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: Grid to be partitioned.</span>
+<span class="sd">            The attribute :attr:`~porepy.grids.grid.Grid.cell_face` is required.</span>
+<span class="sd">        num_part: ``default=1``</span>
 
-<span class="sd">    Returns:</span>
-<span class="sd">        np.array (size:g.num_cells): Partition vector, one number in</span>
-<span class="sd">            [0, num_part) for each cell.</span>
+<span class="sd">            Number of partitions.</span>
+<span class="sd">        coarse_dims: ``default=None``</span>
+
+<span class="sd">            Cartesian dimensions of the coarse grids.</span>
 
 <span class="sd">    Raises:</span>
-<span class="sd">        Value error if both coarse_dims and num_part are None.</span>
+<span class="sd">        ValueError: If both ``coarse_dims`` and ``num_part`` are ``None``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Partition vector with ``shape=(g.num_cells,)`` containing numbers</span>
+<span class="sd">        ``[0, num_part)`` indicating which cell belongs to which partition.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -361,8 +319,8 @@
         <span class="c1"># Fine indexes where the coarse index will increase</span>
         <span class="n">incr_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">fine_dims</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">fine_per_coarse</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;i&quot;</span><span class="p">)</span>
 
-        <span class="c1"># If the coarse dimension is not an exact multiple of the fine, there</span>
-        <span class="c1"># will be an extra cell in this dimension. Remove this.</span>
+        <span class="c1"># If the coarse dimension is not an exact multiple of the fine, there will be an</span>
+        <span class="c1"># extra cell in this dimension. Remove this.</span>
         <span class="k">if</span> <span class="n">incr_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="n">coarse_dims</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
             <span class="n">incr_ind</span> <span class="o">=</span> <span class="n">incr_ind</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 
@@ -370,13 +328,11 @@
         <span class="n">loc_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">fine_dims</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
         <span class="c1"># The index will increase by one</span>
         <span class="n">loc_ind</span><span class="p">[</span><span class="n">incr_ind</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="c1"># A cumulative sum now gives the index, but subtract by one to be</span>
-        <span class="c1"># 0-offset</span>
+        <span class="c1"># A cumulative sum now gives the index, but subtract by one to be 0-offset</span>
         <span class="n">ind</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">loc_ind</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
 
-    <span class="c1"># Then combine the indexes. In 2D meshgrid does the job, in 3D it turned</span>
-    <span class="c1"># out that some acrobatics was necessary to get the right ordering of the</span>
-    <span class="c1"># cells.</span>
+    <span class="c1"># Then combine the indexes. In 2D meshgrid does the job, in 3D it turned out that</span>
+    <span class="c1"># some acrobatics was necessary to get the right ordering of the cells.</span>
     <span class="k">if</span> <span class="n">nd</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
         <span class="n">xi</span><span class="p">,</span> <span class="n">yi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">ind</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ind</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
         <span class="c1"># y-index jumps in steps of the number of coarse x-cells</span>
@@ -398,34 +354,37 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Brute force partitioning of a grid based on cell center coordinates.</span>
 
-<span class="sd">    The intention at the time of implementation is to provide a partitioning</span>
-<span class="sd">    for general grids that does not rely on METIS being available. However, if</span>
-<span class="sd">    METIS is available, partition_metis should be preferred.</span>
+<span class="sd">    The intention at the time of implementation is to provide a partitioning for general</span>
+<span class="sd">    grids that does not rely on METIS being available. However, if METIS is available,</span>
+<span class="sd">    :func:`partition_metis` should be preferred.</span>
 
-<span class="sd">    The idea is to divide the domain into a coarse Cartesian grid, and then</span>
-<span class="sd">    assign a coarse partitioning based on the cell center coordinates.</span>
+<span class="sd">    The idea is to divide the domain into a coarse Cartesian grid, and then assign a</span>
+<span class="sd">    coarse partitioning based on the cell center coordinates.</span>
 
-<span class="sd">    It is not clear that this will create a connected coarse partitioning for</span>
-<span class="sd">    all grid cells (it may be possible to construct pathological examples,</span>
-<span class="sd">    probably involving non-convex cells). We optionally check for connectivity</span>
-<span class="sd">    and raise an error if this is not fulfilled.</span>
+<span class="sd">    It is not clear that this will create a connected coarse partitioning for all grid</span>
+<span class="sd">    cells (it may be possible to construct pathological examples, probably involving</span>
+<span class="sd">    non-convex cells). We optionally check for connectivity and raise an error if this</span>
+<span class="sd">    is not fulfilled.</span>
 
 <span class="sd">    The method assumes that the cells have a center, that is,</span>
-<span class="sd">    g.compute_geometry() has been called. If g does not have a field</span>
-<span class="sd">    cell_centers, compute_geometry() will be called.</span>
+<span class="sd">    :meth:`~porepy.grids.grid.Grid.compute_geometry` has</span>
+<span class="sd">    been called. If g does not have a field cell_centers, ``compute_geometry()`` will be</span>
+<span class="sd">    called.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        g (pp.Grid): Grid to be partitioned.</span>
-<span class="sd">        num_coarse (int): Target number of coarse cells. The real number of</span>
-<span class="sd">            coarse cells will be close, but not necessarily equal.</span>
-<span class="sd">        check_connectivity (boolean, optional): Check if the partitioning form</span>
-<span class="sd">            connected coarse grids. Defaults to True.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: Grid to be partitioned.</span>
+<span class="sd">        num_coarse: Target number of coarse cells. The real number of coarse cells will</span>
+<span class="sd">            be close, but not necessarily equal.</span>
+<span class="sd">        check_connectivity: ``default=True``</span>
+
+<span class="sd">            Check if the partitioning form connected coarse grids. Defaults to True.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        np.array, size g.num_cells: Partition vector.</span>
+<span class="sd">        Partition vector with ``shape=(g.num_cells,)`` containing numbers indicating</span>
+<span class="sd">        which cell belongs to which partitions.</span>
 
 <span class="sd">    Raises:</span>
-<span class="sd">        ValueError if the partitioning is found to not form connected subgrids.</span>
+<span class="sd">        ValueError: If the partitioning is found to not form connected subgrids.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -447,8 +406,8 @@
         <span class="n">g</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">nodes</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">)))</span>
 
     <span class="c1"># Rough computation of the size of the Cartesian coarse grid: Determine the</span>
-    <span class="c1"># extension of the domain in each direction, transform into integer sizes,</span>
-    <span class="c1"># and use function to determine coarse dimensions.</span>
+    <span class="c1"># extension of the domain in each direction, transform into integer sizes, and use</span>
+    <span class="c1"># function to determine coarse dimensions.</span>
 
     <span class="c1"># Use node coordinates to define the boxes</span>
     <span class="n">min_coord</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -462,11 +421,10 @@
 
     <span class="n">delta</span> <span class="o">=</span> <span class="n">max_coord</span> <span class="o">-</span> <span class="n">min_coord</span>
 
-    <span class="c1"># Estimate of the number of coarse Cartesian cells in each dimensions:</span>
-    <span class="c1"># Distribute the target number over all dimensions. Then multiply with</span>
-    <span class="c1"># relative distances.</span>
-    <span class="c1"># Use ceil to round up, and thus avoid zeros. This may not be perfect, but</span>
-    <span class="c1"># it should be robust.</span>
+    <span class="c1"># Estimate of the number of coarse Cartesian cells in each dimension: Distribute the</span>
+    <span class="c1"># target number over all dimensions. Then multiply with relative distances. Use ceil</span>
+    <span class="c1"># to round up, and thus avoid zeros. This may not be perfect, but it should be</span>
+    <span class="c1"># robust.</span>
     <span class="n">delta_int</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">num_coarse</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">delta</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
         <span class="s2">&quot;int&quot;</span>
     <span class="p">)</span>
@@ -482,8 +440,7 @@
     <span class="c1"># Grid resolution of coarse grid (roughly)</span>
     <span class="n">dx</span> <span class="o">=</span> <span class="n">delta</span> <span class="o">/</span> <span class="n">coarse_dims</span>
 
-    <span class="c1">#  Loop over all coarse cells, pick out cells that lies within the coarse</span>
-    <span class="c1">#  box</span>
+    <span class="c1"># Loop over all coarse cells, pick out cells that lies within the coarse box</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nc</span><span class="p">):</span>
         <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">coarse_dims</span><span class="p">))</span>
         <span class="c1"># Bounding coordinates</span>
@@ -510,21 +467,25 @@
 
 
 <div class="viewcode-block" id="partition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.partition.html#porepy.grids.partition.partition">[docs]</a><span class="k">def</span> <span class="nf">partition</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">num_coarse</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Wrapper for partition methods, tries to apply best possible algorithm.</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper for partition methods that tries to apply the best possible algorithm.</span>
 
 <span class="sd">    The method will first try to use METIS; if this is not available (or fails</span>
-<span class="sd">    otherwise), the partition_structured will be applied if the grid is</span>
-<span class="sd">    Cartesian. The last resort is partitioning based on coordinates.</span>
+<span class="sd">    otherwise), the partition_structured will be applied if the grid is Cartesian. The</span>
+<span class="sd">    last resort is partitioning based on coordinates.</span>
 
-<span class="sd">    See the methods partition_metis(), partition_structured() and</span>
-<span class="sd">    partition_coordinates() for further details.</span>
+<span class="sd">    See Also:</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        g (pp.Grid): Grid to be partitioned.</span>
-<span class="sd">        num_coarse (int): Target number of coarse cells.</span>
+<span class="sd">        - :meth:`partition_metis`,</span>
+<span class="sd">        - :meth:`partition_structured` and</span>
+<span class="sd">        - :meth:`partition_coordinates` for further details.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: Grid to be partitioned.</span>
+<span class="sd">        num_coarse: Target number of coarse cells.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        np.ndarray (int), size g.num_cells: Partition vector.</span>
+<span class="sd">        Partition vector with ``shape=(g.num_cells,)`` containing numbers indicating</span>
+<span class="sd">        which cell belongs to which partitions.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
@@ -537,28 +498,27 @@
 
 
 <div class="viewcode-block" id="determine_coarse_dimensions"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.partition.html#porepy.grids.partition.determine_coarse_dimensions">[docs]</a><span class="k">def</span> <span class="nf">determine_coarse_dimensions</span><span class="p">(</span><span class="n">target</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">fine_size</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;For a logically Cartesian grid determine a coarse partitioning based on a</span>
-<span class="sd">    target number of coarse cells.</span>
+    <span class="sd">&quot;&quot;&quot;Determine coarse partitioning for a logically Cartesian grid</span>
 
-<span class="sd">    The target size in general will not be a product of the possible grid</span>
-<span class="sd">    dimensions (it may be a prime, or it may be outside the bounds [1,</span>
-<span class="sd">    fine_size]. For concreteness, we seek to have roughly the same number of</span>
-<span class="sd">    cells in each direction (given by the Nd-root of the target). If this</span>
-<span class="sd">    requires more coarse cells in a dimension than there are fine cells there,</span>
-<span class="sd">    the coarse size is set equal to the fine, and the remaining cells are</span>
-<span class="sd">    distributed to the other dimensions.</span>
+<span class="sd">    The coarse partitioning of the grid is based on a target number of coarse cells.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        target (int): Target number of coarse cells.</span>
-<span class="sd">        fine_size (np.ndarray): Number of fine-scale cell in each dimension</span>
+<span class="sd">    The target size in general will not be a product of the possible grid dimensions (it</span>
+<span class="sd">    may be a prime, or it may be outside the bounds ``[1, fine_size]``). For</span>
+<span class="sd">    concreteness, we seek to have roughly the same number of cells in each direction</span>
+<span class="sd">    (given by the Nd-root of the target). If this requires more coarse cells in a</span>
+<span class="sd">    dimension than there are fine cells there, the coarse size is set equal to the fine,</span>
+<span class="sd">    and the remaining cells are distributed to the other dimensions.</span>
 
-<span class="sd">    Returns:</span>
-<span class="sd">        np.ndarray: Coarse dimension sizes.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        target: Target number of coarse cells.</span>
+<span class="sd">        fine_size: Number of fine-scale cells in each dimension</span>
 
 <span class="sd">    Raises:</span>
-<span class="sd">        ValueError if the while-loop runs more iterations than the number of</span>
-<span class="sd">            dimensions. This should not happen, in practice it means there is</span>
-<span class="sd">            bug.</span>
+<span class="sd">        ValueError: If the while-loop runs more iterations than the number of</span>
+<span class="sd">            dimensions. This should not happen, in practice it means there is bug.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Coarse dimension sizes.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -572,8 +532,8 @@
     <span class="n">optimum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nd</span><span class="p">)</span>
     <span class="n">found</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
 
-    <span class="c1"># Counter for number of iterations. Should be unnecessary, remove when the</span>
-    <span class="c1"># code is trusted.</span>
+    <span class="c1"># Counter for number of iterations. Should be unnecessary, remove when the code is</span>
+    <span class="c1"># trusted.</span>
     <span class="n">it_counter</span> <span class="o">=</span> <span class="mi">0</span>
 
     <span class="c1"># Loop until all dimensions have been assigned a number of cells.</span>
@@ -584,12 +544,11 @@
         <span class="c1"># Remaining cells to deal with</span>
         <span class="n">target_now</span> <span class="o">=</span> <span class="n">target</span> <span class="o">/</span> <span class="n">optimum</span><span class="o">.</span><span class="n">prod</span><span class="p">()</span>
 
-        <span class="c1"># The simplest option is to take the Nd-root of the target number. This</span>
-        <span class="c1"># will generally not give integers, and we will therefore settle for the</span>
-        <span class="c1"># combination of rounding up and down which brings us closest to the</span>
-        <span class="c1"># target.</span>
-        <span class="c1"># There should be at least one coarse cell in each dimension, and at</span>
-        <span class="c1"># maximum as many cells as on the fine scale.</span>
+        <span class="c1"># The simplest option is to take the Nd-root of the target number. This will</span>
+        <span class="c1"># generally not give integers, and we will therefore settle for the combination</span>
+        <span class="c1"># of rounding up and down which brings us closest to the target. There should be</span>
+        <span class="c1"># at least one coarse cell in each dimension, and at maximum as many cells as on</span>
+        <span class="c1"># the fine scale.</span>
         <span class="n">s_num</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">target_now</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">nd</span> <span class="o">-</span> <span class="n">found</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
         <span class="n">s_low</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nd</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">s_num</span><span class="p">))</span>
         <span class="n">s_high</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">fine_size</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">s_num</span><span class="p">))</span>
@@ -600,8 +559,7 @@
         <span class="n">optimum</span><span class="p">[</span><span class="n">hit_ceil</span><span class="p">]</span> <span class="o">=</span> <span class="n">s_high</span><span class="p">[</span><span class="n">hit_ceil</span><span class="p">]</span>
         <span class="n">found</span><span class="p">[</span><span class="n">hit_ceil</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="c1"># If the ceiling was hit in some dimension, we have to start over</span>
-        <span class="c1"># again.</span>
+        <span class="c1"># If the ceiling was hit in some dimension, we have to start over again.</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">hit_ceil</span><span class="p">):</span>
             <span class="k">continue</span>
 
@@ -611,12 +569,12 @@
 
         <span class="c1"># Array for storing the combinations.</span>
         <span class="n">coarse_size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">s_low</span><span class="p">,</span> <span class="n">s_high</span><span class="p">))</span>
-        <span class="c1"># The closest we&#39;ve been to hit the target size. Set this to an</span>
-        <span class="c1"># unrealistically high number</span>
+        <span class="c1"># The closest we&#39;ve been to hit the target size. Set this to an unrealistically</span>
+        <span class="c1"># high number</span>
         <span class="n">dist</span> <span class="o">=</span> <span class="n">fine_size</span><span class="o">.</span><span class="n">prod</span><span class="p">()</span>
 
-        <span class="c1"># Loop over all combinations of rounding up and down, and test if we</span>
-        <span class="c1"># are closer to the target number.</span>
+        <span class="c1"># Loop over all combinations of rounding up and down, and test if we are closer</span>
+        <span class="c1"># to the target number.</span>
         <span class="k">for</span> <span class="n">perm</span> <span class="ow">in</span> <span class="n">pp</span><span class="o">.</span><span class="n">permutations</span><span class="o">.</span><span class="n">multinary_permutations</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">nd</span><span class="p">):</span>
             <span class="n">size_now</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nd</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">bit</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">perm</span><span class="p">):</span>
@@ -625,8 +583,8 @@
                 <span class="n">dist</span> <span class="o">=</span> <span class="n">target</span> <span class="o">-</span> <span class="n">size_now</span><span class="o">.</span><span class="n">prod</span><span class="p">()</span>
                 <span class="n">optimum</span> <span class="o">=</span> <span class="n">size_now</span>
 
-        <span class="c1"># All dimensions that may hit the ceiling have been found, and we have</span>
-        <span class="c1"># the optimum solution. Declare victory and return home.</span>
+        <span class="c1"># All dimensions that may hit the ceiling have been found, and we have the</span>
+        <span class="c1"># optimum solution. Declare victory and return home.</span>
         <span class="n">found</span><span class="p">[:]</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="k">if</span> <span class="n">it_counter</span> <span class="o">&gt;</span> <span class="n">nd</span><span class="p">:</span>
@@ -647,39 +605,50 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;Extract a subgrid based on cell/face indices.</span>
 
-<span class="sd">    For simplicity the cell/face indices will be sorted before the subgrid is</span>
-<span class="sd">    extracted.</span>
+<span class="sd">    For simplicity the cell/face indices will be sorted before the subgrid is extracted.</span>
 
-<span class="sd">    If the parent grid has geometry attributes (cell centers etc.) these are</span>
-<span class="sd">    copied to the child.</span>
+<span class="sd">    If the parent grid has geometry attributes (cell centers etc.), these are copied</span>
+<span class="sd">    to the child.</span>
 
-<span class="sd">    No checks are done on whether the cells/faces form a connected area. The</span>
-<span class="sd">    method should work in theory for non-connected cells, the user will then</span>
-<span class="sd">    have to decide what to do with the resulting grid. This option has however</span>
-<span class="sd">    not been tested.</span>
+<span class="sd">    No checks are done on whether the cells/faces form a connected area. The method</span>
+<span class="sd">    should work in theory for non-connected cells, the user will then have to decide</span>
+<span class="sd">    what to do with the resulting grid. This option has however not been tested.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        g (pp.Grid): Grid object, parent.</span>
-<span class="sd">        c (np.array, dtype=int): Indices of cells to be extracted.</span>
-<span class="sd">        sort (bool): If true (default), c is sorted.</span>
-<span class="sd">        faces (bool): If true, c are interpreted as faces, and the extracted grid will</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: Grid object, parent.</span>
+<span class="sd">        c: Indices of cells to be extracted.</span>
+<span class="sd">        sort: ``default=True``</span>
+
+<span class="sd">            If ``True``, ``c`` is sorted.</span>
+<span class="sd">        faces: ``default=False``</span>
+
+<span class="sd">            If ``True``, ``c`` is interpreted as faces, and the extracted grid will</span>
 <span class="sd">            be a lower dimensional grid defined by the these faces.</span>
-<span class="sd">        is_planar: (optional) defaults to True. Only used when extracting faces from a</span>
-<span class="sd">           3d grid. If True the faces f must be planar. Set to False to use this</span>
-<span class="sd">           function for extracting a non-planar 2D grid, but use at own risk.</span>
+<span class="sd">        is_planar: ``default=True``</span>
 
-<span class="sd">    Returns:</span>
-<span class="sd">        pp.Grid: Extracted subgrid. Will share (note, *not* copy)</span>
-<span class="sd">            geometric fields with the parent grid. Also has an additional</span>
-<span class="sd">            field parent_cell_ind giving correspondence between parent and</span>
-<span class="sd">            child cells.</span>
-<span class="sd">        np.ndarray, dtype=int: Index of the extracted faces, ordered so that</span>
-<span class="sd">            element i is the global index of face i in the subgrid.</span>
-<span class="sd">        np.ndarray, dtype=int: Index of the extracted nodes, ordered so that</span>
-<span class="sd">            element i is the global index of node i in the subgrid.</span>
+<span class="sd">            Only used when extracting faces from a 3D grid.</span>
+
+<span class="sd">            If ``True``, the faces must be planar. Set to ``False`` to</span>
+<span class="sd">            use this function for extracting a non-planar 2D grid, but use at own risk.</span>
 
 <span class="sd">    Raises:</span>
-<span class="sd">        IndexError if index is as boolean and do not match the array size.</span>
+<span class="sd">        IndexError: If index is as boolean and does not match the array size.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A 3-tuple containing</span>
+
+<span class="sd">        :class:`~porepy.grids.grid.Grid`:</span>
+<span class="sd">            Extracted subgrid. Will share (note, *not* copy) geometric fields with the</span>
+<span class="sd">            parent grid. Also has an additional field parent_cell_ind giving</span>
+<span class="sd">            correspondence between parent and child cells.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Index of the extracted faces, ordered so that element ``i`` is the global</span>
+<span class="sd">            index of face ``i`` in the subgrid.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Index of the extracted nodes, ordered so that element ``i`` is the global</span>
+<span class="sd">            index of node i in the subgrid.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="s2">&quot;bool&quot;</span><span class="p">:</span>
@@ -730,10 +699,30 @@
     <span class="k">return</span> <span class="n">h</span><span class="p">,</span> <span class="n">unique_faces</span><span class="p">,</span> <span class="n">unique_nodes</span></div>
 
 
-<span class="k">def</span> <span class="nf">_extract_submatrix</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">ind</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;From a matrix, extract the column specified by ind. All zero columns</span>
-<span class="sd">    are stripped from the sub-matrix. Mappings from global to local row numbers</span>
-<span class="sd">    are also returned.</span>
+<span class="k">def</span> <span class="nf">_extract_submatrix</span><span class="p">(</span>
+    <span class="n">mat</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Extracts a submatrix from a matrix.</span>
+
+<span class="sd">    All zero columns are stripped from the sub-matrix. Mappings from global to local row</span>
+<span class="sd">    numbers are also returned.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        mat: Matrix that will have a submatrix extracted from it.</span>
+<span class="sd">        ind: Indices of the columns that are to be extracted.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the matrix is not in csc format.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A 2-tuple containing</span>
+
+<span class="sd">        :obj:`~scipy.sparse.spmatrix`:</span>
+<span class="sd">            Extracted submatrix.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Mapping from global to local row number.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">mat</span><span class="o">.</span><span class="n">getformat</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;csc&quot;</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;To extract columns from a matrix, it must be csc&quot;</span><span class="p">)</span>
@@ -745,9 +734,42 @@
     <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="n">rows_sub</span><span class="p">,</span> <span class="n">cols</span><span class="p">),</span> <span class="n">shape</span><span class="p">),</span> <span class="n">unique_rows</span>
 
 
-<span class="k">def</span> <span class="nf">_extract_cells_from_faces</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">is_planar</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Extract a lower-dimensional grid from the fraces of the higher</span>
-<span class="sd">    dimensional grid g. See extract_subgrid.</span>
+<span class="k">def</span> <span class="nf">_extract_cells_from_faces</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">is_planar</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Extract a lower-dimensional grid from the faces of a higher dimensional grid.</span>
+
+<span class="sd">    The faces of the higher dimensional grid will become cells in the lower dimensional</span>
+<span class="sd">    grid. Extracting cells from faces in 3D grid provides 2D cells. Similarly one would</span>
+<span class="sd">    get 1D cells from faces in 2D, and 0D cells from faces in 1D.</span>
+
+<span class="sd">    See also:</span>
+<span class="sd">         :func:`extract_subgrid`.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: The grid whose faces are going to be extracted as a new, lower-dimensional</span>
+<span class="sd">            grid.</span>
+<span class="sd">        f: Faces of the 3D grid that will be used as cells in the 2D grid.</span>
+<span class="sd">        is_planar: If ``False`` the faces f must be planar. Set ``False`` to use this</span>
+<span class="sd">            function for a non-planar 2D grid, but use at own risk. This parameter is</span>
+<span class="sd">            only used in :func:`_extract_cells_from_faces_3d`.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        NotImplementedError: If the dimension of grid ``g`` is anything else than 1, 2</span>
+<span class="sd">            or 3.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A 3-tuple containing</span>
+
+<span class="sd">        :class:`~porepy.grids.grid.Grid`:</span>
+<span class="sd">            The extracted subgrid.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Faces f of the new grid.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Nodes of the new grid.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_extract_cells_from_faces_3d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">is_planar</span><span class="p">)</span>
@@ -756,10 +778,31 @@
     <span class="k">elif</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_extract_cells_from_faces_1d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;can only create a subgrid for dimension 1, 2 and 3&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Can only create a subgrid for dimension 1, 2 and 3&quot;</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_extract_cells_from_faces_1d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_extract_cells_from_faces_1d</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Extracts a 0D grid from a 1D grid.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: 1D grid whose faces will be cells of 0D grid.</span>
+<span class="sd">        f: Faces of the 1D grid.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A 3-tuple containing</span>
+
+<span class="sd">        :class:`~porepy.grids.grid.Grid`:</span>
+<span class="sd">            The extracted subgrid.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Faces f of the new grid.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Nodes of the new grid.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
     <span class="n">node</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[:,</span> <span class="n">f</span><span class="p">])[:,</span> <span class="mi">0</span><span class="p">]</span>
     <span class="n">h</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">PointGrid</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">node</span><span class="p">])</span>
@@ -767,7 +810,28 @@
     <span class="k">return</span> <span class="n">h</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">node</span>
 
 
-<span class="k">def</span> <span class="nf">_extract_cells_from_faces_2d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_extract_cells_from_faces_2d</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Extracts a 1D grid from a 2D grid.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: 2D grid whose faces will be cells of 1D grid.</span>
+<span class="sd">        f: Faces of the 2D grid.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A 3-tuple containing</span>
+
+<span class="sd">        :class:`~porepy.grids.grid.Grid`:</span>
+<span class="sd">            The extracted subgrid.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Faces f of the new grid.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Nodes of the new grid.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Local cell-face and face-node maps.</span>
     <span class="n">cell_nodes</span><span class="p">,</span> <span class="n">unique_nodes</span> <span class="o">=</span> <span class="n">_extract_submatrix</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
 
@@ -794,7 +858,14 @@
     <span class="n">name</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
     <span class="n">name</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Extract subgrid&quot;</span><span class="p">)</span>
 
-    <span class="n">h</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">unique_nodes</span><span class="p">],</span> <span class="n">face_nodes</span><span class="p">,</span> <span class="n">cell_faces</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">unique_nodes</span><span class="p">],</span>
+        <span class="n">face_nodes</span><span class="p">,</span>
+        <span class="n">cell_faces</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">history</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="n">h</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
 
@@ -803,34 +874,47 @@
     <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">f</span><span class="p">],</span> <span class="n">h</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">))</span>
     <span class="n">h</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">f</span><span class="p">]</span>
 
-    <span class="n">h</span><span class="o">.</span><span class="n">parent_face_ind</span> <span class="o">=</span> <span class="n">f</span>
+    <span class="n">h</span><span class="o">.</span><span class="n">parent_face_ind</span> <span class="o">=</span> <span class="n">f</span>  <span class="c1"># type: ignore</span>
     <span class="k">return</span> <span class="n">h</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">unique_nodes</span>
 
 
-<span class="k">def</span> <span class="nf">_extract_cells_from_faces_3d</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">is_planar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Extract a 2D grid from the faces of a 3D grid. One of the uses of this function</span>
-<span class="sd">    is to obtain a 2D MortarGrid from the boundary of a 3D grid. The faces f</span>
-<span class="sd">    is by default assumed to be planar, however, this is mainly because compute_geometry</span>
-<span class="sd">    does not handle non-planar grids. compute_geometry is used to do a sanity check</span>
-<span class="sd">    of the extracted grid. if is_planar is set to False, this function should handle</span>
-<span class="sd">    non-planar grids, however, this has not been tested thoroughly, and it does not</span>
-<span class="sd">    perform the geometric sanity checks.</span>
+<span class="k">def</span> <span class="nf">_extract_cells_from_faces_3d</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">is_planar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Extract a 2D grid from the faces of a 3D grid.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">    ----------</span>
-<span class="sd">    g: (Grid) A 3d grid</span>
-<span class="sd">    f: (ndarray) faces of the 3d grid to by used as cells in the 2d grid</span>
-<span class="sd">    is_planar: (optional) defaults to True: If False the faces f must be planar.</span>
-<span class="sd">        Set to False to use this function for a non-planar 2D grid, but use at own risk</span>
+<span class="sd">    One of the uses of this function is to obtain a 2D MortarGrid from the boundary of a</span>
+<span class="sd">    3D grid. The faces ``f`` are by default assumed to be planar, however, this is</span>
+<span class="sd">    mainly because :meth:`~porepy.grids.grid.Grid.compute_geometry` does not handle</span>
+<span class="sd">    non-planar grids. ``compute_geometry`` is used to do a sanity check of the extracted</span>
+<span class="sd">    grid. If ``is_planar`` is set to ``False``, this function should handle non-planar</span>
+<span class="sd">    grids, however, this has not been tested thoroughly, and it does not perform the</span>
+<span class="sd">    geometric sanity checks.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: 3D grid whose faces will be cells of 2D grid.</span>
+<span class="sd">        f: Faces of the 3D grid to be used as cells in the 2D grid.</span>
+<span class="sd">        is_planar: ``default=True``</span>
+
+<span class="sd">            If ``False`` the faces f must be planar.</span>
+<span class="sd">            Set ``False`` to use this function for a non-planar 2D grid, but use at own</span>
+<span class="sd">            risk.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the given faces is not planar and ``is_planar==True``.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">    -------</span>
-<span class="sd">    (Grid) A 2d grid extracted from the 3d grid g and the faces f.</span>
+<span class="sd">        A 3-tuple containing</span>
 
-<span class="sd">    Throws:</span>
-<span class="sd">    ------</span>
-<span class="sd">    ValueError: If the given faces is not planar and is_planar==True</span>
+<span class="sd">        :class:`~porepy.grids.grid.Grid`:</span>
+<span class="sd">            A 2D grid extracted from the 3D grid ``g``.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Faces of the extracted grid.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`:</span>
+<span class="sd">            Nodes of the extracted grid.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Local cell-face and face-node maps.</span>
     <span class="n">cell_nodes</span><span class="p">,</span> <span class="n">unique_nodes</span> <span class="o">=</span> <span class="n">_extract_submatrix</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
@@ -874,7 +958,14 @@
     <span class="n">name</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
     <span class="n">name</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Extract subgrid&quot;</span><span class="p">)</span>
 
-    <span class="n">h</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">unique_nodes</span><span class="p">],</span> <span class="n">face_nodes</span><span class="p">,</span> <span class="n">cell_faces</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">unique_nodes</span><span class="p">],</span>
+        <span class="n">face_nodes</span><span class="p">,</span>
+        <span class="n">cell_faces</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">history</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">is_planar</span><span class="p">:</span>
         <span class="c1"># We could now just copy the corresponding geometric values from g to h, but we</span>
@@ -882,18 +973,18 @@
         <span class="n">h</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_areas</span><span class="p">[</span><span class="n">f</span><span class="p">],</span> <span class="n">h</span><span class="o">.</span><span class="n">cell_volumes</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;Something went wrong in extracting subgrid. Face area of</span>
-<span class="sd">            higher dim is not equal face centers of lower dim grid&quot;&quot;&quot;</span>
+                <span class="sd">&quot;&quot;&quot;Something went wrong in extracting subgrid. Face area of higher dim</span>
+<span class="sd">            is not equal face centers of lower dim grid&quot;&quot;&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">f</span><span class="p">],</span> <span class="n">h</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;Something went wrong in extracting subgrid. Face centers</span>
-<span class="sd">            of higher dim is not equal cell centers of lower dim grid&quot;&quot;&quot;</span>
+                <span class="sd">&quot;&quot;&quot;Something went wrong in extracting subgrid. Face centers of higher</span>
+<span class="sd">            dim is not equal cell centers of lower dim grid&quot;&quot;&quot;</span>
             <span class="p">)</span>
     <span class="n">h</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_areas</span><span class="p">[</span><span class="n">f</span><span class="p">]</span>
     <span class="n">h</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">f</span><span class="p">]</span>
 
-    <span class="n">h</span><span class="o">.</span><span class="n">parent_face_ind</span> <span class="o">=</span> <span class="n">f</span>
+    <span class="n">h</span><span class="o">.</span><span class="n">parent_face_ind</span> <span class="o">=</span> <span class="n">f</span>  <span class="c1"># type: ignore</span>
     <span class="k">return</span> <span class="n">h</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">unique_nodes</span>
 
 
@@ -902,23 +993,33 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
     <span class="sd">&quot;&quot;&quot;Partition a grid into multiple subgrids based on an index set.</span>
 
-<span class="sd">    No tests are made on whether the resulting grids are connected.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        g (pp.Grid): Global grid to be partitioned.</span>
-<span class="sd">        ind (np.array): Partition vector, one per cell. Should be 0-offset.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        list: List of grids, each element representing a grid.</span>
-<span class="sd">        list of np.arrays: Each element contains the global indices of the</span>
-<span class="sd">            local faces.</span>
-<span class="sd">        list of np.arrays: Each element contains the global indices of the</span>
-<span class="sd">            local nodes.</span>
+<span class="sd">    Note:</span>
+<span class="sd">        No tests are made on whether the resulting grids are connected.</span>
 
 <span class="sd">    Example:</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt; import porepy as pp</span>
+<span class="sd">        &gt;&gt;&gt; import porepy.grids.partition as part</span>
 <span class="sd">        &gt;&gt;&gt; g = pp.CartGrid(np.array([10, 10]))</span>
-<span class="sd">        &gt;&gt;&gt; p = partition_structured(g, num_part=4)</span>
-<span class="sd">        &gt;&gt;&gt; subg, face_map, node_map = partition_grid(g, p)</span>
+<span class="sd">        &gt;&gt;&gt; p = part.partition_structured(g, num_part=4)</span>
+<span class="sd">        &gt;&gt;&gt; subg, face_map, node_map = part.partition_grid(g, p)</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: Global grid to be partitioned.</span>
+<span class="sd">        ind: Partition vector, one per cell. Should be 0-offset.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A 3-tuple containing</span>
+
+<span class="sd">        :obj:`list`:</span>
+<span class="sd">            List of grids, each element representing a grid.</span>
+
+<span class="sd">        :obj:`list`:</span>
+<span class="sd">            Each element contains the global indices of the local faces.</span>
+
+<span class="sd">        :obj:`list`:</span>
+<span class="sd">            Each element contains the global indices of the local nodes.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -938,40 +1039,46 @@
 <div class="viewcode-block" id="overlap"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.partition.html#porepy.grids.partition.overlap">[docs]</a><span class="k">def</span> <span class="nf">overlap</span><span class="p">(</span>
     <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">cell_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;node&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    From a set of cell indices, find an extended set of cells that form an</span>
-<span class="sd">    overlap (in the domain decomposition sense).</span>
+    <span class="sd">&quot;&quot;&quot;Finds an extended set of cells that forms an overlap.</span>
 
-<span class="sd">    The cell set is increased by including all cells that share at least one</span>
-<span class="sd">    node with the existing set. When multiple layers are asked for, this</span>
-<span class="sd">    process is repeated.</span>
+<span class="sd">    From a set of cell indices, this function finds an extended set of cells that forms</span>
+<span class="sd">    an overlap (in the domain decomposition sense).</span>
 
-<span class="sd">    The definition of neighborship is specified by criterion. Possible options</span>
-<span class="sd">    are &#39;face&#39; (each layer will add cells that share a face with the active</span>
-<span class="sd">    face set), or &#39;node&#39; (each layer will add cells sharing a vertex with the</span>
-<span class="sd">    active set).</span>
+<span class="sd">    The cell set is increased by including all cells that share at least one node with</span>
+<span class="sd">    the existing set. When multiple layers are asked for, this process is repeated.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        g (pp.Grid): The grid; the cell-node relation will be used to</span>
-<span class="sd">            extend the cell set.</span>
-<span class="sd">        cell_ind (np.array): Cell indices, the initial cell set.</span>
-<span class="sd">        num_layers (int): Number of overlap layers.</span>
-<span class="sd">        criterion (str, optional): Which definition of neighborship to apply.</span>
-<span class="sd">            Should be either &#39;face&#39; or &#39;node&#39;. Default is &#39;node&#39;.</span>
+<span class="sd">    The definition of neighborhood is specified by ``criterion``.</span>
 
-<span class="sd">    Returns:</span>
-<span class="sd">        np.array: Indices of the extended cell set.</span>
+<span class="sd">    Example:</span>
 
-<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt; import porepy as pp</span>
+<span class="sd">        &gt;&gt;&gt; import porepy.grids.partition as part</span>
 <span class="sd">        &gt;&gt;&gt; g = pp.CartGrid([5, 5])</span>
 <span class="sd">        &gt;&gt;&gt; ci = np.array([0, 1, 5, 6])</span>
-<span class="sd">        &gt;&gt;&gt; overlap(g, ci, 1)</span>
+<span class="sd">        &gt;&gt;&gt; part.overlap(g, ci, 1)</span>
 <span class="sd">        array([ 0,  1,  2,  5,  6,  7, 10, 11, 12])</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: The grid; the cell-node relation will be used to extend the cell set.</span>
+<span class="sd">        cell_ind: Cell indices of the initial cell set.</span>
+<span class="sd">        num_layers: Number of overlap layers.</span>
+<span class="sd">        criterion: ``default=&#39;node&#39;``</span>
+
+<span class="sd">            Which definition of neighborhood to apply:</span>
+
+<span class="sd">            - ``&#39;face&#39;``: Each layer will add cells that share a face with the active</span>
+<span class="sd">              face set.</span>
+<span class="sd">            - ``&#39;node&#39;``: Each layer will add cells sharing a vertex with the active</span>
+<span class="sd">              set.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Indices of the extended cell set.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># Boolean storage of cells in the active set; these are the ones that will</span>
-    <span class="c1"># be in the overlap</span>
+    <span class="c1"># Boolean storage of cells in the active set; these are the ones that will be in the</span>
+    <span class="c1"># overlap</span>
     <span class="n">active_cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
     <span class="c1"># Initialize by the specified cells</span>
     <span class="n">active_cells</span><span class="p">[</span><span class="n">cell_ind</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
@@ -993,8 +1100,8 @@
             <span class="n">active_cells</span><span class="p">[</span><span class="n">ci_new</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
 
     <span class="k">elif</span> <span class="n">criterion</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;face&quot;</span><span class="p">:</span>
-        <span class="c1"># Create a version of g.cell_faces with only positive values for</span>
-        <span class="c1"># connections, e.g. let go of the divergence property</span>
+        <span class="c1"># Create a version of g.cell_faces with only positive values for connections,</span>
+        <span class="c1"># e.g. let go of the divergence property</span>
         <span class="n">cf</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span>
         <span class="c1"># This avoids overwriting data in cell_faces.</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">cf</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
@@ -1006,8 +1113,8 @@
         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
             <span class="c1"># All faces adjacent to an active cell</span>
             <span class="n">active_faces</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">cf</span> <span class="o">*</span> <span class="n">active_cells</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))]</span> <span class="o">=</span> <span class="mi">1</span>
-            <span class="c1"># Map back to active cells, including that on the other side of the</span>
-            <span class="c1"># newly found faces</span>
+            <span class="c1"># Map back to active cells, including that on the other side of the newly</span>
+            <span class="c1"># found faces</span>
             <span class="n">ci_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">cf</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span> <span class="o">*</span> <span class="n">active_faces</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
             <span class="c1"># Activate new cells</span>
             <span class="n">active_cells</span><span class="p">[</span><span class="n">ci_new</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
@@ -1019,38 +1126,53 @@
 <div class="viewcode-block" id="grid_is_connected"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.partition.html#porepy.grids.partition.grid_is_connected">[docs]</a><span class="k">def</span> <span class="nf">grid_is_connected</span><span class="p">(</span>
     <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">cell_ind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Check if a grid is fully connected, as defined by its cell_connection_map().</span>
+    <span class="sd">&quot;&quot;&quot;Check if a grid is fully connected, as defined by its</span>
+<span class="sd">    :meth:`~porepy.grids.grid.Grid.cell_connection_map`.</span>
 
 <span class="sd">    The function is intended used in one of two ways:</span>
-<span class="sd">        1) To test if a subgrid will be connected before it is extracted. In</span>
-<span class="sd">        this case, the cells to be tested is specified by cell_ind.</span>
-<span class="sd">        2) To check if an existing grid is composed of a single component. In</span>
-<span class="sd">        this case, all cells are should be included in the analyzis.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        g (core.grids.grid): Grid to be tested. Only its cell_faces map is</span>
-<span class="sd">            used.</span>
-<span class="sd">        cell_ind (np.array): Index of cells to be included when looking for</span>
-<span class="sd">            connections. Defaults to all cells in the grid.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        boolean: True if the grid is connected.</span>
-<span class="sd">        list of np.arrays: Each list item contains a np.array with cell indices</span>
-<span class="sd">            of a connected component.</span>
+<span class="sd">    1.  To test if a subgrid will be connected before it is extracted. In this case, the</span>
+<span class="sd">        cells to be tested is specified by cell_ind.</span>
+<span class="sd">    2.  To check if an existing grid is composed of a single component. In this case,</span>
+<span class="sd">        all cells are should be included in the analyzis.</span>
 
 <span class="sd">    Examples:</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt; import porepy as pp</span>
+<span class="sd">        &gt;&gt;&gt; import porepy.grids.partition as part</span>
 <span class="sd">        &gt;&gt;&gt; g = pp.CartGrid(np.array([2, 2]))</span>
 <span class="sd">        &gt;&gt;&gt; p = np.array([0, 1])</span>
-<span class="sd">        &gt;&gt;&gt; is_con, l = grid_is_connected(g, p)</span>
+<span class="sd">        &gt;&gt;&gt; is_con, l = part.grid_is_connected(g, p)</span>
 <span class="sd">        &gt;&gt;&gt; is_con</span>
 <span class="sd">        True</span>
 
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt; import porepy as pp</span>
+<span class="sd">        &gt;&gt;&gt; import porepy.grids.partition as part</span>
 <span class="sd">        &gt;&gt;&gt; g = pp.CartGrid(np.array([2, 2]))</span>
 <span class="sd">        &gt;&gt;&gt; p = np.array([0, 3])</span>
-<span class="sd">        &gt;&gt;&gt; is_con, l = grid_is_connected(g, p)</span>
+<span class="sd">        &gt;&gt;&gt; is_con, l = part.grid_is_connected(g, p)</span>
 <span class="sd">        &gt;&gt;&gt; is_con</span>
 <span class="sd">        False</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: Grid to be tested.</span>
+<span class="sd">            Only its :attr:`~porepy.grids.grid.Grid.cell_faces` map is used.</span>
+<span class="sd">        cell_ind: ``default=None``</span>
+
+<span class="sd">            Index of cells to be included when looking for connections.</span>
+<span class="sd">            Defaults to all cells in the grid.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A 2-tuple containing</span>
+
+<span class="sd">        :obj:`bool`:</span>
+<span class="sd">            ``True``, if the grid is connected.</span>
+
+<span class="sd">        :obj:`list`:</span>
+<span class="sd">            Each list item contains an array with cell indices of a connected</span>
+<span class="sd">            component.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span> <span class="nn">networkx</span>
@@ -1063,17 +1185,17 @@
     <span class="n">c2c</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_connection_map</span><span class="p">()</span>
 
     <span class="c1"># Extract submatrix of the active cell set.</span>
-    <span class="c1"># To slice the sparse matrix, we first convert to row storage, slice rows,</span>
-    <span class="c1"># and then convert to columns and slice those as well.</span>
+    <span class="c1"># To slice the sparse matrix, we first convert to row storage, slice rows, and then</span>
+    <span class="c1"># convert to columns and slice those as well.</span>
     <span class="n">c2c</span> <span class="o">=</span> <span class="n">c2c</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()[</span><span class="n">cell_ind</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()[:,</span> <span class="n">cell_ind</span><span class="p">]</span>
 
     <span class="c1"># Represent the connections as a networkx graph and check for connectivity</span>
-    <span class="n">graph</span> <span class="o">=</span> <span class="n">networkx</span><span class="o">.</span><span class="n">from_scipy_sparse_matrix</span><span class="p">(</span><span class="n">c2c</span><span class="p">)</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">networkx</span><span class="o">.</span><span class="n">from_scipy_sparse_array</span><span class="p">(</span><span class="n">c2c</span><span class="p">)</span>
     <span class="n">is_connected</span> <span class="o">=</span> <span class="n">networkx</span><span class="o">.</span><span class="n">is_connected</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
 
     <span class="c1"># Get the connected components of the network.</span>
-    <span class="c1"># networkx gives a generator that produce sets of node indices. Use this</span>
-    <span class="c1"># to define a list of numpy arrays.</span>
+    <span class="c1"># networkx gives a generator that produce sets of node indices. Use this to define a</span>
+    <span class="c1"># list of numpy arrays.</span>
     <span class="n">component_generator</span> <span class="o">=</span> <span class="n">networkx</span><span class="o">.</span><span class="n">connected_components</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
     <span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">component_generator</span><span class="p">]</span>
 

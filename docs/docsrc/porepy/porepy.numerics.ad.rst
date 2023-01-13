@@ -14,6 +14,7 @@ Submodules
 
    porepy.numerics.ad.discretizations
    porepy.numerics.ad.equation_manager
+   porepy.numerics.ad.equation_system
    porepy.numerics.ad.forward_mode
    porepy.numerics.ad.functions
    porepy.numerics.ad.grid_operators

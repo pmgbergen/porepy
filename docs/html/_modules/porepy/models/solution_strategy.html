@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.models.solution_strategy &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/solution_strategy.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/modules.html">porepy</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.models.solution_strategy</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.models.solution_strategy</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Solution strategy classes.</span>
+
+<span class="sd">This class is a modified version of relevant parts of AbstractModel.</span>
+<span class="sd">In the future, it may be possible to merge the two classes. For now, we</span>
+<span class="sd">keep them separate, to avoid breaking existing code (legacy models).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SolutionStrategy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy">[docs]</a><span class="k">class</span> <span class="nc">SolutionStrategy</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This is a class that specifies methods that a model must implement to</span>
+<span class="sd">    be compatible with the linearization and time stepping methods.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Normally set by a mixin instance of</span>
+<span class="sd">    :class:`porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">set_geometry</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Set the geometry of the model. Normally provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">initialize_data_saving</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Initialize data saving. Normally provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">save_data_time_step</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Save data at a time step. Normally provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">finalize_data_saving</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Finalize data saving. Normally provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">create_variables</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Create variables. Normally provided by a mixin instance of a Variable class</span>
+<span class="sd">    relevant to the model.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">set_equations</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Set the governing equations of the model. Normally provided by the solution</span>
+<span class="sd">    strategy of a specific model (i.e. a subclass of this class).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize the solution strategy.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            params (dict, optional): Parameters for the solution strategy. Defaults to</span>
+<span class="sd">                None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Set default parameters, these will be overwritten by any parameters passed.</span>
+        <span class="n">default_params</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;folder_name&quot;</span><span class="p">:</span> <span class="s2">&quot;visualization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;file_name&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;linear_solver&quot;</span><span class="p">:</span> <span class="s2">&quot;pypardiso&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">default_params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">default_params</span>
+        <span class="sd">&quot;&quot;&quot;Dictionary of parameters.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Set a convergence status. Not sure if a boolean is sufficient, or whether</span>
+        <span class="c1"># we should have an enum here.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">convergence_status</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="sd">&quot;&quot;&quot;Whether the non-linear iteration has converged.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nonlinear_iteration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="sd">&quot;&quot;&quot;Number of non-linear iterations performed for current time step.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Define attributes to be assigned later</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span>
+        <span class="sd">&quot;&quot;&quot;Equation system manager. Will be set by :meth:`set_equation_system_manager`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
+        <span class="sd">&quot;&quot;&quot;Mixed-dimensional grid. Will normally be set by a mixin instance of</span>
+<span class="sd">        :class:`~porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain_bounds</span><span class="p">:</span> <span class="nb">dict</span>
+        <span class="sd">&quot;&quot;&quot;Bounding box of the domain. Will normally be set by a mixin instance of</span>
+<span class="sd">        :class:`~porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear_system</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+        <span class="sd">&quot;&quot;&quot;The linear system to be solved in each iteration of the non-linear solver.</span>
+<span class="sd">        The tuple contains the sparse matrix and the right hand side residual vector.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exporter</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Exporter</span>
+        <span class="sd">&quot;&quot;&quot;Exporter for visualization.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">units</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Units</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;units&quot;</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Units</span><span class="p">())</span>
+        <span class="sd">&quot;&quot;&quot;Units of the model. See also :meth:`set_units`.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fluid</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">FluidConstants</span>
+        <span class="sd">&quot;&quot;&quot;Fluid constants. See also :meth:`set_materials`.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">solid</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SolidConstants</span>
+        <span class="sd">&quot;&quot;&quot;Solid constants. See also :meth:`set_materials`.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_manager</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">&quot;time_manager&quot;</span><span class="p">,</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">TimeManager</span><span class="p">(</span><span class="n">schedule</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dt_init</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">constant_dt</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="sd">&quot;&quot;&quot;Time manager for the simulation.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SolutionStrategy.prepare_simulation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.prepare_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Run at the start of simulation. Used for initialization etc.&quot;&quot;&quot;</span>
+        <span class="c1"># Set the geometry of the problem. This is a method that must be implemented</span>
+        <span class="c1"># in a ModelGeometry class.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_geometry</span><span class="p">()</span>
+        <span class="c1"># Exporter initialization must be done after grid creation.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_data_saving</span><span class="p">()</span>
+
+        <span class="c1"># Set variables, constitutive relations, discretizations and equations.</span>
+        <span class="c1"># Order of operations is important here.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_equation_system_manager</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_materials</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_variables</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_condition</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_discretization_parameters</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_equations</span><span class="p">()</span>
+
+        <span class="c1"># Export initial condition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_data_time_step</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">discretize</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_linear_solver</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.set_equation_system_manager"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.set_equation_system_manager">[docs]</a>    <span class="k">def</span> <span class="nf">set_equation_system_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create an equation_system manager on the mixed-dimensional grid.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;equation_system&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.set_discretization_parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.set_discretization_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set parameters for the discretization.</span>
+
+<span class="sd">        This method is called before the discretization is performed. It is</span>
+<span class="sd">        intended to be used to set parameters for the discretization, such as</span>
+<span class="sd">        the permeability, the porosity, etc.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.initial_condition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.initial_condition">[docs]</a>    <span class="k">def</span> <span class="nf">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set the initial condition for the problem.&quot;&quot;&quot;</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_variable_values</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">to_iterate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_state</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.set_materials"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.set_materials">[docs]</a>    <span class="k">def</span> <span class="nf">set_materials</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set material parameters.</span>
+
+<span class="sd">        In addition to adjusting the units (see ::method::set_units), materials are</span>
+<span class="sd">        defined through ::class::pp.Material and the constants passed when initializing</span>
+<span class="sd">        the materials. For most purposes, a user needs only pass the desired parameter</span>
+<span class="sd">        values in params[&quot;material_constants&quot;] when initializing a solution strategy,</span>
+<span class="sd">        and should not need to modify the material classes. However, if a user wishes to</span>
+<span class="sd">        modify to e.g. provide additional material parameters, this can be done by</span>
+<span class="sd">        passing modified material classes in params[&quot;fluid&quot;] and params[&quot;solid&quot;].</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Default values</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">constants</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;material_constants&quot;</span><span class="p">,</span> <span class="p">{}))</span>
+        <span class="c1"># Use standard models for fluid and solid constants if not provided.</span>
+        <span class="k">if</span> <span class="s2">&quot;fluid&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">constants</span><span class="p">:</span>
+            <span class="n">constants</span><span class="p">[</span><span class="s2">&quot;fluid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">FluidConstants</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s2">&quot;solid&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">constants</span><span class="p">:</span>
+            <span class="n">constants</span><span class="p">[</span><span class="s2">&quot;solid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">SolidConstants</span><span class="p">()</span>
+
+        <span class="c1"># Loop over all constants objects (fluid, solid), and set units.</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">const</span> <span class="ow">in</span> <span class="n">constants</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Check that the object is of the correct type</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">const</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">material_constants</span><span class="o">.</span><span class="n">MaterialConstants</span><span class="p">)</span>
+            <span class="c1"># Impose the units passed to initialization of the model.</span>
+            <span class="n">const</span><span class="o">.</span><span class="n">set_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">units</span><span class="p">)</span>
+            <span class="c1"># This is where the constants (fluid, solid) are actually set as attributes</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">const</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.before_newton_loop"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.before_newton_loop">[docs]</a>    <span class="k">def</span> <span class="nf">before_newton_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wrap for legacy reasons. Call :meth:`before_nonlinear_loop` instead.&quot;&quot;&quot;</span>
+        <span class="c1"># TODO: Remove and call before_nonlinear_loop directly.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">before_nonlinear_loop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.discretize"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Discretize all terms.&quot;&quot;&quot;</span>
+        <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="c1"># Do a discretization of the equations. More refined control of the</span>
+        <span class="c1"># discretization process can be achieved by exploiting knowledge of the equation</span>
+        <span class="c1"># system (e.g., which terms are linear and need not be discretized at every</span>
+        <span class="c1"># iteration).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">discretize</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Discretized in </span><span class="si">{}</span><span class="s2"> seconds&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.before_nonlinear_loop"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.before_nonlinear_loop">[docs]</a>    <span class="k">def</span> <span class="nf">before_nonlinear_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Method to be called before entering the non-linear solver, thus at the start</span>
+<span class="sd">        of a new time step.</span>
+
+<span class="sd">        Possible usage is to update time-dependent parameters, discretizations etc.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nonlinear_iteration</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.before_newton_iteration"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.before_newton_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">before_newton_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wrap for legacy reasons. Call :meth:`before_nonlinear_iteration` instead.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">before_nonlinear_iteration</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.before_nonlinear_iteration"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.before_nonlinear_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">before_nonlinear_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Method to be called at the start of every non-linear iteration.</span>
+
+<span class="sd">        Possible usage is to update non-linear parameters, discretizations etc.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.after_newton_iteration"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.after_newton_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Wrap for legacy reasons. Call :meth:`after_nonlinear_iteration` instead.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            solution_vector: The new solution state, as computed by the non-linear</span>
+<span class="sd">                solver.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># TODO: Remove and call after_nonlinear_iteration directly.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">after_nonlinear_iteration</span><span class="p">(</span><span class="n">solution_vector</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.after_nonlinear_iteration"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.after_nonlinear_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">after_nonlinear_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Method to be called after every non-linear iteration.</span>
+
+<span class="sd">        Possible usage is to distribute information on the new trial state, visualize</span>
+<span class="sd">        the current approximation etc.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            solution_vector: The new solution state, as computed by the non-linear</span>
+<span class="sd">                solver.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nonlinear_iteration</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_variable_values</span><span class="p">(</span>
+            <span class="n">values</span><span class="o">=</span><span class="n">solution_vector</span><span class="p">,</span> <span class="n">additive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_iterate</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.after_newton_convergence"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.after_newton_convergence">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_convergence</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wrap for legacy reasons. Call :meth:`after_nonlinear_convergence` instead.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            solution: The new solution state, as computed by the non-linear solver.</span>
+<span class="sd">            errors: The error in the solution, as computed by the non-linear solver.</span>
+<span class="sd">            iteration_counter: The number of iterations performed by the non-linear</span>
+<span class="sd">                solver.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">after_nonlinear_convergence</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.after_nonlinear_convergence"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.after_nonlinear_convergence">[docs]</a>    <span class="k">def</span> <span class="nf">after_nonlinear_convergence</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Method to be called after every non-linear iteration.</span>
+
+<span class="sd">        Possible usage is to distribute information on the solution, visualization, etc.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            solution: The new solution state, as computed by the non-linear solver.</span>
+<span class="sd">            errors: The error in the solution, as computed by the non-linear solver.</span>
+<span class="sd">            iteration_counter: The number of iterations performed by the non-linear</span>
+<span class="sd">                solver.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">solution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">get_variable_values</span><span class="p">(</span><span class="n">from_iterate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_variable_values</span><span class="p">(</span>
+            <span class="n">values</span><span class="o">=</span><span class="n">solution</span><span class="p">,</span> <span class="n">to_state</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">additive</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">convergence_status</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_data_time_step</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.after_newton_failure"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.after_newton_failure">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_failure</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Method to be called if the non-linear solver fails to converge.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            solution: The new solution state, as computed by the non-linear solver.</span>
+<span class="sd">            errors: The error in the solution, as computed by the non-linear solver.</span>
+<span class="sd">            iteration_counter: The number of iterations performed by the non-linear</span>
+<span class="sd">                solver.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">after_nonlinear_failure</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.after_nonlinear_failure"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.after_nonlinear_failure">[docs]</a>    <span class="k">def</span> <span class="nf">after_nonlinear_failure</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Method to be called if the non-linear solver fails to converge.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            solution: The new solution state, as computed by the non-linear solver.</span>
+<span class="sd">            errors: The error in the solution, as computed by the non-linear solver.</span>
+<span class="sd">            iteration_counter: The number of iterations performed by the non-linear</span>
+<span class="sd">                solver.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_nonlinear_problem</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Newton iterations did not converge.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Tried solving singular matrix for the linear problem.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.after_simulation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.after_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Run at the end of simulation. Can be used for cleanup etc.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finalize_data_saving</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.check_convergence"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.check_convergence">[docs]</a>    <span class="k">def</span> <span class="nf">check_convergence</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">prev_solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">init_solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">nl_params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Implements a convergence check, to be called by a non-linear solver.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            solution: Newly obtained solution vector prev_solution: Solution obtained in</span>
+<span class="sd">            the previous non-linear iteration. init_solution: Solution obtained from the</span>
+<span class="sd">            previous time-step. nl_params: Dictionary of parameters used for the</span>
+<span class="sd">            convergence check.</span>
+<span class="sd">                Which items are required will depend on the convergence test to be</span>
+<span class="sd">                implemented.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The method returns the following tuple:</span>
+
+<span class="sd">            float:</span>
+<span class="sd">                Error, computed to the norm in question.</span>
+<span class="sd">            boolean:</span>
+<span class="sd">                True if the solution is converged according to the test implemented by</span>
+<span class="sd">                this method.</span>
+<span class="sd">            boolean:</span>
+<span class="sd">                True if the solution is diverged according to the test implemented by</span>
+<span class="sd">                this method.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_nonlinear_problem</span><span class="p">():</span>
+            <span class="c1"># At least for the default direct solver, scipy.sparse.linalg.spsolve, no</span>
+            <span class="c1"># error (but a warning) is raised for singular matrices, but a nan solution</span>
+            <span class="c1"># is returned. We check for this.</span>
+            <span class="n">diverged</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">solution</span><span class="p">)))</span>
+            <span class="n">converged</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">diverged</span>
+            <span class="n">error</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span> <span class="k">if</span> <span class="n">diverged</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="k">return</span> <span class="n">error</span><span class="p">,</span> <span class="n">converged</span><span class="p">,</span> <span class="n">diverged</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Simple but fairly robust convergence criterion.</span>
+            <span class="c1"># More advanced options are e.g. considering errors for each variable</span>
+            <span class="c1"># and/or each grid separately, possibly using _l2_norm_cell</span>
+
+            <span class="c1"># We normalize by the size of the solution vector</span>
+            <span class="c1"># Enforce float to make mypy happy</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">solution</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">solution</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Normalized residual norm: </span><span class="si">{</span><span class="n">error</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">converged</span> <span class="o">=</span> <span class="n">error</span> <span class="o">&lt;</span> <span class="n">nl_params</span><span class="p">[</span><span class="s2">&quot;nl_convergence_tol&quot;</span><span class="p">]</span>
+            <span class="n">diverged</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="n">error</span><span class="p">,</span> <span class="n">converged</span><span class="p">,</span> <span class="n">diverged</span></div>
+
+    <span class="k">def</span> <span class="nf">_initialize_linear_solver</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize linear solver.</span>
+
+<span class="sd">        The default linear solver is Pardiso; this can be overridden by user choices.</span>
+<span class="sd">        If Pardiso is not available, backup solvers will automatically be invoked in</span>
+<span class="sd">        :meth:`solve_linear_system`.</span>
+
+<span class="sd">        To use a custom solver in a model, override this method (and possibly</span>
+<span class="sd">        :meth:`solve_linear_system`).</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError if the chosen solver is not among the three currently supported,</span>
+<span class="sd">            see linear_solve.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">solver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;linear_solver&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear_solver</span> <span class="o">=</span> <span class="n">solver</span>
+
+        <span class="k">if</span> <span class="n">solver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;scipy_sparse&quot;</span><span class="p">,</span> <span class="s2">&quot;pypardiso&quot;</span><span class="p">,</span> <span class="s2">&quot;umfpack&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown linear solver </span><span class="si">{</span><span class="n">solver</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SolutionStrategy.assemble_linear_system"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.assemble_linear_system">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_linear_system</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble the linearized system and store it in :attr:`linear_system`.</span>
+
+<span class="sd">        The linear system is defined by the current state of the model.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t_0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear_system</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assembled linear system in </span><span class="si">{</span><span class="n">t_0</span><span class="o">-</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> seconds.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategy.solve_linear_system"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.solve_linear_system">[docs]</a>    <span class="k">def</span> <span class="nf">solve_linear_system</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Solve linear system.</span>
+
+<span class="sd">        Default method is a direct solver. The linear solver is chosen in the</span>
+<span class="sd">        initialize_linear_solver of this model. Implemented options are</span>
+<span class="sd">            - scipy.sparse.spsolve with and without call to umfpack</span>
+<span class="sd">            - pypardiso.spsolve</span>
+
+<span class="sd">        See also:</span>
+<span class="sd">            :meth:`initialize_linear_solver`</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Solution vector.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">A</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_system</span>
+        <span class="n">t_0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Max element in A </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">))</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;Max </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> and min</span>
+<span class="s2">            </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> A sum.&quot;&quot;&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">solver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_solver</span>
+        <span class="k">if</span> <span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;pypardiso&quot;</span><span class="p">:</span>
+            <span class="c1"># This is the default option which is invoked unless explicitly overridden</span>
+            <span class="c1"># by the user. We need to check if the pypardiso package is available.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">pypardiso</span> <span class="kn">import</span> <span class="n">spsolve</span> <span class="k">as</span> <span class="n">sparse_solver</span>  <span class="c1"># type: ignore</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="c1"># Fall back on the standard scipy sparse solver.</span>
+                <span class="n">sparse_solver</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">spsolve</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;PyPardiso could not be imported,</span>
+<span class="sd">                    falling back on scipy.sparse.linalg.spsolve&quot;&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">sparse_solver</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;umfpack&quot;</span><span class="p">:</span>
+            <span class="c1"># Following may be needed:</span>
+            <span class="c1"># A.indices = A.indices.astype(np.int64)</span>
+            <span class="c1"># A.indptr = A.indptr.astype(np.int64)</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">spsolve</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">use_umfpack</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;scipy_sparse&quot;</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">spsolve</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;AbstractModel does not know how to apply the linear solver </span><span class="si">{</span><span class="n">solver</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solved linear system in </span><span class="si">{</span><span class="n">t_0</span><span class="o">-</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> seconds.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Specifies whether the Model problem is nonlinear.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if the problem is nonlinear, False otherwise.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="SolutionStrategy.update_time_dependent_ad_arrays"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy.update_time_dependent_ad_arrays">[docs]</a>    <span class="k">def</span> <span class="nf">update_time_dependent_ad_arrays</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Update the time dependent arrays for the mechanics boundary conditions.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            initial: If True, the array generating method is called for both state and</span>
+<span class="sd">                iterate. If False, the array generating method is called only for the</span>
+<span class="sd">                iterate, and the state is updated by copying the iterate.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

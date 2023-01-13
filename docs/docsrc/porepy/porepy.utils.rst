@@ -31,6 +31,7 @@ Submodules
    porepy.utils.interpolation_tables
    porepy.utils.mcolon
    porepy.utils.permutations
+   porepy.utils.porepy_types
    porepy.utils.setmembership
    porepy.utils.sort_points
    porepy.utils.tags

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.models.thermoporomechanics &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/thermoporomechanics.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/modules.html">porepy</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.models.thermoporomechanics</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.models.thermoporomechanics</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Coupling of energy, mass and momentum balance to obtain thermoporomechanics equations.</span>
+
+<span class="sd">The module only contains what is needed for the coupling, the three individual subproblems</span>
+<span class="sd">are defined elsewhere.</span>
+
+<span class="sd">The main changes to the equations are achieved by changing the constitutive laws for</span>
+<span class="sd">porosity and stress. The former aquires a pressure and temperature dependency and an</span>
+<span class="sd">additional :math:`\alpha\nabla\cdot\mathbf{u}` term, while the stress is modified to</span>
+<span class="sd">include isotropic pressure and temperature terms :math:`\alpha p \mathbf{I}+ \beta T</span>
+<span class="sd">\mathbf{I}`.</span>
+
+<span class="sd">Suggested references (TODO: add more, e.g. Inga&#39;s in prep, ppV2):</span>
+<span class="sd">    - Coussy, 2004, https://doi.org/10.1002/0470092718.</span>
+<span class="sd">    - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.</span>
+<span class="sd">    - Stefansson et al, 2021, https://doi.org/10.1016/j.cma.2021.114122</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">energy_balance</span> <span class="k">as</span> <span class="n">energy</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">fluid_mass_balance</span> <span class="k">as</span> <span class="n">mass</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">momentum_balance</span> <span class="k">as</span> <span class="n">momentum</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">poromechanics</span>
+
+
+<div class="viewcode-block" id="ConstitutiveLawsThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.ConstitutiveLawsThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">ConstitutiveLawsThermoporomechanics</span><span class="p">(</span>
+    <span class="c1"># Combined effects</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">DisplacementJumpAperture</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">BiotCoefficient</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ThermalExpansion</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ThermoPressureStress</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ThermoPoroMechanicsPorosity</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FluidDensityFromPressureAndTemperature</span><span class="p">,</span>
+    <span class="c1"># Energy subproblem</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">EnthalpyFromTemperature</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FouriersLaw</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ThermalConductivityLTE</span><span class="p">,</span>
+    <span class="c1"># Fluid mass balance subproblem</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">DarcysLaw</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">DimensionReduction</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">AdvectiveFlux</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FluidMobility</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ConstantPermeability</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ConstantViscosity</span><span class="p">,</span>
+    <span class="c1"># Mechanical subproblem</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">LinearElasticSolid</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FracturedSolid</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FrictionBound</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class for the coupling of energy, mass and momentum balance to obtain</span>
+<span class="sd">    thermoporomechanics equations.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ConstitutiveLawsThermoporomechanics.stress"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.ConstitutiveLawsThermoporomechanics.stress">[docs]</a>    <span class="k">def</span> <span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Thermo-poromechanical stress operator.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains where the stress is defined.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator for the stress.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Simply add the pressure and temperature terms to the mechanical stress</span>
+        <span class="n">traction</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pressure_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">traction</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;thermo_poro_mechnical_stress&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">traction</span></div></div>
+
+
+<div class="viewcode-block" id="EquationsThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.EquationsThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">EquationsThermoporomechanics</span><span class="p">(</span>
+    <span class="n">energy</span><span class="o">.</span><span class="n">EnergyBalanceEquations</span><span class="p">,</span>
+    <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="p">,</span>
+    <span class="n">momentum</span><span class="o">.</span><span class="n">MomentumBalanceEquations</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Combines energy, mass and momentum balance equations.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="EquationsThermoporomechanics.set_equations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.EquationsThermoporomechanics.set_equations">[docs]</a>    <span class="k">def</span> <span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the equations for the poromechanics problem.</span>
+
+<span class="sd">        Call all parent classes&#39; set_equations methods.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Call all super classes&#39; set_equations methods. Do this explicitly (calling the</span>
+        <span class="c1"># methods of the super classes directly) instead of using super() since this is</span>
+        <span class="c1"># more transparent.</span>
+        <span class="n">energy</span><span class="o">.</span><span class="n">EnergyBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">momentum</span><span class="o">.</span><span class="n">MomentumBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="VariablesThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.VariablesThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">VariablesThermoporomechanics</span><span class="p">(</span>
+    <span class="n">energy</span><span class="o">.</span><span class="n">VariablesEnergyBalance</span><span class="p">,</span>
+    <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="p">,</span>
+    <span class="n">momentum</span><span class="o">.</span><span class="n">VariablesMomentumBalance</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Combines mass and momentum balance variables.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="VariablesThermoporomechanics.create_variables"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.VariablesThermoporomechanics.create_variables">[docs]</a>    <span class="k">def</span> <span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the variables for the poromechanics problem.</span>
+
+<span class="sd">        Call all parent classes&#39; set_variables methods.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Energy balance and its parent mass balance</span>
+        <span class="n">energy</span><span class="o">.</span><span class="n">VariablesEnergyBalance</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">momentum</span><span class="o">.</span><span class="n">VariablesMomentumBalance</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="BoundaryConditionsThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.BoundaryConditionsThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">BoundaryConditionsThermoporomechanics</span><span class="p">(</span>
+    <span class="n">energy</span><span class="o">.</span><span class="n">BoundaryConditionsEnergyBalance</span><span class="p">,</span>
+    <span class="n">mass</span><span class="o">.</span><span class="n">BoundaryConditionsSinglePhaseFlow</span><span class="p">,</span>
+    <span class="n">poromechanics</span><span class="o">.</span><span class="n">BoundaryConditionsMechanicsTimeDependent</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Combines energy, mass and momentum balance boundary conditions.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The mechanical boundary conditions are differentiated wrt time in the div_u term.</span>
+<span class="sd">        Thus, time dependent values must be defined using</span>
+<span class="sd">        :class:pp.ad.TimeDependentArray. This is as of yet untested.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="SolutionStrategyThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.SolutionStrategyThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">SolutionStrategyThermoporomechanics</span><span class="p">(</span>
+    <span class="n">poromechanics</span><span class="o">.</span><span class="n">SolutionStrategyTimeDependentBCs</span><span class="p">,</span>
+    <span class="n">energy</span><span class="o">.</span><span class="n">SolutionStrategyEnergyBalance</span><span class="p">,</span>
+    <span class="n">mass</span><span class="o">.</span><span class="n">SolutionStrategySinglePhaseFlow</span><span class="p">,</span>
+    <span class="n">momentum</span><span class="o">.</span><span class="n">SolutionStrategyMomentumBalance</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Combines mass and momentum balance solution strategies.</span>
+
+<span class="sd">    This class has an extended diamond structure inheritance, i.e., all parent classes</span>
+<span class="sd">    inherit from :class:`~porepy.models.solution_strategy.SolutionStrategy`. The user</span>
+<span class="sd">    should be aware of this and take method resolution order into account when defining</span>
+<span class="sd">    new methods.</span>
+
+<span class="sd">    TODO: More targeted (re-)discretization. See parent classes and other combined</span>
+<span class="sd">    models.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SolutionStrategyThermoporomechanics.set_discretization_parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.SolutionStrategyThermoporomechanics.set_discretization_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set parameters for the subproblems and the combined problem.&quot;&quot;&quot;</span>
+        <span class="c1"># Set parameters for the subproblems.</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_discretization_parameters</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+
+            <span class="n">pp</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span>
+                <span class="n">sd</span><span class="p">,</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stress_keyword</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;biot_alpha&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">solid</span><span class="o">.</span><span class="n">biot_coefficient</span><span class="p">(),</span>  <span class="c1"># TODO: Rename in Biot</span>
+                <span class="p">},</span>
+            <span class="p">)</span></div></div>
+
+
+<span class="c1"># Note that we ignore a mypy error here. There are some inconsistencies in the method</span>
+<span class="c1"># definitions of the mixins, related to the enforcement of keyword-only arguments. The</span>
+<span class="c1"># type Callable is poorly supported, except if protocols are used and we really do not</span>
+<span class="c1"># want to go there. Specifically, method definitions that contains a *, for instance,</span>
+<span class="c1">#   def method(a: int, *, b: int) -&gt; None: pass</span>
+<span class="c1"># which should be types as Callable[[int, int], None], cannot be parsed by mypy.</span>
+<span class="c1"># For this reason, we ignore the error here, and rely on the tests to catch any</span>
+<span class="c1"># inconsistencies.</span>
+<div class="viewcode-block" id="Thermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.Thermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">Thermoporomechanics</span><span class="p">(</span>  <span class="c1"># type: ignore[misc]</span>
+    <span class="n">SolutionStrategyThermoporomechanics</span><span class="p">,</span>
+    <span class="n">EquationsThermoporomechanics</span><span class="p">,</span>
+    <span class="n">VariablesThermoporomechanics</span><span class="p">,</span>
+    <span class="n">BoundaryConditionsThermoporomechanics</span><span class="p">,</span>
+    <span class="n">ConstitutiveLawsThermoporomechanics</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">ModelGeometry</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">DataSavingMixin</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class for the coupling of energy, mass and momentum balance in a</span>
+<span class="sd">    mixed-dimensional porous medium.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

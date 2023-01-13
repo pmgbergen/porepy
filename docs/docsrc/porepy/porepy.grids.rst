@@ -20,6 +20,7 @@ Submodules
 .. toctree::
    :maxdepth: 1
 
+   porepy.grids.boundary_grid
    porepy.grids.coarsening
    porepy.grids.grid
    porepy.grids.grid_extrusion

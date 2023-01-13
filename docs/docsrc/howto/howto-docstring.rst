@@ -17,9 +17,9 @@ Docstring-Basics
         """This is a docstring for ``var_1``."""
 
 2. Inline literals are rendered using \`\`: \`\`literal\`\` becomes ``literal``.
-3. Every public member (variable, function, class or method) must have a docstring.
-   It's **good practice** (not to say demanded) to document private objects as well,
-   but they will not be included in the docs by default.
+3. Every member (variable, function, class or method) must have a docstring.
+   Though only *public* members are included by current configurations, it is demanded that all members,
+   including *private* and *special* members have a proper docstring.
 4. From the docstring it should be clear what an object does or is, what it takes as arguments
    and what it returns. Avoid overly scientific or complicated language. 
 5. Sphinx provides extensive linking and cross-referencing features.
@@ -124,7 +124,7 @@ Examples of acceptable documentation are provided in the subsections after.
 Certain acronyms are reserved and developers are encouraged to use them consistently in their
 docstrings to provide a uniform appearance.
 Acronyms are formatted with inline literals using \`\`x\`\`.
-These include:
+These include (among others):
 
 - ``sd`` : single SubDomain
 - ``mdg`` : MixedDimensionalGrid
@@ -137,13 +137,13 @@ These include:
 .. rubric:: Google style directives
 
 Google style directives are aliases for standard directives, which simplify the usage and syntax.
-Besides the obligatory declaration of parameters, return values and raised errors,
+Besides the obligatory declaration of parameters, raised errors and return values,
 the PorePy style encourages the use of other sections to provide notes, example code usage, references, etc.
 
 For a list of all supported Google style directives,
 `see Google style docstring sections <https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#docstring-sections>`_.
 
-The compulsory order of directives inside a docstring is:
+The **compulsory order** of directives inside a docstring is:
 
     1. Examples, Note, ...
     2. References, See Also
@@ -183,7 +183,7 @@ rendering the type annotations useless and making the documentation inconsistent
 
     .. code:: Python
 
-        def my_function:
+        def my_function(argument: type) -> ReturnType:
             """...
 
             Parameters:
@@ -205,7 +205,7 @@ rendering the type annotations useless and making the documentation inconsistent
                 argument (type): Description of argument.
 
             Returns:
-                type: Description of return value.
+                ReturnType: Description of return value.
 
             """
 
@@ -234,7 +234,7 @@ Linking to other objects or members using
 - `:data:`
 
 to provide useful cross-referencing *in the text* is encouraged.
-This will help readers to quickly navigate in the docs.
+This will help readers to quickly navigate through the docs.
 
 Documenting variables
 ---------------------
@@ -270,11 +270,11 @@ When documenting classes, three aspects have to be considered.
 
 .. rubric:: Documenting Constructor Arguments
 
-In PorePy, the constructor description is to be included in the class-docstring, **not** in the 
-``__init__``-docstring! There must be no ``__init__``-docstring at all!
+In PorePy, the constructor description is to be included in the class-docstring, not in the 
+``__init__``-docstring!
+**There must be no ``__init__``-docstring at all!**
 
-The *class-docstring* is the one docstring written directly below the declaration of
-the class
+The *class-docstring* is written directly below the declaration of the class
 
 .. code:: Python
 
@@ -286,15 +286,19 @@ the class
 
 whereas the ``__init__``-docstring is found below the constructor declaration.
 
-Inside class docstrings, you can sue the same directives as for functions. The same rules apply.
+Inside class docstrings, you can sue the same directives as for functions.
+**The same rules apply.**
 
 .. rubric:: Documentation of attributes
 
-Public attributes must be documented using docstrings.
+Attributes must be documented using docstrings.
 This holds for instance-level attributes set in the constructor,
 as well as for class-level attributes.
 PorePy's sphinx build is configured such that it will render those docstrings the same way as method
 docstrings.
+
+Though only public attributes are included by Sphinx' configuration,
+private and name-mangled attributes must be documented as well.
 
 In any case, use type annotations in the Python code and **do not** use type hints in the
 docstring. This will avoid a second, redundant display of the type
@@ -338,7 +342,7 @@ The following example shows why we do not use *Attributes:*
   documentation.
 
 Sphinx groups the documentation of attributes, properties, methods, class methods
-and static methods and sorts them alphabetically inside each group.
+and static methods and sorts them according to the configuration.
 
 .. rubric:: Example class documentation
 
@@ -355,10 +359,9 @@ docstring at the top of the ``__init__`` file.
 These docstrings usually describes the purpose and the contents of the module/package and can
 be included in the compiled documentation.
 
-Though we do not include them by default, it can be used as an introduction
-to the content. In Fact this page's introduction is written in the module-docstring and
+They can be used as an introduction to the content.
+In Fact this page's introduction is written in the module-docstring and
 imported into the compiled documentation. It is then supplemented with additional content like
 the sections on `Docstring-Basics`_ or `Directives`_.
 
-The decision on whether and how to incorporate the module-level docstrings should be made upon
-integration of a module's documentation with the core developers.
+The content and design of module-level docstrings should be discussed with the core developers.

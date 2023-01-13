@@ -16,8 +16,8 @@ sys.path.append(os.path.abspath("."))
 # -- project information ---------------------------------------------------------------
 
 project = "PorePy"
-release = "1.5"
-version = "docs/alpha"
+release = "1.6.0"
+version = "1.6.0"
 
 author = ("Eirik Keilegavlen, "
           + "Ivar Stefansson, "

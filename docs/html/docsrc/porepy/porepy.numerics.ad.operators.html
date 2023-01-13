@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>porepy.numerics.ad.operators module &mdash; PorePy 1.5 documentation</title>
+  <title>porepy.numerics.ad.operators module &mdash; PorePy 1.6.0 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
     <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.operators.html" />
@@ -33,7 +33,7 @@
             <a href="../../index.html" class="icon icon-home"> PorePy
           </a>
               <div class="version">
-                docs/alpha
+                1.6.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -47,178 +47,130 @@
 <li class="toctree-l1"><a class="reference internal" href="../howto/howto-docstring.html">1. How-To docstring</a></li>
 </ul>
 <ul class="current">
-<li class="toctree-l1 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">porepy</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid.html">porepy.grids.grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.html">porepy.models.verification_setups package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.units.html">porepy.models.units module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul class="current">
-<li class="toctree-l3 current"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
-<li class="toctree-l4 current"><a class="current reference internal" href="#">porepy.numerics.ad.operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
 </ul>
@@ -239,6 +191,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">porepy</a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
@@ -283,7 +236,7 @@ with other types of AD operators.</p>
 <dd class="field-even"><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -291,9 +244,8 @@ with other types of AD operators.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Array.interfaces">
 <span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.Array.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
-passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
+<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific interfaces.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -333,7 +285,7 @@ with other types of Ad objects.</p>
 <dd class="field-even"><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -349,12 +301,17 @@ with other types of Ad objects.</p>
 </dl>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Matrix.T">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">T</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><span class="pre">Matrix</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.Matrix.T" title="Permalink to this definition"></a></dt>
+<dd><p>Shorthand for transpose.</p>
+</dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Matrix.interfaces">
 <span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.Matrix.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
-passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
+<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific interfaces.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -373,104 +330,141 @@ passed at instantiation.</p>
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MergedVariable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variables</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MergedVariable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MixedDimensionalVariable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variables</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MixedDimensionalVariable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><code class="xref py py-class docutils literal notranslate"><span class="pre">Variable</span></code></a></p>
-<p>AD operator representing a collection of variables that individually live on separate
+<p>Ad representation of a collection of variables that individually live on separate
 subdomains or interfaces, but treated jointly in the mixed-dimensional sense.</p>
 <p>Conversion of the variables into numerical value should be done with respect to the
-state of an array; see <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.evaluate" title="porepy.numerics.ad.operators.Operator.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.evaluate()</span></code></a>. Therefore, the MergedVariable does not
-implement the method <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.parse" title="porepy.numerics.ad.operators.Operator.parse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.parse()</span></code></a>.</p>
+state of an array; see <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.evaluate" title="porepy.numerics.ad.operators.Operator.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.evaluate()</span></code></a>. Therefore, the MergedVariable does
+not implement the method <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.parse" title="porepy.numerics.ad.operators.Operator.parse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.parse()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>variables</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><em>Variable</em></a><em>]</em>) – List of variables to be merged. Should all have the same name.</p>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.copy">
-<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MergedVariable.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.copy" title="Permalink to this definition"></a></dt>
-<dd><dl class="field-list simple">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MixedDimensionalVariable.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.copy" title="Permalink to this definition"></a></dt>
+<dd><p>Copy the mixed-dimensional variable.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A shallow copy should be sufficient here; the attributes are not expected to
 change.</p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><em>MergedVariable</em></a></p>
+<dd class="field-even"><p><a class="reference internal" href="#porepy.numerics.ad.operators.MixedDimensionalVariable" title="porepy.numerics.ad.operators.MixedDimensionalVariable"><em>MixedDimensionalVariable</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.previous_iteration">
-<span class="sig-name descname"><span class="pre">previous_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MergedVariable.previous_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.previous_iteration" title="Permalink to this definition"></a></dt>
-<dd><dl class="field-list simple">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.copy_common_sub_tags">
+<span class="sig-name descname"><span class="pre">copy_common_sub_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MixedDimensionalVariable.copy_common_sub_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.copy_common_sub_tags" title="Permalink to this definition"></a></dt>
+<dd><p>Copy any shared tags from the sub variables to this variable.</p>
+<p>Only tags with identical values are copied. Thus, the md variable can “trust” that
+its tags are consistent with all sub variables.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.previous_iteration">
+<span class="sig-name descname"><span class="pre">previous_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MixedDimensionalVariable.previous_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.previous_iteration" title="Permalink to this definition"></a></dt>
+<dd><p>Return a representation of this mixed-dimensional variable on the previous
+iteration.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A representation of this merged variable on the previous
 iteration, with its <code class="docutils literal notranslate"><span class="pre">prev_iter</span></code> attribute set to <code class="docutils literal notranslate"><span class="pre">True</span></code></p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><em>MergedVariable</em></a></p>
+<dd class="field-even"><p><a class="reference internal" href="#porepy.numerics.ad.operators.MixedDimensionalVariable" title="porepy.numerics.ad.operators.MixedDimensionalVariable"><em>MixedDimensionalVariable</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.previous_timestep">
-<span class="sig-name descname"><span class="pre">previous_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MergedVariable.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.previous_timestep" title="Permalink to this definition"></a></dt>
-<dd><dl class="field-list simple">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.previous_timestep">
+<span class="sig-name descname"><span class="pre">previous_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MixedDimensionalVariable.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.previous_timestep" title="Permalink to this definition"></a></dt>
+<dd><p>Return a representation of this mixed-dimensional variable on the previous
+time step.</p>
+<p>If the md-variable is already defined on the previous time step, return itself.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A representation of this merged variable on the previous time
 iteration, with its <code class="docutils literal notranslate"><span class="pre">prev_iter</span></code> attribute set to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><em>MergedVariable</em></a></p>
+<dd class="field-even"><p><a class="reference internal" href="#porepy.numerics.ad.operators.MixedDimensionalVariable" title="porepy.numerics.ad.operators.MixedDimensionalVariable"><em>MixedDimensionalVariable</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.size">
-<span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MergedVariable.size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.size" title="Permalink to this definition"></a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>Total size of this merged variable (sum of sizes of respective sub-variables).</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.size">
+<span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#MixedDimensionalVariable.size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.size" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the total size of the mixed-dimensional variable
+by summing the sizes of sub-variables.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
-passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.domain">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">domain</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.domain" title="Permalink to this definition"></a></dt>
+<dd><p>A tuple of all domains on which the atomic sub-variables are defined.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.prev_iter">
-<span class="sig-name descname"><span class="pre">prev_iter</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.prev_iter" title="Permalink to this definition"></a></dt>
-<dd><p>Indicates whether the variable represents the state at the previous iteration.</p>
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.id" title="Permalink to this definition"></a></dt>
+<dd><p>ID counter. Used to identify variables during operator parsing.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.prev_time">
-<span class="sig-name descname"><span class="pre">prev_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.prev_time" title="Permalink to this definition"></a></dt>
-<dd><p>Indicates whether the variable represents the state at the previous time step.</p>
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.interfaces">
+<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.interfaces" title="Permalink to this definition"></a></dt>
+<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific interfaces.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.sub_vars">
-<span class="sig-name descname"><span class="pre">sub_vars</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.sub_vars" title="Permalink to this definition"></a></dt>
-<dd><p>List of single-grid variables which are merged into this merged variable,
-passed at instantiation.</p>
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.original_variable">
+<span class="sig-name descname"><span class="pre">original_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#porepy.numerics.ad.operators.MixedDimensionalVariable" title="porepy.numerics.ad.operators.MixedDimensionalVariable"><span class="pre">MixedDimensionalVariable</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.original_variable" title="Permalink to this definition"></a></dt>
+<dd><p>The original variable, if this variable is a copy of another variable.</p>
+<p>This attribute is used by the methods <a class="reference internal" href="#porepy.numerics.ad.operators.Variable.previous_timestep" title="porepy.numerics.ad.operators.Variable.previous_timestep"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Variable.previous_timestep()</span></code></a> and
+<a class="reference internal" href="#porepy.numerics.ad.operators.Variable.previous_iteration" title="porepy.numerics.ad.operators.Variable.previous_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Variable.previous_iteration()</span></code></a> to keep a link to the original variable.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.subdomains" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.prev_iter">
+<span class="sig-name descname"><span class="pre">prev_iter</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.prev_iter" title="Permalink to this definition"></a></dt>
+<dd><p>Flag indicating if the variable represents the state at the previous iteration.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.prev_time">
+<span class="sig-name descname"><span class="pre">prev_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.prev_time" title="Permalink to this definition"></a></dt>
+<dd><p>Flag indicating if the variable represents the state at the previous time step.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.sub_vars">
+<span class="sig-name descname"><span class="pre">sub_vars</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.sub_vars" title="Permalink to this definition"></a></dt>
+<dd><p>List of sub-variables passed at instantiation, each defined on a separate
+domain.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.MixedDimensionalVariable.subdomains">
+<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.MixedDimensionalVariable.subdomains" title="Permalink to this definition"></a></dt>
 <dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
 <p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
@@ -482,9 +476,9 @@ passed at instantiation.</p>
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Operator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tree</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Operator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Operator" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Parent class for all AD operators.</p>
-<p>This class is not meant to be initiated directly, rather the various
+<p>Objects of this class are not meant to be initiated directly, rather the various
 subclasses should be used. Instances of this class will still be created when
-subclasses are combined by operations.</p>
+subclasses are combined by Operator.Operations.</p>
 <p>Contains a tree structure of child operators for the recursive forward evaluation.</p>
 <p>Provides overload functions for basic arithmetic operations.</p>
 <dl class="field-list simple">
@@ -502,11 +496,61 @@ Defaults to None (converted to empty list).</p></li>
 </ul>
 </dd>
 </dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Operations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>Object representing all supported operations by the operator class.</p>
+<p>Used to construct the operator tree and identify Operator.Operations.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations.add">
+<span class="sig-name descname"><span class="pre">add</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations.add" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations.approximate">
+<span class="sig-name descname"><span class="pre">approximate</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations.approximate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations.div">
+<span class="sig-name descname"><span class="pre">div</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations.div" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations.evaluate">
+<span class="sig-name descname"><span class="pre">evaluate</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations.evaluate" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations.mul">
+<span class="sig-name descname"><span class="pre">mul</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations.mul" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations.pow">
+<span class="sig-name descname"><span class="pre">pow</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations.pow" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations.sub">
+<span class="sig-name descname"><span class="pre">sub</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations.sub" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.Operations.void">
+<span class="sig-name descname"><span class="pre">void</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.Operations.void" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.discretize">
 <span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Operator.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.discretize" title="Permalink to this definition"></a></dt>
-<dd><p>Perform the <code class="docutils literal notranslate"><span class="pre">discretize</span></code> function of all child operators which are discretizations
-using data from mdg.</p>
+<dd><p>Perform discretization operation on all discretizations identified in
+the tree of this operator, using data from mdg.</p>
+<p>IMPLEMENTATION NOTE: The discretizations was identified at initialization of
+Expression - it is now done here to accommodate updates (?) and</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p>
@@ -519,12 +563,12 @@ using data from mdg.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.evaluate">
-<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dof_manager</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Operator.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.evaluate" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system_manager</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Operator.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.evaluate" title="Permalink to this definition"></a></dt>
 <dd><p>Evaluate the residual and Jacobian matrix for a given state.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dof_manager</strong> (<a class="reference internal" href="porepy.numerics.mixed_dim.dof_manager.html#porepy.numerics.mixed_dim.dof_manager.DofManager" title="porepy.numerics.mixed_dim.dof_manager.DofManager"><em>DofManager</em></a>) – Used to represent the problem. Will be used
+<li><p><strong>system_manager</strong> (<em>pp.ad.EquationSystem</em><em> | </em><em>pp.DofManager</em>) – Used to represent the problem. Will be used
 to parse the sub-operators that combine to form this operator.</p></li>
 <li><p><strong>state</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – State vector for which the residual and its
 derivatives should be formed. If not provided, the state will be pulled from
@@ -619,9 +663,14 @@ time step.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.interfaces">
 <span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
-passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
+<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific interfaces.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Operator.name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.name" title="Permalink to this definition"></a></dt>
+<dd><p>The name given to this variable.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -672,9 +721,8 @@ Ad objects.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Scalar.interfaces">
 <span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.Scalar.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
-passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
+<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific interfaces.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -711,8 +759,31 @@ Exactly one of subdomains and interfaces must be non-empty.</p></li>
 previous time step.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If either none of, or both of, subdomains and interfaces are empty.</p>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.TimeDependentArray.previous_timestep">
+<span class="sig-name descname"><span class="pre">previous_timestep</span></span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#TimeDependentArray.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.TimeDependentArray.previous_timestep" title="Permalink to this definition"></a></dt>
+<dd><p>If True, the array will be evaluated using data[pp.STATE]
+(data being the data dictionaries for subdomains and interfaces), if False,
+data[pp.STATE][pp.ITERATE] is used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#porepy.numerics.ad.operators.TimeDependentArray" title="porepy.numerics.ad.operators.TimeDependentArray"><em>TimeDependentArray</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="field-list simple">
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If either none of, or both of, subdomains and interfaces are empty.</p>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>]</em>) – </p></li>
+<li><p><strong>previous_timestep</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py method">
@@ -731,14 +802,14 @@ from <code class="docutils literal notranslate"><span class="pre">data[pp.STATE]
 <dd class="field-even"><p>A numpy ndarray containing the numerical values of this array.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.TimeDependentArray.previous_timestep">
-<span class="sig-name descname"><span class="pre">previous_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#TimeDependentArray.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.TimeDependentArray.previous_timestep" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">previous_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#TimeDependentArray.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id0" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>This array represented at the previous time step.</p>
@@ -752,9 +823,8 @@ from <code class="docutils literal notranslate"><span class="pre">data[pp.STATE]
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.TimeDependentArray.interfaces">
 <span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.TimeDependentArray.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
-passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
+<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific interfaces.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -776,25 +846,27 @@ passed at instantiation.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Variable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndof</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previous_timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previous_iteration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Variable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndof</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previous_timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previous_iteration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a></p>
 <p>AD operator representing a variable defined on a single grid or mortar grid.</p>
-<p>For combinations of variables on different subdomains, see <a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><code class="xref py py-class docutils literal notranslate"><span class="pre">MergedVariable</span></code></a>.</p>
-<p>A conversion of the variable into numerical value should be done with respect to the
+<p>For combinations of variables on different subdomains, see <code class="xref py py-class docutils literal notranslate"><span class="pre">MergedVariable</span></code>.</p>
+<p>Conversion of the variable into numerical value should be done with respect to the
 state of an array; see <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.evaluate" title="porepy.numerics.ad.operators.Operator.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.evaluate()</span></code></a>. Therefore, the variable does not
 implement the method <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.parse" title="porepy.numerics.ad.operators.Operator.parse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.parse()</span></code></a>.</p>
-<p>A variable is associated with either a grid or an interface. Therefore it is assumed that
-either <code class="docutils literal notranslate"><span class="pre">subdomains</span></code> or <code class="docutils literal notranslate"><span class="pre">interfaces</span></code> is passed as an argument.</p>
+<p>A variable is associated with either a grid or an interface. Therefore it is assumed
+that either <code class="docutils literal notranslate"><span class="pre">subdomains</span></code> or <code class="docutils literal notranslate"><span class="pre">interfaces</span></code> is passed as an argument.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – Variable name.</p></li>
-<li><p><strong>ndof</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – Number of dofs per grid element.
+<li><p><strong>ndof</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><em>Literal</em><em>[</em><em>'cells'</em><em>, </em><em>'faces'</em><em>, </em><em>'nodes'</em><em>]</em><em>, </em><em>int</em><em>]</em>) – Number of dofs per grid element.
 Valid keys are <code class="docutils literal notranslate"><span class="pre">cells</span></code>, <code class="docutils literal notranslate"><span class="pre">faces</span></code> and <code class="docutils literal notranslate"><span class="pre">nodes</span></code>.</p></li>
 <li><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">length=1</span></code>) – List containing a single grid.</p></li>
 <li><p><strong>interfaces</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">length=1</span></code>) – List containing a single mortar grid.</p></li>
-<li><p><strong>num_cells</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Number of cells in the grid.
+<li><p><strong>num_cells</strong> – Number of cells in the grid.
 Only relevant if this is an interface variable.</p></li>
+<li><p><strong>domain</strong> (<em>GridLike</em>) – </p></li>
+<li><p><strong>tags</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>, </em><em>Any</em><em>]</em><em>]</em>) – </p></li>
 <li><p><strong>previous_timestep</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
 <li><p><strong>previous_iteration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
 </ul>
@@ -817,7 +889,10 @@ with its <code class="docutils literal notranslate"><span class="pre">prev_iter<
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.previous_timestep">
 <span class="sig-name descname"><span class="pre">previous_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Variable.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.previous_timestep" title="Permalink to this definition"></a></dt>
-<dd><dl class="field-list simple">
+<dd><p>Return a representation of this variable on the previous time step.</p>
+<p>If the variable is already a representation of the previous time step, the
+method returns itself.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A representation of this variable at the previous time step,
 with its <code class="docutils literal notranslate"><span class="pre">prev_time</span></code> attribute set to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
@@ -829,42 +904,70 @@ with its <code class="docutils literal notranslate"><span class="pre">prev_time<
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.size">
-<span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Variable.size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.size" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.set_name">
+<span class="sig-name descname"><span class="pre">set_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Variable.set_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.set_name" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>The number of dofs of this variable on its grid.</p>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.11)"><strong>RuntimeError</strong></a> – Variables must not be re-named once defined,
+    since the name is used as an identifier.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.size">
+<span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/operators.html#Variable.size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.size" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the total number of dofs this variable has.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.domain">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">domain</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">Grid</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.domain" title="Permalink to this definition"></a></dt>
+<dd><p>The grid or mortar grid on which this variable is defined.</p>
+</dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.id">
-<span class="sig-name descname"><span class="pre">id</span></span><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.id" title="Permalink to this definition"></a></dt>
-<dd><p>Unique identifier of this variable.</p>
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.id" title="Permalink to this definition"></a></dt>
+<dd><p>ID counter. Used to identify variables during operator parsing.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.interfaces">
 <span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
-passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
+<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific interfaces.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.original_variable">
+<span class="sig-name descname"><span class="pre">original_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.original_variable" title="Permalink to this definition"></a></dt>
+<dd><p>The original variable, if this variable is a copy of another variable.</p>
+<p>This attribute is used by the methods <a class="reference internal" href="#porepy.numerics.ad.operators.Variable.previous_timestep" title="porepy.numerics.ad.operators.Variable.previous_timestep"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Variable.previous_timestep()</span></code></a> and
+<a class="reference internal" href="#porepy.numerics.ad.operators.Variable.previous_iteration" title="porepy.numerics.ad.operators.Variable.previous_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Variable.previous_iteration()</span></code></a> to keep a link to the original variable.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.prev_iter">
 <span class="sig-name descname"><span class="pre">prev_iter</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.prev_iter" title="Permalink to this definition"></a></dt>
-<dd><p>Indicates whether the variable represents the state at the previous iteration.</p>
+<dd><p>Flag indicating if the variable represents the state at the previous iteration.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.prev_time">
 <span class="sig-name descname"><span class="pre">prev_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.prev_time" title="Permalink to this definition"></a></dt>
-<dd><p>Indicates whether the variable represents the state at the previous time step.</p>
+<dd><p>Flag indicating if the variable represents the state at the previous time step.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -872,6 +975,12 @@ passed at instantiation.</p>
 <span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.subdomains" title="Permalink to this definition"></a></dt>
 <dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
 <p>Will be empty for operators not associated with specific subdomains.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.tags">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.tags" title="Permalink to this definition"></a></dt>
+<dd><p>A dictionary of tags associated with this variable.</p>
 </dd></dl>
 
 </dd></dl>

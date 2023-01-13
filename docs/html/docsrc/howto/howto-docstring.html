@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>1. How-To docstring &mdash; PorePy 1.5 documentation</title>
+  <title>1. How-To docstring &mdash; PorePy 1.6.0 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
     <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/howto/howto-docstring.html" />
@@ -21,7 +21,7 @@
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="porepy package" href="../porepy/porepy.html" />
+    <link rel="next" title="porepy" href="../porepy/modules.html" />
     <link rel="prev" title="PorePy" href="../../index.html" /> 
 </head>
 
@@ -33,7 +33,7 @@
             <a href="../../index.html" class="icon icon-home"> PorePy
           </a>
               <div class="version">
-                docs/alpha
+                1.6.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -47,178 +47,130 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">1. How-To docstring</a></li>
 </ul>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../porepy/porepy.html">porepy package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.fracs.html">porepy.fracs package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../porepy/modules.html">porepy</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.geometry.html">porepy.geometry package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.grids.html">porepy.grids package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.models.units.html">porepy.models.units module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.models.html">porepy.models package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.numerics.html">porepy.numerics package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.params.html">porepy.params package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.data.html">porepy.params.data module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.utils.html">porepy.utils package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../porepy/porepy.viz.html">porepy.viz package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
 </ul>
 </li>
 </ul>
@@ -250,12 +202,14 @@
              
   <section id="module-example_docstrings">
 <span id="how-to-docstring"></span><h1><span class="section-number">1. </span>How-To docstring<a class="headerlink" href="#module-example_docstrings" title="Permalink to this heading"></a></h1>
-<p>Welcome to the <em>How-To</em> on creating documentation for your functions, classes and submodules.
-Here we explain shortly how the documentation works and give examples for how to write proper
-docstrings.</p>
-<p>The PorePy documentation is created using <em>Sphinx</em>, an engine effectively importing the Python
-package and extracting docstrings. The docstrings are then used to fill a pre-defined
-structure and create a HTML-based documentation.</p>
+<p>Welcome to the <em>How-To</em> on creating documentation for your functions, classes and
+submodules.
+Here we explain shortly how the documentation works and give examples for how to write
+proper docstrings.</p>
+<p>The PorePy documentation is created using <em>Sphinx</em>, an engine effectively importing the
+Python package and extracting docstrings.
+The docstrings are then used to fill a pre-defined structure and create a
+HTML-based documentation.</p>
 <p>Docstrings are written using a markup language called <em>reStructuredText</em> (short <em>rst</em>).
 A quick overview can be found at
 <a class="reference external" href="https://docutils.sourceforge.io/docs/user/rst/quickref.html">rst-quickref</a>.
@@ -265,23 +219,25 @@ You can also find vast support for rst elsewhere on the internet.</p>
 it introduces minor adaptions for readability and functionality reasons.
 After familiarizing yourself with rst and the Google style,
 you can read through the rest of this How-To to get to know the PorePy specifics.</p>
-<p>Once you have programmed, tested, documented and <em>merged</em> your contribution into the PorePy
-source, contact one of the core developers to ensure a proper integration of your documentation
-into the whole structure.</p>
+<p>Once you have programmed, tested, documented and <em>merged</em> your contribution into the
+PorePy source, contact one of the core developers to ensure a proper integration of your
+documentation into the whole structure.</p>
 <p>In the remaining section we demonstrate how to document various aspects of your code in
 <a class="reference internal" href="#porepy-style">PorePy style</a>.</p>
-<p>While we aim for providing complete instructions, we cannot guarantee the coverage of every
-possible case of the vast Python world. If you are unsure about an issue, don’t hesitate to
-contact one of the core developers.</p>
-<p>Next to the compiled documentation you will find fleeting links <code class="docutils literal notranslate"><span class="pre">[source]</span></code> to the source code
-<code class="docutils literal notranslate"><span class="pre">example_docstrings.py</span></code>, where you can see the raw docstring in all its rst-glory and the
-respective Python code. This way you will be able to directly compare what certain syntax will
+<p>While we aim for providing complete instructions, we cannot guarantee the coverage of
+every possible case of the vast Python world. If you are unsure about an issue,
+don’t hesitate to contact one of the core developers.</p>
+<p>Next to the documented signature of functions and classes you will find links
+<code class="docutils literal notranslate"><span class="pre">[source]</span></code> to the source code <code class="docutils literal notranslate"><span class="pre">example_docstrings.py</span></code>,
+where you can see the raw docstring in all its rst-glory and the
+respective Python code.
+This way you will be able to directly compare what certain syntax will
 in the end look like in the compiled format.</p>
 <p>Once your code is properly documented, it will be included using
-<a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html">autodoc</a> directives
-into the global structure of the PorePy documentation.
-This will be done in a next step. Before that, familiarize yourself with the various directives
-and their options beforehand.</p>
+<a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html">autodoc</a>
+directives into the global structure of the PorePy documentation.
+This will be done in a next step. Before that, familiarize yourself with the various
+directives and their options beforehand.</p>
 <section id="docstring-basics">
 <h2><span class="section-number">1.1. </span>Docstring-Basics<a class="headerlink" href="#docstring-basics" title="Permalink to this heading"></a></h2>
 <ol class="arabic">
@@ -293,9 +249,9 @@ declaration of an object.</p>
 </div>
 </li>
 <li><p>Inline literals are rendered using ``: ``literal`` becomes <code class="docutils literal notranslate"><span class="pre">literal</span></code>.</p></li>
-<li><p>Every public member (variable, function, class or method) must have a docstring.
-It’s <strong>good practice</strong> (not to say demanded) to document private objects as well,
-but they will not be included in the docs by default.</p></li>
+<li><p>Every member (variable, function, class or method) must have a docstring.
+Though only <em>public</em> members are included by current configurations, it is demanded that all members,
+including <em>private</em> and <em>special</em> members have a proper docstring.</p></li>
 <li><p>From the docstring it should be clear what an object does or is, what it takes as arguments
 and what it returns. Avoid overly scientific or complicated language.</p></li>
 <li><p>Sphinx provides extensive linking and cross-referencing features.
@@ -394,7 +350,7 @@ Examples of acceptable documentation are provided in the subsections after.</p>
 <p>Certain acronyms are reserved and developers are encouraged to use them consistently in their
 docstrings to provide a uniform appearance.
 Acronyms are formatted with inline literals using ``x``.
-These include:</p>
+These include (among others):</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">sd</span></code> : single SubDomain</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">mdg</span></code> : MixedDimensionalGrid</p></li>
@@ -406,11 +362,11 @@ These include:</p>
 </ul>
 <p class="rubric">Google style directives</p>
 <p>Google style directives are aliases for standard directives, which simplify the usage and syntax.
-Besides the obligatory declaration of parameters, return values and raised errors,
+Besides the obligatory declaration of parameters, raised errors and return values,
 the PorePy style encourages the use of other sections to provide notes, example code usage, references, etc.</p>
 <p>For a list of all supported Google style directives,
 <a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#docstring-sections">see Google style docstring sections</a>.</p>
-<p>The compulsory order of directives inside a docstring is:</p>
+<p>The <strong>compulsory order</strong> of directives inside a docstring is:</p>
 <blockquote>
 <div><ol class="arabic simple">
 <li><p>Examples, Note, …</p></li>
@@ -448,7 +404,7 @@ rendering the type annotations useless and making the documentation inconsistent
 <p class="admonition-title">Important</p>
 <p>As a consequence, <strong>we abstain from including type hints in docstrings</strong> and keep them light.</p>
 <p><strong>Do:</strong></p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">my_function</span><span class="p">:</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">my_function</span><span class="p">(</span><span class="n">argument</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReturnType</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;...</span>
 
 <span class="sd">    Parameters:</span>
@@ -468,7 +424,7 @@ rendering the type annotations useless and making the documentation inconsistent
 <span class="sd">        argument (type): Description of argument.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        type: Description of return value.</span>
+<span class="sd">        ReturnType: Description of return value.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 </pre></div>
@@ -494,7 +450,7 @@ rendering the type annotations useless and making the documentation inconsistent
 <li><p><cite>:data:</cite></p></li>
 </ul>
 <p>to provide useful cross-referencing <em>in the text</em> is encouraged.
-This will help readers to quickly navigate in the docs.</p>
+This will help readers to quickly navigate through the docs.</p>
 <section id="documenting-variables">
 <h3><span class="section-number">1.2.1. </span>Documenting variables<a class="headerlink" href="#documenting-variables" title="Permalink to this heading"></a></h3>
 <dl class="py data">
@@ -509,8 +465,8 @@ This will help readers to quickly navigate in the docs.</p>
 <dd><p>Multi-line docstrings are also valid.</p>
 <p>You might want to use multiline docstrings when a more detailed description
 of the variable is required.</p>
-<p>In every case, the closing “”” of a multiline docstring must be on a separate line after a
-blank line.</p>
+<p>In every case, the closing “”” of a multiline docstring must be on a separate line
+after a blank line.</p>
 <p><strong>Do:</strong></p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">var</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
 <span class="sd">&quot;&quot;&quot;Introduction line.</span>
@@ -593,7 +549,8 @@ Utilize annotations in the signature instead.</p></li>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><p>Describe the return value here. Multiple lines can be used and you have
 to indent the lines.</p>
-<p><strong>Do not</strong> use type hints here as they are present in the signature.</p>
+<p><strong>Do not</strong> use type hints here as they are present in the signature using
+annotations.</p>
 </p>
 </dd>
 <dt class="field-odd">Return type</dt>
@@ -663,34 +620,39 @@ used with <code class="docutils literal notranslate"><span class="pre">None</spa
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code></p>
+<li><p><strong>vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code></p>
 <p>This vector’s special requirement is a certain shape.</p>
 <p>Use <code class="docutils literal notranslate"><span class="pre">inline</span> <span class="pre">formatting</span></code> to describe the
-requirement in the <strong>first line</strong> of the <strong>indented</strong> text,
+requirement in the <strong>first line</strong>,
 followed by a blank line. Inspect the source to see how this looks like.</p>
 <p>After the blank line, add text to describe the argument as usual</p>
 <p>The required shape is <code class="docutils literal notranslate"><span class="pre">(num_cells,)</span></code>, the number of cells.
 If unclear to what the number refers, explain.</p>
 <p>Use explicitly <code class="docutils literal notranslate"><span class="pre">shape</span></code> for numpy arrays to describe as precise as possible
-which dimensions are allowed. Remember <code class="docutils literal notranslate"><span class="pre">(3,)</span> <span class="pre">!=</span> <span class="pre">(3,</span> <span class="pre">1)</span></code>.</p>
+which dimensions are allowed.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In <code class="docutils literal notranslate"><span class="pre">numpy</span></code> and <code class="docutils literal notranslate"><span class="pre">scipy</span></code> it holds <code class="docutils literal notranslate"><span class="pre">(3,)</span> <span class="pre">!=</span> <span class="pre">(3,</span> <span class="pre">1)</span></code>.</p>
+</div>
 </p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_cells)</span></code></p>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_cells)</span></code></p>
 <p>This argument is a sparse matrix with 3 rows and
 <code class="docutils literal notranslate"><span class="pre">num_cells</span></code> columns.</p>
-<p>We <strong>insist</strong> on having whitespaces between comma and nex number
+<p>We <strong>insist</strong> on having whitespaces between comma and next number
 for readability reasons.</p>
 </p></li>
 <li><p><strong>optional_arg</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>This is an <em>optional</em> integer with default value <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
-<p>We use the same format as for requirements to display its default value.</p>
+<p>We use the same format as for other requirements to display its default
+value.</p>
 </p></li>
 <li><p><strong>optional_list</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">len=num_cells</span></code></p>
 <p>Restrictions to built-int types like lists and tuples can be indicated using
 <code class="docutils literal notranslate"><span class="pre">len=</span></code>.</p>
 </p></li>
-<li><p><strong>optional_vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,),</span> <span class="pre">default=np.ndarray([0,</span> <span class="pre">0,</span> <span class="pre">0])</span></code></p>
+<li><p><strong>optional_vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,),</span> <span class="pre">default=np.ndarray([0,</span> <span class="pre">0,</span> <span class="pre">0])</span></code></p>
 <p>This is an optional vector argument, with both shape restrictions and a
-default argument. Combine both in the first indented line,
+default argument. Combine both in the first line,
 followed by a blank line.</p>
 <p>Whatever extra requirements are added besides <code class="docutils literal notranslate"><span class="pre">shape</span></code>, the description
 <code class="docutils literal notranslate"><span class="pre">default=</span></code> must be put at the end.</p>
@@ -726,7 +688,7 @@ or alternatively in the extended description at the beginning of the docstring.<
 </p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -739,21 +701,25 @@ or alternatively in the extended description at the beginning of the docstring.<
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><em>ndarray</em></a>) – Some vector.</p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><em>spmatrix</em></a>) – Some matrix.</p></li>
+<li><p><strong>vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – Some vector.</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – Some matrix.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><p>Every returned object needs a description. We can use the same structure as for
-the parameters: indented block per returned object or value.</p>
-<dl>
-<dt>spmatrix:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">nd))</span></code></p>
-<p>Though technically the tuple is a single object, it often is of
+the parameters - indented block per returned object or value (see source code).</p>
+<p>Sphinx is configured such that it includes the return type in a separate field
+below. You can optionally include additional cross-referencing using <code class="docutils literal notranslate"><span class="pre">:obj</span></code>
+and <code class="docutils literal notranslate"><span class="pre">:class:</span></code>.</p>
+<p>spmatrix: <code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">nd))</span></code></p>
+<blockquote>
+<div><p>Though technically the tuple is a single object, it often is of
 importance what the tuple contains. If the returned object has noteworthy
 characteristic, explain them in the first line after the bullet header,
 followed by a blank line (similar to arguments).</p>
-</dd>
-<dt>ndarray:</dt><dd><p>Use the definition list structure with indented blocks to
+</div></blockquote>
+<dl class="simple">
+<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p>Use the definition list structure with indented blocks to
 describe the content individually.
 This makes of course only sense if the tuple is of fixed length and/or
 contains objects of various types.</p>
@@ -762,7 +728,7 @@ contains objects of various types.</p>
 </p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)">scipy.sparse._base.spmatrix</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)">numpy.ndarray</a>]</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)">scipy.sparse._base.spmatrix</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -787,9 +753,9 @@ This will come with future Sphinx updates.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>array_like</strong> (<em>ArrayLike</em>) – An argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ArrayLike</span></code></a>.</p></li>
-<li><p><strong>ndarray_like</strong> (<em>NDArray</em>) – An argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NDArray</span></code></a>.</p></li>
-<li><p><strong>dtype_like</strong> (<em>DTypeLike</em>) – An argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.DTypeLike" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DTypeLike</span></code></a>.</p></li>
+<li><p><strong>array_like</strong> (<em>ArrayLike</em>) – An argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ArrayLike</span></code></a>.</p></li>
+<li><p><strong>ndarray_like</strong> (<em>NDArray</em>) – An argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NDArray</span></code></a>.</p></li>
+<li><p><strong>dtype_like</strong> (<em>DTypeLike</em>) – An argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.DTypeLike" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DTypeLike</span></code></a>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -834,10 +800,10 @@ directive:</p>
 <h3><span class="section-number">1.2.3. </span>Documenting classes<a class="headerlink" href="#documenting-classes" title="Permalink to this heading"></a></h3>
 <p>When documenting classes, three aspects have to be considered.</p>
 <p class="rubric">Documenting Constructor Arguments</p>
-<p>In PorePy, the constructor description is to be included in the class-docstring, <strong>not</strong> in the
-<code class="docutils literal notranslate"><span class="pre">__init__</span></code>-docstring! There must be no <code class="docutils literal notranslate"><span class="pre">__init__</span></code>-docstring at all!</p>
-<p>The <em>class-docstring</em> is the one docstring written directly below the declaration of
-the class</p>
+<p>In PorePy, the constructor description is to be included in the class-docstring, not in the
+<code class="docutils literal notranslate"><span class="pre">__init__</span></code>-docstring!
+<strong>There must be no ``__init__``-docstring at all!</strong></p>
+<p>The <em>class-docstring</em> is written directly below the declaration of the class</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ExampleClass</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot; Class-docstring &quot;&quot;&quot;</span>
 
@@ -846,13 +812,16 @@ the class</p>
 </pre></div>
 </div>
 <p>whereas the <code class="docutils literal notranslate"><span class="pre">__init__</span></code>-docstring is found below the constructor declaration.</p>
-<p>Inside class docstrings, you can sue the same directives as for functions. The same rules apply.</p>
+<p>Inside class docstrings, you can sue the same directives as for functions.
+<strong>The same rules apply.</strong></p>
 <p class="rubric">Documentation of attributes</p>
-<p>Public attributes must be documented using docstrings.
+<p>Attributes must be documented using docstrings.
 This holds for instance-level attributes set in the constructor,
 as well as for class-level attributes.
 PorePy’s sphinx build is configured such that it will render those docstrings the same way as method
 docstrings.</p>
+<p>Though only public attributes are included by Sphinx’ configuration,
+private and name-mangled attributes must be documented as well.</p>
 <p>In any case, use type annotations in the Python code and <strong>do not</strong> use type hints in the
 docstring. This will avoid a second, redundant display of the type
 (similar for argument and return type hints).</p>
@@ -889,7 +858,7 @@ must provide respective options to the audodoc directives, later when integratin
 documentation.</p></li>
 </ul>
 <p>Sphinx groups the documentation of attributes, properties, methods, class methods
-and static methods and sorts them alphabetically inside each group.</p>
+and static methods and sorts them according to the configuration.</p>
 <p class="rubric">Example class documentation</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass">
@@ -916,7 +885,7 @@ on how to instantiate the class for example:</p>
 inspirations for your implementation.</p>
 <p>For readability reasons, we impose the same rules on the order of directives as for
 functions.
-Meaning references/ see also, followed by parameters, return/yield and raises
+Meaning references/ see also, followed by parameters, raises and return/yield
 must be placed at the end with no additional text in between.</p>
 <div class="admonition-references admonition">
 <p class="admonition-title">References</p>
@@ -940,7 +909,8 @@ must be placed at the end with no additional text in between.</p>
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.example_class_method">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">example_class_method</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass.example_class_method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass.example_class_method" title="Permalink to this definition"></a></dt>
 <dd><p>This is the docstring of a class method.</p>
-<p>Note that the <code class="docutils literal notranslate"><span class="pre">self</span></code> argument is replaced by the <code class="docutils literal notranslate"><span class="pre">cls</span></code> argument.</p>
+<p>Note that the <code class="docutils literal notranslate"><span class="pre">self</span></code> argument is replaced by the <code class="docutils literal notranslate"><span class="pre">cls</span></code> argument, but not
+included in the docs.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>None</p>
@@ -970,7 +940,7 @@ must be placed at the end with no additional text in between.</p>
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.example_static_method">
 <em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">example_static_method</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass.example_static_method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass.example_static_method" title="Permalink to this definition"></a></dt>
 <dd><p>This is the docstring of a static method.</p>
-<p>Note the absence of <code class="docutils literal notranslate"><span class="pre">self</span></code>.</p>
+<p>Note the absence of <code class="docutils literal notranslate"><span class="pre">self</span></code> or <code class="docutils literal notranslate"><span class="pre">cls</span></code> in the signature.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>None</p>
@@ -1012,7 +982,7 @@ but leave the documentation of how it is calculated to the separate method.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.attribute_4">
-<span class="sig-name descname"><span class="pre">attribute_4</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_4" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">attribute_4</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_4" title="Permalink to this definition"></a></dt>
 <dd><p>Some attributes are only available after a specific method is called,
 without having an initial value.</p>
 <p>Document such attributes using type annotations <em>without</em> instantiation as seen
@@ -1087,10 +1057,10 @@ new.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>new_arg</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – This is a new argument for the child class.</p></li>
+<li><p><strong>arg1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – See <a class="reference internal" href="#example_docstrings.ExampleClass" title="example_docstrings.ExampleClass"><code class="xref py py-class docutils literal notranslate"><span class="pre">ExampleClass</span></code></a>.</p></li>
 <li><p><strong>arg2</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default='A'</span></code></p>
 <p>The second argument defaults to <code class="docutils literal notranslate"><span class="pre">'A'</span></code> now.</p>
 </p></li>
-<li><p><strong>arg1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
 </ul>
 </dd>
 </dl>
@@ -1102,11 +1072,11 @@ new.</p>
 if and when a super-call to the parent method is performed
 and if the return value changes depending on the new computations.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>Returns something dependent the parent method result.</p>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>arg</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – See <a class="reference internal" href="#example_docstrings.ExampleClass" title="example_docstrings.ExampleClass"><code class="xref py py-class docutils literal notranslate"><span class="pre">ExampleClass</span></code></a>.</p>
 </dd>
-<dt class="field-even">Parameters</dt>
-<dd class="field-even"><p><strong>arg</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Returns something dependent the parent method result.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
@@ -1130,12 +1100,11 @@ Subpackages i.e., folders containing an <code class="docutils literal notranslat
 docstring at the top of the <code class="docutils literal notranslate"><span class="pre">__init__</span></code> file.
 These docstrings usually describes the purpose and the contents of the module/package and can
 be included in the compiled documentation.</p>
-<p>Though we do not include them by default, it can be used as an introduction
-to the content. In Fact this page’s introduction is written in the module-docstring and
+<p>They can be used as an introduction to the content.
+In Fact this page’s introduction is written in the module-docstring and
 imported into the compiled documentation. It is then supplemented with additional content like
 the sections on <a class="reference internal" href="#docstring-basics">Docstring-Basics</a> or <a class="reference internal" href="#directives">Directives</a>.</p>
-<p>The decision on whether and how to incorporate the module-level docstrings should be made upon
-integration of a module’s documentation with the core developers.</p>
+<p>The content and design of module-level docstrings should be discussed with the core developers.</p>
 </section>
 </section>
 </section>
@@ -1145,7 +1114,7 @@ integration of a module’s documentation with the core developers.</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../../index.html" class="btn btn-neutral float-left" title="PorePy" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../porepy/porepy.html" class="btn btn-neutral float-right" title="porepy package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../porepy/modules.html" class="btn btn-neutral float-right" title="porepy" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

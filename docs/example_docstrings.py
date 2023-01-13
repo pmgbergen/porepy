@@ -1,11 +1,13 @@
 """
-Welcome to the *How-To* on creating documentation for your functions, classes and submodules.
-Here we explain shortly how the documentation works and give examples for how to write proper
-docstrings.
+Welcome to the *How-To* on creating documentation for your functions, classes and
+submodules.
+Here we explain shortly how the documentation works and give examples for how to write
+proper docstrings.
 
-The PorePy documentation is created using *Sphinx*, an engine effectively importing the Python
-package and extracting docstrings. The docstrings are then used to fill a pre-defined
-structure and create a HTML-based documentation.
+The PorePy documentation is created using *Sphinx*, an engine effectively importing the
+Python package and extracting docstrings.
+The docstrings are then used to fill a pre-defined structure and create a
+HTML-based documentation.
 
 Docstrings are written using a markup language called *reStructuredText* (short *rst*).
 A quick overview can be found at
@@ -14,32 +16,35 @@ You can also find vast support for rst elsewhere on the internet.
 
 Though PorePy closely follows the
 `Google Python Style
-<https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google>`_,
+<https://www.sphinx-doc.org/en/master/usage/extensions/
+example_google.html#example-google>`_,
 it introduces minor adaptions for readability and functionality reasons.
 After familiarizing yourself with rst and the Google style,
 you can read through the rest of this How-To to get to know the PorePy specifics.
 
-Once you have programmed, tested, documented and *merged* your contribution into the PorePy
-source, contact one of the core developers to ensure a proper integration of your documentation
-into the whole structure.
+Once you have programmed, tested, documented and *merged* your contribution into the
+PorePy source, contact one of the core developers to ensure a proper integration of your
+documentation into the whole structure.
 
 In the remaining section we demonstrate how to document various aspects of your code in
 `PorePy style`_.
 
-While we aim for providing complete instructions, we cannot guarantee the coverage of every
-possible case of the vast Python world. If you are unsure about an issue, don't hesitate to
-contact one of the core developers.
+While we aim for providing complete instructions, we cannot guarantee the coverage of
+every possible case of the vast Python world. If you are unsure about an issue,
+don't hesitate to contact one of the core developers.
 
-Next to the compiled documentation you will find fleeting links ``[source]`` to the source code
-``example_docstrings.py``, where you can see the raw docstring in all its rst-glory and the
-respective Python code. This way you will be able to directly compare what certain syntax will
+Next to the documented signature of functions and classes you will find links
+``[source]`` to the source code ``example_docstrings.py``,
+where you can see the raw docstring in all its rst-glory and the
+respective Python code.
+This way you will be able to directly compare what certain syntax will
 in the end look like in the compiled format.
 
 Once your code is properly documented, it will be included using
-`autodoc <https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html>`_ directives
-into the global structure of the PorePy documentation.
-This will be done in a next step. Before that, familiarize yourself with the various directives
-and their options beforehand.
+`autodoc <https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html>`_
+directives into the global structure of the PorePy documentation.
+This will be done in a next step. Before that, familiarize yourself with the various
+directives and their options beforehand.
 
 """
 from __future__ import annotations
@@ -61,8 +66,8 @@ example_var_2: int = 1
 You might want to use multiline docstrings when a more detailed description
 of the variable is required.
 
-In every case, the closing \"\"\" of a multiline docstring must be on a separate line after a
-blank line.
+In every case, the closing \"\"\" of a multiline docstring must be on a separate line
+after a blank line.
 
 **Do:**
 
@@ -154,7 +159,8 @@ def example_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
         Describe the return value here. Multiple lines can be used and you have
         to indent the lines.
 
-        **Do not** use type hints here as they are present in the signature.
+        **Do not** use type hints here as they are present in the signature using
+        annotations.
 
     """
     # In addition to docstrings, you should also add comments to the code. These should
@@ -223,13 +229,12 @@ def example_function_3(
         used with ``None`` as the default argument.
 
     Parameters:
-        vector:
-            ``shape=(num_cells,)``
+        vector: ``shape=(num_cells,)``
 
             This vector's special requirement is a certain shape.
 
             Use ``inline formatting`` to describe the
-            requirement in the **first line** of the **indented** text,
+            requirement in the **first line**,
             followed by a blank line. Inspect the source to see how this looks like.
 
             After the blank line, add text to describe the argument as usual
@@ -238,49 +243,46 @@ def example_function_3(
             If unclear to what the number refers, explain.
 
             Use explicitly ``shape`` for numpy arrays to describe as precise as possible
-            which dimensions are allowed. Remember ``(3,) != (3, 1)``.
-        matrix:
-            ``shape=(3, num_cells)``
+            which dimensions are allowed. 
+            
+            Note:
+                In ``numpy`` and ``scipy`` it holds ``(3,) != (3, 1)``.
+        matrix: ``shape=(3, num_cells)``
 
             This argument is a sparse matrix with 3 rows and
             ``num_cells`` columns.
 
-            We **insist** on having whitespaces between comma and nex number
+            We **insist** on having whitespaces between comma and next number
             for readability reasons.
-        optional_arg:
-            ``default=None``
+        optional_arg: ``default=None``
 
             This is an *optional* integer with default value ``None``.
 
-            We use the same format as for requirements to display its default value.
-        optional_list:
-            ``len=num_cells``
+            We use the same format as for other requirements to display its default
+            value.
+        optional_list: ``len=num_cells``
 
             Restrictions to built-int types like lists and tuples can be indicated using
             ``len=``.
-        optional_vector:
-            ``shape=(3,), default=np.ndarray([0, 0, 0])``
+        optional_vector: ``shape=(3,), default=np.ndarray([0, 0, 0])``
 
             This is an optional vector argument, with both shape restrictions and a
-            default argument. Combine both in the first indented line,
+            default argument. Combine both in the first line,
             followed by a blank line.
 
             Whatever extra requirements are added besides ``shape``, the description
             ``default=`` must be put at the end.
-        option_1:
-            ``default='A'``
+        option_1: ``default='A'``
 
             This argument has admissible values and a default value.
             It can only be a string ``'A'``, ``'B'`` or ``'C'``.
 
             For such admissible values use :obj:`typing.Literal` to denote them in the
             signature.
-        option_2:
-            ``default=True``
+        option_2: ``default=True``
 
             This is an boolean argument with the default value ``True``.
-        option_3:
-            ``[0, 1], default=1e-16``
+        option_3: ``[0, 1], default=1e-16``
 
             This is an float argument, with values restricted between 0 and 1.
             The default value is set to ``1e-16``.
@@ -317,17 +319,20 @@ def example_function_4(
 
     Returns:
         Every returned object needs a description. We can use the same structure as for
-        the parameters: indented block per returned object or value.
+        the parameters - indented block per returned object or value (see source code).
 
-        spmatrix:
-            ``(shape=(3, nd))``
+        Sphinx is configured such that it includes the return type in a separate field
+        below. You can optionally include additional cross-referencing using ``:obj``
+        and ``:class:``.
+
+        spmatrix: ``(shape=(3, nd))``
 
             Though technically the tuple is a single object, it often is of
             importance what the tuple contains. If the returned object has noteworthy
             characteristic, explain them in the first line after the bullet header,
             followed by a blank line (similar to arguments).
 
-        ndarray:
+        :obj:`~numpy.ndarray`:
             Use the definition list structure with indented blocks to
             describe the content individually.
             This makes of course only sense if the tuple is of fixed length and/or
@@ -421,7 +426,7 @@ class ExampleClass:
 
     For readability reasons, we impose the same rules on the order of directives as for
     functions.
-    Meaning references/ see also, followed by parameters, return/yield and raises
+    Meaning references/ see also, followed by parameters, raises and return/yield
     must be placed at the end with no additional text in between.
 
     References:
@@ -545,7 +550,7 @@ class ExampleClass:
     def example_static_method() -> None:
         """This is the docstring of a static method.
 
-        Note the absence of ``self``.
+        Note the absence of ``self`` or ``cls`` in the signature.
 
         """
         pass
@@ -554,7 +559,8 @@ class ExampleClass:
     def example_class_method(cls) -> None:
         """This is the docstring of a class method.
 
-        Note that the ``self`` argument is replaced by the ``cls`` argument.
+        Note that the ``self`` argument is replaced by the ``cls`` argument, but not
+        included in the docs.
 
         """
         pass
@@ -632,6 +638,7 @@ class ChildClass(ExampleClass):
 
     Parameters:
         new_arg: This is a new argument for the child class.
+        arg1: See :class:`ExampleClass`.
         arg2:
             ``default='A'``
 
@@ -651,6 +658,9 @@ class ChildClass(ExampleClass):
         Describe what is being done,
         if and when a super-call to the parent method is performed
         and if the return value changes depending on the new computations.
+
+        Parameters:
+            arg: See :class:`ExampleClass`.
 
         Returns:
             Returns something dependent the parent method result.

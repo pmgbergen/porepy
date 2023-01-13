@@ -62,7 +62,7 @@ Documentation
    :titlesonly:
    :maxdepth: 1
 
-   docsrc/porepy/porepy
+   docsrc/porepy/modules
 
 Indices and tables
 ==================
