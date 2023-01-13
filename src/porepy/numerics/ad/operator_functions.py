@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import abc
 from functools import partial
-from typing import Callable, Optional, Type, Union
+from typing import Callable, Optional, Type
 
 import numpy as np
 import scipy.sparse as sps
@@ -16,7 +16,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import Ad_array
 
-from .operators import Operation, Operator, Tree
+from .operators import Operator, Tree
 
 __all__ = [
     "Function",
@@ -76,16 +76,18 @@ class AbstractFunction(Operator):
         ad_compatible: bool = False,
     ):
         ### PUBLIC
-        # Reference to callable passed at instantiation
+
         self.func: Callable = func
-        # indicator whether above callable can be fed with vectors (numpy.ndarray) or not
+        """Callable passed at instantiation"""
+
         self.array_compatible: bool = array_compatible
-        # indicator whether above callable can be fed with Ad_array instances
-        self.ad_compatible: bool = ad_compatible
+        """Indicator whether the callable can process arrays."""
 
         ### PRIVATE
-        self._name: str = name
-        self._operation: Operation = Operation.evaluate
+        self._operation: Operator.Operations = Operator.Operations.approximate
+
+        self._name: str = name if name is not None else ""
+
         self._set_tree()
 
     def __call__(self, *args: pp.ad.Operator | Ad_array) -> pp.ad.Operator:
@@ -245,13 +247,17 @@ class Function(AbstractFunction):
     framework.
 
     Note:
-        This is a special case where the abstract methods for getting values and the Jacobian
-        are formally implemented but never used by the AD framework (see ``ad_compatible``)
+        This is a special case where the abstract methods for getting values and the
+        Jacobian are formally implemented but never used by the AD framework. A separate
+        operation called ``evaluate`` is implemented instead, which simply feeds the AD
+        arrays to ``func``.
 
     """
 
     def __init__(self, func: Callable, name: str, array_compatible: bool = True):
-        super().__init__(func, name, array_compatible, True)
+        super().__init__(func, name, array_compatible)
+        self._operation = Operator.Operations.evaluate
+        self.ad_compatible = True
 
     def get_values(self, *args: Ad_array) -> np.ndarray:
         result = self.func(*args)
@@ -263,7 +269,7 @@ class Function(AbstractFunction):
 
 
 class ConstantFunction(AbstractFunction):
-    """ "Function representing constant, scalar values with no dependencies and ergo a
+    """Function representing constant, scalar values with no dependencies and ergo a
     zero Jacobian.
 
     It still has to be called though since it fulfills the notion of a 'function'.
@@ -296,11 +302,10 @@ class ConstantFunction(AbstractFunction):
             but a zero.
             Numerical operations with a zero always works with any numeric formats in
             numpy, scipy and PorePy's AD framework.
-            Since the constant function (most likely) gets no arguments passed,
-            we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.
+            Since the constant function (most likely) gets no arguments passed, we have
+            no way of knowing the necessary shape for a zero matrix. Hence scalar.
 
-        Returns:
-            The trivial derivative of a constant.
+        Returns: the trivial derivative of a constant.
 
         """
         return 0.0
@@ -492,13 +497,13 @@ class ADmethod:
         self._explicit_init = func is None
         # reference to instance, to which the decorated bound method belongs, if any
         # if this remains None, then an unbound method was decorated
-        self._bound_to: Union[None, object] = None
+        self._bound_to: Optional[object] = None
         # reference to operator type which should wrap the decorated method
         self._ad_func_type = ad_function_type
         # keyword arguments for call to constructor of operator type
         self._op_kwargs = operator_kwargs
 
-    def __call__(self, *args, **kwargs) -> Union[ADmethod, pp.ad.Operator]:
+    def __call__(self, *args, **kwargs) -> ADmethod | pp.ad.Operator:
         """Wrapper factory.
         The decorated object is wrapped and/or evaluated here.
 
