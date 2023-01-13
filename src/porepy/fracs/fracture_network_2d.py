@@ -57,11 +57,7 @@ class FractureNetwork2d:
         self,
         pts: Optional[np.ndarray] = None,
         edges: Optional[np.ndarray] = None,
-<<<<<<< HEAD
-        domain: Optional[dict | np.ndarray] = None,
-=======
         domain: Optional[dict[str, float] | np.ndarray] = None,
->>>>>>> develop
         tol: float = 1e-8,
     ) -> None:
         """Define the fracture set.
