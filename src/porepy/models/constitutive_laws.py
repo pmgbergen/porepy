@@ -1409,15 +1409,14 @@ class AdvectiveFlux:
         # Contribution from external and internal boundaries. Note that contributions
         # from external Neumann boundary fluxes are not included.
         bound_flux = (
-                discr.bound_transport_dir * darcy_flux * bc_values
-                # Advective flux coming from lower-dimensional subdomains
-                + discr.bound_transport_neu
-                * (
-                    mortar_projection.mortar_to_primary_int
-                    * interface_flux(interfaces)
-                    + bc_values
-                )
+            discr.bound_transport_dir * darcy_flux * bc_values
+            # Advective flux coming from lower-dimensional subdomains
+            + discr.bound_transport_neu
+            * (
+                mortar_projection.mortar_to_primary_int * interface_flux(interfaces)
+                + bc_values
             )
+        )
 
         # Add contributions from internal fluxes and boundary fluxes
         flux: pp.ad.Operator = internal_flux - bound_flux
@@ -2309,6 +2308,7 @@ class SpecificStorage:
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+
     def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Specific storage [1/Pa], i.e. inverse of the Biot modulus.
 
@@ -2635,9 +2635,9 @@ class BiotPoromechanicsPorosity(PoroMechanicsPorosity):
 
         # Add the three contributions to the porosity.
         phi = (
-                phi_ref
-                + specific_storage * dp
-                + alpha * self.displacement_divergence(subdomains)
+            phi_ref
+            + specific_storage * dp
+            + alpha * self.displacement_divergence(subdomains)
         )
         # Add stabilization term. TODO: Should this be handled elsewhere?
         phi = phi + self.biot_stabilization(subdomains)
