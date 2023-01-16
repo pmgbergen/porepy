@@ -449,7 +449,7 @@ class ExactSolution:
 class StoreResults(VerificationUtils):
     """Class for storing results."""
 
-    def __init__(self, setup):
+    def __init__(self, setup) -> None:
         """Constructor of the class"""
 
         # Retrieve information from setup

@@ -294,15 +294,7 @@ class BoundaryConditionsSinglePhaseFlow:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
+        pp.bounding_box.DomainSides,
     ]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -325,10 +317,10 @@ class BoundaryConditionsSinglePhaseFlow:
             Boundary condition object.
 
         """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -340,16 +332,13 @@ class BoundaryConditionsSinglePhaseFlow:
             Boundary condition object.
 
         """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
-        Not sure where this one should reside. Note that we could remove the
-        grid_operator BC and DirBC, probably also ParameterArray/Matrix (unless needed
-        to get rid of pp.ad.Discretization. I don't see how it would be, though).
+        """Boundary condition values for the Darcy flux.
 
         Parameters:
             subdomains: List of subdomains.
@@ -391,10 +380,11 @@ class BoundaryConditionsSinglePhaseFlow:
         for sd in subdomains:
             # Get density and viscosity values on boundary faces applying trace to
             # interior values.
-            all_bf, *_ = self.domain_boundary_sides(sd)
+            # Define boundary faces.
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
             # Append to list of boundary values
             vals = np.zeros(sd.num_faces)
-            vals[all_bf] = self.fluid.density() / self.fluid.viscosity()
+            vals[boundary_faces] = self.fluid.density() / self.fluid.viscosity()
             bc_values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
@@ -526,7 +516,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    permeability: Callable[[list[pp.Grid]], np.ndarray]
+    permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function that returns the permeability of a subdomain. Normally provided by a
     mixin class with a suitable permeability definition.
 
@@ -606,36 +596,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """
         super().set_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
-
-            specific_volume_mat = self.specific_volume([sd]).evaluate(
-                self.equation_system
-            )
-            # The result may be an Ad_array, in which case we need to extract the
-            # underlying array.
-            if isinstance(specific_volume_mat, pp.ad.Ad_array):
-                specific_volume_mat = specific_volume_mat.val
-
-            # Extract diagonal of the specific volume matrix.
-            specific_volume = specific_volume_mat * np.ones(sd.num_cells)
-
-            # Check that the matrix is actually diagonal.
-            assert np.all(np.isclose(specific_volume, specific_volume_mat.data))
-
-            kappa = self.permeability([sd])
-            # The result may be an Ad_array, in which case we need to extract the
-            # underlying array.
-            if isinstance(kappa, pp.ad.Ad_array):
-                kappa = kappa.val
-
-            diffusivity = pp.SecondOrderTensor(kappa * specific_volume)
-
             pp.initialize_data(
                 sd,
                 data,
                 self.darcy_keyword,
                 {
                     "bc": self.bc_type_darcy(sd),
-                    "second_order_tensor": diffusivity,
+                    "second_order_tensor": self.permeability_tensor(sd),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -658,6 +625,33 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                     "ambient_dimension": self.nd,
                 },
             )
+
+    def permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
+        """Convert ad permeability to :class:`~pp.params.tensor.SecondOrderTensor`.
+
+        Override this method if the permeability is anisotropic.
+
+        Parameters:
+            sd: Subdomain for which the permeability is requested.
+
+        Returns:
+            Permeability tensor.
+
+        """
+        permeability_ad = self.specific_volume([sd]) * self.permeability([sd])
+        try:
+            permeability = permeability_ad.evaluate(self.equation_system)
+        except KeyError:
+            # If the permeability depends on an not yet computed discretization matrix,
+            # fall back on reference value
+            volume = self.specific_volume([sd]).evaluate(self.equation_system)
+            permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
+        # The result may be an Ad_array, in which case we need to extract the
+        # underlying array.
+        if isinstance(permeability, pp.ad.Ad_array):
+            permeability = permeability.val
+        # TODO: Safeguard against negative permeability?
+        return pp.SecondOrderTensor(permeability)
 
     def before_nonlinear_iteration(self):
         """

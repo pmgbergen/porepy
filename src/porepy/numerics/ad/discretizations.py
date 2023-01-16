@@ -23,7 +23,7 @@ Example:
 from __future__ import annotations
 
 import abc
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -61,29 +61,38 @@ class Discretization(abc.ABC):
 
     """
 
-    def __init__(self):
-        """"""
-
+    def __init__(self) -> None:
         self._discretization: Union[
             "pp.numerics.discretization.Discretization",
             "pp.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw",
         ]
+        """The discretization object, which is wrapped by this class."""
         self.mat_dict_key: str
-        self.keyword = str
+        """Keyword for matrix storage in the data dictionary."""
+        self.keyword: str
+        """Keyword for parameter storage in the data dictionary."""
 
-        # Get the name of this discretization.
+        self.subdomains: list[pp.Grid]
+        """List of grids on which the discretization is defined."""
+        self.interfaces: list[pp.MortarGrid]
+        """List of interfaces on which the discretization is defined."""
+
         self._name: str
-        self.subdomains: List[pp.Grid]
-        self.interfaces: List[pp.MortarGrid]
 
     def __repr__(self) -> str:
         s = f"""
-        Ad discretization of type {self._name}. Defined on {len(self.subdomains)} subdomains
+        Ad discretization of type {self._name}. Defined on {len(self.subdomains)}
+        subdomains and {len(self.interfaces)} interfaces.
         """
         return s
 
     def __str__(self) -> str:
         return f"{self._name}({self.keyword})"
+
+    @property
+    def name(self) -> str:
+        """Name of the discretization."""
+        return self._name
 
 
 # Mechanics related discretizations
@@ -97,7 +106,7 @@ class BiotAd(Discretization):
     """
 
     def __init__(
-        self, keyword: str, subdomains: List[pp.Grid], flow_keyword: str = "flow"
+        self, keyword: str, subdomains: list[pp.Grid], flow_keyword: str = "flow"
     ) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Biot(keyword, flow_keyword)
@@ -128,7 +137,7 @@ class BiotAd(Discretization):
 
 
 class MpsaAd(Discretization):
-    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Mpsa(keyword)
         self._name = "Mpsa"
@@ -147,7 +156,7 @@ class MpsaAd(Discretization):
 
 
 class GradPAd(Discretization):
-    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.GradP(keyword)
         self._name = "GradP from Biot"
@@ -160,7 +169,7 @@ class GradPAd(Discretization):
 
 class DivUAd(Discretization):
     def __init__(
-        self, keyword: str, subdomains: List[pp.Grid], mat_dict_keyword: str
+        self, keyword: str, subdomains: list[pp.Grid], mat_dict_keyword: str
     ) -> None:
         self.subdomains = subdomains
         self._discretization = pp.DivU(keyword, mat_dict_keyword)
@@ -180,7 +189,7 @@ class DivUAd(Discretization):
 
 
 class BiotStabilizationAd(Discretization):
-    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.BiotStabilization(keyword)
         self._name = "Biot stabilization term"
@@ -192,7 +201,7 @@ class BiotStabilizationAd(Discretization):
 
 
 class ColoumbContactAd(Discretization):
-    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
         self.interfaces = interfaces
 
         # Special treatment is needed to cover the case when the edge list happens to
@@ -200,7 +209,7 @@ class ColoumbContactAd(Discretization):
         if len(interfaces) > 0:
             dim = list(set([intf.dim for intf in interfaces]))
             # FIXME: No access to subdomains
-            low_dim_subdomains: List[pp.Grid] = []
+            low_dim_subdomains: list[pp.Grid] = []
             if not len(dim) == 1:
                 raise ValueError(
                     "Expected unique dimension of subdomains with contact problems"
@@ -233,18 +242,16 @@ class ContactTractionAd(Discretization):
     def __init__(
         self,
         keyword: str,
-        interfaces: List[pp.MortarGrid],
-        low_dim_subdomains: List[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        low_dim_subdomains: list[pp.Grid],
     ) -> None:
-        """
+        """Contact traction discretization.
 
-        Args:
-            keyword:
-                Parameter key
-            interfaces:
-                Fracture-matrix interfaces
-            low_dim_subdomains:
-                Fracture subdomains
+        Parameters:
+            keyword: Parameter key.
+            interfaces: Fracture-matrix interfaces.
+            low_dim_subdomains: Fracture subdomains.
+
         """
         self.interfaces = interfaces
 
@@ -280,7 +287,7 @@ class ContactTractionAd(Discretization):
 
 
 class MpfaAd(Discretization):
-    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Mpfa(keyword)
         self._name = "Mpfa"
@@ -297,7 +304,7 @@ class MpfaAd(Discretization):
 
 
 class TpfaAd(Discretization):
-    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Tpfa(keyword)
         self._name = "Tpfa"
@@ -314,7 +321,7 @@ class TpfaAd(Discretization):
 
 
 class MassMatrixAd(Discretization):
-    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.MassMatrix(keyword)
         self._name = "Mass matrix"
@@ -325,7 +332,7 @@ class MassMatrixAd(Discretization):
 
 
 class UpwindAd(Discretization):
-    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Upwind(keyword)
         self._name = "Upwind"
@@ -341,7 +348,7 @@ class UpwindAd(Discretization):
 
 
 class WellCouplingAd(Discretization):
-    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
         self.interfaces = interfaces
         self._discretization = pp.WellCoupling(keyword, primary_keyword=keyword)
         self._name = "Well interface coupling"
@@ -360,7 +367,7 @@ class WellCouplingAd(Discretization):
 
 
 class RobinCouplingAd(Discretization):
-    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
         self.interfaces = interfaces
         self._discretization = pp.RobinCoupling(keyword, primary_keyword=keyword)
         self._name = "Robin interface coupling"
@@ -379,7 +386,7 @@ class RobinCouplingAd(Discretization):
 
 
 class UpwindCouplingAd(Discretization):
-    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
         self.interfaces = interfaces
         self._discretization = pp.UpwindCoupling(keyword)
         self._name = "Upwind coupling"
@@ -402,16 +409,16 @@ class UpwindCouplingAd(Discretization):
 
 
 class DifferentiableFVAd:
-    """This class represents the application of the product and chain rule of the
+    r"""This class represents the application of the product and chain rule of the
     flux expression
 
-        q = T(k(u)) * p
+    .. math:: q = T(k(u)) * p.
 
-    Where the transmissibility matrix T is a function of the cell permeability k, which
+    Here, the transmissibility matrix T is a function of the cell permeability k, which
     again is a function of a primary variable u, while p is the potential (pressure).
     The chain rule applied to this expression reads
 
-        dq = p * dT/dk * dk/du * du + T * dp
+    .. math:: dq = p * dT/dk * dk/du * du + T * dp
 
     The transmissibility matrix can be computed from a Tpfa or Mpfa discretization, or
     (in principle) any other finite volume method. The derivative of the
@@ -424,42 +431,35 @@ class DifferentiableFVAd:
 
     def __init__(
         self,
-        subdomains: List[pp.Grid],
+        subdomains: list[pp.Grid],
         mdg: pp.MixedDimensionalGrid,
         base_discr: Union[pp.ad.MpfaAd, pp.ad.TpfaAd],
-        system_manager: pp.ad.EquationSystem,
-        permeability_function: Callable[[pp.ad.Variable], pp.ad.Ad_array],
+        equation_system: pp.ad.EquationSystem,
+        permeability_function: Callable[[list[pp.Grid]], pp.ad.Operator],
         permeability_argument: pp.ad.Variable,
         potential: pp.ad.Variable,
         keyword: str,
     ) -> None:
-        """Initialize the differentiable finite volume method.
 
-        Parameters:
-            subdomains: List of subdomains on which the discretization is defined.
-            mdg: Mixed-dimensional grid.
-            base_discr: Tpfa or Mpfa discretization (Ad), gol which we want to
-                approximate the transmissibility matrix.
-            system_manager (pp.EquationSystem): Needed to evaluate Ad operators.
-            permeability_function: returning permeability as an Ad_array given the
-                perm_argument.
-            permeability_argument: pp.ad.Variable representing the variable upon which
-                perm_function depends.
-            potential: pp.ad.Variable representation of potential for the flux law
-                flux=-K\nabla(potential - vector_source)
-
-        """
         self.subdomains = subdomains
+        """List of subdomains on which the discretization is defined."""
         self.mdg = mdg
+        """Mixed-dimensional grid."""
         self._discretization = base_discr
-        self.system_manager = system_manager
+        """Discretization used to compute the transmissibility matrix."""
+        self.equation_system = equation_system
+        """Equation system used to evaluate Ad operators."""
         self.keyword = keyword
+        """Keyword used to identify the discretization in the data dictionary."""
         self._subdomain_projections = pp.ad.SubdomainProjections(self.subdomains)
-        self._perm_function = pp.ad.Function(
-            permeability_function, "permeability_function"
-        )
+        """Subdomain projections used between full set of subdomains and individual ones."""
+        self._perm_function = permeability_function
+        """Function returning permeability as an Ad_array given the perm_argument."""
         self._perm_argument: pp.ad.Variable = permeability_argument
+        """pp.ad.Variable representing the variable upon which perm_function depends."""
         self._potential: pp.ad.Variable = potential
+        """pp.ad.Variable representation of potential for the flux law
+        :math:`flux=-K\nabla(potential - vector_source)`."""
 
     def flux(
         self,
@@ -467,10 +467,11 @@ class DifferentiableFVAd:
         """Flux from potential, BCs and vector sources.
 
         Returns:
-            pp.ad.Operator representing the flux.
+            Operator representing the flux.
+
         """
         ad_func = pp.ad.Function(self._flux_function, "differentiated_flux")
-        return ad_func(self._perm_argument, self._potential)
+        return ad_func(self._potential)
 
     def bound_pressure_face(
         self,
@@ -479,8 +480,9 @@ class DifferentiableFVAd:
 
         Returns:
             pp.ad.Operator representing the value and jacobian of bound_pressure_face,
-                which is used to reconstruct the pressure trace on the boundary (see FV
-                discretizations).
+            which is used to reconstruct the pressure trace on the boundary (see FV
+            discretizations).
+
         """
         ad_func = pp.ad.Function(
             self._bound_pressure_face_function, "differentiated_bound_pressure_face"
@@ -489,42 +491,46 @@ class DifferentiableFVAd:
 
     def _flux_function(
         self,
-        perm_argument: pp.ad.Ad_array,
         potential: pp.ad.Ad_array,
     ) -> pp.ad.Ad_array:
-        """
+        """Flux from potential, BCs and vector sources.
 
-        Args:
-            perm_function: pp.ad.Function returning permeability given the perm_argument.
-            perm_argument: Ad_array representing the variable upon which perm_function depends.
-            potential: Potential for the flux law: flux=-K\grad(potential - vector_source)
+        Parameters:
+            perm_function: pp.ad.Function returning permeability given a list of
+                subdomains.
+            perm_argument: Ad_array representing the variable upon which perm_function
+                depends.
+            potential: Potential for the flux law
+                :math:`flux=-K\nabla(potential - vector_source)`.
 
         Returns:
+            Ad_array representing the flux.
 
-        Note on parameters: When this function is called, potential should be an Ad
-        operator (say, a MixedDimensionalVariable representation of the pressure). During
-        evaluation, because of the way operator trees are evaluated, potential will be
-        an Ad_array (it is closer to being an atomic variable, thus it will be
-        evaluated before this function).
         """
+        # Implementation note:
+        # When this function is called, potential should be an Ad operator (say, a
+        # MixedDimensionalVariable representation of the pressure). During evaluation,
+        # because of the way operator trees are evaluated, potential will be an
+        # Ad_array (it is closer to being an atomic variable, thus it will be
+        # evaluated before this function).
 
         # The product rule applied to q = T(k(u)) * p gives
         #   dT/dk * dk/du * p + T * dp/dp.
         # The first part is rather involved and is handled inside self._transmissibility
 
         # Get hold of the underlying flux discretization.
-        base_flux = self._discretization.flux.evaluate(self.system_manager)
+        base_flux = self._discretization.flux.evaluate(self.equation_system)
 
         # The Jacobian matrix should have the same size as the base.
-        flux_jac = sps.csr_matrix((base_flux.shape[0], self.system_manager.num_dofs()))
+        flux_jac = sps.csr_matrix((base_flux.shape[0], self.equation_system.num_dofs()))
 
         # The differentiation of transmissibilities with respect to permeability is
-        # implemented as a loop over all subdomains. It could be possible to gather all grid
-        # information in arrays as a preprocessing step, but that seems not to be worth
-        # the effort. However, to avoid evaluating the permeability function multiple
-        # times, we precompute it here
-        global_permeability = self._perm_function(self._perm_argument).evaluate(
-            self.system_manager
+        # implemented as a loop over all subdomains. It could be possible to gather all
+        # grid information in arrays as a preprocessing step, but that seems not to be
+        # worth the effort. However, to avoid evaluating the permeability function
+        # multiple times, we precompute it here
+        global_permeability = self._perm_function(self.subdomains).evaluate(
+            self.equation_system
         )
         sd: pp.Grid
         for sd in self.subdomains:
@@ -533,7 +539,7 @@ class DifferentiableFVAd:
             params = self.mdg.subdomain_data(sd)[pp.PARAMETERS][self.keyword]
             # Potential for this grid
             cells_of_grid = self._subdomain_projections.cell_restriction([sd]).evaluate(
-                self.system_manager
+                self.equation_system
             )
             potential_value = cells_of_grid * potential.val
 
@@ -577,7 +583,7 @@ class DifferentiableFVAd:
             # Prolong this Jacobian to the full set of faces and add.
             face_prolongation = self._subdomain_projections.face_prolongation(
                 [sd]
-            ).evaluate(self.system_manager)
+            ).evaluate(self.equation_system)
             flux_jac += face_prolongation * grad_p_jac
             flux_jac += face_prolongation * jac_bound
 
@@ -615,21 +621,17 @@ class DifferentiableFVAd:
         self,
         perm_argument: pp.ad.Ad_array,
     ) -> pp.ad.Ad_array:
-        """The actual implementation of the
-
-        Parameters:
-            perm_argument (pp.ad.Ad_array, evaluation of a pp.ad.Variable): Variable(s)
-                upon which the permeability depends.
+        """The actual implementation of the bound_pressure_face function.
 
         Returns:
-            Ad_array: The flux, q, and its Jacobian matrix, where the latter accounts
-                for dependencies in the transmissibilities on cell center permeabilities.
+            The flux, q, and its Jacobian matrix, where the latter accounts for
+            dependencies in the transmissibilities on cell center permeabilities.
 
         """
         # Note on parameters: When this function is called, potential should be an Ad
-        # operator (say, a MixedDimensionalVariable representation of the pressure). During
-        # evaluation, because of the way operator trees are evaluated, potential will be
-        # an Ad_array (it is closer to being an atomic variable, thus it will be
+        # operator (say, a MixedDimensionalVariable representation of the pressure).
+        # During evaluation, because of the way operator trees are evaluated, potential
+        # will be an Ad_array (it is closer to being an atomic variable, thus it will be
         # evaluated before this function).
 
         # The product rule applied to q = T(k(u)) * p gives
@@ -638,35 +640,34 @@ class DifferentiableFVAd:
 
         # Get hold of the underlying flux discretization.
         base_bound_pressure_face = self._discretization.bound_pressure_face.evaluate(
-            self.system_manager
+            self.equation_system
         )
         # The Jacobian matrix should have the same size as the base.
         bound_pressure_face_jac = sps.csr_matrix(
-            (base_bound_pressure_face.shape[0], self.system_manager.num_dofs())
+            (base_bound_pressure_face.shape[0], self.equation_system.num_dofs())
         )
 
         projections = pp.ad.SubdomainProjections(self.subdomains)
 
         # The differentiation of transmissibilities with respect to permeability is
-        # implemented as a loop over all subdomains. It could be possible to gather all grid
-        # information in arrays as a preprocessing step, but that seems not to be worth
-        # the effort. However, to avoid evaluating the permeability function multiple
-        # times, we precompute it here
-        global_permeability = self._perm_function(perm_argument).evaluate(
-            self.system_manager
+        # implemented as a loop over all subdomains. It could be possible to gather all
+        # grid information in arrays as a preprocessing step, but that seems not to be
+        # worth the effort. However, to avoid evaluating the permeability function
+        # multiple times, we precompute it here
+        global_permeability = self._perm_function(self.subdomains).evaluate(
+            self.equation_system
         )
 
         sd: pp.Grid
         for sd in self.subdomains:
-            params: Dict = self.mdg.subdomain_data(sd)[pp.PARAMETERS][self.keyword]
+            params: dict = self.mdg.subdomain_data(sd)[pp.PARAMETERS][self.keyword]
             transmissibility_jac, inverse_sum_squared = self._transmissibility(
                 sd, global_permeability
             )
 
             # On Dirichlet faces, the tpfa discretization simply recovers boundary
-            # condition. Thus, no t-differentiation enters.
-            # On Neumann faces, however, the tpfa contribution is
-            # v_face[bnd.is_neu] = -1 / t_full[bnd.is_neu]
+            # condition. Thus, no t-differentiation enters. On Neumann faces, however,
+            # the tpfa contribution is v_face[bnd.is_neu] = -1 / t_full[bnd.is_neu]
             # Differentiate and multiply with transmissibility jacobian
             v_face = np.zeros(sd.num_faces)
             is_neu = params["bc"].is_neu
@@ -677,7 +678,7 @@ class DifferentiableFVAd:
 
             # Prolong this Jacobian to the full set of faces and add.
             face_prolongation = projections.face_prolongation([sd]).evaluate(
-                self.system_manager
+                self.equation_system
             )
             bound_pressure_face_jac += face_prolongation * jac_bound_pressure_face
 
@@ -691,12 +692,12 @@ class DifferentiableFVAd:
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Utility function to retrieve geometry information.
 
-        Args:
+        Parameters:
             g: pp.Grid for which the information is extracted.
 
         Returns:
-            Arrays representing face indices, cell indices, normal vector signs and vectors
-            between face centers and cell centers. The former three have size
+            Arrays representing face indices, cell indices, normal vector signs and
+            vectors between face centers and cell centers. The former three have size
                     n = num_face_cell_pairs = g.num_face * 2 (two cells per face),
             while fc_cc.shape = (3, n).
         """
@@ -711,13 +712,14 @@ class DifferentiableFVAd:
     ) -> Union[sps.csr_matrix, np.ndarray]:
         """Compute Jacobian of a variable transmissibility.
 
-        Args:
+        Parameters:
             g: pp.Grid for which we compute transmissibility
             global_permeability: Array representing the global (in mixed-dimensional
                 sense) permeability
 
         Returns:
             Jacobian of the transmissibility for this grid.
+
         """
         # The first few lines are pasted from the standard Tpfa implementation
         fi, ci, sgn, fc_cc = self._geometry_information(g)
@@ -779,7 +781,7 @@ class DifferentiableFVAd:
         # Then, map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
         cells_of_grid = self._subdomain_projections.cell_restriction([g]).evaluate(
-            self.system_manager
+            self.equation_system
         )
         k_one_sided = cell_2_one_sided_face * cells_of_grid * global_permeability
 
