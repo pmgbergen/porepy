@@ -99,6 +99,10 @@ class Flash:
         """A bool indicating if an Armijo line-search should be performed after an
         update direction has been found. Defaults to True."""
 
+        self.newton_update_chop: float = 1.
+        """A number in ``[0, 1]`` to scale the Newton update ``dx`` resulting from
+        solving the linearized system. Defaults to 1."""
+
         self.npipm_parameters: dict[str, float] = {
             "eta": 0.5,
             "u": 1,
@@ -236,7 +240,10 @@ class Flash:
             self._W_of_phase[phase] = W_e
 
             # V_e extension equation, create and store
-            v_extension = phase.fraction - V_e
+            if phase == self._C.reference_phase:
+                v_extension = self._y_R - V_e
+            else:
+                v_extension = phase.fraction - V_e
             name = f"NPIPM_V_{phase.name}"
             self._C.ad_system.set_equation(
                 name, v_extension, num_equ_per_dof=image_info
@@ -815,6 +822,7 @@ class Flash:
         _, b_1 = F(X_k + rho * DX)
 
         if do_logging:
+            print(f"Armijo line search initial potential: {b_k_pot}")
             print("Armijo line search j=1", end='', flush=True)
 
         # start with first step size. If sufficient, return rho
@@ -835,7 +843,10 @@ class Flash:
 
                     if do_logging:
                         print('\r    \r', end='', flush=True)
-                        print(f"Armijo line search j={j}", end='', flush=True)
+                        print(
+                            f"Armijo line search j={j}; potential: {np.dot(b_j, b_j)}",
+                            end='', flush=True
+                        )
 
                     # check potential and return if reduced.
                     if np.dot(b_j, b_j) <= (1 - 2 * kappa * rho_j) * b_k_pot:
@@ -866,7 +877,10 @@ class Flash:
 
                     if do_logging:
                         print('\r    \r', end='', flush=True)
-                        print(f"Armijo line search j={j}", end='', flush=True)
+                        print(
+                            f"Armijo line search j={j}; potential: {np.dot(b_j, b_j)}",
+                            end='', flush=True
+                        )
                 # if potential decreases, return step-size
                 else:
                     if do_logging:
@@ -910,7 +924,11 @@ class Flash:
         # assemble linear system of eq for semi-smooth subsystem
         A, b = F()
 
+        # A[-1, -4:] = 0.
+
         if do_logging:
+            print(
+                f"Newton initial residual norm: {np.linalg.norm(b)}", flush=True)
             print("Newton iteration 0", end='', flush=True)
 
         if self.use_armijo:
@@ -933,11 +951,15 @@ class Flash:
 
                 if do_logging:
                     print('\r    \r', end='', flush=True)
-                    print(f"Newton iteration {i}", end=logging_end, flush=True)
+                    print(
+                        f"Newton iteration {i}; residual norm: {np.linalg.norm(b)}",
+                        end=logging_end,
+                        flush=True
+                    )
 
                 # solve iteration and add to ITERATE state additively
                 dx = sps.linalg.spsolve(A, b)
-                DX = prolongation * dx
+                DX = self.newton_update_chop * prolongation * dx
 
                 if self.use_armijo:
                     # get step size using Armijo line search
@@ -952,6 +974,7 @@ class Flash:
                 )
 
                 A, b = F()
+                # A[-1, -4:] = 0.
 
                 # in case of convergence
                 if np.linalg.norm(b) <= self.flash_tolerance:
