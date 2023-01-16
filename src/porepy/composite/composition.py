@@ -640,7 +640,8 @@ class Composition(abc.ABC):
         return self.ad_system.assemble_subsystem(
             equations + other_eqns if other_eqns else equations,
             variables + other_vars if other_vars else variables,
-            state=state)
+            state=state,
+        )
 
     ### Model equations ----------------------------------------------------------------
 
@@ -648,9 +649,10 @@ class Composition(abc.ABC):
         self,
         component: Component,
         eliminate_ref_phase: bool = True,
+        normalize_phase_composition: bool = False,
     ) -> pp.ad.Operator:
-        """Returns an operator representing the definition of the overall component
-        fraction (mass conservation) for a component.
+        """Returns an operator representing the mass balance in form of the definition
+        of the overall component fraction (mass conservation) for a component.
 
             `` y_R = 1 - sum_{e != R} y_e``,
             ``z_c - sum_e y_e * chi_ce = 0``,
@@ -661,28 +663,113 @@ class Composition(abc.ABC):
             eliminate_ref_phase: ``default=True``
 
                 If True, the reference phase molar fraction is eliminated by unity.
+            normalize_phase_composition: ``default=False``
+
+                If True, uses the normalized phase compositions, instead of the extended
+                fractions.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
 
         """
         # z_c
-        equation = component.fraction
-        if eliminate_ref_phase:
-            chi_cR = self.reference_phase.fraction_of_component(component)
-            # z_c  - chi_cR
-            equation -= chi_cR
-            # - sum_{e != R} y_e * (chi_ce - chi_cR)
-            for phase in self.phases:
-                if phase != self.reference_phase:
-                    chi_ce = phase.fraction_of_component(component)
-                    equation -= phase.fraction * (chi_ce - chi_cR)
-        else:
-            for phase in self.phases:
-                chi_ce = phase.fraction_of_component(component)
-                equation -= phase.fraction * chi_ce
+        equation = component.fraction - self.get_component_fraction_by_definition(
+            component, eliminate_ref_phase, normalize_phase_composition
+        )
+        # if eliminate_ref_phase:
+        #     if normalize_phase_composition:
+        #         chi_cR = self.reference_phase.normalized_fraction_of_component(component)
+        #     else:
+        #         chi_cR = self.reference_phase.fraction_of_component(component)
+        #     # z_c  - chi_cR
+        #     equation -= chi_cR
+        #     # - sum_{e != R} y_e * (chi_ce - chi_cR)
+        #     for phase in self.phases:
+        #         if phase != self.reference_phase:
+        #             if normalize_phase_composition:
+        #                 chi_ce = phase.normalized_fraction_of_component(component)
+        #             else:
+        #                 chi_ce = phase.fraction_of_component(component)
+        #             equation -= phase.fraction * (chi_ce - chi_cR)
+        # else:
+        #     for phase in self.phases:
+        #         if normalize_phase_composition:
+        #                 chi_ce = phase.normalized_fraction_of_component(component)
+        #             else:
+        #                 chi_ce = phase.fraction_of_component(component)
+        #         equation -= phase.fraction * chi_ce
 
         return equation
+
+    def get_component_fraction_by_definition(
+        self,
+        component: Component,
+        eliminate_ref_phase: bool = True,
+        normalize_phase_composition: bool = False,
+    ) -> pp.ad.Operator:
+        """Returns an operator representing the definition of the overall component
+        fraction (mass conservation) for a component.
+
+            `` y_R = 1 - sum_{e != R} y_e``,
+            ``z_c = sum_e y_e * chi_ce``,
+            ``z_c = chi_cR + sum_{e != R} y_e * (chi_ce - chi_cR)``.
+
+        Parameters:
+            component: a component in this composition
+            eliminate_ref_phase: ``default=True``
+
+                If True, the reference phase molar fraction is eliminated by unity.
+            normalize_phase_composition: ``default=False``
+
+                If True, uses the normalized phase compositions, instead of the extended
+                fractions.
+
+        Returns:
+            AD operator representing the right-hand side of the equation.
+
+        """
+        if eliminate_ref_phase:
+            if normalize_phase_composition:
+                equation = sum(
+                    [
+                        phase.fraction
+                        * phase.normalized_fraction_of_component(component)
+                        if phase != self.reference_phase
+                        else self.get_reference_phase_fraction_by_unity()
+                        * phase.normalized_fraction_of_component(component)
+                        for phase in self.phases
+                    ]
+                )
+            else:
+                equation = sum(
+                    [
+                        phase.fraction * phase.fraction_of_component(component)
+                        if phase != self.reference_phase
+                        else self.get_reference_phase_fraction_by_unity()
+                        * phase.fraction_of_component(component)
+                        for phase in self.phases
+                    ]
+                )
+
+            return equation
+        else:
+            if normalize_phase_composition:
+                equation = sum(
+                    [
+                        phase.fraction
+                        * phase.normalized_fraction_of_component(component)
+                        for phase in self.phases
+                    ]
+                )
+            else:
+                equation = sum(
+                    [
+                        phase.fraction * phase.fraction_of_component(component)
+                        for phase in self.phases
+                    ]
+                )
+
+            return equation
 
     def get_phase_fraction_unity(self) -> pp.ad.Operator:
         """Returns an equation representing the phase fraction unity
@@ -906,10 +993,9 @@ class Composition(abc.ABC):
         phi_ce = self.fugacities[component][other_phase]
         phi_cR = self.fugacities[component][self.reference_phase]
 
-        equation = (
-            other_phase.fraction_of_component(component)
-            - (phi_cR / phi_ce) * self.reference_phase.fraction_of_component(component)
-        )
+        equation = other_phase.fraction_of_component(component) - (
+            phi_cR / phi_ce
+        ) * self.reference_phase.fraction_of_component(component)
 
         return equation
 

@@ -99,7 +99,7 @@ class Flash:
         """A bool indicating if an Armijo line-search should be performed after an
         update direction has been found. Defaults to True."""
 
-        self.newton_update_chop: float = 1.
+        self.newton_update_chop: float = 1.0
         """A number in ``[0, 1]`` to scale the Newton update ``dx`` resulting from
         solving the linearized system. Defaults to 1."""
 
@@ -283,7 +283,9 @@ class Flash:
         dot_part = pos(sum(dot_parts))
         dot_part *= dot_part * coeff
 
-        equation = eta * self._nu + self._nu * self._nu + (sum(norm_parts) + dot_part) / 2
+        equation = (
+            eta * self._nu + self._nu * self._nu + (sum(norm_parts) + dot_part) / 2
+        )
         self._C.ad_system.set_equation(
             "NPIPM_param", equation, num_equ_per_dof=image_info
         )
@@ -378,7 +380,7 @@ class Flash:
         method: Literal["newton-min", "npipm"] = "newton-min",
         initial_guess: Literal["iterate", "feed", "uniform"] | str = "iterate",
         copy_to_state: bool = False,
-        do_logging: bool = False
+        do_logging: bool = False,
     ) -> bool:
         """Performs a flash procedure based on the arguments.
 
@@ -672,7 +674,7 @@ class Flash:
             # evaluate reference phase fraction by unity
             ad_system.set_var_values(
                 self._C.reference_phase.fraction_name,
-                self._y_R.evaluate(ad_system.dof_manager).val
+                self._y_R.evaluate(ad_system.dof_manager).val,
             )
         else:
             raise ValueError(f"Unknown initial-guess-strategy {initial_guess}.")
@@ -680,9 +682,7 @@ class Flash:
     ### Numerical methods --------------------------------------------------------------
 
     def _Newton_min(
-        self,
-        flash_type: Literal["isothermal", "isenthalpic"],
-        do_logging: bool
+        self, flash_type: Literal["isothermal", "isenthalpic"], do_logging: bool
     ) -> bool:
         """Performs a semi-smooth newton (Newton-min),
         where the complementary conditions are the semi-smooth part.
@@ -823,13 +823,13 @@ class Flash:
 
         if do_logging:
             print(f"Armijo line search initial potential: {b_k_pot}")
-            print("Armijo line search j=1", end='', flush=True)
+            print("Armijo line search j=1", end="", flush=True)
 
         # start with first step size. If sufficient, return rho
         if np.dot(b_1, b_1) <= (1 - 2 * kappa * rho) * b_k_pot:
             if do_logging:
-                print('\r    \r', end='', flush=True)
-                print("Armijo line search j=1: SUCCESS", end='', flush=True)
+                print("\r    \r", end="", flush=True)
+                print("Armijo line search j=1: SUCCESS", end="", flush=True)
             return rho
         else:
             # if maximal line-search interval defined, use for-loop
@@ -842,16 +842,17 @@ class Flash:
                     _, b_j = F(X_k + rho_j * DX)
 
                     if do_logging:
-                        print('\r    \r', end='', flush=True)
+                        print("\r    \r", end="", flush=True)
                         print(
                             f"Armijo line search j={j}; potential: {np.dot(b_j, b_j)}",
-                            end='', flush=True
+                            end="",
+                            flush=True,
                         )
 
                     # check potential and return if reduced.
                     if np.dot(b_j, b_j) <= (1 - 2 * kappa * rho_j) * b_k_pot:
                         if do_logging:
-                            print('\r    \r', end='', flush=True)
+                            print("\r    \r", end="", flush=True)
                             print(f"Armijo line search j={j}: SUCCESS", flush=True)
                         return rho_j
 
@@ -876,15 +877,16 @@ class Flash:
                     j += 1
 
                     if do_logging:
-                        print('\r    \r', end='', flush=True)
+                        print("\r    \r", end="", flush=True)
                         print(
                             f"Armijo line search j={j}; potential: {np.dot(b_j, b_j)}",
-                            end='', flush=True
+                            end="",
+                            flush=True,
                         )
                 # if potential decreases, return step-size
                 else:
                     if do_logging:
-                        print('\r    \r', end='', flush=True)
+                        print("\r    \r", end="", flush=True)
                         print(f"Armijo line search j={j}: SUCCESS", flush=True)
                     return rho_j
 
@@ -892,7 +894,7 @@ class Flash:
         self,
         F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
         var_names: list[str],
-        do_logging: bool
+        do_logging: bool,
     ) -> tuple[bool, int]:
         """Performs standard Newton iterations using the matrix and rhs-vector returned
         by ``F``, until (possibly) the L2-norm of the rhs-vector reaches the convergence
@@ -927,14 +929,13 @@ class Flash:
         # A[-1, -4:] = 0.
 
         if do_logging:
-            print(
-                f"Newton initial residual norm: {np.linalg.norm(b)}", flush=True)
-            print("Newton iteration 0", end='', flush=True)
+            print(f"Newton initial residual norm: {np.linalg.norm(b)}", flush=True)
+            print("Newton iteration 0", end="", flush=True)
 
         if self.use_armijo:
             logging_end = "\n"
         else:
-            logging_end = ''
+            logging_end = ""
 
         # if residual is already small enough
         if np.linalg.norm(b) <= self.flash_tolerance:
@@ -950,11 +951,11 @@ class Flash:
             for i in range(1, self.max_iter_flash + 1):
 
                 if do_logging:
-                    print('\r    \r', end='', flush=True)
+                    print("\r    \r", end="", flush=True)
                     print(
                         f"Newton iteration {i}; residual norm: {np.linalg.norm(b)}",
                         end=logging_end,
-                        flush=True
+                        flush=True,
                     )
 
                 # solve iteration and add to ITERATE state additively
@@ -982,7 +983,7 @@ class Flash:
                     iter_final = i + 1  # shift since range() starts with zero
                     if do_logging:
                         if not self.use_armijo:
-                            print('\r    \r', end='', flush=True)
+                            print("\r    \r", end="", flush=True)
                         print(f"Newton iteration {iter_final}: SUCCESS", flush=True)
                     success = True
                     break
