@@ -190,6 +190,11 @@ class DisplacementJumpAperture(DimensionReduction):
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
+        The aperture computation depends on the dimension of the subdomain. For the
+        matrix, the aperture is one. For intersections, the aperture is given by the
+        average of the apertures of the adjacent fractures. For fractures, the aperture
+        equals displacement jump plus residual aperture.
+
         Parameters:
             subdomains: List of subdomain grids.
 
@@ -679,6 +684,10 @@ class CubicLawPermeability(ConstantPermeability):
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
 
+        This function combines a matrix permeability with a cubic law permeability for
+        fractures and intersections. The combination entails projection between the two
+        subdomain subsets and all subdomains.
+
         Parameters:
             subdomains: List of subdomains.
 
@@ -1123,8 +1132,6 @@ class ThermalConductivityLTE:
             Cell-wise conducivity operator.
 
         """
-        assert len(subdomains) == 1, "Only one subdomain is allowed."
-
         phi = self.porosity(subdomains)
         try:
             phi.evaluate(self.equation_system)
