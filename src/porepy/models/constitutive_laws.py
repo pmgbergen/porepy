@@ -2458,18 +2458,6 @@ class PoroMechanicsPorosity:
 
     """
 
-    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference porosity.
-
-        Parameters:
-            subdomains: List of subdomains where the reference porosity is defined.
-
-        Returns:
-            Reference porosity operator.
-
-        """
-        return Scalar(self.solid.porosity(), "reference_porosity")
-
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity.
 
@@ -2507,22 +2495,80 @@ class PoroMechanicsPorosity:
             Cell-wise porosity operator [-].
 
         """
+
+        # Sanity check
         if not all([sd.dim == self.nd for sd in subdomains]):
             raise ValueError("Subdomains must be of dimension nd.")
-        phi_ref = self.reference_porosity(subdomains)
-        dp = self.perturbation_from_reference("pressure", subdomains)
-        alpha = self.biot_coefficient(subdomains)
-        bulk = self.bulk_modulus(subdomains)
 
-        # 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
-        n_inv = (alpha - phi_ref) * (1 - alpha) / bulk
+        # Add contributions to poromechanics porosity
+        phi = (
+            self.reference_porosity(subdomains)
+            + self.pressure_contribution(subdomains)
+            + self.displacement_divergence_contribution(subdomains)
+            + self.biot_stabilization(subdomains)
+        )
+        phi.set_name("Stabilized matrix porosity")
 
-        # Add the three contributions to the porosity.
-        phi = phi_ref + n_inv * dp + alpha * self.displacement_divergence(subdomains)
-        # Add stabilization term. TODO: Should this be handled elsewhere?
-        phi = phi + self.biot_stabilization(subdomains)
-        phi.set_name("stabilized_matrix_porosity")
         return phi
+
+    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference porosity.
+
+        Parameters:
+            subdomains: List of subdomains where the reference porosity is defined.
+
+        Returns:
+            Reference porosity operator.
+
+        """
+        return Scalar(self.solid.porosity(), "reference_porosity")
+
+    def pressure_contribution(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Contribution of the pressure changes to the matrix porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise contribution of the pressure changes to the matrix porosity [-].
+
+        """
+
+        # Retrieve material parameters
+        alpha = self.biot_coefficient(subdomains)
+        phi_ref = self.reference_porosity(subdomains)
+        bulk_modulus = self.bulk_modulus(subdomains)
+
+        # Pressure changes
+        dp = self.perturbation_from_reference("pressure", subdomains)
+
+        # Compute 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
+        n_inv = (alpha - phi_ref) * (1 - alpha) / bulk_modulus
+
+        # Pressure change contribution
+        pressure_contribution = n_inv * dp
+        pressure_contribution.set_name("Pressure contribution to porosity")
+
+        return pressure_contribution
+
+    def displacement_divergence_contribution(
+            self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Contribution of the divergence displacement to the matrix porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise contribution of the divergence of the displacement to the
+            matrix porosity. Scaling with Biot's coefficient is already included.
+
+        """
+        alpha = self.biot_coefficient(subdomains)
+        div_u = self.displacement_divergence(subdomains)
+        div_u_contribution = alpha * div_u
+        div_u_contribution.set_name("DivU contribution to porosity")
+        return div_u_contribution
 
     def displacement_divergence(
         self,
@@ -2606,10 +2652,10 @@ class PoroMechanicsPorosity:
         # stabilization term is used here together with intensive quantities, we need to
         # divide by cell volumes.
         stabilization = (
-            self.wrap_grid_attribute(  # type: ignore[call-arg]
-                subdomains, "cell_volumes", dim=1, inverse=True
-            )
-            * stabilization_integrated
+                self.wrap_grid_attribute(  # type: ignore[call-arg]
+                    subdomains, "cell_volumes", dim=1, inverse=True
+                )
+                * stabilization_integrated
         )
 
         stabilization.set_name("biot_stabilization")
@@ -2639,39 +2685,24 @@ class BiotPoromechanicsPorosity(PoroMechanicsPorosity):
 
     """
 
-    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Biot coefficient. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
-
-    """
-
-    def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Porosity in the nd-dimensional matrix [-].
+    def pressure_contribution(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Contribution of the pressure changes to the matrix porosity [-].
 
         Parameters:
             subdomains: List of subdomains where the porosity is defined.
 
         Returns:
-            Cell-wise porosity operator [-].
+            Cell-wise contribution of the pressure changes to the matrix porosity [-].
 
         """
-        if not all([sd.dim == self.nd for sd in subdomains]):
-            raise ValueError("Subdomains must be of dimension nd.")
-        phi_ref = self.reference_porosity(subdomains)
-        dp = self.perturbation_from_reference("pressure", subdomains)
-        alpha = self.biot_coefficient(subdomains)
         specific_storage = self.specific_storage(subdomains)
+        dp = self.perturbation_from_reference("pressure", subdomains)
 
-        # Add the three contributions to the porosity.
-        phi = (
-            phi_ref
-            + specific_storage * dp
-            + alpha * self.displacement_divergence(subdomains)
-        )
-        # Add stabilization term. TODO: Should this be handled elsewhere?
-        phi = phi + self.biot_stabilization(subdomains)
-        phi.set_name("stabilized_matrix_porosity")
-        return phi
+        # Pressure change contribution
+        pressure_contribution = specific_storage * dp
+        pressure_contribution.set_name("Pressure contribution to Biot's porosity")
+
+        return pressure_contribution
 
 
 class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
