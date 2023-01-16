@@ -506,15 +506,13 @@ class DifferentiableFVAd:
         Returns:
             Ad_array representing the flux.
 
-        ..note:
-
-            When this function is called, potential should be an Ad operator (say, a
-            MixedDimensionalVariable representation of the pressure). During evaluation,
-            because of the way operator trees are evaluated, potential will be an
-            Ad_array (it is closer to being an atomic variable, thus it will be
-            evaluated before this function).
-
         """
+        # Implementation note:
+        # When this function is called, potential should be an Ad operator (say, a
+        # MixedDimensionalVariable representation of the pressure). During evaluation,
+        # because of the way operator trees are evaluated, potential will be an
+        # Ad_array (it is closer to being an atomic variable, thus it will be
+        # evaluated before this function).
 
         # The product rule applied to q = T(k(u)) * p gives
         #   dT/dk * dk/du * p + T * dp/dp.
