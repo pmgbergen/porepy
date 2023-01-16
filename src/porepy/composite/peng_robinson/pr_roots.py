@@ -317,6 +317,7 @@ class PR_Roots:
             Z_G_jac_1 = sps.csr_matrix((nc_1, shape[1]))
 
             # store gas root where actual gas, use extension where liquid
+            # TODO eliminate sparse efficiency warning due to row slicing.
             Z_G_val_1[gas_region] = z_1.val[gas_region]
             Z_G_val_1[liquid_region] = r_1.val[liquid_region]
             Z_G_jac_1[gas_region] = z_1.jac[gas_region]

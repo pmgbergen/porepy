@@ -906,9 +906,10 @@ class Composition(abc.ABC):
         phi_ce = self.fugacities[component][other_phase]
         phi_cR = self.fugacities[component][self.reference_phase]
 
-        equation = phi_ce * other_phase.fraction_of_component(
-            component
-        ) - phi_cR * self.reference_phase.fraction_of_component(component)
+        equation = (
+            other_phase.fraction_of_component(component)
+            - (phi_cR / phi_ce) * self.reference_phase.fraction_of_component(component)
+        )
 
         return equation
 
