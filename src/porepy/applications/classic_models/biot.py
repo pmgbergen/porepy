@@ -1,5 +1,5 @@
 """
-Model class for poromechanic equations under the Biot assumptions [1, 2, 3].
+Model class for poromechanical equations under the Biot assumptions [1, 2, 3].
 
 This class can be seen as a subset of the full poromechanical system of equations,
 where certain simplifications are introduced so that the classical system of
@@ -7,51 +7,66 @@ equations following Biot's consolidation is recovered.
 
 In particular, we set the fluid density as constant:
 
-    rho = rho_0,
+.. math::
+
+    \rho := \rho_0,
 
 and define the poromechanics porosity as:
 
-    phi(p, u) = phi_0 + S_epsilon * (p - p0) + alpha_biot * div(u),
+.. math::
 
-where rho_0, phi_0, and p_0 are the reference density, porosity, and pressure,
-and S_epsilon, alpha_biot, p, and u, are the specific storage, Biot's coefficient,
-pressure and displacement, respectively.
+    \phi(p, \mathbf{u}) :=
+        \phi_0
+        + S_\varepsilon (p - p_0)
+        + \alpha \mathrm{div}(\mathbf{u}),
+
+where :math:`\rho_0`, :math:`\phi_0`, and :math:`p_0` are the reference density,
+porosity, and pressure, and :math:`S_\varepsilon`, :math:`\alpha`, :math:`p`,
+and :math:`\mathbf{u}`, are the specific storage, Biot's coefficient, pressure, and
+displacement, respectively.
 
 For a domain without fractures and in the absence of gravity, the governing equations
 solved by this class are given by:
 
-    Momentum conservation:
-        div(sigma) = F,
+    - Momentum conservation:
+    .. math::
 
-    Generalized Hooke's law:
-        sigma = C : grad(u) - alpha_biot * p * I,
+        div(\sigma) = \mathbf{F},
 
-    Mass conservation:
-        rho_0 * (S_epsilon p_t + alpha_biot * div(u)_t) + div(rho_0 * q) = f,
+    - Generalized Hooke's law:
+    .. math::
 
-    Darcy flux:
-        q = - (K/mu) * grad(p),
+        \sigma = \mathcal{C} : \mathbf{\mathrm{grad}}(\mathbf{u}) - \alpha p \mathbf{I},
 
-where sigma is the poroelastic (total) stress, F is a vector (usually a body) force,
-C is the stiffness matrix (written in terms of Lamé parameters in the case of
-isotropic solids), and I is the identity matrix. In the mass conservation equation,
-x_t represents the time derivative of the quantity x, q is the Darcy flux, and f is
-an external source of fluid mass. Finally, K and mu denote the intrinsic permeability
-and the fluid dynamic viscosity.
+    - Mass conservation:
+    .. math::
 
-Examples:
+        \rho_0  \left( S_\varepsilon \frac{\partial p}{\partial t} + \alpha
+        \frac{\partial}{\partial t} \mathrm{div}(\mathbf{u}) \right) + \mathrm{div}(
+        \rho_0 \mathbf{q}) = f,
 
+    - Darcy flux:
+    .. math::
 
+        \mathbf{q} = - \frac{\mathcal{K}}{\mu_f} \mathrm{\mathbf{grad}}(p),
+
+where :math:`\sigma` is the poroelastic (total) stress, :math:`\mathbf{F}` is a
+vector source (usually a body force), :math:`\mathcal{C}` is the stiffness matrix (
+written in terms of Lamé parameters in the case of isotropic solids),
+and :math:`\mathbf{I}` is the identity matrix. In the mass conservation equation,
+:math:`\mathbf{q}` is the Darcy flux, and :math:`f` is an external source of fluid mass.
+Finally, :math:`\mathcal{K}` and :math:`\mu_f` denote the intrinsic permeability and the
+fluid dynamic viscosity.
 
 References:
 
-    [1] Biot, M. A. (1941). General theory of three‐dimensional consolidation.
+    - [1] Biot, M. A. (1941). General theory of three‐dimensional consolidation.
       Journal of applied physics, 12(2), 155-164.
 
-    [2] Lewis, R. W., & Schrefler, B. A. (1987). The finite element method in the
+    - [2] Lewis, R. W., & Schrefler, B. A. (1987). The finite element method in the
       deformation and consolidation of porous media.
 
-    [3] Coussy, O. (2004). Poromechanics. John Wiley & Sons. ISO 690
+    - [3] Coussy, O. (2004). Poromechanics. John Wiley & Sons. ISO 690.
 
 """
 
