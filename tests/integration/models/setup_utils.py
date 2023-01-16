@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import inspect
+from typing import Any
 
 import numpy as np
 
@@ -53,6 +54,9 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         if not self.params.get("cartesian", False):
             return super().set_md_grid()
 
+        # Not implemented for 3d. Assert for safety and mypy.
+        assert isinstance(self.fracture_network, pp.FractureNetwork2d)
+
         # Length scale:
         ls = 1 / self.units.m
         # Mono-dimensional grid by default
@@ -75,6 +79,9 @@ class OrthogonalFractures3d(pp.ModelGeometry):
     the parameter num_fracs, which can be 0, 1, 2 or 3.
 
     """
+
+    params: dict
+    """Model parameters."""
 
     def set_fracture_network(self) -> None:
         """Set the fracture network.
@@ -140,9 +147,9 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
             bc: Boundary condition object.
 
         """
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, north + south, "dir")
+        return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary condition values for Darcy flux.
@@ -161,9 +168,9 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         if len(subdomains) == 0:
             return pp.ad.Array(np.zeros(0), name="bc_values_darcy")
         for sd in subdomains:
-            _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+            domain_sides = self.domain_boundary_sides(sd)
             vals_loc = np.zeros(sd.num_faces)
-            vals_loc[north + south] = self.fluid.pressure()
+            vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
             vals.append(vals_loc)
         return pp.wrap_as_ad_array(np.hstack(vals), name="bc_values_darcy")
 
@@ -179,9 +186,9 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
             bc: Boundary condition object.
 
         """
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, north + south, "dir")
+        return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the Fourier heat flux.
@@ -195,9 +202,9 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
             bc: Boundary condition object.
 
         """
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, north + south, "dir")
+        return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
     def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the enthalpy.
@@ -211,9 +218,9 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
             bc: Boundary condition object.
 
         """
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, north + south, "dir")
+        return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary condition values for the mobility.
@@ -228,24 +235,38 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
             bc_values: Array of boundary condition values.
 
         """
-        bc_values = []
+        values = []
         for sd in subdomains:
             # Get density and viscosity values on boundary faces applying trace to
             # interior values.
-            _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+            domain_sides = self.domain_boundary_sides(sd)
             # Append to list of boundary values
             vals = np.zeros(sd.num_faces)
-            vals[north + south] = self.fluid.density() / self.fluid.viscosity()
-            bc_values.append(vals)
+            vals[domain_sides.north + domain_sides.south] = (
+                self.fluid.density() / self.fluid.viscosity()
+            )
+            values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
-        bc_values = pp.wrap_as_ad_array(np.hstack(bc_values), name="bc_values_mobility")
+        bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_mobility")
         return bc_values
 
 
 class BoundaryConditionsMechanicsDirNorthSouth(
     pp.momentum_balance.BoundaryConditionsMomentumBalance
 ):
+    """Boundary conditions for the mechanics with Dirichlet conditions on north and
+    south boundaries.
+
+    """
+
+    params: dict[str, Any]
+    """Model parameters."""
+    solid: pp.SolidConstants
+    """Solid parameters."""
+    fluid: pp.FluidConstants
+    """Fluid parameters."""
+
     def bc_type_mechanics(self, sd):
         """Boundary condition type for mechanics.
 
@@ -258,8 +279,10 @@ class BoundaryConditionsMechanicsDirNorthSouth(
             bc: Boundary condition object.
 
         """
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, north + south, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(
+            sd, domain_sides.north + domain_sides.south, "dir"
+        )
         bc.internal_to_dirichlet(sd)
         return bc
 
@@ -278,12 +301,20 @@ class BoundaryConditionsMechanicsDirNorthSouth(
                 problem, for each face in the subdomain.
 
         """
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         values = np.zeros((sd.dim, sd.num_faces))
-        values[1, north] = self.solid.convert_units(self.params.get("uy_north", 0), "m")
-        values[1, south] = self.solid.convert_units(self.params.get("uy_south", 0), "m")
-        values[0, north] = self.solid.convert_units(self.params.get("ux_north", 0), "m")
-        values[0, south] = self.solid.convert_units(self.params.get("ux_south", 0), "m")
+        values[1, domain_sides.north] = self.solid.convert_units(
+            self.params.get("uy_north", 0), "m"
+        )
+        values[1, domain_sides.south] = self.solid.convert_units(
+            self.params.get("uy_south", 0), "m"
+        )
+        values[0, domain_sides.north] = self.solid.convert_units(
+            self.params.get("ux_north", 0), "m"
+        )
+        values[0, domain_sides.south] = self.solid.convert_units(
+            self.params.get("ux_south", 0), "m"
+        )
         return values.ravel("F")
 
     def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
@@ -324,19 +355,19 @@ class TimeDependentMechanicalBCsDirNorthSouth:
         assert len(subdomains) == 1
         sd = subdomains[0]
 
-        _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         values = np.zeros((self.nd, sd.num_faces))
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
             frac_val = self.solid.convert_units(0.042, "m")
         else:
             frac_val = 0
-        values[1, north] = frac_val
+        values[1, domain_sides.north] = frac_val
         if self.time_manager.time > 1e-5:
-            values[1, north] += self.solid.convert_units(
+            values[1, domain_sides.north] += self.solid.convert_units(
                 self.params.get("uy_north", 0), "m"
             )
-            values[1, south] += self.solid.convert_units(
+            values[1, domain_sides.south] += self.solid.convert_units(
                 self.params.get("uy_south", 0), "m"
             )
         return values.ravel("F")

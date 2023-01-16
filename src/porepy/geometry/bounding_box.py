@@ -1,9 +1,10 @@
 """Compute bounding boxes of geometric objects."""
 from __future__ import annotations
 
-from typing import Union
+from typing import NamedTuple, Union
 
 import numpy as np
+import numpy.typing as npt
 
 import porepy as pp
 
@@ -138,3 +139,22 @@ def make_bounding_planes_from_box(box: dict[str, float]) -> list[np.ndarray]:
 
     bound_planes = [west, east, south, north, bottom, top]
     return bound_planes
+
+
+class DomainSides(NamedTuple):
+    """Type for domain sides."""
+
+    all_bf: npt.NDArray[np.int_]
+    """All boundary faces."""
+    east: npt.NDArray[np.bool_]
+    """East boundary faces."""
+    west: npt.NDArray[np.bool_]
+    """West boundary faces."""
+    north: npt.NDArray[np.bool_]
+    """North boundary faces."""
+    south: npt.NDArray[np.bool_]
+    """South boundary faces."""
+    top: npt.NDArray[np.bool_]
+    """Top boundary faces."""
+    bottom: npt.NDArray[np.bool_]
+    """Bottom boundary faces."""

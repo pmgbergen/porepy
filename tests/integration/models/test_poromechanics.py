@@ -8,6 +8,7 @@ TODO: Clean up.
 from __future__ import annotations
 
 import copy
+from typing import Callable
 
 import numpy as np
 import pytest
@@ -26,9 +27,19 @@ from .setup_utils import (
 class NonzeroFractureGapPoromechanics:
     """Adjust bc values and initial condition."""
 
+    domain_boundary_sides: Callable
+    """Boundary sides of the domain. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    nd: int
+    """Number of dimensions of the problem."""
+    params: dict
+    """Parameters for the model."""
+
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, north + south, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
     def initial_condition(self):
         """Set initial condition.
