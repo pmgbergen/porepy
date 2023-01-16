@@ -69,11 +69,11 @@ class ExactSolution:
 
         """
 
-        F = self.setup.params["vertical_load"]
+        F = self.setup.params.get("vertical_load", 6e8)
         nondim_y = self.setup.nondim_length(y)
         nondim_t = self.setup.nondim_time(t)
 
-        n = self.setup.params["upper_limit_summation"]
+        n = self.setup.params.get("upper_limit_summation", 1000)
 
         if t == 0:  # initially, the pressure equals the vertical load
             p = F * np.ones_like(y)
@@ -100,12 +100,13 @@ class ExactSolution:
 
         """
         t_nondim = self.setup.nondim_time(t)
+        n = self.setup.params.get("upper_limit_summation", 1000)
 
         if t == 0:  # initially, the soil is unconsolidated
             deg_cons = 0.0
         else:
             sum_series = 0
-            for i in range(1, self.setup.params["upper_limit_summation"] + 1):
+            for i in range(1, n + 1):
                 sum_series += (
                     1
                     / ((2 * i - 1) ** 2)
@@ -245,7 +246,7 @@ class SetupUtilities:
             Dimensionless time for the given time `t`.
 
         """
-        h = self.params["height"]
+        h = self.params.get("height", 1.0)  # [m]
         c_v = self.consolidation_coefficient()
 
         return (t * c_v) / (h**2)
@@ -262,7 +263,7 @@ class SetupUtilities:
             Non-dimensionalized length.
 
         """
-        return length / self.params["height"]
+        return length / self.params.get("height", 1.0)
 
     def nondim_pressure(self, pressure: np.ndarray) -> np.ndarray:
         """Nondimensionalize pressure.
@@ -274,7 +275,7 @@ class SetupUtilities:
             Non-dimensional pressure.
 
         """
-        return pressure / np.abs(self.params["vertical_load"])
+        return pressure / np.abs(self.params.get("vertical_load", 6e8))
 
     # ----> Postprocessing methods
     def displacement_trace(
@@ -324,9 +325,9 @@ class SetupUtilities:
 
         """
         sd = self.mdg.subdomains()[0]
-        h = self.params["height"]
+        h = self.params.get("height", 1.0)
         m_v = self.confined_compressibility()
-        vertical_load = self.params["vertical_load"]
+        vertical_load = self.params.get("vertical_load", 6e8)
         t = self.time_manager.time
 
         if t == 0:  # initially, the soil is unconsolidated
@@ -357,7 +358,7 @@ class SetupUtilities:
 
         fig, ax = plt.subplots(figsize=(9, 8))
 
-        y_ex = np.linspace(0, self.params["height"], 400)
+        y_ex = np.linspace(0, self.params.get("height", 1.0), 400)
         for idx, sol in enumerate(self.results):
             ax.plot(
                 self.nondim_pressure(self.exact_sol.pressure(y=y_ex, t=sol.time)),
@@ -450,8 +451,8 @@ class ModifiedGeometry(pp.ModelGeometry):
                 maximum values in each dimension.
 
         """
-        height = self.params["height"]
-        num_cells = self.params["num_cells"]
+        height = self.params.get("height", 1.0)  # [m]
+        num_cells = self.params.get("num_cells", 20)
         ls = 1 / self.units.m
         phys_dims = np.array([height, height]) * ls
         n_cells = np.array([1, num_cells])
@@ -529,7 +530,7 @@ class ModifiedBoundaryConditionsMechanicsTimeDependent(
 
         """
         sd = subdomains[0]
-        vertical_load = self.params["vertical_load"]
+        vertical_load = self.params.get("vertical_load", 6e8)
         _, _, _, north, *_ = self.domain_boundary_sides(sd)
         bc_values = np.array([np.zeros(sd.num_faces), np.zeros(sd.num_faces)])
         bc_values[1, north] = -vertical_load * sd.face_areas[north]
@@ -631,13 +632,8 @@ class ModifiedSolutionStrategy(
         default_material_constants = {"solid": default_solid, "fluid": default_fluid}
 
         default_params: list[tuple] = [
-            ("height", 1.0),  # [m]
-            ("num_cells", 20),
             ("material_constants", default_material_constants),
             ("time_manager", pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, True)),
-            ("vertical_load", 6e8),  # [N * m^-1]
-            ("plot_results", False),
-            ("upper_limit_summation", 1000),
         ]
         for key, val in default_params:
             if key not in params.keys():
@@ -666,7 +662,7 @@ class ModifiedSolutionStrategy(
         # modify the initial conditions for the flow subproblem.
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
-        vertical_load = self.params["vertical_load"]
+        vertical_load = self.params.get("vertical_load", 6e8)
         initial_p = vertical_load * np.ones(sd.num_cells)
         data[pp.STATE][self.pressure_variable] = initial_p
         data[pp.STATE][pp.ITERATE][self.pressure_variable] = initial_p
@@ -689,7 +685,7 @@ class ModifiedSolutionStrategy(
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
-        if self.params["plot_results"]:
+        if self.params.get("plot_results", False):
             self.plot_results()
 
 
