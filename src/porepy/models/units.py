@@ -17,20 +17,12 @@ class Units:
     material properties should be stored in SI units, but that the user may want to
     specify them in other units. These are defined in init.
 
-    Example:
-        Running a simulation in km, days and  MPa is achieved by setting
-
-        .. code-block:: Python
-
-            my_material = Units(m=1e3, s=86400, Pa=1e6)
-
     Base units are attributes of the class, and can be accessed as e.g.
     my_material.length Derived units are properties computed from the base units, and
     can be accessed as e.g. my_material.Pa. This ensures consistency between the base
     and derived units while allowing reference to derived units in usage of the class.
 
-    TODO: Consider whether this needs to be incorporated in TimeStepManager and
-    ModelGeometry.
+    TODO: Consider whether this needs to be incorporated in TimeStepManager.
 
     Parameters:
         **kwargs: Dictionary of units. The keys are the name of the unit, and the
@@ -40,13 +32,17 @@ class Units:
 
             .. code-block:: Python
 
-                {'m': 1e3, 's': 3600, 'mol': 1e-3}
+                {'m': 1e3, 'kg': 1e-3, 'mol': 1e-3}
 
             or, equivalently,
 
             .. code-block:: Python
 
-                {'m':pp.KILO * pp.METER, 's': pp.HOUR, 'mol':pp.MILLI * pp.MOLE}
+                {
+                    'm':pp.KILO * pp.METER,
+                    'kg': pp.MILLI * pp.KILOGRAM,
+                    'mol':pp.MILLI * pp.MOLE,
+                }
 
             Permitted keys are:
                 - ``m``: Length unit.
@@ -71,7 +67,7 @@ class Units:
     rad: number
     """Angle unit, defaults to 1 rad."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initialize the units."""
         # Sanity check on input values
         for key, value in kwargs.items():
