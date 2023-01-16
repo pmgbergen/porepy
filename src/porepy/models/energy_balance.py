@@ -493,15 +493,7 @@ class BoundaryConditionsEnergyBalance:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
+        pp.bounding_box.DomainSides,
     ]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -518,10 +510,10 @@ class BoundaryConditionsEnergyBalance:
             Boundary condition object.
 
         """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -533,10 +525,10 @@ class BoundaryConditionsEnergyBalance:
             Boundary condition object.
 
         """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """Boundary values for the Fourier flux.
@@ -571,8 +563,8 @@ class BoundaryConditionsEnergyBalance:
         for sd in subdomains:
             vals = np.zeros(sd.num_faces)
             # If you know the boundary temperature, do something like:
-            # all_bf, *_ = self.domain_boundary_sides(sd)
-            # vals[all_bf] = self.fluid.specific_heat_capacity() * dirichlet_values
+            # boundary_faces = self.domain_boundary_sides(sd).all_bf
+            # vals[boundary_faces] = self.fluid.specific_heat_capacity() * dirichlet_values
             # Append to list of boundary values
             bc_values.append(vals)
 
@@ -601,7 +593,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    thermal_conductivity: Callable[[list[pp.Grid]], np.ndarray]
+    thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal conductivity. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
 
@@ -657,25 +649,13 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """
         super().set_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
-
-            specific_volume_mat = self.specific_volume([sd]).evaluate(
-                self.equation_system
-            )
-            if hasattr(specific_volume_mat, "val"):
-                specific_volume_mat = specific_volume_mat.val
-            # Extract diagonal of the specific volume matrix.
-            specific_volume = specific_volume_mat * np.ones(sd.num_cells)
-
-            kappa = self.thermal_conductivity([sd])
-            diffusivity = pp.SecondOrderTensor(kappa * specific_volume)
-
             pp.initialize_data(
                 sd,
                 data,
                 self.fourier_keyword,
                 {
                     "bc": self.bc_type_fourier(sd),
-                    "second_order_tensor": diffusivity,
+                    "second_order_tensor": self.thermal_conductivity_tensor(sd),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -687,6 +667,26 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                     "bc": self.bc_type_enthalpy(sd),
                 },
             )
+
+    def thermal_conductivity_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
+        """Convert ad conductivity to :class:`~pp.params.tensor.SecondOrderTensor`.
+
+        Override this method if the conductivity is anisotropic.
+
+        Parameters:
+            sd: Subdomain for which the conductivity is requested.
+
+        Returns:
+            Thermal conductivity tensor.
+
+        """
+        conductivity_ad = self.specific_volume([sd]) * self.thermal_conductivity([sd])
+        conductivity = conductivity_ad.evaluate(self.equation_system)
+        # The result may be an Ad_array, in which case we need to extract the
+        # underlying array.
+        if isinstance(conductivity, pp.ad.Ad_array):
+            conductivity = conductivity.val
+        return pp.SecondOrderTensor(conductivity)
 
     def initial_condition(self) -> None:
         """Add darcy flux to discretization parameter dictionaries."""
