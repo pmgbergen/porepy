@@ -3,8 +3,6 @@ This module contains utility functions for verification setups.
 """
 from __future__ import annotations
 
-from typing import Union
-
 import numpy as np
 
 import porepy as pp

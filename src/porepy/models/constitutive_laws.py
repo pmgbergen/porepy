@@ -2552,7 +2552,7 @@ class PoroMechanicsPorosity:
         return pressure_contribution
 
     def displacement_divergence_contribution(
-            self, subdomains: list[pp.Grid]
+        self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Contribution of the divergence displacement to the matrix porosity [-].
 
@@ -2652,10 +2652,10 @@ class PoroMechanicsPorosity:
         # stabilization term is used here together with intensive quantities, we need to
         # divide by cell volumes.
         stabilization = (
-                self.wrap_grid_attribute(  # type: ignore[call-arg]
-                    subdomains, "cell_volumes", dim=1, inverse=True
-                )
-                * stabilization_integrated
+            self.wrap_grid_attribute(  # type: ignore[call-arg]
+                subdomains, "cell_volumes", dim=1, inverse=True
+            )
+            * stabilization_integrated
         )
 
         stabilization.set_name("biot_stabilization")
