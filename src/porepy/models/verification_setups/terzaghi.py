@@ -657,7 +657,7 @@ class ModifiedSolutionStrategy(
         """Set initial conditions.
 
         Terzaghi's problem assumes that the soil is initially unconsolidated and that
-          the initial fluid pressure equals the vertical load.
+        the initial fluid pressure equals the vertical load.
 
         """
         super().initial_condition()
@@ -668,8 +668,8 @@ class ModifiedSolutionStrategy(
         data = self.mdg.subdomain_data(sd)
         vertical_load = self.params["vertical_load"]
         initial_p = vertical_load * np.ones(sd.num_cells)
-        data[pp.STATE][self.darcy_keyword] = initial_p
-        data[pp.STATE][pp.ITERATE][self.darcy_keyword] = initial_p
+        data[pp.STATE][self.pressure_variable] = initial_p
+        data[pp.STATE][pp.ITERATE][self.pressure_variable] = initial_p
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
