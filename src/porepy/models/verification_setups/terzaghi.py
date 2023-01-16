@@ -35,7 +35,8 @@ References:
 """
 from __future__ import annotations
 
-from typing import Callable, Union
+from dataclasses import dataclass
+from typing import Callable
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
@@ -47,8 +48,6 @@ import porepy.models.poromechanics as poromechanics
 from porepy.applications.classic_models.biot import BiotPoromechanics
 from porepy.models.verification_setups.verifications_utils import VerificationUtils
 
-from dataclasses import dataclass
-
 number = pp.number
 grid = pp.GridLike
 
@@ -56,43 +55,43 @@ grid = pp.GridLike
 @dataclass
 class SaveData:
 
-    consolidation_degree_error: number = None
+    consolidation_degree_error: number = 0
     """Absolute error in the degree of consolidation."""
 
-    exact_consolidation_degree: np.ndarray = None
+    exact_consolidation_degree: number = 0
     """Exact degree of consolidation."""
 
-    exact_nondim_pressure: np.ndarray = None
+    exact_nondim_pressure: np.ndarray = np.zeros(1)
     """Exact non-dimensional pressure."""
 
-    exact_pressure: np.ndarray = None
+    exact_pressure: np.ndarray = np.zeros(1)
     """Exact pressure."""
 
-    nondim_time: number = None
+    nondim_time: number = 0
     """Non-dimensional time."""
 
-    nondim_vertical_coo: np.ndarray = None
+    nondim_vertical_coo: np.ndarray = np.zeros(1)
     """Non-dimensional vertical coordinate."""
 
-    numerical_consolidation_degree: np.ndarray = None
+    numerical_consolidation_degree: number = 0
     """Numerical degree of consolidation."""
 
-    numerical_displacement: np.ndarray = None
+    numerical_displacement: np.ndarray = np.zeros(1)
     """Numerical displacement solution."""
 
-    numerical_nondim_pressure: np.ndarray = None
+    numerical_nondim_pressure: np.ndarray = np.zeros(1)
     """Numerical non-dimensional pressure solution."""
 
-    numerical_pressure: np.ndarray = None
+    numerical_pressure: np.ndarray = np.zeros(1)
     """Numerical pressure solution."""
 
-    pressure_error: number = None
+    pressure_error: number = 0
     """L2-discrete relative error for the pressure."""
 
-    time: number = None
+    time: number = 0
     """Current time in seconds."""
 
-    vertical_coo: np.ndarray = None
+    vertical_coo: np.ndarray = np.zeros(1)
     """Vertical coordinate in meters."""
 
 
@@ -175,19 +174,19 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
     nondim_time: Callable[[number], number]
     """Method that non-dimensionalizes time. The method is provided by the mixin class
     :class:`SetupUtilities`.
-    
+
     """
 
-    nondim_length: Callable[[Union[number, np.ndarray]], Union[number, np.ndarray]]
-    """Method that non-dimensionalises length. The method is provided by the mixin 
+    nondim_length: Callable[[np.ndarray], np.ndarray]
+    """Method that non-dimensionalises length. The method is provided by the mixin
     class :class:`SetupUtilities`.
-    
+
     """
 
-    nondim_pressure: Callable[[np.ndarray], number]
-    """Method that non-dimensionalises pressure. The method is provided by the mixin 
+    nondim_pressure: Callable[[np.ndarray], np.ndarray]
+    """Method that non-dimensionalises pressure. The method is provided by the mixin
     class :class:`SetupUtilities`.
-    
+
     """
 
     exact_sol: ExactSolution
@@ -197,15 +196,15 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
     """List of :class:`SaveData` objects containing the results of the verification."""
 
     numerical_consolidation_degree: Callable[[np.ndarray, np.ndarray], number]
-    """Method that computes the numerical degree of consolidation. The method is 
+    """Method that computes the numerical degree of consolidation. The method is
     provided by the mixin class :class:`SetupUtilities`.
-    
+
     """
 
     relative_l2_error: Callable[[grid, np.ndarray, np.ndarray, bool, bool], number]
     """Method that computes the discrete relative L2-error. The method is provided by
     the mixin class:class:`porepy.models.verification_setups.VerificationUtils`.
-    
+
     """
 
     def save_data(self) -> None:
@@ -247,7 +246,7 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
 
         # Spatial variables
         out.vertical_coo = sd.cell_centers[1]
-        out.nondim_vertical_coo = self.nondim_length(out.vertical_coo)
+        out.nondim_vertical_coo = self.nondim_length(sd.cell_centers[1])
 
         # Pressure data
         out.numerical_pressure = data[pp.STATE][p_name]
@@ -259,7 +258,7 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         out.numerical_displacement = data[pp.STATE][u_name]
         out.numerical_consolidation_degree = self.numerical_consolidation_degree(
             out.numerical_displacement,  # displacement
-            out.numerical_pressure  # pressure
+            out.numerical_pressure,  # pressure
         )
         out.exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
 
@@ -345,7 +344,7 @@ class SetupUtilities:
         return c_v
 
     # ----> Non-dimensionalization methods
-    def nondim_time(self, t: number) -> float:
+    def nondim_time(self, t: number) -> number:
         """Non-dimensionalize time.
 
         Parameters:
@@ -360,10 +359,8 @@ class SetupUtilities:
 
         return (t * c_v) / (h**2)
 
-    def nondim_length(
-        self, length: Union[number, np.ndarray]
-    ) -> Union[number, np.ndarray]:
-        """Nondimensionalize length.
+    def nondim_length(self, length: np.ndarray) -> np.ndarray:
+        """Non-dimensionalize length.
 
         Parameters:
             length : length in meters.
@@ -569,7 +566,7 @@ class ModifiedBoundaryConditionsMechanicsTimeDependent(
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid"""
 
-    domain_boundary_sides: Callable[[pp.Grid], tuple]
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
     """Named tuple containing the boundary sides indices."""
 
     stress_keyword: str
@@ -639,19 +636,8 @@ class ModifiedBoundaryConditionsSinglePhaseFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
 
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
-    ]
-    """Utility function to access the domain boundary sides."""
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    """Utility function containing the indices of the domain boundary sides."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the flow subproblem.
@@ -692,7 +678,7 @@ class ModifiedSolutionStrategy(
     """Method that plots the pressure and degree of consolidation."""
 
     save_data: Callable
-    """Method that saves the data. The method is provided by the Mixin 
+    """Method that saves the data. The method is provided by the Mixin
     :class:`ModifiedDataSavingMixin`."""
 
     exact_sol: ExactSolution
@@ -816,6 +802,7 @@ class TerzaghiSetup(  # type: ignore
         print(f"Simulation finished in {round(toc - tic)} seconds.")
 
     """
+
 
 # #%% Runner
 # from time import time
