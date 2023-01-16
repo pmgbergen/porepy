@@ -47,7 +47,53 @@ import porepy.models.poromechanics as poromechanics
 from porepy.applications.classic_models.biot import BiotPoromechanics
 from porepy.models.verification_setups.verifications_utils import VerificationUtils
 
+from dataclasses import dataclass
+
 number = pp.number
+grid = pp.GridLike
+
+
+@dataclass
+class SaveData:
+
+    consolidation_degree_error: number = None
+    """Absolute error in the degree of consolidation."""
+
+    exact_consolidation_degree: np.ndarray = None
+    """Exact degree of consolidation."""
+
+    exact_nondim_pressure: np.ndarray = None
+    """Exact non-dimensional pressure."""
+
+    exact_pressure: np.ndarray = None
+    """Exact pressure."""
+
+    nondim_time: number = None
+    """Non-dimensional time."""
+
+    nondim_vertical_coo: np.ndarray = None
+    """Non-dimensional vertical coordinate."""
+
+    numerical_consolidation_degree: np.ndarray = None
+    """Numerical degree of consolidation."""
+
+    numerical_displacement: np.ndarray = None
+    """Numerical displacement solution."""
+
+    numerical_nondim_pressure: np.ndarray = None
+    """Numerical non-dimensional pressure solution."""
+
+    numerical_pressure: np.ndarray = None
+    """Numerical pressure solution."""
+
+    pressure_error: number = None
+    """L2-discrete relative error for the pressure."""
+
+    time: number = None
+    """Current time in seconds."""
+
+    vertical_coo: np.ndarray = None
+    """Vertical coordinate in meters."""
 
 
 class ExactSolution:
@@ -117,56 +163,119 @@ class ExactSolution:
         return deg_cons
 
 
-class StoreResults(VerificationUtils):
-    """Class to store results."""
+class ModifiedDataSavingMixin(pp.DataSavingMixin):
+    """Mixin class to save relevant data."""
 
-    def __init__(self, setup) -> None:
-        """Class constructor.
+    pressure_variable: str
+    """Key to access the pressure variable."""
 
-        Parameters:
-            setup: Terzaghi model setup.
+    displacement_variable: str
+    """Key to access the displacement variable"""
+
+    nondim_time: Callable[[number], number]
+    """Method that non-dimensionalizes time. The method is provided by the mixin class
+    :class:`SetupUtilities`.
+    
+    """
+
+    nondim_length: Callable[[Union[number, np.ndarray]], Union[number, np.ndarray]]
+    """Method that non-dimensionalises length. The method is provided by the mixin 
+    class :class:`SetupUtilities`.
+    
+    """
+
+    nondim_pressure: Callable[[np.ndarray], number]
+    """Method that non-dimensionalises pressure. The method is provided by the mixin 
+    class :class:`SetupUtilities`.
+    
+    """
+
+    exact_sol: ExactSolution
+    """Exact solution object."""
+
+    results: list[SaveData]
+    """List of :class:`SaveData` objects containing the results of the verification."""
+
+    numerical_consolidation_degree: Callable[[np.ndarray, np.ndarray], number]
+    """Method that computes the numerical degree of consolidation. The method is 
+    provided by the mixin class :class:`SetupUtilities`.
+    
+    """
+
+    relative_l2_error: Callable[[grid, np.ndarray, np.ndarray, bool, bool], number]
+    """Method that computes the discrete relative L2-error. The method is provided by
+    the mixin class:class:`porepy.models.verification_setups.VerificationUtils`.
+    
+    """
+
+    def save_data(self) -> None:
+        """Save data to the `results` list.
+
+        Note:
+            Data will be appended to the ``results`` list only if the current time
+            matches a time from ``self.params["stored_times"]``. By default,
+            only the data for the final simulation time is stored.
+
+        """
+        t = self.time_manager.time
+        tf = self.time_manager.time_final
+        if any(np.isclose(t, self.params.get("stored_times", [tf]))):
+            collected_data = self._collect_data()
+            self.results.append(collected_data)
+
+    def _collect_data(self) -> SaveData:
+        """Collect data for the current simulation time.
+
+        Returns:
+            SaveData object containing the results of the verification.
 
         """
 
         # Retrieve data from setup
-        sd = setup.mdg.subdomains()[0]
-        data = setup.mdg.subdomain_data(sd)
-        p_name = setup.pressure_variable
-        u_name = setup.displacement_variable
-        t = setup.time_manager.time
+        sd = self.mdg.subdomains()[0]
+        data = self.mdg.subdomain_data(sd)
+        p_name = self.pressure_variable
+        u_name = self.displacement_variable
+        t = self.time_manager.time
 
-        # Time variables
-        self.time = t
-        self.nondim_time = setup.nondim_time(t)
+        # Instantiate data class
+        out = SaveData()
+
+        # Store time data
+        out.time = t
+        out.nondim_time = self.nondim_time(t)
 
         # Spatial variables
-        self.vertical_coo = sd.cell_centers[1]
-        self.nondim_vertical_coo = setup.nondim_length(self.vertical_coo)
+        out.vertical_coo = sd.cell_centers[1]
+        out.nondim_vertical_coo = self.nondim_length(out.vertical_coo)
 
-        # Pressure variables
-        self.numerical_pressure = data[pp.STATE][p_name]
-        self.exact_pressure = setup.exact_sol.pressure(self.vertical_coo, self.time)
-        self.numerical_nondim_pressure = setup.nondim_pressure(self.numerical_pressure)
-        self.exact_nondim_pressure = setup.nondim_pressure(self.exact_pressure)
+        # Pressure data
+        out.numerical_pressure = data[pp.STATE][p_name]
+        out.exact_pressure = self.exact_sol.pressure(out.vertical_coo, out.time)
+        out.numerical_nondim_pressure = self.nondim_pressure(out.numerical_pressure)
+        out.exact_nondim_pressure = self.nondim_pressure(out.exact_pressure)
 
-        # Mechanical variables
-        self.numerical_displacement = data[pp.STATE][u_name]
-        self.numerical_consolidation_degree = setup.numerical_consolidation_degree(
-            displacement=self.numerical_displacement, pressure=self.numerical_pressure
+        # Mechanical data
+        out.numerical_displacement = data[pp.STATE][u_name]
+        out.numerical_consolidation_degree = self.numerical_consolidation_degree(
+            out.numerical_displacement,  # displacement
+            out.numerical_pressure  # pressure
         )
-        self.exact_consolidation_degree = setup.exact_sol.consolidation_degree(t)
+        out.exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
 
-        # Store errors
-        self.pressure_error = self.relative_l2_error(
-            grid=sd,
-            true_array=self.exact_pressure,
-            approx_array=self.numerical_pressure,
-            is_scalar=True,
-            is_cc=True,
+        # Store errors data
+        out.pressure_error = self.relative_l2_error(
+            sd,  # grid
+            out.exact_pressure,  # true_array
+            out.numerical_pressure,  # approximate_array,
+            True,  # is_scalar
+            True,  # is_cc
         )
-        self.consolidation_degree_error = np.abs(
-            self.exact_consolidation_degree - self.numerical_consolidation_degree
+        out.consolidation_degree_error = np.abs(
+            out.exact_consolidation_degree - out.numerical_consolidation_degree
         )
+
+        return out
 
 
 class SetupUtilities:
@@ -188,16 +297,16 @@ class SetupUtilities:
     """Key for accessing mechanical boundary values."""
 
     solid: pp.SolidConstants
-    """Subclass of pp.SolidConstants with different default values."""
+    """Solid constant object."""
 
     fluid: pp.FluidConstants
-    """Subclass of pp.FluidConstants with different default values."""
-
-    results: list[StoreResults]
-    """List of stored result objects."""
+    """Fluid constant object."""
 
     exact_sol: ExactSolution
     """Exact solution object."""
+
+    results: list[SaveData]
+    """List of :class:`SaveData` objects containing the results of the verification."""
 
     # ----> Derived physical quantities
     def confined_compressibility(self) -> number:
@@ -313,7 +422,7 @@ class SetupUtilities:
 
     def numerical_consolidation_degree(
         self, displacement: np.ndarray, pressure: np.ndarray
-    ) -> float:
+    ) -> number:
         """Numerical consolidation degree.
 
         Parameters:
@@ -349,7 +458,7 @@ class SetupUtilities:
         self._consolidation_degree_plot(color_map=cmap)
 
     def _pressure_plot(self, color_map: mcolors.ListedColormap) -> None:
-        """Plot nondimensional pressure profiles.
+        """Plot non-dimensional pressure profiles.
 
         Parameters:
             color_map: listed color map object.
@@ -439,18 +548,7 @@ class ModifiedGeometry(pp.ModelGeometry):
     """Simulation model parameters."""
 
     def set_md_grid(self) -> None:
-        """Create the mixed-dimensional grid.
-
-        A unit square grid with no fractures is assigned by default if
-        self.fracture_network contains no fractures. Otherwise, the network's mesh
-        method is used.
-
-        The method assigns the following attributes to self:
-            mdg (pp.MixedDimensionalGrid): The produced grid bucket.
-            box (dict): The bounding box of the domain, defined through minimum and
-                maximum values in each dimension.
-
-        """
+        """Create the mixed-dimensional grid base on two-dimensional Cartesian grid."""
         height = self.params.get("height", 1.0)  # [m]
         num_cells = self.params.get("num_cells", 20)
         ls = 1 / self.units.m
@@ -590,14 +688,18 @@ class ModifiedPoromechanicsBoundaryConditions(
 class ModifiedSolutionStrategy(
     poromechanics.SolutionStrategyPoromechanics,
 ):
-    results: list[StoreResults]
-    """List of store results objects."""
+    plot_results: Callable
+    """Method that plots the pressure and degree of consolidation."""
+
+    save_data: Callable
+    """Method that saves the data. The method is provided by the Mixin 
+    :class:`ModifiedDataSavingMixin`."""
 
     exact_sol: ExactSolution
     """Exact solution object."""
 
-    plot_results: Callable
-    """Method that plots the presssure and degree of consolidation."""
+    results: list[SaveData]
+    """List of :class:`SaveData` objects, containing the results of the verification."""
 
     def __init__(self, params: dict) -> None:
         """Constructor of the class.
@@ -611,8 +713,8 @@ class ModifiedSolutionStrategy(
         """Exact solution object"""
 
         # Prepare object to store solutions after each `stored_time`.
-        self.results: list[StoreResults] = []
-        """Object that stores exact and approximated solutions and L2 errors"""
+        self.results: list[SaveData] = []
+        """List of stored results from the verification."""
 
         # Set default parameters for the verification setup
         default_solid = pp.SolidConstants(
@@ -657,7 +759,6 @@ class ModifiedSolutionStrategy(
 
         """
         super().initial_condition()
-
         # Since the parent class sets zero initial displacement, we only need to
         # modify the initial conditions for the flow subproblem.
         sd = self.mdg.subdomains()[0]
@@ -672,12 +773,8 @@ class ModifiedSolutionStrategy(
     ) -> None:
         """Method to be called after the Newton solver has converged."""
         super().after_newton_convergence(solution, errors, iteration_counter)
-
         # Store results
-        t = self.time_manager.time
-        tf = self.time_manager.time_final
-        if any(np.isclose(t, self.params.get("stored_times", [tf]))):
-            self.results.append(StoreResults(self))  # type: ignore
+        self.save_data()
 
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
@@ -695,6 +792,8 @@ class TerzaghiSetup(  # type: ignore
     ModifiedGeometry,
     SetupUtilities,
     BiotPoromechanics,
+    VerificationUtils,
+    ModifiedDataSavingMixin,
 ):
     """
     Mixer class for Terzaghi's consolidation problem.
@@ -717,3 +816,17 @@ class TerzaghiSetup(  # type: ignore
         print(f"Simulation finished in {round(toc - tic)} seconds.")
 
     """
+
+# #%% Runner
+# from time import time
+#
+# tic = time()
+# params = {
+#     "plot_results": True,
+#     "stored_times": [0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
+# }
+# setup = TerzaghiSetup(params)
+# print("Simulation started...")
+# pp.run_time_dependent_model(setup, params)
+# toc = time()
+# print(f"Simulation finished in {round(toc - tic)} seconds.")

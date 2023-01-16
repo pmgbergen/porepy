@@ -19,12 +19,14 @@ import numpy as np
 import porepy as pp
 
 from porepy.models.poromechanics import Poromechanics
+from porepy.models.verification_setups.verifications_utils import VerificationUtils
 from porepy.models.verification_setups.terzaghi import (
     TerzaghiSetup,
     ModifiedGeometry,
     SetupUtilities,
     ModifiedPoromechanicsBoundaryConditions,
     ModifiedSolutionStrategy,
+    ModifiedDataSavingMixin
 )
 
 
@@ -34,6 +36,8 @@ class TerzaghiSetupPoromechanics(
     ModifiedGeometry,
     SetupUtilities,
     Poromechanics,
+    VerificationUtils,
+    ModifiedDataSavingMixin
 ):
     ...
 
