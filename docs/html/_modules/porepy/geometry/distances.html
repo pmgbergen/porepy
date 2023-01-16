@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.geometry.distances &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/geometry/distances.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.geometry.distances</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.geometry.distances</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;The module contains functions for distance computations.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">distance</span> <span class="k">as</span> <span class="n">scidist</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+
+<div class="viewcode-block" id="segment_set"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.distances.html#porepy.geometry.distances.segment_set">[docs]</a><span class="k">def</span> <span class="nf">segment_set</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Compute distance and closest points between sets of line segments.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        start: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            Start points of segments.</span>
+<span class="sd">        end: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            End points of segments.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple of 2 elements.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(num_segments, num_segments)``</span>
+
+<span class="sd">            Distances between segments.</span>
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(num_segments, num_segments, nd)``</span>
+
+<span class="sd">            For segment ``i`` and ``j``, element ``[i, j]`` gives the point on ``i``</span>
+<span class="sd">            closest to segment ``j``.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">start</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">end</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">end</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ns</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ns</span><span class="p">,</span> <span class="n">ns</span><span class="p">))</span>
+    <span class="n">cp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ns</span><span class="p">,</span> <span class="n">ns</span><span class="p">,</span> <span class="n">nd</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ns</span><span class="p">):</span>
+        <span class="n">cp</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">start</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">end</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">start</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
+        <span class="n">dl</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+        <span class="n">cpi</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+        <span class="n">cpj</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+        <span class="n">dl</span><span class="p">,</span> <span class="n">cpi</span><span class="p">,</span> <span class="n">cpj</span> <span class="o">=</span> <span class="n">segment_segment_set</span><span class="p">(</span>
+            <span class="n">start</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">end</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">start</span><span class="p">[:,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:],</span> <span class="n">end</span><span class="p">[:,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">dl</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">dl</span>
+        <span class="n">dl</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">dl</span>
+        <span class="n">cp</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">cpi</span>
+        <span class="n">cp</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">cpj</span>
+
+    <span class="k">return</span> <span class="n">d</span><span class="p">,</span> <span class="n">cp</span></div>
+
+
+<div class="viewcode-block" id="segment_segment_set"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.distances.html#porepy.geometry.distances.segment_segment_set">[docs]</a><span class="k">def</span> <span class="nf">segment_segment_set</span><span class="p">(</span>
+    <span class="n">start</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">start_set</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">end_set</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Compute distance and closest points between a segment and a set of segments.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Algorithm can be found at http://geomalgorithms.com/code.html</span>
+<span class="sd">        (see file &quot;C07_Line_Line_Distance.cpp&quot;,</span>
+<span class="sd">        function ``dist3D_Segment_to_Segment()``).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        start:  ``shape=(nd, 1)``</span>
+
+<span class="sd">            Start point of the main segment.</span>
+<span class="sd">        end: ``shape=(nd, 1)``</span>
+
+<span class="sd">            End point of the main segment.</span>
+<span class="sd">        start_set: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            Start points for the segment set.</span>
+<span class="sd">        end_set: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            End points for the segment set.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple of 3 elements.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(num_segments,)``</span>
+
+<span class="sd">            The distance from the main segment to each of the segments in the set.</span>
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            For each segment in the segment set, the point closest on the main segment.</span>
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            For each segment in the segment set, the point closest on the secondary</span>
+<span class="sd">            segment.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">end</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">start_set</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">start_set</span> <span class="o">=</span> <span class="n">start_set</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">end_set</span> <span class="o">=</span> <span class="n">end_set</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="c1"># For the rest of the algorithm, see the webpage referred to above for details.</span>
+    <span class="n">d1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+    <span class="n">d2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">end_set</span> <span class="o">-</span> <span class="n">start_set</span>
+    <span class="n">d_starts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">start</span> <span class="o">-</span> <span class="n">start_set</span>
+
+    <span class="k">def</span> <span class="nf">dot</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">v1</span> <span class="o">*</span> <span class="n">v2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">dot_1_1</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">d1</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span>
+    <span class="n">dot_1_2</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">d1</span><span class="p">,</span> <span class="n">d2</span><span class="p">)</span>
+    <span class="n">dot_2_2</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">d2</span><span class="p">,</span> <span class="n">d2</span><span class="p">)</span>
+    <span class="n">dot_1_starts</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">d1</span><span class="p">,</span> <span class="n">d_starts</span><span class="p">)</span>
+    <span class="n">dot_2_starts</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">d2</span><span class="p">,</span> <span class="n">d_starts</span><span class="p">)</span>
+    <span class="n">discr</span> <span class="o">=</span> <span class="n">dot_1_1</span> <span class="o">*</span> <span class="n">dot_2_2</span> <span class="o">-</span> <span class="n">dot_1_2</span><span class="o">**</span><span class="mi">2</span>
+
+    <span class="c1"># Variable used to fine almost parallel lines. Sensitivity to this value has not</span>
+    <span class="c1"># been tested.</span>
+    <span class="n">SMALL_TOLERANCE</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">dot_1_1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dot_2_2</span><span class="p">))</span>
+
+    <span class="n">sc</span> <span class="o">=</span> <span class="n">discr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">sN</span> <span class="o">=</span> <span class="n">discr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">sD</span> <span class="o">=</span> <span class="n">discr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">tc</span> <span class="o">=</span> <span class="n">discr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">tN</span> <span class="o">=</span> <span class="n">discr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">tD</span> <span class="o">=</span> <span class="n">discr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">parallel</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">discr</span> <span class="o">&lt;</span> <span class="n">SMALL_TOLERANCE</span>
+    <span class="n">not_parallel</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">parallel</span><span class="p">)</span>
+
+    <span class="n">sN</span><span class="p">[</span><span class="n">parallel</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">sD</span><span class="p">[</span><span class="n">parallel</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">tN</span><span class="p">[</span><span class="n">parallel</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_2_starts</span><span class="p">[</span><span class="n">parallel</span><span class="p">]</span>
+    <span class="n">tD</span><span class="p">[</span><span class="n">parallel</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_2_2</span><span class="p">[</span><span class="n">parallel</span><span class="p">]</span>
+
+    <span class="n">sN</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">dot_1_2</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span> <span class="o">*</span> <span class="n">dot_2_starts</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span>
+        <span class="o">-</span> <span class="n">dot_2_2</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span> <span class="o">*</span> <span class="n">dot_1_starts</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">tN</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">dot_1_1</span> <span class="o">*</span> <span class="n">dot_2_starts</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span>
+        <span class="o">-</span> <span class="n">dot_1_2</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span> <span class="o">*</span> <span class="n">dot_1_starts</span><span class="p">[</span><span class="n">not_parallel</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="c1"># sc &lt; 0 =&gt; the s=0 edge is visible</span>
+    <span class="n">s0_visible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">not_parallel</span><span class="p">,</span> <span class="n">sN</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># sc &gt; 1  =&gt; the s=1 edge is visible</span>
+    <span class="n">s1_visible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">not_parallel</span><span class="p">,</span> <span class="n">sN</span> <span class="o">&gt;</span> <span class="n">sD</span><span class="p">)</span>
+    <span class="n">sN</span><span class="p">[</span><span class="n">s0_visible</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">tN</span><span class="p">[</span><span class="n">s0_visible</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_2_starts</span><span class="p">[</span><span class="n">s0_visible</span><span class="p">]</span>
+    <span class="n">tD</span><span class="p">[</span><span class="n">s0_visible</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_2_2</span><span class="p">[</span><span class="n">s0_visible</span><span class="p">]</span>
+
+    <span class="n">sN</span><span class="p">[</span><span class="n">s1_visible</span><span class="p">]</span> <span class="o">=</span> <span class="n">sD</span><span class="p">[</span><span class="n">s1_visible</span><span class="p">]</span>
+    <span class="n">tN</span><span class="p">[</span><span class="n">s1_visible</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_1_2</span><span class="p">[</span><span class="n">s1_visible</span><span class="p">]</span> <span class="o">+</span> <span class="n">dot_2_starts</span><span class="p">[</span><span class="n">s1_visible</span><span class="p">]</span>
+    <span class="n">tD</span><span class="p">[</span><span class="n">s1_visible</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_2_2</span><span class="p">[</span><span class="n">s1_visible</span><span class="p">]</span>
+
+    <span class="n">t0_visible</span> <span class="o">=</span> <span class="n">tN</span> <span class="o">&lt;</span> <span class="mi">0</span>
+
+    <span class="n">pos_dot_1_start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">t0_visible</span><span class="p">,</span> <span class="n">dot_1_starts</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">dot_1_start_g_dot_1_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">t0_visible</span><span class="p">,</span> <span class="o">-</span><span class="n">dot_1_starts</span> <span class="o">&gt;</span> <span class="n">dot_1_1</span><span class="p">)</span>
+    <span class="n">other</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span>
+        <span class="n">t0_visible</span><span class="p">,</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">pos_dot_1_start</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">dot_1_start_g_dot_1_1</span><span class="p">)</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="n">tN</span><span class="p">[</span><span class="n">t0_visible</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">sN</span><span class="p">[</span><span class="n">pos_dot_1_start</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">sN</span><span class="p">[</span><span class="n">dot_1_start_g_dot_1_1</span><span class="p">]</span> <span class="o">=</span> <span class="n">sD</span><span class="p">[</span><span class="n">dot_1_start_g_dot_1_1</span><span class="p">]</span>
+    <span class="n">sN</span><span class="p">[</span><span class="n">other</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">dot_1_starts</span><span class="p">[</span><span class="n">other</span><span class="p">]</span>
+    <span class="n">sD</span><span class="p">[</span><span class="n">other</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_1_1</span>
+
+    <span class="n">t1_visible</span> <span class="o">=</span> <span class="n">tN</span> <span class="o">&gt;</span> <span class="n">tD</span>
+    <span class="n">case_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">t1_visible</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="n">dot_1_starts</span> <span class="o">+</span> <span class="n">dot_1_2</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">case_2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">t1_visible</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="n">dot_1_starts</span> <span class="o">+</span> <span class="n">dot_1_2</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">dot_1_1</span><span class="p">)</span>
+    <span class="n">case_3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span>
+        <span class="n">t1_visible</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">case_1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">case_2</span><span class="p">))</span>
+    <span class="p">)</span>
+
+    <span class="n">tN</span><span class="p">[</span><span class="n">t1_visible</span><span class="p">]</span> <span class="o">=</span> <span class="n">tD</span><span class="p">[</span><span class="n">t1_visible</span><span class="p">]</span>
+    <span class="n">sN</span><span class="p">[</span><span class="n">case_1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">sN</span><span class="p">[</span><span class="n">case_2</span><span class="p">]</span> <span class="o">=</span> <span class="n">sD</span><span class="p">[</span><span class="n">case_2</span><span class="p">]</span>
+    <span class="n">sN</span><span class="p">[</span><span class="n">case_3</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">dot_1_starts</span><span class="p">[</span><span class="n">case_3</span><span class="p">]</span> <span class="o">+</span> <span class="n">dot_1_2</span><span class="p">[</span><span class="n">case_3</span><span class="p">]</span>
+    <span class="n">sD</span><span class="p">[</span><span class="n">case_3</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot_1_1</span>
+
+    <span class="n">sc</span> <span class="o">=</span> <span class="n">sN</span> <span class="o">/</span> <span class="n">sD</span>
+    <span class="n">sc</span><span class="p">[</span><span class="n">sN</span> <span class="o">&lt;</span> <span class="n">SMALL_TOLERANCE</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">tc</span> <span class="o">=</span> <span class="n">tN</span> <span class="o">/</span> <span class="n">tD</span>
+    <span class="n">tc</span><span class="p">[</span><span class="n">tN</span> <span class="o">&lt;</span> <span class="n">SMALL_TOLERANCE</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># get the difference of the two closest points</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">d_starts</span> <span class="o">+</span> <span class="n">sc</span> <span class="o">*</span> <span class="n">d1</span> <span class="o">-</span> <span class="n">tc</span> <span class="o">*</span> <span class="n">d2</span>
+
+    <span class="n">cp1</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">d1</span> <span class="o">*</span> <span class="n">sc</span>
+    <span class="n">cp2</span> <span class="o">=</span> <span class="n">start_set</span> <span class="o">+</span> <span class="n">d2</span> <span class="o">*</span> <span class="n">tc</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span> <span class="n">cp1</span><span class="p">,</span> <span class="n">cp2</span></div>
+
+
+<div class="viewcode-block" id="points_segments"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.distances.html#porepy.geometry.distances.points_segments">[docs]</a><span class="k">def</span> <span class="nf">points_segments</span><span class="p">(</span>
+    <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Compute distances between points and line segments.</span>
+
+<span class="sd">    The function also returns the closest points on the segments.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        p: ``shape=(nd, num_points)``</span>
+
+<span class="sd">            Individual points.</span>
+<span class="sd">        start: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            Start points of segments.</span>
+<span class="sd">        end: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            End point of segments.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple of 2 elements.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(num_points, num_segments)``</span>
+
+<span class="sd">            Distances.</span>
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(num_points, num_segments, nd)``</span>
+
+<span class="sd">            Points on the segments closest to the individual points.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">start</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">end</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="c1"># Number of points - the case of an empty array needs special handling.</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">num_p</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">num_p</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">num_l</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_p</span><span class="p">,</span> <span class="n">num_l</span><span class="p">))</span>
+
+    <span class="n">line</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+    <span class="n">lengths</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">line</span> <span class="o">*</span> <span class="n">line</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+    <span class="n">nd</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># Closest points</span>
+    <span class="n">cp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_p</span><span class="p">,</span> <span class="n">num_l</span><span class="p">,</span> <span class="n">nd</span><span class="p">))</span>
+
+    <span class="c1"># We need to compare all points to all segments.</span>
+    <span class="c1"># The implementation uses an outer for-loop, followed by an inner (almost)</span>
+    <span class="c1"># vectorized part. Time consumption depends on the number of iterations in the outer</span>
+    <span class="c1"># loop, so make a choice depending on whether there are more segments or points. For</span>
+    <span class="c1"># borderline cases, more elaborate choices may be better, but the current form</span>
+    <span class="c1"># should do for extreme cases.</span>
+    <span class="k">if</span> <span class="n">num_p</span> <span class="o">&lt;</span> <span class="n">num_l</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">pi</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_p</span><span class="p">):</span>
+            <span class="c1"># Project the vectors from start to point onto the line, and compute</span>
+            <span class="c1"># relative length</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">p</span><span class="p">[:,</span> <span class="n">pi</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">-</span> <span class="n">start</span>
+            <span class="n">proj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">line</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">lengths</span><span class="o">**</span><span class="mi">2</span>
+
+            <span class="c1"># Projections with length less than zero have the closest point at start</span>
+            <span class="n">less</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">less_equal</span><span class="p">(</span><span class="n">proj</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">pi</span><span class="p">,</span> <span class="n">less</span><span class="p">]</span> <span class="o">=</span> <span class="n">point_pointset</span><span class="p">(</span><span class="n">p</span><span class="p">[:,</span> <span class="n">pi</span><span class="p">],</span> <span class="n">start</span><span class="p">[:,</span> <span class="n">less</span><span class="p">])</span>
+            <span class="n">cp</span><span class="p">[</span><span class="n">pi</span><span class="p">,</span> <span class="n">less</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">start</span><span class="p">[:,</span> <span class="n">less</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="c1"># Similarly, above one signifies closest to end</span>
+            <span class="n">above</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">greater_equal</span><span class="p">(</span><span class="n">proj</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">pi</span><span class="p">,</span> <span class="n">above</span><span class="p">]</span> <span class="o">=</span> <span class="n">point_pointset</span><span class="p">(</span><span class="n">p</span><span class="p">[:,</span> <span class="n">pi</span><span class="p">],</span> <span class="n">end</span><span class="p">[:,</span> <span class="n">above</span><span class="p">])</span>
+            <span class="n">cp</span><span class="p">[</span><span class="n">pi</span><span class="p">,</span> <span class="n">above</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">end</span><span class="p">[:,</span> <span class="n">above</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+            <span class="c1"># Points inbetween</span>
+            <span class="n">between</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">less</span><span class="p">,</span> <span class="n">above</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">proj_p</span> <span class="o">=</span> <span class="n">start</span><span class="p">[:,</span> <span class="n">between</span><span class="p">]</span> <span class="o">+</span> <span class="n">proj</span><span class="p">[</span><span class="n">between</span><span class="p">]</span> <span class="o">*</span> <span class="n">line</span><span class="p">[:,</span> <span class="n">between</span><span class="p">]</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">pi</span><span class="p">,</span> <span class="n">between</span><span class="p">]</span> <span class="o">=</span> <span class="n">point_pointset</span><span class="p">(</span><span class="n">p</span><span class="p">[:,</span> <span class="n">pi</span><span class="p">],</span> <span class="n">proj_p</span><span class="p">)</span>
+            <span class="n">cp</span><span class="p">[</span><span class="n">pi</span><span class="p">,</span> <span class="n">between</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">proj_p</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">ei</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_l</span><span class="p">):</span>
+            <span class="c1"># Project the vectors from start to point onto the line, and compute the</span>
+            <span class="c1"># relative length.</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">start</span><span class="p">[:,</span> <span class="n">ei</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">proj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">line</span><span class="p">[:,</span> <span class="n">ei</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">lengths</span><span class="p">[</span><span class="n">ei</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span>
+
+            <span class="c1"># Projections with length less than zero have the closest point at start.</span>
+            <span class="n">less</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">less_equal</span><span class="p">(</span><span class="n">proj</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">less</span><span class="p">,</span> <span class="n">ei</span><span class="p">]</span> <span class="o">=</span> <span class="n">point_pointset</span><span class="p">(</span><span class="n">start</span><span class="p">[:,</span> <span class="n">ei</span><span class="p">],</span> <span class="n">p</span><span class="p">[:,</span> <span class="n">less</span><span class="p">])</span>
+            <span class="n">cp</span><span class="p">[</span><span class="n">less</span><span class="p">,</span> <span class="n">ei</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">start</span><span class="p">[:,</span> <span class="n">ei</span><span class="p">]</span>
+            <span class="c1"># Similarly, above one signifies closest to end</span>
+            <span class="n">above</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">greater_equal</span><span class="p">(</span><span class="n">proj</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">above</span><span class="p">,</span> <span class="n">ei</span><span class="p">]</span> <span class="o">=</span> <span class="n">point_pointset</span><span class="p">(</span><span class="n">end</span><span class="p">[:,</span> <span class="n">ei</span><span class="p">],</span> <span class="n">p</span><span class="p">[:,</span> <span class="n">above</span><span class="p">])</span>
+            <span class="n">cp</span><span class="p">[</span><span class="n">above</span><span class="p">,</span> <span class="n">ei</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">end</span><span class="p">[:,</span> <span class="n">ei</span><span class="p">]</span>
+
+            <span class="c1"># Points inbetween</span>
+            <span class="n">between</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">less</span><span class="p">,</span> <span class="n">above</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">proj_p</span> <span class="o">=</span> <span class="n">start</span><span class="p">[:,</span> <span class="n">ei</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="n">proj</span><span class="p">[</span><span class="n">between</span><span class="p">]</span> <span class="o">*</span> <span class="n">line</span><span class="p">[</span>
+                <span class="p">:,</span> <span class="n">ei</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">proj_i</span><span class="p">,</span> <span class="n">bi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">between</span><span class="p">)[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">d</span><span class="p">[</span><span class="n">bi</span><span class="p">,</span> <span class="n">ei</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">point_pointset</span><span class="p">(</span><span class="n">proj_p</span><span class="p">[:,</span> <span class="n">proj_i</span><span class="p">],</span> <span class="n">p</span><span class="p">[:,</span> <span class="n">bi</span><span class="p">]))</span>
+                <span class="n">cp</span><span class="p">[</span><span class="n">bi</span><span class="p">,</span> <span class="n">ei</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">proj_p</span><span class="p">[:,</span> <span class="n">proj_i</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">d</span><span class="p">,</span> <span class="n">cp</span></div>
+
+
+<div class="viewcode-block" id="point_pointset"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.distances.html#porepy.geometry.distances.point_pointset">[docs]</a><span class="k">def</span> <span class="nf">point_pointset</span><span class="p">(</span>
+    <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pset</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">exponent</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Compute distance between a point and a set of points.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        p: ``shape=(nd, 1)``</span>
+
+<span class="sd">            Point from which distances will be computed.</span>
+<span class="sd">        pset: ``shape=(nd, num_points)``</span>
+
+<span class="sd">            Point cloud to which we compute distances.</span>
+<span class="sd">        exponent: ``default=2``</span>
+
+<span class="sd">            Exponent of the norm used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Array of distances ``(shape=(num_points,))``.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># If p is 1D, do a reshape to facilitate broadcasting, but on a copy</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">pt</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">pt</span> <span class="o">=</span> <span class="n">p</span>
+
+    <span class="c1"># If the point cloud is a single point, it should still be a ndx1 array.</span>
+    <span class="k">if</span> <span class="n">pset</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># In case of empty sets, return an empty zero</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">pset</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">pset_copy</span> <span class="o">=</span> <span class="n">pset</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Call it a copy, even though it isn&#39;t</span>
+        <span class="n">pset_copy</span> <span class="o">=</span> <span class="n">pset</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">pt</span> <span class="o">-</span> <span class="n">pset_copy</span><span class="p">),</span> <span class="n">exponent</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">exponent</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="pointset"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.distances.html#porepy.geometry.distances.pointset">[docs]</a><span class="k">def</span> <span class="nf">pointset</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">max_diag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Compute mutual distance between all points in a point set.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        p: ``shape=(nd, num_points)``</span>
+
+<span class="sd">            A set of points.</span>
+<span class="sd">        max_diag: ``default=False``</span>
+
+<span class="sd">            If True, the diagonal value corresponding to each point is set to twice the</span>
+<span class="sd">            maximum of the distances for that point, rather than 0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Array of distances between points ``(shape=(num_points, num_points))``.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">p</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="c1"># Use scipy spatial function to compute distances between points</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">scidist</span><span class="o">.</span><span class="n">cdist</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="s2">&quot;euclidean&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">max_diag</span><span class="p">:</span>
+        <span class="c1"># Get the maximum per row (could have used column, the distance matrix is</span>
+        <span class="c1"># symmetric), and add it to the diagonal</span>
+        <span class="n">row_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">d</span> <span class="o">+=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">row_max</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">d</span></div>
+
+
+<div class="viewcode-block" id="points_polygon"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.distances.html#porepy.geometry.distances.points_polygon">[docs]</a><span class="k">def</span> <span class="nf">points_polygon</span><span class="p">(</span>
+    <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Compute distance from points to a polygon. Also find closest point on the</span>
+<span class="sd">    polygon.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        p: ``shape=(nd, num_points)``</span>
+
+<span class="sd">            Points for which we will compute distances.</span>
+<span class="sd">        poly: ``shape=(nd, num_vertexes)``</span>
+
+<span class="sd">            Vertexes of polygon. Edges are formed by subsequent points.</span>
+<span class="sd">        tol: ``default=1e-5``</span>
+
+<span class="sd">            Tolerance to be used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple of 3 elements.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(num_points,)``</span>
+
+<span class="sd">            Distance from points to polygon.</span>
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(nd, num_points,)``</span>
+
+<span class="sd">            For each point, the closest point on the polygon.</span>
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(num_points)``</span>
+
+<span class="sd">            ``True`` if the point is found in the interior,</span>
+<span class="sd">            ``False`` if on a bounding segment.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># The computation is split into two, the closest point can either be in the</span>
+    <span class="c1"># interior, or at the boundary of the point.</span>
+
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">num_p</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">num_vert</span> <span class="o">=</span> <span class="n">poly</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nd</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># First translate the points so that the first plane is located at the origin</span>
+    <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">poly</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="c1"># Compute copies of polygon and point in new coordinate system</span>
+    <span class="n">orig_poly</span> <span class="o">=</span> <span class="n">poly</span>
+    <span class="n">poly</span> <span class="o">=</span> <span class="n">poly</span> <span class="o">-</span> <span class="n">center</span>
+    <span class="n">orig_p</span> <span class="o">=</span> <span class="n">p</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">center</span>
+
+    <span class="c1"># Obtain the rotation matrix that projects p1 to the xy-plane</span>
+    <span class="n">rot_p</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">map_geometry</span><span class="o">.</span><span class="n">project_plane_matrix</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span>
+    <span class="n">irot</span> <span class="o">=</span> <span class="n">rot_p</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+    <span class="n">poly_rot</span> <span class="o">=</span> <span class="n">rot_p</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span>
+
+    <span class="c1"># Sanity check: The points should lay on a plane</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">poly_rot</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">)</span>
+
+    <span class="n">poly_xy</span> <span class="o">=</span> <span class="n">poly_rot</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="c1"># Rotate the point set, using the same coordinate system.</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">rot_p</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+    <span class="n">in_poly</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry_property_checks</span><span class="o">.</span><span class="n">point_in_polygon</span><span class="p">(</span><span class="n">poly_xy</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+
+    <span class="c1"># Distances</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_p</span><span class="p">)</span>
+    <span class="c1"># Closest points</span>
+    <span class="n">cp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nd</span><span class="p">,</span> <span class="n">num_p</span><span class="p">))</span>
+
+    <span class="c1"># For points that are located inside the extrusion of the polygon, the distance is</span>
+    <span class="c1"># simply the z-coordinate</span>
+    <span class="n">d</span><span class="p">[</span><span class="n">in_poly</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="n">in_poly</span><span class="p">])</span>
+
+    <span class="c1"># The corresponding closest points are found by inverse rotation of the closest</span>
+    <span class="c1"># point on the polygon</span>
+    <span class="n">cp_inpoly</span> <span class="o">=</span> <span class="n">p</span><span class="p">[:,</span> <span class="n">in_poly</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">cp_inpoly</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">cp_inpoly</span> <span class="o">=</span> <span class="n">cp_inpoly</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">cp_inpoly</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">cp</span><span class="p">[:,</span> <span class="n">in_poly</span><span class="p">]</span> <span class="o">=</span> <span class="n">center</span> <span class="o">+</span> <span class="n">irot</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">cp_inpoly</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">in_poly</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">d</span><span class="p">,</span> <span class="n">cp</span><span class="p">,</span> <span class="n">in_poly</span>
+
+    <span class="c1"># Next, points that are outside the extruded polygons. These will have their closest</span>
+    <span class="c1"># point among one of the edges</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">orig_poly</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">orig_poly</span><span class="p">[:,</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_vert</span><span class="p">))</span> <span class="o">%</span> <span class="n">num_vert</span><span class="p">]</span>
+
+    <span class="n">outside_poly</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">in_poly</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">d_outside</span><span class="p">,</span> <span class="n">p_outside</span> <span class="o">=</span> <span class="n">points_segments</span><span class="p">(</span><span class="n">orig_p</span><span class="p">[:,</span> <span class="n">outside_poly</span><span class="p">],</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">outside_poly</span><span class="p">):</span>
+        <span class="n">mi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">d_outside</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">d</span><span class="p">[</span><span class="n">pi</span><span class="p">]</span> <span class="o">=</span> <span class="n">d_outside</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">mi</span><span class="p">]</span>
+        <span class="n">cp</span><span class="p">[:,</span> <span class="n">pi</span><span class="p">]</span> <span class="o">=</span> <span class="n">p_outside</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">mi</span><span class="p">,</span> <span class="p">:]</span>
+
+    <span class="k">return</span> <span class="n">d</span><span class="p">,</span> <span class="n">cp</span><span class="p">,</span> <span class="n">in_poly</span></div>
+
+
+<div class="viewcode-block" id="segments_polygon"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.distances.html#porepy.geometry.distances.segments_polygon">[docs]</a><span class="k">def</span> <span class="nf">segments_polygon</span><span class="p">(</span>
+    <span class="n">start</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Compute the distance from line segments to a polygon.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        start: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            One endpoint of segments.</span>
+<span class="sd">        end: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            Other endpoint of segments.</span>
+<span class="sd">        poly: ``shape=(nd, n_vert)``</span>
+
+<span class="sd">            Vertexes of polygon.</span>
+<span class="sd">        tol: ``default=1e-5``</span>
+
+<span class="sd">            Tolerance to be used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple of 2 elements.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``(shape=(num_segments,), dtype=double)``</span>
+
+<span class="sd">            Distance from segment to polygon.</span>
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            Closest point.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">start</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">end</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">end</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">num_p</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nd</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_p</span><span class="p">)</span>
+    <span class="n">cp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nd</span><span class="p">,</span> <span class="n">num_p</span><span class="p">))</span>
+
+    <span class="c1"># First translate the points so that the first plane is located at the origin</span>
+    <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">poly</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="c1"># Compute copies of polygon and point in new coordinate system</span>
+    <span class="n">orig_poly</span> <span class="o">=</span> <span class="n">poly</span>
+    <span class="n">orig_start</span> <span class="o">=</span> <span class="n">start</span>
+    <span class="n">orig_end</span> <span class="o">=</span> <span class="n">end</span>
+
+    <span class="n">poly</span> <span class="o">=</span> <span class="n">poly</span> <span class="o">-</span> <span class="n">center</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">start</span> <span class="o">-</span> <span class="n">center</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">center</span>
+
+    <span class="c1"># Obtain the rotation matrix that projects p1 to the xy-plane</span>
+    <span class="n">rot_p</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">map_geometry</span><span class="o">.</span><span class="n">project_plane_matrix</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span>
+    <span class="n">irot</span> <span class="o">=</span> <span class="n">rot_p</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+    <span class="n">poly_rot</span> <span class="o">=</span> <span class="n">rot_p</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span>
+
+    <span class="c1"># Sanity check: The points should lay on a plane</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">poly_rot</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">)</span>
+
+    <span class="n">poly_xy</span> <span class="o">=</span> <span class="n">poly_rot</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="c1"># Rotate the point set, using the same coordinate system.</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">rot_p</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">rot_p</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+
+    <span class="n">dz</span> <span class="o">=</span> <span class="n">end</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">start</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">non_zero_incline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">dz</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tol</span>
+
+    <span class="c1"># Parametrization along line of intersection point</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span> <span class="o">*</span> <span class="n">dz</span>
+
+    <span class="c1"># Intersection point for segments with non-zero incline</span>
+    <span class="n">t</span><span class="p">[</span><span class="n">non_zero_incline</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">start</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="n">non_zero_incline</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz</span><span class="p">[</span><span class="n">non_zero_incline</span><span class="p">]</span>
+    <span class="c1"># Segments with z=0 along the segment</span>
+    <span class="n">zero_along_segment</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span>
+        <span class="n">non_zero_incline</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">t</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">t</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="n">t</span>
+    <span class="c1"># Check if zero point is inside the polygon.</span>
+    <span class="n">inside</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry_property_checks</span><span class="o">.</span><span class="n">point_in_polygon</span><span class="p">(</span><span class="n">poly_xy</span><span class="p">,</span> <span class="n">x0</span><span class="p">[:</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">crosses</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">inside</span><span class="p">,</span> <span class="n">zero_along_segment</span><span class="p">)</span>
+
+    <span class="c1"># For points with zero incline, the z-coordinate should be zero for the</span>
+    <span class="c1"># point to be inside.</span>
+    <span class="n">segment_in_plane</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">non_zero_incline</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="c1"># Check if either start or endpoint is inside the polygon. This leaves the option of</span>
+    <span class="c1"># the segment crossing the polygon within the plane, but this will be handled by the</span>
+    <span class="c1"># crossing of segments below.</span>
+    <span class="n">endpoint_in_polygon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span>
+        <span class="n">pp</span><span class="o">.</span><span class="n">geometry_property_checks</span><span class="o">.</span><span class="n">point_in_polygon</span><span class="p">(</span><span class="n">poly_xy</span><span class="p">,</span> <span class="n">start</span><span class="p">[:</span><span class="mi">2</span><span class="p">]),</span>
+        <span class="n">pp</span><span class="o">.</span><span class="n">geometry_property_checks</span><span class="o">.</span><span class="n">point_in_polygon</span><span class="p">(</span><span class="n">poly_xy</span><span class="p">,</span> <span class="n">end</span><span class="p">[:</span><span class="mi">2</span><span class="p">]),</span>
+    <span class="p">)</span>
+
+    <span class="n">segment_in_polygon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">segment_in_plane</span><span class="p">,</span> <span class="n">endpoint_in_polygon</span><span class="p">)</span>
+
+    <span class="n">intersects</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">crosses</span><span class="p">,</span> <span class="n">segment_in_polygon</span><span class="p">)</span>
+
+    <span class="n">x0</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="n">intersects</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">cp</span><span class="p">[:,</span> <span class="n">intersects</span><span class="p">]</span> <span class="o">=</span> <span class="n">center</span> <span class="o">+</span> <span class="n">irot</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x0</span><span class="p">[:,</span> <span class="n">intersects</span><span class="p">])</span>
+
+    <span class="c1"># Check if we&#39;re done, or if we should consider proximity to polygon segments</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">intersects</span><span class="p">):</span>
+        <span class="c1"># The distance is known to be zero, so no need to set it</span>
+        <span class="k">return</span> <span class="n">d</span><span class="p">,</span> <span class="n">cp</span>
+
+    <span class="n">not_found</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">intersects</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># If we reach this, the minimum is not zero for all segments. The point with minimum</span>
+    <span class="c1"># distance is then either 1) one endpoint of the segments (point-polygon), 2) found</span>
+    <span class="c1"># as a segment-segment minimum (segment and boundary of polygon), or 3) anywhere</span>
+    <span class="c1"># along the segment parallel with polygon.</span>
+    <span class="n">poly</span> <span class="o">=</span> <span class="n">orig_poly</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">orig_start</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">orig_end</span>
+
+    <span class="c1"># Distance from endpoints to polygons</span>
+    <span class="n">d_start_poly</span><span class="p">,</span> <span class="n">cp_s_p</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">points_polygon</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">poly</span><span class="p">)</span>
+    <span class="n">d_end_poly</span><span class="p">,</span> <span class="n">cp_e_p</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">points_polygon</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="n">poly</span><span class="p">)</span>
+
+    <span class="c1"># Loop over all segments that did not cross the polygon. The minimum is found either</span>
+    <span class="c1"># by the endpoints, or as between two segments.</span>
+    <span class="k">for</span> <span class="n">si</span> <span class="ow">in</span> <span class="n">not_found</span><span class="p">:</span>
+        <span class="c1"># For starters, assume the closest point is on the start of the segment</span>
+        <span class="n">md</span> <span class="o">=</span> <span class="n">d_start_poly</span><span class="p">[</span><span class="n">si</span><span class="p">]</span>
+        <span class="n">cp_l</span> <span class="o">=</span> <span class="n">cp_s_p</span><span class="p">[:,</span> <span class="n">si</span><span class="p">]</span>
+
+        <span class="c1"># Update with the end coordinate if relevant</span>
+        <span class="k">if</span> <span class="n">d_end_poly</span><span class="p">[</span><span class="n">si</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">md</span><span class="p">:</span>
+            <span class="n">md</span> <span class="o">=</span> <span class="n">d_end_poly</span><span class="p">[</span><span class="n">si</span><span class="p">]</span>
+            <span class="n">cp_l</span> <span class="o">=</span> <span class="n">cp_e_p</span><span class="p">[:,</span> <span class="n">si</span><span class="p">]</span>
+
+        <span class="n">poly_start</span> <span class="o">=</span> <span class="n">poly</span>
+        <span class="n">poly_end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">poly</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">ds</span><span class="p">,</span> <span class="n">cp_s</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">segment_segment_set</span><span class="p">(</span>
+            <span class="n">start</span><span class="p">[:,</span> <span class="n">si</span><span class="p">],</span> <span class="n">end</span><span class="p">[:,</span> <span class="n">si</span><span class="p">],</span> <span class="n">poly_start</span><span class="p">,</span> <span class="n">poly_end</span>
+        <span class="p">)</span>
+
+        <span class="n">min_seg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="n">min_seg</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">md</span><span class="p">):</span>
+            <span class="n">md</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="n">min_seg</span><span class="p">]</span>
+            <span class="n">cp_l</span> <span class="o">=</span> <span class="n">cp_s</span><span class="p">[:,</span> <span class="n">min_seg</span><span class="p">]</span>
+
+        <span class="c1"># By now, we have found the minimum</span>
+        <span class="n">d</span><span class="p">[</span><span class="n">si</span><span class="p">]</span> <span class="o">=</span> <span class="n">md</span>
+        <span class="n">cp</span><span class="p">[:,</span> <span class="n">si</span><span class="p">]</span> <span class="o">=</span> <span class="n">cp_l</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">d</span><span class="p">,</span> <span class="n">cp</span></div>
+
+
+<div class="viewcode-block" id="segment_overlap_segment_set"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.distances.html#porepy.geometry.distances.segment_overlap_segment_set">[docs]</a><span class="k">def</span> <span class="nf">segment_overlap_segment_set</span><span class="p">(</span>
+    <span class="n">start</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">end</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">start_set</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">end_set</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">return_indices</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;Detects whether a given segment overlaps the segments in a set.</span>
+
+<span class="sd">    The function currently works only for 2D geometries: ``nd == 2``.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        start: ``shape=(nd,)``</span>
+
+<span class="sd">            Start point of a segment.</span>
+<span class="sd">        end: ``shape=(nd,)``</span>
+
+<span class="sd">            End point of a segment.</span>
+<span class="sd">        start_set: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            Start points of the set of segments.</span>
+<span class="sd">        end_set: ``shape=(nd, num_segments)``</span>
+
+<span class="sd">            End points of the set of segments.</span>
+<span class="sd">        return_indices: ``default=False``</span>
+
+<span class="sd">            Whether the function should also return indices of overlappings.</span>
+<span class="sd">        tol: ``default=1e-5``</span>
+
+<span class="sd">            Tolerance to be used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        If ``return_indices==True``, we return a tuple of 2 elements.</span>
+
+<span class="sd">        :obj:`bool`:</span>
+<span class="sd">            ``True`` if the segment overlaps any of the segments in the set, ``False``</span>
+<span class="sd">            otherwise.</span>
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(num_overlapping,)``</span>
+
+<span class="sd">            Indices of overlappings.</span>
+
+<span class="sd">        Otherwise, the 0th element of the tuple is returned.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># reshape the input points</span>
+    <span class="n">start_set</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">start_set</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">end_set</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">end_set</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">start</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">end</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">start</span> <span class="o">-</span> <span class="n">end</span><span class="p">)</span>
+
+    <span class="c1"># compute the 2d-cross product useful for the collinearity</span>
+    <span class="n">cross</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="n">start_set</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">start_set</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">end_set</span><span class="o">.</span><span class="n">T</span><span class="p">)):</span>
+        <span class="n">cross</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="n">i</span><span class="p">,</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">/</span> <span class="n">norm</span>
+        <span class="n">cross</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">start</span> <span class="o">-</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span> <span class="o">/</span> <span class="n">norm</span>
+
+    <span class="c1"># determine if both conditions are satisfied</span>
+    <span class="n">test</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">cross</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span>
+    <span class="n">overlap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">test</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">test</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:])</span>
+
+    <span class="c1"># return if the segment overlap any of the others and which one</span>
+    <span class="k">if</span> <span class="n">return_indices</span><span class="p">:</span>
+        <span class="c1"># Note: We need the bool-conversion here since np.any returns np.bool_.</span>
+        <span class="c1"># See &lt;https://github.com/numpy/numpy/issues/18876&gt;</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">overlap</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">overlap</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># return if the segment overlap any of the others</span>
+    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">overlap</span><span class="p">))</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

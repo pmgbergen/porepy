@@ -9,10 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 def run_stationary_model(model, params: dict) -> None:
-    """
-    Run a stationary model.
+    """Run a stationary model.
 
-    Args:
+    Parameters:
         model: Model class containing all information on parameters, variables,
             discretization, geometry. Various methods such as those relating to solving
             the system, see the appropriate model for documentation.
@@ -34,11 +33,10 @@ def run_stationary_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def run_time_dependent_model(model, params) -> None:
-    """
-    Run a time dependent model.
+def run_time_dependent_model(model, params: dict) -> None:
+    """Run a time dependent model.
 
-    Args:
+    Parameters:
         model: Model class containing all information on parameters, variables,
             discretization, geometry. Various methods such as those relating to solving
             the system, see the appropriate solver for documentation.
@@ -76,13 +74,12 @@ def run_time_dependent_model(model, params) -> None:
 
 
 def _run_iterative_model(model, params: dict) -> None:
-    """
-    Run an iterative model.
+    """Run an iterative model.
 
     The intended use is for multi-step models with iterative couplings. Only known instance
     so far is the combination of fracture deformation and propagation.
 
-    Args:
+    Parameters:
         model: Model class containing all information on parameters, variables,
             discretization, geometry. Various methods such as those relating to solving
             the system, see the appropriate solver for documentation.

@@ -92,6 +92,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     """
 
+    # Declare the ad objects to be of Biot type, or else mypy takes it to be for
+    # contact mechanics only.
+    _ad: ContactMechanicsBiotAdObjects
+
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
@@ -477,7 +481,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
-        if not hasattr(self, "dof_manager"):
+        if not hasattr(self, "dof_manager") and not self._use_ad:
             self.dof_manager = pp.DofManager(self.mdg)
         if not self._use_ad:
 
@@ -659,14 +663,12 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Construct equations
         subdomain_flow_eq: pp.ad.Operator = self._subdomain_flow_equation(subdomains)
+        subdomain_flow_eq.set_name("subdomain_flow")
         interface_flow_eq: pp.ad.Operator = self._interface_flow_equation(interfaces)
+        interface_flow_eq.set_name("interface_flow")
         # Assign equations to manager
-        self._eq_manager.name_and_assign_equations(
-            {
-                "subdomain_flow": subdomain_flow_eq,
-                "interface_flow": interface_flow_eq,
-            },
-        )
+        self.equation_system.set_equation(subdomain_flow_eq, subdomains, {"cells": 1})
+        self.equation_system.set_equation(interface_flow_eq, interfaces, {"cells": 1})
 
     def _set_ad_projections(
         self,
@@ -1155,23 +1157,35 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         Assign primary variables to the nodes and edges of the mixed-dimensional grid.
         """
         super()._assign_variables()
-        # First for the nodes
-        for sd, data in self.mdg.subdomains(return_data=True):
-            if sd.dim == self.nd:
-                data[pp.PRIMARY_VARIABLES].update(
-                    {
-                        self.scalar_variable: {"cells": 1},
-                    }
-                )
-            else:
-                data[pp.PRIMARY_VARIABLES].update({self.scalar_variable: {"cells": 1}})
+        if self._use_ad:
+            self.equation_system.create_variables(
+                self.scalar_variable, {"cells": 1}, subdomains=self.mdg.subdomains()
+            )
+            self.equation_system.create_variables(
+                self.mortar_scalar_variable,
+                {"cells": 1},
+                interfaces=self.mdg.interfaces(),
+            )
+        else:
+            # First for the subdomains
+            for sd, data in self.mdg.subdomains(return_data=True):
+                if sd.dim == self.nd:
+                    data[pp.PRIMARY_VARIABLES].update(
+                        {
+                            self.scalar_variable: {"cells": 1},
+                        }
+                    )
+                else:
+                    data[pp.PRIMARY_VARIABLES].update(
+                        {self.scalar_variable: {"cells": 1}}
+                    )
 
-        # Then for the edges
-        for intf, data in self.mdg.interfaces(return_data=True):
-            if intf.codim == 1:
-                data[pp.PRIMARY_VARIABLES].update(
-                    {self.mortar_scalar_variable: {"cells": 1}}
-                )
+            # Then for the interfaces.
+            for intf, data in self.mdg.interfaces(return_data=True):
+                if intf.codim == 1:
+                    data[pp.PRIMARY_VARIABLES].update(
+                        {self.mortar_scalar_variable: {"cells": 1}}
+                    )
 
     def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
@@ -1192,11 +1206,12 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         interfaces = self._ad.codim_one_interfaces
         # Primary variables on Ad form
-        self._ad.pressure = self._eq_manager.merge_variables(
-            [(sd, self.scalar_variable) for sd in self._ad.all_subdomains]
+        self._ad.pressure = self.equation_system.md_variable(
+            self.scalar_variable, self._ad.all_subdomains
         )
-        self._ad.interface_flux = self._eq_manager.merge_variables(
-            [(intf, self.mortar_scalar_variable) for intf in interfaces]
+
+        self._ad.interface_flux = self.equation_system.md_variable(
+            self.mortar_scalar_variable, interfaces
         )
 
     def check_convergence(
@@ -1304,6 +1319,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     def _discretize(self) -> None:
         """Discretize all terms"""
+        if self._use_ad:
+            self.equation_system.discretize()
+            return
+
         if not hasattr(self, "dof_manager"):
             self.dof_manager = pp.DofManager(self.mdg)
 
@@ -1313,45 +1332,42 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         tic = time.time()
         logger.info("Discretize")
 
-        if self._use_ad:
-            self._eq_manager.discretize(self.mdg)
-        else:
-            # Discretization is a bit cumbersome, as the Biot discretization removes the
-            # one-to-one correspondence between discretization objects and blocks in
-            # the matrix.
-            # First, Discretize with the Biot class
-            self._discretize_biot()
+        # Discretization is a bit cumbersome, as the Biot discretization removes the
+        # one-to-one correspondence between discretization objects and blocks in
+        # the matrix.
+        # First, Discretize with the Biot class
+        self._discretize_biot()
 
-            # Next, discretize term on the matrix grid not covered by the Biot discretization,
-            # i.e. the diffusion, mass and source terms
-            filt = pp.assembler_filters.ListFilter(
-                grid_list=[self._nd_subdomain()],
-                term_list=["source", "mass", "diffusion"],
-            )
+        # Next, discretize term on the matrix grid not covered by the Biot discretization,
+        # i.e. the diffusion, mass and source terms
+        filt = pp.assembler_filters.ListFilter(
+            grid_list=[self._nd_subdomain()],
+            term_list=["source", "mass", "diffusion"],
+        )
+        self.assembler.discretize(filt=filt)
+
+        # Build a list of all edges, and all couplings
+        edge_list: List[
+            Union[
+                pp.MortarGrid,
+                Tuple[pp.Grid, pp.Grid, pp.MortarGrid],
+            ]
+        ] = []
+        for intf in self.mdg.interfaces():
+            sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(intf)
+            edge_list.append(intf)
+            edge_list.append((sd_primary, sd_secondary, intf))
+        if len(edge_list) > 0:
+            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)  # type: ignore
             self.assembler.discretize(filt=filt)
 
-            # Build a list of all edges, and all couplings
-            edge_list: List[
-                Union[
-                    pp.MortarGrid,
-                    Tuple[pp.Grid, pp.Grid, pp.MortarGrid],
-                ]
-            ] = []
-            for intf in self.mdg.interfaces():
-                sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(intf)
-                edge_list.append(intf)
-                edge_list.append((sd_primary, sd_secondary, intf))
-            if len(edge_list) > 0:
-                filt = pp.assembler_filters.ListFilter(grid_list=edge_list)  # type: ignore
+        # Finally, discretize terms on the lower-dimensional subdomains. This can be done
+        # in the traditional way, as there is no Biot discretization here.
+        for dim in range(0, self.nd):
+            grid_list = self.mdg.subdomains(dim=dim)
+            if len(grid_list) > 0:
+                filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
                 self.assembler.discretize(filt=filt)
-
-            # Finally, discretize terms on the lower-dimensional subdomains. This can be done
-            # in the traditional way, as there is no Biot discretization here.
-            for dim in range(0, self.nd):
-                grid_list = self.mdg.subdomains(dim=dim)
-                if len(grid_list) > 0:
-                    filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
-                    self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 

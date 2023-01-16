@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.fracs.non_conforming &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/non_conforming.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.fracs.non_conforming</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.fracs.non_conforming</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Created on Sun Nov  5 11:17:04 2017</span>
+
+<span class="sd">@author: eke001</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">from</span> <span class="nn">porepy.fracs</span> <span class="kn">import</span> <span class="n">tools</span> <span class="k">as</span> <span class="n">fractools</span>
+<span class="kn">from</span> <span class="nn">porepy.utils</span> <span class="kn">import</span> <span class="n">tags</span>
+<span class="kn">from</span> <span class="nn">porepy.utils.setmembership</span> <span class="kn">import</span> <span class="n">ismember_rows</span><span class="p">,</span> <span class="n">unique_columns_tol</span>
+
+
+<div class="viewcode-block" id="merge_grids"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.merge_grids">[docs]</a><span class="k">def</span> <span class="nf">merge_grids</span><span class="p">(</span><span class="n">grids</span><span class="p">,</span> <span class="n">intersections</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Main method of module, merge all grids&quot;&quot;&quot;</span>
+    <span class="n">list_of_grids</span><span class="p">,</span> <span class="n">global_ind_offset</span> <span class="o">=</span> <span class="n">init_global_ind</span><span class="p">(</span><span class="n">grids</span><span class="p">)</span>
+    <span class="n">grids_1d</span> <span class="o">=</span> <span class="n">process_intersections</span><span class="p">(</span>
+        <span class="n">grids</span><span class="p">,</span> <span class="n">intersections</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="p">,</span> <span class="n">list_of_grids</span><span class="p">,</span> <span class="n">tol</span>
+    <span class="p">)</span>
+    <span class="n">grid_list_by_dim</span> <span class="o">=</span> <span class="p">[[],</span> <span class="p">[],</span> <span class="p">[]]</span>
+
+    <span class="n">grid_list_by_dim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">grids_1d</span>
+
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grids</span><span class="p">:</span>
+        <span class="n">grid_list_by_dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">grid_list_by_dim</span></div>
+
+
+<div class="viewcode-block" id="init_global_ind"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.init_global_ind">[docs]</a><span class="k">def</span> <span class="nf">init_global_ind</span><span class="p">(</span><span class="n">gl</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Initialize a global indexing of nodes to a set of local grids.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        gl (triple list): Outer: One per fracture, middle: dimension, inner:</span>
+<span class="sd">            grids within the dimension.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list (Grid): Single list representation of all grids. Fractures and</span>
+<span class="sd">            dimensions will be mixed up.</span>
+<span class="sd">        int: Global number of nodes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">list_of_grids</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># The global point index is for the moment set within each fracture</span>
+    <span class="c1"># (everybody start at 0). Adjust this.</span>
+    <span class="n">global_ind_offset</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># Loop over fractures</span>
+    <span class="k">for</span> <span class="n">frac_ind</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gl</span><span class="p">):</span>
+        <span class="c1"># The 2d grid is the only item in the middle list</span>
+        <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">frac_num</span> <span class="o">=</span> <span class="n">frac_ind</span>
+
+        <span class="c1"># Loop over dimensions within the fracture</span>
+        <span class="k">for</span> <span class="n">gd</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="c1"># Loop over grids within the dimension</span>
+            <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">gd</span><span class="p">:</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span> <span class="o">+=</span> <span class="n">global_ind_offset</span>
+                <span class="n">list_of_grids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+        <span class="c1"># Increase the offset with the total number of nodes on this fracture</span>
+        <span class="n">global_ind_offset</span> <span class="o">+=</span> <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">num_nodes</span>
+
+    <span class="k">return</span> <span class="n">list_of_grids</span><span class="p">,</span> <span class="n">global_ind_offset</span></div>
+
+
+<div class="viewcode-block" id="process_intersections"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.process_intersections">[docs]</a><span class="k">def</span> <span class="nf">process_intersections</span><span class="p">(</span><span class="n">grids</span><span class="p">,</span> <span class="n">intersections</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="p">,</span> <span class="n">list_of_grids</span><span class="p">,</span> <span class="n">tol</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Loop over all intersections, combined two and two grids.&quot;&quot;&quot;</span>
+
+    <span class="c1"># All connections will be hit upon twice, one from each intersecting fracture.</span>
+    <span class="c1"># Keep track of which connections have been treated, and can be skipped.</span>
+    <span class="n">num_frac</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">grids</span><span class="p">)</span>
+    <span class="n">isect_is_processed</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">lil_matrix</span><span class="p">((</span><span class="n">num_frac</span><span class="p">,</span> <span class="n">num_frac</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="n">grid_1d_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Loop over all fractures</span>
+    <span class="k">for</span> <span class="n">frac_ind</span><span class="p">,</span> <span class="n">frac</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">grids</span><span class="p">):</span>
+
+        <span class="c1"># Pick out the 2d grid of this fracture</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">grids</span><span class="p">[</span><span class="n">frac_ind</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Loop over all 1d grids in this fracture</span>
+        <span class="k">for</span> <span class="n">ind_1d</span><span class="p">,</span> <span class="n">g_1d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">frac</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+
+            <span class="c1"># Find index and grid of the other fracture of this intersection</span>
+            <span class="n">other_frac_ind</span> <span class="o">=</span> <span class="n">intersections</span><span class="p">[</span><span class="n">frac_ind</span><span class="p">][</span><span class="n">ind_1d</span><span class="p">]</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">grids</span><span class="p">[</span><span class="n">other_frac_ind</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># Check if we have treated this intersection before</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">frac_num</span>
+            <span class="n">col</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">frac_num</span>
+            <span class="k">if</span> <span class="n">isect_is_processed</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]:</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Mark the connection as treated</span>
+                <span class="n">isect_is_processed</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">isect_is_processed</span><span class="p">[</span><span class="n">col</span><span class="p">,</span> <span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="c1"># Find the 1d grid of this intersection, as created from the other fracture</span>
+            <span class="n">g_in_other</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">intersections</span><span class="p">[</span><span class="n">other_frac_ind</span><span class="p">]</span> <span class="o">==</span> <span class="n">frac_ind</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">h_1d</span> <span class="o">=</span> <span class="n">grids</span><span class="p">[</span><span class="n">other_frac_ind</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="n">g_in_other</span><span class="p">]</span>
+            <span class="n">g_1d</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+            <span class="n">h_1d</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+            <span class="n">g_new_1d</span><span class="p">,</span> <span class="n">global_ind_offset</span> <span class="o">=</span> <span class="n">combine_grids</span><span class="p">(</span>
+                <span class="n">g</span><span class="p">,</span> <span class="n">g_1d</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">h_1d</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="p">,</span> <span class="n">list_of_grids</span><span class="p">,</span> <span class="n">tol</span>
+            <span class="p">)</span>
+            <span class="c1"># Append the new 1d grid to the general list of grids, so that it</span>
+            <span class="c1"># will have its global point indices updated as we go.</span>
+            <span class="n">grid_1d_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g_new_1d</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">grid_1d_list</span></div>
+
+
+<div class="viewcode-block" id="combine_grids"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.combine_grids">[docs]</a><span class="k">def</span> <span class="nf">combine_grids</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">g_1d</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">h_1d</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="p">,</span> <span class="n">list_of_grids</span><span class="p">,</span> <span class="n">tol</span><span class="p">):</span>
+
+    <span class="p">(</span>
+        <span class="n">combined_1d</span><span class="p">,</span>
+        <span class="n">global_ind_offset</span><span class="p">,</span>
+        <span class="n">g_in_combined</span><span class="p">,</span>
+        <span class="n">h_in_combined</span><span class="p">,</span>
+        <span class="n">g_sort</span><span class="p">,</span>
+        <span class="n">h_sort</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="n">merge_1d_grids</span><span class="p">(</span><span class="n">g_1d</span><span class="p">,</span> <span class="n">h_1d</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+
+    <span class="c1"># First update fields for first grid</span>
+    <span class="n">fn_orig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+    <span class="n">node_coord_orig</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">new_nodes</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">global_ind_offset</span> <span class="o">=</span> <span class="n">update_nodes</span><span class="p">(</span>
+        <span class="n">g</span><span class="p">,</span> <span class="n">g_1d</span><span class="p">,</span> <span class="n">combined_1d</span><span class="p">,</span> <span class="n">g_in_combined</span><span class="p">,</span> <span class="n">g_sort</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="p">,</span> <span class="n">list_of_grids</span>
+    <span class="p">)</span>
+
+    <span class="n">num_new_faces</span> <span class="o">=</span> <span class="n">combined_1d</span><span class="o">.</span><span class="n">num_cells</span>
+    <span class="n">new_nodes_offset</span> <span class="o">=</span> <span class="n">new_nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">new_faces</span> <span class="o">=</span> <span class="n">update_face_nodes</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">num_new_faces</span><span class="p">,</span> <span class="n">new_nodes_offset</span><span class="p">)</span>
+
+    <span class="n">update_cell_faces</span><span class="p">(</span>
+        <span class="n">g</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">new_faces</span><span class="p">,</span> <span class="n">g_in_combined</span><span class="p">,</span> <span class="n">fn_orig</span><span class="p">,</span> <span class="n">node_coord_orig</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Then updates for the second grid</span>
+    <span class="n">fn_orig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">h</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+    <span class="n">node_coord_orig</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">new_nodes</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">global_ind_offset</span> <span class="o">=</span> <span class="n">update_nodes</span><span class="p">(</span>
+        <span class="n">h</span><span class="p">,</span> <span class="n">h_1d</span><span class="p">,</span> <span class="n">combined_1d</span><span class="p">,</span> <span class="n">h_in_combined</span><span class="p">,</span> <span class="n">h_sort</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="p">,</span> <span class="n">list_of_grids</span>
+    <span class="p">)</span>
+
+    <span class="n">new_nodes_offset</span> <span class="o">=</span> <span class="n">new_nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">new_faces</span> <span class="o">=</span> <span class="n">update_face_nodes</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">num_new_faces</span><span class="p">,</span> <span class="n">new_nodes_offset</span><span class="p">)</span>
+
+    <span class="n">update_cell_faces</span><span class="p">(</span>
+        <span class="n">h</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">new_faces</span><span class="p">,</span> <span class="n">h_in_combined</span><span class="p">,</span> <span class="n">fn_orig</span><span class="p">,</span> <span class="n">node_coord_orig</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">combined_1d</span><span class="p">,</span> <span class="n">global_ind_offset</span></div>
+
+
+<div class="viewcode-block" id="merge_1d_grids"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.merge_1d_grids">[docs]</a><span class="k">def</span> <span class="nf">merge_1d_grids</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Merge two 1d grids with non-matching nodes to a single grid.</span>
+
+<span class="sd">    The grids should have common start and endpoints. They can be into 3d space</span>
+<span class="sd">    in a genreal way.</span>
+
+<span class="sd">    The function is primarily intended for merging non-conforming DFN grids.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g: 1d tensor grid.</span>
+<span class="sd">        h: 1d tensor grid</span>
+<span class="sd">        glob_ind_offset (int, defaults to 0): Off set for the global point</span>
+<span class="sd">            index of the new grid.</span>
+<span class="sd">        tol (double, defaults to 1e-4): Tolerance for when two nodes are merged</span>
+<span class="sd">            into one.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        TensorGrid: New tensor grid, containing the combined node definition.</span>
+<span class="sd">        int: New global ind offset, increased by the number of cells in the</span>
+<span class="sd">            combined grid.</span>
+<span class="sd">        np.array (int): Indices of common nodes (after sorting) of g and the</span>
+<span class="sd">            new grid.</span>
+<span class="sd">        np.array (int): Indices of common nodes (after sorting) of h and the</span>
+<span class="sd">            new grid.</span>
+<span class="sd">        np.array (int): Permutation indices that sort the node coordinates of</span>
+<span class="sd">            g. The common indices between g and the new grid are found as</span>
+<span class="sd">            new_grid.nodes[:, g_in_combined] = g.nodes[:, sorted]</span>
+<span class="sd">        np.array (int): Permutation indices that sort the node coordinates of</span>
+<span class="sd">            h. The common indices between h and the new grid are found as</span>
+<span class="sd">            new_grid.nodes[:, h_in_combined] = h.nodes[:, sorted]</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Nodes of the two 1d grids, combine them</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span>
+    <span class="n">hp</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">nodes</span>
+    <span class="n">combined</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">gp</span><span class="p">,</span> <span class="n">hp</span><span class="p">))</span>
+
+    <span class="n">num_g</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">num_h</span> <span class="o">=</span> <span class="n">hp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Keep track of where we put the indices of the original grids</span>
+    <span class="n">g_in_full</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_g</span><span class="p">)</span>
+    <span class="n">h_in_full</span> <span class="o">=</span> <span class="n">num_g</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_h</span><span class="p">)</span>
+
+    <span class="c1"># The tolerance should not be larger than the smallest distance between</span>
+    <span class="c1"># two points on any of the grids.</span>
+    <span class="n">diff_gp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">pointset</span><span class="p">(</span><span class="n">gp</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
+    <span class="n">diff_hp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">pointset</span><span class="p">(</span><span class="n">hp</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
+    <span class="n">min_diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">tol</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">diff_gp</span><span class="p">,</span> <span class="n">diff_hp</span><span class="p">))</span>
+
+    <span class="c1"># Uniquify points</span>
+    <span class="n">combined_unique</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">new_2_old</span> <span class="o">=</span> <span class="n">unique_columns_tol</span><span class="p">(</span><span class="n">combined</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">min_diff</span><span class="p">)</span>
+    <span class="c1"># Follow locations of the original grid points</span>
+    <span class="n">g_in_unique</span> <span class="o">=</span> <span class="n">new_2_old</span><span class="p">[</span><span class="n">g_in_full</span><span class="p">]</span>
+    <span class="n">h_in_unique</span> <span class="o">=</span> <span class="n">new_2_old</span><span class="p">[</span><span class="n">h_in_full</span><span class="p">]</span>
+
+    <span class="c1"># The combined nodes must be sorted along their natural line.</span>
+    <span class="c1"># Find the dimension with the largest spatial extension, and sort those</span>
+    <span class="c1"># coordinates</span>
+    <span class="n">max_coord</span> <span class="o">=</span> <span class="n">combined_unique</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">min_coord</span> <span class="o">=</span> <span class="n">combined_unique</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">max_coord</span> <span class="o">-</span> <span class="n">min_coord</span>
+    <span class="n">sort_dim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span>
+
+    <span class="n">sort_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">combined_unique</span><span class="p">[</span><span class="n">sort_dim</span><span class="p">])</span>
+    <span class="n">combined_sorted</span> <span class="o">=</span> <span class="n">combined_unique</span><span class="p">[:,</span> <span class="n">sort_ind</span><span class="p">]</span>
+
+    <span class="c1"># Follow the position of the orginial nodes through sorting</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">g_sorted</span> <span class="o">=</span> <span class="n">ismember_rows</span><span class="p">(</span><span class="n">g_in_unique</span><span class="p">,</span> <span class="n">sort_ind</span><span class="p">)</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">h_sorted</span> <span class="o">=</span> <span class="n">ismember_rows</span><span class="p">(</span><span class="n">h_in_unique</span><span class="p">,</span> <span class="n">sort_ind</span><span class="p">)</span>
+
+    <span class="n">num_new_grid</span> <span class="o">=</span> <span class="n">combined_sorted</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Create a new 1d grid.</span>
+    <span class="c1"># First use a 1d coordinate to initialize topology</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">TensorGrid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_new_grid</span><span class="p">))</span>
+    <span class="c1"># Then set the right, 3d coordinates</span>
+    <span class="n">new_grid</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">map_geometry</span><span class="o">.</span><span class="n">force_point_collinearity</span><span class="p">(</span><span class="n">combined_sorted</span><span class="p">)</span>
+
+    <span class="c1"># Set global point indices</span>
+    <span class="n">new_grid</span><span class="o">.</span><span class="n">global_point_ind</span> <span class="o">=</span> <span class="n">global_ind_offset</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_new_grid</span><span class="p">)</span>
+    <span class="n">global_ind_offset</span> <span class="o">+=</span> <span class="n">num_new_grid</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">new_grid</span><span class="p">,</span>
+        <span class="n">global_ind_offset</span><span class="p">,</span>
+        <span class="n">g_sorted</span><span class="p">,</span>
+        <span class="n">h_sorted</span><span class="p">,</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_g</span><span class="p">),</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_h</span><span class="p">),</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="update_global_point_ind"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.update_global_point_ind">[docs]</a><span class="k">def</span> <span class="nf">update_global_point_ind</span><span class="p">(</span><span class="n">grid_list</span><span class="p">,</span> <span class="n">old_ind</span><span class="p">,</span> <span class="n">new_ind</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Update global point indices in a list of grids.</span>
+
+<span class="sd">    The method replaces indices in the attribute global_point_ind in the grid.</span>
+<span class="sd">    The update is done in place.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        grid_list (list of grids): Grids to be updated.</span>
+<span class="sd">        old_ind (np.array): Old global indices, to be replaced.</span>
+<span class="sd">        new_ind (np.array): New indices.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grid_list</span><span class="p">:</span>
+        <span class="n">ismem</span><span class="p">,</span> <span class="n">o2n</span> <span class="o">=</span> <span class="n">ismember_rows</span><span class="p">(</span><span class="n">old_ind</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">)</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">o2n</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_ind</span><span class="p">[</span><span class="n">ismem</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="update_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.update_nodes">[docs]</a><span class="k">def</span> <span class="nf">update_nodes</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">,</span> <span class="n">g_1d</span><span class="p">,</span> <span class="n">new_grid_1d</span><span class="p">,</span> <span class="n">this_in_combined</span><span class="p">,</span> <span class="n">sort_ind</span><span class="p">,</span> <span class="n">global_ind_offset</span><span class="p">,</span> <span class="n">list_of_grids</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Update a 2d grid to conform to a new grid along a 1d line.</span>
+
+<span class="sd">    Intended use: A 1d mesh that is embedded in a 2d mesh (along a fracture)</span>
+<span class="sd">    has been updated / refined. This function then updates the node information</span>
+<span class="sd">    in the 2d grid.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g (grid, dim==2): Main grid to update. Has faces along a fracture.</span>
+<span class="sd">        g_1d (grid, dim==1): Original line grid along the fracture.</span>
+<span class="sd">        new_grid_1d (grid, dim==1): New line grid, formed by merging two</span>
+<span class="sd">            coinciding, but non-matching grids along a fracture.</span>
+<span class="sd">        this_in_combined (np.ndarray): Which nodes in the new grid are also in</span>
+<span class="sd">            the old one, as returned by merge_1d_grids().</span>
+<span class="sd">        sort_ind (np.ndarray): Sorting indices of the coordinates of the old</span>
+<span class="sd">            grid, as returned by merge_1d_grids().</span>
+<span class="sd">        list_of_grids (list): Grids for all dimensions.</span>
+
+<span class="sd">    Returns:</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nodes_per_face</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="c1"># Face-node relation for the grid, in terms of local and global indices</span>
+    <span class="n">fn</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nodes_per_face</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+    <span class="n">fn_glob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">fn</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># Mappings between faces in 2d grid and cells in 1d</span>
+    <span class="c1"># 2d faces along the 1d grid will be deleted.</span>
+    <span class="n">delete_faces</span><span class="p">,</span> <span class="n">cell_1d</span> <span class="o">=</span> <span class="n">fractools</span><span class="o">.</span><span class="n">obtain_interdim_mappings</span><span class="p">(</span>
+        <span class="n">g_1d</span><span class="p">,</span> <span class="n">fn_glob</span><span class="p">,</span> <span class="n">nodes_per_face</span>
+    <span class="p">)</span>
+
+    <span class="c1"># All 1d cells should be identified with 2d faces</span>
+    <span class="k">assert</span> <span class="p">(</span>
+        <span class="n">cell_1d</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">g_1d</span><span class="o">.</span><span class="n">num_cells</span>
+    <span class="p">),</span> <span class="s2">&quot;&quot;&quot; Failed to find mapping between</span>
+<span class="s2">        1d cells and 2d faces&quot;&quot;&quot;</span>
+
+    <span class="c1"># The nodes of identified faces on the 2d grid will be deleted</span>
+    <span class="n">delete_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">fn</span><span class="p">[:,</span> <span class="n">delete_faces</span><span class="p">])</span>
+
+    <span class="c1"># Nodes to be added will have indicies towards the end</span>
+    <span class="n">num_nodes_orig</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">num_nodes</span>
+    <span class="n">num_delete_nodes</span> <span class="o">=</span> <span class="n">delete_nodes</span><span class="o">.</span><span class="n">size</span>
+
+    <span class="c1"># Define indices of new nodes.</span>
+    <span class="n">new_nodes</span> <span class="o">=</span> <span class="n">num_nodes_orig</span> <span class="o">-</span> <span class="n">delete_nodes</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">new_grid_1d</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">)</span>
+
+    <span class="c1"># Adjust node indices in the face-node relation</span>
+    <span class="c1"># First, map nodes between 1d and 2d grids. Use sort_ind here to map</span>
+    <span class="c1"># indices of g_1d to the same order as the new grid</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">node_map_1d_2d</span> <span class="o">=</span> <span class="n">ismember_rows</span><span class="p">(</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">delete_nodes</span><span class="p">],</span> <span class="n">g_1d</span><span class="o">.</span><span class="n">global_point_ind</span>
+    <span class="p">)</span>
+    <span class="n">tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">)</span>
+    <span class="n">adjustment</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span>
+    <span class="n">adjustment</span><span class="p">[</span><span class="n">delete_nodes</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">node_adjustment</span> <span class="o">=</span> <span class="n">tmp</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">adjustment</span><span class="p">)</span>
+    <span class="c1"># Nodes along the 1d grid are deleted and inserted again. Let the</span>
+    <span class="c1"># adjutsment point to the restored nodes.</span>
+    <span class="c1"># node_map_1d_2d maps from ordering in delete_nodes to ordering of 1d</span>
+    <span class="c1"># points (old_grid). this_in_combined then maps further to the ordering of</span>
+    <span class="c1"># the new 1d grid</span>
+    <span class="n">node_adjustment</span><span class="p">[</span><span class="n">delete_nodes</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">-</span> <span class="n">num_delete_nodes</span> <span class="o">+</span> <span class="n">this_in_combined</span><span class="p">[</span><span class="n">node_map_1d_2d</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">node_adjustment</span><span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="p">]</span>
+
+    <span class="c1"># Update node coordinates and global indices for 2d mesh</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span> <span class="n">new_grid_1d</span><span class="o">.</span><span class="n">nodes</span><span class="p">))</span>
+
+    <span class="n">new_global_points</span> <span class="o">=</span> <span class="n">new_grid_1d</span><span class="o">.</span><span class="n">global_point_ind</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">,</span> <span class="n">new_global_points</span><span class="p">)</span>
+
+    <span class="c1"># Global index of deleted points</span>
+    <span class="n">old_global_pts</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">[</span><span class="n">delete_nodes</span><span class="p">]</span>
+
+    <span class="c1"># Update any occurences of the old points in other grids. When sewing</span>
+    <span class="c1"># together a DFN grid, this may involve more and more updates as common</span>
+    <span class="c1"># nodes are found along intersections.</span>
+
+    <span class="c1"># The new grid should also be added to the list, if it is not there before</span>
+    <span class="k">if</span> <span class="n">new_grid_1d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">list_of_grids</span><span class="p">:</span>
+        <span class="n">list_of_grids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_grid_1d</span><span class="p">)</span>
+    <span class="n">update_global_point_ind</span><span class="p">(</span>
+        <span class="n">list_of_grids</span><span class="p">,</span>
+        <span class="n">old_global_pts</span><span class="p">,</span>
+        <span class="n">new_global_points</span><span class="p">[</span><span class="n">this_in_combined</span><span class="p">[</span><span class="n">node_map_1d_2d</span><span class="p">]],</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Delete old nodes</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span> <span class="n">delete_nodes</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">,</span> <span class="n">delete_nodes</span><span class="p">)</span>
+
+    <span class="n">g</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">new_nodes</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">global_ind_offset</span></div>
+
+
+<div class="viewcode-block" id="update_face_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.update_face_nodes">[docs]</a><span class="k">def</span> <span class="nf">update_face_nodes</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">num_new_faces</span><span class="p">,</span> <span class="n">new_node_offset</span><span class="p">,</span> <span class="n">nodes_per_face</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Update face-node map by deleting and inserting new faces.</span>
+
+<span class="sd">    The method deletes specified faces, adds new ones towards the end. It does</span>
+<span class="sd">    nothing to adjust the face-node relation for remaining faces.</span>
+
+<span class="sd">    The code assumes a constant number of nodes per face.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g (grid): Grid to have its faces modified. Should have fields</span>
+<span class="sd">            face_nodes and num_faces.</span>
+<span class="sd">        delete_faces (np.array): Index of faces to be deleted.</span>
+<span class="sd">        num_new_faces (int): Number of new faces to create.</span>
+<span class="sd">        new_node_offset (int): Offset index of the new nodes.</span>
+<span class="sd">        nodes_per_face (int, optional): Number of nodes per face, assumed equal</span>
+<span class="sd">            for all faces. Defaults to g.dim, that is, simplex grids</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        np.array: Index of the new faces.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">nodes_per_face</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">nodes_per_face</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="c1"># Indices of new nodes.</span>
+    <span class="n">new_face_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_new_faces</span><span class="p">),</span> <span class="p">(</span><span class="n">nodes_per_face</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+        <span class="n">nodes_per_face</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nodes_per_face</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="c1"># Offset the numbering: The new nodes are inserted after all outside nodes</span>
+    <span class="n">new_face_nodes</span> <span class="o">=</span> <span class="n">new_node_offset</span> <span class="o">+</span> <span class="n">new_face_nodes</span>
+    <span class="c1"># Number of new faces in mesh</span>
+    <span class="n">ind_new_face</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">-</span> <span class="n">delete_faces</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_new_faces</span><span class="p">)</span>
+
+    <span class="c1"># Modify face-node map</span>
+    <span class="c1"># First obtain face-node relation as a matrix. Thankfully, we know the</span>
+    <span class="c1"># number of nodes per face.</span>
+    <span class="n">fn</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nodes_per_face</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+    <span class="c1"># Delete old faces</span>
+    <span class="n">fn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># Add new face-nodes</span>
+    <span class="n">fn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">new_face_nodes</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">fn</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Trivial updates of data and indptr. Fortunately, this is 2d</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">fn</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">fn</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nodes_per_face</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">))</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fn</span><span class="o">.</span><span class="n">size</span> <span class="o">/</span> <span class="n">nodes_per_face</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">ind_new_face</span></div>
+
+
+<div class="viewcode-block" id="update_cell_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.update_cell_faces">[docs]</a><span class="k">def</span> <span class="nf">update_cell_faces</span><span class="p">(</span>
+    <span class="n">g</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">new_faces</span><span class="p">,</span> <span class="n">in_combined</span><span class="p">,</span> <span class="n">fn_orig</span><span class="p">,</span> <span class="n">node_coord_orig</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-4</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Replace faces in a cell-face map.</span>
+
+<span class="sd">    If faces have been refined (or otherwise modified), it is necessary to</span>
+<span class="sd">    update the cell-face relation as well. This function does so, while taking</span>
+<span class="sd">    care that the (implicit) mapping between cells and nodes is ordered so that</span>
+<span class="sd">    geometry computation still works.</span>
+
+<span class="sd">    The changes of g.cell_faces are done in-place.</span>
+
+<span class="sd">    It is assumed that the new faces that replace an old are ordered along the</span>
+<span class="sd">    common line. E.g. if a face with node coordinates (0, 0) and (3, 0) is</span>
+<span class="sd">    replaced by three new faces of unit length, they should be ordered as</span>
+<span class="sd">    1. (0, 0) - (1, 0)</span>
+<span class="sd">    2. (1, 0) - (2, 0)</span>
+<span class="sd">    3. (2, 0) - (3, 0)</span>
+<span class="sd">    Switching the order into 3, 2, 1 is okay, but, say, 1, 3, 2 will create</span>
+<span class="sd">    problems.</span>
+
+<span class="sd">    It is also tacitly assumed that each cell has at most one face deleted.</span>
+<span class="sd">    Changing this may not be difficult, but has not been prioritized so far.</span>
+
+<span class="sd">    The function has been tested in 2d only, reliability in 3d is unknown,</span>
+<span class="sd">    but doubtful.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g (grid): To be updated.</span>
+<span class="sd">        delete_faces (np.ndarray): Faces to be deleted, as found in</span>
+<span class="sd">            g.cell_faces</span>
+<span class="sd">        new_faces (np.ndarray): Index of new faces, as found in g.face_nodes</span>
+<span class="sd">        in_combined (np.ndarray): Map between old and new faces.</span>
+<span class="sd">            delete_faces[i] is replaced by</span>
+<span class="sd">            new_faces[in_combined[i]:in_combined[i+1]].</span>
+<span class="sd">        fn_orig (np.ndarray): Face-node relation of the orginial grid, before</span>
+<span class="sd">            update of faces.</span>
+<span class="sd">        node_coord_orig (np.ndarray): Node coordinates of orginal grid,</span>
+<span class="sd">            before update of nodes.</span>
+<span class="sd">        tol (double, defaults to 1e-4): Small tolerance, used to compare</span>
+<span class="sd">            coordinates of points.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">#</span>
+
+    <span class="n">nodes_per_face</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="n">cell_faces</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span>
+
+    <span class="c1"># Mapping from new</span>
+    <span class="n">deleted_2_new_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">in_combined</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+
+    <span class="c1"># The nodes in the original 1d grid were sorted either in the same way, or</span>
+    <span class="c1"># in the oposite order of the new grid. In the latter case, we need to</span>
+    <span class="c1"># reverse the order of in_combined to reconstruct the old face-node</span>
+    <span class="c1"># relations</span>
+    <span class="k">if</span> <span class="n">in_combined</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">in_combined</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">deleted_2_new_faces</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">in_combined</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">in_combined</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+                <span class="n">deleted_2_new_faces</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_faces</span><span class="p">[</span><span class="n">in_combined</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">deleted_2_new_faces</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_faces</span><span class="p">[</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">in_combined</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">in_combined</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="p">]</span>
+    <span class="c1">#            assert deleted_2_new_faces[i].size &gt; 0, \</span>
+    <span class="c1">#                str(i)+&quot; &quot;+str(in_combined[i])+&quot; &quot;+str(in_combined[i+1])+\</span>
+    <span class="c1">#                &quot; &quot;+str(np.arange(in_combined[i], in_combined[i+1]))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">deleted_2_new_faces</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">in_combined</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">in_combined</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+                <span class="n">deleted_2_new_faces</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_faces</span><span class="p">[</span><span class="n">in_combined</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">deleted_2_new_faces</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_faces</span><span class="p">[</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">in_combined</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">in_combined</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="p">]</span>
+    <span class="c1">#            assert deleted_2_new_faces[i].size &gt; 0, \</span>
+    <span class="c1">#                str(i)+&quot; &quot;+str(in_combined[i+1])+&quot; &quot;+str(in_combined[i])+\</span>
+    <span class="c1">#                &quot; &quot;+str(np.arange(in_combined[i+1], in_combined[i]))</span>
+
+    <span class="c1"># Now that we have mapping from old to new faces, also update face tags</span>
+    <span class="n">update_face_tags</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">deleted_2_new_faces</span><span class="p">)</span>
+
+    <span class="c1"># The cell-face relations</span>
+    <span class="n">cf</span> <span class="o">=</span> <span class="n">cell_faces</span><span class="o">.</span><span class="n">indices</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">cell_faces</span><span class="o">.</span><span class="n">indptr</span>
+
+    <span class="c1"># Find elements in the cell-face relation that are also along the</span>
+    <span class="c1"># intersection, and should be replaced</span>
+    <span class="n">hit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">cf</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Mapping from cell_face of 2d grid to cells in 1d grid. Can be combined</span>
+    <span class="c1"># with deleted_2_new_faces to match new and old faces</span>
+    <span class="c1"># Safeguarding (or stupidity?): Only faces along 1d grid have non-negative</span>
+    <span class="c1"># index, but we should never hit any of the other elements</span>
+    <span class="n">cf_2_f</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">delete_faces</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">cf_2_f</span><span class="p">[</span><span class="n">delete_faces</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">delete_faces</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+
+    <span class="c1"># Map from faces, as stored in cell_faces,to the corresponding cells</span>
+    <span class="n">face_2_cell</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">rldecode</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">indptr</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">indptr</span><span class="p">))</span>
+
+    <span class="c1"># The cell-face map will go from 3 faces per cell to an arbitrary number.</span>
+    <span class="c1"># Split mapping into list of arrays to prepare for this</span>
+    <span class="n">new_cf</span> <span class="o">=</span> <span class="p">[</span><span class="n">cf</span><span class="p">[</span><span class="n">indptr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">:</span> <span class="n">indptr</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)]</span>
+    <span class="c1"># Similar treatment of direction of normal vectors</span>
+    <span class="n">new_sgn</span> <span class="o">=</span> <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">indptr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">:</span> <span class="n">indptr</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)]</span>
+
+    <span class="c1"># Create mapping to adjust face indices for deletions</span>
+    <span class="n">tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">cf</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">adjust_deleted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span>
+    <span class="n">adjust_deleted</span><span class="p">[</span><span class="n">delete_faces</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">face_adjustment</span> <span class="o">=</span> <span class="n">tmp</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">adjust_deleted</span><span class="p">)</span>
+
+    <span class="c1"># Face-node relations as array</span>
+    <span class="n">fn</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nodes_per_face</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Collect indices of cells that have one of their faces on the fracture.</span>
+    <span class="n">hit_cell</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">hit</span><span class="p">:</span>
+        <span class="c1"># The loop variable refers to indices in the face-cell map. Get cell</span>
+        <span class="c1"># number.</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">face_2_cell</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">hit_cell</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+        <span class="c1"># For this cell, find where in the cell-face map the fracture face is</span>
+        <span class="c1"># placed.</span>
+        <span class="n">tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">new_cf</span><span class="p">[</span><span class="n">cell</span><span class="p">]</span> <span class="o">==</span> <span class="n">cf</span><span class="p">[</span><span class="n">i</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># There should be only one face on the fracture</span>
+        <span class="k">assert</span> <span class="n">tr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">tr</span> <span class="o">=</span> <span class="n">tr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Implementation note: If we ever get negative indices here, something</span>
+        <span class="c1"># has gone wrong related to cf_2_f, see above.</span>
+        <span class="c1"># Digestion of loop: i (in hit) refers to elements in cell-face</span>
+        <span class="c1"># cf[i] is specific face</span>
+        <span class="c1"># cf_2_f[cf[i]] maps to deleted face along fracture</span>
+        <span class="c1"># outermost is one-to-many map from deleted to new faces.</span>
+        <span class="n">new_faces_loc</span> <span class="o">=</span> <span class="n">deleted_2_new_faces</span><span class="p">[</span><span class="n">cf_2_f</span><span class="p">[</span><span class="n">cf</span><span class="p">[</span><span class="n">i</span><span class="p">]]]</span>
+
+        <span class="c1"># Index of the replaced face</span>
+        <span class="n">ci</span> <span class="o">=</span> <span class="n">cf</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="c1"># We need to sort the new face-cell relation so that the edges defined</span>
+        <span class="c1"># by cell-face-&gt; face_nodes form a closed, non-intersecting loop. If</span>
+        <span class="c1"># this is not the case, geometry computation will go wrong.</span>
+        <span class="c1"># By assumption, the new faces are defined so that their nodes are</span>
+        <span class="c1"># contiguous along the line of the old face.</span>
+
+        <span class="c1"># Coordinates of the nodes of the replaced face.</span>
+        <span class="c1"># Note use of original coordinates here.</span>
+        <span class="n">ci_coord</span> <span class="o">=</span> <span class="n">node_coord_orig</span><span class="p">[:,</span> <span class="n">fn_orig</span><span class="p">[:,</span> <span class="n">ci</span><span class="p">]]</span>
+        <span class="c1"># Coordinates of the nodes of the first new face</span>
+        <span class="n">fi_coord</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">fn</span><span class="p">[:,</span> <span class="n">new_faces_loc</span><span class="p">[</span><span class="mi">0</span><span class="p">]]]</span>
+
+        <span class="c1"># Distance between the new nodes and the first node of the old face.</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">point_pointset</span><span class="p">(</span><span class="n">ci_coord</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">fi_coord</span><span class="p">)</span>
+        <span class="c1"># Length of the old face.</span>
+        <span class="n">length_face</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">point_pointset</span><span class="p">(</span><span class="n">ci_coord</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">ci_coord</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># If the minimum distance is larger than a (scaled) tolerance, the new</span>
+        <span class="c1"># faces were defined from the second to the first node. Switch order.</span>
+        <span class="c1"># This will create trouble if one of the new faces are very small.</span>
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">length_face</span> <span class="o">*</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="n">new_faces_loc</span> <span class="o">=</span> <span class="n">new_faces_loc</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Replace the cell-face relation for this cell.</span>
+        <span class="c1"># At the same time (stupid!) also adjust indices of the surviving</span>
+        <span class="c1"># faces.</span>
+        <span class="n">new_cf</span><span class="p">[</span><span class="n">cell</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">face_adjustment</span><span class="p">[</span><span class="n">new_cf</span><span class="p">[</span><span class="n">cell</span><span class="p">][:</span><span class="n">tr</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()],</span>
+                <span class="n">new_faces_loc</span><span class="p">,</span>
+                <span class="n">face_adjustment</span><span class="p">[</span><span class="n">new_cf</span><span class="p">[</span><span class="n">cell</span><span class="p">][</span><span class="n">tr</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()],</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Also replicate directions of normal vectors</span>
+        <span class="n">new_sgn</span><span class="p">[</span><span class="n">cell</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">new_sgn</span><span class="p">[</span><span class="n">cell</span><span class="p">][:</span><span class="n">tr</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">new_sgn</span><span class="p">[</span><span class="n">cell</span><span class="p">][</span><span class="n">tr</span><span class="p">],</span> <span class="n">new_faces_loc</span><span class="o">.</span><span class="n">size</span><span class="p">),</span>
+                <span class="n">new_sgn</span><span class="p">[</span><span class="n">cell</span><span class="p">][</span><span class="n">tr</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:]</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Adjust face index of cells that have no contact with the updated faces</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_cf</span><span class="p">)),</span> <span class="n">hit_cell</span><span class="p">):</span>
+        <span class="n">new_cf</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">face_adjustment</span><span class="p">[</span><span class="n">new_cf</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+
+    <span class="c1"># New pointer structure for cell-face relations</span>
+    <span class="n">num_cell_face</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">new_cf</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_cf</span><span class="p">))])</span>
+    <span class="n">indptr_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">num_cell_face</span><span class="p">)))</span>
+
+    <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">new_cf</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">new_sgn</span><span class="p">)</span>
+    <span class="c1"># All faces in the cell-face relation should be referred to by 1 or 2 cells</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">2</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="n">ind</span><span class="p">,</span> <span class="n">indptr_new</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="update_face_tags"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html#porepy.fracs.non_conforming.update_face_tags">[docs]</a><span class="k">def</span> <span class="nf">update_face_tags</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">,</span> <span class="n">new_faces</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Update the face tags of a cell.</span>
+
+<span class="sd">    Delete tags for old faces, and add new tags for their replacements.</span>
+
+<span class="sd">    If the grid has no face tags, no change is done</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        g (grid): To be modified</span>
+<span class="sd">        delete_faces (np.array or list): Faces to be deleted.</span>
+<span class="sd">        new_faces (list of list): For each item in delete_faces, a list of new</span>
+<span class="sd">            replacement faces.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="n">tags</span><span class="o">.</span><span class="n">standard_face_tags</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="s2">&quot;tags&quot;</span><span class="p">):</span>
+            <span class="n">old_tags</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">old_tags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">old_tags</span><span class="p">,</span> <span class="n">delete_faces</span><span class="p">)</span>
+            <span class="n">num_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">new_faces</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_faces</span><span class="p">))])</span>
+            <span class="n">new_tags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_new</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="n">divides</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">num_new</span><span class="p">)))</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">delete_faces</span><span class="p">):</span>
+                <span class="n">new_tags</span><span class="p">[</span><span class="n">divides</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">:</span> <span class="n">divides</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">d</span><span class="p">]</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">old_tags</span><span class="p">,</span> <span class="n">new_tags</span><span class="p">))</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

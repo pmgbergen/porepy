@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.fracs.wells_3d &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/wells_3d.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.fracs.wells_3d</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.fracs.wells_3d</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Module for well representation in Well and WellNetworks.</span>
+
+<span class="sd">A well is a polyline of at least nsegs=1 segment defined through a list of</span>
+<span class="sd">npts=nsegs+1 points. Wells are connected in a network.</span>
+
+<span class="sd">After defining and meshing a fracture network, the wells may be added to the mdg</span>
+<span class="sd">by</span>
+<span class="sd">    compute_well_fracture_intersections(well_network, fracture_network)</span>
+<span class="sd">    well_network.mesh(mdg)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+<span class="c1"># Module-wide logger</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Well"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.Well">[docs]</a><span class="k">class</span> <span class="nc">Well</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Class representing a single well as a polyline embedded in 3D space.</span>
+
+<span class="sd">    The fracture is defined by its vertexes. It contains various utility</span>
+<span class="sd">    methods, mainly intended for use together with the WellNetwork3d class.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        p (np.ndarray, 3 x npt): Fracture vertices. Will be stored in a CCW</span>
+<span class="sd">            order (or CW, depending on which side it is viewed from).</span>
+<span class="sd">        orig_p (np.ndarray, 3 x npt): Original fracture vertices, kept in case</span>
+<span class="sd">            the fracture geometry for some reason is modified.</span>
+<span class="sd">        index (int): Index of well. Intended used in WellNetwork3d.</span>
+<span class="sd">        tags</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">points</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tags</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize fractures.</span>
+
+<span class="sd">        __init__ defines the points of the well.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            points (np.ndarray-like, 3 x npt): End points of each of the npt-1</span>
+<span class="sd">                line segments of the new well.</span>
+<span class="sd">            index (int, optional): Index of well. Defaults to None.</span>
+<span class="sd">            tags (dictionary, optional): may e.g. identify different types</span>
+<span class="sd">                of points. In particular, tags[&quot;intersecting_fractures&quot;] has</span>
+<span class="sd">                length npt and will be used to identify which fracture(s)</span>
+<span class="sd">                intersects each of the points in points.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">orig_pts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="c1"># Set well index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">index</span>
+        <span class="c1"># Initialize tag dictionary.</span>
+        <span class="k">if</span> <span class="n">tags</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="n">tags</span>
+
+<div class="viewcode-block" id="Well.set_index"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.Well.set_index">[docs]</a>    <span class="k">def</span> <span class="nf">set_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set index of this fracture.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            i (int): Index.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">i</span></div>
+
+<div class="viewcode-block" id="Well.segments"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.Well.segments">[docs]</a>    <span class="k">def</span> <span class="nf">segments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Iterate over the segments defined through segment indices and endpoints.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_segments</span><span class="p">()):</span>
+            <span class="n">segment_inds</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">endpoints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">segment_inds</span><span class="p">]</span>
+            <span class="k">yield</span> <span class="n">segment_inds</span><span class="p">,</span> <span class="n">endpoints</span></div>
+
+<div class="viewcode-block" id="Well.num_points"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.Well.num_points">[docs]</a>    <span class="k">def</span> <span class="nf">num_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Well.num_segments"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.Well.num_segments">[docs]</a>    <span class="k">def</span> <span class="nf">num_segments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span></div>
+
+<div class="viewcode-block" id="Well.add_point"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.Well.add_point">[docs]</a>    <span class="k">def</span> <span class="nf">add_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add new pts (3 x 1) to self.pts.</span>
+<span class="sd">        If ind is not specified, the point is appended at the end of</span>
+<span class="sd">        self.pts. Otherwise, it is inserted between the old points number ind</span>
+<span class="sd">        and ind + 1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ind</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">,</span> <span class="n">point</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">[:,</span> <span class="p">:</span><span class="n">ind</span><span class="p">],</span> <span class="n">point</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">ind</span><span class="p">:]))</span></div>
+
+    <span class="k">def</span> <span class="nf">_mesh_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">segment_ind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return the mesh size for a well or one of its segments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            segment_ind (tuple of ints): indices defining the segment.</span>
+
+<span class="sd">        Can be overwritten to yield well specific or segment specific values.</span>
+<span class="sd">        Meshing of WellNetwork defaults to WellNetwork._mesh_size if None is</span>
+<span class="sd">        returned by this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Well.copy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.Well.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a deep copy of the fracture.</span>
+
+<span class="sd">        Note that the original points (as given when the fracture was</span>
+<span class="sd">        initialized) will *not* be preserved.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Fracture with the same points.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">Well</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="n">t</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="WellNetwork3d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.WellNetwork3d">[docs]</a><span class="k">class</span> <span class="nc">WellNetwork3d</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Collection of Wells with geometrical information.</span>
+
+<span class="sd">    Facilitates meshing of all wells in the network and their addition to</span>
+<span class="sd">    a mixed-dimensional grid, see mesh method.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        _wells (list of Fracture): All fractures forming the network.</span>
+<span class="sd">        tol (double): Geometric tolerance used in computations.</span>
+<span class="sd">        domain (dictionary): External bounding box. See</span>
+<span class="sd">            impose_external_boundary() for details.</span>
+<span class="sd">        tags (dictionary): Tags used on Wells.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">wells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Well</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize well network.</span>
+
+<span class="sd">        Generate network from specified wells. The wells will have their index</span>
+<span class="sd">        set (and existing values overridden), according to the ordering in the</span>
+<span class="sd">        input list.</span>
+
+<span class="sd">        Initialization sets most fields (see attributes) to None.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            wells (list of Well, optional): Wells that make up the network.</span>
+<span class="sd">                Defaults to None, which will create a domain empty of wells.</span>
+<span class="sd">            domain (dictionary): Domain specification.</span>
+<span class="sd">            tol (double, optional): Tolerance used in geometric computations. Defaults</span>
+<span class="sd">                to 1e-8.</span>
+<span class="sd">            parameters (dictionary, optional): E.g. mesh parameters.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">well_dim</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wells</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">wells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">wells</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_wells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_wells</span><span class="p">):</span>
+            <span class="n">w</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span>
+
+        <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">domain</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tol</span> <span class="o">=</span> <span class="n">tol</span>
+
+        <span class="c1"># Assign an empty tag dictionary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bool</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+<div class="viewcode-block" id="WellNetwork3d.add"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.WellNetwork3d.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">Well</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add a well to the network.</span>
+
+<span class="sd">        The well will be assigned a new index, higher than the maximum</span>
+<span class="sd">        value currently found in the network.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            w (Well): Well to be added.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">w</span><span class="o">.</span><span class="n">index</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wells</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">ind</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">w</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_mesh_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">Well</span><span class="p">,</span> <span class="n">segment_ind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the mesh size for a well or one of its segments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            w (Well): Well for which to access mesh size.</span>
+<span class="sd">            segment_ind (tuple of ints): indices defining the segment.</span>
+
+<span class="sd">        TODO: IS: I have not concluded whether mesh size should be global (Network)</span>
+<span class="sd">        or local (individual wells/segments). To be decided, with possible</span>
+<span class="sd">        consequences for this function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">_mesh_size</span><span class="p">(</span><span class="n">segment_ind</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;mesh_size&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">size</span>
+
+<div class="viewcode-block" id="WellNetwork3d.mesh"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.WellNetwork3d.mesh">[docs]</a>    <span class="k">def</span> <span class="nf">mesh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Produce grids for the network&#39;s wells and add to existing mixed-dimensional grid.</span>
+
+<span class="sd">        One grid is constructed for each subline extending between two fracture</span>
+<span class="sd">        intersections. In the simplest case, the well is a (poly)line with two</span>
+<span class="sd">        end points, and a single grid is produced.</span>
+<span class="sd">        Intersection grids are added for all intersection points between wells</span>
+<span class="sd">        and fractures. Finally, edges are added between intersection points and</span>
+<span class="sd">        both fractures and well segments.</span>
+<span class="sd">        Example topology for well intersecting two fractures, terminating at the</span>
+<span class="sd">        lowermost:</span>
+
+<span class="sd">                     |</span>
+<span class="sd">        sd_well_0    |</span>
+<span class="sd">                     |</span>
+<span class="sd">                     * e(sd_isec_0, sd_well_0)</span>
+<span class="sd">        sd_isec_0    . * e(sd_isec_0, sd_frac_0)  ___________ sd_frac_0 (2d)</span>
+<span class="sd">                     * e(sd_isec_0, sd_well_1)</span>
+<span class="sd">                     |</span>
+<span class="sd">        sd_well_1    |</span>
+<span class="sd">                     |</span>
+<span class="sd">                     * e(sd_isec_1, sd_well_1)</span>
+<span class="sd">        sd_isec_1    . * e(sd_isec_1, sd_frac_1)  ____________ sd_frac_1 (2d)</span>
+
+<span class="sd">        Note that all edge grids (*) are zero-dimensional, and that those</span>
+<span class="sd">        connected with the fracture have co-dimension 2!</span>
+
+<span class="sd">        Each point defining the well polyline is assumed to have a tag list</span>
+<span class="sd">        stored in w.tags[&quot;intersecting_fractures&quot;]. An empty tag means the point</span>
+<span class="sd">        does not correspond to a fracture intersection. An integer entry i</span>
+<span class="sd">        identifies an intersection with the fracture with g.frac_num = i.</span>
+<span class="sd">        If the list contains multiple tags, the interpretation would be an</span>
+<span class="sd">        intersection between the well and a fracture intersection line or point.</span>
+<span class="sd">        This is not implemented. Points not corresponding to a fracture</span>
+<span class="sd">        intersection, but merely representing a kink in the polyline, will</span>
+<span class="sd">        not be represented by a 0d grid. Rather, the two neighbouring segments</span>
+<span class="sd">        are joined and a single _piecewise_ linear grid is produced.</span>
+
+<span class="sd">        This function may be split/restructured in the future. One possibility</span>
+<span class="sd">        is to let gmsh do the actual meshing as done in the FractureNetwork</span>
+<span class="sd">        classes. For now, this simplified approach is deemed sufficient.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Will be added as g.well_num for the well grids</span>
+        <span class="n">well_num</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wells</span><span class="p">:</span>
+            <span class="n">tags_w</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">&quot;intersecting_fractures&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span> <span class="o">*</span> <span class="n">w</span><span class="o">.</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tags_w</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                        <span class="sd">&quot;&quot;&quot;Meshing of wells intersecting multiple fractures at</span>
+<span class="sd">                        the same point is not implemented.&quot;&quot;&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="n">subline_endpoint_inds</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">points_subline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="c1"># Tags for the endpoint faces of the well grid.</span>
+            <span class="n">endp_tip_tags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="n">endp_frac_tags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="c1"># Special treatment of first end point. We need to check whether it</span>
+            <span class="c1"># corresponds to an intersection. If so, we make an intersection grid and add an</span>
+            <span class="c1"># edge between that grid and the fracture in question. Note that</span>
+            <span class="c1"># the edge with the first well segment is added below.</span>
+            <span class="k">if</span> <span class="n">tags_w</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">sd_isec</span> <span class="o">=</span> <span class="n">_intersection_subdomain</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">pts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">mdg</span><span class="p">)</span>
+                <span class="n">_add_fracture_2_intersection_interface</span><span class="p">(</span><span class="n">sd_isec</span><span class="p">,</span> <span class="n">tags_w</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mdg</span><span class="p">)</span>
+                <span class="n">endp_frac_tags</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="k">for</span> <span class="n">inds_seg</span><span class="p">,</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">w</span><span class="o">.</span><span class="n">segments</span><span class="p">():</span>
+                <span class="n">tags_seg</span> <span class="o">=</span> <span class="p">[</span><span class="n">tags_w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">inds_seg</span><span class="p">]</span>
+                <span class="n">length</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">point_pointset</span><span class="p">(</span><span class="n">seg</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">seg</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="n">num_pts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">length</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mesh_size</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">inds_seg</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+                <span class="n">num_pts</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">num_pts</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="n">points_loc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">seg</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">seg</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">num_pts</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">points_subline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">points_subline</span><span class="p">,</span> <span class="n">points_loc</span><span class="p">))</span>
+
+                <span class="c1"># Check if the second end point is a fracture intersection. If</span>
+                <span class="c1"># not, proceed to next segment unless we&#39;re at the well&#39;s second</span>
+                <span class="c1"># endpoint</span>
+
+                <span class="k">if</span> <span class="n">tags_seg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">inds_seg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">w</span><span class="o">.</span><span class="n">num_points</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="c1"># We&#39;re at the well end, and it corresponds to an internal</span>
+                        <span class="c1"># tip</span>
+                        <span class="n">endp_tip_tags</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="n">endp_frac_tags</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Remove last point, since it is included in next iteration</span>
+                        <span class="n">points_subline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">points_subline</span><span class="p">[:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+                        <span class="k">continue</span>
+
+                <span class="c1"># The end point is an intersection. Thus, we make a grid for</span>
+                <span class="c1"># the subdomain consisting of the segments from</span>
+                <span class="c1"># endpoint_inds_loc[0] to this end point and for the intersection</span>
+                <span class="c1"># point.</span>
+                <span class="n">subline_endpoint_inds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inds_seg</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">sd_w</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">TensorGrid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">points_subline</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+                <span class="n">sd_w</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">points_subline</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="n">sd_w</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+                <span class="n">mdg</span><span class="o">.</span><span class="n">add_subdomains</span><span class="p">(</span><span class="n">sd_w</span><span class="p">)</span>
+                <span class="n">sd_w</span><span class="o">.</span><span class="n">well_num</span> <span class="o">=</span> <span class="n">well_num</span>
+                <span class="n">sd_w</span><span class="o">.</span><span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot; well &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">well_num</span><span class="p">)</span>
+                <span class="n">sd_w</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;parent_well_index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">index</span>
+                <span class="n">well_num</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="c1"># Add intersection grid and interfaces if the second segment</span>
+                <span class="c1"># point is not a tip</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">endp_tip_tags</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="n">endp_frac_tags</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">sd_isec</span> <span class="o">=</span> <span class="n">_intersection_subdomain</span><span class="p">(</span><span class="n">seg</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">mdg</span><span class="p">)</span>
+
+                    <span class="c1"># Add interfaces between intersection grid and both fracture and</span>
+                    <span class="c1"># well grid.</span>
+                    <span class="n">_add_well_2_intersection_interface</span><span class="p">(</span><span class="n">sd_w</span><span class="p">,</span> <span class="n">sd_isec</span><span class="p">,</span> <span class="n">mdg</span><span class="p">)</span>
+                    <span class="n">_add_fracture_2_intersection_interface</span><span class="p">(</span>
+                        <span class="n">sd_isec</span><span class="p">,</span> <span class="n">tags_w</span><span class="p">[</span><span class="n">inds_seg</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">mdg</span>
+                    <span class="p">)</span>
+                <span class="c1"># Further, if the new segment&#39;s first end point corresponds to</span>
+                <span class="c1"># an intersection (as opposed to a global boundary or internal tip),</span>
+                <span class="c1"># add the interface between this segment and that intersection.</span>
+                <span class="k">if</span> <span class="n">endp_frac_tags</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="c1"># Index for the intersection grid corresponding to the first</span>
+                    <span class="c1"># endpoint of this subline. Last one if we have not added</span>
+                    <span class="c1"># for the second endpoint, in which case it&#39;s the penultimate 0d grid</span>
+                    <span class="n">previous_ind</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">-</span> <span class="n">endp_frac_tags</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">previous_g_isec</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">well_dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)[</span>
+                        <span class="n">previous_ind</span>
+                    <span class="p">]</span>  <span class="c1"># EK, is there a preferred method?</span>
+                    <span class="n">_add_well_2_intersection_interface</span><span class="p">(</span><span class="n">sd_w</span><span class="p">,</span> <span class="n">previous_g_isec</span><span class="p">,</span> <span class="n">mdg</span><span class="p">)</span>
+
+                <span class="c1"># Finally, update tags for the well&#39;s faces (boundary, tip, fracture).</span>
+                <span class="n">bounding_planes</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">pp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">make_bounding_planes_from_box</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">boundary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+                <span class="n">endp_inds</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">endpts</span> <span class="o">=</span> <span class="n">sd_w</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">endp_inds</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">plane</span> <span class="ow">in</span> <span class="n">bounding_planes</span><span class="p">:</span>
+                    <span class="n">dist</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">points_polygon</span><span class="p">(</span><span class="n">endpts</span><span class="p">,</span> <span class="n">plane</span><span class="p">)</span>
+                    <span class="n">boundary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">boundary</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+                <span class="n">endp_tip_tags</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">boundary</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">endp_frac_tags</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="p">)</span>
+                <span class="n">sd_w</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">][</span><span class="n">endp_inds</span><span class="p">]</span> <span class="o">=</span> <span class="n">boundary</span>
+                <span class="n">sd_w</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;tip_faces&quot;</span><span class="p">][</span><span class="n">endp_inds</span><span class="p">]</span> <span class="o">=</span> <span class="n">endp_tip_tags</span>
+                <span class="n">sd_w</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;fracture_faces&quot;</span><span class="p">][</span><span class="n">endp_inds</span><span class="p">]</span> <span class="o">=</span> <span class="n">endp_frac_tags</span>
+                <span class="c1"># Node tags? Check that all cases are covered ind endp_face_tags</span>
+
+                <span class="c1"># Reset the points for next iteration/subline.</span>
+                <span class="n">points_subline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                <span class="n">subline_endpoint_inds</span> <span class="o">=</span> <span class="p">[</span><span class="n">inds_seg</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+                <span class="n">endp_tip_tags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+                <span class="n">endp_frac_tags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;domain_boundary&quot;</span><span class="p">,</span> <span class="s2">&quot;tip&quot;</span><span class="p">,</span> <span class="s2">&quot;fracture&quot;</span><span class="p">]:</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">add_node_tags_from_face_tags</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="compute_well_fracture_intersections"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.compute_well_fracture_intersections">[docs]</a><span class="k">def</span> <span class="nf">compute_well_fracture_intersections</span><span class="p">(</span>
+    <span class="n">well_network</span><span class="p">:</span> <span class="n">WellNetwork3d</span><span class="p">,</span> <span class="n">fracture_network</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">FractureNetwork3d</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Compute intersections and store tags identifying which fracture</span>
+<span class="sd">    and well segments each intersection corresponds.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        well_network containing the wells, which are assumed to have at least</span>
+<span class="sd">            two points each (in well.pts). Intersection points and tags are added</span>
+<span class="sd">            and updated in-place.</span>
+<span class="sd">        fracture_network containing the (3d) fractures.</span>
+
+
+<span class="sd">    A new set of points will be computed for each well, with original points</span>
+<span class="sd">    and new intersection points. Note that original points may also correspond</span>
+<span class="sd">    to an intersection with a fracture. Each well&#39;s tags are updated with the list</span>
+<span class="sd">    &quot;intersecting_fractures&quot;, with one list for each point in the new set. The</span>
+<span class="sd">    entries of the inner list are the indices of the fractures intersecting the</span>
+<span class="sd">    well at the corresponding point. Multiple fractures may intersect in any</span>
+<span class="sd">    given point, but this might require special treatment elsewhere.</span>
+<span class="sd">    The tags are crucial to the meshing of the well network.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">for</span> <span class="n">well</span> <span class="ow">in</span> <span class="n">well_network</span><span class="o">.</span><span class="n">_wells</span><span class="p">:</span>
+        <span class="n">well_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">well_tags</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">seg_ind</span><span class="p">,</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">well</span><span class="o">.</span><span class="n">segments</span><span class="p">():</span>
+            <span class="c1"># Special treatment of endpoint of the segment, which should not</span>
+            <span class="c1"># be added to the point array nor have its tag updated unless we are</span>
+            <span class="c1"># at the endpoint of the well.</span>
+            <span class="n">ignore_endpoint_tag</span> <span class="o">=</span> <span class="n">seg_ind</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">well</span><span class="o">.</span><span class="n">num_segments</span><span class="p">()</span>
+            <span class="c1"># Keep track of information for this segment</span>
+            <span class="n">pts_seg</span> <span class="o">=</span> <span class="n">segment</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="c1"># Initiate tags for this segment, with empty elements for the endpoints</span>
+            <span class="n">tags_seg</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">fracture</span><span class="p">,</span> <span class="n">tag</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="n">fracture_network</span><span class="o">.</span><span class="n">_fractures</span><span class="p">,</span> <span class="n">fracture_network</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;boundary&quot;</span><span class="p">]</span>
+            <span class="p">):</span>
+                <span class="k">if</span> <span class="n">tag</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">pts_seg</span><span class="p">,</span> <span class="n">tags_seg</span> <span class="o">=</span> <span class="n">_intersection_segment_fracture</span><span class="p">(</span>
+                    <span class="n">pts_seg</span><span class="p">,</span> <span class="n">fracture</span><span class="p">,</span> <span class="n">tags_seg</span><span class="p">,</span> <span class="n">ignore_endpoint_tag</span>
+                <span class="p">)</span>
+            <span class="c1"># Sort points of this segment</span>
+            <span class="n">sort_inds</span><span class="p">,</span> <span class="n">sorted_pts</span> <span class="o">=</span> <span class="n">_argsort_points_along_line_segment</span><span class="p">(</span><span class="n">pts_seg</span><span class="p">)</span>
+
+            <span class="n">stop_ind</span> <span class="o">=</span> <span class="n">sort_inds</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="n">ignore_endpoint_tag</span>
+            <span class="n">well_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">well_pts</span><span class="p">,</span> <span class="n">sorted_pts</span><span class="p">[:,</span> <span class="p">:</span><span class="n">stop_ind</span><span class="p">]))</span>
+            <span class="c1"># The last tag might change when it is used for the start point of</span>
+            <span class="c1"># the next segment. Store remaining tags in correct order</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sort_inds</span><span class="p">[:</span><span class="n">stop_ind</span><span class="p">]:</span>
+                <span class="n">well_tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tags_seg</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="c1"># Overwrite old points and tags for this well</span>
+        <span class="n">well</span><span class="o">.</span><span class="n">pts</span> <span class="o">=</span> <span class="n">well_pts</span>
+        <span class="n">well</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;intersecting_fractures&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">well_tags</span></div>
+
+
+<div class="viewcode-block" id="compute_well_rock_matrix_intersections"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.compute_well_rock_matrix_intersections">[docs]</a><span class="k">def</span> <span class="nf">compute_well_rock_matrix_intersections</span><span class="p">(</span>
+    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
+    <span class="n">cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">min_length</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-10</span><span class="p">,</span>
+    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Compute intersections and add edge coupling between the well and the rock matrix.</span>
+<span class="sd">    To be called after the well grids are constructed.</span>
+<span class="sd">    We are assuming convex cells and a single high dimensional grid.</span>
+<span class="sd">    To speed up the geometrical computation we construct an ADTree.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mdg (pp.MixedDimensionalGrid): the mixed-dimensional grid containing all the elements</span>
+<span class="sd">        cells (np.ndarray, optional): a set of cells that might be considered to construct the</span>
+<span class="sd">            ADTree. If it is not given the tree is constructed by using all the higher</span>
+<span class="sd">            dimensional grid cells</span>
+<span class="sd">        min_length (float, optional): minimum length a segment that intersect a cell needs</span>
+<span class="sd">            to have to be considered in the mapping</span>
+<span class="sd">        tol (float, optional): geometric tolerance, default 1e-5</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract the dimension of the rock matrix, assumed to be of highest dimension</span>
+    <span class="n">dim_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span>
+    <span class="c1"># We assume only one single higher dimensional grid, needed for the ADTree</span>
+    <span class="n">sd_max</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_max</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># Construct an ADTree for fast computation</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">adtree</span><span class="o">.</span><span class="n">ADTree</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sd_max</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">sd_max</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">tree</span><span class="o">.</span><span class="n">from_grid</span><span class="p">(</span><span class="n">sd_max</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
+
+    <span class="c1"># Extract the grids of the wells of co-dimension 2</span>
+    <span class="n">well_subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">g</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_max</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="s2">&quot;well_num&quot;</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Pre-compute some well information</span>
+    <span class="n">nodes_w</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">sd_w</span> <span class="ow">in</span> <span class="n">well_subdomains</span><span class="p">:</span>
+        <span class="n">sd_w_cn</span> <span class="o">=</span> <span class="n">sd_w</span><span class="o">.</span><span class="n">cell_nodes</span><span class="p">()</span>
+        <span class="n">sd_w_cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd_w</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+        <span class="c1"># get the cells of the 0d as segments (start, end)</span>
+        <span class="n">first</span> <span class="o">=</span> <span class="n">sd_w_cn</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">sd_w_cells</span><span class="p">]</span>
+        <span class="n">second</span> <span class="o">=</span> <span class="n">sd_w_cn</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">sd_w_cells</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">nodes_w</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">sd_w_cn</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">mcolon</span><span class="o">.</span><span class="n">mcolon</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">)]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Operate on the rock matrix grid</span>
+    <span class="n">faces</span><span class="p">,</span> <span class="n">cells</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">sd_max</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">tocsc</span><span class="p">())</span>
+    <span class="n">cells_order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="n">faces</span> <span class="o">=</span> <span class="n">faces</span><span class="p">[</span><span class="n">cells_order</span><span class="p">]</span>
+
+    <span class="n">nodes</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">sd_max</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">)</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">sd_max</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indptr</span>
+
+    <span class="c1"># Loop on all the well grids</span>
+    <span class="k">for</span> <span class="n">sd_w</span><span class="p">,</span> <span class="n">n_w</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">well_subdomains</span><span class="p">,</span> <span class="n">nodes_w</span><span class="p">):</span>
+        <span class="c1"># extract the start and end point of the segments</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">sd_w</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">n_w</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">sd_w</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">n_w</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+        <span class="c1"># Lists for the cell_cell_map</span>
+        <span class="n">primary_secondary_I</span><span class="p">,</span> <span class="n">primary_secondary_J</span><span class="p">,</span> <span class="n">primary_secondary_data</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+
+        <span class="c1"># Operate on the segments</span>
+        <span class="k">for</span> <span class="n">seg_id</span><span class="p">,</span> <span class="p">(</span><span class="n">seg_start</span><span class="p">,</span> <span class="n">seg_end</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">start</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">end</span><span class="o">.</span><span class="n">T</span><span class="p">)):</span>
+            <span class="c1"># Create the box for the segment by ordering its start and end</span>
+            <span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">seg_start</span><span class="p">,</span> <span class="n">seg_end</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="c1"># extract the id of the ad nodes</span>
+            <span class="n">seg_adnodes</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">adtree</span><span class="o">.</span><span class="n">ADTNode</span><span class="p">(</span><span class="s2">&quot;dummy_node&quot;</span><span class="p">,</span> <span class="n">box</span><span class="p">))</span>
+            <span class="c1"># extract the key of the ad nodes which is the cell id</span>
+            <span class="n">seg_cells</span> <span class="o">=</span> <span class="p">[</span><span class="n">tree</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">key</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">seg_adnodes</span><span class="p">]</span>
+            <span class="c1"># Loop on all the higher dimensional cells</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">seg_cells</span><span class="p">:</span>
+                <span class="c1"># For the current cell retrieve its faces</span>
+                <span class="n">loc</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span>
+                    <span class="n">sd_max</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">sd_max</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">faces_loc</span> <span class="o">=</span> <span class="n">faces</span><span class="p">[</span><span class="n">loc</span><span class="p">]</span>
+                <span class="c1"># Get the local nodes, face based</span>
+                <span class="n">poly</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">sd_max</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">indptr</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="p">:</span> <span class="n">indptr</span><span class="p">[</span><span class="n">f</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]]</span>
+                        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">faces_loc</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+                <span class="c1"># Compute the intersections between the segment and the current higher</span>
+                <span class="c1"># dimensional cell</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">ratio</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">intersections</span><span class="o">.</span><span class="n">segments_polyhedron</span><span class="p">(</span>
+                    <span class="n">seg_start</span><span class="p">,</span> <span class="n">seg_end</span><span class="p">,</span> <span class="n">poly</span><span class="p">,</span> <span class="n">tol</span>
+                <span class="p">)</span>
+                <span class="c1"># Store the requested information to build the projection operator</span>
+                <span class="k">if</span> <span class="n">ratio</span> <span class="o">&gt;</span> <span class="n">min_length</span><span class="p">:</span>
+                    <span class="n">primary_secondary_I</span> <span class="o">+=</span> <span class="p">[</span><span class="n">seg_id</span><span class="p">]</span>
+                    <span class="n">primary_secondary_J</span> <span class="o">+=</span> <span class="p">[</span><span class="n">c</span><span class="p">]</span>
+                    <span class="n">primary_secondary_data</span> <span class="o">+=</span> <span class="n">ratio</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="c1"># primary to secondary map</span>
+        <span class="n">primary_secondary_map</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">primary_secondary_data</span><span class="p">,</span> <span class="p">(</span><span class="n">primary_secondary_I</span><span class="p">,</span> <span class="n">primary_secondary_J</span><span class="p">)),</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">sd_w</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">sd_max</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Add a new edge to the mixed-dimensional grid</span>
+
+        <span class="c1"># Create the mortar grid</span>
+        <span class="n">side_g</span> <span class="o">=</span> <span class="p">{</span><span class="n">pp</span><span class="o">.</span><span class="n">grids</span><span class="o">.</span><span class="n">mortar_grid</span><span class="o">.</span><span class="n">MortarSides</span><span class="o">.</span><span class="n">LEFT_SIDE</span><span class="p">:</span> <span class="n">sd_w</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+        <span class="n">mg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">(</span><span class="n">sd_w</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">side_g</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="n">sd_max</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="n">sd_w</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="c1"># set the maps</span>
+        <span class="n">mg</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span> <span class="o">=</span> <span class="n">primary_secondary_map</span>
+        <span class="n">mg</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span> <span class="o">=</span> <span class="n">primary_secondary_map</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">mg</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd_w</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span><span class="p">)</span>
+        <span class="n">mg</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd_w</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span><span class="p">)</span>
+        <span class="n">mg</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">()</span>
+        <span class="c1"># compute the geometry and save the mortar grid</span>
+        <span class="n">mg</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+
+        <span class="n">mdg</span><span class="o">.</span><span class="n">add_interface</span><span class="p">(</span><span class="n">mg</span><span class="p">,</span> <span class="p">(</span><span class="n">sd_max</span><span class="p">,</span> <span class="n">sd_w</span><span class="p">),</span> <span class="n">primary_secondary_map</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_argsort_points_along_line_segment</span><span class="p">(</span>
+    <span class="n">seg</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Sort point lying along a segment.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        seg (array): 3 x npts coordinates of the points to be sorted, assumed</span>
+<span class="sd">            to lie on a straight line.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        array (npts x 1): Indices of the sorting.</span>
+<span class="sd">        array (3 x npts): Sorted points.</span>
+
+<span class="sd">    The sorting is done so that</span>
+<span class="sd">    seg[d, inds[0]], seg[d,inds[1]], ..., seg[d,inds[-2]], seg[d,inds[-1]]</span>
+<span class="sd">    is monotone for at least one dimension d. Ascending or descending order</span>
+<span class="sd">    is determined by the values of the two end points.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Find a dimension along which the points may be sorted (coordinates are not</span>
+    <span class="c1"># constant):</span>
+    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">seg</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">seg</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">break</span>
+    <span class="c1"># Perform sorting</span>
+    <span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">seg</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span>
+    <span class="c1"># Invert if the original segment was in decreasing order</span>
+    <span class="k">if</span> <span class="n">seg</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">seg</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+        <span class="n">inds</span> <span class="o">=</span> <span class="n">inds</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">inds</span><span class="p">,</span> <span class="n">seg</span><span class="p">[:,</span> <span class="n">inds</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_intersection_segment_fracture</span><span class="p">(</span>
+    <span class="n">segment_points</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">fracture</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">PlaneFracture</span><span class="p">,</span>
+    <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">ignore_endpoint_tag</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;Compute intersection between a single line segment and fracture.</span>
+
+<span class="sd">    Computes intersection point. If no intersection exists (distance &gt; 0), no updates are</span>
+<span class="sd">    done to points or tags. If the intersection is internal (distance between intersection</span>
+<span class="sd">    and both endpoints &gt; 0), the point is appended to segment_points and a tag appended to</span>
+<span class="sd">    tags. If the intersection is on one of the existing points, that point&#39;s tag is updated,</span>
+<span class="sd">    unless ignore_endpoint_tag tag is True (see below).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        segment_points (array, 3 x npts): coordinates of the points on the line segment,</span>
+<span class="sd">            sorted as [start, end, *any interior points]</span>
+<span class="sd">        fracture (pp.Fracture): the fracture to be checked for intersections</span>
+<span class="sd">            with the line segment.</span>
+<span class="sd">        tags (list of length npts): identifies fractures (by fracture.index)</span>
+<span class="sd">            intersecting at each of the points in segment_points.</span>
+<span class="sd">        ingore_endpoint_tag (bool): whether to update the tag of the second endpoint</span>
+<span class="sd">            or not. To be used when looping over a polyline. The last endpoint</span>
+<span class="sd">            of this segment will be treated as the first endpoint of the next</span>
+<span class="sd">            segment.</span>
+<span class="sd">        tol (float): Used to determine whether there is an intersection between</span>
+<span class="sd">            the segment and the fracture.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        segment_points (array, 3 x npts): updated coordinates of the points on</span>
+<span class="sd">            the line segment, sorted as [start, end, *any interior points].</span>
+<span class="sd">            Any new points have been appended.</span>
+<span class="sd">        tags (list of length npts): updated tags.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">distance</span><span class="p">,</span> <span class="n">isec_pt</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">segments_polygon</span><span class="p">(</span>
+        <span class="n">segment_points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">segment_points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">fracture</span><span class="o">.</span><span class="n">pts</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">distance</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">:</span>
+        <span class="c1"># No intersection exists</span>
+        <span class="k">return</span> <span class="n">segment_points</span><span class="p">,</span> <span class="n">tags</span>
+    <span class="n">dist_endpt_isec</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">point_pointset</span><span class="p">(</span><span class="n">isec_pt</span><span class="p">,</span> <span class="n">segment_points</span><span class="p">)</span>
+    <span class="n">ind_point_at_node</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">dist_endpt_isec</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">ignore_endpoint_tag</span> <span class="ow">and</span> <span class="n">ind_point_at_node</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="c1"># No updates wanted, see parameter description of ignore_endpoint_tag</span>
+        <span class="k">return</span> <span class="n">segment_points</span><span class="p">,</span> <span class="n">tags</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">ind_point_at_node</span><span class="p">):</span>
+        <span class="c1"># The new intersection point already exists on the segment (endpoint or</span>
+        <span class="c1"># internal). Point is not added, but tags are updated with the fracture</span>
+        <span class="c1"># index.</span>
+        <span class="n">ind_loc</span> <span class="o">=</span> <span class="n">ind_point_at_node</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+        <span class="k">if</span> <span class="n">fracture</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tags</span><span class="p">[</span><span class="n">ind_loc</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tags</span><span class="p">[</span><span class="n">ind_loc</span><span class="p">],</span> <span class="n">fracture</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># New (internal) point. Store point and tag</span>
+        <span class="n">segment_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">segment_points</span><span class="p">,</span> <span class="n">isec_pt</span><span class="p">))</span>
+        <span class="n">tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">fracture</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">segment_points</span><span class="p">,</span> <span class="n">tags</span>
+
+
+<span class="k">def</span> <span class="nf">_intersection_subdomain</span><span class="p">(</span>
+    <span class="n">point</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">PointGrid</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Make a point subdomain and add to mdg.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        point (array, 3 x 1): coordinates.</span>
+<span class="sd">        mdg: The mixed-dimensional grid.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        PointGrid</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sd</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">PointGrid</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+    <span class="n">sd</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Well-fracture intersection grid&quot;</span><span class="p">)</span>
+    <span class="n">sd</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+    <span class="n">mdg</span><span class="o">.</span><span class="n">add_subdomains</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sd</span>
+
+
+<span class="k">def</span> <span class="nf">_add_fracture_2_intersection_interface</span><span class="p">(</span>
+    <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">frac_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Does not check that the well lies _inside_ a fracture cell and not on the</span>
+<span class="sd">    face between two cells.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">frac_num</span> <span class="o">==</span> <span class="n">frac_num</span><span class="p">:</span>
+            <span class="n">sd_primary</span> <span class="o">=</span> <span class="n">sd</span>
+            <span class="k">break</span>  <span class="c1"># EK, is there a preferred method?</span>
+    <span class="n">cell_primary</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">closest_cell</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">)</span>
+    <span class="n">cell_secondary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="n">cell_cell_map</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="p">(</span><span class="n">cell_secondary</span><span class="p">,</span> <span class="n">cell_primary</span><span class="p">)),</span>
+        <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">_add_interface</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">mdg</span><span class="p">,</span> <span class="n">cell_cell_map</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_add_well_2_intersection_interface</span><span class="p">(</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">cell_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">vec</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_centers</span> <span class="o">-</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_centers</span>
+    <span class="n">face_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">vec</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">face_cell_map</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="p">(</span><span class="n">cell_l</span><span class="p">,</span> <span class="n">face_h</span><span class="p">)),</span>
+        <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">_add_interface</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">mdg</span><span class="p">,</span> <span class="n">face_cell_map</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_add_interface</span><span class="p">(</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+    <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
+    <span class="n">primary_secondary_map</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Utility method to add an edge to the mdg.</span>
+
+<span class="sd">    Both grids should already be present in the bucket.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd_primary. represents fracture or well.</span>
+<span class="sd">        sd_secondary: is the intersection point grid.</span>
+<span class="sd">        mdg: MixedDimensionalGrid to which the edge will be added.</span>
+<span class="sd">        primary_secondary_map (sps.coo_matrix): Map between cells_l and either faces_h</span>
+<span class="sd">            (codim=1) or cells_h (codim=2).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">codim</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span>
+    <span class="n">subdomain_pair</span> <span class="o">=</span> <span class="p">(</span><span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">)</span>
+    <span class="n">side_g</span> <span class="o">=</span> <span class="p">{</span><span class="n">pp</span><span class="o">.</span><span class="n">grids</span><span class="o">.</span><span class="n">mortar_grid</span><span class="o">.</span><span class="n">MortarSides</span><span class="o">.</span><span class="n">LEFT_SIDE</span><span class="p">:</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+    <span class="n">mg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">side_g</span><span class="p">,</span> <span class="n">primary_secondary_map</span><span class="p">,</span> <span class="n">codim</span><span class="o">=</span><span class="n">codim</span><span class="p">)</span>
+    <span class="n">mg</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span> <span class="o">=</span> <span class="n">primary_secondary_map</span>
+    <span class="n">mg</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
+    <span class="n">mdg</span><span class="o">.</span><span class="n">add_interface</span><span class="p">(</span><span class="n">mg</span><span class="p">,</span> <span class="n">subdomain_pair</span><span class="p">,</span> <span class="n">primary_secondary_map</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

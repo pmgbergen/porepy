@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.grids.simplex module &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.simplex.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="porepy.grids.structured module" href="porepy.grids.structured.html" />
+    <link rel="prev" title="porepy.grids.refinement module" href="porepy.grids.refinement.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
+          <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
+      <li class="breadcrumb-item active">porepy.grids.simplex module</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-porepy.grids.simplex">
+<span id="porepy-grids-simplex-module"></span><h1>porepy.grids.simplex module<a class="headerlink" href="#module-porepy.grids.simplex" title="Permalink to this heading"></a></h1>
+<p>Module containing classes for simplex grids.</p>
+<p class="rubric">Acknowledgement</p>
+<p>The implementation of structured grids is in practice a translation of the corresponding
+functions found in the <a class="reference external" href="www.sintef.no/projectweb/mrst/">Matlab Reservoir Simulation Toolbox (MRST)</a> developed by SINTEF ICT.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">StructuredTetrahedralGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/simplex.html#StructuredTetrahedralGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#porepy.grids.simplex.TetrahedralGrid" title="porepy.grids.simplex.TetrahedralGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">TetrahedralGrid</span></code></a></p>
+<p>Class for a structured tetrahedral grids, composed of Cartesian cells divided
+into two.</p>
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<p>Grid on the unit cube.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">nx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">physdims</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span> <span class="o">=</span> <span class="n">simplex</span><span class="o">.</span><span class="n">StructuredTriangleGrid</span><span class="p">(</span><span class="n">nx</span><span class="p">,</span> <span class="n">physdims</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nx</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code></p>
+<p>Number of cells in each direction of the underlying Cartesian grid.</p>
+</p></li>
+<li><p><strong>physdims</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,),</span> <span class="pre">default=None</span></code></p>
+<p>Domain size. If None, <code class="docutils literal notranslate"><span class="pre">nx</span></code> is used, thus Cartesian cells are unit cubes.</p>
+</p></li>
+<li><p><strong>name</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<p>Name of the grid. If None, <code class="docutils literal notranslate"><span class="pre">'StructuredTetrahedralGrid'</span></code> will be assigned.</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">Grid</a></p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.cell_centers">
+<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.cell_centers" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise the centers of all cells with
+<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_cells)</span></code>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.cell_faces">
+<span class="sig-name descname"><span class="pre">cell_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.cell_faces" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_faces,</span> <span class="pre">num_cells)</span></code> representing the map from
+cells to faces bordering respective cell.</p>
+<p>Matrix elements have value +-1, where + corresponds to the face normal vector
+being outwards.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.cell_volumes">
+<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.cell_volumes" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise the volumes per cell with
+<code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.dim">
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.dim" title="Permalink to this definition"></a></dt>
+<dd><p>Grid dimension. Should be in <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.face_areas">
+<span class="sig-name descname"><span class="pre">face_areas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.face_areas" title="Permalink to this definition"></a></dt>
+<dd><p>Areas of all faces <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells,))</span></code>.
+Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.face_centers">
+<span class="sig-name descname"><span class="pre">face_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.face_centers" title="Permalink to this definition"></a></dt>
+<dd><p>Centers of all faces. <code class="docutils literal notranslate"><span class="pre">(shape=(ambient_dimension,</span> <span class="pre">num_faces))</span></code>.
+Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.face_nodes">
+<span class="sig-name descname"><span class="pre">face_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.face_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,</span> <span class="pre">num_faces)</span></code> representing the map from
+faces to nodes spanning respective face.</p>
+<p>Assumes the nodes of each face are ordered according to the right-hand rule.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To use <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code> later, the field
+<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code> should store the nodes of each face sorted.
+<code class="docutils literal notranslate"><span class="pre">face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]</span></code>
+are the nodes of face i, which should be ordered counter-clockwise.</p>
+<p>By counter-clockwise we mean as seen from cell <code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">-1</span></code>.</p>
+<p>Equivalently the nodes will be clockwise as seen from cell
+<code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">1</span></code>.</p>
+<p>Note that operations on the face_nodes matrix
+(such as converting it to a csr-matrix) may change the ordering of
+the nodes (<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code>),
+which will break <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.face_normals">
+<span class="sig-name descname"><span class="pre">face_normals</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.face_normals" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise normal vectors of all faces with
+<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimenaion,</span> <span class="pre">num_faces)</span></code>.</p>
+<p>See also <a class="reference internal" href="#porepy.grids.simplex.StructuredTetrahedralGrid.cell_faces" title="porepy.grids.simplex.StructuredTetrahedralGrid.cell_faces"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cell_faces</span></code></a>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.frac_num">
+<span class="sig-name descname"><span class="pre">frac_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.frac_num" title="Permalink to this definition"></a></dt>
+<dd><p>Index of the fracture the grid corresponds to. Take
+value <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">...)</span></code> if the grid corresponds to a fracture, -1 if not.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.frac_pairs">
+<span class="sig-name descname"><span class="pre">frac_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.frac_pairs" title="Permalink to this definition"></a></dt>
+<dd><p>Indices of faces that are geometrically coinciding, but
+lay on different side of a lower-dimensional grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.global_point_ind">
+<span class="sig-name descname"><span class="pre">global_point_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.global_point_ind" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,)</span></code> containing indices of each point,
+assigned during processing of mixed-dimensional grids created by gmsh.</p>
+<p>Used to identify points that are geometrically equal, though on different grids.</p>
+<p>Could potentially be used to identify such geometrically equal points at a
+later stage, but there is no guarantee that this will work.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.history">
+<span class="sig-name descname"><span class="pre">history</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.history" title="Permalink to this definition"></a></dt>
+<dd><p>Information on the formation of the grid, such as the
+constructor, computations of geometry etc.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.name" title="Permalink to this definition"></a></dt>
+<dd><p>Name assigned to this grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.nodes">
+<span class="sig-name descname"><span class="pre">nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.nodes" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_nodes)</span></code> containing node
+coordinates column-wise.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.num_cells">
+<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.num_cells" title="Permalink to this definition"></a></dt>
+<dd><p>Number of cells in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.num_faces">
+<span class="sig-name descname"><span class="pre">num_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.num_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Number of faces in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.num_nodes">
+<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.num_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Number of nodes in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.parent_cell_ind">
+<span class="sig-name descname"><span class="pre">parent_cell_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.parent_cell_ind" title="Permalink to this definition"></a></dt>
+<dd><p>Index of parent the cell in the parent grid for grids that have refined
+sub-grids or are sub-grids of larger grids.</p>
+<p>Defaults to a mapping to its own index with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.periodic_face_map">
+<span class="sig-name descname"><span class="pre">periodic_face_map</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.periodic_face_map" title="Permalink to this definition"></a></dt>
+<dd><p>Index of periodic boundary faces,
+<code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int)</span></code>.</p>
+<p>Face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[0,</span> <span class="pre">i]</span></code> is periodic with
+face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[1,</span> <span class="pre">i]</span></code>.
+This attribute is set with <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_periodic_map()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.tags">
+<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.tags" title="Permalink to this definition"></a></dt>
+<dd><p>Tags allow to mark subdomains of interest.</p>
+<p>The default tags are used to mark fractures, tips and domain boundaries.
+Tags are used for nodes, as well as faces.
+User tags can be provided in the constructor.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTetrahedralGrid.well_num">
+<span class="sig-name descname"><span class="pre">well_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTetrahedralGrid.well_num" title="Permalink to this definition"></a></dt>
+<dd><p>Index of the well associated to the grid. Takes a value in
+<code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">..)</span></code> if the grid corresponds to a well, -1 if not.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">StructuredTriangleGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/simplex.html#StructuredTriangleGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#porepy.grids.simplex.TriangleGrid" title="porepy.grids.simplex.TriangleGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">TriangleGrid</span></code></a></p>
+<p>Class for a structured triangular grids, composed of squares divided
+into two.</p>
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<p>Grid on the unit cube.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">nx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">physdims</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span> <span class="o">=</span> <span class="n">simplex</span><span class="o">.</span><span class="n">StructuredTriangleGrid</span><span class="p">(</span><span class="n">nx</span><span class="p">,</span> <span class="n">physdims</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nx</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code></p>
+<p>Number of cells in each direction of the underlying Cartesian grid.</p>
+</p></li>
+<li><p><strong>physdims</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,),</span> <span class="pre">default=None</span></code></p>
+<p>Domain size. If None, <code class="docutils literal notranslate"><span class="pre">nx</span></code> is used, thus Cartesian cells are unit squares.</p>
+</p></li>
+<li><p><strong>name</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<p>Name of the grid. If None, <code class="docutils literal notranslate"><span class="pre">'StructuredTriangleGrid'</span></code> will be assigned.</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">Grid</a></p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.cell_centers">
+<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.cell_centers" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise the centers of all cells with
+<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_cells)</span></code>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.cell_faces">
+<span class="sig-name descname"><span class="pre">cell_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.cell_faces" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_faces,</span> <span class="pre">num_cells)</span></code> representing the map from
+cells to faces bordering respective cell.</p>
+<p>Matrix elements have value +-1, where + corresponds to the face normal vector
+being outwards.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.cell_volumes">
+<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.cell_volumes" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise the volumes per cell with
+<code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.dim">
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.dim" title="Permalink to this definition"></a></dt>
+<dd><p>Grid dimension. Should be in <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.face_areas">
+<span class="sig-name descname"><span class="pre">face_areas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.face_areas" title="Permalink to this definition"></a></dt>
+<dd><p>Areas of all faces <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells,))</span></code>.
+Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.face_centers">
+<span class="sig-name descname"><span class="pre">face_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.face_centers" title="Permalink to this definition"></a></dt>
+<dd><p>Centers of all faces. <code class="docutils literal notranslate"><span class="pre">(shape=(ambient_dimension,</span> <span class="pre">num_faces))</span></code>.
+Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.face_nodes">
+<span class="sig-name descname"><span class="pre">face_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.face_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,</span> <span class="pre">num_faces)</span></code> representing the map from
+faces to nodes spanning respective face.</p>
+<p>Assumes the nodes of each face are ordered according to the right-hand rule.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To use <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code> later, the field
+<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code> should store the nodes of each face sorted.
+<code class="docutils literal notranslate"><span class="pre">face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]</span></code>
+are the nodes of face i, which should be ordered counter-clockwise.</p>
+<p>By counter-clockwise we mean as seen from cell <code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">-1</span></code>.</p>
+<p>Equivalently the nodes will be clockwise as seen from cell
+<code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">1</span></code>.</p>
+<p>Note that operations on the face_nodes matrix
+(such as converting it to a csr-matrix) may change the ordering of
+the nodes (<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code>),
+which will break <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.face_normals">
+<span class="sig-name descname"><span class="pre">face_normals</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.face_normals" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise normal vectors of all faces with
+<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimenaion,</span> <span class="pre">num_faces)</span></code>.</p>
+<p>See also <a class="reference internal" href="#porepy.grids.simplex.StructuredTriangleGrid.cell_faces" title="porepy.grids.simplex.StructuredTriangleGrid.cell_faces"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cell_faces</span></code></a>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.frac_num">
+<span class="sig-name descname"><span class="pre">frac_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.frac_num" title="Permalink to this definition"></a></dt>
+<dd><p>Index of the fracture the grid corresponds to. Take
+value <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">...)</span></code> if the grid corresponds to a fracture, -1 if not.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.frac_pairs">
+<span class="sig-name descname"><span class="pre">frac_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.frac_pairs" title="Permalink to this definition"></a></dt>
+<dd><p>Indices of faces that are geometrically coinciding, but
+lay on different side of a lower-dimensional grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.global_point_ind">
+<span class="sig-name descname"><span class="pre">global_point_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.global_point_ind" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,)</span></code> containing indices of each point,
+assigned during processing of mixed-dimensional grids created by gmsh.</p>
+<p>Used to identify points that are geometrically equal, though on different grids.</p>
+<p>Could potentially be used to identify such geometrically equal points at a
+later stage, but there is no guarantee that this will work.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.history">
+<span class="sig-name descname"><span class="pre">history</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.history" title="Permalink to this definition"></a></dt>
+<dd><p>Information on the formation of the grid, such as the
+constructor, computations of geometry etc.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.name" title="Permalink to this definition"></a></dt>
+<dd><p>Name assigned to this grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.nodes">
+<span class="sig-name descname"><span class="pre">nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.nodes" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_nodes)</span></code> containing node
+coordinates column-wise.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.num_cells">
+<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.num_cells" title="Permalink to this definition"></a></dt>
+<dd><p>Number of cells in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.num_faces">
+<span class="sig-name descname"><span class="pre">num_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.num_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Number of faces in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.num_nodes">
+<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.num_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Number of nodes in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.parent_cell_ind">
+<span class="sig-name descname"><span class="pre">parent_cell_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.parent_cell_ind" title="Permalink to this definition"></a></dt>
+<dd><p>Index of parent the cell in the parent grid for grids that have refined
+sub-grids or are sub-grids of larger grids.</p>
+<p>Defaults to a mapping to its own index with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.periodic_face_map">
+<span class="sig-name descname"><span class="pre">periodic_face_map</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.periodic_face_map" title="Permalink to this definition"></a></dt>
+<dd><p>Index of periodic boundary faces,
+<code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int)</span></code>.</p>
+<p>Face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[0,</span> <span class="pre">i]</span></code> is periodic with
+face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[1,</span> <span class="pre">i]</span></code>.
+This attribute is set with <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_periodic_map()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.tags">
+<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.tags" title="Permalink to this definition"></a></dt>
+<dd><p>Tags allow to mark subdomains of interest.</p>
+<p>The default tags are used to mark fractures, tips and domain boundaries.
+Tags are used for nodes, as well as faces.
+User tags can be provided in the constructor.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.StructuredTriangleGrid.well_num">
+<span class="sig-name descname"><span class="pre">well_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.StructuredTriangleGrid.well_num" title="Permalink to this definition"></a></dt>
+<dd><p>Index of the well associated to the grid. Takes a value in
+<code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">..)</span></code> if the grid corresponds to a well, -1 if not.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TetrahedralGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/simplex.html#TetrahedralGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a></p>
+<p>Class for Tetrahedral grids.</p>
+<p>If the cells are not provided, a Delaunay tesselation will be
+constructed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_points)</span></code></p>
+<p>Coordinates of vertices.</p>
+</p></li>
+<li><p><strong>tet</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(4,</span> <span class="pre">num_tet),</span> <span class="pre">default=None</span></code></p>
+<p>Cell vertices. If None, a Delaunay triangulation will be performed.</p>
+</p></li>
+<li><p><strong>name</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<p>Name of grid type. If None, <code class="docutils literal notranslate"><span class="pre">'TetrahedralGrid'</span></code> will be assigned.</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">Grid</a></p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.cell_centers">
+<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.cell_centers" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise the centers of all cells with
+<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_cells)</span></code>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.cell_faces">
+<span class="sig-name descname"><span class="pre">cell_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.cell_faces" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_faces,</span> <span class="pre">num_cells)</span></code> representing the map from
+cells to faces bordering respective cell.</p>
+<p>Matrix elements have value +-1, where + corresponds to the face normal vector
+being outwards.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.cell_volumes">
+<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.cell_volumes" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise the volumes per cell with
+<code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.dim">
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.dim" title="Permalink to this definition"></a></dt>
+<dd><p>Grid dimension. Should be in <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.face_areas">
+<span class="sig-name descname"><span class="pre">face_areas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.face_areas" title="Permalink to this definition"></a></dt>
+<dd><p>Areas of all faces <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells,))</span></code>.
+Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.face_centers">
+<span class="sig-name descname"><span class="pre">face_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.face_centers" title="Permalink to this definition"></a></dt>
+<dd><p>Centers of all faces. <code class="docutils literal notranslate"><span class="pre">(shape=(ambient_dimension,</span> <span class="pre">num_faces))</span></code>.
+Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.face_nodes">
+<span class="sig-name descname"><span class="pre">face_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.face_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,</span> <span class="pre">num_faces)</span></code> representing the map from
+faces to nodes spanning respective face.</p>
+<p>Assumes the nodes of each face are ordered according to the right-hand rule.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To use <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code> later, the field
+<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code> should store the nodes of each face sorted.
+<code class="docutils literal notranslate"><span class="pre">face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]</span></code>
+are the nodes of face i, which should be ordered counter-clockwise.</p>
+<p>By counter-clockwise we mean as seen from cell <code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">-1</span></code>.</p>
+<p>Equivalently the nodes will be clockwise as seen from cell
+<code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">1</span></code>.</p>
+<p>Note that operations on the face_nodes matrix
+(such as converting it to a csr-matrix) may change the ordering of
+the nodes (<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code>),
+which will break <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.face_normals">
+<span class="sig-name descname"><span class="pre">face_normals</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.face_normals" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise normal vectors of all faces with
+<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimenaion,</span> <span class="pre">num_faces)</span></code>.</p>
+<p>See also <a class="reference internal" href="#porepy.grids.simplex.TetrahedralGrid.cell_faces" title="porepy.grids.simplex.TetrahedralGrid.cell_faces"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cell_faces</span></code></a>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.frac_num">
+<span class="sig-name descname"><span class="pre">frac_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.frac_num" title="Permalink to this definition"></a></dt>
+<dd><p>Index of the fracture the grid corresponds to. Take
+value <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">...)</span></code> if the grid corresponds to a fracture, -1 if not.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.frac_pairs">
+<span class="sig-name descname"><span class="pre">frac_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.frac_pairs" title="Permalink to this definition"></a></dt>
+<dd><p>Indices of faces that are geometrically coinciding, but
+lay on different side of a lower-dimensional grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.global_point_ind">
+<span class="sig-name descname"><span class="pre">global_point_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.global_point_ind" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,)</span></code> containing indices of each point,
+assigned during processing of mixed-dimensional grids created by gmsh.</p>
+<p>Used to identify points that are geometrically equal, though on different grids.</p>
+<p>Could potentially be used to identify such geometrically equal points at a
+later stage, but there is no guarantee that this will work.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.history">
+<span class="sig-name descname"><span class="pre">history</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.history" title="Permalink to this definition"></a></dt>
+<dd><p>Information on the formation of the grid, such as the
+constructor, computations of geometry etc.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.name" title="Permalink to this definition"></a></dt>
+<dd><p>Name assigned to this grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.nodes">
+<span class="sig-name descname"><span class="pre">nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.nodes" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_nodes)</span></code> containing node
+coordinates column-wise.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.num_cells">
+<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.num_cells" title="Permalink to this definition"></a></dt>
+<dd><p>Number of cells in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.num_faces">
+<span class="sig-name descname"><span class="pre">num_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.num_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Number of faces in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.num_nodes">
+<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.num_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Number of nodes in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.parent_cell_ind">
+<span class="sig-name descname"><span class="pre">parent_cell_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.parent_cell_ind" title="Permalink to this definition"></a></dt>
+<dd><p>Index of parent the cell in the parent grid for grids that have refined
+sub-grids or are sub-grids of larger grids.</p>
+<p>Defaults to a mapping to its own index with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.periodic_face_map">
+<span class="sig-name descname"><span class="pre">periodic_face_map</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.periodic_face_map" title="Permalink to this definition"></a></dt>
+<dd><p>Index of periodic boundary faces,
+<code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int)</span></code>.</p>
+<p>Face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[0,</span> <span class="pre">i]</span></code> is periodic with
+face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[1,</span> <span class="pre">i]</span></code>.
+This attribute is set with <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_periodic_map()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.tags">
+<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.tags" title="Permalink to this definition"></a></dt>
+<dd><p>Tags allow to mark subdomains of interest.</p>
+<p>The default tags are used to mark fractures, tips and domain boundaries.
+Tags are used for nodes, as well as faces.
+User tags can be provided in the constructor.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TetrahedralGrid.well_num">
+<span class="sig-name descname"><span class="pre">well_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TetrahedralGrid.well_num" title="Permalink to this definition"></a></dt>
+<dd><p>Index of the well associated to the grid. Takes a value in
+<code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">..)</span></code> if the grid corresponds to a well, -1 if not.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TriangleGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/simplex.html#TriangleGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a></p>
+<p>Class representation of a general triangular grid.</p>
+<p>If no triangulation is provided, Delaunay will be applied.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Triangular grids are by definition 2D.</p>
+</div>
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tri</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">Delaunay</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">transpose</span><span class="p">())</span><span class="o">.</span><span class="n">simplices</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span> <span class="o">=</span> <span class="n">TriangleGrid</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">tri</span><span class="o">.</span><span class="n">transpose</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_nodes)</span></code></p>
+<p>Cloud of point coordinates.</p>
+</p></li>
+<li><p><strong>tri</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_cells),</span> <span class="pre">default=None</span></code></p>
+<p>Cell-node connections. If None, a Delaunay triangulation will be applied.</p>
+</p></li>
+<li><p><strong>name</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<p>Name of the grid. If None, <code class="docutils literal notranslate"><span class="pre">'TriangleGrid'</span></code> will be assigned.</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">Grid</a></p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.cell_node_matrix">
+<span class="sig-name descname"><span class="pre">cell_node_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/simplex.html#TriangleGrid.cell_node_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.cell_node_matrix" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,</span> <span class="pre">3)</span></code>, representing the cell-to-node map.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.cell_centers">
+<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.cell_centers" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise the centers of all cells with
+<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_cells)</span></code>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.cell_faces">
+<span class="sig-name descname"><span class="pre">cell_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.cell_faces" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_faces,</span> <span class="pre">num_cells)</span></code> representing the map from
+cells to faces bordering respective cell.</p>
+<p>Matrix elements have value +-1, where + corresponds to the face normal vector
+being outwards.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.cell_volumes">
+<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.cell_volumes" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise the volumes per cell with
+<code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.dim">
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.dim" title="Permalink to this definition"></a></dt>
+<dd><p>Grid dimension. Should be in <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.face_areas">
+<span class="sig-name descname"><span class="pre">face_areas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.face_areas" title="Permalink to this definition"></a></dt>
+<dd><p>Areas of all faces <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells,))</span></code>.
+Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.face_centers">
+<span class="sig-name descname"><span class="pre">face_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.face_centers" title="Permalink to this definition"></a></dt>
+<dd><p>Centers of all faces. <code class="docutils literal notranslate"><span class="pre">(shape=(ambient_dimension,</span> <span class="pre">num_faces))</span></code>.
+Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.face_nodes">
+<span class="sig-name descname"><span class="pre">face_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.face_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,</span> <span class="pre">num_faces)</span></code> representing the map from
+faces to nodes spanning respective face.</p>
+<p>Assumes the nodes of each face are ordered according to the right-hand rule.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To use <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code> later, the field
+<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code> should store the nodes of each face sorted.
+<code class="docutils literal notranslate"><span class="pre">face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]</span></code>
+are the nodes of face i, which should be ordered counter-clockwise.</p>
+<p>By counter-clockwise we mean as seen from cell <code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">-1</span></code>.</p>
+<p>Equivalently the nodes will be clockwise as seen from cell
+<code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">1</span></code>.</p>
+<p>Note that operations on the face_nodes matrix
+(such as converting it to a csr-matrix) may change the ordering of
+the nodes (<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code>),
+which will break <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.face_normals">
+<span class="sig-name descname"><span class="pre">face_normals</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.face_normals" title="Permalink to this definition"></a></dt>
+<dd><p>An array containing column-wise normal vectors of all faces with
+<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimenaion,</span> <span class="pre">num_faces)</span></code>.</p>
+<p>See also <a class="reference internal" href="#porepy.grids.simplex.TriangleGrid.cell_faces" title="porepy.grids.simplex.TriangleGrid.cell_faces"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cell_faces</span></code></a>.</p>
+<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.frac_num">
+<span class="sig-name descname"><span class="pre">frac_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.frac_num" title="Permalink to this definition"></a></dt>
+<dd><p>Index of the fracture the grid corresponds to. Take
+value <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">...)</span></code> if the grid corresponds to a fracture, -1 if not.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.frac_pairs">
+<span class="sig-name descname"><span class="pre">frac_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.frac_pairs" title="Permalink to this definition"></a></dt>
+<dd><p>Indices of faces that are geometrically coinciding, but
+lay on different side of a lower-dimensional grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.global_point_ind">
+<span class="sig-name descname"><span class="pre">global_point_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.global_point_ind" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,)</span></code> containing indices of each point,
+assigned during processing of mixed-dimensional grids created by gmsh.</p>
+<p>Used to identify points that are geometrically equal, though on different grids.</p>
+<p>Could potentially be used to identify such geometrically equal points at a
+later stage, but there is no guarantee that this will work.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.history">
+<span class="sig-name descname"><span class="pre">history</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.history" title="Permalink to this definition"></a></dt>
+<dd><p>Information on the formation of the grid, such as the
+constructor, computations of geometry etc.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.name" title="Permalink to this definition"></a></dt>
+<dd><p>Name assigned to this grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.nodes">
+<span class="sig-name descname"><span class="pre">nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.nodes" title="Permalink to this definition"></a></dt>
+<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_nodes)</span></code> containing node
+coordinates column-wise.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.num_cells">
+<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.num_cells" title="Permalink to this definition"></a></dt>
+<dd><p>Number of cells in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.num_faces">
+<span class="sig-name descname"><span class="pre">num_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.num_faces" title="Permalink to this definition"></a></dt>
+<dd><p>Number of faces in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.num_nodes">
+<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.num_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Number of nodes in the grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.parent_cell_ind">
+<span class="sig-name descname"><span class="pre">parent_cell_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.parent_cell_ind" title="Permalink to this definition"></a></dt>
+<dd><p>Index of parent the cell in the parent grid for grids that have refined
+sub-grids or are sub-grids of larger grids.</p>
+<p>Defaults to a mapping to its own index with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.periodic_face_map">
+<span class="sig-name descname"><span class="pre">periodic_face_map</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.periodic_face_map" title="Permalink to this definition"></a></dt>
+<dd><p>Index of periodic boundary faces,
+<code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int)</span></code>.</p>
+<p>Face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[0,</span> <span class="pre">i]</span></code> is periodic with
+face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[1,</span> <span class="pre">i]</span></code>.
+This attribute is set with <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_periodic_map()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.tags">
+<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.tags" title="Permalink to this definition"></a></dt>
+<dd><p>Tags allow to mark subdomains of interest.</p>
+<p>The default tags are used to mark fractures, tips and domain boundaries.
+Tags are used for nodes, as well as faces.
+User tags can be provided in the constructor.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.grids.simplex.TriangleGrid.well_num">
+<span class="sig-name descname"><span class="pre">well_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.simplex.TriangleGrid.well_num" title="Permalink to this definition"></a></dt>
+<dd><p>Index of the well associated to the grid. Takes a value in
+<code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">..)</span></code> if the grid corresponds to a well, -1 if not.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="porepy.grids.refinement.html" class="btn btn-neutral float-left" title="porepy.grids.refinement module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="porepy.grids.structured.html" class="btn btn-neutral float-right" title="porepy.grids.structured module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

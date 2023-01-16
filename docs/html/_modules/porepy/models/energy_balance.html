@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.models.energy_balance &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/energy_balance.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.models.energy_balance</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.models.energy_balance</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Energy balance with advection and diffusion.</span>
+
+<span class="sd">Local thermal equilibrium is assumed, i.e., the solid and fluid temperatures are assumed</span>
+<span class="sd">to be constant within each cell. This leads to a single equation with &quot;effective&quot; or</span>
+<span class="sd">&quot;total&quot; quantities and parameters.</span>
+
+<span class="sd">Since the current implementation assumes a flow field provided by a separate model, the</span>
+<span class="sd">energy balance equation is not stand-alone. Thus, no class `EnergyBalance` is provided,</span>
+<span class="sd">as would be consistent with the other models. However, the class is included in coupled</span>
+<span class="sd">models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBalance`.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+
+<div class="viewcode-block" id="EnergyBalanceEquations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations">[docs]</a><span class="k">class</span> <span class="nc">EnergyBalanceEquations</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">BalanceEquation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Mixed-dimensional energy balance equation.</span>
+
+<span class="sd">    Balance equation for all subdomains and advective and diffusive fluxes internally</span>
+<span class="sd">    and on all interfaces of codimension one.</span>
+
+<span class="sd">    The class is not meant to be used stand-alone, but as a mixin in a coupled model.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Expected attributes for this mixin</span>
+    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
+    <span class="sd">&quot;&quot;&quot;Mixed dimensional grid for the current model. Normally defined in a mixin</span>
+<span class="sd">    instance of :class:`~porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">equation_system</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span>
+    <span class="sd">&quot;&quot;&quot;EquationSystem object for the current model. Normally defined in a mixin class</span>
+<span class="sd">    defining the solution strategy.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">interface_fourier_flux</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+        <span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MixedDimensionalVariable</span>
+    <span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Fourier flux variable on interfaces. Normally defined in a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fluid_density</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Fluid density. Defined in a mixin class with a suitable constitutive relation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fluid_enthalpy</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Fluid enthalpy. Defined in a mixin class with a suitable constitutive relation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">solid_enthalpy</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Solid enthalpy. Defined in a mixin class with a suitable constitutive relation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">solid_density</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Scalar</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Solid density. Defined in a mixin class with a suitable constitutive relation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">porosity</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Porosity of the rock. Normally provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mobility</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Fluid mobility. Normally provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.constitutive_laws.FluidMobility`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pressure</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MixedDimensionalVariable</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Pressure variable. Normally defined in a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fourier_flux</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Fourier flux. Normally provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.constitutive_laws.FouriersLaw`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">interface_enthalpy_flux</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+        <span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MixedDimensionalVariable</span>
+    <span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Variable for interface enthalpy flux. Normally provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">enthalpy_keyword</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="sd">&quot;&quot;&quot;Keyword used to identify the enthalpy flux discretization. Normally set by a mixin</span>
+<span class="sd">    instance of</span>
+<span class="sd">    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">advective_flux</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+        <span class="p">[</span>
+            <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">,</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">UpwindAd</span><span class="p">,</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">,</span>
+            <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">],</span>
+        <span class="p">],</span>
+        <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Ad operator representing the advective flux. Normally provided by a mixin</span>
+<span class="sd">    instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bc_values_enthalpy_flux</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Boundary condition for enthalpy flux. Normally defined in a mixin instance</span>
+<span class="sd">    of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">interface_advective_flux</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+        <span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">UpwindCouplingAd</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span>
+    <span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Ad operator representing the advective flux on internal boundaries. Normally</span>
+<span class="sd">    provided by a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">interfaces_to_subdomains</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span>
+    <span class="sd">&quot;&quot;&quot;Map from interfaces to the adjacent subdomains. Normally defined in a mixin</span>
+<span class="sd">    instance of :class:`~porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">subdomains_to_interfaces</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span>
+    <span class="sd">&quot;&quot;&quot;Map from subdomains to the adjacent interfaces. Normally defined in a mixin</span>
+<span class="sd">    instance of :class:`~porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.set_equations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.set_equations">[docs]</a>    <span class="k">def</span> <span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the equations for the energy balance problem.</span>
+
+<span class="sd">        A energy balance equation is set for each subdomain, and advective and diffusive</span>
+<span class="sd">        fluxes are set for each interface of codimension one.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">subdomains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">()</span>
+        <span class="n">interfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">()</span>
+        <span class="n">sd_eq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_balance_equation</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="n">intf_cond</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_fourier_flux_equation</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span>
+        <span class="n">intf_adv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_enthalpy_flux_equation</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_equation</span><span class="p">(</span><span class="n">sd_eq</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_equation</span><span class="p">(</span><span class="n">intf_cond</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_equation</span><span class="p">(</span><span class="n">intf_adv</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.energy_balance_equation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.energy_balance_equation">[docs]</a>    <span class="k">def</span> <span class="nf">energy_balance_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Energy balance equation for subdomains.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the energy balance equation.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">accumulation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_internal_energy</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_flux</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_source</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="n">eq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">balance_equation</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">accumulation</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">eq</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;energy_balance_equation&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eq</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.fluid_internal_energy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.fluid_internal_energy">[docs]</a>    <span class="k">def</span> <span class="nf">fluid_internal_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Internal energy of the fluid.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the fluid energy.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">energy_density</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fluid_density</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fluid_enthalpy</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">porosity</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">volume_integral</span><span class="p">(</span><span class="n">energy_density</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">energy</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;fluid_internal_energy&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">energy</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.solid_internal_energy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.solid_internal_energy">[docs]</a>    <span class="k">def</span> <span class="nf">solid_internal_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Internal energy of the solid.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the solid energy.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">energy_density</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solid_density</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">solid_enthalpy</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">porosity</span><span class="p">(</span><span class="n">subdomains</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">volume_integral</span><span class="p">(</span><span class="n">energy_density</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">energy</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;solid_internal_energy&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">energy</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.total_internal_energy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.total_internal_energy">[docs]</a>    <span class="k">def</span> <span class="nf">total_internal_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Total energy.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the total energy, i.e. the sum of the fluid and solid</span>
+<span class="sd">            energy.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fluid_internal_energy</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">solid_internal_energy</span><span class="p">(</span>
+            <span class="n">subdomains</span>
+        <span class="p">)</span>
+        <span class="n">energy</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;total_energy&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">energy</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.energy_flux"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.energy_flux">[docs]</a>    <span class="k">def</span> <span class="nf">energy_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Energy flux.</span>
+
+<span class="sd">        Energy flux is the sum of the advective and diffusive fluxes.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the energy flux.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fourier_flux</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">enthalpy_flux</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+        <span class="n">flux</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;energy_flux&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">flux</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.interface_energy_flux"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.interface_energy_flux">[docs]</a>    <span class="k">def</span> <span class="nf">interface_energy_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Interface fluid flux.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            interfaces: List of interface grids.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the interface fluid flux.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">flux</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_fourier_flux</span><span class="p">(</span>
+            <span class="n">interfaces</span>
+        <span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_enthalpy_flux</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span>
+        <span class="n">flux</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;interface_energy_flux&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">flux</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.enthalpy_flux"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.enthalpy_flux">[docs]</a>    <span class="k">def</span> <span class="nf">enthalpy_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Enthalpy flux.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the enthalpy flux.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Only one option for discretization currently. Refactor (method</span>
+        <span class="c1"># enthalpy_flux_discretization) if more options are added.</span>
+        <span class="n">discr</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">UpwindAd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">enthalpy_keyword</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">)</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">advective_flux</span><span class="p">(</span>
+            <span class="n">subdomains</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fluid_enthalpy</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mobility</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fluid_density</span><span class="p">(</span><span class="n">subdomains</span><span class="p">),</span>
+            <span class="n">discr</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bc_values_enthalpy_flux</span><span class="p">(</span><span class="n">subdomains</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interface_enthalpy_flux</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">flux</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;enthalpy_flux&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">flux</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.interface_enthalpy_flux_equation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.interface_enthalpy_flux_equation">[docs]</a>    <span class="k">def</span> <span class="nf">interface_enthalpy_flux_equation</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Interface enthalpy flux.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            interfaces: List of interface grids.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the interface enthalpy flux.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">subdomains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces_to_subdomains</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span>
+        <span class="n">discr</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">UpwindCouplingAd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">enthalpy_keyword</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">)</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_advective_flux</span><span class="p">(</span>
+            <span class="n">interfaces</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fluid_enthalpy</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mobility</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
+            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fluid_density</span><span class="p">(</span><span class="n">subdomains</span><span class="p">),</span>
+            <span class="n">discr</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">eq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_enthalpy_flux</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">-</span> <span class="n">flux</span>
+        <span class="n">eq</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;interface_enthalpy_flux_equation&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eq</span></div>
+
+<div class="viewcode-block" id="EnergyBalanceEquations.energy_source"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.EnergyBalanceEquations.energy_source">[docs]</a>    <span class="k">def</span> <span class="nf">energy_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Energy source term.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            When overriding this method to assign internal energy sources, one is</span>
+<span class="sd">            advised to call the base class method and add the new contribution, thus</span>
+<span class="sd">            ensuring that the source term includes the contribution from the interface</span>
+<span class="sd">            fluxes.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Operator representing the source term.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Interdimensional fluxes manifest as source terms in lower-dimensional</span>
+        <span class="c1"># subdomains.</span>
+        <span class="n">interfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains_to_interfaces</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">projection</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MortarProjections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">)</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_enthalpy_flux</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_fourier_flux</span><span class="p">(</span>
+            <span class="n">interfaces</span>
+        <span class="p">)</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">projection</span><span class="o">.</span><span class="n">mortar_to_secondary_int</span> <span class="o">*</span> <span class="n">flux</span>
+        <span class="n">source</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;interface_energy_source&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">source</span></div></div>
+
+
+<div class="viewcode-block" id="VariablesEnergyBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.VariablesEnergyBalance">[docs]</a><span class="k">class</span> <span class="nc">VariablesEnergyBalance</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates necessary variables (temperature, advective and diffusive interface flux)</span>
+<span class="sd">    and provides getter methods for these and their reference values. Getters construct</span>
+<span class="sd">    mixed-dimensional variables on the fly, and can be called on any subset of the grids</span>
+<span class="sd">    where the variable is defined. Setter method (assign_variables), however, must</span>
+<span class="sd">    create on all grids where the variable is to be used.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Wrapping in class methods and not calling equation_system directly allows for</span>
+<span class="sd">        easier changes of primary variables. As long as all calls to enthalpy_flux()</span>
+<span class="sd">        accept Operators as return values, we can in theory add it as a primary variable</span>
+<span class="sd">        and solved mixed form. Similarly for different formulations of enthalpy instead</span>
+<span class="sd">        of temperature.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Expected attributes for this mixin</span>
+    <span class="n">equation_system</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span>
+    <span class="sd">&quot;&quot;&quot;EquationSystem object for the current model. Normally defined in a mixin class</span>
+<span class="sd">    defining the solution strategy.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fluid</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">FluidConstants</span>
+    <span class="sd">&quot;&quot;&quot;Fluid constant object that takes care of scaling of fluid-related quantities.</span>
+<span class="sd">    Normally, this is set by a mixin of instance</span>
+<span class="sd">    :class:`~porepy.models.solution_strategy.SolutionStrategy`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">solid</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SolidConstants</span>
+    <span class="sd">&quot;&quot;&quot;Solid constant object that takes care of scaling of solid-related quantities.</span>
+<span class="sd">    Normally, this is set by a mixin of instance</span>
+<span class="sd">    :class:`~porepy.models.solution_strategy.SolutionStrategy`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
+    <span class="sd">&quot;&quot;&quot;Mixed dimensional grid for the current model. Normally defined in a mixin</span>
+<span class="sd">    instance of :class:`~porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">temperature_variable</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="sd">&quot;&quot;&quot;Name of the primary variable representing the temperature. Normally defined in a</span>
+<span class="sd">    mixin of instance</span>
+<span class="sd">    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">interface_fourier_flux_variable</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="sd">&quot;&quot;&quot;Name of the primary variable representing the Fourier flux across an interface.</span>
+<span class="sd">    Normally defined in a mixin of instance</span>
+<span class="sd">    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">interface_enthalpy_flux_variable</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="sd">&quot;&quot;&quot;Name of the primary variable representing the enthalpy flux across an interface.</span>
+<span class="sd">    Normally defined in a mixin of instance</span>
+<span class="sd">    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="VariablesEnergyBalance.create_variables"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.VariablesEnergyBalance.create_variables">[docs]</a>    <span class="k">def</span> <span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Assign primary variables to subdomains and interfaces of the</span>
+<span class="sd">        mixed-dimensional grid.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temperature_variable</span><span class="p">,</span>
+            <span class="n">subdomains</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interface_fourier_flux_variable</span><span class="p">,</span>
+            <span class="n">interfaces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interface_enthalpy_flux_variable</span><span class="p">,</span>
+            <span class="n">interfaces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">(),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="VariablesEnergyBalance.temperature"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.VariablesEnergyBalance.temperature">[docs]</a>    <span class="k">def</span> <span class="nf">temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MixedDimensionalVariable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Temperature variable.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Mixed-dimensional variable representing the temperature.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">md_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature_variable</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">t</span></div>
+
+<div class="viewcode-block" id="VariablesEnergyBalance.interface_fourier_flux"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.VariablesEnergyBalance.interface_fourier_flux">[docs]</a>    <span class="k">def</span> <span class="nf">interface_fourier_flux</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MixedDimensionalVariable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Interface Fourier flux.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            interfaces: List of interface grids.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Variable representing the interface Fourier flux.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">md_variable</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interface_fourier_flux_variable</span><span class="p">,</span> <span class="n">interfaces</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">flux</span></div>
+
+<div class="viewcode-block" id="VariablesEnergyBalance.interface_enthalpy_flux"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.VariablesEnergyBalance.interface_enthalpy_flux">[docs]</a>    <span class="k">def</span> <span class="nf">interface_enthalpy_flux</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MixedDimensionalVariable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Interface enthalpy flux.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            interfaces: List of interface grids.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Variable representing the interface enthalpy flux.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">md_variable</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interface_enthalpy_flux_variable</span><span class="p">,</span> <span class="n">interfaces</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">flux</span></div>
+
+<div class="viewcode-block" id="VariablesEnergyBalance.reference_temperature"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.VariablesEnergyBalance.reference_temperature">[docs]</a>    <span class="k">def</span> <span class="nf">reference_temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Reference temperature.</span>
+
+<span class="sd">        For now, we assume that the reference temperature is the same for solid and</span>
+<span class="sd">        fluid. More sophisticated models may require different reference temperatures.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                Operator representing the reference temperature.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t_ref</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fluid</span><span class="o">.</span><span class="n">temperature</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">t_ref</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">solid</span><span class="o">.</span><span class="n">temperature</span><span class="p">()</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">wrap_as_ad_array</span><span class="p">(</span><span class="n">t_ref</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;reference_temperature&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ConstitutiveLawsEnergyBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.ConstitutiveLawsEnergyBalance">[docs]</a><span class="k">class</span> <span class="nc">ConstitutiveLawsEnergyBalance</span><span class="p">(</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">EnthalpyFromTemperature</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FouriersLaw</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ThermalConductivityLTE</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">DimensionReduction</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">AdvectiveFlux</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FluidDensityFromTemperature</span><span class="p">,</span>
+    <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ConstantSolidDensity</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Collect constitutive laws for the energy balance.&quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BoundaryConditionsEnergyBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.BoundaryConditionsEnergyBalance">[docs]</a><span class="k">class</span> <span class="nc">BoundaryConditionsEnergyBalance</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Boundary conditions for the energy balance.</span>
+
+<span class="sd">    Boundary type and value for both diffusive Fourier flux and advective enthalpy flux.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">domain_boundary_sides</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+        <span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="nb">tuple</span><span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Boundary sides of the domain. Normally defined in a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="BoundaryConditionsEnergyBalance.bc_type_fourier"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.BoundaryConditionsEnergyBalance.bc_type_fourier">[docs]</a>    <span class="k">def</span> <span class="nf">bc_type_fourier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Dirichlet conditions on all external boundaries.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd: Subdomain grid on which to define boundary conditions.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Boundary condition object.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Define boundary regions</span>
+        <span class="n">all_bf</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_boundary_sides</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="c1"># Define boundary condition on faces</span>
+        <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">all_bf</span><span class="p">,</span> <span class="s2">&quot;dir&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BoundaryConditionsEnergyBalance.bc_type_enthalpy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.BoundaryConditionsEnergyBalance.bc_type_enthalpy">[docs]</a>    <span class="k">def</span> <span class="nf">bc_type_enthalpy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Dirichlet conditions on all external boundaries.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd: Subdomain grid on which to define boundary conditions.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Boundary condition object.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Define boundary regions</span>
+        <span class="n">all_bf</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_boundary_sides</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="c1"># Define boundary condition on faces</span>
+        <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">all_bf</span><span class="p">,</span> <span class="s2">&quot;dir&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BoundaryConditionsEnergyBalance.bc_values_fourier"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.BoundaryConditionsEnergyBalance.bc_values_fourier">[docs]</a>    <span class="k">def</span> <span class="nf">bc_values_fourier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Array</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Boundary values for the Fourier flux.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Ad array representing the boundary condition values for the Fourier flux.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">num_faces</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">wrap_as_ad_array</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_faces</span><span class="p">,</span> <span class="s2">&quot;bc_values_fourier&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BoundaryConditionsEnergyBalance.bc_values_enthalpy_flux"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.BoundaryConditionsEnergyBalance.bc_values_enthalpy_flux">[docs]</a>    <span class="k">def</span> <span class="nf">bc_values_enthalpy_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Array</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Boundary values for the enthalpy.</span>
+
+<span class="sd">        SI units for Dirichlet: [J/m^3]</span>
+<span class="sd">        SI units for Neumann: TODO</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains: List of subdomains.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Array with boundary values for the enthalpy.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># List for all subdomains</span>
+        <span class="n">bc_values</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Loop over subdomains to collect boundary values</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">:</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
+            <span class="c1"># If you know the boundary temperature, do something like:</span>
+            <span class="c1"># all_bf, *_ = self.domain_boundary_sides(sd)</span>
+            <span class="c1"># vals[all_bf] = self.fluid.specific_heat_capacity() * dirichlet_values</span>
+            <span class="c1"># Append to list of boundary values</span>
+            <span class="n">bc_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+
+        <span class="c1"># Concatenate to single array and wrap as ad.Array</span>
+        <span class="n">bc_values_ad</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">wrap_as_ad_array</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">bc_values</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;bc_values_enthalpy&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">bc_values_ad</span></div></div>
+
+
+<div class="viewcode-block" id="SolutionStrategyEnergyBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.SolutionStrategyEnergyBalance">[docs]</a><span class="k">class</span> <span class="nc">SolutionStrategyEnergyBalance</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">SolutionStrategy</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Solution strategy for the energy balance.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        params: Parameters for the solution strategy.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Normally set by a mixin instance of</span>
+<span class="sd">    :class:`porepy.models.geometry.ModelGeometry`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">specific_volume</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Function that returns the specific volume of a subdomain. Normally provided by a</span>
+<span class="sd">    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">thermal_conductivity</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Thermal conductivity. Normally defined in a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bc_type_fourier</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Function that returns the boundary condition type for the Fourier flux. Normally</span>
+<span class="sd">    defined in a mixin instance of</span>
+<span class="sd">    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bc_type_enthalpy</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">]</span>
+    <span class="sd">&quot;&quot;&quot;Function that returns the boundary condition type for the enthalpy flux.</span>
+<span class="sd">    Normally defined in a mixin instance</span>
+<span class="sd">    of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Generic solution strategy initialization in pp.SolutionStrategy and specific</span>
+        <span class="c1"># initialization for the fluid mass balance (variables, discretizations...)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+        <span class="c1"># Define the energy balance</span>
+        <span class="c1"># Variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;temperature&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Name of the temperature variable.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">interface_fourier_flux_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;interface_fourier_flux&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Name of the primary variable representing the Fourier flux on the interface.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">interface_enthalpy_flux_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;interface_enthalpy_flux&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Name of the primary variable representing the enthalpy flux on the interface.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Discrretization</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fourier_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;fourier_discretization&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Keyword for Fourier flux term.</span>
+
+<span class="sd">        Used to access discretization parameters and store discretization matrices.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enthalpy_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;enthalpy_flux_discretization&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Keyword for enthalpy flux term.</span>
+
+<span class="sd">        Used to access discretization parameters and store discretization matrices.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SolutionStrategyEnergyBalance.set_discretization_parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.SolutionStrategyEnergyBalance.set_discretization_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set default (unitary/zero) parameters for the energy problem.</span>
+
+<span class="sd">        The parameter fields of the data dictionaries are updated for all subdomains and</span>
+<span class="sd">        interfaces (of codimension 1).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_discretization_parameters</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+
+            <span class="n">specific_volume_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">specific_volume</span><span class="p">([</span><span class="n">sd</span><span class="p">])</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">specific_volume_mat</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">):</span>
+                <span class="n">specific_volume_mat</span> <span class="o">=</span> <span class="n">specific_volume_mat</span><span class="o">.</span><span class="n">val</span>
+            <span class="c1"># Extract diagonal of the specific volume matrix.</span>
+            <span class="n">specific_volume</span> <span class="o">=</span> <span class="n">specific_volume_mat</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+
+            <span class="n">kappa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_conductivity</span><span class="p">([</span><span class="n">sd</span><span class="p">])</span>
+            <span class="n">diffusivity</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span><span class="p">(</span><span class="n">kappa</span> <span class="o">*</span> <span class="n">specific_volume</span><span class="p">)</span>
+
+            <span class="n">pp</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span>
+                <span class="n">sd</span><span class="p">,</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fourier_keyword</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;bc&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc_type_fourier</span><span class="p">(</span><span class="n">sd</span><span class="p">),</span>
+                    <span class="s2">&quot;second_order_tensor&quot;</span><span class="p">:</span> <span class="n">diffusivity</span><span class="p">,</span>
+                    <span class="s2">&quot;ambient_dimension&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span>
+                <span class="n">sd</span><span class="p">,</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">enthalpy_keyword</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;bc&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc_type_enthalpy</span><span class="p">(</span><span class="n">sd</span><span class="p">),</span>
+                <span class="p">},</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategyEnergyBalance.initial_condition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.SolutionStrategyEnergyBalance.initial_condition">[docs]</a>    <span class="k">def</span> <span class="nf">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add darcy flux to discretization parameter dictionaries.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">initial_condition</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span>
+                <span class="n">sd</span><span class="p">,</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">enthalpy_keyword</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;darcy_flux&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)},</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">intf</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">pp</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span>
+                <span class="n">intf</span><span class="p">,</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">enthalpy_keyword</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;darcy_flux&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">intf</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)},</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SolutionStrategyEnergyBalance.before_nonlinear_iteration"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.energy_balance.html#porepy.models.energy_balance.SolutionStrategyEnergyBalance.before_nonlinear_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">before_nonlinear_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate Darcy flux (super) and copy to the enthalpy flux keyword, to be used</span>
+<span class="sd">        in upstream weighting.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">before_nonlinear_iteration</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">(</span>
+            <span class="n">return_data</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">):</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">mobility_keyword</span><span class="p">][</span><span class="s2">&quot;darcy_flux&quot;</span><span class="p">]</span>
+            <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">enthalpy_keyword</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;darcy_flux&quot;</span><span class="p">:</span> <span class="n">vals</span><span class="p">})</span>
+
+        <span class="c1"># TODO: Targeted rediscretization.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discretize</span><span class="p">()</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

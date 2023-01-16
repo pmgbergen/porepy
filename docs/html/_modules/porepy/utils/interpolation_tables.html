@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.utils.interpolation_tables &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/utils/interpolation_tables.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.utils.interpolation_tables</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.utils.interpolation_tables</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; The module contains interpolation tables, intended for use in function</span>
+<span class="sd">evaluations. Specifically, the motivation is to facilitate the parametrization</span>
+<span class="sd">framework described in</span>
+
+<span class="sd">    Operator-based linearization approach for modeling of multiphase</span>
+<span class="sd">    multi-component flow in porous media by Denis Voskov (JCP 2017)</span>
+
+<span class="sd">The module contains two classes:</span>
+
+<span class="sd">    InterpolationTable: Interpolation based on pre-computation of function values.</span>
+<span class="sd">        Essentially this is a cumbersome implementation of scipy interpolation</span>
+<span class="sd">        functionality, and the latter is likely to be preferred.</span>
+
+<span class="sd">    AdaptiveInterpolationTable: Interpolation where function values are computed</span>
+<span class="sd">        and stored on demand. Can give significant computational speedup in cases</span>
+<span class="sd">        where function evaluations are costly and only part of the parameter space</span>
+<span class="sd">        is accessed during simulation.</span>
+
+<span class="sd">Both classes use piecewise linear interpolation of functions, and piecewise</span>
+<span class="sd">constant approximations of derivatives.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+
+<div class="viewcode-block" id="InterpolationTable"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html#porepy.utils.interpolation_tables.InterpolationTable">[docs]</a><span class="k">class</span> <span class="nc">InterpolationTable</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Interpolation table based on pre-computation of function values.</span>
+
+<span class="sd">    Function values are interpolated on a Cartesian mesh.</span>
+<span class="sd">    The interpolation is done using piecewise linears (for function values) and</span>
+<span class="sd">    constants (for derivatives). The domain of interpolation is an Nd box.</span>
+
+<span class="sd">    The implementation may not be efficient, consider using functions from</span>
+<span class="sd">    scipy.interpolate instead.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        low: Minimum values of the domain boundary per dimension.</span>
+<span class="sd">        high: Maximum values of the domain boundary per dimension.</span>
+<span class="sd">        npt: Number of quadrature points (including endpoints of intervals) per</span>
+<span class="sd">            dimension.</span>
+<span class="sd">        function: Function to represent in the table. Should be vectorized (if necessary</span>
+<span class="sd">            with a for-loop wrapper) so that multiple coordinates can be evaluated at</span>
+<span class="sd">            the same time.</span>
+<span class="sd">        dim: Dimension of the range of the function.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">low</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">high</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">npt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
+        <span class="c1"># Dimension of the function to interpolate</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span> <span class="o">=</span> <span class="n">low</span><span class="o">.</span><span class="n">size</span>
+        <span class="c1"># Dimension of the parameter space</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_sizes</span><span class="p">(</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">npt</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+        <span class="c1"># Data processing is left to a separate function.</span>
+
+        <span class="c1"># Evaluate the function values in all coordinate points.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_table_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_coord</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_table_values</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">function</span><span class="p">(</span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_set_sizes</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">low</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">high</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">npt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Helper method to set the size of the interpolation grid.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_low</span> <span class="o">=</span> <span class="n">low</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_high</span> <span class="o">=</span> <span class="n">high</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_npt</span> <span class="o">=</span> <span class="n">npt</span>
+
+        <span class="c1"># The base point for a standard table is in the same as the low coordinate.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_low</span>
+
+        <span class="c1"># Define the quadrature points along each coordinate access.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pt_on_axes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">low</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">high</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">npt</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="c1"># define the mesh size along each axis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_h</span> <span class="o">=</span> <span class="p">(</span><span class="n">high</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">npt</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Set the strides necessary to advance to the next point in each dimension.</span>
+        <span class="c1"># Refers to indices in self._coord. Is unity for first dimension, then</span>
+        <span class="c1"># number of quadrature points in the first dimension etc.</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_npt</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_strides</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumprod</span><span class="p">(</span><span class="n">tmp</span><span class="p">)[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># Prepare table of function values. This will be filled in by __init__</span>
+        <span class="c1"># Create interpolation grid.</span>
+        <span class="c1"># The indexing, together with the Fortran-style raveling is necessary</span>
+        <span class="c1"># to get a reasonable ordering of the expanded coefficients.</span>
+        <span class="n">coord_table</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_pt_on_axes</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
+        <span class="c1"># Ravel into an array</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coord</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coord_table</span><span class="p">]</span>
+
+<div class="viewcode-block" id="InterpolationTable.interpolate"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html#porepy.utils.interpolation_tables.InterpolationTable.interpolate">[docs]</a>    <span class="k">def</span> <span class="nf">interpolate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Perform interpolation on a Cartesian grid by a piecewise linear</span>
+<span class="sd">        approximation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (np.ndarray): Points to evaluate the function. Size dimension of</span>
+<span class="sd">                parameter space times number of points.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Function values.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># allocate value array</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># in case a single point in the function domain was passed as a row vector</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># Get indices of the base vertexes of the hypercubes where the function</span>
+        <span class="c1"># is to be evaluated. The base vertex is in the (generalized) lower-left</span>
+        <span class="c1"># corner of the cube.</span>
+        <span class="n">base_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_base_vertex</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="c1"># Get weights in each dimension for the interpolation between the higher</span>
+        <span class="c1"># (right) and base (left) coordinate.</span>
+        <span class="n">right_weight</span><span class="p">,</span> <span class="n">left_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_right_left_weights</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">base_ind</span><span class="p">)</span>
+
+        <span class="c1"># Loop over all vertexes in the hypercube. Evaluate the function in the</span>
+        <span class="c1"># vertex with the relevant weight.</span>
+        <span class="c1"># We need a linear index here, since eval_ind will be used to access the array</span>
+        <span class="c1"># of computed values.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">incr</span><span class="p">,</span> <span class="n">eval_ind</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_indices</span><span class="p">(</span><span class="n">base_ind</span><span class="p">,</span> <span class="n">linear</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="c1"># Incr is 0 for dimensions to be evaluated in the left (base)</span>
+            <span class="c1"># coordinate, 1 for others.</span>
+            <span class="c1"># eval_ind is the linear index for this vertex.</span>
+
+            <span class="c1"># Compute weight for this vertex</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span>
+                <span class="n">right_weight</span> <span class="o">*</span> <span class="n">incr</span> <span class="o">+</span> <span class="n">left_weight</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">incr</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
+            <span class="p">)</span>  <span class="c1"># Not sure about self.dim &gt; 1.</span>
+
+            <span class="c1"># Add this part of the function evaluation</span>
+            <span class="c1"># Handle special case: If the evaluation point is on the generalized</span>
+            <span class="c1"># rightmost axis compared to what is covered in the table, there may be</span>
+            <span class="c1"># indices in eval_ind that are outside the range of the value array (e.g.,</span>
+            <span class="c1"># outside the grid). These can be ignored, but we do check that their</span>
+            <span class="c1"># weights are computed to zero.</span>
+            <span class="n">inside_grid</span> <span class="o">=</span> <span class="n">eval_ind</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">weight</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">inside_grid</span><span class="p">)]</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">)</span>
+            <span class="n">values</span><span class="p">[:,</span> <span class="n">inside_grid</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="n">weight</span><span class="p">[</span><span class="n">inside_grid</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[:,</span> <span class="n">eval_ind</span><span class="p">[</span><span class="n">inside_grid</span><span class="p">]]</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">values</span></div>
+
+<div class="viewcode-block" id="InterpolationTable.gradient"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html#porepy.utils.interpolation_tables.InterpolationTable.gradient">[docs]</a>    <span class="k">def</span> <span class="nf">gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Perform differentiation on a Cartesian grid by a piecewise constant</span>
+<span class="sd">        approximation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (np.ndarray): Points to evaluate the function. Size dimension of</span>
+<span class="sd">                parameter space times number of points.</span>
+<span class="sd">            axis (int): Axis to differentiate along.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Function values.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Allocate value array.</span>
+        <span class="c1"># This is consistent with the derivative w.r.t. to only one axis,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># in case a single point in the function domain was passed as a row vector</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># Get indices of the base vertexes of the hypercubes where the function</span>
+        <span class="c1"># is to be evaluated. The base vertex is in the (generalized) lower-left</span>
+        <span class="c1"># corner of the cube.</span>
+        <span class="n">base_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_base_vertex</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="c1"># Get weights in each dimension for the interpolation between the higher</span>
+        <span class="c1"># (right) and base (left) coordinate.</span>
+        <span class="n">right_weight</span><span class="p">,</span> <span class="n">left_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_right_left_weights</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">base_ind</span><span class="p">)</span>
+
+        <span class="c1"># Loop over all vertexes in the hypercube. Evaluate the function in the</span>
+        <span class="c1"># vertex with the relevant weight, and use a first order difference</span>
+        <span class="c1"># to evaluate the derivative.</span>
+        <span class="c1"># We need a linear index here, since it will be used to access the value array.</span>
+        <span class="k">for</span> <span class="n">incr</span><span class="p">,</span> <span class="n">eval_ind</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_indices</span><span class="p">(</span><span class="n">base_ind</span><span class="p">,</span> <span class="n">linear</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="c1"># Incr is 0 for dimensions to be evaluated in the left (base)</span>
+            <span class="c1"># coordinate, 1 for others.</span>
+            <span class="c1"># eval_ind is the linear index for this vertex.</span>
+
+            <span class="c1"># Compute weight for each dimension</span>
+            <span class="n">weight_ind</span> <span class="o">=</span> <span class="n">right_weight</span> <span class="o">*</span> <span class="n">incr</span> <span class="o">+</span> <span class="n">left_weight</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">incr</span><span class="p">)</span>
+            <span class="c1"># The axis to differentiate has +1 when evaluated to the right,</span>
+            <span class="c1"># -1 for the right</span>
+            <span class="n">weight_ind</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">incr</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
+
+            <span class="c1"># Compute weights</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">weight_ind</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="c1"># Add contribution from this vertex</span>
+            <span class="n">values</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[:,</span> <span class="n">eval_ind</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">values</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="c1"># Use a property decorator for self._values. This is not needed in this class,</span>
+        <span class="c1"># but is convenient in the subclass AdaptiveInterpolationTable.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table_values</span>
+
+    <span class="k">def</span> <span class="nf">_find_base_vertex</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coord</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Helper function to get the base (generalized lower-left) vertex of a</span>
+<span class="sd">        hypercube.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">ind</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="c1"># performing Cartesian search per axis of the interpolation grid.</span>
+        <span class="k">for</span> <span class="n">x_i</span><span class="p">,</span> <span class="n">h_i</span><span class="p">,</span> <span class="n">low_i</span><span class="p">,</span> <span class="n">high_i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_low</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_high</span><span class="p">):</span>
+            <span class="c1"># checking if any point is out of bound</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">x_i</span> <span class="o">&lt;</span> <span class="n">low_i</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">high_i</span> <span class="o">&lt;</span> <span class="n">x_i</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Point(s) outside coordinate range [</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_low</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_high</span><span class="si">}</span><span class="s2">]&quot;</span>
+                <span class="p">)</span>
+            <span class="c1"># cartesian search for uniform grid, floor division by mesh size</span>
+            <span class="n">ind</span><span class="o">.</span><span class="n">append</span><span class="p">(((</span><span class="n">x_i</span> <span class="o">-</span> <span class="n">low_i</span><span class="p">)</span> <span class="o">//</span> <span class="n">h_i</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_generate_indices</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">base_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">linear</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Iterator for linear indices that form the vertexes of a hypercube with a</span>
+<span class="sd">        given base vertex, and the dimension-wise increments in indices from the base.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># IMPLEMENTATION NOTE: We could have used np.unravel_index here. That may be</span>
+        <span class="c1"># faster, if this ever turns out to be a bottleneck.</span>
+        <span class="c1"># Need to use _param_dim (dimension of parameter space) here, not dim.</span>
+        <span class="k">for</span> <span class="n">increment</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="n">repeat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">):</span>
+            <span class="n">incr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">increment</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">eval_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index_from_base_and_increment</span><span class="p">(</span><span class="n">base_ind</span><span class="p">,</span> <span class="n">incr</span><span class="p">,</span> <span class="n">linear</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">eval_ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">incr</span><span class="p">,</span> <span class="n">eval_ind</span>
+
+    <span class="k">def</span> <span class="nf">_index_from_base_and_increment</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">base_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">incr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">linear</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;For a given base index and increment in each dimension, get the full index</span>
+<span class="sd">        from a base (e.g., lower-left corner of a hypercube) and an increment.</span>
+
+<span class="sd">        NOTE: The parameter &#39;linear&#39; is ignored since standard interpolation tables</span>
+<span class="sd">        always work with a linear index (the ordering of the points in the underlying</span>
+<span class="sd">        grid and that used in the array of values is the same).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vertex_ind</span> <span class="o">=</span> <span class="n">base_ind</span> <span class="o">+</span> <span class="n">incr</span>
+        <span class="n">eval_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">vertex_ind</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strides</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">eval_ind</span>
+
+    <span class="k">def</span> <span class="nf">_right_left_weights</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">base_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;For each dimension, find the interpolation weights to the right</span>
+<span class="sd">        and left sides.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">right_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pt_on_axes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">base_ind</span><span class="p">[</span><span class="n">i</span><span class="p">]]))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Check that we have found the right interval. Accept a small error to</span>
+        <span class="c1"># account for floating point errors.</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-13</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">right_weight</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="n">tol</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">right_weight</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">tol</span><span class="p">)</span>
+
+        <span class="n">left_weight</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">right_weight</span>
+
+        <span class="k">return</span> <span class="n">right_weight</span><span class="p">,</span> <span class="n">left_weight</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;String representation&quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Interpolation table in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="si">}</span><span class="s2"> dimensions. </span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Lower bounds: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_low</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Upper bounds: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_high</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Number of quadrature points in each dimension: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_npt</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Minimum function value: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">)</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Maximum function value: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="AdaptiveInterpolationTable"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html#porepy.utils.interpolation_tables.AdaptiveInterpolationTable">[docs]</a><span class="k">class</span> <span class="nc">AdaptiveInterpolationTable</span><span class="p">(</span><span class="n">InterpolationTable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interpolation table based on adaptive computation of function values.</span>
+
+<span class="sd">    Function values are interpolated on a Cartesian mesh.</span>
+<span class="sd">    The interpolation is done using piecewise linears (for function values) and</span>
+<span class="sd">    constants (for derivatives). The domain of interpolation is an Nd box.</span>
+
+<span class="sd">    The function values are computed on demand, then stored. This can give</span>
+<span class="sd">    substantial computational savings in cases where only a part of the</span>
+<span class="sd">    parameter space is accessed, and the computation of function values</span>
+<span class="sd">    is costly.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        dx: Grid resolution in each direction.</span>
+<span class="sd">        base_point: A point in the underlying grid. Used to fix the location of the</span>
+<span class="sd">            grid lines.</span>
+<span class="sd">        function (Callable): Function to represent in the table. Should be</span>
+<span class="sd">            vectorized (if necessary with a for-loop wrapper) so that multiple</span>
+<span class="sd">            coordinates can be evaluated at the same time. If not provided, table values</span>
+<span class="sd">            must be assigned via the method &#39;assign_values&#39;.</span>
+<span class="sd">        dim (int): Dimension of the range of the function. Values above one</span>
+<span class="sd">            have not been much tested, use with care.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">base_point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">function</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">dim</span>
+        <span class="c1"># Dimension of the field to interpolate</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span> <span class="o">=</span> <span class="n">dx</span><span class="o">.</span><span class="n">size</span>
+        <span class="c1"># Dimension of the parameter space</span>
+
+        <span class="c1"># IMPLEMENTATION NOTE: The sparse array which stores the actual data represents</span>
+        <span class="c1"># coordinates by (possibly negative) integer indices, while the parameter space</span>
+        <span class="c1"># for interpolation is defined on real numbers. This requires mappings points in</span>
+        <span class="c1"># parameter space to quadrature points in an underlying Cartesian grid, and</span>
+        <span class="c1"># further identifying these points with indices in the data table.</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_table</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">array_operations</span><span class="o">.</span><span class="n">SparseNdArray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">)</span>
+        <span class="c1"># Construct grid for interpolation</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># self._pt store coordinates of quadrature points in parameter space.</span>
+        <span class="c1"># Note that this is different from super()._pt_on_axes, which gives the</span>
+        <span class="c1"># 1d-coordinates of the quadrature points along each coordinate axis.</span>
+        <span class="c1"># It is also different from super()._coord, which gives Nd-coordinates, but as</span>
+        <span class="c1"># structured and dense data.</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">dx</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># Set resolution of the Cartesian grid in parameter space.</span>
+
+        <span class="k">if</span> <span class="n">base_point</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">base_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base_point</span> <span class="o">=</span> <span class="n">base_point</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># The base point is the point in parameter space which corresponds to the index</span>
+        <span class="c1"># (0, 0, ..., 0) in the sparse array.</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_function</span> <span class="o">=</span> <span class="n">function</span>
+        <span class="c1"># The function to interpolate</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Use a property decorator to tie self._values to the value array of the</span>
+        <span class="c1"># underlying sparse array.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">_values</span>
+
+<div class="viewcode-block" id="AdaptiveInterpolationTable.interpolate"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html#porepy.utils.interpolation_tables.AdaptiveInterpolationTable.interpolate">[docs]</a>    <span class="k">def</span> <span class="nf">interpolate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Perform interpolation on a Cartesian grid by a piecewise linear</span>
+<span class="sd">        approximation.</span>
+
+<span class="sd">        If the table has a function, function values in the quadrature points will be</span>
+<span class="sd">        computed as needed. If the values are computed externally and fed through the</span>
+<span class="sd">        method assign_values(), the user is responsible that all relevant quadrature</span>
+<span class="sd">        points have been assigned values.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (np.ndarray): Points to evaluate the function. Size dimension of</span>
+<span class="sd">                parameter space times number of points.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Function values.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Fill any missing function values if a function is available.</span>
+        <span class="c1"># NOTE: If the table is populated with the method &#39;assign_values&#39;, the user is</span>
+        <span class="c1"># responsible for assigning all necessary values.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fill_values</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Use parent method for interpolation.</span>
+        <span class="c1"># NOTE: If the table values were set using assign_values(), without feeding the</span>
+        <span class="c1"># indices of the quadrature points (argument indices), this sometimes lead to</span>
+        <span class="c1"># strange errors: If the points to be evaluated are at or very close to</span>
+        <span class="c1"># quadrature points (in the underlying Cartesian grids), rounding errors</span>
+        <span class="c1"># in the method _find_base_vertex() sometimes lead the points to be associated</span>
+        <span class="c1"># with the wrong Cartesian indices. This may lead to the interpolation (which</span>
+        <span class="c1"># partly works on indices, not coordinates) requesting values at indices that</span>
+        <span class="c1"># are not known to the table, leading to an error, typically from the method</span>
+        <span class="c1"># _right_left_weights() that negative weights were computed, or alternatively</span>
+        <span class="c1"># that the table does not contain the necessary information.</span>
+        <span class="c1"># The solution to such problems is to use the method</span>
+        <span class="c1"># quadrature_points_from_coordinates() to get quadrature point coordinates and</span>
+        <span class="c1"># indices, and feed both these to assign_indices().</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AdaptiveInterpolationTable.gradient"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html#porepy.utils.interpolation_tables.AdaptiveInterpolationTable.gradient">[docs]</a>    <span class="k">def</span> <span class="nf">gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Perform differentiation on a Cartesian grid by a piecewise constant</span>
+<span class="sd">        approximation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (np.ndarray): Points to evaluate the function. Size dimension of</span>
+<span class="sd">                parameter space times number of points.</span>
+<span class="sd">            axis (int): Axis to differentiate along.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Function values.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Fill any missing function values if a function is available.</span>
+        <span class="c1"># NOTE: If the table is populated with the method &#39;assign_values&#39;, the user is</span>
+        <span class="c1"># responsible for assigning all necessary values.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fill_values</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Use standard method for differentiation.</span>
+        <span class="c1"># NOTE: See comments in self.interpolation() regarding possible sources of</span>
+        <span class="c1"># unexpected errors from this function, and how to circumwent it.</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AdaptiveInterpolationTable.assign_values"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html#porepy.utils.interpolation_tables.AdaptiveInterpolationTable.assign_values">[docs]</a>    <span class="k">def</span> <span class="nf">assign_values</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">coord</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Assign externally computed values to the table.</span>
+
+<span class="sd">        The user is responsible that the coordinates are nodes in the Cartesian grid</span>
+<span class="sd">        underlying this interpolation tabel.</span>
+
+<span class="sd">        This method can be used, e.g., if the table values are calculated by an</span>
+<span class="sd">        external function which it is not desirable to pass to the interpolation table.</span>
+<span class="sd">        One use case is when the function is an external library (e.g., a thermodynamic</span>
+<span class="sd">        flash calculation) which computes several properties at the same time. In this</span>
+<span class="sd">        case it is better to collect all properties externally and pass it to the</span>
+<span class="sd">        respective interpolation tables for the individual properties.</span>
+
+<span class="sd">        If the indices in the underlying Cartesian grid corresponding to the coordinate</span>
+<span class="sd">        points are known (e.g., the points were found by the method</span>
+<span class="sd">        quadrature_points_from_coordinates), it is strongly recommended that these are</span>
+<span class="sd">        also provided in assignment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            val: Values to assign.</span>
+<span class="sd">            coord: Coordinates of points to assign values to.</span>
+<span class="sd">            indices: Indices of the coordinates in the underlying Grid.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Get the corresponding indices in the underlying Cartesian grids.</span>
+            <span class="n">inds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_base_vertex</span><span class="p">(</span><span class="n">coord</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">inds</span> <span class="o">=</span> <span class="n">indices</span>
+
+        <span class="n">ind_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">inds</span><span class="o">.</span><span class="n">T</span><span class="p">]</span>
+
+        <span class="c1"># Add values and indices to the table.</span>
+        <span class="n">column_permutation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ind_list</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">additive</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Add the coordinates to the table. The table may have permuted the node</span>
+        <span class="c1"># coordinates during unification of the indices, the coordinates should be</span>
+        <span class="c1"># likewise permuted.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="p">,</span> <span class="n">coord</span><span class="p">[:,</span> <span class="n">column_permutation</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="AdaptiveInterpolationTable.quadrature_points_from_coordinates"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html#porepy.utils.interpolation_tables.AdaptiveInterpolationTable.quadrature_points_from_coordinates">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature_points_from_coordinates</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">remove_known_points</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Obtain the coordinates of quadrature points that are necessary to evalute</span>
+<span class="sd">        the table in specified points.</span>
+
+<span class="sd">        If the table values are calculated by an external computation (i.e., not through</span>
+<span class="sd">        self._function), this method can be used to determine which evaluations are</span>
+<span class="sd">        needed before interpolation is invoked.</span>
+
+<span class="sd">        The method also returns indices of the quadrature points in the Cartesian grid</span>
+<span class="sd">        underlying the interpolation table. If the quadrature points are used to compute</span>
+<span class="sd">        function values which later are fed to this interpolation table using the</span>
+<span class="sd">        method &#39;assign_values()&#39;, it is strongly recommended that the indices are also</span>
+<span class="sd">        passed to the assignment function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: Coordinates of evaluation points.</span>
+<span class="sd">            remove_known_points: If True, only quadrature points that have not</span>
+<span class="sd">                previously been assigned values in this table are returned.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Coordinates of the quadrature points.</span>
+<span class="sd">            Indices of the quadrature points in the underlying Cartesian grid.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># The lower-left corner of each hypercube.</span>
+        <span class="n">base_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_base_vertex</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">safeguarding</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Loop over all vertexes in the hypercube, store the index. In this case we do</span>
+        <span class="c1"># not want a linear index, since we will compare the multiindex with the</span>
+        <span class="c1"># coordinates in the sparse array.</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">eval_ind</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_indices</span><span class="p">(</span><span class="n">base_ind</span><span class="p">,</span> <span class="n">linear</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">ind</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">eval_ind</span><span class="p">)</span>
+
+        <span class="c1"># Uniquify indices to avoid computing values for the same vertex twice.</span>
+        <span class="n">unique_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">ind</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">coord</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_point</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span> <span class="o">*</span> <span class="n">unique_ind</span>
+
+        <span class="c1"># Remove points where function values already exists if requested.</span>
+        <span class="c1"># This avoids recomputation of known values.</span>
+        <span class="k">if</span> <span class="n">remove_known_points</span><span class="p">:</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">exists</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">array_operations</span><span class="o">.</span><span class="n">intersect_sets</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="p">)</span>
+
+            <span class="n">coord</span> <span class="o">=</span> <span class="n">coord</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">exists</span><span class="p">)]</span>
+            <span class="n">unique_ind</span> <span class="o">=</span> <span class="n">unique_ind</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">exists</span><span class="p">)]</span>
+
+        <span class="k">return</span> <span class="n">coord</span><span class="p">,</span> <span class="n">unique_ind</span></div>
+
+    <span class="k">def</span> <span class="nf">_fill_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Find points in the interpolation grid that will be used for function</span>
+<span class="sd">        evaluation. Compute function values as needed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: Array of coordinates to be evaluated.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_function</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;No function to evaluate - should values be added instead?&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Get hold of the quadrature points needed to interpolate in the given</span>
+        <span class="c1"># coordinates.</span>
+        <span class="n">coord</span><span class="p">,</span> <span class="n">unique_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">quadrature_points_from_coordinates</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Find which values have been computed before.</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">precomputed</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">array_operations</span><span class="o">.</span><span class="n">intersect_sets</span><span class="p">(</span>
+            <span class="n">unique_ind</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">_coords</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Find which vertexes have not been used before.</span>
+        <span class="n">indices_to_compute</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">precomputed</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Compute and store values</span>
+        <span class="k">if</span> <span class="n">indices_to_compute</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+
+            <span class="n">new_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_function</span><span class="p">(</span><span class="o">*</span><span class="n">coord</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices_to_compute</span><span class="p">]</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">T</span>
+
+            <span class="c1"># In the sparse array we use the integer indices, referring to the</span>
+            <span class="c1"># underlying Cartesian grid of this table.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">add</span><span class="p">([</span><span class="n">unique_ind</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices_to_compute</span><span class="p">],</span> <span class="n">new_values</span><span class="p">)</span>
+            <span class="c1"># In this table, we need to store the actual coordinates.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="p">,</span> <span class="n">coord</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_index_from_base_and_increment</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">base_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">incr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">linear</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;For a given base index and increment in each dimension, get the full index</span>
+<span class="sd">        from a base (e.g., lower-left corner of a hypercube) and an increment.</span>
+
+<span class="sd">        For adaptive interpolation tables, with unstructured storage of data, we</span>
+<span class="sd">        sometimes need the linear index, sometimes the multi-dimensional one.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            base_ind: Indices of the lower-left corners of the hypercubes on which</span>
+<span class="sd">                the interpolation is based.</span>
+<span class="sd">            incr: Increment to be added from the base index.</span>
+<span class="sd">            linear: If True, the returned index is linear; if False, a multiindex is</span>
+<span class="sd">                returned.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Array of indices on the specified format.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">linear</span><span class="p">:</span>
+            <span class="c1"># Add the base ind and the increment, and then find the corresponding value</span>
+            <span class="c1"># in the coordinate set of the table.</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">is_mem</span><span class="p">,</span> <span class="n">ind_in_table</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">array_operations</span><span class="o">.</span><span class="n">intersect_sets</span><span class="p">(</span>
+                <span class="n">base_ind</span> <span class="o">+</span> <span class="n">incr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">_coords</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Safeguarding.</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">is_mem</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">ind_in_table</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># A multi-index is wanted. Simply add the increment to the base index.</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">base_ind</span> <span class="o">+</span> <span class="n">incr</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_right_left_weights</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">base_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;For each dimension, find the interpolation weights to the right</span>
+<span class="sd">        and left sides.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># First do a mapping from the structured ordering underlying this table, and</span>
+        <span class="c1"># reflected in base_ind, to the unstructured ordering in self._table.</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">ismem</span><span class="p">,</span> <span class="n">ind_in_table</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">array_operations</span><span class="o">.</span><span class="n">intersect_sets</span><span class="p">(</span>
+            <span class="n">base_ind</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">_coords</span>
+        <span class="p">)</span>
+        <span class="n">raveled_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">ind_in_table</span><span class="p">)</span>
+        <span class="c1"># Sanity checks.</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">ismem</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">ind_in_table</span><span class="p">])</span>
+
+        <span class="c1"># Find the weights on the right array.</span>
+        <span class="n">right_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">raveled_ind</span><span class="p">]))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="c1"># Check that we have found the right interval. Accept a small error to</span>
+        <span class="c1"># account for floating point errors.</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-13</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">right_weight</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="n">tol</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">right_weight</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">tol</span><span class="p">)</span>
+
+        <span class="n">left_weight</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">right_weight</span>
+
+        <span class="k">return</span> <span class="n">right_weight</span><span class="p">,</span> <span class="n">left_weight</span>
+
+    <span class="k">def</span> <span class="nf">_find_base_vertex</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coord</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">safeguarding</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Helper function to get the base (generalized lower-left) vertex of a</span>
+<span class="sd">        hypercube.</span>
+
+<span class="sd">        Upon request, the method will also identify cases where the choice of lower-left</span>
+<span class="sd">        vertex (thus which hypercube to use in interpolation) may be unclear due to</span>
+<span class="sd">        rounding errors, as may happen if a quadrature point is very close to a node</span>
+<span class="sd">        in the underlying Cartesian grid. For such cases, additional points will be</span>
+<span class="sd">        added. This makes subsequent interpolation more robust, to the price of</span>
+<span class="sd">        requesting more data points, and also removing the one-to-one relation between</span>
+<span class="sd">        coordinate and index. This functionality, triggered by the parameter</span>
+<span class="sd">        safeguarding should only be invoked from the method</span>
+<span class="sd">        quadrature_points_from_coordinates() (but there it can be critical to use it).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            coord: Coordinates for which the base vertex is sought.</span>
+<span class="sd">            safeguarding: If True, additional vertexes may be added to avoid</span>
+<span class="sd">                vulnerabilities with respect to rounding errors.</span>
+
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># The below safeguarding is motivated by the following potential behavior:</span>
+        <span class="c1"># For a given point to be interpolated, the lower left coordinate is found by</span>
+        <span class="c1"># floor division after adjusting for the origin and resolution of the Cartesian</span>
+        <span class="c1"># grid. If the point to be interpolated is at a grid line in the Cartesian grid</span>
+        <span class="c1"># used in the interpolation table, rounding errors may lead to the wrong index</span>
+        <span class="c1"># being identified (say, the number 5 is calculated as 4.9999999, and the index</span>
+        <span class="c1"># 4 is identified). Safeguarding will add both 4 and 5 to the list.</span>
+        <span class="c1">#</span>
+        <span class="c1"># For a 2d parameter space, (5, 5) may be rounded to (4, 4) - in which case all</span>
+        <span class="c1"># points (4, 4), (4, 5), (5, 4), (5, 5) are added - this is necessary to ensure</span>
+        <span class="c1"># that when we interpolate, the necessary quadrature points are available in</span>
+        <span class="c1"># the table.</span>
+        <span class="c1">#</span>
+        <span class="c1"># If instead (5, 5) is rounded to (5, 4), both (5, 4) and (5, 5) will be added</span>
+        <span class="c1"># (but not (4, 4) and (4, 5)).</span>
+
+        <span class="n">ind</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="c1"># Keep track of indices that may be impacted by rounding errors.</span>
+        <span class="n">rounding_error_danger</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+        <span class="c1"># Perform Cartesian search per dimension of the interpolation grid.</span>
+        <span class="c1"># IMPLEMENTATION NOTE: If we want non-uniform grids in parameter space, here is</span>
+        <span class="c1"># the place to modify the code.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">x_i</span><span class="p">,</span> <span class="n">h_i</span><span class="p">,</span> <span class="n">base_i</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_point</span><span class="p">)):</span>
+            <span class="c1"># Cartesian search for uniform grid, floor division by mesh size</span>
+            <span class="c1"># Subtract the base to find the origin in the underlying Cartesian grid.</span>
+            <span class="n">floored_ind</span> <span class="o">=</span> <span class="p">((</span><span class="n">x_i</span> <span class="o">-</span> <span class="n">base_i</span><span class="p">)</span> <span class="o">//</span> <span class="n">h_i</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">safeguarding</span><span class="p">:</span>
+                <span class="c1"># Find the actual coordinate in the Cartesian grid</span>
+                <span class="n">exact</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_i</span> <span class="o">-</span> <span class="n">base_i</span><span class="p">)</span> <span class="o">/</span> <span class="n">h_i</span>
+                <span class="c1"># Since the index was identified by floor division, the danger is that</span>
+                <span class="c1"># rounding errors caused identification of an index one too low.</span>
+                <span class="c1"># Find points that almost was on the next grid line.</span>
+                <span class="c1"># The threshold is set arbitrary here, the current value should be</span>
+                <span class="c1"># much looser than what is necessary to identify rounding errors, but we</span>
+                <span class="c1"># are safeguarding, so better safe than sorry.</span>
+                <span class="n">rounding_error_danger</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">exact</span> <span class="o">-</span> <span class="n">floored_ind</span> <span class="o">&gt;</span> <span class="mf">0.999</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="c1"># Store data for this dimension.</span>
+            <span class="n">ind</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">floored_ind</span><span class="p">)</span>
+
+        <span class="c1"># Merge hte arrays</span>
+        <span class="n">full_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">safeguarding</span><span class="p">:</span>
+            <span class="c1"># Add additional points for safeguarding purposes.</span>
+
+            <span class="c1"># Identify columns (indices) that were impacted by rounding errors.</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">rounding_error_danger</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="c1"># Find which rows (dimensions) were impacted by rounding errors</span>
+            <span class="n">rows_with_repeats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">rounding_error_danger</span><span class="p">[:,</span> <span class="n">columns</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># Only add indices if there were points that could have been rounded</span>
+            <span class="c1"># wrongly.</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">rows_with_repeats</span><span class="p">):</span>
+                <span class="c1"># Storage of extra indices.</span>
+                <span class="n">extra_ind</span> <span class="o">=</span> <span class="p">[]</span>
+
+                <span class="c1"># Loop over all combinations of dimensions that could have been</span>
+                <span class="c1"># afflicted by rounding errors.</span>
+                <span class="c1"># Referring to the example at the begining of this method, if (5, 5) was</span>
+                <span class="c1"># rounded to (4, 4), we need to add 1 to (4, 4) on both the first and</span>
+                <span class="c1"># second axis, as well as their combination. If instead (5, 5) became</span>
+                <span class="c1"># (5, 4), we only add on the second axis.</span>
+                <span class="c1"># We achieve this by invoking itertools.combinations on correctly</span>
+                <span class="c1"># sized arrays.</span>
+                <span class="k">for</span> <span class="n">combination_length</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">rows_with_repeats</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">active_rows</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">combinations</span><span class="p">(</span>
+                        <span class="n">rows_with_repeats</span><span class="p">,</span> <span class="n">combination_length</span>
+                    <span class="p">):</span>
+                        <span class="c1"># Find which columns should be fixed for this combination of</span>
+                        <span class="c1"># rows.</span>
+                        <span class="c1"># The list is needed since itertools.combinations returns a</span>
+                        <span class="c1"># tuple that is not fit for array indexing.</span>
+                        <span class="n">active_columns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span>
+                            <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">rounding_error_danger</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">active_rows</span><span class="p">)]),</span>
+                            <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                        <span class="c1"># Do a copy (!) and increase the index.</span>
+                        <span class="n">tmp_ind</span> <span class="o">=</span> <span class="n">full_ind</span><span class="p">[:,</span> <span class="n">active_columns</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                        <span class="n">tmp_ind</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">active_rows</span><span class="p">)]</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="n">extra_ind</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tmp_ind</span><span class="p">)</span>
+
+                <span class="c1"># Collect data, prepare for return.</span>
+                <span class="n">full_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">full_ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">extra_ind</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="n">full_ind</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;String representation&quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Adaptive interpolation table in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="si">}</span><span class="s2"> dimensions.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;The table stores function values in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> points.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;The minimum coordinates in each dimension (possibly combining multiple &quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;coordinates) are: </span><span class="se">\n</span><span class="s2"> </span><span class="se">\n</span><span class="s2"> </span><span class="se">\t</span><span class="s2">&quot;</span>
+            <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">):</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;The maximum coordinates in each dimension (possibly combining multiple &quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;coordinates) are: </span><span class="se">\n</span><span class="s2"> </span><span class="se">\n</span><span class="s2"> </span><span class="se">\t</span><span class="s2">&quot;</span>
+            <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_dim</span><span class="p">):</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pt</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Minimum function value: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Maximum function value: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;The table is currently empty.&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

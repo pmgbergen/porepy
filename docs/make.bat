@@ -7,8 +7,14 @@ REM Command file for Sphinx documentation
 if "%SPHINXBUILD%" == "" (
 	set SPHINXBUILD=sphinx-build
 )
+if "%SPHINXAPIDOC%" == "" (
+	set SPHINXAPIDOC=sphinx-apidoc
+)
 set SOURCEDIR=.
 set BUILDDIR=.
+set POREPYDIR=../src/porepy/
+set POREPYDOCSRC=./docsrc/porepy/
+set SPHINXOPTS="-E"
 
 %SPHINXBUILD% >NUL 2>NUL
 if errorlevel 9009 (
@@ -23,9 +29,24 @@ if errorlevel 9009 (
 	exit /b 1
 )
 
+:: clean-up to remove previous build
+@RMDIR /S /Q .\doctrees\ >NUL
+@RMDIR /S /Q .\html\ >NUL
+@RMDIR /S /Q .\latex\ >NUL
+
 if "%1" == "" goto help
+if "%1" == "complete" goto complete
 
 %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+goto end
+
+:complete
+@DEL /F /Q "%POREPYDOCSRC%*.*" >NUL
+%SPHINXAPIDOC% -f -e -M -d 1 --implicit-namespaces -o %POREPYDOCSRC% %POREPYDIR%
+@DEL /F /Q "%POREPYDOCSRC%modules.rst" >NUL
+if NOT "%2" == "" (
+	%SPHINXBUILD% -M %2 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+)
 goto end
 
 :help
