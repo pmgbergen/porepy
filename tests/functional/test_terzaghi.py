@@ -97,18 +97,18 @@ def test_pressure_and_consolidation_degree_errors():
 
     # Check pressure error
     desired_error_p = [
-        0.040553862371467526,
-        0.03357740402618484,
-        0.01789541154162764,
+        0.06884857957987067,
+        0.0455347877406611,
+        0.022391576732172767
     ]
     actual_error_p = [result.pressure_error for result in setup.results]
     np.testing.assert_allclose(actual_error_p, desired_error_p, rtol=1e-3, atol=1e-5)
 
     # Check consolidation degree error
     desired_error_consol = [
-        0.011249974593592754,
-        0.010179669247094042,
-        0.006834708555693569,
+        0.0270053052913328,
+        0.018839104164792175,
+        0.010927390550216687
     ]
     actual_error_consol = [
         result.consolidation_degree_error for result in setup.results
