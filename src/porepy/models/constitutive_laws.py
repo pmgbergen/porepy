@@ -2629,7 +2629,7 @@ class BiotPoromechanicsPorosity(PoroMechanicsPorosity):
 
     specific_storage: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Specific storage. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+    :class:`~porepy.models.constitutive_laws.SpecificStorage`.
 
     """
 
