@@ -69,7 +69,7 @@ class PR_Composition(Composition):
         self._Z_L: np.ndarray
         self._Z_G: np.ndarray
 
-        # attraction and covolume, assembled during initialization
+        # cohesion and covolume, assembled during initialization
         # (based on mixing-rule and present components)
         self._a: pp.ad.Operator
         self._dT_a: pp.ad.Operator
@@ -144,8 +144,8 @@ class PR_Composition(Composition):
         # assert non-empty mixture
         assert self.num_components >= 1
 
-        ## defining the attraction value
-        self._assign_attraction()
+        ## defining the cohesion value
+        self._assign_cohesion()
         ## defining the covolume
         self._assign_covolume()
 
@@ -178,7 +178,7 @@ class PR_Composition(Composition):
 
     @property
     def dT_cohesion(self) -> pp.ad.Operator:
-        """An operator representing the derivative of :meth:`attraction` w.r.t.
+        """An operator representing the derivative of :meth:`cohesion` w.r.t.
         temperature."""
         return self._dT_a
 
@@ -213,8 +213,8 @@ class PR_Composition(Composition):
 
     ### Model equations ----------------------------------------------------------------
 
-    def _assign_attraction(self) -> None:
-        """Creates the attraction parameter for a mixture according to PR,
+    def _assign_cohesion(self) -> None:
+        """Creates the cohesion parameter for a mixture according to PR,
         as well as its derivative w.r.t. temperature."""
         components: list[PR_Component] = [c for c in self.components]  # type: ignore
 
@@ -234,12 +234,12 @@ class PR_Composition(Composition):
             for comp_i in components:
                 for comp_j in components:
                     if comp_i != comp_j:
-                        # computing the attraction between components i and j
+                        # computing the cohesion between components i and j
                         a += self._vdW_a_ij(comp_i, comp_j)
-                        # computing the derivative w.r.t temperature of attraction terms
+                        # computing the derivative w.r.t temperature of cohesion terms
                         dT_a += self._vdW_dT_a_ij(comp_i, comp_j)
 
-        # store attraction parameters
+        # store cohesion parameters
         self._a = a
         self._dT_a = dT_a
 
