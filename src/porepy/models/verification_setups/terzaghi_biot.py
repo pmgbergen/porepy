@@ -213,13 +213,11 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
 
         Note:
             Data will be appended to the ``results`` list only if the current time
-            matches a time from ``self.params["stored_times"]``. By default,
+            matches a time from ``self.time_manager.schedule[1:]``. By default,
             only the data for the final simulation time is stored.
 
         """
-        t = self.time_manager.time
-        tf = self.time_manager.time_final
-        if any(np.isclose(t, self.params.get("stored_times", [tf]))):
+        if any(np.isclose(self.time_manager.time, self.time_manager.schedule[1:])):
             collected_data = self._collect_data()
             self.results.append(collected_data)
 
@@ -385,6 +383,7 @@ class SetupUtilities:
         return pressure / np.abs(self.params.get("vertical_load", 6e8))
 
     # ----> Postprocessing methods
+    # TODO: Consider moving this method to a place where can be reused.
     def displacement_trace(
         self, displacement: np.ndarray, pressure: np.ndarray
     ) -> np.ndarray:
@@ -703,7 +702,7 @@ class ModifiedSolutionStrategy(
         self.results: list[SaveData] = []
         """List of stored results from the verification."""
 
-        # Set default parameters for the verification setup
+        # Default material constants
         default_solid = pp.SolidConstants(
             {
                 "lame_lambda": 1.65e9,  # [Pa]
@@ -720,9 +719,17 @@ class ModifiedSolutionStrategy(
         )
         default_material_constants = {"solid": default_solid, "fluid": default_fluid}
 
+        # Default time manager
+        default_time_manager = pp.TimeManager(
+            schedule=[0, 0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
+            dt_init=0.001,
+            constant_dt=True
+        )
+
+        # Set default setup parameters
         default_params: list[tuple] = [
             ("material_constants", default_material_constants),
-            ("time_manager", pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, True)),
+            ("time_manager", default_time_manager),
         ]
         for key, val in default_params:
             if key not in params.keys():
@@ -792,10 +799,7 @@ class TerzaghiSetup(  # type: ignore
         from time import time
 
         tic = time()
-        params = {
-            "plot_results": True,
-            "stored_times": [0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
-        }
+        params = {"plot_results": True}
         setup = TerzaghiSetup(params)
         print("Simulation started...")
         pp.run_time_dependent_model(setup, params)
