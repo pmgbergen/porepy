@@ -170,7 +170,7 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
     """Key to access the pressure variable."""
 
     displacement_variable: str
-    """Key to access the displacement variable"""
+    """Key to access the displacement variable."""
 
     nondim_time: Callable[[number], number]
     """Method that non-dimensionalizes time. The method is provided by the mixin class
@@ -208,13 +208,12 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
 
     """
 
-    def save_data(self) -> None:
+    def save_data_time_step(self) -> None:
         """Save data to the `results` list.
 
         Note:
             Data will be appended to the ``results`` list only if the current time
-            matches a time from ``self.time_manager.schedule[1:]``. By default,
-            only the data for the final simulation time is stored.
+            matches a time from ``self.time_manager.schedule[1:]``.
 
         """
         if any(np.isclose(self.time_manager.time, self.time_manager.schedule[1:])):
@@ -698,7 +697,7 @@ class ModifiedSolutionStrategy(
         self.exact_sol: ExactSolution
         """Exact solution object"""
 
-        # Prepare object to store solutions after each `stored_time`.
+        # Prepare object to store solutions.
         self.results: list[SaveData] = []
         """List of stored results from the verification."""
 
@@ -762,14 +761,6 @@ class ModifiedSolutionStrategy(
         data[pp.STATE][self.pressure_variable] = initial_p
         data[pp.STATE][pp.ITERATE][self.pressure_variable] = initial_p
 
-    def after_newton_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called after the Newton solver has converged."""
-        super().after_newton_convergence(solution, errors, iteration_counter)
-        # Store results
-        self.save_data()
-
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
         return False
@@ -807,4 +798,3 @@ class TerzaghiSetup(  # type: ignore
         print(f"Simulation finished in {round(toc - tic)} seconds.")
 
     """
-
