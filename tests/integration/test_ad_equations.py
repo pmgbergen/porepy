@@ -15,35 +15,35 @@ import porepy as pp
 
 def _single_fracture_2d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[2, 3], [2, 2]])]
-    mdg = pp.meshing.cart_grid(frac, [5, 4])
+    mdg = pp.meshing.cart_grid(frac, np.array([5, 4]))
     pp.contact_conditions.set_projections(mdg)
     return mdg
 
 
 def _single_fracture_near_global_boundary_2d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[1, 2], [1, 1]])]
-    mdg = pp.meshing.cart_grid(frac, [3, 2])
+    mdg = pp.meshing.cart_grid(frac, np.array([3, 2]))
     pp.contact_conditions.set_projections(mdg)
     return mdg
 
 
 def _two_fractures_2d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[2, 3], [1, 1]]), np.array([[2, 3], [3, 3]])]
-    mdg = pp.meshing.cart_grid(frac, [5, 4])
+    mdg = pp.meshing.cart_grid(frac, np.array([5, 4]))
     pp.contact_conditions.set_projections(mdg)
     return mdg
 
 
 def _two_fractures_crossing_2d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[1, 3], [2, 2]]), np.array([[2, 2], [1, 3]])]
-    mdg = pp.meshing.cart_grid(frac, [4, 4])
+    mdg = pp.meshing.cart_grid(frac, np.array([4, 4]))
     pp.contact_conditions.set_projections(mdg)
     return mdg
 
 
 def _single_fracture_3d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[1, 2, 2, 1], [1, 1, 2, 2], [1, 1, 1, 1]])]
-    mdg = pp.meshing.cart_grid(frac, [3, 3, 2])
+    mdg = pp.meshing.cart_grid(frac, np.array([3, 3, 2]))
     pp.contact_conditions.set_projections(mdg)
     return mdg
 
@@ -54,7 +54,7 @@ def _three_fractures_crossing_3d() -> pp.MixedDimensionalGrid:
         np.array([[1, 1, 3, 3], [2, 2, 2, 2], [1, 3, 3, 1]]),
         np.array([[2, 2, 2, 2], [1, 1, 3, 3], [1, 3, 3, 1]]),
     ]
-    mdg = pp.meshing.cart_grid(frac, [4, 4, 4])
+    mdg = pp.meshing.cart_grid(frac, np.array([4, 4, 4]))
     pp.contact_conditions.set_projections(mdg)
     return mdg
 

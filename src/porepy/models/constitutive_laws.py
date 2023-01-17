@@ -100,6 +100,8 @@ class DimensionReduction:
             Specific volume for each cell.
 
         """
+        if len(subdomains) == 0:
+            return pp.wrap_as_ad_array(0, size=0)
         # Compute specific volume as the cross-sectional area/volume
         # of the cell, i.e. raise to the power nd-dim
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
@@ -188,6 +190,11 @@ class DisplacementJumpAperture(DimensionReduction):
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
+        The aperture computation depends on the dimension of the subdomain. For the
+        matrix, the aperture is one. For intersections, the aperture is given by the
+        average of the apertures of the adjacent fractures. For fractures, the aperture
+        equals displacement jump plus residual aperture.
+
         Parameters:
             subdomains: List of subdomain grids.
 
@@ -228,7 +235,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
 
                 a_ref = self.residual_aperture(subdomains_of_dim)
-                apertures_of_dim = f_max(normal_jump, a_ref)
+                apertures_of_dim = f_max(normal_jump + a_ref, a_ref)
                 apertures_of_dim.set_name("aperture_maximum_function")
                 apertures = (
                     apertures
@@ -600,12 +607,13 @@ class ConstantPermeability:
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
+
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
-    def permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
 
         The permeability is quantity which enters the discretized equations in a form
@@ -615,21 +623,20 @@ class ConstantPermeability:
         passed as a discretization parameter.
 
         Parameters:
-            subdomain: Subdomain where the permeability is defined. Should be of length
-                1; the list format is used for compatibility with similar methods.
-
-        Returns:
-            Cell-wise permeability tensor. The value is picked from the solid constants.
+            subdomains: Subdomains where the permeability is defined.
 
         Raises:
             ValueError: If more than one subdomain is provided.
 
-        """
-        if len(subdomains) > 1:
-            raise ValueError("Only one subdomain is allowed.")
+        Returns:
+            Cell-wise permeability tensor. The value is picked from the solid constants.
 
-        size = subdomains[0].num_cells
-        return self.solid.permeability() * np.ones(size)
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        permeability = pp.wrap_as_ad_array(
+            self.solid.permeability(), size, name="permeability"
+        )
+        return permeability
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Normal permeability [m^2].
@@ -674,34 +681,61 @@ class CubicLawPermeability(ConstantPermeability):
 
     """
 
-    def permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
 
+        This function combines a matrix permeability with a cubic law permeability for
+        fractures and intersections. The combination entails projection between the two
+        subdomain subsets and all subdomains.
+
         Parameters:
-            subdomain: Subdomain where the permeability is defined. Should be of length
-                1; the list format is used for compatibility with similar methods.
+            subdomains: List of subdomains.
 
         Returns:
-            Cell-wise permeability tensor. The value is picked from the solid constants
-                for the matrix and computed from the fracture aperture for fractures and
-                intersections.
-
-        Raises:
-            ValueError: If more than one subdomain is provided.
+            Cell-wise permeability values.
 
         """
-        if len(subdomains) > 1:
-            raise ValueError("Only one subdomain is allowed.")
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        matrix = [sd for sd in subdomains if sd.dim == self.nd]
+        fractures_and_intersections: list[pp.Grid] = [
+            sd for sd in subdomains if sd.dim < self.nd
+        ]
 
-        if subdomains[0].dim == self.nd:
-            return super().permeability(subdomains)
+        permeability = projection.cell_prolongation(matrix) * self.matrix_permeability(
+            matrix
+        ) + projection.cell_prolongation(
+            fractures_and_intersections
+        ) * self.cubic_law_permeability(
+            fractures_and_intersections
+        )
+        return permeability
 
-        # Fracture or intersection
+    def cubic_law_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Cubic law permeability for fractures (or intersections).
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
         aperture = self.aperture(subdomains)
-        perm = aperture**2 / 12
-        # Scale by specific volume
-        perm = (perm * self.specific_volume(subdomains)).evaluate(self.equation_system)
+        perm = aperture**2 * pp.ad.Scalar(1 / 12)
+
         return perm
+
+    def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability of the matrix.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
+        return super().permeability(subdomains)
 
 
 class DarcysLaw:
@@ -785,6 +819,16 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Specific volume. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
+
+    """
+    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Aperture. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
+
+    """
 
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
@@ -813,6 +857,12 @@ class DarcysLaw:
     def darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
+        Note:
+            The fluid mobility is not included in the Darcy flux. This is because we
+            discretize it with an upstream scheme. This means that the fluid mobility
+            may have to be included when using the flux in a transport equation.
+            The units of the Darcy flux are [m^2 Pa / s].
+
         Parameters:
             subdomains: List of subdomains where the Darcy flux is defined.
 
@@ -839,6 +889,8 @@ class DarcysLaw:
     def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
         """Darcy flux on interfaces.
 
+        The units of the Darcy flux are [m^2 Pa / s], see note in :meth:`darcy_flux`.
+
         Parameters:
             interfaces: List of interface grids.
 
@@ -854,14 +906,34 @@ class DarcysLaw:
         cell_volumes = self.wrap_grid_attribute(
             interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
         )
+        specific_volume = self.specific_volume(subdomains)
+        trace = pp.ad.Trace(subdomains, dim=1)
+
+        # Gradient operator in the normal direction. The collapsed distance is
+        # :math:`\frac{a}{2}` on either side of the fracture.
+        # We assume here that :meth:`apeture` is implemented to give a meaningful value
+        # also for subdomains of co-dimension > 1.
+        normal_gradient = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg * self.aperture(subdomains) ** (-1)
+        )
+
         # Project the two pressures to the interface and multiply with the normal
-        # diffusivity
-        eq = self.interface_darcy_flux(
-            interfaces
-        ) - cell_volumes * self.normal_permeability(interfaces) * (
-            projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
-            - projection.secondary_to_mortar_avg * self.pressure(subdomains)
-            + self.interface_vector_source(interfaces, material="fluid")
+        # diffusivity.
+        # The cell volumes are scaled in two stages:
+        # The term cell_volumes carries the volume of the cells in the mortar grids,
+        # while the volume scaling from reduced dimensions is picked from the
+        # specific volumes of the higher dimension (variable `specific_volume`)
+        # and projected to the interface via a trace operator.
+        eq = self.interface_darcy_flux(interfaces) - (
+            cell_volumes
+            * normal_gradient
+            * self.normal_permeability(interfaces)
+            * (projection.primary_to_mortar_avg * trace.trace * specific_volume)
+            * (
+                projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
+                - projection.secondary_to_mortar_avg * self.pressure(subdomains)
+                + self.interface_vector_source(interfaces, material="fluid")
+            )
         )
         eq.set_name("interface_darcy_flux_equation")
         return eq
@@ -1045,7 +1117,7 @@ class ThermalConductivityLTE:
         """
         return Scalar(self.solid.thermal_conductivity(), "solid_thermal_conductivity")
 
-    def thermal_conductivity(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Thermal conductivity [m^2].
 
         The thermal conductivity is computed as the porosity-weighted average of the
@@ -1053,40 +1125,25 @@ class ThermalConductivityLTE:
         considered constants, however, if the porosity changes with time, the weighting
         factor will also change.
 
-        The thermal conductivity is quantity which enters the discretized equations in a
-        form that cannot be differentiated by Ad (this is at least true for a subset of
-        the relevant discretizations). For this reason, the thermal conductivity is not
-        returned as an Ad operator, but as a numpy array, to be wrapped as a
-        SecondOrderTensor and passed as a discretization parameter.
-
         Parameters:
-            subdomain: Subdomain where the thermal conductivity is defined.
+            subdomains: List of subdomains where the thermal conductivity is defined.
 
         Returns:
-            Cell-wise conducivity tensor.
+            Cell-wise conducivity operator.
 
         """
-        assert len(subdomains) == 1, "Only one subdomain is allowed."
-        size = subdomains[0].num_cells
-
         phi = self.porosity(subdomains)
         try:
             phi.evaluate(self.equation_system)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
-            # which has not yet been computed.
+            # for div_u which has not yet been computed.
             phi = self.reference_porosity(subdomains)
         conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
             Scalar(1) - phi
         ) * self.solid_thermal_conductivity(subdomains)
-        vals = conductivity.evaluate(self.equation_system)
 
-        # In case vals is proper operator, not a combination of Scalars and Arrays,
-        # get the values.
-        if isinstance(vals, pp.ad.Ad_array):
-            vals = vals.val
-
-        return vals * np.ones(size)
+        return conductivity
 
     def normal_thermal_conductivity(
         self, interfaces: list[pp.MortarGrid]
@@ -1157,6 +1214,16 @@ class FouriersLaw:
     wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Specific volume. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
+
+    """
+    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Aperture. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
     """
 
@@ -1241,13 +1308,29 @@ class FouriersLaw:
         cell_volumes = self.wrap_grid_attribute(
             interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
         )
-        # Project the two pressures to the interface and multiply with the normal
-        # diffusivity
-        eq = self.interface_fourier_flux(
-            interfaces
-        ) - cell_volumes * self.normal_thermal_conductivity(interfaces) * (
-            projection.primary_to_mortar_avg * self.temperature_trace(subdomains)
-            - projection.secondary_to_mortar_avg * self.temperature(subdomains)
+        specific_volume = self.specific_volume(subdomains)
+        trace = pp.ad.Trace(subdomains, dim=1)
+
+        # Gradient operator in the normal direction. The collapsed distance is
+        # :math:`\frac{a}{2}` on either side of the fracture.
+        normal_gradient = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg * self.aperture(subdomains) ** (-1)
+        )
+        normal_gradient.set_name("normal_gradient")
+
+        # Project the two temperatures to the interface and multiply with the normal
+        # conductivity.
+        # See comments in :meth:`interface_darcy_flux_equation` for more information on
+        # the terms in the below equation.
+        eq = self.interface_fourier_flux(interfaces) - (
+            cell_volumes
+            * normal_gradient
+            * self.normal_thermal_conductivity(interfaces)
+            * (projection.primary_to_mortar_avg * trace.trace * specific_volume)
+            * (
+                projection.primary_to_mortar_avg * self.temperature_trace(subdomains)
+                - projection.secondary_to_mortar_avg * self.temperature(subdomains)
+            )
         )
         eq.set_name("interface_fourier_flux_equation")
         return eq

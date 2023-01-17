@@ -65,8 +65,8 @@ class SolutionStrategy(abc.ABC):
     def __init__(self, params: Optional[dict] = None):
         """Initialize the solution strategy.
 
-        Args:
-            params (dict, optional): Parameters for the solution strategy. Defaults to
+        Parameters:
+            params: Parameters for the solution strategy. Defaults to
                 None.
 
         """
@@ -119,6 +119,12 @@ class SolutionStrategy(abc.ABC):
         self.units: pp.Units = params.get("units", pp.Units())
         """Units of the model. See also :meth:`set_units`."""
 
+        self.fluid: pp.FluidConstants
+        """Fluid constants. See also :meth:`set_materials`."""
+
+        self.solid: pp.SolidConstants
+        """Solid constants. See also :meth:`set_materials`."""
+
         self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
@@ -131,7 +137,6 @@ class SolutionStrategy(abc.ABC):
         # in a ModelGeometry class.
         self.set_geometry()
         # Exporter initialization must be done after grid creation.
-        self.initialize_data_saving()
 
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
@@ -139,10 +144,11 @@ class SolutionStrategy(abc.ABC):
         self.set_materials()
         self.create_variables()
         self.initial_condition()
-        self.set_discretization_parameters()
         self.set_equations()
+        self.set_discretization_parameters()
 
         # Export initial condition
+        self.initialize_data_saving()
         self.save_data_time_step()
 
         self.discretize()
@@ -321,7 +327,7 @@ class SolutionStrategy(abc.ABC):
                 solver.
         """
         if self._is_nonlinear_problem():
-            raise ValueError("Newton iterations did not converge")
+            raise ValueError("Newton iterations did not converge.")
         else:
             raise ValueError("Tried solving singular matrix for the linear problem.")
 

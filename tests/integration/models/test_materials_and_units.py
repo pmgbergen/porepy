@@ -9,6 +9,7 @@ Constitutive library tests.
         - Setting modified values TODO
 """
 from __future__ import annotations
+
 import numpy as np
 import pytest
 
@@ -81,7 +82,7 @@ def test_default_units(base_units, derived_units):
 # Two sets of units to be used in the tests below. All basic units are modified in at
 # least one of the two sets, except the radian, which is not expected to be rescaled
 # in a manner similar to the other units.
-modification_dictionaries = [dict(m=2, kg=3.7, s=4), dict(m=3, mol=2.5)]
+modification_dictionaries = [dict(m=2, kg=3.7, s=1), dict(m=3, mol=2.5)]
 
 
 @pytest.mark.parametrize("modify_dict", modification_dictionaries)
