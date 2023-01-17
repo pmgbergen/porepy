@@ -179,9 +179,9 @@ class Composition(abc.ABC):
 
         """
 
-        self.fugacities: dict[Component, dict[Phase, pp.ad.Operator]] = dict()
-        """A nested dictionary containing an operator representing the fugacity (value)
-        for a given ``[component][phase]``.
+        self.fugacity_coeffs: dict[Component, dict[Phase, pp.ad.Operator]] = dict()
+        """A nested dictionary containing an operator representing the fugacity
+        coefficients for a given ``[component][phase]``.
 
         This dictionary must be created in :meth:`set_fugacities`, which in return
         is called during :meth:`initialize`.
@@ -989,12 +989,8 @@ class Composition(abc.ABC):
                 "itself."
             )
 
-        # will raise a key error if not assigned
-        phi_ce = self.fugacities[component][other_phase]
-        phi_cR = self.fugacities[component][self.reference_phase]
-
         equation = other_phase.fraction_of_component(component) - (
-            phi_cR / phi_ce
+            self.get_k_value(component, other_phase)
         ) * self.reference_phase.fraction_of_component(component)
 
         return equation
@@ -1024,8 +1020,8 @@ class Composition(abc.ABC):
             An operator representing ``k_ce`` in above equations.
 
         """
-        phi_ce = self.fugacities[component][other_phase]
-        phi_cR = self.fugacities[component][self.reference_phase]
+        phi_ce = self.fugacity_coeffs[component][other_phase]
+        phi_cR = self.fugacity_coeffs[component][self.reference_phase]
 
         return phi_cR / phi_ce
 

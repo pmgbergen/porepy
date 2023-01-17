@@ -27,7 +27,7 @@ from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
 from .pr_phase import PR_Phase
 from .pr_roots import PR_Roots
-from .pr_utils import _log, _power, _sqrt
+from .pr_utils import _log, _power, _sqrt, _exp
 
 __all__ = ["PR_Composition"]
 
@@ -55,6 +55,17 @@ class PR_Composition(Composition):
         """The roots of the cubic equation of state.
 
         This object is instantiated during initialization.
+
+        """
+
+        self.log_fugacity_coeffs: dict[
+            PR_Component, dict[PR_Phase, pp.ad.Operator]
+        ] = dict()
+        """A nested dictionary containing an operator representing the logarithm of the
+        fugacity coefficient for a given ``[component][phase]``.
+
+        This dictionary must be created in :meth:`set_fugacities`, which in return
+        is called during :meth:`initialize`.
 
         """
 
@@ -451,44 +462,187 @@ class PR_Composition(Composition):
         return kappa_Z
 
     def set_fugacities(self) -> None:
-        """Creates fugacities for each component using the liquid and gas root."""
+        """Creates logarithmic and normal fugacity coefficients for each component using
+        the liquid and gas root."""
 
         for component in self.components:
-            self.fugacities[component] = {
+            self.log_fugacity_coeffs[component] = {
+                self._phases[0]: self._log_phi_c_Z(component, self.roots.liquid_root),
+                self._phases[1]: self._log_phi_c_Z(component, self.roots.gas_root),
+            }
+
+            self.fugacity_coeffs[component] = {
                 self._phases[0]: self._phi_c_Z(component, self.roots.liquid_root),
                 self._phases[1]: self._phi_c_Z(component, self.roots.gas_root),
             }
 
-    def _phi_c_Z(self, component: PR_Component, Z: pp.ad.Operator) -> pp.ad.Operator:
-        """Returns an AD operator representing the fugacity of ``component`` in a phase
-        represented by an extended root ``Z``.
+    def _phi_c_Z(
+        self,
+        component: PR_Component,
+        Z: pp.ad.Operator,
+        phase: Optional[PR_Phase] = None,
+    ) -> pp.ad.Operator:
+        """Returns an AD operator representing the logarithmic fugacity coefficients of
+        ``component``.
+
+        The root ``Z`` must be provided.
+
+        Optionally, a phase can be provided to use contextual mole fractions,
+        i.e. phase compositions instead of overall mixture composition.
 
         References:
             [1]: `Zhu et al. (2014), equ. A-4
                  <https://doi.org/10.1016/j.fluid.2014.07.003>`_
             [2]: `ePaper <https://www.yumpu.com/en/document/view/36008448/
                  1-derivation-of-the-fugacity-coefficient-for-the-peng-robinson-fet>`_
+            [3]: `therm <https://thermo.readthedocs.io/
+                 thermo.eos_mix.html#thermo.eos_mix.PRMIX.fugacity_coefficients>`_
 
         Parameters:
             component: A PR component in this composition.
             Z: reference to an AD array representing an extended root of the cubic
                 polynomial.
+            phase: ``default=None``
+
+                An optional phase to return contextual fugacity coefficients.
+                If given, the phase composition will be used in the mixing rule for
+                ``A`` and ``B``.
+                If None, the component overall fractions are used.
 
         """
-        b_c = component.covolume
-        a_c = [
-            other_c.fraction * self._vdW_a_ij(component, other_c, False)
-            for other_c in self.components
-        ]
-        a_c = sum(a_c)
+        # if phase is given, use phase compositions for mixing rule
+        if phase:
+            # index c for component
+            # index m for mixture
+            b_c = component.covolume
+            b_m = sum(
+                [
+                    phase.normalized_fraction_of_component(comp) * comp.covolume
+                    for comp in self.components
+                ]
+            )
+            B_m = (b_m * self.p) / (R_IDEAL * self.T)
+
+            a_c = sum(
+                [
+                    phase.normalized_fraction_of_component(other_c)
+                    * self._vdW_a_ij(component, other_c, False)
+                    for other_c in self.components
+                ]
+            )
+            a_m = sum(
+                [
+                    phase.normalized_fraction_of_component(comp_i)
+                    * phase.normalized_fraction_of_component(comp_j)
+                    * self._vdW_a_ij(comp_i, comp_j, False)
+                    for comp_i in self.components
+                    for comp_j in self.components
+                ]
+            )
+        # if not given, use overall component fractions
+        else:
+            # index c for component
+            # index m for mixture
+            b_c = component.covolume
+            b_m = self.covolume
+            B_m = self.B
+
+            a_c = sum(
+                [
+                    other_c.fraction * self._vdW_a_ij(component, other_c, False)
+                    for other_c in self.components
+                ]
+            )
+            a_m = self.cohesion
 
         phi_c_G = (
-            b_c / self.covolume * (Z - 1)
-            - _log(Z - self.B)
-            - self.cohesion
-            / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
-            * _log((Z + (1 + np.sqrt(2)) * self.B) / (Z + (1 - np.sqrt(2)) * self.B))
-            * (2 * a_c / self.cohesion - b_c / self.covolume)
+            _exp(b_c / b_m * (Z - 1))
+            * (Z - B_m)
+            * ((Z + (1 + np.sqrt(2)) * B_m) / (Z + (1 - np.sqrt(2)) * B_m))
+            ** (
+                a_m
+                / (b_m * R_IDEAL * self.T * np.sqrt(8))
+                * (b_c / b_m - 2 * a_c / a_m)
+            )
         )
 
         return phi_c_G
+
+    def _log_phi_c_Z(
+        self,
+        component: PR_Component,
+        Z: pp.ad.Operator,
+        phase: Optional[PR_Phase] = None,
+    ) -> pp.ad.Operator:
+        """Returns an AD operator representing the logarithmic fugacity coefficients of
+        ``component``.
+
+        For more information see :meth:`_phi_c_Z`.
+
+        Parameters:
+            component: A PR component in this composition.
+            Z: reference to an AD array representing an extended root of the cubic
+                polynomial.
+            phase: ``default=None``
+
+                An optional phase to return contextual fugacity coefficients.
+                If given, the phase composition will be used in the mixing rule for
+                ``A`` and ``B``.
+                If None, the component overall fractions are used.
+
+        """
+        # if phase is given, use phase compositions for mixing rule
+        if phase:
+            # index c for component
+            # index m for mixture
+            b_c = component.covolume
+            b_m = sum(
+                [
+                    phase.normalized_fraction_of_component(comp) * comp.covolume
+                    for comp in self.components
+                ]
+            )
+            B_m = (b_m * self.p) / (R_IDEAL * self.T)
+
+            a_c = sum(
+                [
+                    phase.normalized_fraction_of_component(other_c)
+                    * self._vdW_a_ij(component, other_c, False)
+                    for other_c in self.components
+                ]
+            )
+            a_m = sum(
+                [
+                    phase.normalized_fraction_of_component(comp_i)
+                    * phase.normalized_fraction_of_component(comp_j)
+                    * self._vdW_a_ij(comp_i, comp_j, False)
+                    for comp_i in self.components
+                    for comp_j in self.components
+                ]
+            )
+        # if not given, use overall component fractions
+        else:
+            # index c for component
+            # index m for mixture
+            b_c = component.covolume
+            b_m = self.covolume
+            B_m = self.B
+
+            a_c = sum(
+                [
+                    other_c.fraction * self._vdW_a_ij(component, other_c, False)
+                    for other_c in self.components
+                ]
+            )
+            a_m = self.cohesion
+
+        log_phi_c_G = (
+            b_c / b_m * (Z - 1)
+            - _log(Z - B_m)
+            + _log((Z + (1 + np.sqrt(2)) * B_m) / (Z + (1 - np.sqrt(2)) * B_m))
+            * a_m
+            / (b_m * R_IDEAL * self.T * np.sqrt(8))
+            * (b_c / b_m - 2 * a_c / a_m)
+        )
+
+        return log_phi_c_G
