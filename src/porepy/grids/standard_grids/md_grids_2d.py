@@ -12,7 +12,7 @@ The provided geometries are:
 """
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 
@@ -20,7 +20,7 @@ import porepy as pp
 import porepy.grids.standard_grids.utils as utils
 
 
-def _n_cells(mesh_args: Union[np.ndarray, dict, None]) -> np.ndarray:
+def _n_cells(mesh_args: np.ndarray | dict | None) -> np.ndarray:
     """Convert mesh_args to n_cells argument of cartesian grid construction."""
     if mesh_args is None:
         return np.array([2, 2])
@@ -75,7 +75,7 @@ def single_horizontal(
 
 
 def single_vertical(
-    mesh_args: Optional[Union[np.ndarray, dict]] = None,
+    mesh_args: Optional[np.ndarray | dict] = None,
     y_endpoints: Optional[np.ndarray] = None,
     simplex: Optional[bool] = True,
 ):

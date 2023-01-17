@@ -26,7 +26,7 @@ from porepy.models.verification_setups.verifications_utils import VerificationUt
 class ExactSolution:
     """Parent class for the exact solution."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Constructor of the class."""
 
         # FIXME: Retrieve the physical constants from the model params dictionary
@@ -710,33 +710,33 @@ class ModifiedBoundaryConditions:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
+        pp.bounding_box.DomainSides,
     ]
     """Utility function to access the domain boundary sides."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         if sd.dim == 2:  # Dirichlet for the rock
-            all_bf, *_ = self.domain_boundary_sides(sd)
-            return pp.BoundaryCondition(sd, all_bf, "dir")
+            # Define boundary faces.
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
-            all_bf, *_ = self.domain_boundary_sides(sd)
-            return pp.BoundaryCondition(sd, all_bf, "neu")
+            # Define boundary faces.
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
         if sd.dim == 2:  # Dirichlet for the rock
-            all_bf, *_ = self.domain_boundary_sides(sd)
-            return pp.BoundaryCondition(sd, all_bf, "dir")
+            # Define boundary faces.
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
-            all_bf, *_ = self.domain_boundary_sides(sd)
-            return pp.BoundaryCondition(sd, all_bf, "neu")
+            # Define boundary faces.
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         bc_values = pp.ad.TimeDependentArray(
@@ -779,9 +779,13 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
     def __init__(self, params: dict):
 
         # Parameters associated with the verification setup. The below parameters
-        # cannot be changed since they're associated with the exact solution
+        # cannot be changed since they're associated with the exact solution.
+        # Normal permeability of 1/2 counteracts division by a/2 in the normal Darcy
+        # equation.
         fluid = pp.FluidConstants({"compressibility": 0.2})
-        solid = pp.SolidConstants({"porosity": 0.1, "residual_aperture": 1})
+        solid = pp.SolidConstants(
+            {"porosity": 0.1, "residual_aperture": 1, "normal_permeability": 1 / 2}
+        )
         material_constants = {"fluid": fluid, "solid": solid}
         required_params = {"material_constants": material_constants}
         params.update(required_params)

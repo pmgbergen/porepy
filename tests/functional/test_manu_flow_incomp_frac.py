@@ -2,7 +2,7 @@
 This module contains light-weighted functional tests for a manufactured flow solution
 with a single vertical fracture.
 """
-
+from __future__ import annotations
 import numpy as np
 
 import porepy as pp

@@ -6,6 +6,10 @@ This is needed to avoid degenerate mass balance equation in fracture.
 TODO: Clean up.
 """
 from __future__ import annotations
+
+import copy
+from typing import Callable
+
 import numpy as np
 import pytest
 
@@ -15,15 +19,27 @@ from .setup_utils import (
     BoundaryConditionsMassAndEnergyDirNorthSouth,
     Poromechanics,
     TimeDependentMechanicalBCsDirNorthSouth,
+    compare_scaled_model_quantities,
+    compare_scaled_primary_variables,
 )
 
 
 class NonzeroFractureGapPoromechanics:
     """Adjust bc values and initial condition."""
 
+    domain_boundary_sides: Callable
+    """Boundary sides of the domain. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    nd: int
+    """Number of dimensions of the problem."""
+    params: dict
+    """Parameters for the model."""
+
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, north + south, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
     def initial_condition(self):
         """Set initial condition.
@@ -47,7 +63,7 @@ class NonzeroFractureGapPoromechanics:
 
             top_cells = sd.cell_centers[1] > 0.5
             vals = np.zeros((self.nd, sd.num_cells))
-            vals[1, top_cells] = 0.042
+            vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.displacement_variable],
@@ -72,7 +88,7 @@ class NonzeroFractureGapPoromechanics:
 
             # Set mortar displacement to zero on bottom and 0.042 on top
             vals = np.zeros((self.nd, intf.num_cells))
-            vals[1, top_cells] = 0.042
+            vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.interface_displacement_variable],
@@ -126,9 +142,10 @@ class NonzeroFractureGapPoromechanics:
             if sd.dim == self.nd:
                 vals.append(np.zeros(sd.num_cells))
             else:
-                vals.append(
-                    np.ones(sd.num_cells) * self.params["fracture_source_value"]
+                val = self.fluid.convert_units(
+                    self.params["fracture_source_value"], "kg * s ^ -1"
                 )
+                vals.append(val * np.ones(sd.num_cells))
         fracture_source = pp.wrap_as_ad_array(
             np.hstack(vals), name="fracture_fluid_source"
         )
@@ -301,9 +318,9 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 
 
 def test_poromechanics_model_no_modification():
-    """Test that the raw contact poromechanics model with no modifications can be run with
-    no error messages. Failure of this test would signify rather fundamental problems
-    in the model.
+    """Test that the poromechanics model with no modifications runs with no errors.
+
+    Failure of this test would signify rather fundamental problems in the model.
     """
     mod = pp.poromechanics.Poromechanics({})
     pp.run_stationary_model(mod, {})
@@ -347,9 +364,10 @@ def test_without_fracture(biot_coefficient):
 
 
 def test_pull_north_positive_opening():
+    """Check solution for a pull on the north side with one horizontal fracture."""
     setup = create_fractured_setup({}, {}, 0.001)
     pp.run_time_dependent_model(setup, {})
-    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
+    _, _s, p_frac, jump, traction = get_variables(setup)
 
     # All components should be open in the normal direction
     assert np.all(jump[1] > 0)
@@ -368,6 +386,7 @@ def test_pull_north_positive_opening():
 
 
 def test_pull_south_positive_opening():
+    """Check solution for a pull on the south side with one horizontal fracture."""
 
     setup = create_fractured_setup({}, {}, 0)
     setup.params["uy_south"] = -0.001
@@ -411,7 +430,7 @@ def test_positive_p_frac_positive_opening():
     setup = create_fractured_setup({}, {}, 0)
     setup.params["fracture_source_value"] = 0.001
     pp.run_time_dependent_model(setup, {})
-    u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
+    _, _, p_frac, jump, traction = get_variables(setup)
 
     # All components should be open in the normal direction
     assert np.all(jump[1] > 0.042)
@@ -426,7 +445,8 @@ def test_positive_p_frac_positive_opening():
     assert np.all(np.abs(traction) < 1e-7)
 
     # Fracture pressure is positive
-    assert np.all(p_frac > 1e-3)
+    assert np.all(p_frac > 4.7e-4)
+    assert np.all(p_frac < 4.9e-4)
 
 
 def test_pull_south_positive_reference_pressure():
@@ -450,3 +470,51 @@ def test_pull_south_positive_reference_pressure():
     assert np.allclose(traction, traction_ref)
     assert np.allclose(p_frac, p_frac_ref + 1)
     assert np.allclose(p_vals, p_vals_ref + 1)
+
+
+@pytest.mark.parametrize(
+    "units",
+    [
+        {"m": 0.2, "kg": 0.3, "K": 42},
+    ],
+)
+def test_unit_conversion(units):
+    """Test that solution is independent of units.
+
+    Parameters:
+        units (dict): Dictionary with keys as those in
+            :class:`~pp.models.material_constants.MaterialConstants`.
+
+    """
+
+    params = {
+        "suppress_export": True,  # Suppress output for tests
+        "num_fracs": 1,
+        "cartesian": True,
+        "uy_north": 0.1,
+    }
+    reference_params = copy.deepcopy(params)
+    reference_params["file_name"] = "unit_conversion_reference"
+
+    # Create model and run simulation
+    setup_0 = TailoredPoromechanics(reference_params)
+    pp.run_time_dependent_model(setup_0, reference_params)
+
+    params["units"] = pp.Units(**units)
+    setup_1 = TailoredPoromechanics(params)
+
+    pp.run_time_dependent_model(setup_1, params)
+    variables = [
+        setup_1.pressure_variable,
+        setup_1.interface_darcy_flux_variable,
+        setup_1.displacement_variable,
+        setup_1.interface_displacement_variable,
+    ]
+    variable_units = ["Pa", "Pa * m^2 * s^-1", "m", "m"]
+    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    flux_names = ["darcy_flux", "fluid_flux", "stress", "fracture_stress"]
+    flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1", "Pa * m", "Pa"]
+    domain_dimensions = [None, None, 2, 1]
+    compare_scaled_model_quantities(
+        setup_0, setup_1, flux_names, flux_units, domain_dimensions
+    )
