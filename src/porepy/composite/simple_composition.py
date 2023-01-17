@@ -137,7 +137,7 @@ class SimpleComposition(Composition):
         for comp in self.components:
             k_val = pp.ad.Scalar(self.k_values[comp])
 
-            self.fugacities[comp] = {L: k_val, G: one}
+            self.fugacity_coeffs[comp] = {L: k_val, G: one}
 
     def print_state(self, from_iterate: bool = False) -> None:
         """Helper method to print the state of the composition to the console."""
