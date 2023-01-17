@@ -93,8 +93,7 @@ def test_pressure_and_consolidation_degree_errors():
     """
 
     params = {
-        "time_manager": pp.TimeManager([0, 0.05, 0.1, 0.3], 0.05, constant_dt=True),
-        "stored_times": [0.05, 0.1, 0.3],
+        "time_manager": pp.TimeManager([0, 0.05, 0.1, 0.3], 0.05, True),
         "num_cells": 10,
     }
     setup = TerzaghiSetup(params)
