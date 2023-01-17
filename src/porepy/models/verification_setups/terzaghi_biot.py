@@ -54,6 +54,7 @@ grid = pp.GridLike
 
 @dataclass
 class SaveData:
+    """Data class to save relevant results from the verification setup."""
 
     consolidation_degree_error: number = 0
     """Absolute error in the degree of consolidation."""
@@ -138,10 +139,10 @@ class ExactSolution:
         """Compute exact degree of consolidation.
 
         Parameters:
-            t : Time [s].
+            t: Time [s].
 
         Returns:
-            Degree of consolidation for the given time.
+            Degree of consolidation for the given time `t`.
 
         """
         t_nondim = self.setup.nondim_time(t)
@@ -345,25 +346,25 @@ class SetupUtilities:
 
     # ----> Non-dimensionalization methods
     def nondim_time(self, t: number) -> number:
-        """Non-dimensionalize time.
+        """Non-dimensional time.
 
         Parameters:
-            t: Time [s].
+            t: Time in seconds.
 
         Returns:
-            Dimensionless time for the given time `t`.
+            Dimensionless time.
 
         """
         h = self.params.get("height", 1.0)  # [m]
-        c_v = self.consolidation_coefficient()
+        c_v = self.consolidation_coefficient()  # [m * s^2]
 
         return (t * c_v) / (h**2)
 
     def nondim_length(self, length: np.ndarray) -> np.ndarray:
-        """Non-dimensionalize length.
+        """Non-dimensional length.
 
         Parameters:
-            length : length in meters.
+            length: Length in meters.
 
         Returns:
             Non-dimensionalized length.
@@ -372,10 +373,10 @@ class SetupUtilities:
         return length / self.params.get("height", 1.0)
 
     def nondim_pressure(self, pressure: np.ndarray) -> np.ndarray:
-        """Nondimensionalize pressure.
+        """Nondimensional pressure.
 
         Parameters:
-            pressure : pressure in Pa.
+            pressure: Fluid pressure in Pa.
 
         Returns:
             Non-dimensional pressure.
@@ -449,7 +450,7 @@ class SetupUtilities:
 
     # ----> Methods related to plotting
     def plot_results(self) -> None:
-        """Plot the results"""
+        """Plot the results."""
         cmap = mcolors.ListedColormap(plt.cm.tab20.colors[: len(self.results)])
         self._pressure_plot(color_map=cmap)
         self._consolidation_degree_plot(color_map=cmap)
@@ -538,14 +539,14 @@ class SetupUtilities:
         plt.show()
 
 
-class ModifiedGeometry(pp.ModelGeometry):
+class PseudoOneDimensionalColumn(pp.ModelGeometry):
     """Define geometry of the verification setup."""
 
     params: dict
     """Simulation model parameters."""
 
     def set_md_grid(self) -> None:
-        """Create the mixed-dimensional grid base on two-dimensional Cartesian grid."""
+        """Create the mixed-dimensional grid based on two-dimensional Cartesian grid."""
         height = self.params.get("height", 1.0)  # [m]
         num_cells = self.params.get("num_cells", 20)
         ls = 1 / self.units.m
@@ -564,7 +565,7 @@ class ModifiedBoundaryConditionsMechanicsTimeDependent(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
     mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid"""
+    """Mixed-dimensional grid."""
 
     domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
     """Named tuple containing the boundary sides indices."""
@@ -585,8 +586,8 @@ class ModifiedBoundaryConditionsMechanicsTimeDependent(
             sd: Subdomain grid.
 
         Returns:
-            bc: Boundary condition representation. Neumann on the north, Dirichlet on
-              south, and rollers on the sides.
+            bc: Boundary condition representation. Neumann on the North, Dirichlet on
+            the South, and rollers on the sides.
 
         """
         # Inherit bc from parent class. This sets all bc faces as Dirichlet.
@@ -647,7 +648,7 @@ class ModifiedBoundaryConditionsSinglePhaseFlow(
 
         Returns:
             Scalar boundary condition representation. All sides no flow, except the
-              North side which is set to a constant pressure.
+            North side which is set to a constant pressure.
 
         """
         # Define boundary regions
@@ -775,7 +776,7 @@ class ModifiedSolutionStrategy(
 class TerzaghiSetup(  # type: ignore
     ModifiedPoromechanicsBoundaryConditions,
     ModifiedSolutionStrategy,
-    ModifiedGeometry,
+    PseudoOneDimensionalColumn,
     SetupUtilities,
     BiotPoromechanics,
     VerificationUtils,
@@ -803,17 +804,3 @@ class TerzaghiSetup(  # type: ignore
 
     """
 
-
-# #%% Runner
-# from time import time
-#
-# tic = time()
-# params = {
-#     "plot_results": True,
-#     "stored_times": [0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
-# }
-# setup = TerzaghiSetup(params)
-# print("Simulation started...")
-# pp.run_time_dependent_model(setup, params)
-# toc = time()
-# print(f"Simulation finished in {round(toc - tic)} seconds.")

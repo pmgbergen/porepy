@@ -1,12 +1,13 @@
 """
 Module containing functional tests for Terzaghi's consolidation problem.
 
-We consider two functional test:
+We consider two functional tests:
 
     - The first test guarantees that the results obtained with the Biot class
-      `cls:porepy.applications.classic_models.Biot` matches `exactly` the results
-      obtained with the full poromechanical model `cls:porepy:models.poromechanics`
-      when biot_coefficient = 1 and the fluid compressibility = 0.
+      :class:`porepy.applications.classic_models.Biot` matches `exactly` the results
+      obtained with the full poromechanical model
+      :class:`porepy.models.poromechanics.Poromechanics` when biot_coefficient = 1
+      and the fluid compressibility = 0.
 
     - The second test compares desired and actual relative errors for the pressure and
       degree of consolidation obtained from the MPFA/MPSA-FV solutions and the
@@ -20,9 +21,9 @@ import porepy as pp
 
 from porepy.models.poromechanics import Poromechanics
 from porepy.models.verification_setups.verifications_utils import VerificationUtils
-from porepy.models.verification_setups.terzaghi import (
+from porepy.models.verification_setups.terzaghi_biot import (
     TerzaghiSetup,
-    ModifiedGeometry,
+    PseudoOneDimensionalColumn,
     SetupUtilities,
     ModifiedPoromechanicsBoundaryConditions,
     ModifiedSolutionStrategy,
@@ -33,7 +34,7 @@ from porepy.models.verification_setups.terzaghi import (
 class TerzaghiSetupPoromechanics(
     ModifiedPoromechanicsBoundaryConditions,
     ModifiedSolutionStrategy,
-    ModifiedGeometry,
+    PseudoOneDimensionalColumn,
     SetupUtilities,
     Poromechanics,
     VerificationUtils,
@@ -43,8 +44,7 @@ class TerzaghiSetupPoromechanics(
 
 
 def test_biot_equal_to_incompressible_poromechanics():
-    """Checks if the same results are obtained for Biot and incompressible
-    poromechanics"""
+    """Checks equality between Biot and incompressible poromechanics results."""
 
     # Run Terzaghi setup with full poromechanics model
     params_poromech = {"time_manager": pp.TimeManager([0, 1], 1, True), "num_cells": 10}
@@ -76,18 +76,19 @@ def test_pressure_and_consolidation_degree_errors():
     by copying the simulation results at the time this test was written.
 
     For this test, we require an absolute tolerance of 1e-5 and a relative tolerance of
-    1e-3 between the `desired_error` and the `actual_error`. The choice of such tolerances
-    aim at keeping the test meaningful while minimizing the chances of failure due to
-    floating-point arithmetic close to machine precision.
+    1e-3 between the `desired_error` and the `actual_error`. The choice of such
+    tolerances aim at keeping the test meaningful while minimizing the chances of
+    failure due to floating-point arithmetic close to machine precision.
 
     References:
 
-    [1] Mikelić, A., Wang, B., & Wheeler, M. F. (2014). Numerical convergence study of
-        iterative coupling for coupled flow and geomechanics. Computational Geosciences,
-        18(3), 325-341.
+        - [1] Mikelić, A., Wang, B., & Wheeler, M. F. (2014). Numerical convergence
+          study of iterative coupling for coupled flow and geomechanics.
+          Computational Geosciences, 18(3), 325-341.
 
-    [2] Nordbotten, J. M. (2016). Stable cell-centered finite volume discretization for
-        Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
+        - [2] Nordbotten, J. M. (2016). Stable cell-centered finite volume
+          discretization for Biot equations. SIAM Journal on Numerical Analysis,
+          54(2), 942-968.
 
     """
 
