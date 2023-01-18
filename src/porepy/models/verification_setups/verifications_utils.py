@@ -3,8 +3,6 @@ This module contains utility functions for verification setups.
 """
 from __future__ import annotations
 
-from typing import Union
-
 import numpy as np
 
 import porepy as pp
@@ -21,13 +19,13 @@ class VerificationUtils:
 
     def relative_l2_error(
         self,
-        grid: Union[pp.Grid, pp.MortarGrid],
+        grid: pp.GridLike,
         true_array: np.ndarray,
         approx_array: np.ndarray,
         is_scalar: bool,
         is_cc: bool,
-    ) -> float:
-        """Compute discrete L2-error.
+    ) -> pp.number:
+        """Compute discrete relative L2-error.
 
         Parameters:
             grid: Either a subdomain grid or a mortar grid.

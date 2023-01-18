@@ -306,31 +306,6 @@ class DisplacementJumpAperture(DimensionReduction):
         return apertures
 
 
-class ConstantFluidDensity:
-    """Constant fluid density."""
-
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-        """Fluid density [kg/m^3].
-
-        Parameters:
-            subdomains: List of subdomain grids.Note used in this implementation, but
-                included for compatibility with other implementations.
-
-        Returns:
-            Operator for fluid density, represented as an Ad operator. The value is
-            picked from the fluid constants.
-
-        """
-        return Scalar(self.fluid.density(), "fluid_density")
-
-
 class FluidDensityFromPressure:
     """Fluid density as a function of pressure."""
 
@@ -1354,29 +1329,24 @@ class AdvectiveFlux:
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
     """
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
     """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
     """
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the current model. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
     """
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Darcy flux variables on subdomains. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-
     """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
     """Darcy flux variables on interfaces. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
     """
 
     def advective_flux(
@@ -1388,22 +1358,18 @@ class AdvectiveFlux:
         interface_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator],
     ) -> pp.ad.Operator:
         """An operator represetning the advective flux on subdomains.
-
         .. note::
             The implementation assumes that the advective flux is discretized using a
             standard upwind discretization. Other discretizations may be possible, but
             this has not been considered.
-
         Parameters:
             subdomains: List of subdomains.
             advected_entity: Operator representing the advected entity.
             discr: Discretization of the advective flux.
             bc_values: Boundary conditions for the advective flux.
             interface_flux: Interface flux operator/variable.
-
         Returns:
             Operator representing the advective flux.
-
         """
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
@@ -2298,6 +2264,39 @@ class BiotCoefficient:
         return Scalar(self.solid.biot_coefficient(), "biot_coefficient")
 
 
+class SpecificStorage:
+    """Specific storage."""
+
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
+    def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Specific storage [1/Pa], i.e. inverse of the Biot modulus.
+
+        The specific storage :math:`S_\varepsilon` can also be obtained from more
+        fundamental quantities, i.e., :math:`S_\varepsilon = (\alpha - \phi_0) K_d^{
+        -1} + \phi_0 c_f)`, where :math:`\alpha` is the Biot's coefficient,
+        :math:`\phi_0` is the reference porosity, :math:`K_d` is the solid's bulk
+        modulus, and :math:`c_f` is the fluid compressibility.
+
+        Parameters:
+            subdomains: List of subdomains where the specific storage is defined.
+
+        Returns:
+            Specific storage operator.
+
+        Note:
+            Only used when :class:`BiotPoroMechanicsPorosity` is used as a part of the
+            constitutive laws.
+
+        """
+        return Scalar(self.solid.specific_storage(), "specific_storage")
+
+
 class ConstantPorosity:
 
     solid: pp.SolidConstants
@@ -2413,18 +2412,6 @@ class PoroMechanicsPorosity:
 
     """
 
-    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference porosity.
-
-        Parameters:
-            subdomains: List of subdomains where the reference porosity is defined.
-
-        Returns:
-            Reference porosity operator.
-
-        """
-        return Scalar(self.solid.porosity(), "reference_porosity")
-
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity.
 
@@ -2462,22 +2449,82 @@ class PoroMechanicsPorosity:
             Cell-wise porosity operator [-].
 
         """
+
+        # Sanity check
         if not all([sd.dim == self.nd for sd in subdomains]):
             raise ValueError("Subdomains must be of dimension nd.")
-        phi_ref = self.reference_porosity(subdomains)
-        dp = self.perturbation_from_reference("pressure", subdomains)
-        alpha = self.biot_coefficient(subdomains)
-        bulk = self.bulk_modulus(subdomains)
 
-        # 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
-        n_inv = (alpha - phi_ref) * (1 - alpha) / bulk
+        # Add contributions to poromechanics porosity
+        phi = (
+            self.reference_porosity(subdomains)
+            + self.porosity_change_from_pressure(subdomains)
+            + self.porosity_change_from_displacement(subdomains)
+            + self.biot_stabilization(subdomains)
+        )
+        phi.set_name("Stabilized matrix porosity")
 
-        # Add the three contributions to the porosity.
-        phi = phi_ref + n_inv * dp + alpha * self.displacement_divergence(subdomains)
-        # Add stabilization term. TODO: Should this be handled elsewhere?
-        phi = phi + self.biot_stabilization(subdomains)
-        phi.set_name("stabilized_matrix_porosity")
         return phi
+
+    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference porosity.
+
+        Parameters:
+            subdomains: List of subdomains where the reference porosity is defined.
+
+        Returns:
+            Reference porosity operator.
+
+        """
+        return Scalar(self.solid.porosity(), "reference_porosity")
+
+    def porosity_change_from_pressure(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Contribution of the pressure changes to the matrix porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise contribution of the pressure changes to the matrix porosity [-].
+
+        """
+
+        # Retrieve material parameters
+        alpha = self.biot_coefficient(subdomains)
+        phi_ref = self.reference_porosity(subdomains)
+        bulk_modulus = self.bulk_modulus(subdomains)
+
+        # Pressure changes
+        dp = self.perturbation_from_reference("pressure", subdomains)
+
+        # Compute 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
+        n_inv = (alpha - phi_ref) * (1 - alpha) / bulk_modulus
+
+        # Pressure change contribution
+        pressure_contribution = n_inv * dp
+        pressure_contribution.set_name("Porosity change from pressure")
+
+        return pressure_contribution
+
+    def porosity_change_from_displacement(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Contribution of the divergence displacement to the matrix porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise contribution of the divergence of the displacement to the
+            matrix porosity. Scaling with Biot's coefficient is already included.
+
+        """
+        alpha = self.biot_coefficient(subdomains)
+        div_u = self.displacement_divergence(subdomains)
+        div_u_contribution = alpha * div_u
+        div_u_contribution.set_name("Porosity change from displacement")
+        return div_u_contribution
 
     def displacement_divergence(
         self,
@@ -2571,6 +2618,51 @@ class PoroMechanicsPorosity:
         return stabilization
 
 
+class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
+    """Porosity for poromechanical models following classical Biot's theory.
+
+    The porosity is defined such that, after the chain rule is applied to the
+    accumulation term, the classical conservation equation from the Biot
+    equations is recovered.
+
+    Note that we assume constant fluid density and constant specific storage.
+
+    """
+
+    specific_storage: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Specific storage. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.SpecificStorage`.
+
+    """
+
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from reference state. Normally provided by
+    a mixin of instance :class:`~porepy.models.VariableMixin`.
+
+    """
+
+    def porosity_change_from_pressure(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Contribution of the pressure changes to the matrix porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise contribution of the pressure changes to the matrix porosity [-].
+
+        """
+        specific_storage = self.specific_storage(subdomains)
+        dp = self.perturbation_from_reference("pressure", subdomains)
+
+        # Pressure change contribution
+        pressure_contribution = specific_storage * dp
+        pressure_contribution.set_name("Biot's porosity change from pressure")
+
+        return pressure_contribution
+
+
 class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     """Add thermal effects to matrix porosity."""
 
@@ -2600,20 +2692,18 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
             Cell-wise porosity operator [-].
 
         """
-        # Poromechanical porosity.
+        # Inherit poromechanical porosity from base class.
         phi = super().matrix_porosity(subdomains)
-        # Subtract contribution from thermal expansion.
-        phi -= self.thermal_expansion_porosity(
-            subdomains
-        ) * self.perturbation_from_reference("temperature", subdomains)
-        phi.set_name("thermo_poromechanics_porosity")
+        # Add thermal contribution.
+        phi += self.porosity_change_from_temperature(subdomains)
+        phi.set_name("Thermoporomechanics porosity")
         return phi
 
-    def thermal_expansion_porosity(
+    def porosity_change_from_temperature(
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Thermal porosity expansion [-].
+        """Thermal contribution to the changes in porosity [-].
 
         TODO: Discuss cf. Coussy p. 73. Not sure about the interpretation of alpha_phi.
 
@@ -2626,8 +2716,9 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         """
         if not all([sd.dim == self.nd for sd in subdomains]):
             raise ValueError("Subdomains must be of dimension nd.")
+        dtemperature = self.perturbation_from_reference("temperature", subdomains)
         phi_ref = self.reference_porosity(subdomains)
         beta = self.solid_thermal_expansion(subdomains)
-        phi = (Scalar(1) - phi_ref) * beta
-        phi.set_name("thermal_porosity_expansion")
+        phi = Scalar(-1) * (Scalar(1) - phi_ref) * beta * dtemperature
+        phi.set_name("Porosity change from temperature")
         return phi
