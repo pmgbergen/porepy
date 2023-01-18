@@ -221,8 +221,8 @@ class PR_Roots:
         # storage for roots
         Z_L_val = np.zeros(nc)
         Z_G_val = np.zeros(nc)
-        Z_L_jac = sps.csr_matrix(shape)
-        Z_G_jac = sps.csr_matrix(shape)
+        Z_L_jac = sps.lil_matrix(shape)
+        Z_G_jac = sps.lil_matrix(shape)
 
         # identify super-critical region
         self.is_super_critical = B.val > B_CRIT / A_CRIT * A.val
@@ -241,10 +241,9 @@ class PR_Roots:
             degenerate_region, np.isclose(p.val, 0.0, atol=self._eps)
         )
 
-        # ensure we are not in the uncovered two-real-root case
+        # ensure we are not in the uncovered two-real-root case or triple-root case
         if np.any(double_root_region):
             raise NotImplementedError("Case with two distinct real roots encountered.")
-        # check for single triple root. Not sure what to do in this case...
         if np.any(triple_root_region):
             raise NotImplementedError("Case with real triple-root encountered.")
 
@@ -286,8 +285,7 @@ class PR_Roots:
             r_1 = (1 - B_1 - z_1) / 2
 
             ## PHASE LABELING in one-root-region
-            # this has to hold, otherwise the labeling polynomial can't have 3 distinct
-            # roots according to Gharbia et al. (2021)
+            # This has to hold, otherwise the polynomial can't have 3 distinct roots.
 
             # assert np.all(
             #     B_1.val < B_CRIT
@@ -384,8 +382,8 @@ class PR_Roots:
         ### storing results for access
         # self._z_l = pp.ad.Ad_array(Z_L_val, Z_L_jac)
         # self._z_g = pp.ad.Ad_array(Z_G_val, Z_G_jac)
-        self.liquid_root.value = pp.ad.Ad_array(Z_L_val, Z_L_jac)
-        self.gas_root.value = pp.ad.Ad_array(Z_G_val, Z_G_jac)
+        self.liquid_root.value = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
+        self.gas_root.value = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
 
     def _smoother(
         self, Z_L: pp.ad.Ad_array, Z_I: pp.ad.Ad_array, Z_G: pp.ad.Ad_array

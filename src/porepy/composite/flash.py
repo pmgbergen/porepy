@@ -413,8 +413,9 @@ class Flash:
             for component in self._C.components:
                 print(f"{phase.fraction_of_component_name(component)}: ")
                 print(
-                    sys.get_var_values(phase.fraction_of_component_name(component)),
-                    from_iterate,
+                    sys.get_var_values(
+                        phase.fraction_of_component_name(component), from_iterate
+                    )
                 )
         print(filler)
 
@@ -882,7 +883,7 @@ class Flash:
         Vu et al. (2021), proposition 3.1."""
         u = self.npipm_parameters["u"]
         m = self._C.num_phases**2
-        A.tolil()
+        A = A.tolil()
 
         dm = self._C.ad_system.dof_manager
         nc = dm.mdg.num_subdomain_cells()
@@ -923,8 +924,9 @@ class Flash:
             A[-nc:, -nc:] += augmentation
 
         # back to csr and eliminate zeros
-        A.tocsr()
+        A = A.tocsr()
         A.eliminate_zeros()
+        return A
 
     def _Armijo_line_search(
         self,
@@ -1037,7 +1039,7 @@ class Flash:
         F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
         var_names: list[str],
         do_logging: bool,
-        matrix_pre_processor: Optional[Callable[[sps.spmatrix], None]] = None,
+        matrix_pre_processor: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
     ) -> tuple[bool, int]:
         """Performs standard Newton iterations using the matrix and rhs-vector returned
         by ``F``, until (possibly) the L2-norm of the rhs-vector reaches the convergence
@@ -1062,9 +1064,6 @@ class Flash:
 
                 An optional callable to pre-process the matrix of the linearized
                 system returned by ``F``.
-
-                The pre-processor must be such that it modifies the matrix passed by
-                reference.
 
         Returns:
             A 2-tuple containing a bool and an integer, representing the success-
@@ -1103,7 +1102,7 @@ class Flash:
 
                 if do_logging:
                     if self.use_armijo:
-                        print("\n")
+                        print("", end="\n")
                     print("\r    \r", end="", flush=True)
                     print(
                         f"Newton iteration {i}; residual norm: {np.linalg.norm(b)}",
@@ -1113,7 +1112,7 @@ class Flash:
 
                 # solve iteration and add to ITERATE state additively
                 if matrix_pre_processor:
-                    matrix_pre_processor(A)
+                    A = matrix_pre_processor(A)
                 dx = sps.linalg.spsolve(A, b)
                 DX = self.newton_update_chop * prolongation * dx
 
