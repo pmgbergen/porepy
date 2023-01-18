@@ -27,7 +27,7 @@ from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
 from .pr_phase import PR_Phase
 from .pr_roots import PR_Roots
-from .pr_utils import _log, _power, _sqrt, _exp
+from .pr_utils import _exp, _log, _power, _sqrt
 
 __all__ = ["PR_Composition"]
 
@@ -467,22 +467,22 @@ class PR_Composition(Composition):
 
         for component in self.components:
             self.log_fugacity_coeffs[component] = {
-                self._phases[0]: self._log_phi_c_Z(component, self.roots.liquid_root),
-                self._phases[1]: self._log_phi_c_Z(component, self.roots.gas_root),
+                self._phases[0]: self._log_phi_c_e(component, self.roots.liquid_root),
+                self._phases[1]: self._log_phi_c_e(component, self.roots.gas_root),
             }
 
             self.fugacity_coeffs[component] = {
-                self._phases[0]: self._phi_c_Z(component, self.roots.liquid_root),
-                self._phases[1]: self._phi_c_Z(component, self.roots.gas_root),
+                self._phases[0]: self._phi_c_e(component, self.roots.liquid_root),
+                self._phases[1]: self._phi_c_e(component, self.roots.gas_root),
             }
 
-    def _phi_c_Z(
+    def _phi_c_e(
         self,
         component: PR_Component,
         Z: pp.ad.Operator,
         phase: Optional[PR_Phase] = None,
     ) -> pp.ad.Operator:
-        """Returns an AD operator representing the logarithmic fugacity coefficients of
+        """Returns an AD operator representing the fugacity coefficients of
         ``component``.
 
         The root ``Z`` must be provided.
@@ -510,65 +510,12 @@ class PR_Composition(Composition):
                 If None, the component overall fractions are used.
 
         """
-        # if phase is given, use phase compositions for mixing rule
-        if phase:
-            # index c for component
-            # index m for mixture
-            b_c = component.covolume
-            b_m = sum(
-                [
-                    phase.normalized_fraction_of_component(comp) * comp.covolume
-                    for comp in self.components
-                ]
-            )
-            B_m = (b_m * self.p) / (R_IDEAL * self.T)
+        log_phi_c_e = self._log_phi_c_e(component, Z, phase)
+        phi_c_e = _exp(log_phi_c_e)
 
-            a_c = sum(
-                [
-                    phase.normalized_fraction_of_component(other_c)
-                    * self._vdW_a_ij(component, other_c, False)
-                    for other_c in self.components
-                ]
-            )
-            a_m = sum(
-                [
-                    phase.normalized_fraction_of_component(comp_i)
-                    * phase.normalized_fraction_of_component(comp_j)
-                    * self._vdW_a_ij(comp_i, comp_j, False)
-                    for comp_i in self.components
-                    for comp_j in self.components
-                ]
-            )
-        # if not given, use overall component fractions
-        else:
-            # index c for component
-            # index m for mixture
-            b_c = component.covolume
-            b_m = self.covolume
-            B_m = self.B
+        return phi_c_e
 
-            a_c = sum(
-                [
-                    other_c.fraction * self._vdW_a_ij(component, other_c, False)
-                    for other_c in self.components
-                ]
-            )
-            a_m = self.cohesion
-
-        phi_c_G = (
-            _exp(b_c / b_m * (Z - 1))
-            * (Z - B_m)
-            * ((Z + (1 + np.sqrt(2)) * B_m) / (Z + (1 - np.sqrt(2)) * B_m))
-            ** (
-                a_m
-                / (b_m * R_IDEAL * self.T * np.sqrt(8))
-                * (b_c / b_m - 2 * a_c / a_m)
-            )
-        )
-
-        return phi_c_G
-
-    def _log_phi_c_Z(
+    def _log_phi_c_e(
         self,
         component: PR_Component,
         Z: pp.ad.Operator,
@@ -577,18 +524,7 @@ class PR_Composition(Composition):
         """Returns an AD operator representing the logarithmic fugacity coefficients of
         ``component``.
 
-        For more information see :meth:`_phi_c_Z`.
-
-        Parameters:
-            component: A PR component in this composition.
-            Z: reference to an AD array representing an extended root of the cubic
-                polynomial.
-            phase: ``default=None``
-
-                An optional phase to return contextual fugacity coefficients.
-                If given, the phase composition will be used in the mixing rule for
-                ``A`` and ``B``.
-                If None, the component overall fractions are used.
+        For more information see :meth:`_phi_c_e`.
 
         """
         # if phase is given, use phase compositions for mixing rule
@@ -636,7 +572,7 @@ class PR_Composition(Composition):
             )
             a_m = self.cohesion
 
-        log_phi_c_G = (
+        log_phi_c_e = (
             b_c / b_m * (Z - 1)
             - _log(Z - B_m)
             + _log((Z + (1 + np.sqrt(2)) * B_m) / (Z + (1 - np.sqrt(2)) * B_m))
@@ -645,4 +581,4 @@ class PR_Composition(Composition):
             * (b_c / b_m - 2 * a_c / a_m)
         )
 
-        return log_phi_c_G
+        return log_phi_c_e

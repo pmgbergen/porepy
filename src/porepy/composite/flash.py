@@ -350,6 +350,49 @@ class Flash:
             print(A.todense())
             print("---")
 
+    def print_state(self, from_iterate: bool = False):
+        """Print all information on the thermodynamic state of the mixture.
+
+        Parameters:
+            from_iterate: ``default=False``
+
+                Take values from ``ITERATE``, instead of ``STATE`` by default.
+
+        """
+        filler = "---"
+        sys = self._C.ad_system
+        if from_iterate:
+            print("ITERATE:")
+        else:
+            print("STATE:")
+        print(filler)
+        print("Pressure:")
+        print(sys.get_var_values(self._C.p_name, from_iterate))
+        print("Temperature:")
+        print(sys.get_var_values(self._C.T_name, from_iterate))
+        print("Enthalpy:")
+        print(sys.get_var_values(self._C.h_name, from_iterate))
+        print(filler)
+        print("Phase fractions:")
+        for phase in self._C.phases:
+            print(f"{phase.name}: ")
+            print(sys.get_var_values(phase.fraction_name, from_iterate))
+        print("Saturations:")
+        for phase in self._C.phases:
+            print(f"{phase.name}: ")
+            print(sys.get_var_values(phase.saturation_name, from_iterate))
+        print(filler)
+        print("Composition:")
+        for phase in self._C.phases:
+            print(f"{phase.name}: ")
+            for component in self._C.components:
+                print(f"{phase.fraction_of_component_name(component)}: ")
+                print(
+                    sys.get_var_values(phase.fraction_of_component_name(component)),
+                    from_iterate,
+                )
+        print(filler)
+
     def _history_entry(
         self,
         flash: str = "isenthalpic",
@@ -637,29 +680,48 @@ class Flash:
         elif initial_guess == "feed":
             nc = ad_system.dof_manager.mdg.num_subdomain_cells()
             phases = [p for p in self._C.phases if p != self._C.reference_phase]
-            for component in self._C.components:
+            # store preliminary phase composition
+            composition: dict[Any, dict] = dict()
+            # store sum of composition per phase, to use for normalization
+            phase_sums: dict[Any, np.ndarray] = dict()
 
+            # store reference phase compositions as feed fraction
+            composition[self._C.reference_phase] = dict()
+            for comp in self._C.reference_phase:
                 # first get the feed fractions
-                feed_c = component.fraction.evaluate(ad_system.dof_manager).val
-
-                # then iterate over other phases and use k-values to compute their
-                # compositions. This initial guess fulfils the equilibrium equations.
-                for phase in phases:
+                feed_c = comp.fraction.evaluate(ad_system.dof_manager).val
+                # set values in reference phase to feed fraction
+                composition[self._C.reference_phase].update({comp: np.copy(feed_c)})
+            phase_sums[self._C.reference_phase] = sum(
+                composition[self._C.reference_phase].values()
+            )
+            # for other phases, get values using the k-values, s.t. initial guess
+            # fulfils the equilibrium equations
+            for phase in phases:
+                composition[phase] = dict()
+                for comp in phase:
                     k_ce = (
-                        self._C.get_k_value(component, phase)
+                        self._C.get_k_value(comp, phase)
                         .evaluate(ad_system.dof_manager)
                         .val
                     )
 
-                    x_ce = feed_c
-                    x_cR = feed_c / k_ce
+                    x_ce = composition[self._C.reference_phase][comp] * k_ce
 
+                    composition[phase].update({comp: x_ce})
+
+                # compute sum per phase
+                phase_sums[phase] = sum(composition[phase].values())
+
+            # normalize initial guesses (in all phases) and set values
+            for phase in self._C.phases:
+                for comp in self._C.components:
+                    # normalize
+                    x_ce = composition[phase][comp] / phase_sums[phase]
+                    # set values
                     ad_system.set_var_values(
-                        phase.fraction_of_component_name(component), np.copy(x_ce)
-                    )
-                    ad_system.set_var_values(
-                        self._C.reference_phase.fraction_of_component_name(component),
-                        np.copy(x_cR),
+                        phase.fraction_of_component_name(comp),
+                        np.copy(x_ce),
                     )
 
             # use the feed fraction of the reference component to set an initial guess
@@ -771,7 +833,10 @@ class Flash:
 
         # the NPIPM has some algorithmic variables
         success, iter_final = self._newton_iterations(
-            F, var_names + self.npipm_variables, do_logging
+            F,
+            var_names + self.npipm_variables,
+            do_logging,
+            matrix_pre_processor=self._npipm_pre_processor,
         )
 
         # append history entry
@@ -783,6 +848,45 @@ class Flash:
         )
 
         return success
+
+    def _npipm_pre_processor(self, A: sps.spmatrix) -> None:
+        """Modifying some parts of the NPIPM matrix according to
+        Vu et al. (2021), proposition 3.1."""
+        u = self.npipm_parameters["u"]
+        m = self._C.num_phases**2
+        A.tolil()
+
+        dm = self._C.ad_system.dof_manager
+        nc = dm.mdg.num_subdomain_cells()
+
+        ## First modification: Eliminate derivatives w.r.t. V and W in the slack equ.
+        # According to the set-up, the very last num_cells equations represent
+        # the slack equation involving nu -> last num_cells rows [-nc:]
+        # The column indices are given by the last num_phases * 2 * num_cells,
+        A[-nc:, -self._C.num_phases * 2 * nc :] = 0
+
+        ## Second modification: Augment the derivative of the slack equ w.r.t. nu
+        # by adding the term u * <V,W> / m
+        # the columns of the nu derivative are given by the num_cells block before the
+        # above blocks
+        augmentation = (
+            sum(
+                [
+                    self._V_of_phase[phase].evaluate(dm).val
+                    * self._W_of_phase[phase].evaluate(dm).val
+                    for phase in self._C.phases
+                ]
+            )
+            * u
+            / m
+        )
+        A[
+            -nc:, -(nc + self._C.num_phases * 2 * nc) : -self._C.num_phases * 2 * nc
+        ] += augmentation
+
+        # back to csr and eliminate zeros
+        A.tocsr()
+        A.eliminate_zeros()
 
     def _Armijo_line_search(
         self,
@@ -895,6 +999,7 @@ class Flash:
         F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
         var_names: list[str],
         do_logging: bool,
+        matrix_pre_processor: Optional[Callable[[sps.spmatrix], None]] = None,
     ) -> tuple[bool, int]:
         """Performs standard Newton iterations using the matrix and rhs-vector returned
         by ``F``, until (possibly) the L2-norm of the rhs-vector reaches the convergence
@@ -914,6 +1019,14 @@ class Flash:
             var_names: A list of variable names, such that ``F`` is solvable.
                 This list is used to construct a prolongation matrix and to update
                 respective components of the global solution vector.
+            do_logging: Flag to print status logs in the console.
+            matrix_pre_processor: ``default=None``
+
+                An optional callable to pre-process the matrix of the linearized
+                system returned by ``F``.
+
+                The pre-processor must be such that it modifies the matrix passed by
+                reference.
 
         Returns:
             A 2-tuple containing a bool and an integer, representing the success-
@@ -951,6 +1064,8 @@ class Flash:
             for i in range(1, self.max_iter_flash + 1):
 
                 if do_logging:
+                    if self.use_armijo:
+                        print("\n")
                     print("\r    \r", end="", flush=True)
                     print(
                         f"Newton iteration {i}; residual norm: {np.linalg.norm(b)}",
@@ -959,6 +1074,8 @@ class Flash:
                     )
 
                 # solve iteration and add to ITERATE state additively
+                if matrix_pre_processor:
+                    matrix_pre_processor(A)
                 dx = sps.linalg.spsolve(A, b)
                 DX = self.newton_update_chop * prolongation * dx
 
@@ -975,7 +1092,6 @@ class Flash:
                 )
 
                 A, b = F()
-                # A[-1, -4:] = 0.
 
                 # in case of convergence
                 if np.linalg.norm(b) <= self.flash_tolerance:

@@ -100,12 +100,14 @@ def bip_H2O_N2(T: pp.ad.MergedVariable, h2o: H2O, n2: N2) -> pp.ad.Operator:
         An AD Operator representing the constant scalar BIP.
 
     """
-    return 0.9909 - 379.9691 / T
+    # return 0.9909 - 379.9691 / T
+    return pp.ad.Scalar(0.0)
 
 
 def dT_bip_H2O_N2(T: pp.ad.MergedVariable, h2o: H2O, n2: N2) -> pp.ad.Operator:
     """Analytical derivative of :func:`bip_H2O_N2` w.r.t. temperature ``T``."""
-    return 379.9691 / (T * T)
+    # return 379.9691 / (T * T)
+    return pp.ad.Scalar(0.0)
 
 
 def bip_CO2_H2S(T: pp.ad.MergedVariable, co2: CO2, h2s: H2S) -> pp.ad.Operator:
