@@ -219,7 +219,7 @@ class PR_Composition(Composition):
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Before the system is linearized by a super call to the parent method,
         the PR mixture computes the EoS Roots for (iterative) updates."""
-        self.roots.compute_roots()
+        self.roots.compute_roots(state=state)
         return super().linearize_subsystem(flash_type, other_vars, other_eqns, state)
 
     ### Model equations ----------------------------------------------------------------

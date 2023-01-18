@@ -9,6 +9,8 @@ References:
 """
 from __future__ import annotations
 
+from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -186,7 +188,11 @@ class PR_Roots:
 
     ### root computation ---------------------------------------------------------------
 
-    def compute_roots(self, apply_smoother: bool = False) -> None:
+    def compute_roots(
+        self,
+        state: Optional[np.ndarray] = None,
+        apply_smoother: bool = False,
+    ) -> None:
         """Computes the roots of the characteristic polynomial and assigns phase labels.
 
         The roots depend on ``A`` and ``B`` of the Peng-Robinson EoS, hence on the
@@ -198,6 +204,10 @@ class PR_Roots:
         :meth:`gas_root`.
 
         Parameters:
+            state: ``default=None``
+
+                An optional (global) state vector for the AD system to evaluate
+                ``A`` and ``B`` w.r.t to it.
             apply_smoother: ``default=False``
 
                 If True, a smoothing procedure is applied in the three-root-region,
@@ -209,12 +219,12 @@ class PR_Roots:
 
         """
         # evaluate necessary parameters
-        A = self.A.evaluate(self.ad_system.dof_manager)
-        B = self.B.evaluate(self.ad_system.dof_manager)
-        p = self.p.evaluate(self.ad_system.dof_manager)
-        q = self.q.evaluate(self.ad_system.dof_manager)
-        c2 = self.c2.evaluate(self.ad_system.dof_manager)
-        delta = self.delta.evaluate(self.ad_system.dof_manager)
+        A = self.A.evaluate(self.ad_system.dof_manager, state)
+        B = self.B.evaluate(self.ad_system.dof_manager, state)
+        p = self.p.evaluate(self.ad_system.dof_manager, state)
+        q = self.q.evaluate(self.ad_system.dof_manager, state)
+        c2 = self.c2.evaluate(self.ad_system.dof_manager, state)
+        delta = self.delta.evaluate(self.ad_system.dof_manager, state)
 
         nc = len(A.val)
         shape = A.jac.shape
@@ -292,6 +302,7 @@ class PR_Roots:
             # ), "Co-volume exceeds critical value for labeling."
 
             # A_1 = pp.ad.Ad_array(A.val[one_root_region], A.jac[one_root_region])
+            # # TODO pass state to labeling method
             # liquid_region, gas_region = self._get_labeled_regions(
             #     A_1,
             #     B_1,

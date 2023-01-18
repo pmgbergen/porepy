@@ -40,6 +40,7 @@ sys.set_var_values(M.h_name, 0 * vec, True)
 M.initialize()
 
 FLASH = pp.composite.Flash(M)
+FLASH.use_armijo = False
 
 M.roots.compute_roots()
 
@@ -58,13 +59,22 @@ M.roots.compute_roots()
 # print("N2: ", M.log_fugacity_coeffs[n2][G].evaluate(dm).val)
 
 FLASH.flash("isothermal", 'npipm', 'feed', False, True)
-FLASH.print_state(True)
-FLASH.print_state(False)
 FLASH.post_process_fractions()
 FLASH.evaluate_specific_enthalpy()
 FLASH.evaluate_saturations()
+# W = iapws.IAPWS95(P=pressure, T=temperature)
+
+h = sys.get_var_values(M.h_name, False) * 1.25
+sys.set_var_values(M.h_name, h, True)
+FLASH.print_state()
+print("--------------------------")
+FLASH.use_armijo = False
+FLASH.flash("isenthalpic", 'npipm', 'iterate', False, True)
 FLASH.print_state(True)
 FLASH.print_state(False)
-# W = iapws.IAPWS95(P=pressure, T=temperature)
+FLASH.post_process_fractions()
+FLASH.evaluate_saturations()
+FLASH.print_state(True)
+FLASH.print_state(False)
 
 print("DONE")
