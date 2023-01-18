@@ -2509,8 +2509,8 @@ class PoroMechanicsPorosity:
         # Add contributions to poromechanics porosity
         phi = (
             self.reference_porosity(subdomains)
-            + self.pressure_contribution(subdomains)
-            + self.displacement_divergence_contribution(subdomains)
+            + self.porosity_change_from_pressure(subdomains)
+            + self.porosity_change_from_displacement(subdomains)
             + self.biot_stabilization(subdomains)
         )
         phi.set_name("Stabilized matrix porosity")
