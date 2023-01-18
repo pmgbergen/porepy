@@ -53,10 +53,10 @@ grid = pp.GridLike
 
 # Physical parameters for the verification setup
 terzaghi_solid_constants: dict[str, number] = {
-        "lame_lambda": 1.65e9,  # [Pa]
-        "shear_modulus": 1.475e9,  # [Pa]
-        "specific_storage": 0,  # [Pa * m^-1]
-        "permeability": 9.86e-14,  # [m^2]
+    "lame_lambda": 1.65e9,  # [Pa]
+    "shear_modulus": 1.475e9,  # [Pa]
+    "specific_storage": 0,  # [Pa * m^-1]
+    "permeability": 9.86e-14,  # [m^2]
 }
 
 terzaghi_fluid_constants: dict[str, number] = {
@@ -274,12 +274,12 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         out.exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
 
         # Store errors data
-        out.pressure_error = self.relative_l2_error(
-            sd,  # grid
-            out.exact_pressure,  # true_array
-            out.numerical_pressure,  # approximate_array,
-            True,  # is_scalar
-            True,  # is_cc
+        out.pressure_error = self.relative_l2_error(  # type: ignore[call-arg]
+            grid=sd,
+            true_array=out.exact_pressure,
+            approx_array=out.numerical_pressure,
+            is_scalar=True,
+            is_cc=True,
         )
         out.consolidation_degree_error = np.abs(
             out.exact_consolidation_degree - out.numerical_consolidation_degree

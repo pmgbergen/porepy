@@ -2503,7 +2503,7 @@ class PoroMechanicsPorosity:
         return Scalar(self.solid.porosity(), "reference_porosity")
 
     def porosity_change_from_pressure(
-            self, subdomains: list[pp.Grid]
+        self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Contribution of the pressure changes to the matrix porosity [-].
 
@@ -2667,7 +2667,7 @@ class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
     """
 
     def porosity_change_from_pressure(
-            self, subdomains: list[pp.Grid]
+        self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Contribution of the pressure changes to the matrix porosity [-].
 

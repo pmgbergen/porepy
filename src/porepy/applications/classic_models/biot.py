@@ -80,8 +80,8 @@ References:
 import porepy as pp
 from porepy.models.poromechanics import (
     ConstitutiveLawsPoromechanics,
-    SolutionStrategyPoromechanics,
     Poromechanics,
+    SolutionStrategyPoromechanics,
 )
 
 
