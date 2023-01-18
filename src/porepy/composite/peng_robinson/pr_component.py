@@ -108,7 +108,7 @@ class PR_Component(Component):
             self.cohesion_correction_weight
             / (-2)
             / self.critical_temperature()
-            * _power(T_r, -1 / 2)
+            * _power(T_r, pp.ad.Scalar(-1 / 2))
         )
 
         return dt_a

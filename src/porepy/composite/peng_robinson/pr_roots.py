@@ -186,7 +186,7 @@ class PR_Roots:
 
     ### root computation ---------------------------------------------------------------
 
-    def compute_roots(self) -> None:
+    def compute_roots(self, apply_smoother: bool = False) -> None:
         """Computes the roots of the characteristic polynomial and assigns phase labels.
 
         The roots depend on ``A`` and ``B`` of the Peng-Robinson EoS, hence on the
@@ -196,6 +196,16 @@ class PR_Roots:
 
         The results can be accessed (by reference) using :meth:`liquid_root` and
         :meth:`gas_root`.
+
+        Parameters:
+            apply_smoother: ``default=False``
+
+                If True, a smoothing procedure is applied in the three-root-region,
+                where the intermediate root approaches one of the other roots.
+
+                This is to be used **within** iterative procedures for numerical
+                reasons. Once convergence is reached, the true roots should be computed
+                without smoothing.
 
         """
         # evaluate necessary parameters
@@ -357,7 +367,11 @@ class PR_Roots:
             ## Smoothing of roots close to double-real-root case
             # this happens when the phase changes, at the phase border the polynomial
             # can have a real double root.
-            Z_L_3, Z_G_3 = self._smoother(z1_3, z2_3, z3_3)
+            # TODO check if smoother necessary
+            if apply_smoother:
+                Z_L_3, Z_G_3 = self._smoother(z1_3, z2_3, z3_3)
+            else:
+                Z_L_3, Z_G_3 = (z1_3, z3_3)
 
             ## Labeling in the three-root-region follows topological patterns
             # biggest root belongs to gas phase
@@ -421,8 +435,8 @@ class PR_Roots:
         )
 
         # store in AD array format and return
-        smooth_Z_L = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
-        smooth_Z_G = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
+        smooth_Z_L = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
+        smooth_Z_G = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
 
         return smooth_Z_L, smooth_Z_G
 
