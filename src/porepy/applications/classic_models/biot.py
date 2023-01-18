@@ -25,6 +25,14 @@ porosity, and pressure, and :math:`S_\varepsilon`, :math:`\alpha`, :math:`p`,
 and :math:`\mathbf{u}`, are the specific storage, Biot's coefficient, pressure, and
 displacement, respectively.
 
+Note, however, that the above simplifications do not reflect the actual _physical_
+assumptions considered in Biot's theory. e.g., the fluid is actually slightly
+compressible rather than incompressible. Thus, the above simplifications must be seen
+as implementation shortcuts rather than proper physical assumptions. The only
+drawback of this approach is that the user must provide :math:`S_\varepsilon` as a
+_material constant_ when in principle it could be inferred from other physical
+parameters such as the fluid compressibility and the solid bulk modulus.
+
 For a domain without fractures and in the absence of gravity, the governing equations
 solved by this class are given by:
 
