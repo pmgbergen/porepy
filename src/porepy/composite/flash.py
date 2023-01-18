@@ -43,10 +43,18 @@ class Flash:
     Parameters:
         composition: An **initialized** composition class representing the
             modelled mixture.
+        auxiliary_npipm: ``default=False``
+
+            An optional flag to enlarge the NPIPM system by introducing phase-specific
+            auxiliary variables and equations. This introduces the size of the system
+            by ``2 * num_phases`` equations and variables and should be used carefully.
+
+            This feature is left here to reflect the original algorithm
+            introduced by Vu.
 
     """
 
-    def __init__(self, composition: Composition) -> None:
+    def __init__(self, composition: Composition, auxiliary_npipm: bool = False) -> None:
 
         self._C: Composition = composition
         """The composition class passed at instantiation"""
@@ -99,9 +107,9 @@ class Flash:
         """A bool indicating if an Armijo line-search should be performed after an
         update direction has been found. Defaults to True."""
 
-        self.use_auxiliary_npipm_vars: bool = False
+        self.use_auxiliary_npipm_vars: bool = auxiliary_npipm
         """A bool indicating if the auxiliary variables ``V`` and ``W`` should
-        be used in the NPIPM algorithm of Vu et al.. Defaults to False."""
+        be used in the NPIPM algorithm of Vu et al.. Passed at instantiation."""
 
         self.newton_update_chop: float = 1.0
         """A number in ``[0, 1]`` to scale the Newton update ``dx`` resulting from
