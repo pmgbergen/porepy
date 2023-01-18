@@ -22,6 +22,8 @@ import porepy as pp
 from porepy.models.poromechanics import Poromechanics
 from porepy.models.verification_setups.verifications_utils import VerificationUtils
 from porepy.models.verification_setups.terzaghi_biot import (
+    terzaghi_solid_constants,
+    terzaghi_fluid_constants,
     TerzaghiSetup,
     PseudoOneDimensionalColumn,
     SetupUtilities,
@@ -40,21 +42,33 @@ class TerzaghiSetupPoromechanics(
     VerificationUtils,
     ModifiedDataSavingMixin
 ):
-    ...
+    """Terzaghi mixer class based on the full poromechanics class."""
 
 
 def test_biot_equal_to_incompressible_poromechanics():
     """Checks equality between Biot and incompressible poromechanics results."""
 
     # Run Terzaghi setup with full poromechanics model
-    params_poromech = {"time_manager": pp.TimeManager([0, 1], 1, True), "num_cells": 10}
+    params_poromech = {
+        "material_constants": {
+            "solid": pp.SolidConstants(terzaghi_solid_constants),
+            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        },
+        "num_cells": 10
+    }
     setup_poromech = TerzaghiSetupPoromechanics(params_poromech)
     pp.run_time_dependent_model(setup_poromech, params_poromech)
     p_poromechanics = setup_poromech.results[0].numerical_pressure
     U_poromechanics = setup_poromech.results[0].numerical_consolidation_degree
 
     # Run Terzaghi setup with Biot model
-    params_biot = {"time_manager": pp.TimeManager([0, 1], 1, True), "num_cells": 10}
+    params_biot = {
+          "material_constants": {
+              "solid": pp.SolidConstants(terzaghi_solid_constants),
+              "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+          },
+          "num_cells": 10,
+    }
     setup_biot = TerzaghiSetup(params_biot)
     pp.run_time_dependent_model(setup_biot, params_biot)
     p_biot = setup_biot.results[0].numerical_pressure
@@ -93,6 +107,10 @@ def test_pressure_and_consolidation_degree_errors():
     """
 
     params = {
+        "material_constants": {
+            "solid": pp.SolidConstants(terzaghi_solid_constants),
+            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        },
         "time_manager": pp.TimeManager([0, 0.05, 0.1, 0.3], 0.05, True),
         "num_cells": 10,
     }

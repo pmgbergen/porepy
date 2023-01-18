@@ -51,6 +51,19 @@ from porepy.models.verification_setups.verifications_utils import VerificationUt
 number = pp.number
 grid = pp.GridLike
 
+# Physical parameters for the verification setup
+terzaghi_solid_constants: dict[str, number] = {
+        "lame_lambda": 1.65e9,  # [Pa]
+        "shear_modulus": 1.475e9,  # [Pa]
+        "specific_storage": 0,  # [Pa * m^-1]
+        "permeability": 9.86e-14,  # [m^2]
+}
+
+terzaghi_fluid_constants: dict[str, number] = {
+    "viscosity": 1e-3,  # [Pa * s]
+    "density": 1e3,  # [kg * m^-3]
+}
+
 
 @dataclass
 class SaveData:
@@ -693,48 +706,13 @@ class ModifiedSolutionStrategy(
             params: Parameters of the verification setup.
 
         """
-        # Exact solution
+        super().__init__(params)
+
         self.exact_sol: ExactSolution
         """Exact solution object"""
 
-        # Prepare object to store solutions.
         self.results: list[SaveData] = []
         """List of stored results from the verification."""
-
-        # Default material constants
-        default_solid = pp.SolidConstants(
-            {
-                "lame_lambda": 1.65e9,  # [Pa]
-                "shear_modulus": 1.475e9,  # [Pa]
-                "specific_storage": 0,  # [Pa * m^-1]
-                "permeability": 9.86e-14,  # [m^2]
-            }
-        )
-        default_fluid = pp.FluidConstants(
-            {
-                "viscosity": 1e-3,  # [Pa * s]
-                "density": 1e3,  # [kg * m^-3]
-            }
-        )
-        default_material_constants = {"solid": default_solid, "fluid": default_fluid}
-
-        # Default time manager
-        default_time_manager = pp.TimeManager(
-            schedule=[0, 0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
-            dt_init=0.001,
-            constant_dt=True
-        )
-
-        # Set default setup parameters
-        default_params: list[tuple] = [
-            ("material_constants", default_material_constants),
-            ("time_manager", default_time_manager),
-        ]
-        for key, val in default_params:
-            if key not in params.keys():
-                params[key] = val
-
-        super().__init__(params)
 
     def set_materials(self):
         """Set material parameters.
@@ -743,6 +721,17 @@ class ModifiedSolutionStrategy(
         """
         super().set_materials()
         self.exact_sol = ExactSolution(self)
+
+        # Sanity checks to ensure validity of Terzaghi's solution
+
+        # Fluid compressibility must be zero
+        assert self.fluid.compressibility() == 0
+
+        # Specific storage must be zero
+        assert self.solid.specific_storage() == 0
+
+        # Biot's coefficient must be one
+        assert self.solid.biot_coefficient() == 1
 
     def initial_condition(self) -> None:
         """Set initial conditions.
@@ -788,9 +777,31 @@ class TerzaghiSetup(  # type: ignore
         .. code::python
 
         from time import time
+        from porepy.models.verification_setups.terzaghi_biot import (
+            terzaghi_solid_constants,
+            terzaghi_fluid_constants,
+        )
 
+        # Simulation parameters
+        time_manager = pp.TimeManager(
+            schedule=[0, 0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
+            dt_init=0.001,
+            constant_dt=True
+        )
+
+        material_constants = {
+            "solid": pp.SolidConstants(terzaghi_solid_constants),
+            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        }
+
+        params = {
+            "time_manager": time_manager,
+            "material_constants": material_constants,
+            "plot_results": True
+        }
+
+        # Run verification
         tic = time()
-        params = {"plot_results": True}
         setup = TerzaghiSetup(params)
         print("Simulation started...")
         pp.run_time_dependent_model(setup, params)
