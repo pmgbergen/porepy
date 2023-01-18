@@ -474,10 +474,10 @@ class SemiSmoothMin(AbstractFunction):
         # active set choice
         active_set = (op1.val - op2.val) > 0.0
         # default/inactive choice (lil format for faster assembly)
-        jac = op1.jac.tolil()
+        jac = op1.jac.copy()
         # replace (active set) rows with the differential from the other operator
-        jac[active_set] = op2.jac.tolil()[active_set]
-        return jac.tocsr()  # back to csr
+        jac[active_set] = op2.jac[active_set]
+        return jac.tocsr()
 
 
 class SemiSmoothNegative(AbstractFunction):
@@ -508,11 +508,12 @@ class SemiSmoothNegative(AbstractFunction):
         op = args[0]
         eliminate = op.val >= 0.0
 
-        jac = op.jac.copy()
-        jac[eliminate, :] = 0.0
+        jac = op.jac.tolil().copy()
+        jac[eliminate] = 0.0
+        jac = jac.tocsr()
         jac.eliminate_zeros()
 
-        return jac.tocsr()
+        return jac
 
 
 class SemiSmoothPositive(AbstractFunction):
@@ -543,11 +544,12 @@ class SemiSmoothPositive(AbstractFunction):
         op = args[0]
         eliminate = op.val <= 0.0
 
-        jac = op.jac.copy()
-        jac[eliminate, :] = 0.0
+        jac = op.jac.tolil().copy()
+        jac[eliminate] = 0.0
+        jac = jac.tocsr()
         jac.eliminate_zeros()
 
-        return jac.tocsr()
+        return jac
 
 
 class ScalarProduct(AbstractFunction):
