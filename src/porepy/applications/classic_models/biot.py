@@ -3,13 +3,14 @@ Model class for poromechanical equations under the Biot assumptions [1, 2, 3].
 
 This class can be seen as a subset of the full poromechanical system of equations,
 where certain simplifications are introduced so that the classical system of
-equations following Biot's consolidation is recovered.
+equations following Biot's consolidation theory is recovered.
 
-In particular, we set the fluid density as constant:
+In particular, we set the fluid density as constant by requiring the fluid
+compressibility :math:`c_f` to be zero,
 
 .. math::
 
-    \rho := \rho_0,
+    \rho := \rho_0 \exp{c_f (p - p_0)} = \rho_0,
 
 and define the poromechanics porosity as:
 
@@ -28,10 +29,7 @@ displacement, respectively.
 Note, however, that the above simplifications do not reflect the actual _physical_
 assumptions considered in Biot's theory. e.g., the fluid is actually slightly
 compressible rather than incompressible. Thus, the above simplifications must be seen
-as implementation shortcuts rather than proper physical assumptions. The only
-drawback of this approach is that the user must provide :math:`S_\varepsilon` as a
-_material constant_ when in principle it could be inferred from other physical
-parameters such as the fluid compressibility and the solid bulk modulus.
+as implementation shortcuts rather than proper physical assumptions.
 
 For a domain without fractures and in the absence of gravity, the governing equations
 solved by this class are given by:
@@ -80,13 +78,26 @@ References:
 
 
 import porepy as pp
-from porepy.models.poromechanics import ConstitutiveLawsPoromechanics, Poromechanics
+from porepy.models.poromechanics import (
+    ConstitutiveLawsPoromechanics,
+    SolutionStrategyPoromechanics,
+    Poromechanics,
+)
+
+
+class SolutionStrategyBiot(SolutionStrategyPoromechanics):
+    """Modified solution strategy for the Biot class"""
+
+    def set_materials(self):
+        """Set the material constants."""
+        super().set_materials()
+        # Check that fluid compressibility is zero, otherwise Biot class doesn't hold
+        assert self.fluid.compressibility() == 0
 
 
 class ConstitutiveLawsBiot(
     pp.constitutive_laws.SpecificStorage,
     pp.constitutive_laws.BiotPoroMechanicsPorosity,
-    pp.constitutive_laws.ConstantFluidDensity,
     ConstitutiveLawsPoromechanics,
 ):
     ...
@@ -94,6 +105,7 @@ class ConstitutiveLawsBiot(
 
 class BiotPoromechanics(  # type: ignore[misc]
     ConstitutiveLawsBiot,
+    SolutionStrategyBiot,
     Poromechanics,
 ):
     ...
