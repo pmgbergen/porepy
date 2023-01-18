@@ -2329,6 +2329,12 @@ class SpecificStorage:
     def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Specific storage [1/Pa], i.e. inverse of the Biot modulus.
 
+        The specific storage :math:`S_\varepsilon` can also be obtained from more
+        fundamental quantities, i.e., :math:`S_\varepsilon = (\alpha - \phi_0) K_d^{
+        -1} + \phi_0 c_f)`, where :math:`\alpha` is the Biot's coefficient,
+        :math:`\phi_0` is the reference porosity, :math:`K_d` is the solid's bulk
+        modulus, and :math:`c_f` is the fluid compressibility.
+
         Parameters:
             subdomains: List of subdomains where the specific storage is defined.
 
