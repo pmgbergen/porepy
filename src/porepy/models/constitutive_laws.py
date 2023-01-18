@@ -2342,7 +2342,7 @@ class SpecificStorage:
             Specific storage operator.
 
         Note:
-            Only used when :class:`BiotPoromechanicsPorosity` is used as a part of the
+            Only used when :class:`BiotPoroMechanicsPorosity` is used as a part of the
             constitutive laws.
 
         """
@@ -2529,7 +2529,9 @@ class PoroMechanicsPorosity:
         """
         return Scalar(self.solid.porosity(), "reference_porosity")
 
-    def pressure_contribution(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def porosity_change_from_pressure(
+            self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         """Contribution of the pressure changes to the matrix porosity [-].
 
         Parameters:
@@ -2553,11 +2555,11 @@ class PoroMechanicsPorosity:
 
         # Pressure change contribution
         pressure_contribution = n_inv * dp
-        pressure_contribution.set_name("Pressure contribution to porosity")
+        pressure_contribution.set_name("Porosity change from pressure")
 
         return pressure_contribution
 
-    def displacement_divergence_contribution(
+    def porosity_change_from_displacement(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Contribution of the divergence displacement to the matrix porosity [-].
@@ -2573,7 +2575,7 @@ class PoroMechanicsPorosity:
         alpha = self.biot_coefficient(subdomains)
         div_u = self.displacement_divergence(subdomains)
         div_u_contribution = alpha * div_u
-        div_u_contribution.set_name("DivU contribution to porosity")
+        div_u_contribution.set_name("Porosity change from displacement")
         return div_u_contribution
 
     def displacement_divergence(
@@ -2668,7 +2670,7 @@ class PoroMechanicsPorosity:
         return stabilization
 
 
-class BiotPoromechanicsPorosity(PoroMechanicsPorosity):
+class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
     """Porosity for poromechanical models following classical Biot's theory.
 
     The porosity is defined such that, after the chain rule is applied to the
@@ -2691,7 +2693,9 @@ class BiotPoromechanicsPorosity(PoroMechanicsPorosity):
 
     """
 
-    def pressure_contribution(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def porosity_change_from_pressure(
+            self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         """Contribution of the pressure changes to the matrix porosity [-].
 
         Parameters:
@@ -2706,7 +2710,7 @@ class BiotPoromechanicsPorosity(PoroMechanicsPorosity):
 
         # Pressure change contribution
         pressure_contribution = specific_storage * dp
-        pressure_contribution.set_name("Pressure contribution to Biot's porosity")
+        pressure_contribution.set_name("Biot's porosity change from pressure")
 
         return pressure_contribution
 
@@ -2740,20 +2744,18 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
             Cell-wise porosity operator [-].
 
         """
-        # Poromechanical porosity.
+        # Inherit poromechanical porosity from base class.
         phi = super().matrix_porosity(subdomains)
-        # Subtract contribution from thermal expansion.
-        phi -= self.thermal_expansion_porosity(
-            subdomains
-        ) * self.perturbation_from_reference("temperature", subdomains)
-        phi.set_name("thermo_poromechanics_porosity")
+        # Add thermal contribution.
+        phi += self.porosity_change_from_temperature(subdomains)
+        phi.set_name("Thermoporomechanics porosity")
         return phi
 
-    def thermal_expansion_porosity(
+    def porosity_change_from_temperature(
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Thermal porosity expansion [-].
+        """Thermal contribution to the changes in porosity [-].
 
         TODO: Discuss cf. Coussy p. 73. Not sure about the interpretation of alpha_phi.
 
@@ -2766,8 +2768,9 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         """
         if not all([sd.dim == self.nd for sd in subdomains]):
             raise ValueError("Subdomains must be of dimension nd.")
+        dtemperature = self.perturbation_from_reference("temperature", subdomains)
         phi_ref = self.reference_porosity(subdomains)
         beta = self.solid_thermal_expansion(subdomains)
-        phi = (Scalar(1) - phi_ref) * beta
-        phi.set_name("thermal_porosity_expansion")
+        phi = Scalar(-1) * (Scalar(1) - phi_ref) * beta * dtemperature
+        phi.set_name("Porosity change from temperature")
         return phi

@@ -85,7 +85,7 @@ from porepy.models.poromechanics import ConstitutiveLawsPoromechanics, Poromecha
 
 class ConstitutiveLawsBiot(
     pp.constitutive_laws.SpecificStorage,
-    pp.constitutive_laws.BiotPoromechanicsPorosity,
+    pp.constitutive_laws.BiotPoroMechanicsPorosity,
     pp.constitutive_laws.ConstantFluidDensity,
     ConstitutiveLawsPoromechanics,
 ):
