@@ -99,6 +99,10 @@ class Flash:
         """A bool indicating if an Armijo line-search should be performed after an
         update direction has been found. Defaults to True."""
 
+        self.use_auxiliary_npipm_vars: bool = False
+        """A bool indicating if the auxiliary variables ``V`` and ``W`` should
+        be used in the NPIPM algorithm of Vu et al.. Defaults to False."""
+
         self.newton_update_chop: float = 1.0
         """A number in ``[0, 1]`` to scale the Newton update ``dx`` resulting from
         solving the linearized system. Defaults to 1."""
@@ -225,41 +229,54 @@ class Flash:
         ### NPIPM variables and equations
         for phase in self._C.phases:
 
-            # create V_e
-            name = f"{self._V_name}_{phase.name}"
-            V_e = self._C.ad_system.create_variable(name)
-            npipm_vars.append(name)
-            self._C.ad_system.set_var_values(name, np.zeros(nc), True)
-            self._V_of_phase[phase] = V_e
+            # instantiating additional NPIPM vars if requested
+            if self.use_auxiliary_npipm_vars:
+                # create V_e
+                name = f"{self._V_name}_{phase.name}"
+                V_e = self._C.ad_system.create_variable(name)
+                npipm_vars.append(name)
+                self._C.ad_system.set_var_values(name, np.zeros(nc), True)
+                self._V_of_phase[phase] = V_e
 
-            # create W_e
-            name = f"{self._W_name}_{phase.name}"
-            W_e = self._C.ad_system.create_variable(name)
-            npipm_vars.append(name)
-            self._C.ad_system.set_var_values(name, np.zeros(nc), True)
-            self._W_of_phase[phase] = W_e
-
-            # V_e extension equation, create and store
-            if phase == self._C.reference_phase:
-                v_extension = self._y_R - V_e
+                # create W_e
+                name = f"{self._W_name}_{phase.name}"
+                W_e = self._C.ad_system.create_variable(name)
+                npipm_vars.append(name)
+                self._C.ad_system.set_var_values(name, np.zeros(nc), True)
+                self._W_of_phase[phase] = W_e
+            # else we eliminate them by their respective definition
             else:
-                v_extension = phase.fraction - V_e
-            name = f"NPIPM_V_{phase.name}"
-            self._C.ad_system.set_equation(
-                name, v_extension, num_equ_per_dof=image_info
-            )
-            npipm_eqn.append(name)
 
-            # W_e extension equation, create and store
-            w_extension = self._C.get_composition_unity_for(phase) - W_e
-            name = f"NPIPM_W_{phase.name}"
-            self._C.ad_system.set_equation(
-                name, w_extension, num_equ_per_dof=image_info
-            )
-            npipm_eqn.append(name)
+                if phase == self._C.reference_phase:
+                    self._V_of_phase[phase] = self._y_R
+                else:
+                    self._V_of_phase[phase] = phase.fraction
+
+                self._W_of_phase[phase] = self._C.get_composition_unity_for(phase)
+
+            # if requested, we introduce the additional equations for vars V and W
+            if self.use_auxiliary_npipm_vars:
+                # V_e extension equation, create and store
+                if phase == self._C.reference_phase:
+                    v_extension = self._y_R - V_e
+                else:
+                    v_extension = phase.fraction - V_e
+                name = f"NPIPM_V_{phase.name}"
+                self._C.ad_system.set_equation(
+                    name, v_extension, num_equ_per_dof=image_info
+                )
+                npipm_eqn.append(name)
+
+                # W_e extension equation, create and store
+                w_extension = self._C.get_composition_unity_for(phase) - W_e
+                name = f"NPIPM_W_{phase.name}"
+                self._C.ad_system.set_equation(
+                    name, w_extension, num_equ_per_dof=image_info
+                )
+                npipm_eqn.append(name)
 
             # V-W-nu coupling for this phase
-            coupling = V_e * W_e - self._nu
+            coupling = self._V_of_phase[phase] * self._W_of_phase[phase] - self._nu
             name = f"NPIPM_coupling_{phase.name}"
             self._C.ad_system.set_equation(name, coupling, num_equ_per_dof=image_info)
             npipm_eqn.append(name)
@@ -627,18 +644,21 @@ class Flash:
         ad_system = self._C.ad_system
 
         for phase in self._C.phases:
-            # initial value for V_e
-            v_name = f"{self._V_name}_{phase.name}"
+            # initial value for V_e, W_e
             val_v = phase.fraction.evaluate(ad_system.dof_manager).val
-            ad_system.set_var_values(v_name, val_v, True)
-            # initial value for W_e
-            w_name = f"{self._W_name}_{phase.name}"
             val_w = (
                 self._C.get_composition_unity_for(phase)
                 .evaluate(ad_system.dof_manager)
                 .val
             )
-            ad_system.set_var_values(w_name, val_w, True)
+
+            # if requested, set initial guess for auxiliary NPIPM vars
+            if self.use_auxiliary_npipm_vars:
+                v_name = f"{self._V_name}_{phase.name}"
+                w_name = f"{self._W_name}_{phase.name}"
+                ad_system.set_var_values(v_name, val_v, True)
+                ad_system.set_var_values(w_name, val_w, True)
+
             # store value for initial guess for nu
             V_mat.append(val_v)
             W_mat.append(val_w)
@@ -863,7 +883,13 @@ class Flash:
         # According to the set-up, the very last num_cells equations represent
         # the slack equation involving nu -> last num_cells rows [-nc:]
         # The column indices are given by the last num_phases * 2 * num_cells,
-        A[-nc:, -self._C.num_phases * 2 * nc :] = 0
+
+        # If the auxiliary vars V and W are not used, we know that the bottom right
+        # block belongs to the slack variable nu
+        if self.use_auxiliary_npipm_vars:
+            A[-nc:, -self._C.num_phases * 2 * nc :] = 0
+        else:
+            A[-nc:, :-nc] = 0
 
         ## Second modification: Augment the derivative of the slack equ w.r.t. nu
         # by adding the term u * <V,W> / m
@@ -880,9 +906,13 @@ class Flash:
             * u
             / m
         )
-        A[
-            -nc:, -(nc + self._C.num_phases * 2 * nc) : -self._C.num_phases * 2 * nc
-        ] += augmentation
+        # augment the block in the last equation belonging to nu
+        if self.use_auxiliary_npipm_vars:
+            A[
+                -nc:, -(nc + self._C.num_phases * 2 * nc) : -self._C.num_phases * 2 * nc
+            ] += augmentation
+        else:
+            A[-nc:, -nc:] += augmentation
 
         # back to csr and eliminate zeros
         A.tocsr()
