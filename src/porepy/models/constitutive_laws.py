@@ -306,31 +306,6 @@ class DisplacementJumpAperture(DimensionReduction):
         return apertures
 
 
-class ConstantFluidDensity:
-    """Constant fluid density."""
-
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-        """Fluid density [kg/m^3].
-
-        Parameters:
-            subdomains: List of subdomain grids.Note used in this implementation, but
-                included for compatibility with other implementations.
-
-        Returns:
-            Operator for fluid density, represented as an Ad operator. The value is
-            picked from the fluid constants.
-
-        """
-        return Scalar(self.fluid.density(), "fluid_density")
-
-
 class FluidDensityFromPressure:
     """Fluid density as a function of pressure."""
 
