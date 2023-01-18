@@ -1354,34 +1354,24 @@ class AdvectiveFlux:
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
     """
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
     """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
     """
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the current model. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
     """
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Darcy flux variables on subdomains. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-
     """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
     """Darcy flux variables on interfaces. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
     """
 
     def advective_flux(
@@ -1393,51 +1383,34 @@ class AdvectiveFlux:
         interface_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator],
     ) -> pp.ad.Operator:
         """An operator represetning the advective flux on subdomains.
-
         .. note::
             The implementation assumes that the advective flux is discretized using a
             standard upwind discretization. Other discretizations may be possible, but
             this has not been considered.
-
         Parameters:
             subdomains: List of subdomains.
             advected_entity: Operator representing the advected entity.
             discr: Discretization of the advective flux.
             bc_values: Boundary conditions for the advective flux.
             interface_flux: Interface flux operator/variable.
-
         Returns:
             Operator representing the advective flux.
-
         """
-
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=1
         )
-
-        # If the advected entity is a scalar, there is no need to upwind internal fluxes
-        if np.isscalar(advected_entity.evaluate(self.equation_system)):
-            internal_flux = advected_entity * darcy_flux
-        else:
-            internal_flux = darcy_flux * (discr.upwind * advected_entity)
-
-        # Contribution from external and internal boundaries. Note that contributions
-        # from external Neumann boundary fluxes are not included.
-        bound_flux = (
-            discr.bound_transport_dir * darcy_flux * bc_values
+        flux: pp.ad.Operator = (
+            darcy_flux * (discr.upwind * advected_entity)
+            - discr.bound_transport_dir * darcy_flux * bc_values
             # Advective flux coming from lower-dimensional subdomains
-            + discr.bound_transport_neu
+            - discr.bound_transport_neu
             * (
                 mortar_projection.mortar_to_primary_int * interface_flux(interfaces)
                 + bc_values
             )
         )
-
-        # Add contributions from internal fluxes and boundary fluxes
-        flux: pp.ad.Operator = internal_flux - bound_flux
-
         return flux
 
     def interface_advective_flux(

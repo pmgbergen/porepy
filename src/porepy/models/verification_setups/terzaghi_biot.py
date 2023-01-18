@@ -722,11 +722,6 @@ class ModifiedSolutionStrategy(
         super().set_materials()
         self.exact_sol = ExactSolution(self)
 
-        # Sanity checks to ensure validity of Terzaghi's solution
-
-        # Fluid compressibility must be zero
-        assert self.fluid.compressibility() == 0
-
         # Specific storage must be zero
         assert self.solid.specific_storage() == 0
 
