@@ -1,12 +1,15 @@
 """
-This module contains a code verification implementation for a manufactured solution for
-the two-dimensional, incompressible, single phase flow with a single, fully embedded
+This module contains a code verification implementation using a manufactured solution
+for the two-dimensional, incompressible, single phase flow with a single, fully embedded
 vertical fracture in the middle of the domain.
 
-For the details, we refer to https://doi.org/10.1515/jnma-2022-0038
+For the details regarding the manufactured solution, we refer to Appendix D.1 from [1].
 
-TODO: The placement of this module is not ideal. It will be moved to a more appropriate
-location in the future.
+References:
+
+    - [1] Varela, J., Ahmed, E., Keilegavlen, E., Nordbotten, J. M., & Radu, F. A.
+      (2022). A posteriori error estimates for hierarchical mixed-dimensional
+      elliptic equations. Journal of Numerical Mathematics.
 
 """
 from __future__ import annotations
@@ -23,7 +26,7 @@ from porepy.applications.verification_setups.verifications_utils import (
 )
 
 
-class ExactSolution:
+class ManuIncompExactSolution:
     """Parent class for the exact solution."""
 
     def __init__(self):
@@ -277,7 +280,7 @@ class ExactSolution:
 
         return f_cc
 
-    def mortar_fluxes(self, intf: pp.MortarGrid) -> np.ndarray:
+    def interface_flux(self, intf: pp.MortarGrid) -> np.ndarray:
         """Compute exact mortar fluxes at the interface.
 
         Parameters:
@@ -359,7 +362,7 @@ class StoreResults(VerificationUtils):
         lmbda_name = setup.interface_darcy_flux_variable
 
         # Instantiate exact solution object
-        ex = ExactSolution()
+        ex = ManuIncompExactSolution()
 
         # Rock pressure
         self.exact_rock_pressure = ex.rock_pressure(sd_rock)
@@ -406,7 +409,7 @@ class StoreResults(VerificationUtils):
         )
 
         # Mortar flux
-        self.exact_intf_flux = ex.mortar_fluxes(intf)
+        self.exact_intf_flux = ex.interface_flux(intf)
         self.approx_intf_flux = data_intf[pp.STATE][lmbda_name]
         self.error_intf_flux = self.relative_l2_error(
             grid=intf,
@@ -508,7 +511,7 @@ class ModifiedBoundaryConditions:
             val_loc = np.zeros(sd.num_faces)
             # See section on scaling for explanation of the conversion.
             if sd.dim == 2:
-                ex = ExactSolution()
+                ex = ManuIncompExactSolution()
                 val_loc[boundary_faces] = ex.boundary_values(sd_rock=sd)[boundary_faces]
             values.append(val_loc)
         return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_darcy")
@@ -520,7 +523,7 @@ class ModifiedBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        ex = ExactSolution()
+        ex = ManuIncompExactSolution()
         values = []
         for sd in subdomains:
             if sd.dim == 2:
