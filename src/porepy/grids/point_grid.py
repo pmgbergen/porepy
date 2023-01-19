@@ -1,3 +1,5 @@
+"""Module for creating point grids."""
+
 from typing import Optional
 
 import numpy as np
@@ -7,15 +9,19 @@ from porepy.grids.grid import Grid
 
 
 class PointGrid(Grid):
+    """Representation of a 0D grids.
+
+    Parameters:
+        pt: ``shape=(3,)``
+
+           Point which represents the grid.
+        name: ``default=None``
+
+           Name of grid, passed to super constructor.
+
+    """
+
     def __init__(self, pt: np.ndarray, name: Optional[str] = None) -> None:
-        """Constructor for 0D grid.
-
-        Args:
-            pt (np.array): Point which represent the grid.
-            name (str): Name of grid, passed to super constructor.
-
-        """
-
         # check input
         if np.asarray(pt).shape[0] != 3:
             raise ValueError("PointGrid: points must be given in 3 dimensions")
@@ -34,6 +40,6 @@ class PointGrid(Grid):
         cell_faces = sps.csr_matrix((0, pt.shape[1]), dtype=int)
 
         nodes = np.zeros((3, 0))
-        self.cell_centers = pt
+        self.cell_centers: np.ndarray = pt
 
         super().__init__(0, nodes, face_nodes, cell_faces, name)
