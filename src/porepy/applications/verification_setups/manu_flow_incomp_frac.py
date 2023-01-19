@@ -3,7 +3,7 @@ This module contains a code verification implementation using a manufactured sol
 for the two-dimensional, incompressible, single phase flow with a single, fully embedded
 vertical fracture in the middle of the domain.
 
-For the details regarding the manufactured solution, we refer to Appendix D.1 from [1].
+Details regarding the manufactured solution can be found in Appendix D.1 from [1].
 
 References:
 
@@ -21,7 +21,7 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-from porepy.applications.verification_setups.verifications_utils import (
+from porepy.applications.verification_setups.verification_utils import (
     VerificationUtils,
 )
 

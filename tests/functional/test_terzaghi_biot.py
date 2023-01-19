@@ -20,7 +20,7 @@ import numpy as np
 import porepy as pp
 
 from porepy.models.poromechanics import Poromechanics
-from porepy.applications.verification_setups.verifications_utils import (
+from porepy.applications.verification_setups.verification_utils import (
     VerificationUtils,
 )
 from porepy.applications.verification_setups.terzaghi_biot import (
