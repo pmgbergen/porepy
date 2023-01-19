@@ -20,7 +20,9 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-from porepy.models.verification_setups.verifications_utils import VerificationUtils
+from porepy.applications.verification_setups.verifications_utils import (
+    VerificationUtils,
+)
 
 
 class ExactSolution:
