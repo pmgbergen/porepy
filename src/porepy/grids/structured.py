@@ -1,14 +1,16 @@
-""" Module containing classes for structured grids.
+"""Module containing classes for structured grids.
 
-Acknowledgements:
-    The implementation of structured grids is in practice a translation of the
-    corresponding functions found in the Matlab Reservoir Simulation Toolbox
-    (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
+.. rubric:: Acknowledgement
+
+The implementation of structured grids is in practice a translation of the
+corresponding functions found in the
+`Matlab Reservoir Simulation Toolbox (MRST) <www.sintef.no/projectweb/mrst/>`_
+developed by SINTEF ICT.
 
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import scipy as sp
@@ -18,11 +20,26 @@ from porepy.grids.grid import Grid
 
 
 class TensorGrid(Grid):
-    """Representation of grid formed by a tensor product of line point
+    """Representation of a grid formed by a tensor product of line point
     distributions.
 
     For information on attributes and methods, see the documentation of the
-    parent Grid class.
+    parent class.
+
+    The resulting grid is 1D or 2D or 3D, depending on the number of
+    coordinate lines are provided.
+
+    Parameters:
+        x: Node coordinates in x-direction.
+        y: ``default=None``
+
+            Node coordinates in y-direction. If None, the created grid will be 1D.
+        z: ``default=None``
+
+            Node coordinates in z-direction. If None, the created grid will be 2D.
+        name: ``default=None``
+
+            Name for the grid. If None, the grid will be called ``'TensorGrid'``.
 
     """
 
@@ -33,22 +50,12 @@ class TensorGrid(Grid):
         z: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-        """Constructor for 1D or 2D or 3D tensor grid.
 
-        The resulting grid is 1D or 2D or 3D, depending on the number of
-        coordinate lines are provided.
-
-        Args:
-            x (np.ndarray): Node coordinates in x-direction.
-            y (np.ndarray): Node coordinates in y-direction. Defaults to
-                None, in which case the grid is 1D.
-            z (np.ndarray): Node coordinates in z-direction. Defaults to
-                None, in which case the grid is 2D.
-            name (str): Name of grid.
-
-        """
         if name is None:
             name = "TensorGrid"
+
+        self.cart_dims: np.ndarray
+        """The resulting dimensions of the of the underlying Cartesian grid."""
 
         if y is None:
             nodes, face_nodes, cell_faces = self._create_1d_grid(x)
@@ -66,10 +73,16 @@ class TensorGrid(Grid):
     def _create_1d_grid(
         self, nodes_x: np.ndarray
     ) -> tuple[np.ndarray, sps.spmatrix, sps.spmatrix]:
-        """Compute grid topology for 1D grids.
+        """Compute the grid topology for 1D grids.
 
-        Args:
-            x (np.ndarray): Node coordinates in x-direction.
+        Parameters:
+            nodes_x: Node coordinates in x-direction.
+
+        Returns:
+            - The node coordinates in an array of shape ``(3, num_nodes)``.
+              y and z coordinates are always zero.
+            - A face-to-node map as a sparse matrix.
+            - A cell-to-face map as a sparse matrix.
 
         """
 
@@ -112,12 +125,15 @@ class TensorGrid(Grid):
     ) -> tuple[np.ndarray, sps.spmatrix, sps.spmatrix]:
         """Compute grid topology for 2D grids.
 
-        This is really a part of the constructor, but put it here to improve
-        readability. Not sure if that is the right choice.
+        Parameters:
+            nodes_x: Node coordinates in x-direction.
+            nodes_y: Node coordinates in y-direction.
 
-        Args:
-            x (np.ndarray): Node coordinates in x-direction.
-            y (np.ndarray): Node coordinates in y-direction.
+        Returns:
+            - The node coordinates in an array of shape ``(3, num_nodes)``.
+              z coordinates are always zero.
+            - A face-to-node map as a sparse matrix.
+            - A cell-to-face map as a sparse matrix.
 
         """
         num_x = nodes_x.size - 1
@@ -201,17 +217,15 @@ class TensorGrid(Grid):
     ) -> tuple[np.ndarray, sps.spmatrix, sps.spmatrix]:
         """Create topology for 3d tensor product grid.
 
+        Parameters:
+            nodes_x: Node coordinates in x-direction.
+            nodes_y: Node coordinates in y-direction.
+            nodes_z: Node coordinates in z-direction.
 
-        Args:
-            x (np.ndarray): Node coordinates in x-direction.
-            y (np.ndarray): Node coordinates in y-direction. Defaults to
-                None, in which case the grid is 1D.
-            z (np.ndarray): Node coordinates in z-direction. Defaults to
-                None, in which case the grid is 2D.
         Returns:
-            np.ndarray: Node coordinates.
-            sps.spmatrix: Mapping between nodes an faces in the grid.
-            sps.spmatrix: Mapping between faces an cells in the grid.
+            - The node coordinates in an array of shape ``(3, num_nodes)``.
+            - A face-to-node map as a sparse matrix.
+            - A cell-to-face map as a sparse matrix.
 
         """
 
@@ -323,23 +337,35 @@ class TensorGrid(Grid):
 class CartGrid(TensorGrid):
     """Representation of a 2D or 3D Cartesian grid.
 
-    For information on attributes and methods, see the documentation of the
-    parent Grid class.
+    The name ``'CartGrid'`` is assigned to each instance.
+
+    Parameters:
+        nx: Number of cells in each direction (x, y or z).
+
+            Should be 1d, 2d or 3d.
+            1d grids can also be specified by a scalar.
+        physdims: ``default=None``
+
+            Physical dimensions in each direction.
+
+            Can be given as an array with up to 3 entries (for each dimension).
+
+            Can also be given as a dictionary with keys
+
+                - ``'xmin'``, ``'xmax'``,
+                - ``'ymin'``, ``'ymax'`` (optional if 1D),
+                - ``'zmin'``, ``'zmax'`` (optional if 1D or 2D).
+
+            If None, the number of cells in each direction is used, i.e. the cells
+            will be of unit size.
 
     """
 
-    def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
-        """Constructor for Cartesian grid.
-
-        Args:
-            nx (np.ndarray): Number of cells in each direction. Should be 1d, 2d or 3d.
-                1d grids can also be specified by a scalar.
-            physdims (np.ndarray): Physical dimensions in each direction.
-                If it is a dict considers the fields xmin, xmax, ymin, ymax, zmin, zmax
-                to define the grid.
-                Defaults to same as nx, that is, cells of unit size.
-
-        """
+    def __init__(
+        self,
+        nx: np.ndarray,
+        physdims: Optional[Union[np.ndarray, dict[str, float]]] = None,
+    ) -> None:
 
         dims = np.asarray(nx).shape
         xmin, ymin, zmin = 0.0, 0.0, 0.0
