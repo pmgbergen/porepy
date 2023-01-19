@@ -20,7 +20,7 @@ For this functional test, we are comparing errors for the pressure (for the rock
 the fracture) and fluxes (for the rock, the fracture, and on the interface). The
 errors are measured in a discrete relative L2-error norm (such as the ones defined
 in [2]). The desired errors were obtained by running the
-::class::ManufacturedCompFlow2d simulation setup with default parameters. We test the
+:class:`ManufacturedCompFlow2d` simulation setup with default parameters. We test the
 errors for three different times, namely: 0.2 [s], 0.6 [s], and 1.0 [s].
 
 References:
@@ -44,7 +44,9 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.models.verification_setups.manu_flow_comp_frac import ManufacturedCompFlow2d
+from porepy.applications.verification_setups.manu_flow_comp_frac import (
+    ManufacturedCompFlow2d,
+)
 
 # Run verification setup and retrieve results for three different times
 stored_times = [0.2, 0.6, 1.0]

@@ -6,7 +6,9 @@ from __future__ import annotations
 import numpy as np
 
 import porepy as pp
-from porepy.models.verification_setups.manu_flow_incomp_frac import ManufacturedFlow2d
+from porepy.applications.verification_setups.manu_flow_incomp_frac import (
+    ManufacturedFlow2d,
+)
 
 
 def test_pressure_and_fluxes():
@@ -23,7 +25,7 @@ def test_pressure_and_fluxes():
     In this test, we are comparing errors for the pressure (for the rock and the
     fracture) and fluxes (for the rock, the fracture, and on the interface). The errors
     are measured in a discrete relative L2-error norm (such as the ones defined in [2]).
-    The desired errors were obtained by running the ::class::ManufacturedFlow2D
+    The desired errors were obtained by running the :class:`ManufacturedFlow2D`
     simulation setup with default parameters.
 
     References:
