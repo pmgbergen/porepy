@@ -124,8 +124,8 @@ class ManuIncompExactSolution:
         # Exact source in the rock
         f_rock = [sym.diff(q[0], x) + sym.diff(q[1], y) for q in q_rock]
 
-        # Exact mortar flux
-        lmbda = bubble_fun
+        # Exact interface flux
+        q_intf = bubble_fun
 
         # Exact pressure in the fracture
         p_frac = -bubble_fun
@@ -134,7 +134,7 @@ class ManuIncompExactSolution:
         q_frac = -sym.diff(p_frac, y)
 
         # Exact source in the fracture
-        f_frac = sym.diff(q_frac, y) - 2 * lmbda
+        f_frac = sym.diff(q_frac, y) - 2 * q_intf
 
         # Public attributes
         self.p_rock = p_rock
@@ -143,7 +143,7 @@ class ManuIncompExactSolution:
         self.p_frac = p_frac
         self.q_frac = q_frac
         self.f_frac = f_frac
-        self.lmbda = lmbda
+        self.q_intf = q_intf
 
         # Private attributes
         self._bubble = bubble_fun
@@ -366,7 +366,7 @@ class ManuIncompExactSolution:
         vol = intf.cell_volumes
 
         # Lambdify expression
-        lmbda_fun = sym.lambdify(y, self.lmbda, "numpy")
+        lmbda_fun = sym.lambdify(y, self.q_intf, "numpy")
 
         # Evaluate and integrate
         lmbda_cc = lmbda_fun(cc[1]) * vol
