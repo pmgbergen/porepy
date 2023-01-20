@@ -14,6 +14,7 @@ References:
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Callable
 
 import matplotlib.pyplot as plt
@@ -24,6 +25,60 @@ import porepy as pp
 from porepy.applications.verification_setups.verification_utils import (
     VerificationUtils,
 )
+
+# PorePy typings
+number = pp.number
+grid = pp.GridLike
+
+
+@dataclass
+class SaveData:
+    """Data class to save relevant results from the verification setup."""
+
+    approx_frac_flux: np.ndarray = np.zeros(1)
+    """Numerical flux in the fracture."""
+
+    approx_frac_pressure: np.ndarray = np.zeros(1)
+    """Numerical pressure in the fracture."""
+
+    approx_intf_flux: np.ndarray = np.zeros(1)
+    """Numerical flux on the interfaces."""
+
+    approx_rock_flux: np.ndarray = np.zeros(1)
+    """Numerical flux in the rock."""
+
+    approx_rock_pressure: np.ndarray = np.zeros(1)
+    """Numerical pressure in the rock."""
+
+    error_frac_flux: number = 0
+    """L2-discrete relative error for the flux in the fracture."""
+
+    error_frac_pressure: number = 0
+    """L2-discrete relative error for the pressure in the fracture."""
+
+    error_intf_flux: number = 0
+    """L2-discrete relative error for the flux on the interfaces."""
+
+    error_rock_flux: number = 0
+    """L2-discrete relative error for the flux in the rock."""
+
+    error_rock_pressure: number = 0
+    """L2-discrete relative error for the pressure in the rock."""
+
+    exact_frac_flux: np.ndarray = np.zeros(1)
+    """Exact flux in the fracture."""
+
+    exact_frac_pressure: np.ndarray = np.zeros(1)
+    """Exact pressure in the fracture."""
+
+    exact_intf_flux: np.ndarray = np.zeros(1)
+    """Exact flux on the interfaces."""
+
+    exact_rock_flux: np.ndarray = np.zeros(1)
+    """Exact flux in the rock."""
+
+    exact_rock_pressure: np.ndarray = np.zeros(1)
+    """Exact pressure in the rock."""
 
 
 class ManuIncompExactSolution:
@@ -420,9 +475,35 @@ class StoreResults(VerificationUtils):
         )
 
 
+class ModifiedDataSavingMixin(pp.DataSavingMixin):
+    """Mixin class to save relevant data."""
+
+    pressure_variable: str
+    """Key to access the pressure variable."""
+
+    exact_sol: ManuIncompExactSolution
+    """Exact solution object."""
+
+    results: list[SaveData]
+    """List of :class:`SaveData` objects containing the results of the verification."""
+
+    relative_l2_error: Callable[[grid, np.ndarray, np.ndarray, bool, bool], number]
+    """Method that computes the discrete relative L2-error. The method is provided by
+    the mixin class:class:`porepy.models.verification_setups.VerificationUtils`.
+    
+    """
+
+    def save_data_time_step(self) -> None:
+        """Save data to the `results` list."""
+        collected_data: SaveData = self._collect_data()
+        self.results.append(collected_data)
+
+
+
+
 # -----> Simulation model
 class ModifiedGeometry(pp.ModelGeometry):
-    """Generate fracture network and mixed-dimensional grid."""
+"""Generate fracture network and mixed-dimensional grid."""
 
     params: dict
     """Simulation model parameters"""
