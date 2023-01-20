@@ -437,7 +437,7 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
 
     def save_data_time_step(self) -> None:
         """Save data to the `results` list."""
-        if self._nonlinear_iteration > 0:  # avoid saving the inital condition
+        if self._nonlinear_iteration > 0:  # avoid saving the initial condition
             collected_data: SaveData = self._collect_data()
             self.results.append(collected_data)
 
