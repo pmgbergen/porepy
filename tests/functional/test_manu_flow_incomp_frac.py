@@ -7,7 +7,9 @@ import numpy as np
 
 import porepy as pp
 from porepy.applications.verification_setups.manu_flow_incomp_frac import (
-    ManufacturedFlow2d,
+    manu_incomp_solid,
+    manu_incomp_fluid,
+    ManufacturedIncompressibleFlow2d,
 )
 
 
@@ -30,17 +32,30 @@ def test_pressure_and_fluxes():
 
     References:
 
-        [1] Varela, J., Ahmed, E., Keilegavlen, E., Nordbotten, J. M., & Radu, F. A.
+        - [1] Varela, J., Ahmed, E., Keilegavlen, E., Nordbotten, J. M., & Radu, F. A.
             (2022). A posteriori error estimates for hierarchical mixed-dimensional
              elliptic equations. Journal of Numerical Mathematics.
 
-        [2] Nordbotten, J. M. (2016). Stable cell-centered finite volume
+        - [2] Nordbotten, J. M. (2016). Stable cell-centered finite volume
             discretization for Biot equations. SIAM Journal on Numerical Analysis,
             54(2), 942-968.
 
     """
-    setup = ManufacturedFlow2d({})
-    pp.run_stationary_model(setup, {})
+    material_constants = {
+        "solid": pp.SolidConstants(manu_incomp_solid),
+        "fluid": pp.FluidConstants(manu_incomp_fluid),
+    }
+    mesh_arguments = {
+        "mesh_size_bound": 0.05,
+        "mesh_size_frac": 0.05,
+    }
+    params = {
+        "material_constants": material_constants,
+        "mesh_arguments": mesh_arguments,
+    }
+
+    setup = ManufacturedIncompressibleFlow2d(params)
+    pp.run_stationary_model(setup, params)
 
     desired_rock_pressure_error = 0.003967565610557834
     desired_rock_flux_error = 0.003137353186856967
@@ -48,11 +63,11 @@ def test_pressure_and_fluxes():
     desired_frac_flux_error = 0.00041600808643628363
     desired_intf_flux_error = 0.5023434810025456
 
-    actual_rock_pressure_error = setup.sol.error_rock_pressure
-    actual_rock_flux_error = setup.sol.error_rock_flux
-    actual_frac_pressure_error = setup.sol.error_frac_pressure
-    actual_frac_flux_error = setup.sol.error_frac_flux
-    actual_intf_flux_error = setup.sol.error_intf_flux
+    actual_rock_pressure_error = setup.results[0].error_rock_pressure
+    actual_rock_flux_error = setup.results[0].error_rock_flux
+    actual_frac_pressure_error = setup.results[0].error_frac_pressure
+    actual_frac_flux_error = setup.results[0].error_frac_flux
+    actual_intf_flux_error = setup.results[0].error_intf_flux
 
     np.testing.assert_allclose(
         actual_rock_pressure_error, desired_rock_pressure_error, atol=1e-5, rtol=1e-3

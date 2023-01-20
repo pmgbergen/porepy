@@ -16,9 +16,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.verification_setups.verification_utils import (
-    VerificationUtils,
-)
+from porepy.applications.verification_setups.verification_utils import VerificationUtils
 
 
 # ----> Manufactured solution
