@@ -4,42 +4,186 @@ the two-dimensional, compressible, single phase flow with a single, fully embedd
 vertical fracture in the middle of the domain.
 
 The exact solution was obtained by extending the solution from the incompressible
-case, see https://doi.org/10.1515/jnma-2022-0038
+case [1].
 
-TODO: Explain what are the modifications w.r.t. the incompressible case.
-FIXME: There is significant code duplication with the incompressible verification.
- Consider recycling classes.
+In particular, we have added a pressure-dependent density which obeys the following
+consitutive relationship:
+
+.. math:
+
+    \rho(p) = \rho_0 \exp{c_f (p - p_0)},
+
+where :math:`\rho` and :math:`p` are the density and pressure, :math:`\rho_0` and
+:math:`p_0` are the density and pressure at reference states, and :math:`c_f` the
+fluid compressibility.
 
 """
 from __future__ import annotations
 
 from typing import Callable
 
-import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sym
 
 import porepy as pp
 from porepy.applications.verification_setups.verification_utils import VerificationUtils
+from porepy.applications.verification_setups.manu_flow_incomp_frac import (
+    SaveData,
+    SingleEmbeddedVerticalFracture,
+    SetupUtilities
+)
+
+# PorePy typings
+number = pp.number
+grid = pp.GridLike
+
+# Material constants for the verification setup. Constants commented with (**) cannot be
+# changed or an error will be raised.
+manu_comp_fluid: dict[str, number] = {
+    "viscosity": 1.0,  # **
+    "compressibility": 0.2,
+    "density": 1.0,  # (reference value)
+    "pressure": 0.0,  # (reference value)
+}
+manu_comp_solid: dict[str, number] = {
+    "normal_permeability": 0.5,  # **
+    "permeability": 1.0,  # **
+    "residual_aperture": 1.0,  # **
+    "porosity": 0.1,  # (reference value)
+}
 
 
-class ExactSolution:
-    """Parent class for the exact solution."""
+class ModifiedDataSavingMixin(pp.DataSavingMixin):
+    """Mixin class to store relevant data."""
 
-    def __init__(self) -> None:
+    exact_sol: ManuCompExactSolution
+    """Exact solution object."""
+
+    interface_darcy_flux_variable: str
+    """Key to access the interface variable."""
+
+    pressure_variable: str
+    """Key to access the pressure variable."""
+
+    relative_l2_error: Callable[[grid, np.ndarray, np.ndarray, bool, bool], number]
+    """Method that computes the discrete relative L2-error. The method is provided by
+    the mixin class:class:`porepy.models.verification_setups.VerificationUtils`.
+
+    """
+
+    results: list[SaveData]
+    """List of :class:`SaveData` objects containing the results of the verification."""
+
+    def save_data_time_step(self) -> None:
+        """Save data to the `results` list.
+
+        Note:
+            Data will be appended to the ``results`` list only if the current time
+            matches a time from ``self.time_manager.schedule[1:]``.
+
+        """
+        if any(np.isclose(self.time_manager.time, self.time_manager.schedule[1:])):
+            collected_data = self._collect_data()
+            self.results.append(collected_data)
+
+    def _collect_data(self) -> SaveData:
+        """Collect data from the verification setup.
+
+        Returns:
+            SaveData object containing the results of the verification for the
+            current time.
+
+        """
+
+        sd_rock: pp.Grid = self.mdg.subdomains()[0]
+        data_rock: dict = self.mdg.subdomain_data(sd_rock)
+        sd_frac: pp.Grid = self.mdg.subdomains()[1]
+        data_frac: dict = self.mdg.subdomain_data(sd_frac)
+        intf: pp.MortarGrid = self.mdg.interfaces()[0]
+        data_intf: dict = self.mdg.interface_data(intf)
+        p_name: str = self.pressure_variable
+        q_name: str = "darcy_flux"
+        lmbda_name: str = self.interface_darcy_flux_variable
+        exact_sol: ManuCompExactSolution = self.exact_sol
+        t: number = self.time_manager.time
+
+        # Instantiate data class
+        out = SaveData()
+
+        # Rock pressure
+        out.exact_rock_pressure = exact_sol.rock_pressure(sd_rock, t)
+        out.approx_rock_pressure = data_rock[pp.STATE][p_name]
+        out.error_rock_pressure = self.relative_l2_error(
+            sd_rock,
+            out.exact_rock_pressure,
+            out.approx_rock_pressure,
+            True,
+            True,
+        )
+
+        # Fracture pressure
+        out.exact_frac_pressure = exact_sol.fracture_pressure(sd_frac, t)
+        out.approx_frac_pressure = data_frac[pp.STATE][p_name]
+        out.error_frac_pressure = self.relative_l2_error(
+            sd_frac,
+            out.exact_frac_pressure,
+            out.approx_frac_pressure,
+            True,
+            True,
+        )
+
+        # Rock flux
+        out.exact_rock_flux = exact_sol.rock_flux(sd_rock, t)
+        out.approx_rock_flux = data_rock[pp.STATE][q_name]
+        out.error_rock_flux = self.relative_l2_error(
+            sd_rock,
+            out.exact_rock_flux,
+            out.approx_rock_flux,
+            True,
+            False,
+        )
+
+        # Fracture flux
+        out.exact_frac_flux = exact_sol.fracture_flux(sd_frac, t)
+        out.approx_frac_flux = data_frac[pp.STATE][q_name]
+        out.error_frac_flux = self.relative_l2_error(
+            sd_frac,
+            out.exact_frac_flux,
+            out.approx_frac_flux,
+            True,
+            False,
+        )
+
+        # Interface flux
+        out.exact_intf_flux = exact_sol.interface_flux(intf, t)
+        out.approx_intf_flux = data_intf[pp.STATE][lmbda_name]
+        out.error_intf_flux = self.relative_l2_error(
+            intf,
+            out.exact_intf_flux,
+            out.approx_intf_flux,
+            True,
+            True,
+        )
+
+        return out
+
+
+class ManuCompExactSolution:
+    """Class containing the exact solution for the verification setup."""
+
+    def __init__(self, setup):
         """Constructor of the class."""
 
-        # FIXME: Retrieve the physical constants from the model params dictionary
-        # Physical parameters
-        rho_0 = 1.0
-        p_0 = 0.0
-        c_f = 0.2
-        phi = 0.1
+        # Retrieve material constant from the setup
+        rho_0 = setup.fluid.density()  # [kg * m^-3]  Reference fluid density
+        p_0 = setup.fluid.pressure()  # [Pa] Reference fluid pressure
+        c_f = setup.fluid.compressibility()  # [Pa^-1]  Fluid compressibility
+        phi_0 = setup.solid.reference_porosity()  # [-] Reference porosity
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")
 
-        # Smoothness exponent
+        # Smoothness coefficient
         n = 1.5
 
         # Distance and bubble functions
@@ -70,7 +214,7 @@ class ExactSolution:
         div_mf_rock = [sym.diff(mf[0], x) + sym.diff(mf[1], y) for mf in mf_rock]
 
         # Exact accumulation term in the rock
-        accum_rock = [sym.diff(phi * rho, t) for rho in rho_rock]
+        accum_rock = [sym.diff(phi_0 * rho, t) for rho in rho_rock]
 
         # Exact source term in the rock
         f_rock = [accum + div_mf for (accum, div_mf) in zip(accum_rock, div_mf_rock)]
@@ -97,7 +241,7 @@ class ExactSolution:
         mf_frac = rho_frac * q_frac
 
         # Exact accumulation in the fracture
-        accum_frac = sym.diff(phi * rho_frac, t)
+        accum_frac = sym.diff(phi_0 * rho_frac, t)
 
         # Exact divergence of the mass flux in the fracture
         div_mf_frac = sym.diff(mf_frac, y)
@@ -122,11 +266,7 @@ class ExactSolution:
         self.rho_intf = rho_intf
         self.mf_intf = mf_intf
 
-        # Private attributes
-        self._bubble = bubble_fun
-
-    # -----> Rock variables
-    def rock_pressure(self, sd_rock: pp.Grid, time: float) -> np.ndarray:
+    def rock_pressure(self, sd_rock: pp.Grid, time: number) -> np.ndarray:
         """Evaluate exact rock pressure [Pa] at the cell centers.
 
         Parameters:
@@ -158,39 +298,7 @@ class ExactSolution:
 
         return p_cc
 
-    def rock_density(self, sd_rock: pp.Grid, time: float) -> np.ndarray:
-        """Evaluate exact fluid density [kg * m^-3] in the rock at the cell centers.
-
-        Parameters:
-            sd_rock: Rock grid.
-            time: Time in seconds.
-
-        Returns:
-            Array of ``shape=(sd_rock.num_cells, )`` containing the exact densities at
-            the cell centers at the given ``time``.
-
-        """
-        # Symbolic variables
-        x, y, t = sym.symbols("x y t")
-
-        # Get list of cell indices
-        cc = sd_rock.cell_centers
-        bot = cc[1] < 0.25
-        mid = (cc[1] >= 0.25) & (cc[1] <= 0.75)
-        top = cc[1] > 0.75
-        cell_idx = [bot, mid, top]
-
-        # Lambdify expression
-        rho_fun = [sym.lambdify((x, y, t), rho, "numpy") for rho in self.rho_rock]
-
-        # Cell-centered densities
-        rho_cc = np.zeros(sd_rock.num_cells)
-        for (rho, idx) in zip(rho_fun, cell_idx):
-            rho_cc += rho(cc[0], cc[1], time) * idx
-
-        return rho_cc
-
-    def rock_darcy_flux(self, sd_rock: pp.Grid, time: float) -> np.ndarray:
+    def rock_flux(self, sd_rock: pp.Grid, time: number) -> np.ndarray:
         """Evaluate exact rock Darcy flux [m^3 * s^-1] at the face centers .
 
         Parameters:
@@ -257,62 +365,7 @@ class ExactSolution:
 
         return q_fc
 
-    def rock_mass_flux(self, sd_rock: pp.Grid, time: float) -> np.ndarray:
-        """Evaluate exact mass flux [kg * s^-1] at the face centers.
-
-        Parameters:
-            sd_rock: Rock grid.
-            time: Time in seconds.
-
-        Returns:
-            Array of ``shape=(sd_rock.num_faces, )`` containing the exact mass
-            fluxes at the face centers for the given ``time``.
-
-        Note:
-            The returned mass fluxes are already scaled with ``sd_rock.face_normals``.
-
-        """
-        # Symbolic variables
-        x, y, t = sym.symbols("x y t")
-
-        # Get list of face indices
-        fc = sd_rock.face_centers
-        bot = fc[1] < 0.25
-        mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
-        top = fc[1] > 0.75
-        face_idx = [bot, mid, top]
-
-        # Lambdify expression
-        mf_fun = [
-            [
-                sym.lambdify((x, y, t), mf[0], "numpy"),
-                sym.lambdify((x, y, t), mf[1], "numpy"),
-            ]
-            for mf in self.mf_rock
-        ]
-
-        # Face-centered mass fluxes
-        fn = sd_rock.face_normals
-        mf_fc = np.zeros(sd_rock.num_faces)
-        for (mf, idx) in zip(mf_fun, face_idx):
-            mf_fc += (
-                mf[0](fc[0], fc[1], time) * fn[0] + mf[1](fc[0], fc[1], time) * fn[1]
-            ) * idx
-
-        # Again, we need to correct the values at the internal boundaries
-        # Here, we simply use the fact that mf_rock := rho_rock * q_rock = 1 * q_rock
-        # on the internal boundaries
-        q_fc = self.rock_darcy_flux(sd_rock, time)
-        frac_faces = sd_rock.tags["fracture_faces"]
-        mf_fc[frac_faces] = q_fc[frac_faces]
-
-        return mf_fc
-
-    # TODO: Implement method
-    def rock_accumulation(self, sd_rock: pp.Grid, time: float) -> np.ndarray:
-        raise NotImplementedError
-
-    def rock_source(self, sd_rock: pp.Grid, time: float) -> np.ndarray:
+    def rock_source(self, sd_rock: pp.Grid, time: number) -> np.ndarray:
         """Compute exact integrated rock source.
 
         Parameters:
@@ -345,8 +398,7 @@ class ExactSolution:
 
         return f_cc
 
-    # ----> Fracture variables
-    def fracture_pressure(self, sd_frac: pp.Grid, time: float) -> np.ndarray:
+    def fracture_pressure(self, sd_frac: pp.Grid, time: number) -> np.ndarray:
         """Evaluate exact fracture pressure at the cell centers.
 
         Parameters:
@@ -372,33 +424,7 @@ class ExactSolution:
 
         return p_cc
 
-    def fracture_density(self, sd_frac: pp.Grid, time: float) -> np.ndarray:
-        """Evaluate exact fracture density at the cell centers.
-
-        Parameters:
-            sd_frac: Fracture grid.
-            time: time in seconds.
-
-        Returns:
-            Array of ``shape=(sd_frac.num_cells, )`` containing the exact densities at
-            the cell centers at the given ``time``.
-
-        """
-        # Symbolic variable
-        y, t = sym.symbols("y t")
-
-        # Cell centers
-        cc = sd_frac.cell_centers
-
-        # Lambdify expression
-        rho_fun = sym.lambdify((y, t), self.rho_frac, "numpy")
-
-        # Evaluate at the cell centers
-        rho_cc = rho_fun(cc[1], time)
-
-        return rho_cc
-
-    def fracture_darcy_flux(self, sd_frac: pp.Grid, time: float) -> np.ndarray:
+    def fracture_flux(self, sd_frac: pp.Grid, time: number) -> np.ndarray:
         """Evaluate exact fracture Darcy flux at the face centers.
 
         Parameters:
@@ -428,15 +454,7 @@ class ExactSolution:
 
         return q_fc
 
-    # TODO: Implement method
-    def fracture_mass_flux(self, sd_frac: pp.Grid, time: float) -> np.ndarray:
-        raise NotImplementedError
-
-    # TODO: Implement method
-    def fracture_accumulation(self, sd_frac: pp.Grid, time: float) -> np.ndarray:
-        raise NotImplementedError
-
-    def fracture_source(self, sd_frac: pp.Grid, time: float) -> np.ndarray:
+    def fracture_source(self, sd_frac: pp.Grid, time: number) -> np.ndarray:
         """Compute exact integrated fracture source.
 
         Parameters:
@@ -463,8 +481,7 @@ class ExactSolution:
 
         return f_cc
 
-    # -----> Interface variables
-    def interface_darcy_flux(self, intf: pp.MortarGrid, time: float) -> np.ndarray:
+    def interface_flux(self, intf: pp.MortarGrid, time: number) -> np.ndarray:
         """Compute exact mortar fluxes at the interface.
 
         Parameters:
@@ -494,12 +511,7 @@ class ExactSolution:
 
         return lmbda_cc
 
-    # TODO: Implement method
-    def interface_mass_flux(self, intf: pp.MortarGrid, time: float) -> np.ndarray:
-        raise NotImplementedError
-
-    # -----> Others
-    def rock_boundary_pressure(self, sd_rock: pp.Grid, time: float) -> np.ndarray:
+    def rock_boundary_pressure(self, sd_rock: pp.Grid, time: number) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
@@ -570,136 +582,7 @@ class ExactSolution:
         return rho_bf
 
 
-class StoreResults(VerificationUtils):
-    """Class to store results."""
-
-    def __init__(self, setup):
-        """Constructor of the class"""
-
-        # Retrieve information from setup
-        mdg = setup.mdg
-        sd_rock = mdg.subdomains()[0]
-        data_rock = mdg.subdomain_data(sd_rock)
-        sd_frac = mdg.subdomains()[1]
-        data_frac = mdg.subdomain_data(sd_frac)
-        intf = mdg.interfaces()[0]
-        data_intf = mdg.interface_data(intf)
-        p_name = setup.pressure_variable
-        q_name = "darcy_flux"
-        lmbda_name = setup.interface_darcy_flux_variable
-        t = setup.time_manager.time
-
-        # Instantiate exact solution object
-        # FIXME: Access exact solution via `setup`
-        ex = ExactSolution()
-
-        # Store time for convenience
-        self.time = t
-
-        # Rock pressure
-        self.exact_rock_pressure = ex.rock_pressure(sd_rock, t)
-        self.approx_rock_pressure = data_rock[pp.STATE][pp.ITERATE][p_name]
-        self.error_rock_pressure = self.relative_l2_error(
-            grid=sd_rock,
-            true_array=self.exact_rock_pressure,
-            approx_array=self.approx_rock_pressure,
-            is_scalar=True,
-            is_cc=True,
-        )
-
-        # Rock flux
-        self.exact_rock_flux = ex.rock_darcy_flux(sd_rock, t)
-        self.approx_rock_flux = data_rock[pp.STATE][pp.ITERATE][q_name]
-        self.error_rock_flux = self.relative_l2_error(
-            grid=sd_rock,
-            true_array=self.exact_rock_flux,
-            approx_array=self.approx_rock_flux,
-            is_scalar=True,
-            is_cc=False,
-        )
-
-        # Fracture pressure
-        self.exact_frac_pressure = ex.fracture_pressure(sd_frac, t)
-        self.approx_frac_pressure = data_frac[pp.STATE][pp.ITERATE][p_name]
-        self.error_frac_pressure = self.relative_l2_error(
-            grid=sd_frac,
-            true_array=self.exact_frac_pressure,
-            approx_array=self.approx_frac_pressure,
-            is_scalar=True,
-            is_cc=True,
-        )
-
-        # Fracture flux
-        self.exact_frac_flux = ex.fracture_darcy_flux(sd_frac, t)
-        self.approx_frac_flux = data_frac[pp.STATE][pp.ITERATE][q_name]
-        self.error_frac_flux = self.relative_l2_error(
-            grid=sd_frac,
-            true_array=self.exact_frac_flux,
-            approx_array=self.approx_frac_flux,
-            is_scalar=True,
-            is_cc=False,
-        )
-
-        # Mortar flux
-        self.exact_intf_flux = ex.interface_darcy_flux(intf, t)
-        self.approx_intf_flux = data_intf[pp.STATE][pp.ITERATE][lmbda_name]
-        self.error_intf_flux = self.relative_l2_error(
-            grid=intf,
-            true_array=self.exact_intf_flux,
-            approx_array=self.approx_intf_flux,
-            is_scalar=True,
-            is_cc=True,
-        )
-
-
-# -----> Simulation model
-# FIXME: Resolve duplication with the incompressible verification
-class ModifiedGeometry(pp.ModelGeometry):
-    """Generate fracture network and mixed-dimensional grid."""
-
-    params: dict
-    """Simulation model parameters."""
-
-    def set_fracture_network(self) -> None:
-        """Create fracture network.
-
-        Note:
-            Two horizontal fractures at y = 0.25 and y = 0.75 are included in the
-            fracture network to force the grid to conform to certain regions of the
-            domain. Note, however, that these fractures will not be part of the
-            mixed-dimensional grid.
-
-        """
-        # Unit square domain
-        domain = {"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0}
-
-        # Point coordinates
-        point_coordinates = np.array(
-            [[0.50, 0.50, 0.00, 1.00, 0.00, 1.00], [0.25, 0.75, 0.25, 0.25, 0.75, 0.75]]
-        )
-
-        # Point connections
-        point_indices = np.array([[0, 2, 4], [1, 3, 5]])
-
-        # Create fracture network
-        network_2d = pp.FractureNetwork2d(point_coordinates, point_indices, domain)
-        self.fracture_network = network_2d
-
-    def mesh_arguments(self) -> dict:
-        """Define mesh arguments for meshing."""
-        default_mesh_arguments = {"mesh_size_bound": 0.05, "mesh_size_frac": 0.05}
-        return self.params.get("mesh_arguments", default_mesh_arguments)
-
-    def set_md_grid(self) -> None:
-        """Create mixed-dimensional grid. Ignore fractures 1 and 2."""
-        self.mdg = self.fracture_network.mesh(
-            self.mesh_arguments(), constraints=np.array([1, 2])
-        )
-        assert isinstance(self.fracture_network.domain, dict)
-        self.domain_bounds = self.fracture_network.domain  # type: ignore
-
-
-class ModifiedBoundaryConditions:
+class ManuCompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
     mdg: pp.MixedDimensionalGrid
@@ -708,53 +591,47 @@ class ModifiedBoundaryConditions:
     time_manager: pp.TimeManager
     """Properly initialized time manager object."""
 
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        pp.bounding_box.DomainSides,
-    ]
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
     """Utility function to access the domain boundary sides."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Set boundary condition types for the elliptic discretization."""
         if sd.dim == 2:  # Dirichlet for the rock
-            # Define boundary faces.
             boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
-            # Define boundary faces.
             boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Set boundary condition types for the upwind discretization."""
         if sd.dim == 2:  # Dirichlet for the rock
-            # Define boundary faces.
             boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
-            # Define boundary faces.
             boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """Set boundary condition values for the elliptic discretization."""
         bc_values = pp.ad.TimeDependentArray(
             name="darcy_bc_values", subdomains=subdomains, previous_timestep=True
         )
         return bc_values
 
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """Set boundary condition values for the upwind discretization."""
         bc_values = pp.ad.TimeDependentArray(
             name="mobrho_bc_values", subdomains=subdomains, previous_timestep=True
         )
         return bc_values
 
 
-class ModifiedBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Modify balance equation to account for time-dependent external sources."""
 
         # Internal sources are inherit from parent class
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
@@ -766,48 +643,68 @@ class ModifiedBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
             previous_timestep=True,
         )
 
-        return internal_sources + external_sources
+        # Add-up contribution
+        fluid_source = internal_sources + external_sources
+        fluid_source.set_name("Time-dependent fluid source")
+
+        return fluid_source
 
 
-class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+    """Modified solution strategy for the verification setup."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
+
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
+
+    """
+
+    exact_sol: ManuCompExactSolution
+    """Exact solution object."""
 
     fluid: pp.FluidConstants
-    mdg: pp.MixedDimensionalGrid
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    results: list[StoreResults]
+    """Object containing the fluid constants."""
+
+    plot_results: Callable
+    """Method to plot results of the verification setup. Usually provided by the
+    mixin class :class:`SetupUtilities`.
+
+    """
+
+    solid: pp.SolidConstants
+    """Object containing the solid constants."""
+
+    results: list[SaveData]
+    """List of SaveData objects."""
 
     def __init__(self, params: dict):
-
-        # Parameters associated with the verification setup. The below parameters
-        # cannot be changed since they're associated with the exact solution.
-        # Normal permeability of 1/2 counteracts division by a/2 in the normal Darcy
-        # equation.
-        fluid = pp.FluidConstants({"compressibility": 0.2})
-        solid = pp.SolidConstants(
-            {"porosity": 0.1, "residual_aperture": 1, "normal_permeability": 1 / 2}
-        )
-        material_constants = {"fluid": fluid, "solid": solid}
-        required_params = {"material_constants": material_constants}
-        params.update(required_params)
-
-        # Default time manager
-        default_time_manager = pp.TimeManager(
-            schedule=[0, 0.2, 0.4, 0.6, 0.8, 1.0], dt_init=0.2, constant_dt=True
-        )
-        params.update({"time_manager": default_time_manager})
-
+        """Constructor of the class."""
         super().__init__(params)
 
-        # Exact solution
-        self.exact_sol = ExactSolution()
-        """Exact solution object"""
+        self.exact_sol: ManuCompExactSolution()
+        """Exact solution object."""
 
-        # Prepare object to store solutions after each time step
-        self.results: list[StoreResults] = []
-        """Object that stores exact and approximated solutions and L2 errors"""
+        self.results: list[SaveData] = []
+        """Object that stores exact and approximated solutions and L2 errors."""
+
+    def set_materials(self):
+        """Set material constants for the verification setup."""
+        super().__init__()
+
+        # Sanity checks
+        assert self.fluid.viscosity() == 1
+        assert self.solid.permeability() == 1
+        assert self.solid.residual_aperture() == 1
+        assert self.solid.normal_permeability() == 0.5
+
+        # Instantiate exact solution object
+        self.exact_sol = ManuCompExactSolution(self)
 
     def before_nonlinear_loop(self) -> None:
-        """Update values of external sources and boundary conditions"""
+        """Update values of external sources and boundary conditions."""
 
         # Retrieve subdomains and data dictionaries
         sd_rock = self.mdg.subdomains()[0]
@@ -818,26 +715,20 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         # Retrieve current time
         t = self.time_manager.time
 
-        # -----> Sources
-        rock_source = self.exact_sol.rock_source(sd_rock=sd_rock, time=t)
+        # Sources
+        rock_source = self.exact_sol.rock_source(sd_rock, t)
         data_rock[pp.STATE]["external_sources"] = rock_source
 
-        frac_source = self.exact_sol.fracture_source(sd_frac=sd_frac, time=t)
+        frac_source = self.exact_sol.fracture_source(sd_frac, t)
         data_frac[pp.STATE]["external_sources"] = frac_source
 
-        # -----> Boundary conditions
-
         # Boundary conditions for the elliptic discretization
-        rock_pressure_boundary = self.exact_sol.rock_boundary_pressure(
-            sd_rock=sd_rock, time=t
-        )
+        rock_pressure_boundary = self.exact_sol.rock_boundary_pressure(sd_rock, t)
         data_rock[pp.STATE]["darcy_bc_values"] = rock_pressure_boundary
         data_frac[pp.STATE]["darcy_bc_values"] = np.zeros(sd_frac.num_faces)
 
         # Boundary conditions for the upwind discretization
-        rock_density_boundary = self.exact_sol.rock_boundary_density(
-            sd_rock=sd_rock, time=t
-        )
+        rock_density_boundary = self.exact_sol.rock_boundary_density(sd_rock, t)
         viscosity = self.fluid.viscosity()
         rock_mobrho = rock_density_boundary / viscosity
         data_rock[pp.STATE]["mobrho_bc_values"] = rock_mobrho
@@ -846,94 +737,32 @@ class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
     def after_nonlinear_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        """Method to be called after convergence"""
+        """Method to be called after convergence."""
 
-        # FIXME: Retrieve Darcy fluxes using the mobility keyword
-        # Retrieve Darcy fluxes and store them in pp.STATE
-        darcy_flux = self.darcy_flux(self.mdg.subdomains())
-        vals = darcy_flux.evaluate(self.equation_system).val
-        nf_rock = self.mdg.subdomains()[0].num_faces
+        # Store subdomain Darcy fluxes in pp.STATE
         for sd, data in self.mdg.subdomains(return_data=True):
-            if sd.dim == 2:
-                data[pp.STATE][pp.ITERATE]["darcy_flux"] = vals[:nf_rock]
-            else:
-                data[pp.STATE][pp.ITERATE]["darcy_flux"] = vals[nf_rock:]
+            darcy_flux_ad = self.darcy_flux([sd])
+            vals = darcy_flux_ad.evaluate(self.equation_system).val
+            data[pp.STATE]["darcy_flux"] = vals
 
-        # Store results
-        t = self.time_manager.time
-        if np.any(np.isclose(t, self.params["stored_times"])):
-            self.results.append(StoreResults(self))
+        # Inherit from base class
+        super().after_nonlinear_convergence(solution, errors, iteration_counter)
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
-
         if self.params.get("plot_results", False):
             self.plot_results()
 
-    # -----> Plot-related methods
-    def plot_results(self) -> None:
-        """Plotting results"""
-
-        self._plot_rock_pressure()
-        self._plot_fracture_pressure()
-        self._plot_interface_fluxes()
-        self._plot_fracture_fluxes()
-
-    def _plot_rock_pressure(self):
-        sd_rock = self.mdg.subdomains()[0]
-        p_num = self.results[-1].approx_rock_pressure
-        p_ex = self.results[-1].exact_rock_pressure
-        pp.plot_grid(
-            sd_rock, p_ex, plot_2d=True, linewidth=0, title="Rock pressure (Exact)"
-        )
-        pp.plot_grid(
-            sd_rock, p_num, plot_2d=True, linewidth=0, title="Rock pressure (MPFA)"
-        )
-
-    def _plot_fracture_pressure(self):
-        sd_frac = self.mdg.subdomains()[1]
-        cc = sd_frac.cell_centers
-        p_num = self.results[-1].approx_frac_pressure
-        p_ex = self.results[-1].exact_frac_pressure
-        plt.plot(p_ex, cc[1], label="Exact", linewidth=3, alpha=0.5)
-        plt.plot(p_num, cc[1], label="MPFA", marker=".", markersize=5, linewidth=0)
-        plt.xlabel("Fracture pressure")
-        plt.ylabel("y-coordinate")
-        plt.legend()
-        plt.show()
-
-    # FIXME: Use sidegrids to separate left and right mortar fluxes
-    def _plot_interface_fluxes(self):
-        intf = self.mdg.interfaces()[0]
-        cc = intf.cell_centers
-        lmbda_num = self.results[-1].approx_intf_flux
-        lmbda_ex = self.results[-1].exact_intf_flux
-        plt.plot(lmbda_ex, cc[1], label="Exact", linewidth=3, alpha=0.5)
-        plt.plot(lmbda_num, cc[1], label="MPFA", marker=".", markersize=5, linewidth=0)
-        plt.xlabel("Interface flux")
-        plt.ylabel("y-coordinate")
-        plt.legend()
-        plt.show()
-
-    def _plot_fracture_fluxes(self):
-        sd_frac = self.mdg.subdomains()[1]
-        fc = sd_frac.face_centers
-        q_num = self.results[-1].approx_frac_flux
-        q_ex = self.results[-1].exact_frac_flux
-        plt.plot(q_ex, fc[1], label="Exact", linewidth=3, alpha=0.5)
-        plt.plot(q_num, fc[1], label="MPFA", marker=".", markersize=5, linewidth=0)
-        plt.xlabel("Fracture Darcy flux")
-        plt.ylabel("y-coordinate")
-        plt.legend()
-        plt.show()
-
 
 class ManufacturedCompFlow2d(  # type: ignore[misc]
-    ModifiedGeometry,
-    ModifiedBoundaryConditions,
-    ModifiedBalanceEquation,
-    ModifiedSolutionStrategy,
+    ManuCompBoundaryConditions,
+    ManuCompBalanceEquations,
+    SingleEmbeddedVerticalFracture,
+    SetupUtilities,
+    VerificationUtils,
     pp.fluid_mass_balance.SinglePhaseFlow,
+    ModifiedDataSavingMixin,
+    ManuCompSolutionStrategy,
 ):
     """
     Mixer class for the verification setup.
@@ -943,8 +772,26 @@ class ManufacturedCompFlow2d(  # type: ignore[misc]
         .. code:: python
 
             # Import modules
-            import porepy as pp
             from time import time
+            from porepy.applications.verification_setups.manu_flow_comp_frac import (
+                manu_comp_solid,
+                manu_comp_fluid,
+            )
+
+            # Set simulation parameters
+            solid = pp.SolidConstants(manu_comp_solid)
+            fluid = pp.FluidConstants(manu_comp_fluid)
+            material_constants = {"material_constants": material_constants}
+
+            time_manager = pp.TimeManager(
+                schedule=[0, 0.2, 0.4, 0.6, 0.8, 1.0], dt_init=0.2, constant_dt=True
+            )
+
+            params = {
+                "material_constants": material_constants,
+                "plot_results": True,
+                "time_manager": time_manager,
+            }
 
             # Run verification setup
             tic = time()
@@ -954,6 +801,38 @@ class ManufacturedCompFlow2d(  # type: ignore[misc]
             pp.run_time_dependent_model(setup, params)
             toc = time()
             print(f"Simulation finished in {round(toc - tic)} seconds.")
+
     """
 
-    ...
+#%% Runner
+# Import modules
+from time import time
+from porepy.applications.verification_setups.manu_flow_comp_frac import (
+    manu_comp_solid,
+    manu_comp_fluid,
+)
+
+# Set simulation parameters
+material_constants = {
+    "solid": pp.SolidConstants(manu_comp_solid),
+    "fluid": pp.FluidConstants(manu_comp_fluid)
+}
+
+time_manager = pp.TimeManager(
+    schedule=[0, 0.2, 0.4, 0.6, 0.8, 1.0], dt_init=0.2, constant_dt=True
+)
+
+params = {
+    "material_constants": material_constants,
+    "plot_results": True,
+    "time_manager": time_manager,
+}
+
+# Run verification setup
+tic = time()
+params = {"plot_results": True}
+setup = ManufacturedCompFlow2d(params)
+print("Simulation started...")
+pp.run_time_dependent_model(setup, params)
+toc = time()
+print(f"Simulation finished in {round(toc - tic)} seconds.")
