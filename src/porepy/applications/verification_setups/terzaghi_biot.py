@@ -46,9 +46,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.classic_models.biot import BiotPoromechanics
-from porepy.applications.verification_setups.verification_utils import (
-    VerificationUtils,
-)
+from porepy.applications.verification_setups.verification_utils import VerificationUtils
 
 number = pp.number
 grid = pp.GridLike
