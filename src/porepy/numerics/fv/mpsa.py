@@ -818,16 +818,44 @@ class Mpsa(Discretization):
         )
 
         grad_eqs = sps.vstack([ncsym, ncsym_neu, ncsym_rob + rob_grad, d_cont_grad])
-
         del ncsym, d_cont_grad, ncsym_rob, rob_grad, ncsym_neu
-        igrad = self._inverse_gradient(
-            grad_eqs,
-            sub_cell_index,
-            cell_node_blocks,
-            subcell_topology.nno_unique,
-            bound_exclusion,
-            nd,
-            inverter,
+
+        # To lower the condition number of the local linear systems, the equations that
+        # represents stress and displacement continuity, as well as the Robin condition
+        # (which is a combination) should have ideally have similar scaling. For general
+        # grids and material coefficiens, this is not possible to achieve. Nevertheless,
+        # we try to achieve reasonably conditioned local problems. A simple approach has
+        # turned out to give reasonable results: For all continuity condition (each row)
+        #  compute the mean among the non-zero elements and scale the entire row with
+        # the inverse of the mean value. This is equivalent to diagonal left
+        # preconditioner for the system. In order not to modify the solution, we will
+        # also need to left precondition the right-hand side.
+
+        # Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,
+        # since we want to manipulate the matrix elements.
+        tmp = grad_eqs.copy()
+        # Use an absolute value here. For some of the matrices the row sum will be zero
+        # on interior faces.
+        tmp.data = np.abs(tmp.data)
+        # Take a sum here. Intuitively, an average would be better, but calling
+        # tmp.mean() would take the average over all elements, most of which are zero
+        # (this turned out not to be optimal). We could also find the number of non-zero
+        # elements and divide the sum by this, but a sum seems to be good enough.
+        scalings = tmp.sum(axis=1).A.ravel()
+        # Diagonal scaling matrix
+        full_scaling = sps.dia_matrix((1.0 / scalings, 0), shape=grad_eqs.shape)
+
+        igrad = (
+            self._inverse_gradient(
+                full_scaling * grad_eqs,
+                sub_cell_index,
+                cell_node_blocks,
+                subcell_topology.nno_unique,
+                bound_exclusion,
+                nd,
+                inverter,
+            )
+            * full_scaling
         )
 
         # Right hand side for cell center variables
