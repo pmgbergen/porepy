@@ -561,8 +561,8 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         return out
 
 
-class ModifiedGeometry(pp.ModelGeometry):
-"""Generate fracture network and mixed-dimensional grid."""
+class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
+    """Generate fracture network and mixed-dimensional grid."""
 
     params: dict
     """Simulation model parameters"""
@@ -574,14 +574,14 @@ class ModifiedGeometry(pp.ModelGeometry):
         """Create fracture network.
 
         Note:
-            Two horizontal fractures at y = 0.25 and y = 0.75 are included in the
-            fracture network to force the grid to conform to certain regions of the
-            domain. Note, however, that these fractures will not be part of the
-            mixed-dimensional grid.
+            Two horizontal fractures at :math:`y = 0.25` and :math:`y = 0.75` are
+            included in the fracture network to force the grid to conform to certain
+            regions of the domain. Note, however, that these fractures will not be
+            part of the mixed-dimensional grid.
 
         """
         # Unit square domain
-        domain: dict[str, float] = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        domain: dict[str, number] = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
         # Point coordinates
         point_coordinates = np.array(
@@ -597,8 +597,10 @@ class ModifiedGeometry(pp.ModelGeometry):
 
     def mesh_arguments(self) -> dict:
         """Define mesh arguments for meshing."""
-        default_mesh_arguments = {"mesh_size_bound": 0.05, "mesh_size_frac": 0.05}
-        return self.params.get("mesh_arguments", default_mesh_arguments)
+        return self.params.get(
+            "mesh_arguments",
+            {"mesh_size_bound": 0.1, "mesh_size_frac": 0.1}
+        )
 
     def set_md_grid(self) -> None:
         """Create mixed-dimensional grid. Ignore fractures 1 and 2."""
@@ -622,57 +624,70 @@ class ModifiedGeometry(pp.ModelGeometry):
             self.domain_bounds = domain
 
 
-class ModifiedBoundaryConditions:
+class ManuIncompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        pp.bounding_box.DomainSides,
-    ]
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
     """Utility function to access the domain boundary sides."""
 
+    exact_sol: ManuIncompExactSolution
+    """Exact solution object."""
+
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Set boundary condition type."""
         if sd.dim == 2:  # Dirichlet for the rock
-            # Define boundary faces.
             boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
-            # Define boundary faces.
             boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        # Define boundary regions
+        """Set boundary condition values."""
         values = []
         for sd in subdomains:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             val_loc = np.zeros(sd.num_faces)
-            # See section on scaling for explanation of the conversion.
             if sd.dim == 2:
-                ex = ManuIncompExactSolution()
-                val_loc[boundary_faces] = ex.boundary_values(sd_rock=sd)[boundary_faces]
+                exact_bc = self.exact_sol.boundary_values(sd_rock=sd)
+                val_loc[boundary_faces] = exact_bc[boundary_faces]
             values.append(val_loc)
         return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_darcy")
 
 
-class ModifiedBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
+    exact_sol: ManuIncompExactSolution
+    """Exact solution object."""
+
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Contribution of mass fluid sources to the mass balance equation.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise Ad operator containing the fluid source contributions.
+
+        """
+        # Retrieve internal sources (jump in mortar fluxes) from the base class
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        ex = ManuIncompExactSolution()
+        # Retrieve external (integrated) sources from the exact solution.
         values = []
         for sd in subdomains:
             if sd.dim == 2:
-                values.append(ex.rock_source(sd_rock=sd))
+                values.append(self.exact_sol.rock_source(sd_rock=sd))
             else:
-                values.append(ex.fracture_source(sd_frac=sd))
+                values.append(self.exact_sol.fracture_source(sd_frac=sd))
         external_sources = pp.wrap_as_ad_array(np.hstack(values))
 
-        return internal_sources + external_sources
+        # Add up both contributions
+        source = internal_sources + external_sources
+        source.set_name("fluid sources")
+
+        return source
 
 
 class ModifiedSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
