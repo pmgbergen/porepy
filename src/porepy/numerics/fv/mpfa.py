@@ -775,8 +775,38 @@ class Mpfa(pp.FVElliptic):
             # Update hf2f so that it maps to the faces of sd.
             hf2f = periodic2face * hf2f
 
+        # To lower the condition number of the local linear systems, the equations that
+        # represents flux and pressure continuity should have similar scaling. This can
+        # be realized in many ways, but a simple approach has turned out to give
+        # reasonable results: For each continuity condition (each row in the matrices
+        # nk_grad_paired and pr_cont_grad_paired), compute the mean among the non-zero
+        # elements and scale the entire row with the inverse of the mean value. This is
+        # equivalent to diagonal left preconditioner for the system. In order not to
+        # modify the solution, we will also need to left precondition the right-hand
+        # side, more on that below. The scaling proceeds in four stages:
+        #   1) Define row-wise scaling coefficients for flux and pressure continuity
+        #      conditions.
+        #   2) Remove scaling for rows that are made superfluous due to the type of
+        #      boundary conditions (this is the same operation as is done on the
+        #      continuity conditions themselves).
+        #   3) Construct the full scaling matrix and use this to scale the rows of the
+        #      system to be inverted.
+        #   4) Ensure the same scaling is performed on the right-hand side terms.
+
+        # Scaling, stage 1: Take the row-wise sum of all non-zero elements in
+        # nk_grad_paired. Work on a copy, since we want to manipulate the matrix
+        # elements.
+        tmp = nk_grad_paired.copy()
+        # Use an absolute value here, or the row sum will be zero on interior faces.
+        tmp.data = np.abs(tmp.data)
+        # Take a sum here. Intuitively an averaged would be better, but calling
+        # tmp.mean() would take the average over all elements, most of which are zero
+        # (this turned out not to be optimal). We could also find the number of non-zero
+        # elements and divide the sum by this, but a sum seems to be good enough.
+        flux_scaling = tmp.sum(axis=1).A.ravel()
+
         # The boundary faces will have either a Dirichlet or Neumann condition, or
-        # Robin condition
+        # Robin condition.
         # Obtain mappings to exclude boundary faces.
         bound_exclusion = pp.fvutils.ExcludeBoundaries(
             subcell_topology, subcell_bnd, sd.dim
@@ -791,7 +821,10 @@ class Mpfa(pp.FVElliptic):
             nk_grad_r = bound_exclusion.keep_robin(nk_grad_paired)
             pr_trace_grad = bound_exclusion.keep_robin(pr_trace_grad_all)
             pr_trace_cell = bound_exclusion.keep_robin(pr_trace_cell_all)
+
         else:
+            # Make empty variables, just to have something to fill in the matrix (see
+            # usage below).
             nk_grad_r = sps.csr_matrix((0, nk_grad_paired.shape[1]))
             pr_trace_grad = sps.csr_matrix((0, pr_trace_grad_all.shape[1]))
             pr_trace_cell = sps.csr_matrix((0, pr_trace_cell_all.shape[1]))
@@ -849,11 +882,43 @@ class Mpfa(pp.FVElliptic):
 
         # System of equations for the subcell gradient variables. On block diagonal
         # form.
-        grad_eqs = sps.vstack([nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad])
-
         num_nk_cell = nk_cell.shape[0]
         num_nk_rob = nk_grad_r.shape[0]
         num_pr_cont_grad = pr_cont_grad.shape[0]
+
+        # Assemble and scale the full system.
+        grad_eqs = sps.vstack((nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad))
+
+        # To lower the condition number of the local linear systems, the equations that
+        # represents flux and pressure continuity, as well as the Robin condition (which
+        # is a combination) should have ideally have similar scaling. This is in general
+        # not possible (for instance, anisotropic permeabilities almost inevitably leads
+        # to some rows having elements that differ significantly in size). Nevertheless,
+        # we try to achieve reasonably conditioned local problems. A simple approach has
+        # turned out to give reasonable results: For all continuity conditions compute
+        # the mean among the non-zero elements and scale the entire row with the inverse
+        # of the mean value. This is equivalent to diagonal left preconditioner for the
+        # system. In order not to modify the solution, we will also need to left
+        # precondition the right-hand side.
+        #
+        # IMPLEMENTATION NOTE: Experimentation with more advanced scalings turned out
+        # not to give better results than the simple row sum approach.
+
+        # Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,
+        # since we want to manipulate the matrix elements.
+        tmp = grad_eqs.copy()
+        # Use an absolute value here. For some of the matrices the row sum will be zero
+        # on interior faces.
+        tmp.data = np.abs(tmp.data)
+        # Take a sum here. Intuitively, an average would be better, but calling
+        # tmp.mean() would take the average over all elements, most of which are zero
+        # (this turned out not to be optimal). We could also find the number of non-zero
+        # elements and divide the sum by this, but a sum seems to be good enough.
+        scalings = tmp.sum(axis=1).A.ravel()
+        # Diagonal scaling matrix
+        full_scaling = sps.dia_matrix((1.0 / scalings, 0), shape=grad_eqs.shape)
+        # Scale the matrix before inversion.
+        grad_eqs = full_scaling * grad_eqs
 
         del nk_grad_n, nk_grad_r, pr_trace_grad
 
@@ -873,14 +938,17 @@ class Mpfa(pp.FVElliptic):
         grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
         del grad_eqs
-        # Invert the system, and map back to the original form
+        # Invert the system, and map back to the original form. Also right multiply with
+        # the diagonal scaling matrix. Since we will multiply igrad with various right
+        # hand side matrices to construct the discretizations, this is equivalent with
+        # scaling the right hand side terms.
         igrad = (
             cols2blk_diag
             * pp.matrix_operations.invert_diagonal_blocks(
                 grad, size_of_blocks, method=inverter
             )
             * rows2blk_diag
-        )
+        ) * full_scaling
 
         del grad, cols2blk_diag, rows2blk_diag
 
@@ -918,7 +986,13 @@ class Mpfa(pp.FVElliptic):
         # Negative in front of sps.vstack comes from moving the cell center
         # unknown in the discretized sytsem to the right hand side.
         # The negative in front of pr_trace_cell comes from the grad_eqs
-        rhs_cells = -sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell])
+        rhs_cells = -sps.vstack(
+            (
+                nk_cell,
+                -pr_trace_cell,
+                pr_cont_cell,
+            )
+        )
         # Compute matrix-matrix product, this is used in several steps below
         darcy_igrad = darcy * igrad
 
