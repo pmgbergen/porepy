@@ -398,94 +398,94 @@ class ManuIncompExactSolution:
         return p_bf
 
 
-class StoreResults(VerificationUtils):
-    """Class to store results."""
-
-    def __init__(self, setup):
-        """Constructor of the class"""
-
-        # Retrieve information from setup
-        mdg = setup.mdg
-        sd_rock = mdg.subdomains()[0]
-        data_rock = mdg.subdomain_data(sd_rock)
-        sd_frac = mdg.subdomains()[1]
-        data_frac = mdg.subdomain_data(sd_frac)
-        intf = mdg.interfaces()[0]
-        data_intf = mdg.interface_data(intf)
-        p_name = setup.pressure_variable
-        q_name = "darcy_flux"
-        lmbda_name = setup.interface_darcy_flux_variable
-
-        # Instantiate exact solution object
-        ex = ManuIncompExactSolution()
-
-        # Rock pressure
-        self.exact_rock_pressure = ex.rock_pressure(sd_rock)
-        self.approx_rock_pressure = data_rock[pp.STATE][p_name]
-        self.error_rock_pressure = self.relative_l2_error(
-            grid=sd_rock,
-            true_array=self.exact_rock_pressure,
-            approx_array=self.approx_rock_pressure,
-            is_scalar=True,
-            is_cc=True,
-        )
-
-        # Rock flux
-        self.exact_rock_flux = ex.rock_flux(sd_rock)
-        self.approx_rock_flux = data_rock[pp.STATE][q_name]
-        self.error_rock_flux = self.relative_l2_error(
-            grid=sd_rock,
-            true_array=self.exact_rock_flux,
-            approx_array=self.approx_rock_flux,
-            is_scalar=True,
-            is_cc=False,
-        )
-
-        # Fracture pressure
-        self.exact_frac_pressure = ex.fracture_pressure(sd_frac)
-        self.approx_frac_pressure = data_frac[pp.STATE][p_name]
-        self.error_frac_pressure = self.relative_l2_error(
-            grid=sd_frac,
-            true_array=self.exact_frac_pressure,
-            approx_array=self.approx_frac_pressure,
-            is_scalar=True,
-            is_cc=True,
-        )
-
-        # Fracture flux
-        self.exact_frac_flux = ex.fracture_flux(sd_frac)
-        self.approx_frac_flux = data_frac[pp.STATE][q_name]
-        self.error_frac_flux = self.relative_l2_error(
-            grid=sd_frac,
-            true_array=self.exact_frac_flux,
-            approx_array=self.approx_frac_flux,
-            is_scalar=True,
-            is_cc=False,
-        )
-
-        # Mortar flux
-        self.exact_intf_flux = ex.interface_flux(intf)
-        self.approx_intf_flux = data_intf[pp.STATE][lmbda_name]
-        self.error_intf_flux = self.relative_l2_error(
-            grid=intf,
-            true_array=self.exact_intf_flux,
-            approx_array=self.approx_intf_flux,
-            is_scalar=True,
-            is_cc=True,
-        )
+# class StoreResults(VerificationUtils):
+#     """Class to store results."""
+#
+#     def __init__(self, setup):
+#         """Constructor of the class"""
+#
+#         # Retrieve information from setup
+#         mdg = setup.mdg
+#         sd_rock = mdg.subdomains()[0]
+#         data_rock = mdg.subdomain_data(sd_rock)
+#         sd_frac = mdg.subdomains()[1]
+#         data_frac = mdg.subdomain_data(sd_frac)
+#         intf = mdg.interfaces()[0]
+#         data_intf = mdg.interface_data(intf)
+#         p_name = setup.pressure_variable
+#         q_name = "darcy_flux"
+#         lmbda_name = setup.interface_darcy_flux_variable
+#
+#         # Instantiate exact solution object
+#         ex = ManuIncompExactSolution()
+#
+#         # Rock pressure
+#         self.exact_rock_pressure = ex.rock_pressure(sd_rock)
+#         self.approx_rock_pressure = data_rock[pp.STATE][p_name]
+#         self.error_rock_pressure = self.relative_l2_error(
+#             grid=sd_rock,
+#             true_array=self.exact_rock_pressure,
+#             approx_array=self.approx_rock_pressure,
+#             is_scalar=True,
+#             is_cc=True,
+#         )
+#
+#         # Rock flux
+#         self.exact_rock_flux = ex.rock_flux(sd_rock)
+#         self.approx_rock_flux = data_rock[pp.STATE][q_name]
+#         self.error_rock_flux = self.relative_l2_error(
+#             grid=sd_rock,
+#             true_array=self.exact_rock_flux,
+#             approx_array=self.approx_rock_flux,
+#             is_scalar=True,
+#             is_cc=False,
+#         )
+#
+#         # Fracture pressure
+#         self.exact_frac_pressure = ex.fracture_pressure(sd_frac)
+#         self.approx_frac_pressure = data_frac[pp.STATE][p_name]
+#         self.error_frac_pressure = self.relative_l2_error(
+#             grid=sd_frac,
+#             true_array=self.exact_frac_pressure,
+#             approx_array=self.approx_frac_pressure,
+#             is_scalar=True,
+#             is_cc=True,
+#         )
+#
+#         # Fracture flux
+#         self.exact_frac_flux = ex.fracture_flux(sd_frac)
+#         self.approx_frac_flux = data_frac[pp.STATE][q_name]
+#         self.error_frac_flux = self.relative_l2_error(
+#             grid=sd_frac,
+#             true_array=self.exact_frac_flux,
+#             approx_array=self.approx_frac_flux,
+#             is_scalar=True,
+#             is_cc=False,
+#         )
+#
+#         # Mortar flux
+#         self.exact_intf_flux = ex.interface_flux(intf)
+#         self.approx_intf_flux = data_intf[pp.STATE][lmbda_name]
+#         self.error_intf_flux = self.relative_l2_error(
+#             grid=intf,
+#             true_array=self.exact_intf_flux,
+#             approx_array=self.approx_intf_flux,
+#             is_scalar=True,
+#             is_cc=True,
+#         )
 
 
 class ModifiedDataSavingMixin(pp.DataSavingMixin):
     """Mixin class to save relevant data."""
 
-    pressure_variable: str
-    """Key to access the pressure variable."""
-
     exact_sol: ManuIncompExactSolution
     """Exact solution object."""
 
-    results: list[SaveData]
-    """List of :class:`SaveData` objects containing the results of the verification."""
+    interface_darcy_flux_variable: str
+    """Key to access the interface variable."""
+
+    pressure_variable: str
+    """Key to access the pressure variable."""
 
     relative_l2_error: Callable[[grid, np.ndarray, np.ndarray, bool, bool], number]
     """Method that computes the discrete relative L2-error. The method is provided by
@@ -493,15 +493,74 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
     
     """
 
+    results: list[SaveData]
+    """List of :class:`SaveData` objects containing the results of the verification."""
+
     def save_data_time_step(self) -> None:
         """Save data to the `results` list."""
         collected_data: SaveData = self._collect_data()
         self.results.append(collected_data)
 
+    def _collect_data(self) -> SaveData:
+        """Collect data from the verification setup.
+
+        Returns:
+            SaveData object containing the results of the verification.
+
+        """
+
+        sd_rock: pp.Grid = self.mdg.subdomains()[0]
+        data_rock: dict = self.mdg.subdomain_data(sd_rock)
+        sd_frac: pp.Grid = self.mdg.subdomains()[1]
+        data_frac: dict = self.mdg.subdomain_data(sd_frac)
+        intf: pp.MortarGrid = self.mdg.interfaces()[0]
+        data_intf: dict = self.mdg.interface_data(intf)
+        p_name: str = self.pressure_variable
+        q_name: str = "darcy_flux"
+        lmbda_name: str = self.interface_darcy_flux_variable
+        exact_sol: ManuIncompExactSolution = self.exact_sol
+
+        # Instantiate data class
+        out = SaveData()
+
+        # Rock pressure
+        out.exact_rock_pressure = exact_sol.rock_pressure(sd_rock)
+        out.approx_rock_pressure = data_rock[pp.STATE][p_name]
+        out.error_rock_pressure = self.relative_l2_error(
+            sd_rock, out.exact_rock_pressure, out.approx_rock_pressure, True, True,
+        )
+
+        # Fracture pressure
+        out.exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
+        out.approx_frac_pressure = data_frac[pp.STATE][p_name]
+        out.error_frac_pressure = self.relative_l2_error(
+            sd_frac, out.exact_frac_pressure, out.approx_frac_pressure, True, True,
+        )
+
+        # Rock flux
+        out.exact_rock_flux = exact_sol.rock_flux(sd_rock)
+        out.approx_rock_flux = data_rock[pp.STATE][q_name]
+        out.error_rock_flux = self.relative_l2_error(
+            sd_frac, out.exact_rock_flux, out.approx_rock_flux, True, False,
+        )
+
+        # Fracture flux
+        out.exact_frac_flux = exact_sol.fracture_flux(sd_frac)
+        out.approx_frac_flux = data_frac[pp.STATE][q_name]
+        out.error_frac_flux = self.relative_l2_error(
+            sd_frac, out.exact_frac_flux, out.approx_frac_flux, True, False,
+        )
+
+        # Interface flux
+        out.exact_intf_flux = exact_sol.interface_flux(intf)
+        out.approx_intf_flux = data_intf[pp.STATE][lmbda_name]
+        out.error_intf_flux = self.relative_l2_error(
+            intf, out.exact_intf_flux, out.approx_intf_flux, True, True,
+        )
+
+        return out
 
 
-
-# -----> Simulation model
 class ModifiedGeometry(pp.ModelGeometry):
 """Generate fracture network and mixed-dimensional grid."""
 
