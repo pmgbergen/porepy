@@ -3,13 +3,14 @@ This module contains light-weighted functional tests for a manufactured flow sol
 with a single vertical fracture.
 """
 from __future__ import annotations
+
 import numpy as np
 
 import porepy as pp
 from porepy.applications.verification_setups.manu_flow_incomp_frac import (
-    manu_incomp_solid,
-    manu_incomp_fluid,
     ManufacturedIncompressibleFlow2d,
+    manu_incomp_fluid,
+    manu_incomp_solid,
 )
 
 

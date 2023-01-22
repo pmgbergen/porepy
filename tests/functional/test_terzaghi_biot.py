@@ -18,21 +18,18 @@ We consider two functional tests:
 import numpy as np
 
 import porepy as pp
-
-from porepy.models.poromechanics import Poromechanics
-from porepy.applications.verification_setups.verification_utils import (
-    VerificationUtils,
-)
 from porepy.applications.verification_setups.terzaghi_biot import (
-    terzaghi_solid_constants,
-    terzaghi_fluid_constants,
-    TerzaghiSetup,
-    PseudoOneDimensionalColumn,
-    SetupUtilities,
+    ModifiedDataSavingMixin,
     ModifiedPoromechanicsBoundaryConditions,
     ModifiedSolutionStrategy,
-    ModifiedDataSavingMixin,
+    PseudoOneDimensionalColumn,
+    SetupUtilities,
+    TerzaghiSetup,
+    terzaghi_fluid_constants,
+    terzaghi_solid_constants,
 )
+from porepy.applications.verification_setups.verification_utils import VerificationUtils
+from porepy.models.poromechanics import Poromechanics
 
 
 class TerzaghiSetupPoromechanics(
