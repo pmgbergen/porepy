@@ -44,9 +44,7 @@ import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.classic_models.biot import BiotPoromechanics
 from porepy.applications.verification_setups.verification_utils import VerificationUtils
-from porepy.applications.verification_setups.manu_poromech_nofrac import (
-    SaveData
-)
+from porepy.applications.verification_setups.manu_poromech_nofrac import SaveData
 
 # PorePy typings
 number = pp.number
@@ -65,6 +63,356 @@ mandel_fluid_constants: dict[str, number] = {
     "density": 1e3,  # [kg * m^3]
     "viscosity": 1e-3,  # [Pa * s]
 }
+
+
+class MandelExactSolution:
+    """Exact solutions to Mandel's problem."""
+
+    def __init__(self, setup):
+        """Constructor of the class."""
+        self.setup = setup
+
+        # For convinience, store the approximated roots
+        self.roots: np.ndarray = self.approximate_roots()
+
+    def approximate_roots(self) -> np.ndarray:
+        """Approximate roots of infinte series using the bisection method.
+
+        Returns:
+            Array of ``shape=(num_roots, )`` containing the approximated roots.
+
+        Note:
+            We solve
+
+            .. math::
+
+               f(x) = \\tan{x} - \\frac{1 - \\nu}{\\nu_u - \\nu} x = 0
+
+            numerically to get all positive solutions to the equation. These are used
+            to compute the infinite series associated with the exact solutions.
+            Experience has shown that 200 roots are enough to achieve accurate results.
+            We find the roots using the bisection method.
+
+            Thanks to Manuel Borregales who helped us with the implementation of this
+            part of the code.
+
+        """
+        # Retrieve physical data
+        nu_s = self.setup.poisson_coefficient()
+        nu_u = self.setup.undrained_poisson_coefficient()
+
+        # Define algebraic function
+        def f(x):
+            y = np.tan(x) - ((1 - nu_s) / (nu_u - nu_s)) * x
+            return y
+
+        n_series = self.setup.params.get("number_of_roots", 200)
+        a_n = np.zeros(n_series)  # initialize roots
+        x0 = 0  # initial point
+        for i in range(n_series):
+            a_n[i] = opt.bisect(
+                f,  # function
+                x0 + np.pi / 4,  # left point
+                x0 + np.pi / 2 - 2.2204e-9,  # right point
+                xtol=1e-30,  # absolute tolerance
+                rtol=1e-14,  # relative tolerance
+            )
+            x0 += np.pi  # apply a phase change of pi to get the next root
+
+        return a_n
+
+    def pressure_profile(self, x: np.ndarray, t: number) -> np.ndarray:
+        """Exact fluid pressure in `Pa`.
+
+        Parameters:
+            x: Points in the horizontal axis in meters.
+            t: Time in seconds.
+
+        Returns:
+            Exact pressure solution with ``shape=(num_points, )``.
+
+        """
+        # Retrieve physical data
+        F = self.setup.params.get("vertical_load", 6e8)
+        B = self.setup.skempton_coefficient()
+        nu_u = self.setup.undrained_poisson_coefficient()
+        c_f = self.setup.fluid_diffusivity()
+
+        # Retrieve geometrical data
+        a, _ = self.setup.params("domain_size", (100, 10))
+
+        # Retrieve roots
+        aa_n = self.roots[:, np.newaxis]
+
+        # Exact pressure
+        if t == 0:  # initial condition has its own expression
+
+            p = ((F * B * (1 + nu_u)) / (3 * a)) * np.ones_like(x)
+
+        else:
+
+            c0 = (2 * F * B * (1 + nu_u)) / (3 * a)
+
+            p_sum_0 = np.sum(
+                ((np.sin(aa_n)) / (aa_n - (np.sin(aa_n) * np.cos(aa_n))))
+                * (np.cos((aa_n * x) / a) - np.cos(aa_n))
+                * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
+                axis=0,
+            )
+
+            p = c0 * p_sum_0
+
+        return p
+
+    def horizontal_displacement_profile(self, x: np.ndarray, t: number) -> np.ndarray:
+        """Exact horizontal displacement in `m`.
+
+        Parameters:
+            x: Points in the horizontal axis in meters.
+            t: Time in seconds.
+
+        Returns:
+            Exact horizontal displacement with ``shape=(num_points, )``.
+
+        """
+        # Retrieve physical data
+        F = self.setup.params.get("vertical_load", 6e8)
+        nu_s = self.setup.poisson_coefficient()
+        nu_u = self.setup.undrained_poisson_coefficient()
+        mu_s = self.setup.solid.shear_modulus()
+        c_f = self.setup.fluid_diffusivity()
+
+        # Retrieve geometrical data
+        a, _ = self.setup.params("domain_size", (100, 10))
+
+        # Retrieve roots
+        aa_n = self.roots[:, np.newaxis]
+
+        # Exact horizontal displacement
+        if t == 0:  # initial condition has its own expression
+
+            ux = ((F * nu_u) / (2 * mu_s * a)) * x
+
+        else:
+
+            cx0 = (F * nu_s) / (2 * mu_s * a)
+            cx1 = -((F * nu_u) / (mu_s * a))
+            cx2 = F / mu_s
+
+            ux_sum1 = np.sum(
+                (np.sin(aa_n) * np.cos(aa_n))
+                / (aa_n - np.sin(aa_n) * np.cos(aa_n))
+                * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
+                axis=0,
+            )
+
+            ux_sum2 = np.sum(
+                (np.cos(aa_n) / (aa_n - (np.sin(aa_n) * np.cos(aa_n))))
+                * np.sin((aa_n * x) / a)
+                * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
+                axis=0,
+            )
+
+            ux = (cx0 + cx1 * ux_sum1) * x + cx2 * ux_sum2
+
+        return ux
+
+    def vertical_displacement_profile(self, y: np.ndarray, t: number) -> np.ndarray:
+        """Exact vertical displacement in `m`.
+
+        Parameters:
+            y: Points in the horizontal axis in meters.
+            t: Time in seconds.
+
+        Returns:
+            Exact vertical displacement with ``shape=(num_points, )``.
+
+        """
+        # Retrieve physical data
+        F = self.setup.params.get("vertical_load", 6e8)
+        nu_s = self.setup.poisson_coefficient()
+        nu_u = self.setup.undrained_poisson_coefficient()
+        mu_s = self.setup.solid.shear_modulus()
+        c_f = self.setup.fluid_diffusivity()
+
+        # Retrieve geometrical data
+        a, _ = self.setup.params("domain_size", (100, 10))
+
+        # Retrieve roots
+        aa_n = self.roots[:, np.newaxis]
+
+        # Exact vertical displacement
+        if t == 0:  # initial condition has its own expression
+
+            uy = ((-F * (1 - nu_u)) / (2 * mu_s * a)) * y
+
+        else:
+
+            cy0 = (-F * (1 - nu_s)) / (2 * mu_s * a)
+            cy1 = F * (1 - nu_u) / (mu_s * a)
+
+            uy_sum1 = np.sum(
+                ((np.sin(aa_n) * np.cos(aa_n)) / (aa_n - np.sin(aa_n) * np.cos(aa_n)))
+                * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
+                axis=0,
+            )
+
+            uy = (cy0 + cy1 * uy_sum1) * y
+
+        return uy
+
+    def horizontal_velocity_profile(self, x: np.ndarray, t: number) -> np.ndarray:
+        """Exact horiztonal specific discharge in `m * s^{-1}`.
+
+        Note that for Mandel's problem, the vertical specific discharge is zero.
+
+        Parameters:
+            x: Points in the horizontal axis in `m`.
+            t: Time in `s`.
+
+        Returns:
+            Exact specific discharge for the given time ``t``. The returned array has
+             ``shape=(num_points, )``.
+
+        """
+        # Retrieve physical data
+        F = self.setup.params.get("vertical_load", 6e8)
+        B = self.setup.skempton_coefficient()
+        k = self.setup.solid("permeability")
+        mu_f = self.setup.fluid("viscosity")
+        nu_u = self.setup.undrained_poisson_coefficient()
+        c_f = self.setup.fluid_diffusivity()
+
+        # Retrieve geometrical data
+        a, _ = self.setup.params("domain_size", (100, 10))
+
+        # Retrieve roots
+        aa_n = self.roots[:, np.newaxis]
+
+        # Compute horizontal specific discharge
+        if t == 0:
+
+            qx = [np.zeros_like(x), np.zeros_like(x)]  # zero initial discharge
+
+        else:
+
+            c0 = (2 * F * B * k * (1 + nu_u)) / (3 * mu_f * a**2)
+
+            qx_sum0 = np.sum(
+                (aa_n * np.sin(aa_n))
+                / (aa_n - np.sin(aa_n) * np.cos(aa_n))
+                * np.sin(aa_n * x / a)
+                * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
+                axis=0,
+            )
+
+            qx = c0 * qx_sum0
+
+        return qx
+
+    def vertical_stress_profile(self, x: np.ndarray, t: number) -> np.ndarray:
+        """Exact vertical stress in `Pa`.
+
+        Note that for Mandel's problem, all the other components of the stress tensor
+        are zero.
+
+        Parameters:
+            x: Points in the horizontal axis in meters.
+            t: Time in seconds.
+
+        Returns:
+            Exact vertical component of the symmetric stress tensor with
+            ``shape=(num_points, )``.
+
+        """
+        # Retrieve physical data
+        F = self.setup.params.get("vertical_load", 6e8)
+        nu_s = self.setup.poisson_coefficient()
+        nu_u = self.setup.undrained_poisson_coefficient()
+        c_f = self.setup.fluid_diffusivity()
+
+        # Retrieve geometrical data
+        a, _ = self.setup.params("domain_size", (100, 10))
+
+        # Retrieve roots
+        aa_n = self.roots[:, np.newaxis]
+
+        # Compute exact stress tensor
+
+        if t == 0:  # vertical stress at t = 0 has a different expression
+
+            syy = -F / a * np.ones_like(x)
+
+        else:
+
+            c0 = -F / a
+            c1 = (-2 * F * (nu_u - nu_s)) / (a * (1 - nu_s))
+            c2 = 2 * F / a
+
+            syy_sum1 = np.sum(
+                (np.sin(aa_n))
+                / (aa_n - np.sin(aa_n) * np.cos(aa_n))
+                * np.cos(aa_n * x / a)
+                * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
+                axis=0,
+            )
+
+            syy_sum2 = np.sum(
+                (np.sin(aa_n) * np.cos(aa_n))
+                / (aa_n - np.sin(aa_n) * np.cos(aa_n))
+                * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
+                axis=0,
+            )
+
+            syy = c0 + c1 * syy_sum1 + c2 * syy_sum2
+
+        return syy
+
+    def degree_of_consolidation(self, t: number) -> number:
+        """Exact degree of consolidation [-].
+
+        Note that for Mandel's problem, the degrees of consolidation in the
+        horizontal and vertical axes are identical.
+
+        Parameters:
+              t: Time in seconds.
+
+        Returns:
+              Exact degree of consolidation for a given time ``t``.
+
+        """
+        # Retrieve physical and geometric data
+        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
+        nu_s = self.setup.poisson_coefficient()  # [-]
+        mu_s = self.setup.solid.shear_modulus()  # [Pa]
+        F = self.setup.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        a, b = self.setup.params("domain_size", (100, 10))  # ([m], [m])
+
+        # Vertical displacement on the north boundary at time `t`
+        uy_b_t = self.vertical_displacement_profile(np.array([b]), t)
+
+        # Initial vertical displacement on the north boundary
+        uy_b_0 = (-F * b * (1 - nu_u)) / (2 * mu_s * a)
+
+        # Vertical displacement on the north boundary at time `infinity`
+        uy_b_inf = (-F * b * (1 - nu_s)) / (2 * mu_s * a)
+
+        # Degree of consolidation
+        consolidation_degree = (uy_b_t - uy_b_0) / (uy_b_inf - uy_b_0)
+
+        return consolidation_degree
+
+    def pressure(self, sd: pp.Grid, t: number):
+        ...
+
+    def displacement(self, sd: pp.Grid, t: number):
+        ...
+
+    def flux(self, sd: pp.Grid, t: number):
+        ...
+
+    def poroelastic_force(self, sd: pp.Grid, t: number):
+        ...
 
 
 @dataclass
