@@ -14,8 +14,14 @@ consitutive relationship:
     \rho(p) = \rho_0 \exp{c_f (p - p_0)},
 
 where :math:`\rho` and :math:`p` are the density and pressure, :math:`\rho_0` and
-:math:`p_0` are the density and pressure at reference states, and :math:`c_f` the
+:math:`p_0` are the density and pressure at reference states, and :math:`c_f` is the
 fluid compressibility.
+
+References:
+
+    - [1] Varela, J., Ahmed, E., Keilegavlen, E., Nordbotten, J. M., & Radu, F. A.
+      (2022). A posteriori error estimates for hierarchical mixed-dimensional
+      elliptic equations. Journal of Numerical Mathematics.
 
 """
 from __future__ import annotations
@@ -26,30 +32,31 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-from porepy.applications.verification_setups.verification_utils import VerificationUtils
 from porepy.applications.verification_setups.manu_flow_incomp_frac import (
     SaveData,
+    SetupUtilities,
     SingleEmbeddedVerticalFracture,
-    SetupUtilities
 )
+from porepy.applications.verification_setups.verification_utils import VerificationUtils
 
 # PorePy typings
 number = pp.number
 grid = pp.GridLike
 
-# Material constants for the verification setup. Constants commented with (**) cannot be
-# changed or an error will be raised.
+# Material constants for the verification setup. Constants with (**) cannot be
+# changed since the manufactured solution implicitly assume such values.
 manu_comp_fluid: dict[str, number] = {
-    "viscosity": 1.0,  # **
+    "viscosity": 1.0,  # (**)
     "compressibility": 0.2,
-    "density": 1.0,  # (reference value)
-    "pressure": 0.0,  # (reference value)
+    "density": 1.0,  # reference value
+    "pressure": 0.0,  # reference value
 }
+
 manu_comp_solid: dict[str, number] = {
-    "normal_permeability": 0.5,  # **
-    "permeability": 1.0,  # **
-    "residual_aperture": 1.0,  # **
-    "porosity": 0.1,  # (reference value)
+    "normal_permeability": 0.5,  # (**) counteracts division by a/2 in interface law
+    "permeability": 1.0,  # (**)
+    "residual_aperture": 1.0,  # (**)
+    "porosity": 0.1,  # reference value
 }
 
 
@@ -65,14 +72,18 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
     pressure_variable: str
     """Key to access the pressure variable."""
 
-    relative_l2_error: Callable[[grid, np.ndarray, np.ndarray, bool, bool], number]
-    """Method that computes the discrete relative L2-error. The method is provided by
-    the mixin class:class:`porepy.models.verification_setups.VerificationUtils`.
+    relative_l2_error: Callable
+    """Method that computes the discrete relative L2-error between an exact solution
+    and an approximate solution on a given grid. The method is provided by the mixin
+    class :class:`porepy.applications.verification_setups.VerificationUtils`.
 
     """
 
     results: list[SaveData]
     """List of :class:`SaveData` objects containing the results of the verification."""
+
+    subdomain_darcy_flux_variable: str
+    """Keyword to access the subdomain Darcy fluxes."""
 
     def save_data_time_step(self) -> None:
         """Save data to the `results` list.
@@ -102,7 +113,7 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
         data_intf: dict = self.mdg.interface_data(intf)
         p_name: str = self.pressure_variable
-        q_name: str = "darcy_flux"
+        q_name: str = self.subdomain_darcy_flux_variable
         lmbda_name: str = self.interface_darcy_flux_variable
         exact_sol: ManuCompExactSolution = self.exact_sol
         t: number = self.time_manager.time
@@ -112,57 +123,57 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
 
         # Rock pressure
         out.exact_rock_pressure = exact_sol.rock_pressure(sd_rock, t)
-        out.approx_rock_pressure = data_rock[pp.STATE][p_name]
+        out.approx_rock_pressure = data_rock[pp.STATE][pp.ITERATE][p_name].copy()
         out.error_rock_pressure = self.relative_l2_error(
-            sd_rock,
-            out.exact_rock_pressure,
-            out.approx_rock_pressure,
-            True,
-            True,
+            grid=sd_rock,
+            true_array=out.exact_rock_pressure,
+            approx_array=out.approx_rock_pressure,
+            is_scalar=True,
+            is_cc=True,
         )
 
         # Fracture pressure
         out.exact_frac_pressure = exact_sol.fracture_pressure(sd_frac, t)
-        out.approx_frac_pressure = data_frac[pp.STATE][p_name]
+        out.approx_frac_pressure = data_frac[pp.STATE][pp.ITERATE][p_name].copy()
         out.error_frac_pressure = self.relative_l2_error(
-            sd_frac,
-            out.exact_frac_pressure,
-            out.approx_frac_pressure,
-            True,
-            True,
+            grid=sd_frac,
+            true_array=out.exact_frac_pressure,
+            approx_array=out.approx_frac_pressure,
+            is_scalar=True,
+            is_cc=True,
         )
 
         # Rock flux
         out.exact_rock_flux = exact_sol.rock_flux(sd_rock, t)
-        out.approx_rock_flux = data_rock[pp.STATE][q_name]
+        out.approx_rock_flux = data_rock[pp.STATE][pp.ITERATE][q_name].copy()
         out.error_rock_flux = self.relative_l2_error(
-            sd_rock,
-            out.exact_rock_flux,
-            out.approx_rock_flux,
-            True,
-            False,
+            grid=sd_rock,
+            true_array=out.exact_rock_flux,
+            approx_array=out.approx_rock_flux,
+            is_scalar=True,
+            is_cc=False,
         )
 
         # Fracture flux
         out.exact_frac_flux = exact_sol.fracture_flux(sd_frac, t)
-        out.approx_frac_flux = data_frac[pp.STATE][q_name]
+        out.approx_frac_flux = data_frac[pp.STATE][pp.ITERATE][q_name].copy()
         out.error_frac_flux = self.relative_l2_error(
-            sd_frac,
-            out.exact_frac_flux,
-            out.approx_frac_flux,
-            True,
-            False,
+            grid=sd_frac,
+            true_array=out.exact_frac_flux,
+            approx_array=out.approx_frac_flux,
+            is_scalar=True,
+            is_cc=False,
         )
 
         # Interface flux
         out.exact_intf_flux = exact_sol.interface_flux(intf, t)
-        out.approx_intf_flux = data_intf[pp.STATE][lmbda_name]
+        out.approx_intf_flux = data_intf[pp.STATE][pp.ITERATE][lmbda_name]
         out.error_intf_flux = self.relative_l2_error(
-            intf,
-            out.exact_intf_flux,
-            out.approx_intf_flux,
-            True,
-            True,
+            grid=intf,
+            true_array=out.exact_intf_flux,
+            approx_array=out.approx_intf_flux,
+            is_scalar=True,
+            is_cc=True,
         )
 
         return out
@@ -178,7 +189,7 @@ class ManuCompExactSolution:
         rho_0 = setup.fluid.density()  # [kg * m^-3]  Reference fluid density
         p_0 = setup.fluid.pressure()  # [Pa] Reference fluid pressure
         c_f = setup.fluid.compressibility()  # [Pa^-1]  Fluid compressibility
-        phi_0 = setup.solid.reference_porosity()  # [-] Reference porosity
+        phi_0 = setup.solid.porosity()  # [-] Reference porosity
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")
@@ -265,6 +276,9 @@ class ManuCompExactSolution:
         self.q_intf = q_intf
         self.rho_intf = rho_intf
         self.mf_intf = mf_intf
+
+        # Private attributes
+        self._bubble = bubble_fun
 
     def rock_pressure(self, sd_rock: pp.Grid, time: number) -> np.ndarray:
         """Evaluate exact rock pressure [Pa] at the cell centers.
@@ -674,25 +688,28 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
     """
 
-    solid: pp.SolidConstants
-    """Object containing the solid constants."""
-
     results: list[SaveData]
     """List of SaveData objects."""
+
+    solid: pp.SolidConstants
+    """Object containing the solid constants."""
 
     def __init__(self, params: dict):
         """Constructor of the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuCompExactSolution()
+        self.exact_sol: ManuCompExactSolution
         """Exact solution object."""
 
         self.results: list[SaveData] = []
         """Object that stores exact and approximated solutions and L2 errors."""
 
+        self.subdomain_darcy_flux_variable: str = "darcy_flux"
+        """Keyword to access the subdomain Darcy fluxes."""
+
     def set_materials(self):
         """Set material constants for the verification setup."""
-        super().__init__()
+        super().set_materials()
 
         # Sanity checks
         assert self.fluid.viscosity() == 1
@@ -743,7 +760,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         for sd, data in self.mdg.subdomains(return_data=True):
             darcy_flux_ad = self.darcy_flux([sd])
             vals = darcy_flux_ad.evaluate(self.equation_system).val
-            data[pp.STATE]["darcy_flux"] = vals
+            data[pp.STATE][pp.ITERATE][self.subdomain_darcy_flux_variable] = vals
 
         # Inherit from base class
         super().after_nonlinear_convergence(solution, errors, iteration_counter)
@@ -754,37 +771,37 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
             self.plot_results()
 
 
-class ManufacturedCompFlow2d(  # type: ignore[misc]
+class ManufacturedCompressibleFlow2d(  # type: ignore[misc]
+    ManuCompBalanceEquation,
     ManuCompBoundaryConditions,
-    ManuCompBalanceEquations,
-    SingleEmbeddedVerticalFracture,
+    ManuCompSolutionStrategy,
+    pp.fluid_mass_balance.SinglePhaseFlow,
     SetupUtilities,
     VerificationUtils,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    SingleEmbeddedVerticalFracture,
     ModifiedDataSavingMixin,
-    ManuCompSolutionStrategy,
 ):
     """
-    Mixer class for the verification setup.
+    Mixer class for the compressible flow with a single fracture verification setup.
 
     Examples:
 
         .. code:: python
 
-            # Import modules
             from time import time
             from porepy.applications.verification_setups.manu_flow_comp_frac import (
                 manu_comp_solid,
                 manu_comp_fluid,
             )
 
-            # Set simulation parameters
-            solid = pp.SolidConstants(manu_comp_solid)
-            fluid = pp.FluidConstants(manu_comp_fluid)
-            material_constants = {"material_constants": material_constants}
+            # Simulation parameters
+            material_constants = {
+                "solid": pp.SolidConstants(manu_comp_solid),
+                "fluid": pp.FluidConstants(manu_comp_fluid),
+            }
 
             time_manager = pp.TimeManager(
-                schedule=[0, 0.2, 0.4, 0.6, 0.8, 1.0], dt_init=0.2, constant_dt=True
+                schedule=[0, 0.2, 0.6, 1.0], dt_init=0.2, constant_dt=True
             )
 
             params = {
@@ -795,44 +812,10 @@ class ManufacturedCompFlow2d(  # type: ignore[misc]
 
             # Run verification setup
             tic = time()
-            params = {"plot_results": True}
-            setup = ManufacturedCompFlow2d(params)
+            setup = ManufacturedCompressibleFlow2d(params)
             print("Simulation started...")
             pp.run_time_dependent_model(setup, params)
             toc = time()
             print(f"Simulation finished in {round(toc - tic)} seconds.")
 
     """
-
-#%% Runner
-# Import modules
-from time import time
-from porepy.applications.verification_setups.manu_flow_comp_frac import (
-    manu_comp_solid,
-    manu_comp_fluid,
-)
-
-# Set simulation parameters
-material_constants = {
-    "solid": pp.SolidConstants(manu_comp_solid),
-    "fluid": pp.FluidConstants(manu_comp_fluid)
-}
-
-time_manager = pp.TimeManager(
-    schedule=[0, 0.2, 0.4, 0.6, 0.8, 1.0], dt_init=0.2, constant_dt=True
-)
-
-params = {
-    "material_constants": material_constants,
-    "plot_results": True,
-    "time_manager": time_manager,
-}
-
-# Run verification setup
-tic = time()
-params = {"plot_results": True}
-setup = ManufacturedCompFlow2d(params)
-print("Simulation started...")
-pp.run_time_dependent_model(setup, params)
-toc = time()
-print(f"Simulation finished in {round(toc - tic)} seconds.")
