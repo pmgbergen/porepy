@@ -28,17 +28,18 @@ test the errors for three different times, namely: 0.2 [s], 0.6 [s], and 1.0 [s]
 
 References:
 
-    [1] Coussy, O. (2004). Poromechanics. John Wiley & Sons. ISO 690
+    - [1] Coussy, O. (2004). Poromechanics. John Wiley & Sons. ISO 690
 
-    [2] Garipov, T. T., & Hui, M. H. (2019). Discrete fracture modeling approach for
+    - [2] Garipov, T. T., & Hui, M. H. (2019). Discrete fracture modeling approach for
     simulating coupled thermo-hydro-mechanical effects in fractured reservoirs.
     International Journal of Rock Mechanics and Mining Sciences, 122, 104075.
 
-    [3] Nordbotten, J. M. (2016). Stable cell-centered finite volume discretization
+    - [3] Nordbotten, J. M. (2016). Stable cell-centered finite volume discretization
     for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
 
 """
 from __future__ import annotations
+
 from collections import namedtuple
 
 import numpy as np
@@ -46,7 +47,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.verification_setups.manu_poromech_nofrac import (
-    ManuPoromechanics2d,
+    ManufacturedNonlinearPoromechanicsNoFrac2d,
 )
 
 # Run verification setup and retrieve results for three different times
@@ -57,10 +58,9 @@ params = {
     "mesh_arguments": {"mesh_size_frac": 0.1, "mesh_size_bound": 0.1},
     "manufactured_solution": "nordbotten_2016",
     "material_constants": material_constants,
-    "time_manager": pp.TimeManager([0, 0.2, 0.4, 0.6, 0.8, 1], 0.2, True),
-    "stored_times": [0.2, 0.6, 1.0],
+    "time_manager": pp.TimeManager([0, 0.2, 0.6, 1], 0.2, True),
 }
-setup = ManuPoromechanics2d(params)
+setup = ManufacturedNonlinearPoromechanicsNoFrac2d(params)
 pp.run_time_dependent_model(setup, params)
 
 # Desired errors
