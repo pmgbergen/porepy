@@ -43,6 +43,7 @@ References:
 
 """
 from __future__ import annotations
+
 from collections import namedtuple
 
 import numpy as np
@@ -52,7 +53,7 @@ import porepy as pp
 from porepy.applications.verification_setups.manu_flow_comp_frac import (
     ManufacturedCompressibleFlow2d,
     manu_comp_fluid,
-    manu_comp_solid
+    manu_comp_solid,
 )
 
 # Run verification setup and retrieve results for the scheduled times
@@ -65,7 +66,7 @@ time_manager = pp.TimeManager([0, 0.2, 0.8, 1.0], 0.2, True)
 params = {
     "material_constants": material_constants,
     "mesh_arguments": mesh_arguments,
-    "time_manager": time_manager
+    "time_manager": time_manager,
 }
 setup = ManufacturedCompressibleFlow2d(params)
 pp.run_time_dependent_model(setup, params)
