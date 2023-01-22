@@ -28,16 +28,18 @@ from porepy.applications.verification_setups.verification_utils import Verificat
 number = pp.number
 grid = pp.GridLike
 
-# Material constants that MUST be used in the verification setup
+# Material constants for the verification setup. Constants with (**) cannot be
+# changed since the manufactured solution implicitly assume such values.
 manu_incomp_fluid: dict[str, number] = {
-    "compressibility": 0,
-    "density": 1.0,
-    "viscosity": 1.0,
+    "compressibility": 0,  # (**)
+    "density": 1.0,  # (**)
+    "viscosity": 1.0,  # (**)
 }
+
 manu_incomp_solid: dict[str, number] = {
-    "residual_aperture": 1.0,
-    "permeability": 1.0,
-    "normal_permeability": 0.5,  # counteracts division by a/2 in interface law
+    "residual_aperture": 1.0,  # (**)
+    "permeability": 1.0,  # (**)
+    "normal_permeability": 0.5,  # (**) counteracts division by a/2 in interface law
 }
 
 
@@ -426,14 +428,18 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
     pressure_variable: str
     """Key to access the pressure variable."""
 
-    relative_l2_error: Callable[[grid, np.ndarray, np.ndarray, bool, bool], number]
-    """Method that computes the discrete relative L2-error. The method is provided by
-    the mixin class:class:`porepy.models.verification_setups.VerificationUtils`.
+    relative_l2_error: Callable
+    """Method that computes the discrete relative L2-error between an exact solution
+    and an approximate solution on a given grid. The method is provided by the mixin
+    class :class:`porepy.applications.verification_setups.VerificationUtils`.
 
     """
 
     results: list[SaveData]
     """List of :class:`SaveData` objects containing the results of the verification."""
+
+    subdomain_darcy_flux_variable: str
+    """Keyword to access the subdomain Darcy fluxes."""
 
     def save_data_time_step(self) -> None:
         """Save data to the `results` list."""
@@ -456,7 +462,7 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
         data_intf: dict = self.mdg.interface_data(intf)
         p_name: str = self.pressure_variable
-        q_name: str = "darcy_flux"
+        q_name: str = self.subdomain_darcy_flux_variable
         lmbda_name: str = self.interface_darcy_flux_variable
         exact_sol: ManuIncompExactSolution = self.exact_sol
 
@@ -467,55 +473,55 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         out.exact_rock_pressure = exact_sol.rock_pressure(sd_rock)
         out.approx_rock_pressure = data_rock[pp.STATE][p_name]
         out.error_rock_pressure = self.relative_l2_error(
-            sd_rock,
-            out.exact_rock_pressure,
-            out.approx_rock_pressure,
-            True,
-            True,
+            grid=sd_rock,
+            true_array=out.exact_rock_pressure,
+            approx_array=out.approx_rock_pressure,
+            is_scalar=True,
+            is_cc=True,
         )
 
         # Fracture pressure
         out.exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
         out.approx_frac_pressure = data_frac[pp.STATE][p_name]
         out.error_frac_pressure = self.relative_l2_error(
-            sd_frac,
-            out.exact_frac_pressure,
-            out.approx_frac_pressure,
-            True,
-            True,
+            grid=sd_frac,
+            true_array=out.exact_frac_pressure,
+            approx_array=out.approx_frac_pressure,
+            is_scalar=True,
+            is_cc=True,
         )
 
         # Rock flux
         out.exact_rock_flux = exact_sol.rock_flux(sd_rock)
         out.approx_rock_flux = data_rock[pp.STATE][q_name]
         out.error_rock_flux = self.relative_l2_error(
-            sd_rock,
-            out.exact_rock_flux,
-            out.approx_rock_flux,
-            True,
-            False,
+            grid=sd_rock,
+            true_array=out.exact_rock_flux,
+            approx_array=out.approx_rock_flux,
+            is_scalar=True,
+            is_cc=False,
         )
 
         # Fracture flux
         out.exact_frac_flux = exact_sol.fracture_flux(sd_frac)
         out.approx_frac_flux = data_frac[pp.STATE][q_name]
         out.error_frac_flux = self.relative_l2_error(
-            sd_frac,
-            out.exact_frac_flux,
-            out.approx_frac_flux,
-            True,
-            False,
+            grid=sd_frac,
+            true_array=out.exact_frac_flux,
+            approx_array=out.approx_frac_flux,
+            is_scalar=True,
+            is_cc=False,
         )
 
         # Interface flux
         out.exact_intf_flux = exact_sol.interface_flux(intf)
         out.approx_intf_flux = data_intf[pp.STATE][lmbda_name]
         out.error_intf_flux = self.relative_l2_error(
-            intf,
-            out.exact_intf_flux,
-            out.approx_intf_flux,
-            True,
-            True,
+            grid=intf,
+            true_array=out.exact_intf_flux,
+            approx_array=out.approx_intf_flux,
+            is_scalar=True,
+            is_cc=True,
         )
 
         return out
@@ -540,8 +546,8 @@ class SetupUtilities:
     def _plot_rock_pressure(self) -> None:
         """Plots exact and numerical pressures in the rock."""
         sd_rock = self.mdg.subdomains()[0]
-        p_num = self.results[0].approx_rock_pressure
-        p_ex = self.results[0].exact_rock_pressure
+        p_num = self.results[-1].approx_rock_pressure
+        p_ex = self.results[-1].exact_rock_pressure
         pp.plot_grid(
             sd_rock, p_ex, plot_2d=True, linewidth=0, title="Rock pressure (Exact)"
         )
@@ -553,8 +559,8 @@ class SetupUtilities:
         """Plots exact and numerical pressures in the fracture."""
         sd_frac = self.mdg.subdomains()[1]
         cc = sd_frac.cell_centers
-        p_num = self.results[0].approx_frac_pressure
-        p_ex = self.results[0].exact_frac_pressure
+        p_num = self.results[-1].approx_frac_pressure
+        p_ex = self.results[-1].exact_frac_pressure
         plt.plot(p_ex, cc[1], label="Exact", linewidth=3, alpha=0.5)
         plt.plot(p_num, cc[1], label="MPFA", marker=".", markersize=5, linewidth=0)
         plt.xlabel("Fracture pressure")
@@ -566,8 +572,8 @@ class SetupUtilities:
         """Plots exact and numerical interface fluxes."""
         intf = self.mdg.interfaces()[0]
         cc = intf.cell_centers
-        lmbda_num = self.results[0].approx_intf_flux
-        lmbda_ex = self.results[0].exact_intf_flux
+        lmbda_num = self.results[-1].approx_intf_flux
+        lmbda_ex = self.results[-1].exact_intf_flux
         plt.plot(lmbda_ex, cc[1], label="Exact", linewidth=3, alpha=0.5)
         plt.plot(lmbda_num, cc[1], label="MPFA", marker=".", markersize=5, linewidth=0)
         plt.xlabel("Interface flux")
@@ -579,8 +585,8 @@ class SetupUtilities:
         """Plots exact and numerical fracture fluxes."""
         sd_frac = self.mdg.subdomains()[1]
         fc = sd_frac.face_centers
-        q_num = self.results[0].approx_frac_flux
-        q_ex = self.results[0].exact_frac_flux
+        q_num = self.results[-1].approx_frac_flux
+        q_ex = self.results[-1].exact_frac_flux
         plt.plot(q_ex, fc[1], label="Exact", linewidth=3, alpha=0.5)
         plt.plot(q_num, fc[1], label="MPFA", marker=".", markersize=5, linewidth=0)
         plt.xlabel("Fracture Darcy flux")
@@ -758,6 +764,9 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
         self.results: list[SaveData] = []
         """Results object that stores exact and approximated solutions and errors."""
 
+        self.subdomain_darcy_flux_variable: str = "darcy_flux"
+        """Keyword to access the subdomain Darcy fluxes."""
+
     def set_materials(self):
         """Set material constants for the verification setup."""
         super().set_materials()
@@ -784,7 +793,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
             vals = darcy_flux_ad.evaluate(self.equation_system).val
             data[pp.STATE]["darcy_flux"] = vals
 
-        # Inherit from base clase
+        # Inherit from base class
         super().after_nonlinear_convergence(solution, errors, iteration_counter)
 
     def after_simulation(self) -> None:
@@ -798,14 +807,14 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
 
 class ManufacturedIncompressibleFlow2d(  # type: ignore[misc]
-    ManuIncompBoundaryConditions,
     ManuIncompBalanceEquation,
-    SingleEmbeddedVerticalFracture,
+    ManuIncompBoundaryConditions,
+    ManuIncompSolutionStrategy,
+    pp.fluid_mass_balance.SinglePhaseFlow,
     SetupUtilities,
     VerificationUtils,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    SingleEmbeddedVerticalFracture,
     ModifiedDataSavingMixin,
-    ManuIncompSolutionStrategy,
 ):
     """
     Mixer class for the incompressible flow with a single fracture verification setup.
@@ -825,6 +834,7 @@ class ManufacturedIncompressibleFlow2d(  # type: ignore[misc]
                 "solid": pp.SolidConstants(manu_incomp_solid),
                 "fluid": pp.FluidConstants(manu_incomp_fluid),
             }
+
             params = {"material_constants": material_constants, "plot_results": True}
 
             # Run verification setup
