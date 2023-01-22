@@ -120,6 +120,9 @@ class SaveData:
     exact_pressure: np.ndarray = np.zeros(1)
     """Exact pressure."""
 
+    time: number = 0
+    """Currrent simulation time."""
+
 
 class ManuPoroMechExactSolution:
     """Parent class for the manufactured poromechanical solution."""
@@ -525,6 +528,9 @@ class ModifiedDataSavinMixin(pp.DataSavingMixin):
 
         # Instantiate data class
         out = SaveData()
+
+        # Time
+        out.time = t
 
         # Pressure
         out.exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
