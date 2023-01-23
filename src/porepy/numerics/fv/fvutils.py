@@ -1464,7 +1464,7 @@ def diagonal_scaling_matrix(mat: sps.spmatrix) -> sps.spmatrix:
 
     Returns:
         Diagonal matrix with the diagonal elements equal to the row-wise sum of the
-            absolute values of the input matrix.
+        absolute values of the input matrix.
 
     """
 
