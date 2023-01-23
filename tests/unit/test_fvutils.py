@@ -1,15 +1,25 @@
+"""Unit tests for the fvutils module.
+
+Currently tested are:
+    * The subcell topology for 2d Cartesian and simplex grids.
+    * The determination of the eta parameter.
+    * The helper function computing a diagonal scaling matrix.
+
+"""
 from __future__ import division
 
 import unittest
 
 import numpy as np
+import scipy.sparse as sps
 
 from porepy.grids import simplex, structured
 from porepy.numerics.fv import fvutils
 
 
 class TestFvutils(unittest.TestCase):
-    def test_subcell_topology_2d_cart_1(self):
+    def test_subcell_topology_2d_cart(self):
+        # Verify that the subcell topology is correct for a 2d Cartesian grid.
         x = np.ones(2, dtype=int)
         g = structured.CartGrid(x)
 
@@ -35,7 +45,8 @@ class TestFvutils(unittest.TestCase):
             np.all(np.in1d(subcell_topology.subfno, subcell_topology.subhfno))
         )
 
-    def test_subcell_mapping_2d_simplex_1(self):
+    def test_subcell_mapping_2d_simplex(self):
+        # Verify that the subcell mapping is correct for a 2d simplex grid.
         p = np.array([[0, 1, 1, 0], [0, 0, 1, 1]])
         g = simplex.TriangleGrid(p)
 
@@ -67,10 +78,22 @@ class TestFvutils(unittest.TestCase):
         self.assertTrue(np.sum(subfcum == 1) == 8)
 
     def test_determine_eta(self):
+        # Test that the automatic computation of the pressure continuity point is
+        # correct for a Cartesian and simplex grid.
         g = simplex.StructuredTriangleGrid([1, 1])
         self.assertTrue(fvutils.determine_eta(g) == 1 / 3)
         g = structured.CartGrid([1, 1])
         self.assertTrue(fvutils.determine_eta(g) == 0)
+
+    def test_diagonal_scaling_matrix(self):
+        # Generate a matrix with a known row sum, check that the target function
+        # returns the correct diagonal.
+        A = np.array([[1, 2, 3], [0, -5, 6], [-7, 8, 0]])
+        A_sum = np.array([6, 11, 15])
+        values = 1 / A_sum
+
+        D = fvutils.diagonal_scaling_matrix(sps.csr_matrix(A))
+        self.assertTrue(np.allclose(values, D.diagonal()))
 
 
 if __name__ == "__main__":
