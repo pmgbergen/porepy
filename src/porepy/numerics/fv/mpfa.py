@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -50,9 +50,8 @@ class Mpfa(pp.FVElliptic):
             ambient_dimension: (``int``) Optional. Ambient dimension, used in the
                 discretization of vector source terms. Defaults to the dimension of the
                 grid.
-            mpfa_eta: (``float/np.ndarray``) Optional. Range [0, 1). Location of
-                pressure continuity point. If not given, porepy tries to set an optimal
-                value.
+            mpfa_eta: (``float``) Optional. Range [0, 1). Location of pressure
+                continuity point. If not given, porepy tries to set an optimal value.
             mpfa_inverter (``str``): Optional. Inverter to apply for local problems.
                 Can take values 'numba' (default), or 'python'.
 
