@@ -44,7 +44,7 @@ number = pp.number
 grid = pp.GridLike
 
 # Material constants for the verification setup. Constants with (**) cannot be
-# changed since the manufactured solution implicitly assume such values.
+# changed since the manufactured solution implicitly assumes such values.
 manu_comp_fluid: dict[str, number] = {
     "viscosity": 1.0,  # (**)
     "compressibility": 0.2,
