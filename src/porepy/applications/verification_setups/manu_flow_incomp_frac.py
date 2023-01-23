@@ -810,11 +810,11 @@ class ManufacturedIncompressibleFlow2d(  # type: ignore[misc]
     ManuIncompBalanceEquation,
     ManuIncompBoundaryConditions,
     ManuIncompSolutionStrategy,
-    pp.fluid_mass_balance.SinglePhaseFlow,
     SetupUtilities,
     VerificationUtils,
     SingleEmbeddedVerticalFracture,
     ModifiedDataSavingMixin,
+    pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
     Mixer class for the incompressible flow with a single fracture verification setup.

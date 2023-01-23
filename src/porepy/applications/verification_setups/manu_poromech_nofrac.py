@@ -823,10 +823,10 @@ class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
     UnitSquareTriangleGrid,
     ModifiedEquationsPoromechanics,
     ModifiedSolutionStrategy,
-    poromechanics.Poromechanics,
     SetupUtilities,
     VerificationUtils,
     ModifiedDataSavinMixin,
+    poromechanics.Poromechanics,
 ):
     """
     Mixer class for the two-dimensional non-linear poromechanics verification setup.
