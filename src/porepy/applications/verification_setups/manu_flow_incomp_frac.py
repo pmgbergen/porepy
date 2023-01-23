@@ -791,7 +791,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
         for sd, data in self.mdg.subdomains(return_data=True):
             darcy_flux_ad = self.darcy_flux([sd])
             vals = darcy_flux_ad.evaluate(self.equation_system).val
-            data[pp.STATE]["darcy_flux"] = vals
+            data[pp.STATE][self.subdomain_darcy_flux_variable] = vals
 
         # Inherit from base class
         super().after_nonlinear_convergence(solution, errors, iteration_counter)
