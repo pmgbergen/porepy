@@ -108,7 +108,7 @@ class Composition(abc.ABC):
 
     """
 
-    def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
+    def __init__(self, ad_system: Optional[pp.ad.EquationSystem] = None) -> None:
 
         if ad_system is None:
             sg = pp.CartGrid([1, 1], [1, 1])
@@ -116,14 +116,25 @@ class Composition(abc.ABC):
             mdg.add_subdomains(sg)
             mdg.compute_geometry()
 
-            ad_system = pp.ad.ADSystem(mdg)  # type: ignore
+            ad_system = pp.ad.EquationSystem(mdg)  # type: ignore
+
+        subdomains = ad_system.mdg.subdomains()
 
         # state variables
-        self._p: pp.ad.MergedVariable = ad_system.create_variable(self.p_name)
+        self._p: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
+            self.p_name,
+            subdomains=subdomains
+        )
         """Pressure variable used for the thermodynamic state."""
-        self._h: pp.ad.MergedVariable = ad_system.create_variable(self.h_name)
+        self._h: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
+            self.h_name,
+            subdomains=subdomains
+        )
         """(Specific) enthalpy variable used for the thermodynamic state."""
-        self._T: pp.ad.MergedVariable = ad_system.create_variable(self.T_name)
+        self._T: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
+            self.T_name,
+            subdomains=subdomains
+        )
         """Temperature variable used for the thermodynamic state."""
 
         # modelled phases and components
@@ -146,7 +157,7 @@ class Composition(abc.ABC):
 
         ### PUBLIC
 
-        self.ad_system: pp.ad.ADSystem = ad_system
+        self.ad_system: pp.ad.EquationSystem = ad_system
         """The AD system passed at instantiation."""
 
         self.pT_subsystem: FlashSystemDict = dict()
@@ -208,7 +219,7 @@ class Composition(abc.ABC):
         return VARIABLE_SYMBOLS["pressure"]
 
     @property
-    def p(self) -> pp.ad.MergedVariable:
+    def p(self) -> pp.ad.MixedDimensionalVariable:
         """The pressure variable for the thermodynamic state.
 
         The values are assumed to represent values at equilibrium and are therefore
@@ -230,7 +241,7 @@ class Composition(abc.ABC):
         return VARIABLE_SYMBOLS["enthalpy"]
 
     @property
-    def h(self) -> pp.ad.MergedVariable:
+    def h(self) -> pp.ad.MixedDimensionalVariable:
         """The specific molar enthalpy variable for the thermodynamic state.
 
         For the isenthalpic flash, the values are assumed to represent values at
@@ -254,7 +265,7 @@ class Composition(abc.ABC):
         return VARIABLE_SYMBOLS["temperature"]
 
     @property
-    def T(self) -> pp.ad.MergedVariable:
+    def T(self) -> pp.ad.MixedDimensionalVariable:
         """The temperature variable for the thermodynamic state.
 
         For the isothermal flash, the values are assumed to represent values at
@@ -519,11 +530,13 @@ class Composition(abc.ABC):
 
         # adding equations to AD system
         # every equation in the unified flash is a cell-wise scalar equation
-        image_info = dict()
-        for sd in self.ad_system.dof_manager.mdg.subdomains():
-            image_info.update({sd: {"cells": 1}})
         for name, equ in equations.items():
-            self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
+            equ.set_name(name)
+            self.ad_system.set_equation(
+                equ,
+                grids=self.ad_system.mdg.subdomains(),
+                equations_per_grid_entity={"cells": 1}
+            )
 
         # storing references to the subsystems
         self.pT_subsystem = pT_subsystem

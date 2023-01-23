@@ -19,7 +19,6 @@ from . import (
     operators,
     time_derivatives,
 )
-from .ad_system import *
 from .discretizations import *
 from .equation_manager import *
 from .equation_system import *

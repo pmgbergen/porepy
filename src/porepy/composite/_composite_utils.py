@@ -186,9 +186,9 @@ class CompositionalSingleton(abc.ABCMeta):
     """
 
     # contains per AD system the singleton, using the given name as a unique identifier
-    __ad_singletons: dict[pp.ad.ADSystem, dict[str, object]] = dict()
+    __ad_singletons: dict[pp.ad.EquationSystem, dict[str, object]] = dict()
 
-    def __call__(cls, ad_system: pp.ad.ADSystem, *args, **kwargs) -> object:
+    def __call__(cls, ad_system: pp.ad.EquationSystem, *args, **kwargs) -> object:
         # search for name, use class name if not given
         name = kwargs.get("name", str(cls.__name__))
 
