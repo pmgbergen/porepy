@@ -760,9 +760,9 @@ class TerzaghiSetup(  # type: ignore
     ModifiedSolutionStrategy,
     PseudoOneDimensionalColumn,
     SetupUtilities,
-    BiotPoromechanics,
     VerificationUtils,
     ModifiedDataSavingMixin,
+    BiotPoromechanics,
 ):
     """
     Mixer class for Terzaghi's consolidation problem.
