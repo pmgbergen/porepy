@@ -15,14 +15,17 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sym
 
 import porepy as pp
-from porepy.applications.verification_setups.verification_utils import VerificationUtils
+from porepy.applications.verification_setups.verification_utils import (
+    VerificationDataSaving,
+    VerificationUtils,
+)
 
 # PorePy typings
 number = pp.number
@@ -44,52 +47,52 @@ manu_incomp_solid: dict[str, number] = {
 
 
 @dataclass
-class SaveData:
+class ManuIncompSaveData:
     """Data class to save relevant results from the verification setup."""
 
-    approx_frac_flux: np.ndarray = np.zeros(1)
+    approx_frac_flux: Optional[np.ndarray] = None
     """Numerical flux in the fracture."""
 
-    approx_frac_pressure: np.ndarray = np.zeros(1)
+    approx_frac_pressure: Optional[np.ndarray] = None
     """Numerical pressure in the fracture."""
 
-    approx_intf_flux: np.ndarray = np.zeros(1)
+    approx_intf_flux: Optional[np.ndarray] = None
     """Numerical flux on the interfaces."""
 
-    approx_matrix_flux: np.ndarray = np.zeros(1)
+    approx_matrix_flux: Optional[np.ndarray] = None
     """Numerical flux in the matrix."""
 
-    approx_matrix_pressure: np.ndarray = np.zeros(1)
+    approx_matrix_pressure: Optional[np.ndarray] = None
     """Numerical pressure in the matrix."""
 
-    error_frac_flux: number = 0
+    error_frac_flux: Optional[number] = None
     """L2-discrete relative error for the flux in the fracture."""
 
-    error_frac_pressure: number = 0
+    error_frac_pressure: Optional[number] = None
     """L2-discrete relative error for the pressure in the fracture."""
 
-    error_intf_flux: number = 0
+    error_intf_flux: Optional[number] = None
     """L2-discrete relative error for the flux on the interfaces."""
 
-    error_matrix_flux: number = 0
+    error_matrix_flux: Optional[number] = None
     """L2-discrete relative error for the flux in the matrix."""
 
-    error_matrix_pressure: number = 0
+    error_matrix_pressure: Optional[number] = None
     """L2-discrete relative error for the pressure in the matrix."""
 
-    exact_frac_flux: np.ndarray = np.zeros(1)
+    exact_frac_flux: Optional[np.ndarray] = None
     """Exact flux in the fracture."""
 
-    exact_frac_pressure: np.ndarray = np.zeros(1)
+    exact_frac_pressure: Optional[np.ndarray] = None
     """Exact pressure in the fracture."""
 
-    exact_intf_flux: np.ndarray = np.zeros(1)
+    exact_intf_flux: Optional[np.ndarray] = None
     """Exact flux on the interfaces."""
 
-    exact_matrix_flux: np.ndarray = np.zeros(1)
+    exact_matrix_flux: Optional[np.ndarray] = None
     """Exact flux in the matrix."""
 
-    exact_matrix_pressure: np.ndarray = np.zeros(1)
+    exact_matrix_pressure: Optional[np.ndarray] = None
     """Exact pressure in the matrix."""
 
 
@@ -410,12 +413,12 @@ class ManuIncompExactSolution:
         return p_bf
 
 
-class ModifiedDataSavingMixin(pp.DataSavingMixin):
+class ManuIncompDataSaving(VerificationDataSaving):
     """Mixin class to save relevant data."""
 
-    _nonlinear_iteration: int
-    """Number of non-linear iterations needed to solve the system. Used only as an
-    indicator to avoid saving the initial conditions.
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
 
     """
 
@@ -428,33 +431,15 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
     pressure_variable: str
     """Key to access the pressure variable."""
 
-    relative_l2_error: Callable
-    """Method that computes the discrete relative L2-error between an exact solution
-    and an approximate solution on a given grid. The method is provided by the mixin
-    class :class:`porepy.applications.verification_setups.VerificationUtils`.
-
-    """
-
-    results: list[SaveData]
-    """List of :class:`SaveData` objects containing the results of the verification."""
-
-    subdomain_darcy_flux_variable: str
-    """Keyword to access the subdomain Darcy fluxes."""
-
-    def save_data_time_step(self) -> None:
-        """Save data to the `results` list."""
-        if self._nonlinear_iteration > 0:  # avoid saving the initial condition
-            collected_data: SaveData = self._collect_data()
-            self.results.append(collected_data)
-
-    def _collect_data(self) -> SaveData:
+    def collect_data(self) -> ManuIncompSaveData:
         """Collect data from the verification setup.
 
         Returns:
-            SaveData object containing the results of the verification.
+            ManuIncompSaveData object containing the results of the verification.
 
         """
 
+        # Retrieve information from the verification
         sd_matrix: pp.Grid = self.mdg.subdomains()[0]
         data_matrix: dict = self.mdg.subdomain_data(sd_matrix)
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
@@ -462,16 +447,15 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
         data_intf: dict = self.mdg.interface_data(intf)
         p_name: str = self.pressure_variable
-        q_name: str = self.subdomain_darcy_flux_variable
         lmbda_name: str = self.interface_darcy_flux_variable
         exact_sol: ManuIncompExactSolution = self.exact_sol
 
-        # Instantiate data class
-        out = SaveData()
+        # Instantiate data class to save verification data
+        out = ManuIncompSaveData()
 
-        # Matrix pressure
+        # Pressure in the matrix
         out.exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
-        out.approx_matrix_pressure = data_matrix[pp.STATE][p_name]
+        out.approx_matrix_pressure = data_matrix[pp.STATE][p_name].copy()
         out.error_matrix_pressure = self.relative_l2_error(
             grid=sd_matrix,
             true_array=out.exact_matrix_pressure,
@@ -480,9 +464,21 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
             is_cc=True,
         )
 
-        # Fracture pressure
+        # Darcy flux in the matrix
+        out.exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
+        frac_flux_ad = self.darcy_flux([sd_matrix])
+        out.approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
+        out.error_matrix_flux = self.relative_l2_error(
+            grid=sd_matrix,
+            true_array=out.exact_matrix_flux,
+            approx_array=out.approx_frac_flux,
+            is_scalar=True,
+            is_cc=False,
+        )
+
+        # Pressure in the fracture
         out.exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
-        out.approx_frac_pressure = data_frac[pp.STATE][p_name]
+        out.approx_frac_pressure = data_frac[pp.STATE][p_name].copy()
         out.error_frac_pressure = self.relative_l2_error(
             grid=sd_frac,
             true_array=out.exact_frac_pressure,
@@ -491,20 +487,10 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
             is_cc=True,
         )
 
-        # Matrix flux
-        out.exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
-        out.approx_matrix_flux = data_matrix[pp.STATE][q_name]
-        out.error_matrix_flux = self.relative_l2_error(
-            grid=sd_matrix,
-            true_array=out.exact_matrix_flux,
-            approx_array=out.approx_matrix_flux,
-            is_scalar=True,
-            is_cc=False,
-        )
-
-        # Fracture flux
+        # Flux in the fracture
         out.exact_frac_flux = exact_sol.fracture_flux(sd_frac)
-        out.approx_frac_flux = data_frac[pp.STATE][q_name]
+        frac_flux_ad = self.darcy_flux([sd_frac])
+        out.approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
         out.error_frac_flux = self.relative_l2_error(
             grid=sd_frac,
             true_array=out.exact_frac_flux,
@@ -533,7 +519,7 @@ class SetupUtilities:
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    results: list[SaveData]
+    results: list[ManuIncompSaveData]
     """List of SaveData objects."""
 
     def plot_results(self) -> None:
@@ -729,12 +715,6 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-
     exact_sol: ManuIncompExactSolution
     """Exact solution object."""
 
@@ -750,7 +730,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
     solid: pp.SolidConstants
     """Object containing the solid constants."""
 
-    results: list[SaveData]
+    results: list[ManuIncompSaveData]
     """List of SaveData objects."""
 
     def __init__(self, params: dict):
@@ -761,7 +741,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
         self.exact_sol: ManuIncompExactSolution
         """Exact solution object."""
 
-        self.results: list[SaveData] = []
+        self.results: list[ManuIncompSaveData] = []
         """Results object that stores exact and approximated solutions and errors."""
 
         self.subdomain_darcy_flux_variable: str = "darcy_flux"
@@ -782,20 +762,6 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
         # Instantiate exact solution object after materials have been set
         self.exact_sol = ManuIncompExactSolution()
 
-    def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called after if solution has converged."""
-
-        # Store subdomain Darcy fluxes in pp.STATE
-        for sd, data in self.mdg.subdomains(return_data=True):
-            darcy_flux_ad = self.darcy_flux([sd])
-            vals = darcy_flux_ad.evaluate(self.equation_system).val
-            data[pp.STATE][self.subdomain_darcy_flux_variable] = vals
-
-        # Inherit from base class
-        super().after_nonlinear_convergence(solution, errors, iteration_counter)
-
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         if self.params.get("plot_results", False):
@@ -803,6 +769,10 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
+        return False
+
+    def _is_time_dependent(self) -> bool:
+        """The problem is stationary."""
         return False
 
 
@@ -813,7 +783,7 @@ class ManufacturedIncompressibleFlow2d(  # type: ignore[misc]
     SetupUtilities,
     VerificationUtils,
     SingleEmbeddedVerticalFracture,
-    ModifiedDataSavingMixin,
+    ManuIncompDataSaving,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
