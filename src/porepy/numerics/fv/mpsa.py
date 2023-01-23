@@ -130,8 +130,8 @@ class Mpsa(Discretization):
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
-        Discretize the second order vector elliptic equation using multi-point
-        stress approximation.
+        Discretize the second order vector elliptic equation using multi-point stress
+        approximation.
 
         The method computes traction over faces in terms of cell center displacements.
 
@@ -151,19 +151,19 @@ class Mpsa(Discretization):
                 Stiffness tensor defined cell-wise.
             bc: ``class:~porepy.params.bc.BoundaryConditionVectorial``
                 Boundary conditions
-            mpsa_eta: ``float`` or ``np.ndarray`` Optional. Range [0, 1). Location of
-                displacement continuity point: eta. ``eta = 0`` gives cont. pt. at face
-                midpoint, ``eta = 1`` at the vertex. If not given, porepy tries to set
-                an optimal value. If a float is given this value is set to all subfaces,
-                except the boundary (where, 0 is used). If eta is a np.ndarray its size
-                should equal ``SubcellTopology(sd).num_subfno``.
+            mpsa_eta: ``float`` Optional. Range [0, 1). Location of displacement
+                continuity point: eta. ``eta = 0`` gives cont. pt. at face midpoint,
+                ``eta = 1`` at the vertex. If not given, PorePy tries to set an optimal
+                value. This value is set to all subfaces, except the boundary (where,
+                0 is used).
             inverter (``str``): Optional. Inverter to apply for local problems.
                 Can take values 'numba' (default), or 'python'.
 
         matrix_dictionary will be updated with the following entries:
             ``stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
                 stress discretization, cell center contribution
-            ``bound_flux: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_faces)``
+            ``bound_flux: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim *
+            sd.num_faces)``
                 stress discretization, face contribution
             ``bound_displacement_cell: sps.csc_matrix (sd.dim * sd.num_faces,
                                                      sd.dim * sd.num_cells)``
@@ -174,8 +174,8 @@ class Mpsa(Discretization):
                 Operator for reconstructing the displacement trace. Face contribution.
 
         Parameters:
-            sd: grid, or a subclass, with geometry fields computed.
-            data: For entries, see above.
+            sd: grid, or a subclass, with geometry fields computed. data: For entries,
+            see above.
 
         """
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
@@ -185,7 +185,7 @@ class Mpsa(Discretization):
         constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
         bound: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
 
-        eta: Optional[float | np.ndarray] = parameter_dictionary.get("mpsa_eta", None)
+        eta: Optional[float] = parameter_dictionary.get("mpsa_eta", None)
         hf_eta: Optional[float] = parameter_dictionary.get("reconstruction_eta", None)
 
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
