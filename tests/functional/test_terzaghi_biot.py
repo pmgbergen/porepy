@@ -4,7 +4,7 @@ Module containing functional tests for Terzaghi's consolidation problem.
 We consider two functional tests:
 
     - The first test guarantees that the results obtained with the Biot class
-      :class:`porepy.applications.classic_models.Biot` matches `exactly` the results
+      :class:`porepy.applications.derived_models.Biot` matches `exactly` the results
       obtained with the full poromechanical model
       :class:`porepy.models.poromechanics.Poromechanics` when biot_coefficient = 1,
       fluid compressibility = 0, and specific_storage = 0.
