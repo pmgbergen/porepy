@@ -547,7 +547,7 @@ class Mpfa(pp.FVElliptic):
                 to what is considered the best value for the given grid.
 
         Returns:
-            A tuple of 6 elements:
+            A tuple of 6 elements
 
             :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_cells))``
 
