@@ -421,17 +421,16 @@ class Grid:
         self.face_normals[:, flip] *= -1
 
     def _compute_geometry_2d(self) -> None:
-        """
-        Compute 2D geometry
+        """Auxiliary function to compute the geometry for 2D grids.
 
-        We assume that either the cell_faces and face_nodes are consistently oriented or that the
-        grid is composed of convex cells.
+        We assume that:
+        - either the cell_faces and face_nodes are consistently oriented
+        - or that the grid is composed of convex cells.
         """
 
-        # Each face is determiend by a start and end node, the tangent is given by
+        # Each face is determined by a start and end node, the tangent is given by
         # the x_end - x_start. The face normal is a 90 degree clock-wise rotation
         # of the tangent.
-        # It is assumed that this normal is consistent with the self.cell_faces.
 
         # Define an oriented face to nodes mapping, the orientation is determined by the
         # ordering in self.face_nodes.indices. The start node gets a -1 and the end node a +1.
@@ -483,6 +482,10 @@ class Grid:
         # In case of inconsistent orientation, the sub-simplex volumes and normals need to be corrected
         if not is_oriented:
             subsimplex_volumes = np.abs(subsimplex_volumes)
+
+            # We flip the normal if the inner product between
+            # the height (face_center - cell_center)
+            # and the face normal is negative
             flip = (
                 cf_orient
                 * np.sum(subsimplex_heights * self.face_normals[:, faceno], axis=0)
