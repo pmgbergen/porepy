@@ -94,7 +94,7 @@ class SaveData:
 
 
 class ManuIncompExactSolution:
-    """Parent class for the exact solution."""
+    """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self):
         """Constructor of the class."""

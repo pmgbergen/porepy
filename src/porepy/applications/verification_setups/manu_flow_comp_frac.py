@@ -180,7 +180,7 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
 
 
 class ManuCompExactSolution:
-    """Class containing the exact solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
         """Constructor of the class."""

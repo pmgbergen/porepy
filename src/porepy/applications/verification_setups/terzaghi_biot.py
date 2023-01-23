@@ -110,7 +110,7 @@ class SaveData:
 
 
 class ExactSolution:
-    """Parent class containing exact solutions to Terzaghi's consolidation problem."""
+    """Class containing exact solutions to Terzaghi's consolidation problem."""
 
     def __init__(self, setup):
         """Constructor of the class"""
