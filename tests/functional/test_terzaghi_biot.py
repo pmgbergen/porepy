@@ -29,7 +29,7 @@ from porepy.models.verification_setups.terzaghi_biot import (
     SetupUtilities,
     ModifiedPoromechanicsBoundaryConditions,
     ModifiedSolutionStrategy,
-    ModifiedDataSavingMixin
+    ModifiedDataSavingMixin,
 )
 
 
@@ -40,7 +40,7 @@ class TerzaghiSetupPoromechanics(
     SetupUtilities,
     Poromechanics,
     VerificationUtils,
-    ModifiedDataSavingMixin
+    ModifiedDataSavingMixin,
 ):
     """Terzaghi mixer class based on the full poromechanics class."""
 
@@ -54,7 +54,7 @@ def test_biot_equal_to_incompressible_poromechanics():
             "solid": pp.SolidConstants(terzaghi_solid_constants),
             "fluid": pp.FluidConstants(terzaghi_fluid_constants),
         },
-        "num_cells": 10
+        "num_cells": 10,
     }
     setup_poromech = TerzaghiSetupPoromechanics(params_poromech)
     pp.run_time_dependent_model(setup_poromech, params_poromech)
@@ -63,11 +63,11 @@ def test_biot_equal_to_incompressible_poromechanics():
 
     # Run Terzaghi setup with Biot model
     params_biot = {
-          "material_constants": {
-              "solid": pp.SolidConstants(terzaghi_solid_constants),
-              "fluid": pp.FluidConstants(terzaghi_fluid_constants),
-          },
-          "num_cells": 10,
+        "material_constants": {
+            "solid": pp.SolidConstants(terzaghi_solid_constants),
+            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        },
+        "num_cells": 10,
     }
     setup_biot = TerzaghiSetup(params_biot)
     pp.run_time_dependent_model(setup_biot, params_biot)
@@ -118,11 +118,7 @@ def test_pressure_and_consolidation_degree_errors():
     pp.run_time_dependent_model(setup, params)
 
     # Check pressure error
-    desired_error_p = [
-        0.06884857957987067,
-        0.0455347877406611,
-        0.022391576732172767
-    ]
+    desired_error_p = [0.06884857957987067, 0.0455347877406611, 0.022391576732172767]
     actual_error_p = [result.pressure_error for result in setup.results]
     np.testing.assert_allclose(actual_error_p, desired_error_p, rtol=1e-3, atol=1e-5)
 
@@ -130,7 +126,7 @@ def test_pressure_and_consolidation_degree_errors():
     desired_error_consol = [
         0.0270053052913328,
         0.018839104164792175,
-        0.010927390550216687
+        0.010927390550216687,
     ]
     actual_error_consol = [
         result.consolidation_degree_error for result in setup.results
