@@ -24,8 +24,8 @@ For this functional test, we are comparing errors for the pressure (for the matr
 the fracture) and fluxes (for the matrix, the fracture, and on the interface). The
 errors are measured in a discrete relative L2-error norm (such as the ones defined
 in [2]). The desired errors were obtained by running the
-:class:`ManufacturedCompressibleFlow2d` simulation setup with the parameters given in the
-`Examples` section of the class docstring. We test the errors for three different
+:class:`ManufacturedCompressibleFlow2d` simulation setup with the parameters given in
+the `Examples` section of the class docstring. We test the errors for three different
 times, namely: 0.2 [s], 0.6 [s], and 1.0 [s].
 
 References:
