@@ -63,6 +63,8 @@ GRAM = 1e-3 * KILOGRAM
 
 # Length
 METER = 1.0
+# IS: I suggest we remove this, and use the standard SI unit. After all, writing
+# pp.MILLI * pp.METER is not that much more cumbersome than pp.MILLIMETER.
 CENTIMETER = CENTI * METER
 MILLIMETER = MILLI * METER
 KILOMETER = KILO * METER
@@ -80,8 +82,19 @@ GRAVITY_ACCELERATION = 9.80665 * METER / SECOND**2
 
 # Temperature
 CELSIUS = 1.0
+KELVIN = 1.0
+
+# Energy
+JOULE = 1.0
+
+# Substance amount
+MOLE = 1.0
+
+# Angle
+RADIAN = 1.0
 
 
+# IS: These should be moved and renamed using lower case
 def CELSIUS_to_KELVIN(celsius: float) -> float:
     return celsius + 273.15
 

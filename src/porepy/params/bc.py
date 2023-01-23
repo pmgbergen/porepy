@@ -7,6 +7,7 @@ boundary conditions. There is one class for scalar problems and one for nd-vecto
 from __future__ import annotations
 
 import warnings
+from abc import ABC
 from typing import List, Optional, Union
 
 import numpy as np
@@ -14,11 +15,16 @@ import numpy as np
 import porepy as pp
 
 
-class AbstractBoundaryCondition(object):
+class AbstractBoundaryCondition(ABC):
     """
     This is an abstract class that include the shared functionality of the
     boundary conditions
     """
+
+    is_neu: np.ndarray
+    """Element i is true if face i has been assigned a Neumann condition."""
+    is_dir: np.ndarray
+    """Element i is true if face i has been assigned a Dirichlet condition."""
 
     def copy(self):
         """
@@ -42,6 +48,20 @@ class AbstractBoundaryCondition(object):
         bc.is_internal = self.is_internal
         bc.bf = self.bf
         return bc
+
+    def internal_to_dirichlet(self, sd: pp.Grid) -> None:
+        """Change the boundary condition to Dirichlet on all internal faces.
+
+        Useful for mixed-dimensional deformation problems, where the interface variable
+        is displacement, corresponding to a Dirichlet condition on the internal faces.
+
+        Parameters:
+            sd: Subdomain grid on which ``self`` is defined.
+
+        """
+        frac_face = sd.tags["fracture_faces"]
+        self.is_neu[:, frac_face] = False
+        self.is_dir[:, frac_face] = True
 
 
 class BoundaryCondition(AbstractBoundaryCondition):

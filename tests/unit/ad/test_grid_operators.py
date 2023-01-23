@@ -7,6 +7,8 @@
     BoundaryCondition
     ParameterVector
     ParameterMatrix
+
+Tests of the base Discretization class are also placed here.
 """
 from __future__ import annotations
 
@@ -15,11 +17,14 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from tests.unit.test_ad import _compare_matrices, _list_ind_of_grid
 
 
 def set_parameters(
-    dim: int, subdomains: list[pp.Grid], key: str, mdg: pp.MixedDimensionalGrid
+    dim: int,
+    subdomains: list[pp.Grid],
+    key: str,
+    mdg: pp.MixedDimensionalGrid,
+    f_or_c="faces",
 ):
     """Set two parameters in the data dictionary.
 
@@ -39,13 +44,15 @@ def set_parameters(
     """
     np.random.seed(42)
     # Start of all faces. If vector problem, all faces have dim numbers
-    face_start = dim * np.cumsum(
-        np.hstack((0, np.array([sd.num_faces for sd in subdomains])))
+    start_inds = dim * np.cumsum(
+        np.hstack((0, np.array([getattr(sd, "num_" + f_or_c) for sd in subdomains])))
     )
 
     # Build values of known values (to be filled during assignment of bcs)
-    known_values = np.zeros(sum([sd.num_faces for sd in subdomains]) * dim)
-    face_indices = []
+    known_values = np.zeros(
+        sum([getattr(sd, "num_" + f_or_c) for sd in subdomains]) * dim
+    )
+    indices = []
     # Loop over grids, assign values, keep track of assigned values
     for sd in subdomains:
         data = mdg.subdomain_data(sd)
@@ -53,7 +60,7 @@ def set_parameters(
         # Repeat values along the vector dimension to enable comparison with
         # parameters expanded from face-wise scalar to face-wise vector using
         # the geometry operator.
-        values = np.random.rand(sd.num_faces)
+        values = np.random.rand(getattr(sd, "num_" + f_or_c))
         if sd.dim > 0:
             # The if is just to avoid problems with kron when values is empty.
             values = np.kron(values, np.ones(dim))
@@ -69,11 +76,11 @@ def set_parameters(
         )
 
         # Put face values in the right place in the vector of knowns
-        face_inds_loc = np.arange(face_start[grid_ind], face_start[grid_ind + 1])
-        known_values[face_inds_loc] = values
-        face_indices.append(face_inds_loc)
+        inds_loc = np.arange(start_inds[grid_ind], start_inds[grid_ind + 1])
+        known_values[inds_loc] = values
+        indices.append(inds_loc)
 
-    return known_values, face_indices
+    return known_values, indices
 
 
 def geometry_information(
@@ -291,6 +298,69 @@ def test_mortar_projections(mdg, scalar):
 
 
 @pytest.mark.parametrize("scalar", [True, False])
+def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
+    """Aspects to test:
+    1) That we can create a boundary projection operator with the correct size and items.
+    2) Specifically that the top-dimensional grid and one of the fracture grids
+       contribute to the boundary projection operator, while the third has a projection
+       matrix with zero rows.
+    """
+    proj_dim = 1 if scalar else mdg.dim_max()
+    _, num_faces, _ = geometry_information(mdg, proj_dim)
+    num_cells = sum([bg.num_cells for bg in mdg.boundaries()]) * proj_dim
+
+    g_0 = mdg.subdomains(dim=2)[0]
+    g_1, g_2 = mdg.subdomains(dim=1)
+    # Compute geometry for the mixed-dimensional grid. This is needed for
+    # boundary projection operator.
+    mdg.compute_geometry()
+    projection = pp.ad.grid_operators.BoundaryProjection(
+        mdg, mdg.subdomains(), proj_dim
+    )
+    # Check sizes.
+    assert projection.subdomain_to_boundary().shape == (num_cells, num_faces)
+    assert projection.boundary_to_subdomain().shape == (num_faces, num_cells)
+
+    # Check that the projection matrix for the top-dimensional grid is non-zero.
+    # The matrix has eight boundary faces.
+    ind0 = 0
+    ind1 = g_0.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 8 * proj_dim
+    # Check that the projection matrix for the first fracture is non-zero. Since the
+    # fracture touches the boundary on two sides, we expect two non-zero rows.
+    ind0 = ind1
+    ind1 += g_1.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
+    # Check that the projection matrix for the second fracture is non-zero.
+    ind0 = ind1
+    ind1 += g_2.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
+    # The projection matrix for the intersection should be zero.
+    ind0 = ind1
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:]) == 0
+
+    # Make second projection on subset of grids.
+    subdomains = [g_0, g_1]
+    projection = pp.ad.grid_operators.BoundaryProjection(mdg, subdomains, proj_dim)
+    num_faces = proj_dim * (g_0.num_faces + g_1.num_faces)
+    num_cells = proj_dim * sum(
+        [mdg.subdomain_to_boundary_grid(sd).num_cells for sd in subdomains]
+    )
+    # Check sizes.
+    assert projection.subdomain_to_boundary().shape == (num_cells, num_faces)
+    assert projection.boundary_to_subdomain().shape == (num_faces, num_cells)
+
+    # Check that the projection matrix for the top-dimensional grid is non-zero.
+    # Same sizes as above.
+    ind0 = 0
+    ind1 = g_0.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 8 * proj_dim
+    ind0 = ind1
+    ind1 += g_1.num_faces * proj_dim
+    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
+
+
+@pytest.mark.parametrize("scalar", [True, False])
 def test_boundary_condition(mdg: pp.MixedDimensionalGrid, scalar: bool):
     """Test of boundary condition representation.
 
@@ -447,6 +517,32 @@ def test_geometry(mdg: pp.MixedDimensionalGrid, sd_inds: slice, nd: int):
     with pytest.raises(AssertionError):
         pp.ad.Geometry(subdomains, nd=subdomains[0].dim - 1)
 
+    known_cell_vectors, cell_inds = set_parameters(nd, subdomains, key, mdg, "cells")
+    cell_array = pp.ad.ParameterArray(key, "parameter_key", subdomains)
+
+    # Test basis vectors
+    for i in range(nd):
+        e = op.e_i(i)
+        # Inner product with array
+        v = e.transpose().parse(mdg) * cell_array.parse(mdg)
+        assert np.all(np.isclose(v, known_cell_vectors[i::nd]))
+        # Test that the vectors are orthogonal
+        for j in range(nd):
+            # Inner product with e_j
+            d_ij = e.transpose().parse(mdg) * op.e_i(j).parse(mdg)
+            if i == j:
+                identity = np.eye(d_ij.shape[0])
+                assert np.all(np.isclose(d_ij.todense(), identity))
+            else:
+                assert np.all(np.isclose(d_ij.todense(), 0))
+
+    # Test that scalar to nd equals sum of basis vectors
+    basis_sum = sum(op.e_i(i).parse(mdg) for i in range(nd))
+    assert np.all(
+        np.isclose(basis_sum.todense(), op.scalar_to_nd_cell.parse(mdg).todense())
+    )
+    # The former will probably be deprecated.
+
 
 @pytest.mark.parametrize("dim", [1, 4])
 def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
@@ -475,3 +571,85 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     op = pp.ad.Divergence(subdomains)
     val = op.parse(mdg)
     _compare_matrices(val, sps.block_diag(divergences))
+
+
+def test_ad_discretization_class():
+    # Test of the mother class of all discretizations (pp.ad.Discretization)
+
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    mdg = pp.meshing.cart_grid(fracs, np.array([2, 2]))
+
+    subdomains = [g for g in mdg.subdomains()]
+    sub_list = subdomains[:2]
+
+    # Make two Mock discretizations, with different keywords
+    key = "foo"
+    sub_key = "bar"
+    discr = _MockDiscretization(key)
+    sub_discr = _MockDiscretization(sub_key)
+
+    # Ad wrappers
+    # This mimics the old init of Discretization, before it was decided to
+    # make that class semi-ABC. Still checks the wrap method
+    discr_ad = pp.ad.Discretization()
+    discr_ad.subdomains = subdomains
+    discr_ad._discretization = discr
+    pp.ad._ad_utils.wrap_discretization(discr_ad, discr, subdomains)
+    sub_discr_ad = pp.ad.Discretization()
+    sub_discr_ad.subdomains = sub_list
+    sub_discr_ad._discretization = sub_discr
+    pp.ad._ad_utils.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
+
+    # values
+    known_val = np.random.rand(len(subdomains))
+    known_sub_val = np.random.rand(len(sub_list))
+
+    # Assign a value to the discretization matrix, with the right key
+    for vi, sd in enumerate(subdomains):
+        data = mdg.subdomain_data(sd)
+        data[pp.DISCRETIZATION_MATRICES] = {key: {"foobar": known_val[vi]}}
+
+    # Same with submatrix
+    for vi, sd in enumerate(sub_list):
+        data = mdg.subdomain_data(sd)
+        data[pp.DISCRETIZATION_MATRICES].update(
+            {sub_key: {"foobar": known_sub_val[vi]}}
+        )
+
+    # Compare values under parsing. Note we need to pick out the diagonal, due to the
+    # way parsing makes block matrices.
+    assert np.allclose(known_val, discr_ad.foobar.parse(mdg).diagonal())
+    assert np.allclose(known_sub_val, sub_discr_ad.foobar.parse(mdg).diagonal())
+
+
+## Below are helpers for tests of the Ad wrappers.
+
+
+def _compare_matrices(m1, m2):
+    if isinstance(m1, pp.ad.Matrix):
+        m1 = m1._mat
+    if isinstance(m2, pp.ad.Matrix):
+        m2 = m2._mat
+    if m1.shape != m2.shape:
+        return False
+    d = m1 - m2
+    if d.data.size > 0:
+        if np.max(np.abs(d.data)) > 1e-10:
+            return False
+    return True
+
+
+def _list_ind_of_grid(subdomains, g):
+    for i, gl in enumerate(subdomains):
+        if g == gl:
+            return i
+
+    raise ValueError("grid is not in list")
+
+
+class _MockDiscretization:
+    def __init__(self, key):
+        self.foobar_matrix_key = "foobar"
+        self.not_matrix_keys = "failed"
+
+        self.keyword = key

@@ -18,7 +18,8 @@ import abc
 import logging
 import time
 import warnings
-from typing import Any, Dict, Optional, Tuple
+from collections import namedtuple
+from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -70,7 +71,7 @@ class AbstractModel:
         self._use_ad = self.params["use_ad"]
 
         # Define attributes to be assigned later
-        self._eq_manager: pp.ad.EquationManager
+        self.equation_system: pp.ad.EquationSystem
         self.dof_manager: pp.DofManager
         self.mdg: pp.MixedDimensionalGrid
         self.box: dict
@@ -97,9 +98,15 @@ class AbstractModel:
 
     def _initial_condition(self) -> None:
         """Set initial guess for the variables."""
-        initial_values = np.zeros(self.dof_manager.num_dofs())
-        self.dof_manager.distribute_variable(initial_values)
-        self.dof_manager.distribute_variable(initial_values, to_iterate=True)
+        if self._use_ad:
+            initial_values = np.zeros(self.equation_system.num_dofs())
+            self.equation_system.set_variable_values(
+                initial_values, to_state=True, to_iterate=True
+            )
+        else:
+            initial_values = np.zeros(self.dof_manager.num_dofs())
+            self.dof_manager.distribute_variable(initial_values)
+            self.dof_manager.distribute_variable(initial_values, to_iterate=True)
 
     def prepare_simulation(self) -> None:
         """Method called prior to the start of time stepping, or prior to entering the
@@ -246,7 +253,7 @@ class AbstractModel:
         """
         t_0 = time.time()
         if self._use_ad:
-            A, b = self._eq_manager.assemble()
+            A, b = self.equation_system.assemble()
         else:
             A, b = self.assembler.assemble_matrix_rhs()  # type: ignore
         self.linear_system = (A, b)
@@ -345,35 +352,65 @@ class AbstractModel:
         """
         pass
 
-    def _domain_boundary_sides(
-        self, g: pp.Grid
-    ) -> Tuple[
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-    ]:
-        """Obtain indices of the faces of a grid that lie on each side of the domain
-        boundaries. It is assumed the domain is box shaped.
+    def _domain_boundary_sides(self, sd: pp.Grid, tol: float = 1e-10) -> NamedTuple:
+        """Obtain indices of the faces lying on the sides of the domain boundaries.
+
+        The method is primarily intended for box-shaped domains. However, it can also be
+        applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
+        provided `tol` is tuned accordingly.
+
+        Parameters:
+            sd: Subdomain grid.
+            tol: Tolerance used to determine whether a face center lies on a boundary side.
+
+        Returns:
+            NamedTuple containing the domain boundary sides. Available attributes are:
+
+                - all_bf (np.ndarray of int): indices of the boundary faces.
+                - east (np.ndarray of bool): flags of the faces lying on the East side.
+                - west (np.ndarray of bool): flags of the faces lying on the West side.
+                - north (np.ndarray of bool): flags of the faces lying on the North side.
+                - south (np.ndarray of bool): flags of the faces lying on the South side.
+                - top (np.ndarray of bool): flags of the faces lying on the Top side.
+                - bottom (np.ndarray of bool): flags of the faces lying on Bottom side.
+
+        Examples:
+
+            .. code:: python
+
+                model = pp.IncompressibleFlow({})
+                model.prepare_simulation()
+                sd = model.mdg.subdomains()[0]
+                sides = model._domain_boundary_sides(sd)
+                # Access north faces using index or name is equivalent:
+                north_by_index = sides[3]
+                north_by_name = sides.north
+                assert all(north_by_index == north_by_name)
+
         """
-        tol = 1e-10
+
+        # Get domain boundary sides
         box = self.box
-        east = g.face_centers[0] > box["xmax"] - tol
-        west = g.face_centers[0] < box["xmin"] + tol
+        east = np.abs(box["xmax"] - sd.face_centers[0]) <= tol
+        west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
         if self.mdg.dim_max() == 1:
-            north = np.zeros(g.num_faces, dtype=bool)
+            north = np.zeros(sd.num_faces, dtype=bool)
             south = north.copy()
         else:
-            north = g.face_centers[1] > box["ymax"] - tol
-            south = g.face_centers[1] < box["ymin"] + tol
+            north = np.abs(box["ymax"] - sd.face_centers[1]) <= tol
+            south = np.abs(box["ymin"] - sd.face_centers[1]) <= tol
         if self.mdg.dim_max() < 3:
-            top = np.zeros(g.num_faces, dtype=bool)
+            top = np.zeros(sd.num_faces, dtype=bool)
             bottom = top.copy()
         else:
-            top = g.face_centers[2] > box["zmax"] - tol
-            bottom = g.face_centers[2] < box["zmin"] + tol
-        all_bf = g.get_boundary_faces()
-        return all_bf, east, west, north, south, top, bottom
+            top = np.abs(box["zmax"] - sd.face_centers[2]) <= tol
+            bottom = np.abs(box["zmin"] - sd.face_centers[2]) <= tol
+        all_bf = sd.get_boundary_faces()
+
+        # Create a namedtuple to store the arrays
+        DomainSides = namedtuple(
+            "DomainSides", "all_bf east west north south top bottom"
+        )
+        domain_sides = DomainSides(all_bf, east, west, north, south, top, bottom)
+
+        return domain_sides

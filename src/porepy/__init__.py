@@ -18,12 +18,20 @@ viz: Visualization; paraview, matplotlib.
 isort:skip_file
 
 """
-import os
+import os, sys
 from pathlib import Path
 import configparser
+import warnings
 
 __version__ = "1.6.0"
 
+# Give a deprecation warning if the user is using python 3.8 or older
+if sys.version_info.major <= 3 and sys.version_info.minor <= 8:
+    warnings.warn(
+        "Python 3.8 or older will soon be deprecated."
+        " Please upgrade to Python 3.9 or newer.",
+        DeprecationWarning,
+    )
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -37,12 +45,12 @@ except:
     config = {}
 
 # ------------------------------------
-# Simplified namespaces. The rue of thumb is that classes and modules that a
+# Simplified namespaces. The rule of thumb is that classes and modules that a
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
 
 from porepy.utils.common_constants import *
-
+from porepy.utils.porepy_types import *
 
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
@@ -51,6 +59,7 @@ from porepy.utils.interpolation_tables import (
     InterpolationTable,
     AdaptiveInterpolationTable,
 )
+from porepy.utils import array_operations
 from porepy.numerics.linalg import matrix_operations
 
 from porepy.geometry import (
@@ -89,6 +98,7 @@ from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 from porepy.grids.point_grid import PointGrid
+from porepy.grids.boundary_grid import BoundaryGrid
 from porepy.grids import match_grids
 from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 from porepy.grids import grid_extrusion
@@ -175,12 +185,54 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
 # Related solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.linear_solvers import LinearSolver
+from porepy.models.run_models import (
+    run_stationary_model,
+    run_time_dependent_model,
+)
 
-# from porepy.numerics.ad.equation_manager import Equation, EquationManager
+
 from porepy.numerics import ad
+from porepy.numerics.ad.operators import wrap_as_ad_array, wrap_as_ad_matrix
+from porepy.numerics.ad.equation_system import EquationSystem
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
+
+from porepy import models
+from porepy.models.abstract_equations import (
+    BalanceEquation,
+    VariableMixin,
+)
+from porepy.models.geometry import ModelGeometry
+from porepy.models.units import Units
+from porepy.models.material_constants import (
+    FluidConstants,
+    SolidConstants,
+    MaterialConstants,
+)
+
+
+from porepy.viz.data_saving_model_mixin import DataSavingMixin
+from porepy.models.solution_strategy import SolutionStrategy
+from porepy.models import constitutive_laws
+
+# "Primary" models
+from porepy.models import fluid_mass_balance, momentum_balance
+
+# "Secondary" models inheriting from primary models
+from porepy.models import (
+    poromechanics,
+    energy_balance,
+    mass_and_energy_balance,
+    thermoporomechanics,
+)
+
+from porepy.models.contact_mechanics_model import ContactMechanics
+from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
+from porepy.models.thm_model import THM
+from porepy.models.incompressible_flow_model import IncompressibleFlow
+from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
+
 
 # Visualization
 from porepy.viz.exporter import Exporter
@@ -188,6 +240,7 @@ from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 from porepy.utils import error
+
 
 # Modules
 from porepy.fracs import utils as frac_utils

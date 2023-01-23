@@ -63,8 +63,8 @@ class Exporter:
 
     NOTE: the following names are reserved for constant data exporting
     and should not be used otherwise (otherwise data is overwritten):
-    grid_dim, is_mortar, mortar_side, cell_id, grid_node_number,
-    grid_edge_number.
+    grid_dim, is_mortar, mortar_side, cell_id, subdomain_id,
+    interface_id.
 
     Examples:
         # Here, merely a brief demonstration of the use of Exporter is presented.
@@ -95,11 +95,11 @@ class Exporter:
     ) -> None:
         """Initialization of Exporter.
 
-        Args:
-            grid (Union[pp.Grid, pp.MixedDimensionalGrid]): subdomain or mixed-dimensional grid
-                containing all mesh information (and data in the latter case) to be exported.
-            file_name (str): basis for file names used for storing the output
-            folder_name (str, optional): name of the folder in which files are stored
+        Parameters:
+            grid: Subdomain or mixed-dimensional grid containing all mesh information
+                (and data in the latter case) to be exported.
+            file_name: Basis for file names used for storing the output.
+            folder_name: Name of the folder in which files are stored.
             kwargs: Optional keywords arguments:
                 fixed_grid (boolean): to control whether the grid may be redefined later
                     (default True)
@@ -113,8 +113,10 @@ class Exporter:
                     of storage.
 
         Raises:
-            TypeError if grid has other type than pp.Grid or pp.MixedDimensional grid
-            TypeError if kwargs contains unexpected keyword arguments
+            TypeError: If grid has other type than :class:`~pp.grids.grid.Grid` or
+                :class:`~pp.grids.md_grid.MixedDimensionalGrid`.
+            TypeError: If kwargs contains unexpected keyword arguments.
+
         """
         # Exporter is operating on mixed-dimensional grids. Convert to mixed-dimensional
         # grids if subdomain grid is provided.
@@ -194,7 +196,7 @@ class Exporter:
         which is varying in time. As part of the routine, the data is converted
         to the same unified format.
 
-        Args:
+        Parameters:
             data (Union[DataInput, list[DataInput]], optional): subdomain and
                 interface data, prescribed through strings, or tuples of
                 subdomains/interfaces, keys and values. If not provided, only
@@ -235,7 +237,7 @@ class Exporter:
         triangle/quad, while in 3d as polyhedra/tetrahedra/hexahedra.
         In all the dimensions the geometry of the mesh needs to be computed.
 
-        Args:
+        Parameters:
             data (Union[DataInput, list[DataInput]], optional): subdomain and
                 interface data, prescribed through strings, or tuples of
                 subdomains/interfaces, keys and values. If not provided only
@@ -363,7 +365,7 @@ class Exporter:
         We assume that the VTU associated files have the same name, and that.
         the VTU associated files are in the working directory.
 
-        Args:
+        Parameters:
             times (np.ndarray, optional): array of actual times to be exported. These will
                 be the times associated with individual time steps in, say, ParaView.
                 By default, the times will be associated with the order in which the time
@@ -488,22 +490,21 @@ class Exporter:
         data=None,
         # ignore type which is essentially Union[DataInput, list[DataInput]]
     ) -> tuple[SubdomainData, InterfaceData]:
-        """
-        Preprocess data.
+        """Preprocess data.
 
         The routine has two goals:
         1. Splitting data into subdomain and interface data.
         2. Unify the data format. Store data in dictionaries, with keys given by
             subdomains/interfaces and names, and values given by the data arrays.
 
-        Args:
+        Parameters:
             data (Union[DataInput, list[DataInput]], optional): data
                 provided by the user in the form of strings and/or tuples
                 of subdomains/interfaces.
 
         Returns:
-            tuple[SubdomainData, InterfaceData]: Subdomain and interface data decomposed and
-                brought into unified format.
+            tuple[SubdomainData, InterfaceData]: Subdomain and interface data decomposed
+                and brought into unified format.
 
         Raises:
             ValueError if the data type provided is not supported
@@ -530,13 +531,14 @@ class Exporter:
             object, but do nothing if the data naturally can be interpreted as
             scalar data.
 
-            Args:
-                value (np.ndarray): input array to be converted
+            Parameters:
+                value (np.ndarray): input array to be converted.
                 grid (pp.Grid or pp.MortarGrid): subdomain or interface to which value
-                    is associated to
+                    is associated to.
 
             Raises:
-                ValueError if the value array is not compatible with the grid
+                ValueError if the value array is not compatible with the grid.
+
             """
             # Make some checks
             if not value.size % grid.num_cells == 0:
@@ -922,10 +924,7 @@ class Exporter:
                 sd.num_cells, dtype=int
             )
             self._constant_subdomain_data[(sd, "grid_dim")] = sd.dim * ones
-            if "node_number" in sd_data:
-                self._constant_subdomain_data[(sd, "grid_node_number")] = (
-                    sd_data["node_number"] * ones
-                )
+            self._constant_subdomain_data[(sd, "subdomain_id")] = sd.id * ones
             self._constant_subdomain_data[(sd, "is_mortar")] = 0 * ones
             self._constant_subdomain_data[(sd, "mortar_side")] = (
                 pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
@@ -943,7 +942,7 @@ class Exporter:
             # Construct empty arrays for all extra interface data
             self._constant_interface_data[(intf, "grid_dim")] = np.empty(0, dtype=int)
             self._constant_interface_data[(intf, "cell_id")] = np.empty(0, dtype=int)
-            self._constant_interface_data[(intf, "grid_edge_number")] = np.empty(
+            self._constant_interface_data[(intf, "interface_id")] = np.empty(
                 0, dtype=int
             )
             self._constant_interface_data[(intf, "is_mortar")] = np.empty(0, dtype=int)
@@ -972,10 +971,10 @@ class Exporter:
                 )
 
                 # Grid edge number of each interface
-                self._constant_interface_data[(intf, "grid_edge_number")] = np.hstack(
+                self._constant_interface_data[(intf, "interface_id")] = np.hstack(
                     (
-                        self._constant_interface_data[(intf, "grid_edge_number")],
-                        intf_data["edge_number"] * ones,
+                        self._constant_interface_data[(intf, "interface_id")],
+                        intf.id * ones,
                     )
                 )
 
@@ -1009,9 +1008,9 @@ class Exporter:
         related to those subdomains will be exported simultaneously.
         Analogously for interfaces.
 
-        Args:
+        Parameters:
             data (Union[SubdomainData, InterfaceData]): Subdomain or interface data.
-            time_step (int): time_step to be used to append the file name
+            time_step (int): time_step to be used to append the file name.
             kwargs: Optional keyword arguments:
                 'interface_data' (boolean) indicates whether data is associated to
                     an interface, default is False;
@@ -1019,9 +1018,10 @@ class Exporter:
                     constant in time, default is False.
 
         Raises:
-            TypeError if keyword arguments contain unsupported keyword
-            ValueError if data provided for some but not all subdomains or interfaces
-                of particular dimension
+            TypeError: if keyword arguments contain unsupported keyword
+            ValueError: if data provided for some but not all subdomains or interfaces
+                of particular dimension.
+
         """
         # Check for optional keywords
         self.interface_data: bool = kwargs.pop("interface_data", False)
@@ -1095,9 +1095,10 @@ class Exporter:
         Routine to export to pvd format and collect all data scattered over
         several files for distinct grid dimensions.
 
-        Args:
-            file_name (str): storage path for pvd file
-            time_step (int): used as appendix for the file name
+        Parameters:
+            file_name (str): storage path for pvd file.
+            time_step (int): used as appendix for the file name.
+
         """
         # Open the file
         o_file = open(file_name, "w")
@@ -1198,7 +1199,7 @@ class Exporter:
         Wrapper function to export grids of dimension dim. Calls the
         appropriate dimension specific export function.
 
-        Args:
+        Parameters:
             grids (Iterable[pp.Grid]): Subdomains of same dimension.
             dim (int): Dimension of the subdomains.
 
@@ -1207,7 +1208,8 @@ class Exporter:
             in correct meshio format.
 
         Raises:
-            ValueError if dim not 0, 1, 2, 3
+            ValueError if dim not 0, 1, 2 or 3.
+
         """
         if dim == 0:
             return None
@@ -1225,7 +1227,7 @@ class Exporter:
         Export the geometrical data (point coordinates) and connectivity
         information from the 1d PorePy grids to meshio.
 
-        Args:
+        Parameters:
             grids (Iterable[pp.Grid]): 1d grids.
 
         Returns:
@@ -1286,17 +1288,17 @@ class Exporter:
     def _simplex_cell_to_nodes(
         self, n: int, grid: pp.Grid, cells: Optional[np.ndarray] = None
     ) -> np.ndarray:
-        """
-        Determine cell to node connectivity for a general n-simplex mesh.
+        """Determine cell to node connectivity for a general n-simplex mesh.
 
-        Args:
+        Parameters:
             n (int): dimension of the simplices in the grid.
             grid (pp.Grid): grid containing cells and nodes.
-            cells (np.ndarray, optional): all n-simplex cells
+            cells (np.ndarray, optional): all n-simplex cells.
 
         Returns:
             np.ndarray: cell to node connectivity array, in which for each row
-                (associated to cells) all associated nodes are marked.
+            (associated to cells) all associated nodes are marked.
+
         """
         # Determine cell-node ptr
         cn_indptr = (
@@ -1322,16 +1324,16 @@ class Exporter:
         return cn_indices
 
     def _export_grid_2d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
-        """
-        Export the geometrical data (point coordinates) and connectivity
+        """Export the geometrical data (point coordinates) and connectivity
         information from the 2d PorePy grids to meshio.
 
-        Args:
-            grids (Iterable[pp.Grid]): 2d grids.
+        Parameters:
+            grids: 2d grids.
 
         Returns:
             Meshio_Geom: Points, 2d cells (storing the connectivity), and
             cell ids in correct meshio format.
+
         """
 
         # Use standard names for simple object types: in this routine only triangle
@@ -1487,16 +1489,16 @@ class Exporter:
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _export_grid_3d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
-        """
-        Export the geometrical data (point coordinates) and connectivity
+        """Export the geometrical data (point coordinates) and connectivity
         information from 3d PorePy grids to meshio.
 
-        Args:
-            grids (Iterable[pp.Grid]): 3d grids.
+        Parameters:
+            grids: 3d grids.
 
         Returns:
             Meshio_Geom: Points, 3d cells (storing the connectivity), and
             cell ids in correct meshio format.
+
         """
 
         # Three different cell types will be distinguished: Tetrahedra, hexahedra,
@@ -1533,16 +1535,16 @@ class Exporter:
             return self._export_polyhedron_3d(grids)
 
     def _export_simplex_3d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
-        """
-        Export the geometrical data (point coordinates) and connectivity
+        """Export the geometrical data (point coordinates) and connectivity
         information from 3d PorePy simplex grids to meshio.
 
-        Args:
+        Parameters:
             grids (Iterable[pp.Grid]): 3d simplex grids.
 
         Returns:
             Meshio_Geom: Points, 3d cells (storing the connectivity), and
             cell ids in correct meshio format.
+
         """
         # For the special meshio geometric type "tetra", cell->nodes will
         # be used to store connectivity information. Each simplex has 4 nodes.
@@ -1595,20 +1597,20 @@ class Exporter:
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _export_hexahedron_3d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
-        """
-        Export the geometrical data (point coordinates) and connectivity
+        """Export the geometrical data (point coordinates) and connectivity
         information from 3d PorePy hexahedron grids to meshio.
 
         NOTE: Optimally, a StructuredGrid would be exported in this case.
         However, meshio does solely handle unstructured grids and cannot
         for instance write to *.vtr format.
 
-        Args:
+        Parameters:
             grids (Iterable[pp.Grid]): 3d hexahedron grids.
 
         Returns:
             Meshio_Geom: Points, 3d cells (storing the connectivity), and
             cell ids in correct meshio format.
+
         """
         # For the special meshio geometric type "hexahedron", cell->nodes will
         # be used to store connectivity information. Each hexahedron has 8 nodes.
@@ -1791,16 +1793,16 @@ class Exporter:
         return _function_to_compile(nodes, cn_indices)
 
     def _export_polyhedron_3d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
-        """
-        Export the geometrical data (point coordinates) and connectivity
+        """Export the geometrical data (point coordinates) and connectivity
         information from 3d PorePy polyhedron grids to meshio.
 
-        Args:
-            grids (Iterable[pp.Grid]): 3d polyhedron grids.
+        Parameters:
+            grids: 3d polyhedron grids.
 
         Returns:
             Meshio_Geom: Points, 3d cells (storing the connectivity), and
             cell ids in correct meshio format.
+
         """
         # For the general geometric type "polyhedron", cell->faces->nodes will
         # be used to store connectivity information, which can become significantly
@@ -1903,18 +1905,17 @@ class Exporter:
     def _write(
         self, fields: Iterable[Field], file_name: str, meshio_geom: Meshio_Geom
     ) -> None:
-        """
-        Interface to meshio for exporting cell data.
+        """Interface to meshio for exporting cell data.
 
-        Args:
-            fields (iterable, Field): fields which shall be exported
-            file_name (str): name of final file of export
-            meshio_geom (Meshio_Geom): Namedtuple of points,
-                connectivity information, and cell ids in
+        Parameters:
+            fields: fields which shall be exported
+            file_name: name of final file of export.
+            meshio_geom: Namedtuple of points, connectivity information, and cell ids in
                 meshio format (for a single dimension).
 
         Raises:
-            ValueError if some data has wrong dimension
+            ValueError if some data has wrong dimension.
+
         """
         # Initialize empty cell data dictionary
         cell_data: dict[str, list[np.ndarray]] = {}
@@ -1949,16 +1950,16 @@ class Exporter:
     def _append_folder_name(
         self, folder_name: Optional[str] = None, name: str = ""
     ) -> str:
-        """
-        Auxiliary method setting up potentially non-existent folder structure and
+        """Auxiliary method setting up potentially non-existent folder structure and
         setting up a path for exporting.
 
-        Args:
-            folder_name (str, optional): name of the folder
-            name (str): prefix of the name of the files to be written
+        Parameters:
+            folder_name: name of the folder.
+            name: prefix of the name of the files to be written.
 
         Returns:
-            str: complete path to the files to be written.
+            Complete path to the files to be written.
+
         """
 
         # If no folder_name is prescribed, the files will be stored in the
@@ -1980,22 +1981,21 @@ class Exporter:
         dim: Optional[int] = None,
         extension: str = ".vtu",
     ) -> str:
-        """
-        Auxiliary method to setting up file name.
+        """Auxiliary method to setting up file name.
 
         The final name is built as combination of a prescribed prefix,
         and possibly the dimension of underlying grid and time (step)
         the related data is associated to.
 
-        Args:
-            file_name (str): prefix of the name of file to be exported
-            time_step (Union[float int], optional): time or time step (index)
-            dim (int, optional): dimension of the exported grid
-            extension (str): extension of the file, typically file ending
-                defining the format
+        Parameters:
+            file_name: Prefix of the name of file to be exported.
+            time_step: Time or time step (index).
+            dim: Dimension of the exported grid.
+            extension: Extension of the file, typically file ending defining the format.
 
         Returns:
-            str: complete name of file
+            Complete name of file.
+
         """
 
         # Define non-empty time step extension including zero padding.

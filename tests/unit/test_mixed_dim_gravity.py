@@ -229,7 +229,6 @@ class TestMixedDimGravity(unittest.TestCase):
         }
         intf.update_mortar(new_side_grids, tol=1e-4)
 
-        mdg.assign_subdomain_ordering()
         self.mdg = mdg
 
     def set_grids_2d(
@@ -247,7 +246,6 @@ class TestMixedDimGravity(unittest.TestCase):
 
         mdg = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
         mdg.compute_geometry()
-        mdg.assign_subdomain_ordering()
         if num_nodes_mortar is None:
             self.mdg = mdg
             return

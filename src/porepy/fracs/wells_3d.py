@@ -9,8 +9,10 @@ by
     compute_well_fracture_intersections(well_network, fracture_network)
     well_network.mesh(mdg)
 """
+from __future__ import annotations
+
 import logging
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Iterator, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -40,7 +42,7 @@ class Well:
         self,
         points: np.ndarray,
         index: Optional[int] = None,
-        tags: Optional[Dict] = None,
+        tags: Optional[dict] = None,
     ) -> None:
         """Initialize fractures.
 
@@ -76,7 +78,7 @@ class Well:
         """
         self.index = i
 
-    def segments(self) -> Iterator[Tuple[List[int], np.ndarray]]:
+    def segments(self) -> Iterator[tuple[list[int], np.ndarray]]:
         """
         Iterate over the segments defined through segment indices and endpoints.
         """
@@ -91,7 +93,7 @@ class Well:
     def num_segments(self) -> int:
         return self.num_points() - 1
 
-    def add_point(self, point: np.ndarray, ind: int = None) -> None:
+    def add_point(self, point: np.ndarray, ind: Optional[int] = None) -> None:
         """Add new pts (3 x 1) to self.pts.
         If ind is not specified, the point is appended at the end of
         self.pts. Otherwise, it is inserted between the old points number ind
@@ -102,7 +104,7 @@ class Well:
         else:
             self.pts = np.hstack((self.pts[:, :ind], point, self.pts[:, ind:]))
 
-    def _mesh_size(self, segment_ind: Tuple[int] = None) -> Optional[float]:
+    def _mesh_size(self, segment_ind: Optional[tuple[int]] = None) -> Optional[float]:
         """Return the mesh size for a well or one of its segments.
 
         Args:
@@ -146,10 +148,10 @@ class WellNetwork3d:
 
     def __init__(
         self,
-        wells: Optional[List[Well]] = None,
-        domain: Optional[Dict[str, float]] = None,
+        wells: Optional[list[Well]] = None,
+        domain: Optional[dict[str, float]] = None,
         tol: float = 1e-8,
-        parameters: Optional[Dict] = None,
+        parameters: Optional[dict] = None,
     ) -> None:
         """Initialize well network.
 
@@ -183,12 +185,12 @@ class WellNetwork3d:
             self.parameters = parameters
 
         if domain is None:
-            domain = {}
-        self.domain: Dict = domain
+            domain = dict()
+        self.domain: dict = domain
         self.tol = tol
 
         # Assign an empty tag dictionary
-        self.tags: Dict[str, List[bool]] = {}
+        self.tags: dict[str, list[bool]] = dict()
 
     def add(self, w: Well) -> None:
         """Add a well to the network.
@@ -208,7 +210,7 @@ class WellNetwork3d:
             w.set_index(0)
         self._wells.append(w)
 
-    def _mesh_size(self, w: Well, segment_ind: Tuple[int] = None) -> float:
+    def _mesh_size(self, w: Well, segment_ind: Optional[tuple[int]] = None) -> float:
         """Return the mesh size for a well or one of its segments.
 
         Args:
@@ -442,7 +444,7 @@ def compute_well_fracture_intersections(
 
 def compute_well_rock_matrix_intersections(
     mdg: pp.MixedDimensionalGrid,
-    cells: np.ndarray = None,
+    cells: Optional[np.ndarray] = None,
     min_length: float = 1e-10,
     tol: float = 1e-5,
 ) -> None:
@@ -470,7 +472,7 @@ def compute_well_rock_matrix_intersections(
     tree.from_grid(sd_max, cells)
 
     # Extract the grids of the wells of co-dimension 2
-    well_subdomains: List[pp.Grid] = [
+    well_subdomains: list[pp.Grid] = [
         g for g in mdg.subdomains(dim=dim_max - 2) if hasattr(g, "well_num")
     ]
 
@@ -562,7 +564,7 @@ def compute_well_rock_matrix_intersections(
 
 def _argsort_points_along_line_segment(
     seg: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Sort point lying along a segment.
 
     Args:
@@ -594,10 +596,10 @@ def _argsort_points_along_line_segment(
 def _intersection_segment_fracture(
     segment_points: np.ndarray,
     fracture: pp.PlaneFracture,
-    tags: List[np.ndarray],
+    tags: list[np.ndarray],
     ignore_endpoint_tag: bool,
     tol: float = 1e-8,
-) -> Tuple[np.ndarray, List[np.ndarray]]:
+) -> tuple[np.ndarray, list[np.ndarray]]:
     """Compute intersection between a single line segment and fracture.
 
     Computes intersection point. If no intersection exists (distance > 0), no updates are
