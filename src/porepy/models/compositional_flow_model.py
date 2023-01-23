@@ -135,7 +135,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Computational domain, to be set in :meth:`create_grid`."""
         self.create_grid()
 
-        self.ad_system: pp.ad.ADSystem = pp.ad.ADSystem(self.mdg)
+        self.ad_system: pp.ad.EquationSystem = pp.ad.EquationSystem(self.mdg)
         """AD System for this model."""
 
         self.dof_man: pp.DofManager = self.ad_system.dof_manager
@@ -419,9 +419,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self._export_vars = list(export_vars)
 
         # prepare prolongations for the solver
-        self._prolong_prim = self.dof_man.projection_to(primary_vars).transpose()
-        self._prolong_sec = self.dof_man.projection_to(secondary_vars).transpose()
-        self._prolong_system = self.dof_man.projection_to(self._system_vars).transpose()
+        self._prolong_prim = self.ad_system.projection_to(primary_vars).transpose()
+        self._prolong_sec = self.ad_system.projection_to(secondary_vars).transpose()
+        self._prolong_system = self.ad_system.projection_to(self._system_vars).transpose()
 
         # if eliminated, express the reference fractions by unity
         if self._elim_ref_phase:
@@ -869,11 +869,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             DX = self._prolong_prim * solution_vector + self._prolong_sec * x_s
 
         # post-processing eliminated component fraction additively to iterate
-        self.dof_man.distribute_variable(
+        self.ad_system.set_variable_values(
             values=DX,
             variables=self._system_vars,
-            additive=True,
             to_iterate=True,
+            additive=True,
         )
 
         # post-process eliminated saturation variable
@@ -894,7 +894,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         """
         # write global solution
-        self.dof_man.distribute_variable(solution, variables=self._system_vars)
+        self.ad_system.set_variable_values(solution, variables=self._system_vars)
         # post-process eliminated saturation variable
         if self._elim_ref_phase:
             self._post_process_saturation(True)
@@ -911,8 +911,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         """Reset iterate state to previous state."""
-        X = self.dof_man.assemble_variable()
-        self.dof_man.distribute_variable(X, to_iterate=True)
+        X = self.ad_system.get_variable_values()
+        self.ad_system.set_variable_values(X, to_iterate=True)
 
     def after_simulation(self) -> None:
         """Writes PVD file."""
@@ -959,7 +959,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         if np.linalg.norm(b) < tol:
             self.converged = True
-            x = self.dof_man.assemble_variable(
+            x = self.ad_system.get_variable_values(
                 variables=self._system_vars, from_iterate=True
             )
             return x
@@ -981,11 +981,14 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         """
         assert self._s_R is not None
-        s_R = self._s_R.evaluate(self.ad_system.dof_manager).val
+        s_R = self._s_R.evaluate(self.ad_system).val
         s_R[s_R < 0.0] = 0.0
         s_R[s_R > 1.0] = 1.0
-        self.ad_system.set_var_values(
-            self.composition.reference_phase.saturation_name, s_R, copy_to_state
+        self.ad_system.set_variable_values(
+            s_R,
+            variables=[self.composition.reference_phase.saturation_name],
+            to_iterate=True,
+            to_state=copy_to_state,
         )
 
     def _post_process_feed(self, copy_to_state: bool = False) -> None:
@@ -997,7 +1000,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         """
         assert self._z_R is not None
-        z_R = self._z_R.evaluate(self.ad_system.dof_manager).val
+        z_R = self._z_R.evaluate(self.ad_system).val
         z_R[z_R < 0.0] = 0.0
         z_R[z_R > 1.0] = 1.0
         self.ad_system.set_var_values(

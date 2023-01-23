@@ -59,13 +59,13 @@ class PR_Roots:
 
     def __init__(
         self,
-        ad_system: pp.ad.ADSystem,
+        ad_system: pp.ad.EquationSystem,
         A: pp.ad.Operator,
         B: pp.ad.Operator,
         eps: float = 1e-16,
     ) -> None:
 
-        self.ad_system: pp.ad.ADSystem = ad_system
+        self.ad_system: pp.ad.EquationSystem = ad_system
         """The AD system passed at instantiation."""
 
         self.A = A
@@ -90,11 +90,11 @@ class PR_Roots:
 
         """
 
-        self.liquid_root: Leaf = Leaf("PR Liquid Root")
+        self._z_L: Leaf = Leaf("PR Liquid Root")
         """An AD leaf-operator returning the AD array representing the liquid root
         computed using :meth:`compute_roots`."""
 
-        self.gas_root: Leaf = Leaf("PR Gas Root")
+        self._z_G: Leaf = Leaf("PR Gas Root")
         """An AD leaf-operator returning the AD array representing the gas root
         computed using :meth:`compute_roots`."""
 
@@ -108,22 +108,22 @@ class PR_Roots:
 
     ### EoS roots ----------------------------------------------------------------------
 
-    # @property
-    # def liquid_root(self) -> pp.ad.Ad_array:
-    #     """An AD array representing (cell-wise) the extended root of the characteristic
-    #     polynomial associated with the **liquid** phase.
+    @property
+    def liquid_root(self) -> Leaf:
+        """An AD representation the extended root of the characteristic
+        polynomial associated with the **liquid** phase.
 
-    #     The AD framework provides information about the derivatives with respect to the
-    #     thermodynamic state, i.e. the dependencies of the attraction and co-volume.
+        The AD framework provides information about the derivatives with respect to the
+        thermodynamic state, i.e. the dependencies of the attraction and co-volume.
 
-    #     """
-    #     return self._z_l
+        """
+        return self._z_L
 
-    # @property
-    # def gas_root(self) -> pp.ad.Ad_array:
-    #     """AD representing (cell-wise) of the **gaseous** phase
-    #     (see :meth:`liquid_root`)."""
-    #     return self._z_g
+    @property
+    def gas_root(self) -> Leaf:
+        """AD representation of the **gaseous** phase
+        (see :meth:`liquid_root`)."""
+        return self._z_G
 
     ### EoS parameters -----------------------------------------------------------------
 
@@ -219,12 +219,12 @@ class PR_Roots:
 
         """
         # evaluate necessary parameters
-        A = self.A.evaluate(self.ad_system.dof_manager, state)
-        B = self.B.evaluate(self.ad_system.dof_manager, state)
-        p = self.p.evaluate(self.ad_system.dof_manager, state)
-        q = self.q.evaluate(self.ad_system.dof_manager, state)
-        c2 = self.c2.evaluate(self.ad_system.dof_manager, state)
-        delta = self.delta.evaluate(self.ad_system.dof_manager, state)
+        A = self.A.evaluate(self.ad_system, state)
+        B = self.B.evaluate(self.ad_system, state)
+        p = self.p.evaluate(self.ad_system, state)
+        q = self.q.evaluate(self.ad_system, state)
+        c2 = self.c2.evaluate(self.ad_system, state)
+        delta = self.delta.evaluate(self.ad_system, state)
 
         nc = len(A.val)
         shape = A.jac.shape
@@ -393,8 +393,8 @@ class PR_Roots:
         ### storing results for access
         # self._z_l = pp.ad.Ad_array(Z_L_val, Z_L_jac)
         # self._z_g = pp.ad.Ad_array(Z_G_val, Z_G_jac)
-        self.liquid_root.value = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
-        self.gas_root.value = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
+        self._z_L.value = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
+        self._z_G.value = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
 
     def _smoother(
         self, Z_L: pp.ad.Ad_array, Z_I: pp.ad.Ad_array, Z_G: pp.ad.Ad_array
@@ -516,21 +516,21 @@ class PR_Roots:
         """
         # coefficients for the labeling polynomial
         c2_label = (2 * self.B * self.B - 10 * self.B - 1 / 4).evaluate(
-            self.ad_system.dof_manager
+            self.ad_system
         )
         c1_label = (
             -4 * _power(self.B, pp.ad.Scalar(4))
             + 28 * _power(self.B, pp.ad.Scalar(3))
             + 22 * self.B * self.B
             + 2 * self.B
-        ).evaluate(self.ad_system.dof_manager)
+        ).evaluate(self.ad_system)
         c0_label = (
             -8 * _power(self.B, pp.ad.Scalar(6))
             - 32 * _power(self.B, pp.ad.Scalar(5))
             - 40 * _power(self.B, pp.ad.Scalar(4))
             - 26 * _power(self.B, pp.ad.Scalar(3))
             - 2 * self.B * self.B
-        ).evaluate(self.ad_system.dof_manager)
+        ).evaluate(self.ad_system)
         # reduce to relevant region
         c2_label = pp.ad.Ad_array(
             c2_label.val[one_root_region], c2_label.jac[one_root_region]

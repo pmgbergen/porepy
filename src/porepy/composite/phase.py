@@ -58,34 +58,48 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     """
 
-    def __init__(self, ad_system: pp.ad.ADSystem, name: str = "") -> None:
+    def __init__(self, ad_system: pp.ad.EquationSystem, name: str = "") -> None:
         super().__init__()
 
         ### PUBLIC
 
-        self.ad_system: pp.ad.ADSystem = ad_system
+        self.ad_system: pp.ad.EquationSystem = ad_system
         """The AD system passed at instantiation."""
 
         #### PRIVATE
         self._name = name
         """Name given to the phase at instantiation."""
 
-        self._composition: dict[Component, pp.ad.MergedVariable] = dict()
+        self._composition: dict[Component, pp.ad.MixedDimensionalVariable] = dict()
         """A dictionary containing the composition variable (value) for each
         added/modelled component in this phase."""
 
-        self._s: pp.ad.MergedVariable = ad_system.create_variable(self.saturation_name)
+        self._s: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
+            self.saturation_name,
+            subdomains=ad_system.mdg.subdomains()
+        )
         """Saturation Variable in AD form."""
 
-        self._fraction: pp.ad.MergedVariable = ad_system.create_variable(
-            self.fraction_name
+        self._fraction: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
+            self.fraction_name,
+            subdomains=ad_system.mdg.subdomains()
         )
         """Molar fraction variable in AD form."""
 
         # Set values for fractions of phase
-        nc = ad_system.dof_manager.mdg.num_subdomain_cells()
-        ad_system.set_var_values(self.saturation_name, np.zeros(nc), True)
-        ad_system.set_var_values(self.fraction_name, np.zeros(nc), True)
+        nc = ad_system.mdg.num_subdomain_cells()
+        ad_system.set_variable_values(
+            np.zeros(nc),
+            variables=[self.saturation_name],
+            to_state=True,
+            to_iterate=True,
+        )
+        ad_system.set_variable_values(
+            np.zeros(nc),
+            variables=[self.fraction_name],
+            to_state=True,
+            to_iterate=True,
+        )
 
     def __iter__(self) -> Generator[Component, None, None]:
         """Generator over components present in this phase.
@@ -120,7 +134,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return f"{VARIABLE_SYMBOLS['phase_saturation']}_{self.name}"
 
     @property
-    def saturation(self) -> pp.ad.MergedVariable:
+    def saturation(self) -> pp.ad.MixedDimensionalVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -139,7 +153,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return f"{VARIABLE_SYMBOLS['phase_fraction']}_{self.name}"
 
     @property
-    def fraction(self) -> pp.ad.MergedVariable:
+    def fraction(self) -> pp.ad.MixedDimensionalVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -165,7 +179,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     def fraction_of_component(
         self, component: Component
-    ) -> pp.ad.MergedVariable | pp.ad.Scalar:
+    ) -> pp.ad.MixedDimensionalVariable | pp.ad.Scalar:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -264,11 +278,19 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
             # create compositional variables for the component in this phase
             fraction_name = self.fraction_of_component_name(comp)
-            comp_fraction = self.ad_system.create_variable(fraction_name)
+            comp_fraction = self.ad_system.create_variables(
+                fraction_name,
+                subdomains=self.ad_system.mdg.subdomains()
+            )
 
             # set fractional values to zero
-            nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
-            self.ad_system.set_var_values(fraction_name, np.zeros(nc), True)
+            nc = self.ad_system.mdg.num_subdomain_cells()
+            self.ad_system.set_variable_values(
+                np.zeros(nc),
+                variables=[fraction_name],
+                to_state=True,
+                to_iterate=True,
+            )
 
             # store the compositional variable
             self._composition.update({comp: comp_fraction})
@@ -276,7 +298,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     ### Physical properties ------------------------------------------------------------
 
     def mass_density(
-        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
     ) -> pp.ad.Operator:
         """Uses the  molar mass in combination with the molar masses and fractions
         of components in this phase, to compute the mass density of the phase.
@@ -303,7 +325,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     @abc.abstractmethod
     def density(
-        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
     ) -> pp.ad.Operator:
         """
         | Math. Dimension:        scalar
@@ -321,7 +343,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     @abc.abstractmethod
     def specific_enthalpy(
-        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
     ) -> pp.ad.Operator:
         """
         | Math. Dimension:        scalar
@@ -339,7 +361,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     @abc.abstractmethod
     def dynamic_viscosity(
-        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
     ) -> pp.ad.Operator:
         """
         | Math. Dimension:        scalar
@@ -357,7 +379,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     @abc.abstractmethod
     def thermal_conductivity(
-        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
     ) -> pp.ad.Operator:
         """
         | Math. Dimension:    2nd-order tensor

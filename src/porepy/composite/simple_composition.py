@@ -39,7 +39,7 @@ class IncompressibleFluid(Phase):
 
     def density(self, p, T):
         return pp.ad.Array(
-            np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells()) * self.rho0
+            np.ones(self.ad_system.mdg.num_subdomain_cells()) * self.rho0
         )
 
     def specific_enthalpy(self, p, T):
@@ -107,7 +107,7 @@ class SimpleComposition(Composition):
 
     """
 
-    def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
+    def __init__(self, ad_system: Optional[pp.ad.EquationSystem] = None) -> None:
         super().__init__(ad_system)
 
         self._phases: list[Phase] = [
@@ -138,47 +138,3 @@ class SimpleComposition(Composition):
             k_val = pp.ad.Scalar(self.k_values[comp])
 
             self.fugacity_coeffs[comp] = {L: k_val, G: one}
-
-    def print_state(self, from_iterate: bool = False) -> None:
-        """Helper method to print the state of the composition to the console."""
-        L = self._phases[0]
-        G = self._phases[1]
-        if from_iterate:
-            print("THERMODYNAMIC ITERATE state:")
-        else:
-            print("THERMODYNAMIC STATE:")
-        print("--- thermodynamic INPUT:")
-        for C in self.components:
-            print(
-                C.fraction_name,
-                self.ad_system.get_var_values(C.fraction_name, from_iterate),
-            )
-        print(self.p_name, self.ad_system.get_var_values(self.p_name, from_iterate))
-        print(self.T_name, self.ad_system.get_var_values(self.T_name, from_iterate))
-        print(self.h_name, self.ad_system.get_var_values(self.h_name, from_iterate))
-        print("--- thermodynamic OUTPUT:")
-        print(
-            L.fraction_name,
-            self.ad_system.get_var_values(L.fraction_name, from_iterate),
-        )
-        print(
-            G.fraction_name,
-            self.ad_system.get_var_values(G.fraction_name, from_iterate),
-        )
-        print("---")
-        print(
-            L.saturation_name,
-            self.ad_system.get_var_values(L.saturation_name, from_iterate),
-        )
-        print(
-            G.saturation_name,
-            self.ad_system.get_var_values(G.saturation_name, from_iterate),
-        )
-        print("---")
-        for C in self.components:
-            name = L.fraction_of_component_name(C)
-            print(name, self.ad_system.get_var_values(name, from_iterate))
-        for C in self.components:
-            name = G.fraction_of_component_name(C)
-            print(name, self.ad_system.get_var_values(name, from_iterate))
-        print("---")

@@ -6,8 +6,7 @@ import iapws
 
 M = pp.composite.PR_Composition()
 sys = M.ad_system
-dm = M.ad_system.dof_manager
-nc = dm.mdg.num_subdomain_cells()
+nc = sys.mdg.num_subdomain_cells()
 vec = np.ones(nc)
 h2o = pp.composite.H2O(sys)
 co2 = pp.composite.CO2(sys)
@@ -27,15 +26,15 @@ n2_fraction = 0.005
 salt_fraction = 0.01
 salt_molality = 3.
 
-sys.set_var_values(h2o.fraction_name, h2o_fraction * vec, True)
-sys.set_var_values(co2.fraction_name, co2_fraction * vec, True)
-sys.set_var_values(n2.fraction_name, n2_fraction * vec, True)
+sys.set_variable_values(h2o_fraction * vec, variables=[h2o.fraction_name], to_iterate=True, to_state=True)
+sys.set_variable_values(co2_fraction * vec, variables=[co2.fraction_name], to_iterate=True, to_state=True)
+sys.set_variable_values(n2_fraction * vec, variables=[n2.fraction_name], to_iterate=True, to_state=True)
 # brine.set_solute_fractions({brine.NaCl: salt_fraction})
 # brine.set_solute_fractions_with_molality({brine.NaCl: salt_molality})
 
-sys.set_var_values(M.T_name, temperature * vec, True)
-sys.set_var_values(M.p_name, pressure * vec, True)
-sys.set_var_values(M.h_name, 0 * vec, True)
+sys.set_variable_values(temperature * vec, variables=[M.T_name], to_iterate=True, to_state=True)
+sys.set_variable_values(pressure * vec, variables=[M.p_name], to_iterate=True, to_state=True)
+sys.set_variable_values(0 * vec, variables=[M.h_name], to_iterate=True, to_state=True)
 
 M.initialize()
 
@@ -44,28 +43,14 @@ FLASH.use_armijo = False
 
 M.roots.compute_roots()
 
-# print("ROOTS")
-# print("Liquid: ", M.roots.liquid_root.evaluate(dm).val)
-# print("Gas: ", M.roots.gas_root.evaluate(dm).val)
-# print("---")
-# print("Liquid Log(PHI)")
-# print("H2O: ", M.log_fugacity_coeffs[h2o][L].evaluate(dm).val)
-# print("CO2: ", M.log_fugacity_coeffs[co2][L].evaluate(dm).val)
-# print("N2: ", M.log_fugacity_coeffs[n2][L].evaluate(dm).val)
-# print("---")
-# print("GAS Log(PHI)")
-# print("H2O: ", M.log_fugacity_coeffs[h2o][G].evaluate(dm).val)
-# print("CO2: ", M.log_fugacity_coeffs[co2][G].evaluate(dm).val)
-# print("N2: ", M.log_fugacity_coeffs[n2][G].evaluate(dm).val)
-
 FLASH.flash("isothermal", 'npipm', 'feed', False, True)
 FLASH.post_process_fractions()
 FLASH.evaluate_specific_enthalpy()
 FLASH.evaluate_saturations()
 # W = iapws.IAPWS95(P=pressure, T=temperature)
 
-h = sys.get_var_values(M.h_name, False) * 1.25
-sys.set_var_values(M.h_name, h, True)
+h = sys.get_variable_values(variables=[M.h_name], from_iterate=False) * 1.25
+sys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=True)
 FLASH.print_state()
 print("--------------------------")
 FLASH.use_armijo = False

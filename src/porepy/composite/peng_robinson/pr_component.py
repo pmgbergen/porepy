@@ -79,7 +79,7 @@ class PR_Component(Component):
                 + 0.016666 * self.acentric_factor**3
             )
 
-    def cohesion_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+    def cohesion_correction(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
         """Returns the linearized alpha-correction for the cohesion parameter"""
 
         alpha_root = 1 + self.cohesion_correction_weight * (
@@ -88,11 +88,11 @@ class PR_Component(Component):
 
         return alpha_root * alpha_root
 
-    def cohesion(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+    def cohesion(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
         """Returns an expression for ``a`` in the EoS for this component."""
         return self.critical_cohesion * self.cohesion_correction(T)
 
-    def dT_cohesion(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+    def dT_cohesion(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
         """Returns an expression for the derivative of ``a`` with respect to
         temperature."""
         T_r = T / self.critical_temperature()
@@ -139,7 +139,7 @@ class PR_Compound(PR_Component, Compound):
     """
 
     @abc.abstractmethod
-    def cohesion_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+    def cohesion_correction(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
         """Abstraction of the corrective term in ``a``.
 
         To be implemented in child classes using heuristic laws depending on present

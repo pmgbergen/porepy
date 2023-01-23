@@ -48,7 +48,7 @@ class PR_Composition(Composition):
 
     """
 
-    def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
+    def __init__(self, ad_system: Optional[pp.ad.EquationSystem] = None) -> None:
         super().__init__(ad_system)
 
         self.roots: PR_Roots

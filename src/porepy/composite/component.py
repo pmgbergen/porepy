@@ -59,11 +59,11 @@ class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
 
     """
 
-    def __init__(self, ad_system: pp.ad.ADSystem) -> None:
+    def __init__(self, ad_system: pp.ad.EquationSystem) -> None:
 
         super().__init__()
 
-        self.ad_system: pp.ad.ADSystem = ad_system
+        self.ad_system: pp.ad.EquationSystem = ad_system
         """The AD system passed at instantiation."""
 
     @property
@@ -141,13 +141,14 @@ class Component(PseudoComponent):
 
     """
 
-    def __init__(self, ad_system: pp.ad.ADSystem) -> None:
+    def __init__(self, ad_system: pp.ad.EquationSystem) -> None:
 
         super().__init__(ad_system=ad_system)
 
         # creating the overall molar fraction variable
-        self._fraction: pp.ad.MergedVariable = ad_system.create_variable(
-            self.fraction_name
+        self._fraction: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
+            self.fraction_name,
+            subdomains=ad_system.mdg.subdomains()
         )
 
     @property
@@ -157,7 +158,7 @@ class Component(PseudoComponent):
         return f"{VARIABLE_SYMBOLS['component_fraction']}_{self.name}"
 
     @property
-    def fraction(self) -> pp.ad.MergedVariable:
+    def fraction(self) -> pp.ad.MixedDimensionalVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [%] fractional
@@ -219,7 +220,7 @@ class Compound(Component):
 
     """
 
-    def __init__(self, ad_system: pp.ad.ADSystem, solvent: PseudoComponent) -> None:
+    def __init__(self, ad_system: pp.ad.EquationSystem, solvent: PseudoComponent) -> None:
 
         super().__init__(ad_system=ad_system)
 
@@ -229,7 +230,7 @@ class Compound(Component):
         self._solutes: list[PseudoComponent] = list()
         """A list containing present solutes."""
 
-        self._solute_fractions: dict[PseudoComponent, pp.ad.MergedVariable] = dict()
+        self._solute_fractions: dict[PseudoComponent, pp.ad.MixedDimensionalVariable] = dict()
         """A dictionary containing the variables representing solute fractions for a
         given pseudo-component (key)."""
 
@@ -369,7 +370,10 @@ class Compound(Component):
                     )
                 # create name of solute fraction and respective variable
                 fraction_name = self.solute_fraction_name(solute)
-                solute_fraction = self.ad_system.create_variable(fraction_name)
+                solute_fraction = self.ad_system.create_variables(
+                    fraction_name,
+                    subdomains=self.ad_system.mdg.subdomains()
+                )
 
                 # store fraction and solute
                 self._solutes.append(solute)
@@ -412,7 +416,7 @@ class Compound(Component):
 
         """
 
-        nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+        nc = self.ad_system.mdg.num_subdomain_cells()
         # sum of fractions for validity check
         fraction_sum = np.zeros(nc)
 
@@ -441,8 +445,11 @@ class Compound(Component):
 
             # set values for fraction
             frac_name = self.solute_fraction_name(solute)
-            self.ad_system.set_var_values(
-                frac_name, frac_val, copy_to_state=copy_to_state
+            self.ad_system.set_variable_values(
+                frac_val,
+                variables=[frac_name],
+                to_iterate=True,
+                to_state=copy_to_state,
             )
 
         # last validity check to ensure the solvent is present everywhere
@@ -479,7 +486,7 @@ class Compound(Component):
 
         """
 
-        nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+        nc = self.ad_system.mdg.num_subdomain_cells()
 
         # data structure to set resulting fractions
         fractions: dict[PseudoComponent, np.ndarray] = dict()
@@ -488,7 +495,7 @@ class Compound(Component):
         A_: list[sps.spmatrix] = list()
         # column slicing to solute fractions
         fraction_names = [self.solute_fraction_name(solute) for solute in self.solutes]
-        projection = self.ad_system.dof_manager.projection_to(fraction_names)
+        projection = self.ad_system.projection_to(fraction_names)
 
         # loop over present solutes and construct row-blocks of linear system for
         # conversion
@@ -509,7 +516,7 @@ class Compound(Component):
                     A_block += rhs_[-1] * self.solution_fraction_of(other_solute)
 
             A_block = (
-                A_block.evaluate(self.ad_system.dof_manager).jac
+                A_block.evaluate(self.ad_system).jac
                 * projection.transpose()
             )
             A_.append(A_block)
