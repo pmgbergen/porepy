@@ -35,12 +35,11 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.verification_setups.manu_flow_incomp_frac import (
     ManuIncompSaveData,
-    SetupUtilities,
+    ManuIncompUtils,
     SingleEmbeddedVerticalFracture,
 )
 from porepy.applications.verification_setups.verification_utils import (
     VerificationDataSaving,
-    VerificationUtils,
 )
 
 # PorePy typings
@@ -64,6 +63,7 @@ manu_comp_solid: dict[str, number] = {
 }
 
 
+# -----> Data-saving
 @dataclass
 class ManuCompSaveData(ManuIncompSaveData):
     """Data class to store relevant data from the verification setup."""
@@ -176,6 +176,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         return out
 
 
+# -----> Exact solution
 class ManuCompExactSolution:
     """Class containing the exact manufactured solution for the verification setup."""
 
@@ -595,6 +596,7 @@ class ManuCompExactSolution:
         return rho_bf
 
 
+# -----> Boundary conditions
 class ManuCompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
@@ -640,6 +642,7 @@ class ManuCompBoundaryConditions:
         return bc_values
 
 
+# -----> Balance equations
 class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
@@ -663,6 +666,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         return fluid_source
 
 
+# -----> Solution strategy
 class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
     """Modified solution strategy for the verification setup."""
 
@@ -770,13 +774,13 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
             self.plot_results()
 
 
+# -----> Mixer
 class ManufacturedCompressibleFlow2d(  # type: ignore[misc]
+    SingleEmbeddedVerticalFracture,
     ManuCompBalanceEquation,
     ManuCompBoundaryConditions,
     ManuCompSolutionStrategy,
-    SetupUtilities,
-    VerificationUtils,
-    SingleEmbeddedVerticalFracture,
+    ManuIncompUtils,
     ManuCompDataSaving,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
