@@ -1360,18 +1360,23 @@ class AdvectiveFlux:
         ] = None,
     ) -> pp.ad.Operator:
         """An operator represetning the advective flux on subdomains.
+
         .. note::
             The implementation assumes that the advective flux is discretized using a
             standard upwind discretization. Other discretizations may be possible, but
             this has not been considered.
+
         Parameters:
             subdomains: List of subdomains.
             advected_entity: Operator representing the advected entity.
             discr: Discretization of the advective flux.
             bc_values: Boundary conditions for the advective flux.
-            interface_flux: Interface flux operator/variable.
+            interface_flux: Interface flux operator/variable. If subdomains have no
+                neighboring interfaces, this argument can be omitted.
+
         Returns:
             Operator representing the advective flux.
+
         """
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
