@@ -174,8 +174,8 @@ class Mpsa(Discretization):
                 Operator for reconstructing the displacement trace. Face contribution.
 
         Parameters:
-            sd: grid, or a subclass, with geometry fields computed. data: For entries,
-            see above.
+            sd: grid, or a subclass, with geometry fields computed.
+            data: For entries, see above.
 
         """
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
@@ -423,22 +423,22 @@ class Mpsa(Discretization):
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point stress
-        approximation.
+            order elliptic equation using a FV method with a multi-point stress
+            approximation.
 
-        Parameters:
-            g: Grid to be discretized.
-            data: dictionary to store the data. For details on necessary keywords,
-                see ``:meth:discretize``.
+            Parameters:
+                g: Grid to be discretized.
+                data: dictionary to store the data. For details on necessary keywords,
+                    see ``:meth:discretize``.
 
-    Returns:
-            :obj:`~scipy.sparse.spmatrix`: ``(sd.dim * g_num_cells, sd.dim * g_num_cells)``
+        Returns:
+                :obj:`~scipy.sparse.spmatrix`: ``(sd.dim * g_num_cells, sd.dim * g_num_cells)``
 
-                Discretization matrix.
-            :obj:`~np.ndarray`: ``(sd.dim * g_num_cells)``
+                    Discretization matrix.
+                :obj:`~np.ndarray`: ``(sd.dim * g_num_cells)``
 
-            Right-hand side which contains the boundary conditions and the vector
-            source term.
+                Right-hand side which contains the boundary conditions and the vector
+                source term.
 
         """
         return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
@@ -575,6 +575,28 @@ class Mpsa(Discretization):
                 being for legacy reasons.
             hf_eta: If hf_disp is True, this parameter will be used instead of eta to
                 control the continuity of the displacement.
+
+        Returns:
+            tuple of 4 sps.spmatrix:
+
+            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces * sd.dim,
+                                                     sd.num_cells * sd.dim))``
+
+                Stree discretization matrix.
+            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces * sd.dim,
+                                                     sd.num_faces * sd.dim))``
+
+                Boundary condition discretization matrix.
+            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces * sd.dim,
+                                                     sd.num_cells * sd.dim))``
+
+                Matrix for cell-center displacement contribution to face displacement
+                reconstruction.
+            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces * sd.dim,
+                                                     sd.num_faces * sd.dim))``
+
+                Matrix for boundary condition contribution to face displacement
+                reconstruction.
 
         """
         # Implementational note on boundary conditions: In Porepy we have defined nodes,
@@ -836,14 +858,14 @@ class Mpsa(Discretization):
 
         # To lower the condition number of the local linear systems, the equations that
         # represents stress and displacement continuity, as well as the Robin condition
-# (which is a combination) should ideally have similar scaling. For general
+        # (which is a combination) should ideally have similar scaling. For general
         # grids and material coefficiens, this is not possible to achieve. Nevertheless,
         # we try to achieve reasonably conditioned local problems. A simple approach has
-# turned out to give reasonable results: For each continuity condition (each row)
-        #  compute the mean among the non-zero elements and scale the entire row with
-        # the inverse of the mean value. This is equivalent to diagonal left
-        # preconditioner for the system. In order not to modify the solution, we will
-        # also need to left precondition the right-hand side.
+        # turned out to give reasonable results: For all continuity condition (each row)
+        # compute the sum of the absolute value of the non-zero elements and scale the
+        # entire row with the inverse of the sum. This is equivalent to diagonal
+        # left preconditioner for the system. In order not to modify the solution, we
+        # will also need to left precondition the right-hand side.
         # The implementation is located in a helper function.
         full_scaling = pp.fvutils.diagonal_scaling_matrix(grad_eqs)
 
@@ -900,7 +922,7 @@ class Mpsa(Discretization):
             shape=(num_subfno * nd, (np.max(subcell_topology.cno) + 1) * nd),
         ).tocsr()
         # Here you have to be carefull if you ever change hook_cell to something else
-# than 0. Because we have pulled the Neumann conditions out of the stress
+        # than 0. Because we have pulled the Neumann conditions out of the stress
         # condition the following would give an index error. Instead you would have to
         # make a hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int
         # equal the number of internal sub_faces and use .keep_neu and .exclude_bnd. But
@@ -941,7 +963,7 @@ class Mpsa(Discretization):
 
             Matrix that can be multiplied with inverse block matrix to get basis
             functions for boundary values. If subface_rhs is True, the matrix will have
-            ``sd.dim * subcell_topology.num_subfno_unique`` faces.
+            ``sd.dim * subcell_topology.num_subfno_unique`` rows and columns.
 
         """
         nd = sd.dim
@@ -969,7 +991,7 @@ class Mpsa(Discretization):
         # Obtain the face number for each coordinate
         subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
 
-# Expand the indices Define right hand side for Neumann boundary conditions
+        # Expand the indices Define right hand side for Neumann boundary conditions
         # First row indices in rhs matrix Pick out the subface indices The boundary
         # conditions should be given in the given basis, therefore no transformation
         subfno_neu = bound_exclusion.keep_neumann(
@@ -1126,41 +1148,41 @@ class Mpsa(Discretization):
         eta: Optional[float] = None,
     ) -> tuple[sps.csr_matrix, sps.csr_matrix]:
         """
-        Function for reconstructing the displacement at the half faces given the
-        local gradients. For a subcell Ks associated with cell K and node s, the
-        displacement at a point x is given by
-        U_Ks + G_Ks (x - x_k),
-        x_K is the cell center of cell k. The point at which we evaluate the displacement
-        is given by eta, which is equivalent to the continuity points in mpsa.
-        For an internal subface we will obtain two values for the displacement,
-        one for each of the cells associated with the subface. The displacement given
-        here is the average of the two. Note that at the continuity points the two
-        displacements will by construction be equal.
+                Function for reconstructing the displacement at the half faces given the
+                local gradients. For a subcell Ks associated with cell K and node s, the
+                displacement at a point x is given by
+                U_Ks + G_Ks (x - x_k),
+                x_K is the cell center of cell k. The point at which we evaluate the displacement
+                is given by eta, which is equivalent to the continuity points in mpsa.
+                For an internal subface we will obtain two values for the displacement,
+                one for each of the cells associated with the subface. The displacement given
+                here is the average of the two. Note that at the continuity points the two
+                displacements will by construction be equal.
 
-        Parameters:
-            sd: Grid
-            subcell_topology: Wrapper class for numbering of subcell faces, cells
-                etc.
-            eta (float or ndarray, range=[0,1)): Optional. Parameter determining the
-                point at which the displacement is evaluated. If ``eta`` is a nd-array it
-                should be on the size of ``subcell_topology.num_subfno``. If ``eta`` is
-                not given the method will call
-                ``:meth:~pp.numerics.fv.fvutils.determine_eta`` to set it.
+                Parameters:
+                    sd: Grid
+                    subcell_topology: Wrapper class for numbering of subcell faces, cells
+                        etc.
+                    eta (float or ndarray, range=[0,1)): Optional. Parameter determining the
+                        point at which the displacement is evaluated. If ``eta`` is a nd-array it
+                        should be on the size of ``subcell_topology.num_subfno``. If ``eta`` is
+                        not given the method will call
+                        ``:meth:~pp.numerics.fv.fvutils.determine_eta`` to set it.
 
-        Returns:
-            ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_cells)``:
+                Returns:
+                    ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_cells)``:
 
 
-Reconstruction matrix for the displacement at the half faces. This is
-                the contribution from the cell-center displacements.
-                NOTE: The half-face displacements are ordered sub-face_wise
-                ``(U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)``
-            ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_faces)``:
+        Reconstruction matrix for the displacement at the half faces. This is
+                        the contribution from the cell-center displacements.
+                        NOTE: The half-face displacements are ordered sub-face_wise
+                        ``(U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)``
+                    ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_faces)``:
 
-Reconstruction matrix for the displacement at the half faces.
-                This is the contribution from the boundary conditions.
-                NOTE: The half-face displacements are ordered sub_face wise
-                ``(U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)``
+        Reconstruction matrix for the displacement at the half faces.
+                        This is the contribution from the boundary conditions.
+                        NOTE: The half-face displacements are ordered sub_face wise
+                        ``(U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)``
 
         """
         if eta is None:
@@ -1395,12 +1417,12 @@ Reconstruction matrix for the displacement at the half faces.
     ) -> tuple[np.ndarray, np.ndarray]:
         """Split the stiffness matrix into symmetric and asymetric part
 
-        Parameters:
-            constit: The stiffness matrix.
+                Parameters:
+                    constit: The stiffness matrix.
 
-        Returns:
-            The symmetric part of the stiffness matrix.
-The asymmetric part of the stiffness matrix.
+                Returns:
+                    The symmetric part of the stiffness matrix.
+        The asymmetric part of the stiffness matrix.
 
         """
         dim = np.sqrt(constit.values.shape[0])
@@ -1467,16 +1489,19 @@ The asymmetric part of the stiffness matrix.
             subcell_topology: Numberings of subcell quantities etc.
 
         Returns:
-            ncsym, ncasym: Product with face normals for symmetric and asymmetric
-                part of stiffness tensors. On the subcell level. In effect, these
-                will be stresses on subfaces, as functions of the subcell gradients
-                (to be computed somewhere else). The rows first represent stresses
-                in the x-direction for all faces, then y direction etc.
-            Unique pairing of cell and node numbers for
-                subcells. First row: Cell numbers, second node numbers. np.ndarray.
-            Numbering scheme for subcell gradients - gives a global
-                numbering for the gradients. One column per subcell, the rows gives
-                the index for the individual components of the gradients.
+            ncsym, ncasym: Product with face normals for symmetric and asymmetric part
+            of stiffness tensors. On the subcell level. In effect, these will be
+            stresses on subfaces, as functions of the subcell gradients (to be computed
+            somewhere else). The rows first represent stresses in the x-direction for
+            all faces, then y direction etc.
+
+            Unique pairing of cell and node numbers for subcells, as a 2xn array. The
+            first row gives cell numbers, the second node numbers. Together, this cell-
+            node combination identifies a unique subcell.
+
+            Numbering scheme for subcell gradients - gives a global numbering for the
+            gradients. One column per subcell, the rows gives the index for the
+            individual components of the gradients.
 
         """
 
@@ -1799,7 +1824,7 @@ The asymmetric part of the stiffness matrix.
 
         Returns:
             tuple[np.ndarray, np.ndarray]: Rearranged contributions from sub-cell
-                gradients and cell center variables.
+            gradients and cell center variables.
 
         """
         # Repeat sub-cell indices nd times. Fortran ordering (column major) gives same

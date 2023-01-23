@@ -42,29 +42,29 @@ class Mpfa(pp.FVElliptic):
                 Stored in ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``
 
         parameter_dictionary contains the entries:
-            second_order_tensor (``class:~porepy.params.tensor.SecondOrderTensor``):
+            - second_order_tensor (``class:~porepy.params.tensor.SecondOrderTensor``):
                 Permeability defined cell-wise. This is the effective permeability; any
                 scaling of the permeability (such as with fracture apertures) should be
                 included in the permeability.
-            bc: (``class:~porepy.params.bc.BoundaryCondition``) boundary conditions.
-            ambient_dimension: (``int``) Optional. Ambient dimension, used in the
+            - bc (``class:~porepy.params.bc.BoundaryCondition``): boundary conditions.
+            - ambient_dimension (``int``): Optional. Ambient dimension, used in the
                 discretization of vector source terms. Defaults to the dimension of the
                 grid.
-            mpfa_eta: (``float``) Optional. Range [0, 1). Location of pressure
+            - mpfa_eta (``float``): Optional. Range [0, 1). Location of pressure
                 continuity point. If not given, porepy tries to set an optimal value.
-            mpfa_inverter (``str``): Optional. Inverter to apply for local problems.
+            - mpfa_inverter (``str``): Optional. Inverter to apply for local problems.
                 Can take values 'numba' (default), or 'python'.
 
         matrix_dictionary will be updated with the following entries:
-            ``flux: sps.csc_matrix (sd.num_faces, sd.num_cells)``
+            - ``flux: sps.csc_matrix (sd.num_faces, sd.num_cells)``
                 flux discretization, cell center contribution
-            ``bound_flux: ps.csc_matrix (sd.num_faces, sd.num_faces)``
+            - ``bound_flux: ps.csc_matrix (sd.num_faces, sd.num_faces)``
                 flux discretization, face contribution
-            ``bound_pressure_cell: sps.csc_matrix (sd.num_faces, sd.num_cells)``
+            - ``bound_pressure_cell: sps.csc_matrix (sd.num_faces, sd.num_cells)``
                 Operator for reconstructing the pressure trace. Cell center contribution
-            ``bound_pressure_face: sps.csc_matrix (sd.num_faces, sd.num_faces)``
+            - ``bound_pressure_face: sps.csc_matrix (sd.num_faces, sd.num_faces)``
                 Operator for reconstructing the pressure trace. Face contribution
-            ``vector_source: sps.csc_matrix (sd.num_faces, sd.num_cells * dim)``
+            - ``vector_source: sps.csc_matrix (sd.num_faces, sd.num_cells * dim)``
                 Discretization of the flux due to vector source term, cell center
                 contribution.
 
@@ -896,10 +896,10 @@ class Mpfa(pp.FVElliptic):
         # to some rows having elements that differ significantly in size). Nevertheless,
         # we try to achieve reasonably conditioned local problems. A simple approach has
         # turned out to give reasonable results: For all continuity conditions compute
-        # the mean among the non-zero elements and scale the entire row with the inverse
-        # of the mean value. This is equivalent to diagonal left preconditioner for the
-        # system. In order not to modify the solution, we will also need to left
-        # precondition the right-hand side.
+        # the sum of the absolute values of non-zero elements and scale the entire row
+        # with the inverse of the sum value. This is equivalent to diagonal left
+        # preconditioner for the system. In order not to modify the solution, we will
+        # also need to left precondition the right-hand side.
         #
         # IMPLEMENTATION NOTE: Experimentation with more advanced scalings turned out
         # not to give better results than the simple row sum approach.
@@ -1335,9 +1335,9 @@ class Mpfa(pp.FVElliptic):
         Returns:
             :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_faces))``
 
-            Matrix that can be multiplied with inverse block matrix to get basis
-            functions for boundary values. If subface_rhs is True, the matrix will have
-            ``subcell_topology.num_subfno_unique`` faces.
+                    Matrix that can be multiplied with inverse block matrix to get basis
+                    functions for boundary values. If subface_rhs is True, the matrix will
+                    have ``subcell_topology.num_subfno_unique`` faces.
 
         """
         # For primal-like discretizations like the MPFA, internal boundaries are handled
@@ -1406,7 +1406,6 @@ class Mpfa(pp.FVElliptic):
         # 2) During global assembly, the flux matrix is hit by the divergence
         #    operator, which will give another -1 for cells with inwards pointing
         #    normal vector.
-        # NOW WHAT?
         if subface_rhs:
             # In this case we set the rhs for the sub-faces. Note that the rhs values
             # should be integrated over the subfaces, that is
