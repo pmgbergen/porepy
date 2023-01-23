@@ -904,20 +904,8 @@ class Mpfa(pp.FVElliptic):
         #
         # IMPLEMENTATION NOTE: Experimentation with more advanced scalings turned out
         # not to give better results than the simple row sum approach.
+        full_scaling = pp.fvutils.diagonal_scaling_matrix(grad_eqs)
 
-        # Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,
-        # since we want to manipulate the matrix elements.
-        tmp = grad_eqs.copy()
-        # Use an absolute value here. For some of the matrices the row sum will be zero
-        # on interior faces.
-        tmp.data = np.abs(tmp.data)
-        # Take a sum here. Intuitively, an average would be better, but calling
-        # tmp.mean() would take the average over all elements, most of which are zero
-        # (this turned out not to be optimal). We could also find the number of non-zero
-        # elements and divide the sum by this, but a sum seems to be good enough.
-        scalings = tmp.sum(axis=1).A.ravel()
-        # Diagonal scaling matrix
-        full_scaling = sps.dia_matrix((1.0 / scalings, 0), shape=grad_eqs.shape)
         # Scale the matrix before inversion.
         grad_eqs = full_scaling * grad_eqs
 
