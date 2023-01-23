@@ -147,29 +147,28 @@ class Mpsa(Discretization):
                 Stored in ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``
 
         parameter_dictionary contains the entries:
-            fourth_order_tensor: ``class:~porepy.params.tensor.FourthOrderTensor``
+            - fourth_order_tensor: ``class:~porepy.params.tensor.FourthOrderTensor``
                 Stiffness tensor defined cell-wise.
-            bc: ``class:~porepy.params.bc.BoundaryConditionVectorial``
+            - bc: ``class:~porepy.params.bc.BoundaryConditionVectorial``
                 Boundary conditions
-            mpsa_eta: ``float`` Optional. Range [0, 1). Location of displacement
+            - mpsa_eta: ``float`` Optional. Range [0, 1). Location of displacement
                 continuity point: eta. ``eta = 0`` gives cont. pt. at face midpoint,
                 ``eta = 1`` at the vertex. If not given, PorePy tries to set an optimal
                 value. This value is set to all subfaces, except the boundary (where,
                 0 is used).
-            inverter (``str``): Optional. Inverter to apply for local problems.
+            - inverter (``str``): Optional. Inverter to apply for local problems.
                 Can take values 'numba' (default), or 'python'.
 
         matrix_dictionary will be updated with the following entries:
-            ``stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
+            - ``stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
                 stress discretization, cell center contribution
-            ``bound_flux: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim *
-            sd.num_faces)``
-                stress discretization, face contribution
-            ``bound_displacement_cell: sps.csc_matrix (sd.dim * sd.num_faces,
+            - ``bound_flux: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim *
+                sd.num_faces)`` stress discretization, face contribution
+            - ``bound_displacement_cell: sps.csc_matrix (sd.dim * sd.num_faces,
                                                      sd.dim * sd.num_cells)``
                 Operator for reconstructing the displacement trace. Cell center
                 contribution.
-            ``bound_displacement_face: sps.csc_matrix (sd.dim * sd.num_faces,
+            - ``bound_displacement_face: sps.csc_matrix (sd.dim * sd.num_faces,
                                                      sd.dim * sd.num_faces)``
                 Operator for reconstructing the displacement trace. Face contribution.
 
@@ -229,7 +228,7 @@ class Mpsa(Discretization):
         # Empty matrices for stress, bound_stress and boundary displacement
         # reconstruction. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to estimate the
-        # memory need of stress (face_nodes -> node_cells -> unique). bookkeeping
+        # memory need of stress (face_nodes -> node_cells -> unique).
         active_stress = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_stress = sps.csr_matrix((nf * nd, nf * nd))
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
@@ -239,13 +238,13 @@ class Mpsa(Discretization):
         peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
 
         # Loop over all partition regions, construct local problems, and transfer
-        # discretization to the entire active grid
+        # discretization to the entire active grid.
         for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
             pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
         ):
             tic = time()
 
-            # Copy stiffness tensor, and restrict to local cells
+            # Copy stiffness tensor, and restrict to local cells.
             loc_c: pp.FourthOrderTensor = self._constit_for_subgrid(
                 active_constit, l2g_cells
             )
@@ -1147,41 +1146,42 @@ class Mpsa(Discretization):
         subcell_topology: pp.fvutils.SubcellTopology,
         eta: Optional[float] = None,
     ) -> tuple[sps.csr_matrix, sps.csr_matrix]:
-        """
-                Function for reconstructing the displacement at the half faces given the
-                local gradients. For a subcell Ks associated with cell K and node s, the
-                displacement at a point x is given by
-                U_Ks + G_Ks (x - x_k),
-                x_K is the cell center of cell k. The point at which we evaluate the displacement
-                is given by eta, which is equivalent to the continuity points in mpsa.
-                For an internal subface we will obtain two values for the displacement,
-                one for each of the cells associated with the subface. The displacement given
-                here is the average of the two. Note that at the continuity points the two
-                displacements will by construction be equal.
+        """Function for reconstructing the displacement at the half faces given the
+        local gradients.
 
-                Parameters:
-                    sd: Grid
-                    subcell_topology: Wrapper class for numbering of subcell faces, cells
-                        etc.
-                    eta (float or ndarray, range=[0,1)): Optional. Parameter determining the
-                        point at which the displacement is evaluated. If ``eta`` is a nd-array it
-                        should be on the size of ``subcell_topology.num_subfno``. If ``eta`` is
-                        not given the method will call
-                        ``:meth:~pp.numerics.fv.fvutils.determine_eta`` to set it.
+        For a subcell Ks associated with cell K and node s, the displacement at a point
+        x is given by
+            U_Ks + G_Ks (x - x_k),
+        x_K is the cell center of cell k. The point at which we evaluate the displacement
+        is given by eta, which is equivalent to the continuity points in mpsa.
+        For an internal subface we will obtain two values for the displacement,
+        one for each of the cells associated with the subface. The displacement given
+        here is the average of the two. Note that at the continuity points the two
+        displacements will by construction be equal.
 
-                Returns:
-                    ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_cells)``:
+        Parameters:
+            sd: Grid
+            subcell_topology: Wrapper class for numbering of subcell faces, cells
+                etc.
+            eta (float range=[0,1)): Optional. Parameter determining the
+                point at which the displacement is evaluated. If ``eta`` is not given
+                the method will call ``:meth:~pp.numerics.fv.fvutils.determine_eta`` to
+                set it.
+
+        Returns:
+            ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_cells)``:
 
 
-        Reconstruction matrix for the displacement at the half faces. This is
-                        the contribution from the cell-center displacements.
-                        NOTE: The half-face displacements are ordered sub-face_wise
+                Reconstruction matrix for the displacement at the half faces. This is
+                the contribution from the cell-center displacements. The half-face
+                displacements are ordered sub-face_wise, i.e.,
                         ``(U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)``
-                    ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_faces)``:
 
-        Reconstruction matrix for the displacement at the half faces.
-                        This is the contribution from the boundary conditions.
-                        NOTE: The half-face displacements are ordered sub_face wise
+            ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_faces)``:
+
+                Reconstruction matrix for the displacement at the half faces. This is
+                the contribution from the boundary conditions. The half-face
+                displacements are ordered sub_face wise, i.e.,
                         ``(U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)``
 
         """
@@ -1926,33 +1926,6 @@ class Mpsa(Discretization):
         # and eliminate the rows corresponding to these subfaces
         pp.matrix_operations.zero_rows(ncasym, dof_elim)
         logger.debug("number of ncasym eliminated: " + str(np.sum(dof_elim.size)))
-        ## the following is some code to enforce symmetric G. Comment for now
-        # # Find the equations for the x-values
-        # x_row = np.arange(0, round(ncasym.shape[0]/nd))
-        # # Only pick out the ones that have to many Neumann conditions
-        # move_row = np.in1d(x_row, dof_elim)
-        # Find the column index of entries
-        # x_ind_s = ncasym.indptr[x_row[move_row]]
-        # x_ind_e = ncasym.indptr[x_row[move_row] + 1]
-        # x_pntr = pp.utils.mcolon.mcolon(x_ind_s, x_ind_e)
-        # x_indices = ncasym.indices[x_pntr]
-        # # Find the \partial_x u_y and \partial_x u_z values
-        # xuy = np.mod(x_indices - 3, nd*nd) == 0
-        # xuz = np.mod(x_indices - 6, nd*nd) == 0
-        # # Move these to the \partial_y u_x and \partial_z u_x index
-        # ncasym.indices[x_pntr[xuy]] -= 2
-        # ncasym.indices[x_pntr[xuz]] -= 4
-        #
-        # # Similar for the y-coordinates
-        # y_row = np.arange(round(ncasym.shape[0]/nd), round(2*ncasym.shape[0]/nd))
-        # move_row = np.in1d(y_row, dof_elim)
-        # y_ind_s = ncasym.indptr[y_row[move_row]]
-        # y_ind_e = ncasym.indptr[y_row[move_row] + 1]
-        # y_pntr = pp.utils.mcolon.mcolon(y_ind_s, y_ind_e)
-        # y_indices = ncasym.indices[y_pntr]
-        # yuz = np.mod(y_indices - 7, nd*nd) == 0
-
-        # ncasym.indices[y_pntr[yuz]] -= 2
 
     def _reduce_grid_constit_2d(
         self, sd: pp.Grid, constit: pp.FourthOrderTensor
@@ -1960,12 +1933,15 @@ class Mpsa(Discretization):
         """Reduce a constitutive law written for a 3d grid to a 2d grid.
 
         Parameters:
-            sd: Grid to be discretized
+            sd: Grid to be discretized.
             constit: Constitutive law for the 3d grid.
 
         Returns:
-            Reduced grid
-            Reduced constitutive law.
+            A tuple with the following elements:
+
+                Reduced grid.
+
+                Reduced constitutive law.
 
         """
         sd = sd.copy()
