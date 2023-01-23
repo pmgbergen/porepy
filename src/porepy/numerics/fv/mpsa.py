@@ -431,7 +431,7 @@ class Mpsa(Discretization):
             data: dictionary to store the data. For details on necessary keywords,
                 see ``:meth:discretize``.
 
-        Returns
+    Returns:
             :obj:`~scipy.sparse.spmatrix`: ``(sd.dim * g_num_cells, sd.dim * g_num_cells)``
 
                 Discretization matrix.
@@ -836,10 +836,10 @@ class Mpsa(Discretization):
 
         # To lower the condition number of the local linear systems, the equations that
         # represents stress and displacement continuity, as well as the Robin condition
-        # (which is a combination) should have ideally have similar scaling. For general
+# (which is a combination) should ideally have similar scaling. For general
         # grids and material coefficiens, this is not possible to achieve. Nevertheless,
         # we try to achieve reasonably conditioned local problems. A simple approach has
-        # turned out to give reasonable results: For all continuity condition (each row)
+# turned out to give reasonable results: For each continuity condition (each row)
         #  compute the mean among the non-zero elements and scale the entire row with
         # the inverse of the mean value. This is equivalent to diagonal left
         # preconditioner for the system. In order not to modify the solution, we will
@@ -900,7 +900,7 @@ class Mpsa(Discretization):
             shape=(num_subfno * nd, (np.max(subcell_topology.cno) + 1) * nd),
         ).tocsr()
         # Here you have to be carefull if you ever change hook_cell to something else
-        # than # 0. Because we have pulled the Neumann conditions out of the stress
+# than 0. Because we have pulled the Neumann conditions out of the stress
         # condition the following would give an index error. Instead you would have to
         # make a hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int
         # equal the number of internal sub_faces and use .keep_neu and .exclude_bnd. But
@@ -969,7 +969,7 @@ class Mpsa(Discretization):
         # Obtain the face number for each coordinate
         subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
 
-        # >xpand the indices Define right hand side for Neumann boundary conditions
+# Expand the indices Define right hand side for Neumann boundary conditions
         # First row indices in rhs matrix Pick out the subface indices The boundary
         # conditions should be given in the given basis, therefore no transformation
         subfno_neu = bound_exclusion.keep_neumann(
@@ -1151,13 +1151,13 @@ class Mpsa(Discretization):
             ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_cells)``:
 
 
-                Displacement reconstruction for the displacement at the half faces. This is
+Reconstruction matrix for the displacement at the half faces. This is
                 the contribution from the cell-center displacements.
                 NOTE: The half-face displacements are ordered sub-face_wise
                 ``(U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)``
             ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_faces)``:
 
-                Displacement reconstruction for the displacement at the half faces.
+Reconstruction matrix for the displacement at the half faces.
                 This is the contribution from the boundary conditions.
                 NOTE: The half-face displacements are ordered sub_face wise
                 ``(U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)``
@@ -1400,7 +1400,7 @@ class Mpsa(Discretization):
 
         Returns:
             The symmetric part of the stiffness matrix.
-            he asymmetric part of the stiffness matrix.
+The asymmetric part of the stiffness matrix.
 
         """
         dim = np.sqrt(constit.values.shape[0])
