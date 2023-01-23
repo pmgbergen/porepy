@@ -18,6 +18,7 @@ from porepy.numerics.ad import Ad_array, initAdArrays
 
 warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
 
+
 class AdInitTest(unittest.TestCase):
     """
     The tests cover initiation of Ad_array (both of single arrays and joint initiation of
@@ -25,6 +26,7 @@ class AdInitTest(unittest.TestCase):
     implemented for Ad_arrays, e.g., __add__, __sub__, etc., however, coverage of these
     is only partial at the moment.
     """
+
     def _compare(self, arr, known_val, known_jac):
         self.assertTrue(np.allclose(arr.val, known_val))
         self.assertTrue(np.allclose(arr.jac.A, known_jac))
@@ -243,6 +245,7 @@ class AdInitTest(unittest.TestCase):
         # Finally, divide two Ad_arrays
         self._compare(a_int / a_float, np.array([1 / 2]), np.array([[1 / 4, -1 / 8]]))
         self._compare(a_float / a_int, np.array([2]), np.array([[-1, 1 / 2]]))
+
 
 class AdArrays(unittest.TestCase):
     """Tests for the implementation of the main Ad array class,
@@ -503,6 +506,7 @@ class AdArrays(unittest.TestCase):
         a.jac[2] = 4
         self.assertTrue(np.allclose(b.val, np.ones((3, 1))))
         self.assertTrue(np.allclose(b.jac, np.ones((3, 1))))
+
 
 class AdFunctionTest(unittest.TestCase):
 
