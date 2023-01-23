@@ -169,6 +169,74 @@ class TerzaghiDataSaving(VerificationDataSaving):
         return out
 
 
+# -----> Exact solution
+class TerzaghiExactSolution:
+    """Class containing exact solutions to Terzaghi's consolidation problem."""
+
+    def __init__(self, setup):
+        """Constructor of the class"""
+        self.setup = setup
+
+    def pressure(self, y: np.ndarray, t: number) -> np.ndarray:
+        """Compute exact pressure.
+
+        Parameters:
+            y: vertical coordinates [m].
+            t: Time [s].
+
+        Returns:
+            Exact pressure profile for the given time ``t``.
+
+        """
+
+        F = self.setup.params.get("vertical_load", 6e8)
+        nondim_y = self.setup.nondim_length(y)
+        nondim_t = self.setup.nondim_time(t)
+
+        n = self.setup.params.get("upper_limit_summation", 1000)
+
+        if t == 0:  # initially, the pressure equals the vertical load
+            p = F * np.ones_like(y)
+        else:
+            sum_series = np.zeros_like(y)
+            for i in range(1, n + 1):
+                sum_series += (
+                    (((-1) ** (i - 1)) / (2 * i - 1))
+                    * np.cos((2 * i - 1) * (np.pi / 2) * nondim_y)
+                    * np.exp((-((2 * i - 1) ** 2)) * (np.pi**2 / 4) * nondim_t)
+                )
+            p = (4 / np.pi) * F * sum_series
+
+        return p
+
+    def consolidation_degree(self, t: number) -> float:
+        """Compute exact degree of consolidation.
+
+        Parameters:
+            t: Time [s].
+
+        Returns:
+            Degree of consolidation for the given time `t`.
+
+        """
+        t_nondim = self.setup.nondim_time(t)
+        n = self.setup.params.get("upper_limit_summation", 1000)
+
+        if t == 0:  # initially, the soil is unconsolidated
+            deg_cons = 0.0
+        else:
+            sum_series = 0
+            for i in range(1, n + 1):
+                sum_series += (
+                    1
+                    / ((2 * i - 1) ** 2)
+                    * np.exp(-((2 * i - 1) ** 2) * (np.pi**2 / 4) * t_nondim)
+                )
+            deg_cons = 1 - (8 / (np.pi**2)) * sum_series
+
+        return deg_cons
+
+
 # -----> Utilities
 class TerzaghiUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
@@ -434,74 +502,6 @@ class TerzaghiUtils(VerificationUtils):
         ax.legend(fontsize=14)
         ax.grid()
         plt.show()
-
-
-# -----> Exact solution
-class TerzaghiExactSolution:
-    """Class containing exact solutions to Terzaghi's consolidation problem."""
-
-    def __init__(self, setup):
-        """Constructor of the class"""
-        self.setup = setup
-
-    def pressure(self, y: np.ndarray, t: number) -> np.ndarray:
-        """Compute exact pressure.
-
-        Parameters:
-            y: vertical coordinates [m].
-            t: Time [s].
-
-        Returns:
-            Exact pressure profile for the given time ``t``.
-
-        """
-
-        F = self.setup.params.get("vertical_load", 6e8)
-        nondim_y = self.setup.nondim_length(y)
-        nondim_t = self.setup.nondim_time(t)
-
-        n = self.setup.params.get("upper_limit_summation", 1000)
-
-        if t == 0:  # initially, the pressure equals the vertical load
-            p = F * np.ones_like(y)
-        else:
-            sum_series = np.zeros_like(y)
-            for i in range(1, n + 1):
-                sum_series += (
-                    (((-1) ** (i - 1)) / (2 * i - 1))
-                    * np.cos((2 * i - 1) * (np.pi / 2) * nondim_y)
-                    * np.exp((-((2 * i - 1) ** 2)) * (np.pi**2 / 4) * nondim_t)
-                )
-            p = (4 / np.pi) * F * sum_series
-
-        return p
-
-    def consolidation_degree(self, t: number) -> float:
-        """Compute exact degree of consolidation.
-
-        Parameters:
-            t: Time [s].
-
-        Returns:
-            Degree of consolidation for the given time `t`.
-
-        """
-        t_nondim = self.setup.nondim_time(t)
-        n = self.setup.params.get("upper_limit_summation", 1000)
-
-        if t == 0:  # initially, the soil is unconsolidated
-            deg_cons = 0.0
-        else:
-            sum_series = 0
-            for i in range(1, n + 1):
-                sum_series += (
-                    1
-                    / ((2 * i - 1) ** 2)
-                    * np.exp(-((2 * i - 1) ** 2) * (np.pi**2 / 4) * t_nondim)
-                )
-            deg_cons = 1 - (8 / (np.pi**2)) * sum_series
-
-        return deg_cons
 
 
 # -----> Geometry
