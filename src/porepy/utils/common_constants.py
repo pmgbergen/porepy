@@ -25,9 +25,8 @@ DISCRETIZATION = "discretization"
 # between grids and mortar grids
 COUPLING_DISCRETIZATION = "coupling_discretization"
 
-# Used in data dictionary to declare and keep track of primary/secondary variables
+# Used in data dictionary to declare and keep track of primary variables
 PRIMARY_VARIABLES = "primary_variables"
-SECONDARY_VARIABLES = "secondary_variables"
 
 # Used in data dictionary to store parameters for discretizations
 PARAMETERS = "parameters"
