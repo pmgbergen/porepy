@@ -64,7 +64,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Optional
 
 import numpy as np
 import sympy as sym
@@ -73,7 +73,10 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.verification_setups.verification_utils import VerificationUtils
+from porepy.applications.verification_setups.verification_utils import (
+    VerificationDataSaving,
+    VerificationUtils,
+)
 
 # PorePy typings
 number = pp.number
@@ -81,46 +84,46 @@ grid = pp.GridLike
 
 
 @dataclass
-class SaveData:
+class ManuPoroMechSaveData:
     """Data class to save relevant results from the verification setup."""
 
-    approx_displacement: np.ndarray = np.zeros(1)
+    approx_displacement: Optional[np.ndarray] = None
     """Numerical displacement."""
 
-    approx_flux: np.ndarray = np.zeros(1)
+    approx_flux: Optional[np.ndarray] = None
     """Numerical Darcy flux."""
 
-    approx_force: np.ndarray = np.zeros(1)
+    approx_force: Optional[np.ndarray] = None
     """Numerical poroelastic force."""
 
-    approx_pressure: np.ndarray = np.zeros(1)
+    approx_pressure: Optional[np.ndarray] = None
     """Numerical pressure."""
 
-    error_displacement: number = 0
+    error_displacement: Optional[number] = None
     """L2-discrete relative error for the displacement."""
 
-    error_flux: number = 0
+    error_flux: Optional[number] = None
     """L2-discrete relative error for the Darcy flux."""
 
-    error_force: number = 0
+    error_force: Optional[number] = None
     """L2-discrete relative error for the poroelastic force."""
 
-    error_pressure: number = 0
+    error_pressure: Optional[number] = None
     """L2-discrete relative error for the pressure."""
 
-    exact_displacement: np.ndarray = np.zeros(1)
+    exact_displacement: Optional[np.ndarray] = None
     """Exact displacement."""
 
-    exact_flux: np.ndarray = np.zeros(1)
+    exact_flux: Optional[np.ndarray] = None
     """Exact Darcy flux."""
 
-    exact_force: np.ndarray = np.zeros(1)
+    exact_force: Optional[np.ndarray] = None
     """Exact poroelastic force."""
 
-    exact_pressure: np.ndarray = np.zeros(1)
+    exact_pressure: Optional[np.ndarray] = None
     """Exact pressure."""
 
-    time: number = 0
+    time: Optional[number] = None
     """Currrent simulation time."""
 
 
@@ -467,8 +470,14 @@ class ManuPoroMechExactSolution:
         return source_flow
 
 
-class ModifiedDataSavinMixin(pp.DataSavingMixin):
+class ManuPoroMechDataSaving(VerificationDataSaving):
     """Mixin class to save relevant data."""
+
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
+
+    """
 
     displacement_variable: str
     """Keyword for accessing the displacement variable."""
@@ -476,43 +485,22 @@ class ModifiedDataSavinMixin(pp.DataSavingMixin):
     exact_sol: ManuPoroMechExactSolution
     """Exact solution object."""
 
-    flux_variable: str
-    """Keyword for accessing the flux variable."""
-
     pressure_variable: str
     """Keyword for accessing the pressure variable."""
 
-    relative_l2_error: Callable
-    """Method that computes the discrete relative L2-error between an exact solution
-    and an approximate solution on a given grid. The method is provided by the mixin
-    class :class:`porepy.applications.verification_setups.VerificationUtils`.
+    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the (integrated) poroelastic stress in the form of an Ad
+    operator. Usually provided by the mixin class
+    :class:`porepy.models.poromechanics.ConstitutiveLawsPoromechanics`.
 
     """
 
-    results: list[SaveData]
-    """List of :class:`SaveData` objects containing the results of the verification."""
-
-    stress_variable: str
-    """Keyword for accessing the stress variable."""
-
-    def save_data_time_step(self) -> None:
-        """Save data to the `results` list.
-
-        Note:
-            Data will be appended to the ``results`` list only if the current time
-            matches a time from ``self.time_manager.schedule[1:]``.
-
-        """
-        if any(np.isclose(self.time_manager.time, self.time_manager.schedule[1:])):
-            collected_data = self._collect_data()
-            self.results.append(collected_data)
-
-    def _collect_data(self) -> SaveData:
+    def collect_data(self) -> ManuPoroMechSaveData:
         """Collect data from the verification setup.
 
         Returns:
-            SaveData object containing the results of the verification for the
-            current time.
+            ManuPoroMechSaveData object containing the results of the verification for
+            the current time.
 
         """
 
@@ -520,21 +508,19 @@ class ModifiedDataSavinMixin(pp.DataSavingMixin):
         mdg: pp.MixedDimensionalGrid = self.mdg
         sd: pp.Grid = mdg.subdomains()[0]
         data: dict = mdg.subdomain_data(sd)
-        t: float = self.time_manager.time
+        t: number = self.time_manager.time
         p_name: str = self.pressure_variable
-        q_name: str = self.flux_variable
         u_name: str = self.displacement_variable
-        force_name: str = self.stress_variable
 
         # Instantiate data class
-        out = SaveData()
+        out = ManuPoroMechSaveData()
 
         # Time
         out.time = t
 
         # Pressure
         out.exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
-        out.approx_pressure = data[pp.STATE][pp.ITERATE][p_name]
+        out.approx_pressure = data[pp.STATE][pp.ITERATE][p_name].copy()
         out.error_pressure = self.relative_l2_error(
             grid=sd,
             true_array=out.exact_pressure,
@@ -545,7 +531,7 @@ class ModifiedDataSavinMixin(pp.DataSavingMixin):
 
         # Displacement
         out.exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
-        out.approx_displacement = data[pp.STATE][pp.ITERATE][u_name]
+        out.approx_displacement = data[pp.STATE][pp.ITERATE][u_name].copy()
         out.error_displacement = self.relative_l2_error(
             grid=sd,
             true_array=out.exact_displacement,
@@ -556,7 +542,8 @@ class ModifiedDataSavinMixin(pp.DataSavingMixin):
 
         # Flux
         out.exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
-        out.approx_flux = data[pp.STATE][pp.ITERATE][q_name]
+        flux_ad = self.darcy_flux([sd])
+        out.approx_flux = flux_ad.evaluate(self.equation_system).val
         out.error_flux = self.relative_l2_error(
             grid=sd,
             true_array=out.exact_flux,
@@ -567,7 +554,8 @@ class ModifiedDataSavinMixin(pp.DataSavingMixin):
 
         # Force
         out.exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
-        out.approx_force = data[pp.STATE][pp.ITERATE][force_name]
+        force_ad = self.stress([sd])
+        out.approx_force = force_ad.evaluate(self.equation_system).val
         out.error_force = self.relative_l2_error(
             grid=sd,
             true_array=out.exact_force,
@@ -585,7 +573,7 @@ class SetupUtilities:
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    results: list[SaveData]
+    results: list[ManuPoroMechSaveData]
     """List of SaveData objects."""
 
     def plot_results(self) -> None:
@@ -732,20 +720,11 @@ class ModifiedEquationsPoromechanics(ModifiedMassBalance, ModifiedMomentumBalanc
 class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy for the verification setup."""
 
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-
     exact_sol: ManuPoroMechExactSolution
     """Exact solution object."""
 
     fluid: pp.FluidConstants
     """Object containing the fluid constants."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
 
     plot_results: Callable
     """Method for plotting results. Usually provided by the mixin class
@@ -753,15 +732,8 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
     """
 
-    results: list[SaveData]
+    results: list[ManuPoroMechSaveData]
     """List of SaveData objects."""
-
-    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the (integrated) poroelastic stress in the form of an Ad
-    operator. Usually provided by the mixin class
-    :class:`porepy.models.poromechanics.ConstitutiveLawsPoromechanics`.
-
-    """
 
     def __init__(self, params: dict):
         """Constructor for the class."""
@@ -770,7 +742,7 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         self.exact_sol: ManuPoroMechExactSolution
         """Exact solution object."""
 
-        self.results: list[SaveData] = []
+        self.results: list[ManuPoroMechSaveData] = []
         """Results object that stores exact and approximated solutions and errors."""
 
         self.flux_variable: str = "darcy_flux"
@@ -801,27 +773,6 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         flow_source = self.exact_sol.flow_source(sd=sd, time=t)
         data[pp.STATE]["source_flow"] = flow_source
 
-    def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called after the non-linear solver has converged."""
-
-        sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-
-        # Recover Darcy fluxes and store them in pp.ITERATE
-        darcy_flux_ad = self.darcy_flux([sd])
-        darcy_flux_vals = darcy_flux_ad.evaluate(self.equation_system).val
-        data[pp.STATE][pp.ITERATE][self.flux_variable] = darcy_flux_vals
-
-        # Recover poroelastic forces and store them in pp.ITERATE
-        force_ad = self.stress([sd])
-        force_vals = force_ad.evaluate(self.equation_system).val
-        data[pp.STATE][pp.ITERATE][self.stress_variable] = force_vals
-
-        # Inherit from base class
-        super().after_nonlinear_convergence(solution, errors, iteration_counter)
-
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         if self.params.get("plot_results", False):
@@ -834,7 +785,7 @@ class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
     ModifiedSolutionStrategy,
     SetupUtilities,
     VerificationUtils,
-    ModifiedDataSavinMixin,
+    ManuPoroMechDataSaving,
     poromechanics.Poromechanics,
 ):
     """

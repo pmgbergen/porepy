@@ -26,18 +26,22 @@ References:
 """
 from __future__ import annotations
 
-from typing import Callable
+from dataclasses import dataclass
+from typing import Callable, Optional
 
 import numpy as np
 import sympy as sym
 
 import porepy as pp
 from porepy.applications.verification_setups.manu_flow_incomp_frac import (
-    SaveData,
+    ManuIncompSaveData,
     SetupUtilities,
     SingleEmbeddedVerticalFracture,
 )
-from porepy.applications.verification_setups.verification_utils import VerificationUtils
+from porepy.applications.verification_setups.verification_utils import (
+    VerificationDataSaving,
+    VerificationUtils,
+)
 
 # PorePy typings
 number = pp.number
@@ -60,8 +64,22 @@ manu_comp_solid: dict[str, number] = {
 }
 
 
-class ModifiedDataSavingMixin(pp.DataSavingMixin):
+@dataclass
+class ManuCompSaveData(ManuIncompSaveData):
+    """Data class to store relevant data from the verification setup."""
+
+    time: Optional[number] = None
+    """Current simulation time."""
+
+
+class ManuCompDataSaving(VerificationDataSaving):
     """Mixin class to store relevant data."""
+
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
+
+    """
 
     exact_sol: ManuCompExactSolution
     """Exact solution object."""
@@ -72,36 +90,11 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
     pressure_variable: str
     """Key to access the pressure variable."""
 
-    relative_l2_error: Callable
-    """Method that computes the discrete relative L2-error between an exact solution
-    and an approximate solution on a given grid. The method is provided by the mixin
-    class :class:`porepy.applications.verification_setups.VerificationUtils`.
-
-    """
-
-    results: list[SaveData]
-    """List of :class:`SaveData` objects containing the results of the verification."""
-
-    subdomain_darcy_flux_variable: str
-    """Keyword to access the subdomain Darcy fluxes."""
-
-    def save_data_time_step(self) -> None:
-        """Save data to the `results` list.
-
-        Note:
-            Data will be appended to the ``results`` list only if the current time
-            matches a time from ``self.time_manager.schedule[1:]``.
-
-        """
-        if any(np.isclose(self.time_manager.time, self.time_manager.schedule[1:])):
-            collected_data = self._collect_data()
-            self.results.append(collected_data)
-
-    def _collect_data(self) -> SaveData:
+    def collect_data(self) -> ManuCompSaveData:
         """Collect data from the verification setup.
 
         Returns:
-            SaveData object containing the results of the verification for the
+            ManuCompSaveData object containing the results of the verification for the
             current time.
 
         """
@@ -113,15 +106,17 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
         data_intf: dict = self.mdg.interface_data(intf)
         p_name: str = self.pressure_variable
-        q_name: str = self.subdomain_darcy_flux_variable
         lmbda_name: str = self.interface_darcy_flux_variable
         exact_sol: ManuCompExactSolution = self.exact_sol
         t: number = self.time_manager.time
 
         # Instantiate data class
-        out = SaveData()
+        out = ManuCompSaveData()
 
-        # Matrix pressure
+        # Time
+        out.time = t
+
+        # Pressure in the matrix
         out.exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix, t)
         out.approx_matrix_pressure = data_matrix[pp.STATE][pp.ITERATE][p_name].copy()
         out.error_matrix_pressure = self.relative_l2_error(
@@ -132,7 +127,19 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
             is_cc=True,
         )
 
-        # Fracture pressure
+        # Darcy flux in the matrix
+        out.exact_matrix_flux = exact_sol.matrix_flux(sd_matrix, t)
+        matrix_flux_ad = self.darcy_flux([sd_matrix])
+        out.approx_matrix_flux = matrix_flux_ad.evaluate(self.equation_system).val
+        out.error_matrix_flux = self.relative_l2_error(
+            grid=sd_matrix,
+            true_array=out.exact_matrix_flux,
+            approx_array=out.approx_matrix_flux,
+            is_scalar=True,
+            is_cc=False,
+        )
+
+        # Pressure in the fracture
         out.exact_frac_pressure = exact_sol.fracture_pressure(sd_frac, t)
         out.approx_frac_pressure = data_frac[pp.STATE][pp.ITERATE][p_name].copy()
         out.error_frac_pressure = self.relative_l2_error(
@@ -143,20 +150,10 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
             is_cc=True,
         )
 
-        # Matrix flux
-        out.exact_matrix_flux = exact_sol.matrix_flux(sd_matrix, t)
-        out.approx_matrix_flux = data_matrix[pp.STATE][pp.ITERATE][q_name].copy()
-        out.error_matrix_flux = self.relative_l2_error(
-            grid=sd_matrix,
-            true_array=out.exact_matrix_flux,
-            approx_array=out.approx_matrix_flux,
-            is_scalar=True,
-            is_cc=False,
-        )
-
-        # Fracture flux
+        # Flux in the fracture
         out.exact_frac_flux = exact_sol.fracture_flux(sd_frac, t)
-        out.approx_frac_flux = data_frac[pp.STATE][pp.ITERATE][q_name].copy()
+        frac_flux_ad = self.darcy_flux([sd_frac])
+        out.approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
         out.error_frac_flux = self.relative_l2_error(
             grid=sd_frac,
             true_array=out.exact_frac_flux,
@@ -690,7 +687,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
     """
 
-    results: list[SaveData]
+    results: list[ManuCompSaveData]
     """List of SaveData objects."""
 
     solid: pp.SolidConstants
@@ -703,7 +700,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         self.exact_sol: ManuCompExactSolution
         """Exact solution object."""
 
-        self.results: list[SaveData] = []
+        self.results: list[ManuCompSaveData] = []
         """Object that stores exact and approximated solutions and L2 errors."""
 
         self.subdomain_darcy_flux_variable: str = "darcy_flux"
@@ -780,7 +777,7 @@ class ManufacturedCompressibleFlow2d(  # type: ignore[misc]
     SetupUtilities,
     VerificationUtils,
     SingleEmbeddedVerticalFracture,
-    ModifiedDataSavingMixin,
+    ManuCompDataSaving,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
