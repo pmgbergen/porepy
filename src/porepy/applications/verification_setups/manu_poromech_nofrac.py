@@ -719,6 +719,15 @@ class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
 class ModifiedEquationsPoromechanics(ModifiedMassBalance, ModifiedMomentumBalance):
     """Mixer class for modified poromoechanics equations."""
 
+    def set_equations(self):
+        """Set the equations for the modified poromechanics problem.
+
+        Call both parent classes' `set_equations` methods.
+
+        """
+        ModifiedMassBalance.set_equations(self)
+        ModifiedMomentumBalance.set_equations(self)
+
 
 class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy for the verification setup."""
