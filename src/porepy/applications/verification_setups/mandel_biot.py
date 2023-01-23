@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Union
+from typing import Callable, Union
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -44,7 +44,10 @@ import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.classic_models.biot import BiotPoromechanics
 from porepy.applications.verification_setups.verification_utils import VerificationUtils
-from porepy.applications.verification_setups.manu_poromech_nofrac import SaveData
+from porepy.applications.verification_setups.manu_poromech_nofrac import (
+    SaveData,
+    ModifiedDataSavingMixin,
+)
 
 # PorePy typings
 number = pp.number
@@ -63,6 +66,534 @@ mandel_fluid_constants: dict[str, number] = {
     "density": 1e3,  # [kg * m^3]
     "viscosity": 1e-3,  # [Pa * s]
 }
+
+
+class MandelDataSavingMixin(ModifiedDataSavingMixin):
+    """Modify base class to store consolidation degrees."""
+
+    def _collect_data(self) -> SaveData:
+        """Collect the data from the verification setup."""
+        out: SaveData = super()._collect_data(self)
+        setattr(out, "exact_consolidation_degree", 0)
+        setattr(out, "approx_consolidation_degree", (0, 0))
+        setattr(out, "error_consolidation_degree", (0, 0))
+
+        # Store degrees of consolidation
+        out.exact_consolidation_degree = self.exact_sol.consolidation_degree(out.time)
+        out.approx_consolidation_degree = self.numerical_consolidation_degree()
+        for idx, _ in out.approx_consolidation_degree:
+            out.error_consolidation_degree[idx] = np.abs(
+                out.approx_consolidation_degree[idx] - out.exact_consolidation_degree
+            )
+
+
+class MandelUtilities:
+    """Mixin class that provides useful utility methods for the verification setup."""
+
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    """Named tuple containing the boundary sides indices."""
+
+    exact_sol: MandelExactSolution
+    """Exact solution object."""
+
+    fluid: pp.FluidConstants
+
+    fluid_diffusivity: Callable
+    """Fluid diffusivity in `m^2 * s^{-1}`."""
+
+    mdg: pp.MixedDimensionalGrid
+
+    params: dict
+    """Model parameters dictionary."""
+
+    results: list[SaveData]
+
+    solid: pp.SolidConstants
+
+    time_manager: pp.TimeManager
+
+    # -----> Non-dimensionalization methods
+    def nondim_t(self, t: Union[float, int, np.ndarray]) -> float:
+        """Non-dimensionalized time.
+
+        Parameters:
+            t: Time in seconds.
+
+        Returns:
+            Dimensionless time for the given time ``t``.
+
+        """
+        a, _ = self.params.get("domain_size", (100, 10)) # [m]
+        c_f = self.fluid_diffusivity()  # [m^2 * s^{-1}]
+        return (t * c_f) / (a**2)
+
+    def nondim_x(self, x: np.ndarray) -> np.ndarray:
+        """Nondimensionalized length in the horizontal direction.
+
+        Parameters:
+            x: horizontal length in meters.
+
+        Returns:
+            Dimensionless horizontal length with ``shape=(num_points, )``.
+
+        """
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        return x / a
+
+    def nondim_y(self, y: np.ndarray) -> np.ndarray:
+        """Non-dimensionalized length in the vertical direction.
+
+        Parameters:
+            y: vertical length in meters.
+
+        Returns:
+            Dimensionless vertical length with ``shape=(num_points, )``.
+
+        """
+        _, b = self.params.get("domain_size", (100, 10))  # [m]
+        return y / b
+
+    def nondim_p(self, p: np.ndarray) -> np.ndarray:
+        """Non-dimensionalized pressure.
+
+        Parameters:
+            p: Fluid pressure in Pascals.
+
+        Returns:
+            Dimensionaless pressure with ``shape=(num_points, )``.
+
+        """
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        F = self.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        return p / (F * a)
+
+    def nondim_flux(self, qx: np.ndarray) -> np.ndarray:
+        """Non-dimensionalized horizontal component of the specific discharge vector.
+
+        Parameters:
+            qx: Horizontal component of the specific discharge in `m * s^{-1}`.
+
+        Returns:
+            Dimensionless horizontal component of the specific discharge with
+            ``shape=(num_points, )``.
+
+        """
+        k = self.solid.permeability()  # [m^2]
+        F = self.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        mu = self.fluid.viscosity()  # [Pa * s]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        factor = (F * k) / (mu * a**2)  # [m * s^{-1}]
+        return qx / factor
+
+    def nondim_stress(self, syy: np.ndarray) -> np.ndarray:
+        """Non-dimensionalized vertical component of the stress tensor.
+
+        Parameters:
+            syy: Vertical component of the stress tensor.
+
+        Returns:
+            Dimensionless vertical component of the stress tensor with
+            ``shape=(num_points, )``.
+
+        """
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        F = self.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        return syy / (F / a)
+
+    # -----> Post-processing methods
+    def south_cells(self) -> np.ndarray:
+        """Get indices of cells that are adjacent to the South boundary."""
+        sd = self.mdg.subdomains()[0]
+        sides = self.domain_boundary_sides(sd)
+        south_idx = np.where(sides.south)[0]
+        return sd.signs_and_cells_of_boundary_faces(south_idx)[1]
+
+    def east_cells(self) -> np.ndarray:
+        """Get indices of cells that are adjacent to the East boundary."""
+        sd = self.mdg.subdomains()[0]
+        sides = self.domain_boundary_sides(sd)
+        east_idx = np.where(sides.east)[0]
+        return sd.signs_and_cells_of_boundary_faces(east_idx)[1]
+
+    # -----> Plotting methods
+    def plot_results(self):
+        """Ploting results."""
+        num_lines = len(self.time_manager.schedule) - 1
+        cmap = mcolors.ListedColormap(plt.cm.tab20.colors[: num_lines])
+
+        self._plot_pressure(color_map=cmap)
+        self._plot_horizontal_displacement(color_map=cmap)
+        self._plot_vertical_displacement(color_map=cmap)
+        self._plot_horizontal_flux(color_map=cmap)
+        self._plot_vertical_stress(color_map=cmap)
+        self._plot_consolidation_degree()
+
+    def _plot_pressure(self, color_map: mcolors.ListedColormap) -> None:
+        """Plot non-dimensional pressure profiles.
+
+        Parameters:
+            color_map: listed color map object.
+
+        """
+        sd = self.mdg.subdomains()[0]
+        xc = sd.cell_centers[0]
+        south_cells = self.south_cells()
+        a, _ = self.params.get("domain_size", (100, 10))
+        x_ex = np.linspace(0, a, 400)
+
+        fig, ax = plt.subplots(figsize=(9, 8))
+        for idx, result in enumerate(self.results):
+            ax.plot(
+                self.nondim_x(x_ex),
+                self.nondim_p(self.exact_sol.pressure_profile(x_ex, result.time)),
+                color=color_map.colors[idx],
+            )
+            ax.plot(
+                self.nondim_x(xc[south_cells]),
+                self.nondim_p(result.approx_pressure[south_cells]),
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker=".",
+                markersize=8,
+            )
+            ax.plot(
+                [],
+                [],
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker="s",
+                markersize=12,
+                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+            )
+        ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
+        ax.set_ylabel(r"Non-dimensional pressure, $p ~ a ~ F^{-1}$", fontsize=13)
+        ax.legend(loc="center right", bbox_to_anchor=(1.4, 0.5), fontsize=13)
+        plt.subplots_adjust(right=0.7)
+        plt.show()
+
+    def _plot_horizontal_displacement(self, color_map: mcolors.ListedColormap) -> None:
+        """Plot non-dimensional horizontal displacement profiles.
+
+        Parameters:
+            color_map: listed color map object.
+
+        """
+        sd = self.mdg.subdomains()[0]
+        xc = sd.cell_centers[0]
+        south_cells = self.south_cells()
+        a, _ = self.params.get("domain_size", (100, 10))
+        x_ex = np.linspace(0, a, 400)
+
+        fig, ax = plt.subplots(figsize=(9, 8))
+        for idx, result in enumerate(self.results):
+            ax.plot(
+                self.nondim_x(x_ex),
+                self.nondim_x(
+                    self.exact_sol.horizontal_displacement_profile(x_ex, result.time)
+                ),
+                color=color_map.colors[idx],
+            )
+            ax.plot(
+                self.nondim_x(xc[south_cells]),
+                self.nondim_x(result.approx_displacement[::2][south_cells]),
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker=".",
+                markersize=8,
+            )
+            ax.plot(
+                [],
+                [],
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker="s",
+                markersize=12,
+                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+            )
+        ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
+        ax.set_ylabel(
+            r"Non-dimensional horizontal displacement, $u_x ~ a^{-1}$", fontsize=13
+        )
+        ax.legend(loc="center right", bbox_to_anchor=(1.4, 0.5), fontsize=13)
+        ax.grid()
+        plt.subplots_adjust(right=0.7)
+        plt.show()
+
+    def _plot_vertical_displacement(self, color_map: mcolors.ListedColormap) -> None:
+        """Plot non-dimensional vertical displacement profiles.
+
+        Parameters:
+            color_map: listed color map object.
+
+        """
+        sd = self.mdg.subdomains()[0]
+        yc = sd.cell_centers[1]
+        east_cells = self.east_cells()
+        _, b = self.params.get("domain_size", (100, 10))
+        y_ex = np.linspace(0, b, 400)
+
+        fig, ax = plt.subplots(figsize=(9, 8))
+        for idx, result in enumerate(self.results):
+            ax.plot(
+                self.nondim_y(y_ex),
+                self.nondim_y(
+                    self.exact_sol.vertical_displacement_profile(y_ex, result.time)
+                ),
+                color=color_map.colors[idx],
+            )
+            ax.plot(
+                self.nondim_y(yc[east_cells]),
+                self.nondim_y(result.approx_displacement[1::2][east_cells]),
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker=".",
+                markersize=8,
+            )
+            ax.plot(
+                [],
+                [],
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker="s",
+                markersize=12,
+                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+            )
+        ax.set_xlabel(r"Non-dimensional vertical distance, $y ~ b^{-1}$", fontsize=13)
+        ax.set_ylabel(
+            r"Non-dimensional vertical displacement, $u_y ~ b^{-1}$", fontsize=13
+        )
+        ax.legend(loc="center right", bbox_to_anchor=(1.4, 0.5), fontsize=13)
+        ax.grid()
+        plt.subplots_adjust(right=0.7)
+        plt.show()
+
+    def _plot_horizontal_flux(self, color_map: mcolors.ListedColormap) -> None:
+        """Plot non-dimensional horizontal Darcy flux profiles.
+
+        Parameters:
+            color_map: listed color map object.
+
+        """
+        sd = self.mdg.subdomains()[0]
+        xf = sd.face_centers[0]
+        nx = sd.face_normals[0]
+        sides = self.domain_boundary_sides(sd)
+        south_cells = self.south_cells()
+        faces_of_south_cells = sps.find(sd.cell_faces.T[south_cells])[1]
+        south_faces = np.where(sides.south)[0]
+        int_faces_of_south_cells = np.setdiff1d(faces_of_south_cells, south_faces)
+
+        a, _ = self.params.get("domain_size", (100, 10))
+        x_ex = np.linspace(0, a, 400)
+
+        fig, ax = plt.subplots(figsize=(9, 8))
+        for idx, result in enumerate(self.results):
+            ax.plot(
+                self.nondim_x(x_ex),
+                self.nondim_flux(
+                    self.exact_sol.horizontal_velocity_profile(x_ex, result.time)
+                ),
+                color=color_map.colors[idx],
+            )
+            ax.plot(
+                self.nondim_x(xf[int_faces_of_south_cells]),
+                self.nondim_flux(
+                    result.approx_flux[int_faces_of_south_cells]
+                    / nx[int_faces_of_south_cells]
+                ),
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker=".",
+                markersize=8,
+            )
+            ax.plot(
+                [],
+                [],
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker="s",
+                markersize=12,
+                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+            )
+        ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
+        ax.set_ylabel(
+            r"Non-dimensional horizontal flux, "
+            r"$q_x ~ \mu_f ~ a^2 ~ F^{-1} ~ k^{-1}$",
+            fontsize=13,
+        )
+        ax.legend(loc="center right", bbox_to_anchor=(1.4, 0.5), fontsize=13)
+        ax.grid()
+        plt.subplots_adjust(right=0.7)
+        plt.show()
+
+    def _plot_vertical_stress(self, color_map: mcolors.ListedColormap) -> None:
+        """Plot non-dimensional vertical stress profiles.
+
+        Parameters:
+            color_map: listed color map object.
+
+        """
+        sd = self.mdg.subdomains()[0]
+        xf = sd.face_centers[0]
+        sides = self.domain_boundary_sides(sd)
+        south_faces = sides.south
+        ny = sd.face_normals[1]
+
+        a, b = self.params.get("domain_size", (100, 10))
+        x_ex = np.linspace(0, a, 400)
+
+        # Vertical stress plot
+        fig, ax = plt.subplots(figsize=(9, 8))
+        for idx, result in enumerate(self.results):
+            ax.plot(
+                self.nondim_x(x_ex),
+                self.nondim_stress(
+                    self.exact_sol.vertical_stress_profile(x_ex, result.time)
+                ),
+                color=color_map.colors[idx],
+            )
+            ax.plot(
+                self.nondim_x(xf[south_faces]),
+                self.nondim_stress(
+                    result.approx_force[1 :: sd.dim][south_faces]
+                    / ny[south_faces]
+                ),
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker=".",
+                markersize=8,
+            )
+            ax.plot(
+                [],
+                [],
+                color=color_map.colors[idx],
+                linewidth=0,
+                marker="s",
+                markersize=12,
+                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+            )
+        ax.set_xlabel(
+            r"Non-dimensional horizontal distance, $ x ~ a^{-1}$", fontsize=13
+        )
+        ax.set_ylabel(
+            r"Non-dimensional vertical poroelastic stress,"
+            r" $\sigma_{yy} ~ a ~ F^{-1}$",
+            fontsize=13,
+        )
+        ax.legend(loc="center right", bbox_to_anchor=(1.4, 0.5), fontsize=13)
+        ax.grid()
+        plt.subplots_adjust(right=0.7)
+        plt.show()
+
+    def _plot_consolidation_degree(self):
+        """Plot degree of consolidation as a function of time."""
+
+        # Retrieve data
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        c_f = self.fluid_diffusivity()  # [m^2 * s^{-1}]
+
+        # Generate exact consolidation times
+        tau_0 = 1e-3
+        tau_1 = 1e-2
+        tau_2 = 1e0
+        tau_3 = 1e1
+
+        t = lambda tau: tau * a**2 / c_f
+
+        interval_0 = np.linspace(t(tau_0), t(tau_1), 100)
+        interval_1 = np.linspace(t(tau_1), t(tau_2), 100)
+        interval_2 = np.linspace(t(tau_2), t(tau_3), 100)
+        ex_times = np.concatenate((interval_0, interval_1))
+        ex_times = np.concatenate((ex_times, interval_2))
+
+        ex_consol_degree = np.array(
+            [self.exact_sol.degree_of_consolidation(t) for t in ex_times]
+        )
+
+        # Numerical consolidation degrees
+        num_times = self.time_manager.schedule[1:]
+        num_consol_degree_x = np.array(
+            [sol.num_consol_degree[0] for sol in self.results]
+        )
+        num_consol_degree_y = np.array(
+            [sol.num_consol_degree[1] for sol in self.results]
+        )
+
+        fig, ax = plt.subplots(figsize=(9, 8))
+        ax.semilogx(
+            self.nondim_t(ex_times),
+            ex_consol_degree,
+            alpha=0.5,
+            color="black",
+            linewidth=2,
+            label="Exact",
+        )
+        ax.semilogx(
+            self.nondim_t(num_times),
+            num_consol_degree_x,
+            marker="s",
+            linewidth=0,
+            markerfacecolor="none",
+            markeredgewidth=2,
+            color="blue",
+            markersize=10,
+            label="Horizontal MPFA/MPSA-FV",
+        )
+        ax.semilogx(
+            self.nondim_t(num_times),
+            num_consol_degree_y,
+            marker="+",
+            markeredgewidth=2,
+            linewidth=0,
+            color="red",
+            markersize=10,
+            label="Vertical MPFA/MPSA-FV",
+        )
+        ax.set_xlabel(r"Non-dimensional time, $t ~ c_f ~ a^{-2}$", fontsize=13)
+        ax.set_ylabel(
+            r"Degree of consolidation," r" $U(t)$",
+            fontsize=13,
+        )
+        ax.grid()
+        ax.legend(fontsize=12)
+        plt.show()
+
+
+class MandelGeometry(pp.ModelGeometry):
+    """Class for setting up the rectangular geometry."""
+
+    params: dict
+    """Simulation model parameters."""
+
+    fracture_network: pp.FractureNetwork2d
+    """Fracture network. Empty in this case."""
+
+    def set_fracture_network(self) -> None:
+        """Set fracture network. Unit square with no fractures."""
+        a, b = self.params.get("domain_size", (100, 10))
+        domain = {"xmin": 0.0, "xmax": a, "ymin": 0.0, "ymax": b}
+        self.fracture_network = pp.FractureNetwork2d(None, None, domain)
+
+    def mesh_arguments(self) -> dict:
+        """Set mesh arguments."""
+        default_mesh_arguments = {"mesh_size_frac": 2, "mesh_size_bound": 2}
+        return self.params.get("mesh_arguments", default_mesh_arguments)
+
+    def set_md_grid(self) -> None:
+        """Set mixed-dimensional grid."""
+        self.mdg = self.fracture_network.mesh(self.mesh_arguments())
+        domain = self.fracture_network.domain
+        if isinstance(domain, np.ndarray):
+            assert domain.shape == (2, 2)
+            self.domain_bounds: dict[str, float] = {
+                "xmin": domain[0, 0],
+                "xmax": domain[1, 0],
+                "ymin": domain[0, 1],
+                "ymax": domain[1, 1],
+            }
+        else:
+            assert isinstance(domain, dict)
+            self.domain_bounds = domain
 
 
 class MandelExactSolution:
@@ -402,17 +933,73 @@ class MandelExactSolution:
 
         return consolidation_degree
 
-    def pressure(self, sd: pp.Grid, t: number):
-        ...
+    def pressure(self, sd: pp.Grid, t: number) -> np.ndarray:
+        """Evaluate exact pressure [Pa] at the cell centers.
 
-    def displacement(self, sd: pp.Grid, t: number):
-        ...
+        Parameters:
+            sd: Grid.
+            t: Time in seconds.
 
-    def flux(self, sd: pp.Grid, t: number):
-        ...
+        Returns:
+            Array of ``shape=(sd.num_cells, )`` containing the exact pressures at
+            the cell centers at the given time ``t``.
 
-    def poroelastic_force(self, sd: pp.Grid, t: number):
-        ...
+        """
+        return self.pressure_profile(sd.cell_centers[0], t)
+
+    def displacement(self, sd: pp.Grid, t: number) -> np.ndarray:
+        """Evaluate exact displacement [m] at the cell centers.
+
+        Parameters:
+            sd: Grid.
+            t: Time in seconds.
+
+        Returns:
+            Array of ``shape=(sd.num_cells * 2, )`` containing the exact displacement at
+            the cell centers at the given time ``t``. The returned array is given in
+            flattened vector format.
+
+        """
+        ux = self.horizontal_displacement_profile(sd.cell_centers[0], t)
+        uy = self.vertical_displacement_profile(sd.cell_centers[1], t)
+        u = np.stack((ux, uy)).ravel("F")
+        return u
+
+    def flux(self, sd: pp.Grid, t: number) -> np.ndarray:
+        """Evaluate exact Darcy flux [m^3 * s^{-1}] at the face centers.
+
+        Parameters:
+            sd: Grid.
+            t: Time in seconds.
+
+        Returns:
+            Array of ``shape=(sd.num_faces, )`` containing the exact Darcy flux at
+            the face centers at the given time ``t``.
+
+        """
+        qx = self.horizontal_velocity_profile(sd.face_centers[0], t)
+        nx = sd.face_normals[0]
+        darcy_flux = qx * nx
+        return darcy_flux
+
+    def poroelastic_force(self, sd: pp.Grid, t: number) -> np.ndarray:
+        """Evaluate exact poroelastic force [N] at the face centers.
+
+        Parameters:
+            sd: Grid.
+            t: Time in seconds.
+
+        Returns:
+            Array of ``shape=(sd.num_faces * 2, )`` containing the exact poroelastic
+            force at the face centers at the given time ``t``.
+
+        """
+        syy = self.vertical_stress_profile(sd.face_centers[0], t)
+        ny = sd.face_normals[1]
+        force_y = syy * ny
+        force_x = np.zeros_like(force_y)
+        force = np.stack((force_x, force_y)).ravel("F")
+        return force
 
 
 @dataclass
@@ -494,6 +1081,50 @@ class MandelSolution:
             is_scalar=False,
             is_cc=False,
         )
+
+
+class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+    """Solution strategy for Mandel's problem."""
+
+    exact_sol: MandelExactSolution
+    """Exact solution object."""
+
+    def __init__(self, params: dict):
+        """Constructor of the class."""
+        super().__init__(params)
+
+    def set_materials(self):
+        """Set material constants for the verification setup."""
+        super().__init__()
+
+        # Sanity check
+        assert self.solid.biot_coefficient() == 1
+
+        # Instantiate exact solution object after the material constants have been set
+        self.exact_sol = MandelExactSolution(self)
+
+    def initial_condition(self) -> None:
+        """Modify default initial conditions.
+
+        Note:
+            Initial conditions are given in 10.1007/s10596-013-9393-8.
+
+        """
+        super().initial_condition()
+
+        sd = self.mdg.subdomains()[0]
+        data = self.mdg.subdomain_data(sd)
+        p_name = self.pressure_variable
+        u_name = self.displacement_variable
+
+        # Set initial pressure
+        data[pp.STATE][p_name] = self.exact_sol.pressure(sd, 0)
+        data[pp.STATE][pp.ITERATE][p_name] = data[pp.STATE][p_name].copy()
+
+        # Set initial displacement
+        data[pp.STATE][u_name] = self.exact_sol.displacement(sd, 0)
+        data[pp.STATE][pp.ITERATE][u_name] = data[pp.STATE][u_name].copy()
+
 
 
 class Mandel(pp.ContactMechanicsBiot):
@@ -605,9 +1236,11 @@ class Mandel(pp.ContactMechanicsBiot):
 
     def _initial_condition(self) -> None:
         """Set up initial conditions.
+
         Note:
             Initial conditions are given by Eqs. (41) - (43) from
             10.1007/s10596-013-9393-8.
+
         """
         super()._initial_condition()
         sd = self.mdg.subdomains()[0]
