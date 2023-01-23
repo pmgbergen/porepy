@@ -47,7 +47,9 @@ __all__ = [
 ]
 
 
-def bip_H2O_CO2(T: pp.ad.MixedDimensionalVariable, h2o: H2O, co2: CO2) -> pp.ad.Operator:
+def bip_H2O_CO2(
+    T: pp.ad.MixedDimensionalVariable, h2o: H2O, co2: CO2
+) -> pp.ad.Operator:
     """(Constant) BIP for water and carbon dioxide.
 
     The value is taken from
@@ -64,7 +66,9 @@ def bip_H2O_CO2(T: pp.ad.MixedDimensionalVariable, h2o: H2O, co2: CO2) -> pp.ad.
     return pp.ad.Scalar(0.0952)
 
 
-def bip_H2O_H2S(T: pp.ad.MixedDimensionalVariable, h20: H2O, h2s: H2S) -> pp.ad.Operator:
+def bip_H2O_H2S(
+    T: pp.ad.MixedDimensionalVariable, h20: H2O, h2s: H2S
+) -> pp.ad.Operator:
     """(Constant) BIP for water and hydrogen sulfide.
 
     The value is taken from
@@ -104,13 +108,17 @@ def bip_H2O_N2(T: pp.ad.MixedDimensionalVariable, h2o: H2O, n2: N2) -> pp.ad.Ope
     return pp.ad.Scalar(0.0)
 
 
-def dT_bip_H2O_N2(T: pp.ad.MixedDimensionalVariable, h2o: H2O, n2: N2) -> pp.ad.Operator:
+def dT_bip_H2O_N2(
+    T: pp.ad.MixedDimensionalVariable, h2o: H2O, n2: N2
+) -> pp.ad.Operator:
     """Analytical derivative of :func:`bip_H2O_N2` w.r.t. temperature ``T``."""
     # return 379.9691 / (T * T)
     return pp.ad.Scalar(0.0)
 
 
-def bip_CO2_H2S(T: pp.ad.MixedDimensionalVariable, co2: CO2, h2s: H2S) -> pp.ad.Operator:
+def bip_CO2_H2S(
+    T: pp.ad.MixedDimensionalVariable, co2: CO2, h2s: H2S
+) -> pp.ad.Operator:
     """(Constant) BIP for carbon dioxide and hydrogen sulfide.
 
     The value is taken from

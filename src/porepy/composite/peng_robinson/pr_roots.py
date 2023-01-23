@@ -515,9 +515,7 @@ class PR_Roots:
 
         """
         # coefficients for the labeling polynomial
-        c2_label = (2 * self.B * self.B - 10 * self.B - 1 / 4).evaluate(
-            self.ad_system
-        )
+        c2_label = (2 * self.B * self.B - 10 * self.B - 1 / 4).evaluate(self.ad_system)
         c1_label = (
             -4 * _power(self.B, pp.ad.Scalar(4))
             + 28 * _power(self.B, pp.ad.Scalar(3))

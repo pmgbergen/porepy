@@ -95,8 +95,7 @@ class Flash:
         """A dictionary containing the NPIPM extension variable ``W`` for each phase."""
 
         self._nu: pp.ad.MixedDimensionalVariable = self._C.ad_system.create_variables(
-            self._nu_name,
-            subdomains=self._C.ad_system.mdg.subdomains()
+            self._nu_name, subdomains=self._C.ad_system.mdg.subdomains()
         )
         """Variable ``nu`` representing the IPM parameter."""
 
@@ -224,7 +223,7 @@ class Flash:
             self._C.ad_system.set_equation(
                 equ,
                 grids=self._C.ad_system.mdg.subdomains(),
-                equations_per_grid_entity={"cells": 1}
+                equations_per_grid_entity={"cells": 1},
             )
 
         return cc_eqn
@@ -244,10 +243,7 @@ class Flash:
 
         # set initial values of zero for all npipm vars
         self._C.ad_system.set_variable_values(
-            np.zeros(nc),
-            variables=[self._nu_name],
-            to_iterate=True,
-            to_state=True
+            np.zeros(nc), variables=[self._nu_name], to_iterate=True, to_state=True
         )
 
         ### NPIPM variables and equations
@@ -258,30 +254,22 @@ class Flash:
                 # create V_e
                 name = f"{self._V_name}_{phase.name}"
                 V_e = self._C.ad_system.create_variables(
-                    name,
-                    subdomains=self._C.ad_system.mdg.subdomains()
+                    name, subdomains=self._C.ad_system.mdg.subdomains()
                 )
                 npipm_vars.append(name)
                 self._C.ad_system.set_variable_values(
-                    np.zeros(nc),
-                    variables=[name],
-                    to_iterate=True,
-                    to_state=True
+                    np.zeros(nc), variables=[name], to_iterate=True, to_state=True
                 )
                 self._V_of_phase[phase] = V_e
 
                 # create W_e
                 name = f"{self._W_name}_{phase.name}"
                 W_e = self._C.ad_system.create_variables(
-                    name,
-                    subdomains=self._C.ad_system.mdg.subdomains()
+                    name, subdomains=self._C.ad_system.mdg.subdomains()
                 )
                 npipm_vars.append(name)
                 self._C.ad_system.set_variable_values(
-                    np.zeros(nc),
-                    variables=[name],
-                    to_iterate=True,
-                    to_state=True
+                    np.zeros(nc), variables=[name], to_iterate=True, to_state=True
                 )
                 self._W_of_phase[phase] = W_e
             # else we eliminate them by their respective definition
@@ -306,7 +294,7 @@ class Flash:
                 self._C.ad_system.set_equation(
                     v_extension,
                     grids=self._C.ad_system.mdg.subdomains(),
-                    equations_per_grid_entity={"cells": 1}
+                    equations_per_grid_entity={"cells": 1},
                 )
                 npipm_eqn.append(name)
 
@@ -317,7 +305,7 @@ class Flash:
                 self._C.ad_system.set_equation(
                     w_extension,
                     grids=self._C.ad_system.mdg.subdomains(),
-                    equations_per_grid_entity={"cells": 1}
+                    equations_per_grid_entity={"cells": 1},
                 )
                 npipm_eqn.append(name)
 
@@ -326,10 +314,10 @@ class Flash:
             name = f"NPIPM_coupling_{phase.name}"
             coupling.set_name(name)
             self._C.ad_system.set_equation(
-                    coupling,
-                    grids=self._C.ad_system.mdg.subdomains(),
-                    equations_per_grid_entity={"cells": 1}
-                )
+                coupling,
+                grids=self._C.ad_system.mdg.subdomains(),
+                equations_per_grid_entity={"cells": 1},
+            )
             npipm_eqn.append(name)
 
         # NPIPM parameter equation
@@ -358,7 +346,7 @@ class Flash:
         self._C.ad_system.set_equation(
             equation,
             grids=self._C.ad_system.mdg.subdomains(),
-            equations_per_grid_entity={"cells": 1}
+            equations_per_grid_entity={"cells": 1},
         )
         npipm_eqn.append("NPIPM_param")
 
@@ -438,20 +426,40 @@ class Flash:
             print("STATE:")
         print(filler)
         print("Pressure:")
-        print(sys.get_variable_values(variables=[self._C.p_name], from_iterate=from_iterate))
+        print(
+            sys.get_variable_values(
+                variables=[self._C.p_name], from_iterate=from_iterate
+            )
+        )
         print("Temperature:")
-        print(sys.get_variable_values(variables=[self._C.T_name], from_iterate=from_iterate))
+        print(
+            sys.get_variable_values(
+                variables=[self._C.T_name], from_iterate=from_iterate
+            )
+        )
         print("Enthalpy:")
-        print(sys.get_variable_values(variables=[self._C.h_name], from_iterate=from_iterate))
+        print(
+            sys.get_variable_values(
+                variables=[self._C.h_name], from_iterate=from_iterate
+            )
+        )
         print(filler)
         print("Phase fractions:")
         for phase in self._C.phases:
             print(f"{phase.name}: ")
-            print(sys.get_variable_values(variables=[phase.fraction_name], from_iterate=from_iterate))
+            print(
+                sys.get_variable_values(
+                    variables=[phase.fraction_name], from_iterate=from_iterate
+                )
+            )
         print("Saturations:")
         for phase in self._C.phases:
             print(f"{phase.name}: ")
-            print(sys.get_variable_values(variables=[phase.saturation_name], from_iterate=from_iterate))
+            print(
+                sys.get_variable_values(
+                    variables=[phase.saturation_name], from_iterate=from_iterate
+                )
+            )
         print(filler)
         print("Composition:")
         for phase in self._C.phases:
@@ -461,7 +469,7 @@ class Flash:
                 print(
                     sys.get_variable_values(
                         variables=[phase.fraction_of_component_name(component)],
-                        from_iterate=from_iterate
+                        from_iterate=from_iterate,
                     )
                 )
         print(filler)
@@ -646,10 +654,7 @@ class Flash:
             raise RuntimeError("Something went terribly wrong.")
         # write values in local var form
         self._C.ad_system.set_variable_values(
-            h,
-            variables=[self._C.h_name],
-            to_iterate=True,
-            to_state=copy_to_state
+            h, variables=[self._C.h_name], to_iterate=True, to_state=copy_to_state
         )
 
     def post_process_fractions(self, copy_to_state: bool = True) -> None:
@@ -679,14 +684,13 @@ class Flash:
             y_R,
             variables=[self._C.reference_phase.fraction_name],
             to_iterate=True,
-            to_state=copy_to_state
+            to_state=copy_to_state,
         )
 
         for phase_e in self._C.phases:
             # remove numerical artifacts on phase fractions y
             y_e = self._C.ad_system.get_variable_values(
-                [phase_e.fraction_name],
-                from_iterate=True
+                [phase_e.fraction_name], from_iterate=True
             )
             y_e[y_e < 0.0] = 0.0
             y_e[y_e > 1.0] = 1.0
@@ -694,7 +698,7 @@ class Flash:
                 y_e,
                 variables=[phase_e.fraction_name],
                 to_iterate=True,
-                to_state=copy_to_state
+                to_state=copy_to_state,
             )
 
             # remove numerical artifacts in phase compositions
@@ -727,18 +731,18 @@ class Flash:
         for phase in self._C.phases:
             # initial value for V_e, W_e
             val_v = phase.fraction.evaluate(ad_system).val
-            val_w = (
-                self._C.get_composition_unity_for(phase)
-                .evaluate(ad_system)
-                .val
-            )
+            val_w = self._C.get_composition_unity_for(phase).evaluate(ad_system).val
 
             # if requested, set initial guess for auxiliary NPIPM vars
             if self.use_auxiliary_npipm_vars:
                 v_name = f"{self._V_name}_{phase.name}"
                 w_name = f"{self._W_name}_{phase.name}"
-                ad_system.set_variable_values(val_v, variables=[v_name], to_iterate=True)
-                ad_system.set_variable_values(val_w, variables=[w_name], to_iterate=True)
+                ad_system.set_variable_values(
+                    val_v, variables=[v_name], to_iterate=True
+                )
+                ad_system.set_variable_values(
+                    val_w, variables=[w_name], to_iterate=True
+                )
 
             # store value for initial guess for nu
             V_mat.append(val_v)
@@ -767,11 +771,15 @@ class Flash:
             # DofManager takes by default values from ITERATE, than from STATE if not found
             pass
         elif initial_guess == "uniform":
-            
+
             # uniform values for phase fraction
             val_phases = 1.0 / self._C.num_phases
             for phase in self._C.phases:
-                ad_system.set_variable_values(val_phases * np.ones(nc), variables=[phase.fraction_name], to_iterate=True)
+                ad_system.set_variable_values(
+                    val_phases * np.ones(nc),
+                    variables=[phase.fraction_name],
+                    to_iterate=True,
+                )
                 # uniform values for composition of this phase
                 val = 1.0 / phase.num_components
                 for component in self._C.components:
@@ -802,11 +810,7 @@ class Flash:
             for phase in phases:
                 composition[phase] = dict()
                 for comp in phase:
-                    k_ce = (
-                        self._C.get_k_value(comp, phase)
-                        .evaluate(ad_system)
-                        .val
-                    )
+                    k_ce = self._C.get_k_value(comp, phase).evaluate(ad_system).val
 
                     x_ce = composition[self._C.reference_phase][comp] * k_ce
 
@@ -829,18 +833,18 @@ class Flash:
 
             # use the feed fraction of the reference component to set an initial guess
             # for the phase fractions
-            feed_R = self._C.reference_component.fraction.evaluate(
-                ad_system
-            ).val
+            feed_R = self._C.reference_component.fraction.evaluate(ad_system).val
             # re-normalize to set fractions fulfilling the unity constraint
             feed_R = feed_R / len(phases)
             for phase in phases:
-                ad_system.set_variable_values(np.copy(feed_R), variables=[phase.fraction_name], to_iterate=True)
+                ad_system.set_variable_values(
+                    np.copy(feed_R), variables=[phase.fraction_name], to_iterate=True
+                )
             # evaluate reference phase fraction by unity
             ad_system.set_variable_values(
                 self._y_R.evaluate(ad_system).val,
                 variables=[self._C.reference_phase.fraction_name],
-                to_iterate=True
+                to_iterate=True,
             )
         else:
             raise ValueError(f"Unknown initial-guess-strategy {initial_guess}.")
@@ -1165,9 +1169,7 @@ class Flash:
             success = True
         else:
             # column slicing to relevant variables
-            prolongation = self._C.ad_system.projection_to(
-                var_names
-            ).transpose()
+            prolongation = self._C.ad_system.projection_to(var_names).transpose()
 
             for i in range(1, self.max_iter_flash + 1):
 
@@ -1223,7 +1225,7 @@ class Flash:
             values,
             variables=[phase.saturation_name],
             to_iterate=True,
-            to_state=copy_to_state
+            to_state=copy_to_state,
         )
 
     def _2phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
@@ -1236,8 +1238,12 @@ class Flash:
         # get reference to phases
         phase1, phase2 = (phase for phase in self._C.phases)
         # get phase molar fraction values
-        y1 = self._C.ad_system.get_variable_values(variables=[phase1.fraction_name], from_iterate=True)
-        y2 = self._C.ad_system.get_variable_values(variables=[phase2.fraction_name], from_iterate=True)
+        y1 = self._C.ad_system.get_variable_values(
+            variables=[phase1.fraction_name], from_iterate=True
+        )
+        y2 = self._C.ad_system.get_variable_values(
+            variables=[phase2.fraction_name], from_iterate=True
+        )
 
         # get density values for given pressure and enthalpy
         rho1 = phase1.density(self._C.p, self._C.T).evaluate(self._C.ad_system)
@@ -1273,8 +1279,18 @@ class Flash:
         s2[phase2_saturated] = 1.0
 
         # write values to AD system
-        self._C.ad_system.set_variable_values(s1, variables=[phase1.saturation_name], to_iterate=True, to_state=copy_to_state)
-        self._C.ad_system.set_variable_values(s2, variables=[phase2.saturation_name], to_iterate=True, to_state=copy_to_state)
+        self._C.ad_system.set_variable_values(
+            s1,
+            variables=[phase1.saturation_name],
+            to_iterate=True,
+            to_state=copy_to_state,
+        )
+        self._C.ad_system.set_variable_values(
+            s2,
+            variables=[phase2.saturation_name],
+            to_iterate=True,
+            to_state=copy_to_state,
+        )
 
     def _multi_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
         """Calculates the saturation value assuming phase molar fractions are given.
@@ -1290,7 +1306,9 @@ class Flash:
         nc = self._C.ad_system.mdg.num_subdomain_cells()
         # molar fractions per phase
         y = [
-            self._C.ad_system.get_variable_values(variables=[phase.saturation_name], from_iterate=True)
+            self._C.ad_system.get_variable_values(
+                variables=[phase.saturation_name], from_iterate=True
+            )
             for phase in self._C.phases
         ]
         # densities per phase
@@ -1386,8 +1404,8 @@ class Flash:
         for i, phase in enumerate(self._C.phases):
             vals = saturations[i * nc : (i + 1) * nc]
             self._C.ad_system.set_variable_values(
-                vals, 
+                vals,
                 variables=[phase.saturation_name],
                 to_iterate=True,
-                to_state=copy_to_state
+                to_state=copy_to_state,
             )
