@@ -22,7 +22,7 @@ def set_tol():
 
 class TestDiameterComputation(unittest.TestCase):
     def test_cell_diameters_2d(self):
-        g = pp.CartGrid([3, 2], [1, 1])
+        g = pp.CartGrid([3, 2], np.array([1, 1]))
         cell_diameters = g.cell_diameters()
         known = np.repeat(np.sqrt(0.5**2 + 1.0 / 3.0**2), g.num_cells)
         self.assertTrue(np.allclose(cell_diameters, known))
@@ -37,12 +37,12 @@ class TestDiameterComputation(unittest.TestCase):
 class TestReprAndStr(unittest.TestCase):
     def test_repr(self):
         # Call repr, just to see that it works
-        g = pp.CartGrid([1, 1])
+        g = pp.CartGrid(np.array([1, 1]))
         g.__repr__()
 
     def test_str(self):
         # Call repr, just to see that it works
-        g = pp.CartGrid([1, 1])
+        g = pp.CartGrid(np.array([1, 1]))
         g.__str__()
 
 
@@ -100,7 +100,7 @@ class TestBoundaries(unittest.TestCase):
         self.assertTrue(int_nodes.size == 0)
 
     def test_bounding_box(self):
-        g = pp.CartGrid([1, 1])
+        g = pp.CartGrid(np.array([1, 1]))
         g.nodes = np.random.random((g.dim, g.num_nodes))
 
         bmin, bmax = pp.bounding_box.from_grid(g)
@@ -110,7 +110,7 @@ class TestBoundaries(unittest.TestCase):
 
 class TestComputeGeometry(unittest.TestCase):
     def test_unit_cart_2d(self):
-        g = pp.CartGrid([1, 1])
+        g = pp.CartGrid(np.array([1, 1]))
         g.compute_geometry()
         known_areas = np.ones(4)
         known_volumes = np.ones(1)
@@ -124,7 +124,7 @@ class TestComputeGeometry(unittest.TestCase):
         self.assertTrue(np.allclose(g.cell_centers, known_c_centr))
 
     def test_huge_cart_2d(self):
-        g = pp.CartGrid([1, 1], [5000, 5000])
+        g = pp.CartGrid(np.array([1, 1]), [5000, 5000])
         g.compute_geometry()
         known_areas = 5000 * np.ones(4)
         known_volumes = 5000**2 * np.ones(1)
@@ -402,7 +402,7 @@ class TestStructuredTriangleGridGeometry(unittest.TestCase):
     """
 
     def setUp(self):
-        g = simplex.StructuredTriangleGrid([1, 1])
+        g = simplex.StructuredTriangleGrid(np.array([1, 1]))
         g.compute_geometry()
         self.g = g
 
@@ -433,7 +433,7 @@ class TestStructuredTriangleGridGeometry(unittest.TestCase):
 
 class TestStructuredTetrahedralGrid(unittest.TestCase):
     def setUp(self):
-        g = simplex.StructuredTetrahedralGrid([1, 1, 1])
+        g = simplex.StructuredTetrahedralGrid(np.array([1, 1, 1]))
         g.compute_geometry()
         self.g = g
 
@@ -586,6 +586,36 @@ class TestStructuredSimplexGridCoverage(unittest.TestCase):
         self.assertTrue(np.abs(domain.prod() - np.sum(g.cell_volumes)) < 1e-10)
 
 
+class TestGridCounter(unittest.TestCase):
+    def test_different_grids(self):
+        """Test that different consecutively created grids have consecutive counters."""
+        g1 = simplex.StructuredTriangleGrid(np.array([1, 3]))
+        g2 = simplex.StructuredTriangleGrid(np.array([1, 3]))
+        g3 = simplex.StructuredTetrahedralGrid(np.array([1, 1, 1]))
+        g4 = simplex.StructuredTetrahedralGrid(np.array([1, 1, 1]))
+        g5 = pp.CartGrid(np.array([1, 1, 1]))
+        g6 = pp.TensorGrid(np.array([1, 1, 1]))
+
+        self.assertTrue(g1.id == g2.id - 1)
+        self.assertTrue(g2.id == g3.id - 1)
+        self.assertTrue(g3.id == g4.id - 1)
+        self.assertTrue(g4.id == g5.id - 1)
+        self.assertTrue(g5.id == g6.id - 1)
+
+        # Same for mortar grids
+        g1.compute_geometry()
+        g2.compute_geometry()
+        mg1 = pp.MortarGrid(g1.dim, {0: g1, 1: g1})
+        mg2 = pp.MortarGrid(g2.dim, {0: g2, 1: g2})
+        self.assertTrue(mg1.id == mg2.id - 1)
+
+    def test_copy_grids(self):
+        """Test that the id is not copied when copying a grid."""
+        g1 = simplex.StructuredTriangleGrid(np.array([1, 1]))
+        g2 = g1.copy()
+        self.assertTrue(g1.id == g2.id - 1)
+
+
 class TestGridMappings1d(unittest.TestCase):
     def test_merge_single_grid(self):
         """
@@ -641,6 +671,34 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(np.all(intf.secondary_to_mortar_int().A == [0, 1]))
 
 
+def test_boundary_grid():
+    """Test that the boundary grid is created correctly."""
+    # First make a standard grid and its derived BoundaryGrid
+    g = pp.CartGrid([2, 2])
+    g.compute_geometry()
+
+    boundary_grid = pp.BoundaryGrid(g)
+
+    # Hardcoded value for the number of cells
+    assert boundary_grid.num_cells == 8
+
+    proj = boundary_grid.projection
+
+    assert proj.shape == (8, 12)
+
+    rows, cols, _ = sps.find(proj)
+    assert np.allclose(np.sort(rows), np.arange(8))
+    # Hardcoded values based on the known ordering of faces in a Cartesian grid
+    assert np.allclose(np.sort(cols), np.array([0, 2, 3, 5, 6, 7, 10, 11]))
+
+    # Next, mark all faces in the grid as not on the domain boundary.
+    # The boundary grid should then be empty.
+    g.tags["domain_boundary_faces"] = np.zeros(g.num_faces, dtype=bool)
+    boundary_grid = pp.BoundaryGrid(g)
+    assert boundary_grid.num_cells == 0
+    assert boundary_grid.projection.shape == (0, 12)
+
+
 @pytest.mark.parametrize(
     "g",
     [
@@ -649,7 +707,7 @@ class TestGridMappings1d(unittest.TestCase):
         pp.CartGrid([2, 2]),
         pp.CartGrid([2, 2, 2]),
         pp.StructuredTriangleGrid([2, 2]),
-        pp.StructuredTetrahedralGrid([1, 1, 1]),
+        pp.StructuredTetrahedralGrid(np.array([1, 1, 1])),
     ],
 )
 def test_pickle_grid(g):

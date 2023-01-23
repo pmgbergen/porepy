@@ -5,7 +5,9 @@ setup object has its own system to assemble and solve the system; this
 is just a wrapper around that, mostly for compliance with the nonlinear
 case, see numerics.nonlinear.nonlinear_solvers.
 """
-from typing import Dict, Tuple
+from __future__ import annotations
+
+from typing import Optional
 
 from porepy.models.abstract_model import AbstractModel
 
@@ -15,7 +17,7 @@ class LinearSolver:
     model class before and after solving the problem.
     """
 
-    def __init__(self, params: Dict = None) -> None:
+    def __init__(self, params: Optional[dict] = None) -> None:
         """Define linear solver.
 
         Parameters:
@@ -29,7 +31,7 @@ class LinearSolver:
         # default_options.update(params)
         self.params = params  # default_options
 
-    def solve(self, setup: AbstractModel) -> Tuple[float, bool]:
+    def solve(self, setup: AbstractModel) -> tuple[float, bool]:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
@@ -42,7 +44,10 @@ class LinearSolver:
         """
 
         setup.before_newton_loop()
-        prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
+        if hasattr(setup, "equation_system"):
+            prev_sol = setup.equation_system.get_variable_values(from_iterate=False)
+        else:
+            prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
 
         # For linear problems, the tolerance is irrelevant
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters

@@ -209,6 +209,4 @@ class SimplexGrid2dDomainOneImmersedFracture:
 
         mdg.replace_subdomains_and_interfaces(sd_map={sd_2: g_new_2d, sd_1: g_new_1d})
 
-        mdg.assign_subdomain_ordering()
-
         return mdg

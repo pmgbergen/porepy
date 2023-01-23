@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -28,7 +29,7 @@ mortar_sides = mortar_grid.MortarSides
 
 def subdomains_to_mdg(
     subdomains: list[list[pp.Grid]],
-    time_tot: float = None,
+    time_tot: Optional[float] = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
     """Convert a list of grids to a full MixedDimensionalGrid.
@@ -84,8 +85,6 @@ def subdomains_to_mdg(
     # are ready to create mortar grids on the interface between subdomains. These
     # will be added to the mixed-dimensional grid.
     create_interfaces(mdg, node_pairs)
-
-    mdg.assign_subdomain_ordering()
 
     if time_tot is not None:
         logger.info(
@@ -412,7 +411,7 @@ def _assemble_mdg(
 
     sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix] = {}
 
-    # We now find the face_cell mapings.
+    # We now find the face_cell mappings.
     for dim in range(len(subdomains) - 1):
         # If there are no grids of dimension one less, continue.
         if len(subdomains[dim + 1]) == 0:
@@ -549,10 +548,10 @@ def create_interfaces(
     # loop on all the subdomain pairs and create the mortar grids
     for sd_pair, face_cells in sd_pair_to_face_cell_map.items():
 
-        hsd, lsd = sd_pair
+        sd_h, sd_l = sd_pair
 
         # face_cells.indices gives mappings into the lower dimensional
-        # cells. Count the number of occurences for each cell.
+        # cells. Count the number of occurrences for each cell.
         num_sides = np.bincount(face_cells.indices)
 
         if np.max(num_sides) > 2:
@@ -568,12 +567,12 @@ def create_interfaces(
         if np.all(num_sides > 1):
             # we are in a two sides situation
             side_g = {
-                mortar_sides.LEFT_SIDE: lsd.copy(),
-                mortar_sides.RIGHT_SIDE: lsd.copy(),
+                mortar_sides.LEFT_SIDE: sd_l.copy(),
+                mortar_sides.RIGHT_SIDE: sd_l.copy(),
             }
         else:
             # the tag name is just a place-holder we assume left side
-            side_g = {mortar_sides.LEFT_SIDE: lsd.copy()}
-        mg = mortar_grid.MortarGrid(lsd.dim, side_g, face_cells)
+            side_g = {mortar_sides.LEFT_SIDE: sd_l.copy()}
+        mg = mortar_grid.MortarGrid(sd_l.dim, side_g, face_cells)
 
         mdg.add_interface(mg, sd_pair, face_cells)

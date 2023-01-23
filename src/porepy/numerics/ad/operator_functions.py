@@ -1,14 +1,14 @@
-"""
-Contains callable operators representing functions to be called with other
+"""This module contains callable operators representing functions to be called with other
 operators as input arguments.
 Contains also a decorator class for callables, which transforms them automatically in the
 specified operator function type.
+
 """
 from __future__ import annotations
 
 import abc
 from functools import partial
-from typing import Callable, List, Type, Union
+from typing import Callable, Optional, Type
 
 import numpy as np
 import scipy.sparse as sps
@@ -16,7 +16,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import Ad_array
 
-from .operators import Operation, Operator, Tree
+from .operators import Operator, Tree
 
 __all__ = [
     "Function",
@@ -42,7 +42,7 @@ class AbstractFunction(Operator):
     The abstraction intends to provide means for approximating operators, where values are
     e.g. interpolated and the Jacobian is approximated using FD.
 
-    IMPLEMENTATION NOTE:
+    Note:
         One can flag the operator as ``ad_compatible``. If flagged, the AD framework passes
         AD arrays directly to the callable ``func`` and will **not** call the abstract methods
         for values and the Jacobian during operator parsing.
@@ -50,6 +50,25 @@ class AbstractFunction(Operator):
         abstract methods called, this is as of now **not** supported.
 
         For now only one child class, porepy.ad.Function, flags itself always as AD compatible.
+
+    Parameters:
+        func: callable Python object representing a (numeric) function.
+            Expected to take numerical information in some form and return numerical
+            information in the same form.
+        name: name of this instance as an AD operator
+        array_compatible (optional): If true, the callable ``func`` will be called
+            using arrays (numpy.typing.ArrayLike). Flagging this true, the user ensures
+            that the callable can work with arrays and return respectively
+            formatted output. If false, the function will be evaluated element-wise
+            (scalar input). Defaults to False.
+        ad_compatible (Optional): If true, the callable ``func`` will be called using
+            the porepy.ad.Ad_array.
+
+            Note that as of now, this will effectively bypass the abstract methods
+            for generating values and the Jacobian, assuming both will be provided
+            correctly by the return value of ``func``.
+
+            Defaults to False.
 
     """
 
@@ -60,49 +79,31 @@ class AbstractFunction(Operator):
         array_compatible: bool = False,
         ad_compatible: bool = False,
     ):
-        """Configures this instance as a valid AD operator.
-        The passed callable is expected to take numerical information in some form and
-        return numerical information in the same form form.
-
-        Args:
-            func (Callable): callable Python object representing a (numeric) function
-            name (str): name of this instance as an AD operator
-            array_compatible (default=False): If true, the callable ``func`` will be called
-                using arrays (numpy.typing.ArrayLike). Flagging this true, the user ensures
-                that the callable can work with arrays and return respectively
-                formatted output. If false, the function will be evaluated element-wise
-                (scalar input)
-            ad_compatible (default=False): If true, the callable ``func`` will be called using
-                the porepy.ad.Ad_array.
-
-                Important NOTE: As of now, this will effectively bypass the abstract methods
-                for generating values and the Jacobian, assuming both will be provided
-                correctly by the return value of ``func``
-
-        """
         ### PUBLIC
-        # Reference to callable passed at instantiation
+
         self.func: Callable = func
-        # indicator whether above callable can be fed with vectors (numpy.ndarray) or not
+        """Callable passed at instantiation"""
+
         self.array_compatible: bool = array_compatible
-        # indicator whether above callable can be fed with Ad_array instances
-        self.ad_compatible: bool = ad_compatible
+        """Indicator whether the callable can process arrays."""
 
         ### PRIVATE
-        self._name: str = name
-        self._operation: Operation = Operation.evaluate
+        self._operation: Operator.Operations = Operator.Operations.approximate
+
+        self._name: str = name if name is not None else ""
+
         self._set_tree()
 
-    def __call__(self, *args: Union[pp.ad.Operator, Ad_array]):
+    def __call__(self, *args: pp.ad.Operator | Ad_array) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
-        Args:
+        Parameters:
             *args: AD operators passed as symbolic arguments for the callable passed at
                 instantiation.
 
         Returns:
-            porepy.ad.Operator: Operator with call-arguments as children in the operator tree.
-                The assigned operation is ``evaluate``.
+            Operator with call-arguments as children in the operator tree.
+            The assigned operation is ``evaluate``.
 
         """
         children = [self, *args]
@@ -146,18 +147,18 @@ class AbstractFunction(Operator):
         The real work will be done by combining the function with arguments, during
         parsing of an operator tree.
 
-        Args:
+        Parameters:
             md: Mixed-dimensional grid.
 
         Returns:
-            The instance itself
+            The instance itself.
+
         """
         return self
 
     @abc.abstractmethod
     def get_values(self, *args: Ad_array) -> np.ndarray:
-        """
-        Abstract method for evaluating the callable passed at instantiation.
+        """Abstract method for evaluating the callable passed at instantiation.
 
         This method will be called during the operator parsing.
         The AD arrays passed as arguments will be in the same order as the operators passed to
@@ -166,12 +167,13 @@ class AbstractFunction(Operator):
         The returned numpy array will be set as 'val' argument for the AD array representing
         this instance.
 
-        Args:
+        Parameters:
             *args: Ad_array representation of the operators passed during the call to this
                 instance
 
         Returns:
-            numpy.ndarray: numeric function values
+            Function values in numerical format.
+
         """
         pass
 
@@ -187,28 +189,35 @@ class AbstractFunction(Operator):
         The returned numpy array will be be set as 'jac' argument for the AD array representing
         this instance.
 
-        NOTE: the necessary dimensions for the jacobian can be extracted from the dimensions
-        of the Jacobians of passed Ad_array instances.
+        Note:
+            The necessary dimensions for the jacobian can be extracted from the dimensions
+            of the Jacobians of passed Ad_array instances.
 
-        Args:
+        Parameters:
             *args: Ad_array representation of the operators passed during the call to this
                 instance
 
         Returns:
-            numpy.ndarray: numeric representation of the Jacobian of this function
+            Numeric representation of the Jacobian of this function.
+
         """
         pass
 
 
 class AbstractJacobianFunction(AbstractFunction):
-    """'Half'-abstract base class, providing a call to the callable ``func`` in order to obtain
-    numeric function values.
+    """Partially abstract base class, providing a call to the callable ``func`` in order to
+    obtain numeric function values.
 
     What remains abstract is the Jacobian.
 
     """
 
     def get_values(self, *args: Ad_array) -> np.ndarray:
+        """
+        Returns:
+            The direct evaluation of the callable using ``val`` of passed AD arrays.
+
+        """
         # get values of argument Ad_arrays.
         vals = (arg.val for arg in args)
 
@@ -235,19 +244,24 @@ class Function(AbstractFunction):
     where it is expected that passing Ad_arrays directly to ``func`` will
     return the proper result.
 
-    Here the values AND the Jacobian are obtained exactly by the AD framework.
+    Here the values **and** the Jacobian are obtained exactly by the AD framework.
 
     The intended use is as a wrapper for operations on pp.ad.Ad_array objects,
     in forms which are not directly or easily expressed by the rest of the Ad
     framework.
 
-    NOTE: This is a special case where the abstract methods for getting values and the Jacobian
-    are formally implemented but never used by the AD framework (see ``ad_compatible``)
+    Note:
+        This is a special case where the abstract methods for getting values and the
+        Jacobian are formally implemented but never used by the AD framework. A separate
+        operation called ``evaluate`` is implemented instead, which simply feeds the AD
+        arrays to ``func``.
 
     """
 
     def __init__(self, func: Callable, name: str, array_compatible: bool = True):
-        super().__init__(func, name, array_compatible, True)
+        super().__init__(func, name, array_compatible)
+        self._operation = Operator.Operations.evaluate
+        self.ad_compatible = True
 
     def get_values(self, *args: Ad_array) -> np.ndarray:
         result = self.func(*args)
@@ -259,18 +273,17 @@ class Function(AbstractFunction):
 
 
 class ConstantFunction(AbstractFunction):
-    """ "Function representing constant, scalar values with no dependencies and ergo a
+    """Function representing constant, scalar values with no dependencies and ergo a
     zero Jacobian.
 
     It still has to be called though since it fulfills the notion of a 'function'.
+
+    Parameters:
+        values: constant values per cell.
+
     """
 
     def __init__(self, name: str, values: np.ndarray):
-        """
-        Args:
-            values: constant values per cell
-
-        """
         # dummy function, takes whatever and returns only the pre-set values
         def func(*args):
             return values
@@ -288,41 +301,38 @@ class ConstantFunction(AbstractFunction):
 
     def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
         """
-        IMPLEMENTATION NOTE:
-        The return value is not a sparse matrix as imposed by the parent method signature,
-        but a zero.
-        Numerical operations with a zero always works with any numeric formats in
-        numpy, scipy and PorePy's AD framework.
-        Since the constant function (most likely) gets no arguments passed,
-        we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.
+        Note:
+            The return value is not a sparse matrix as imposed by the parent method signature,
+            but a zero.
+            Numerical operations with a zero always works with any numeric formats in
+            numpy, scipy and PorePy's AD framework.
+            Since the constant function (most likely) gets no arguments passed, we have
+            no way of knowing the necessary shape for a zero matrix. Hence scalar.
 
-        Returns:
-            The trivial derivative of a constant.
+        Returns: the trivial derivative of a constant.
 
         """
         return 0.0
 
 
 class DiagonalJacobianFunction(AbstractJacobianFunction):
-    """
-    Approximates the Jacobian of the function using identities and scalar
-    multipliers per dependency.
+    """Approximates the Jacobian of the function using identities and scalar multipliers
+    per dependency.
+
+    Parameters:
+        multipliers: scalar multipliers for the identity blocks in the Jacobian,
+            per dependency of ``func``. The order in ``multipliers`` is expected to match
+            the order of AD operators passed to the call of this function.
+
     """
 
     def __init__(
         self,
         func: Callable,
         name: str,
-        multipliers: Union[List[float], float],
+        multipliers: float | list[float],
         array_compatible: bool = False,
     ):
-        """
-        Args:
-            multipliers: scalar multipliers for the identity blocks in the Jacobian,
-                per dependency of ``func``. The order in ``multipliers`` is expected to match
-                the order of AD operators passed to the call of this function.
-
-        """
         super().__init__(func, name, array_compatible)
         # check and format input for further use
         if isinstance(multipliers, list):
@@ -355,6 +365,22 @@ class InterpolatedFunction(AbstractFunction):
     The image of the function is expected to be of dimension 1, while the domain can be
     multidimensional.
 
+    Note:
+        All vector-valued ndarray arguments are assumed to be column vectors.
+        Each row-entry represents a value for an argument of ``func`` in
+        respective order.
+
+    Parameters:
+        min_val: lower bounds for the domain of ``func``.
+        max_val: upper bound for the domain.
+        npt: number of interpolation points per dimension of the domain.
+        order: Order of interpolation. Supports currently only linear order.
+        preval (optional): If True, pre-evaluates the values of the function at
+            the points of interpolation and stores them.
+            If False, evaluates them if necessary.
+            Influences the runtime.
+            Defaults to False.
+
     """
 
     def __init__(
@@ -368,20 +394,6 @@ class InterpolatedFunction(AbstractFunction):
         preval: bool = False,
         array_compatible: bool = False,
     ):
-        """All vector-valued ndarray arguments are assumed to be column vectors.
-        Each row-entry represents a value for an argument of ``func`` in
-        respective order.
-
-        Args:
-            min_val: lower bounds for the domain of ``func``.
-            max_val: upper bound for the domain.
-            npt: number of interpolation points per dimension of the domain.
-            order: Order of interpolation. Supports currently only linear order.
-            preval (default=False): If True, pre-evaluates the values of the function at
-                the points of interpolation and stores them.
-                If False, evaluates them if necessary.
-                Influences the runtime.
-        """
         super().__init__(func, name, array_compatible)
 
         ### PUBLIC
@@ -395,7 +407,13 @@ class InterpolatedFunction(AbstractFunction):
             if self._prevaluated:
                 self._table = pp.InterpolationTable(min_val, max_val, npt, func)
             else:
-                self._table = pp.AdaptiveInterpolationTable(min_val, max_val, npt, func)
+                # Find a grid resolution from the provided minimum and maximum values.
+                # TODO: This will get an overhaul once we start using the adaptive
+                # interpolation tables in actual computations.
+                dx = (max_val - min_val) / npt
+                self._table = pp.AdaptiveInterpolationTable(
+                    dx, base_point=min_val, function=func, dim=1
+                )
         else:
             raise NotImplementedError(
                 f"Interpolation of order {self.order} not implemented."
@@ -418,7 +436,7 @@ class InterpolatedFunction(AbstractFunction):
             partial_jac = arg.jac
             # replace the ones with actual values
             # Since csr, we can simply replace the data array with the values of the derivative
-            partial_jac.data = self._table.diff(X, axis)[0]
+            partial_jac.data = self._table.gradient(X, axis)[0]
 
             # add blocks to complete Jacobian
             jac += partial_jac
@@ -589,74 +607,67 @@ class ScalarProduct(AbstractFunction):
 
 
 class ADmethod:
-    """
-    Automatic-Differentiation method/function.
-
-    (Decorator) Class for methods representing e.g., physical properties.
+    """(Decorator) Class for methods representing e.g., physical properties.
     The decorated function is expected to take scalars/vectors and return a scalar/vector.
-    See example usage below.
 
     The return value will be an AD operator of a type passed to the decorator.
 
-    EXAMPLE USAGE:
-    .. code-block:: python
-        import porepy as pp
+    Examples:
+        .. code:: python
 
-        # decorating class methods
-        class IdealGas:
+            import porepy as pp
 
-            @ADmethod(ad_operator=pp.ad.DiagonalJacobianFunction,
-                      operators_args={"multipliers"=[1,1]})
-            def density(self, p: float, T: float) -> float:
-                return p/T
+            # decorating class methods
+            class IdealGas:
 
-        # decorating function
-        @ADmethod(ad_operator=pp.ad.Function)
-        def dummy_rel_perm(s):
-            return s**2
+                @ADmethod(ad_operator=pp.ad.DiagonalJacobianFunction,
+                        operators_args={"multipliers"=[1,1]})
+                def density(self, p: float, T: float) -> float:
+                    return p/T
 
-    With above code, the density of an instance of 'IdealGas' can be called using
-    :class:`~porepy.numerics.ad.operators.MergedVariable` representing
-    pressure and temperature.
-    Analogously, `dummy_rel_perm` can be called with one representing the saturation.
+            # decorating function
+            @ADmethod(ad_operator=pp.ad.Function)
+            def dummy_rel_perm(s):
+                return s**2
+
+        With above code, the density of an instance of ``IdealGas`` can be called using
+        :class:`~porepy.numerics.ad.operators.MergedVariable` representing
+        pressure and temperature.
+        Analogously, ``dummy_rel_perm`` can be called with one representing the saturation.
+
+    Note:
+        If used as decorator WITHOUT explicit instantiation, the instantiation will be
+        done implicitly with above default arguments (that's how Python decorators work).
+
+    Parameters:
+        func: decorated function object
+        ad_function_type: type reference to an AD operator function to be instantiated.
+            When instantiated, that instance will effectively replace ``func``.
+        operator_kwargs: keyword arguments to be passed when instantiating an operator
+            of type ``ad_function_type``.
+
     """
 
     def __init__(
         self,
-        func: Callable = None,
-        ad_function_type: Type["AbstractFunction"] = Function,
+        func: Optional[Callable] = None,
+        ad_function_type: Type[AbstractFunction] = Function,
         operator_kwargs: dict = {},
     ) -> None:
-        """
-        Decorator class constructor.
-        Saves information about the requested AD Function type and keyword arguments necessary
-        for its instantiation.
-
-        NOTE: If used as decorator WITHOUT explicit instantiation, the instantiation will be
-        done implicitly with above default arguments (that's how Python decorators work).
-
-        Args:
-            func: decorated function object
-            ad_function_type: type reference to an AD operator function to be instantiated.
-                When instantiated, that instance will effectively replace ``func``.
-            operator_kwargs: keyword arguments to be passed when instantiating an operator
-                of type ``ad_function_type``.
-        """
         # reference to decorated function object
         self._func = func
         # mark if decoration without explicit call to constructor
         self._explicit_init = func is None
         # reference to instance, to which the decorated bound method belongs, if any
         # if this remains None, then an unbound method was decorated
-        self._bound_to: Union[None, object] = None
+        self._bound_to: Optional[object] = None
         # reference to operator type which should wrap the decorated method
         self._ad_func_type = ad_function_type
         # keyword arguments for call to constructor of operator type
         self._op_kwargs = operator_kwargs
 
-    def __call__(self, *args, **kwargs) -> Union[ADmethod, pp.ad.Operator]:
-        """
-        Wrapper factory.
+    def __call__(self, *args, **kwargs) -> ADmethod | pp.ad.Operator:
+        """Wrapper factory.
         The decorated object is wrapped and/or evaluated here.
 
         Dependent on whether the decorated function is a method belonging to a class,
@@ -665,7 +676,7 @@ class ADmethod:
         If bound to a class instance, the wrapper will include a partial function, where
         the instance of the class was already passed beforehand.
 
-        IMPLEMENTATION NOTE:
+        Note:
             If the decorator was explicitly instantiated during decoration,
             that instance will effectively be replaced by another decorator instance created
             here in the call.
@@ -673,6 +684,7 @@ class ADmethod:
             used as a decorator, hence properly dereferencing the original instance.
             If used differently or if another reference is saved between explicit instantiation
             and call, this is a potential memory leak.
+
         """
         # If decorated without explicit init, the function is passed during a call to
         # the decorator as first argument.
@@ -729,11 +741,10 @@ class ADmethod:
         are always passed in unbound form to the decorator when the code is
         evaluated
         (i.e. they don't have a reference to the `self` argument, contrary to bound
-         methods)
+        methods)
 
-         Args:
-            binding_instance: instance, whose method/attribute has been decorated
-                by this class.
+        Parameters:
+            binding_instance: instance, whose method has been decorated by this class.
             binding_type: type instance of the decorated method's class/owner.
 
         """
@@ -743,14 +754,15 @@ class ADmethod:
         # This will trigger the function evaluation.
         return partial(self.__call__, binding_instance)
 
-    def ad_wrapper(self, *args, **kwargs) -> AbstractFunction:
+    def ad_wrapper(self, *args, **kwargs) -> Operator:
         """Actual wrapper function.
         Constructs the necessary AD-Operator class wrapping the decorated callable
         and performs the evaluation/call.
 
-        Args:
+        Parameters:
             *args: arguments for the call to the wrapping AD operator function
             **kwargs: keyword argument for the call to the wrapping Ad operator function
+
         """
         # Make sure proper assignment of callable was made
         assert self._func is not None

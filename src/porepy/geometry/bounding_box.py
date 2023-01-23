@@ -1,28 +1,29 @@
-"""
-Compute bounding boxes of geometric objects.
-"""
-
+"""Compute bounding boxes of geometric objects."""
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Union
+from typing import NamedTuple, Union
 
 import numpy as np
+import numpy.typing as npt
 
 import porepy as pp
 
 
-def from_points(pts, overlap=0):
+def from_points(pts: np.ndarray, overlap: float = 0) -> dict[str, float]:
     """Obtain a bounding box for a point cloud.
 
     Parameters:
-        pts: np.ndarray (nd x npt). Point cloud. nd should be 2 or 3
-        overlap (double, defaults to 0): Extension of the bounding box outside
-            the point cloud. Scaled with extent of the point cloud in the
-            respective dimension.
+        pts: ``shape=(nd, np)``
+
+            Point cloud. nd should be 2 or 3.
+        overlap: ``default=0``
+
+            Extension of the bounding box outside the point cloud. Scaled with extent of
+            the point cloud in the respective dimension.
 
     Returns:
-        domain (dictionary): Containing keywords xmin, xmax, ymin, ymax, and
-            possibly zmin and zmax (if nd == 3)
+        The domain represented as a dictionary with keywords ``xmin``, ``xmax``,
+        ``ymin``, ``ymax``, and (if ``nd == 3``) ``zmin`` and ``zmax``.
 
     """
     max_coord = pts.max(axis=1)
@@ -42,13 +43,22 @@ def from_points(pts, overlap=0):
     return domain
 
 
-def from_grid(g: pp.Grid) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Return the bounding box of the grid.
+def from_grid(g: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
+    """Return the bounding box of the grid.
+
+    Parameters:
+        g: The grid for which the bounding box is to be computed.
 
     Returns:
-        np.array (size 3): Minimum node coordinates in each direction.
-        np.array (size 3): Maximum node coordinates in each direction.
+        A 2-tuple containing
+
+        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+
+            Minimum node coordinates in each direction.
+
+        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+
+            Maximum node coordinates in each direction.
 
     """
     if g.dim == 0:
@@ -60,20 +70,22 @@ def from_grid(g: pp.Grid) -> Tuple[np.ndarray, np.ndarray]:
 
 def from_md_grid(
     mdg: pp.MixedDimensionalGrid, as_dict: bool = False
-) -> Union[Dict[str, float], Tuple[np.ndarray, np.ndarray]]:
+) -> Union[dict[str, float], tuple[np.ndarray, np.ndarray]]:
     """Return the bounding box of a mixed-dimensional grid.
 
     Parameters:
-        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid
-        as_dict (bool): If True, the bounding box is returned as a dictionary, if False,
-            it is represented by arrays with max and min values. Defaults to False.
-            . Defaults to False.
+        mdg: Mixed-dimensional grid for which the bounding box is to be computed.
+        as_dict: ``default=False``
+
+            If ``True``, the bounding box is returned as a dictionary, if ``False``, it
+            is represented by arrays with max and min values.
 
     Returns:
-        Dict *or* Tuple of np.ndarray: If as_dict is True, the bounding box is
-            represented as a dictionary with keys xmin, xmax, ymin, ymax, zmin, zmax.
-            Else, two np.ndarrays are returned, containing the min and max values of the
-            coordinates, respectively.
+        If ``as_dict`` is ``True``, the bounding box is represented as a dictionary with
+        keys ``xmin``, ``xmax``, ``ymin``, ``ymax``, ``zmin``, and ``zmax``.
+
+        Else, two ``ndarrays`` are returned, containing the min and max values of the
+        coordinates, respectively.
 
     """
     c_0s = np.empty((3, mdg.num_subdomains()))
@@ -98,16 +110,19 @@ def from_md_grid(
         return min_vals, max_vals
 
 
-def make_bounding_planes_from_box(box: Dict[str, float]) -> List[np.ndarray]:
-    """
-    Translate the bounding box into fractures. Tag them as boundaries.
-    For now limited to a box consisting of six planes.
+def make_bounding_planes_from_box(box: dict[str, float]) -> list[np.ndarray]:
+    """Translate the bounding box into fractures. Tag them as boundaries.
+
+    For now the domain specification is limited to a box consisting of six planes.
 
     Parameters:
-        box: dictionary containing max and min coordinates in three dimensions.
+        box: Dictionary containing max and min coordinates in three dimensions. The
+            dictionary should contain the keys ``xmin``, ``xmax``, ``ymin``, ``ymax``,
+            ``zmin``, and ``zmax``.
 
     Returns:
-        list of the six bounding planes defined by 3 x 4 coordinate values.
+        List of the six bounding planes defined by 3 x 4 coordinate values.
+
     """
     x0 = box["xmin"]
     x1 = box["xmax"]
@@ -124,3 +139,22 @@ def make_bounding_planes_from_box(box: Dict[str, float]) -> List[np.ndarray]:
 
     bound_planes = [west, east, south, north, bottom, top]
     return bound_planes
+
+
+class DomainSides(NamedTuple):
+    """Type for domain sides."""
+
+    all_bf: npt.NDArray[np.int_]
+    """All boundary faces."""
+    east: npt.NDArray[np.bool_]
+    """East boundary faces."""
+    west: npt.NDArray[np.bool_]
+    """West boundary faces."""
+    north: npt.NDArray[np.bool_]
+    """North boundary faces."""
+    south: npt.NDArray[np.bool_]
+    """South boundary faces."""
+    top: npt.NDArray[np.bool_]
+    """Top boundary faces."""
+    bottom: npt.NDArray[np.bool_]
+    """Bottom boundary faces."""

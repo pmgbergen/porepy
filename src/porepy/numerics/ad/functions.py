@@ -1,22 +1,26 @@
-"""
-This module contains functions to be wrapped in a pp.ad.Function and used as part
-of compound pp.ad.Operators, i.e. as (terms of) equations.
+"""This module contains functions to be wrapped in a
+:class:`~porepy.numerics.ad.operator_functions.Function` and used as part
+of compound :class:`~porepy.numerics.ad.operators.Operator`, i.e. as (terms of) equations.
 
-Some functions depend on non-ad objects. This requires that the function (f) be wrapped
-in an ad Function using partial evaluation:
+Some functions depend on non-ad objects. This requires that the function ``f`` be wrapped
+in an ``ad.Function`` using partial evaluation:
 
-    from functools import partial
-    AdFunction = pp.ad.Function(partial(f, other_parameter), "name")
-    equation: pp.ad.Operator = AdFunction(var) - 2 * var
+Examples:
+    >>> from functools import partial
+    >>> AdFunction = pp.ad.Function(partial(f, other_parameter), "name")
+    >>> equation: pp.ad.Operator = AdFunction(var) - 2 * var
 
-with var being some ad variable.
+    with ``var`` being some AD variable.
 
-Note that while the argument to AdFunction is a pp.ad.Operator, the wrapping in
-pp.ad.Function implies that upon parsing, the argument passed to f will be an Ad_array.
+    Note that while the argument to ``AdFunction`` is a
+    :class:`~porepy.numerics.ad.operators.Operator, the wrapping in
+    ``pp.ad.Function`` implies that upon parsing,
+    the argument passed to ``f`` will be an Ad_array.
+
 """
 from __future__ import annotations
 
-from typing import Callable, Union
+from typing import Callable
 
 import numpy as np
 import scipy.sparse as sps
@@ -131,25 +135,18 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     """L2 norm of a vector variable.
 
     For the example of dim=3 components and n vectors, the ordering is assumed
-    to be
-        [u0, v0, w0, u1, v1, w1, ..., un, vn, wn]
+    to be ``[u0, v0, w0, u1, v1, w1, ..., un, vn, wn]``
 
     Vectors satisfying ui=vi=wi=0 are assigned zero entries in the jacobi matrix
 
-    Usage note:
+    Note:
         See module level documentation on how to wrap functions like this in ad.Function.
 
-    Parameters
-    ----------
-    dim : int
-        Dimension, i.e. number of vector components.
-    var : pp.ad.Ad_array
-        Ad operator (variable or expression) which is argument of the norm
-        function.
+    Parameters:
+        dim: Dimension, i.e. number of vector components.
+        var: Ad operator (variable or expression) which is argument of the norm function.
 
-    Returns
-    -------
-    pp.ad.Ad_array
+    Returns:
         The norm of var with appropriate val and jac attributes.
 
     """
@@ -306,30 +303,24 @@ def heaviside(var, zerovalue: float = 0.5):
 
 
 def heaviside_smooth(var, eps: float = 1e-3):
-    """
-    Smooth (regularized) version of the Heaviside function.
+    """Smooth (regularized) version of the Heaviside function.
 
-    Parameters
-    ----------
-    var : Ad_array or ndarray
-        Input array.
-    eps : float, optional
-        Regularization parameter. The default is 1E-3. The function will
-        convergence to the Heaviside function in the limit when eps --> 0
+    Note:
+        The analytical expression for the smooth version Heaviside function reads:
+            ``H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps))``,
+        with its derivative smoothly approximating the Dirac delta function:
+            ``d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2))``.
 
-    Returns
-    -------
-    Ad_array or ndarray (depending on the input)
-        Regularized heaviside function (and its Jacobian if applicable).
+        Reference: https://ieeexplore.ieee.org/document/902291
 
-    Note
-    _____
-    The analytical expression for the smooth version Heaviside function reads:
-        H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps)),
-    with its derivative smoothly approximating the Dirac delta function:
-        d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2)).
+    Parameters:
+        var: Input array.
+        eps (optional): Regularization parameter. The function will converge to the
+            Heaviside function in the limit when ``eps --> 0``. The default is ``1e-3``.
 
-    Reference: https://ieeexplore.ieee.org/document/902291
+    Returns:
+        Regularized heaviside function (and its Jacobian if applicable) in form of a
+        Ad_array or ndarray (depending on the input).
 
     """
     if isinstance(var, Ad_array):
@@ -357,63 +348,112 @@ class RegularizedHeaviside:
 
 
 def maximum(
-    var0: pp.ad.Ad_array, var1: Union[pp.ad.Ad_array, np.ndarray]
+    var_0: pp.ad.Ad_array, var_1: pp.ad.Ad_array | np.ndarray
 ) -> pp.ad.Ad_array:
     """Ad maximum function represented as an Ad_array.
 
-    The second argument is allowed to be constant, with a numpy array originally
-    wrapped in a pp.ad.Array, whereas the first argument is expected to be an
-    Ad_array originating from a pp.ad.Operator.
+    The arguments can be either Ad_arrays or ndarrays, this duality is needed to allow
+    for parsing of operators that can be taken at the current iteration (in which case
+    it will parse as an Ad_array) or at the previous iteration or time step (in which
+    case it will parse as a numpy array).
 
-    Parameters
-    ----------
-    var0 : pp.ad.Ad_array
-        Ad operator (variable or expression).
-    var1 : Union[pp.ad.Ad_array, pp.ad.Array]
-        Ad operator (variable or expression) OR ad Array.
 
-    Returns
-    -------
-    pp.ad.Ad_array
-        The maximum of var0 and var1 with appropriate val and jac attributes.
+    Parameters:
+        var_0: First argument to the maximum function.
+        var_1: Second argument.
+
+        If one of the input arguments is scalar, broadcasting will be used.
+
+
+    Returns:
+        The maximum of the two arguments, taken element-wise in the arrays. The return
+        type is Ad_array if at least one of the arguments is an Ad_array, otherwise it
+        is an ndarray. If an Ad_array is returned, the Jacobian is computed according to
+        the maximum values of the Ad_arrays (so if element ``i`` of the maximum is
+        picked from ``var_0``, row ``i`` of the Jacobian is also picked from the
+        Jacobian of ``var_0``). If ``var_0`` is a ndarray, its Jacobian is set to zero.
 
     """
-    vals = [var0.val.copy()]
-    jacs = [var0.jac.copy()]
-    if isinstance(var1, np.ndarray):
-        vals.append(var1.copy())
-        jacs.append(sps.csr_matrix(var0.jac.shape))
+    # If neither var_0 or var_1 are Ad_arrays, return the numpy maximum function.
+    if not isinstance(var_0, Ad_array) and not isinstance(var_1, Ad_array):
+        return np.maximum(var_0, var_1)
+
+    # Make a fall-back zero Jacobian for constant arguments.
+    # EK: It is not clear if this is relevant, or if we filter out these cases with the
+    # above parsing of numpy arrays. Keep it for now, but we should revisit once we
+    # know clearer how the Ad-machinery should be used.
+    zero_jac = 0
+    if isinstance(var_0, Ad_array):
+        zero_jac = sps.csr_matrix(var_0.jac.shape)
+    elif isinstance(var_1, Ad_array):
+        zero_jac = sps.csr_matrix(var_1.jac.shape)
+
+    # Collect values and Jacobians.
+    vals = []
+    jacs = []
+    for var in [var_0, var_1]:
+        if isinstance(var, Ad_array):
+            v = var.val
+            j = var.jac
+        else:
+            v = var
+            j = zero_jac
+        vals.append(v)
+        jacs.append(j)
+
+    # If both are scalar, return same. If one is scalar, broadcast explicitly
+    if isinstance(vals[0], (float, int)):
+        if isinstance(vals[1], (float, int)):
+            val = np.max(vals)
+            return pp.ad.Ad_array(val, 0)
     else:
-        vals.append(var1.val.copy())
-        jacs.append(var1.jac.copy())
+        # Broadcast to shape of var_1
+        vals[0] = np.ones_like(vals[1]) * vals[0]
+    if isinstance(vals[1], (float, int)):
+        # Broadcast to shape of var_0
+        vals[1] = np.ones_like(vals[0]) * vals[1]
+
+    # Maximum of the two arrays
     inds = vals[1] >= vals[0]
 
     max_val = vals[0].copy()
     max_val[inds] = vals[1][inds]
+    # If both arrays are constant, a 0 matrix has been assigned to jacs.
+    # Return here to avoid calling copy on a number (immutable, no copy method) below.
+    if isinstance(jacs[0], (float, int)):
+        assert np.isclose(jacs[0], 0)
+        assert np.isclose(jacs[1], 0)
+        return pp.ad.Ad_array(max_val, 0)
+
+    # Start from var_0, then change entries corresponding to inds.
     max_jac = jacs[0].copy()
-    max_jac[inds] = jacs[1][inds].copy()
+
+    if isinstance(max_jac, sps.spmatrix):
+        if not max_jac.getformat() == "csc":
+            max_jac = max_jac.tocsr()
+        inds = inds.nonzero()[0]
+        lines = pp.matrix_operations.slice_mat(jacs[1].tocsr(), inds)
+        pp.matrix_operations.merge_matrices(max_jac, lines, inds, max_jac.getformat())
+    else:
+        max_jac[inds] = jacs[1][inds]
+
     return pp.ad.Ad_array(max_val, max_jac)
 
 
 def characteristic_function(tol: float, var: pp.ad.Ad_array):
     """Characteristic function of an ad variable.
 
-    Returns 1 if var.val is within absolute tolerance = tol of zero. The derivative is set to
-    zero independent of var.val.
+    Returns 1 if ``var.val`` is within absolute tolerance = ``tol`` of zero.
+    The derivative is set to zero independent of ``var.val``.
 
-    Usage note:
-        See module level documentation on how to wrap functions like this in ad.Function.
+    Note:
+        See module level documentation on how to wrap functions like this in ``ad.Function``.
 
-    Parameters
-    ----------
-    tol : float
-        Absolute tolerance for comparison with 0 using np.isclose.
-    var : pp.ad.Ad_array
-        Ad operator (variable or expression).
+    Parameters:
+        tol: Absolute tolerance for comparison with 0 using np.isclose.
+        var: Ad operator (variable or expression).
 
-    Returns
-    -------
-    pp.ad.Ad_array
+    Returns:
         The characteristic function of var with appropriate val and jac attributes.
 
     """
