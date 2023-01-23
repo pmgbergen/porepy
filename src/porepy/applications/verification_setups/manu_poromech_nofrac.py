@@ -125,7 +125,7 @@ class SaveData:
 
 
 class ManuPoroMechExactSolution:
-    """Parent class for the manufactured poromechanical solution."""
+    """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
         """Constructor of the class."""
