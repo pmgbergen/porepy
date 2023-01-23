@@ -122,18 +122,15 @@ class Composition(abc.ABC):
 
         # state variables
         self._p: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.p_name,
-            subdomains=subdomains
+            self.p_name, subdomains=subdomains
         )
         """Pressure variable used for the thermodynamic state."""
         self._h: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.h_name,
-            subdomains=subdomains
+            self.h_name, subdomains=subdomains
         )
         """(Specific) enthalpy variable used for the thermodynamic state."""
         self._T: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.T_name,
-            subdomains=subdomains
+            self.T_name, subdomains=subdomains
         )
         """Temperature variable used for the thermodynamic state."""
 
@@ -535,7 +532,7 @@ class Composition(abc.ABC):
             self.ad_system.set_equation(
                 equ,
                 grids=self.ad_system.mdg.subdomains(),
-                equations_per_grid_entity={"cells": 1}
+                equations_per_grid_entity={"cells": 1},
             )
 
         # storing references to the subsystems

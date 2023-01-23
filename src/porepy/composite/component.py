@@ -147,8 +147,7 @@ class Component(PseudoComponent):
 
         # creating the overall molar fraction variable
         self._fraction: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.fraction_name,
-            subdomains=ad_system.mdg.subdomains()
+            self.fraction_name, subdomains=ad_system.mdg.subdomains()
         )
 
     @property
@@ -220,7 +219,9 @@ class Compound(Component):
 
     """
 
-    def __init__(self, ad_system: pp.ad.EquationSystem, solvent: PseudoComponent) -> None:
+    def __init__(
+        self, ad_system: pp.ad.EquationSystem, solvent: PseudoComponent
+    ) -> None:
 
         super().__init__(ad_system=ad_system)
 
@@ -230,7 +231,9 @@ class Compound(Component):
         self._solutes: list[PseudoComponent] = list()
         """A list containing present solutes."""
 
-        self._solute_fractions: dict[PseudoComponent, pp.ad.MixedDimensionalVariable] = dict()
+        self._solute_fractions: dict[
+            PseudoComponent, pp.ad.MixedDimensionalVariable
+        ] = dict()
         """A dictionary containing the variables representing solute fractions for a
         given pseudo-component (key)."""
 
@@ -371,8 +374,7 @@ class Compound(Component):
                 # create name of solute fraction and respective variable
                 fraction_name = self.solute_fraction_name(solute)
                 solute_fraction = self.ad_system.create_variables(
-                    fraction_name,
-                    subdomains=self.ad_system.mdg.subdomains()
+                    fraction_name, subdomains=self.ad_system.mdg.subdomains()
                 )
 
                 # store fraction and solute
@@ -515,10 +517,7 @@ class Compound(Component):
                 if other_solute != solute:
                     A_block += rhs_[-1] * self.solution_fraction_of(other_solute)
 
-            A_block = (
-                A_block.evaluate(self.ad_system).jac
-                * projection.transpose()
-            )
+            A_block = A_block.evaluate(self.ad_system).jac * projection.transpose()
             A_.append(A_block)
 
         # compute fractions by solving the linear system

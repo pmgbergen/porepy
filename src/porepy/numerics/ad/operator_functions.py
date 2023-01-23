@@ -87,8 +87,11 @@ class AbstractFunction(Operator):
         self.array_compatible: bool = array_compatible
         """Indicator whether the callable can process arrays."""
 
+        self.ad_compatible: bool = ad_compatible
+        """Indicator whether the callable can process AD arrays."""
+
         ### PRIVATE
-        self._operation: Operator.Operations = Operator.Operations.approximate
+        self._operation: Operator.Operations = Operator.Operations.evaluate
 
         self._name: str = name if name is not None else ""
 

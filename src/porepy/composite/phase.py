@@ -75,14 +75,12 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         added/modelled component in this phase."""
 
         self._s: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.saturation_name,
-            subdomains=ad_system.mdg.subdomains()
+            self.saturation_name, subdomains=ad_system.mdg.subdomains()
         )
         """Saturation Variable in AD form."""
 
         self._fraction: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.fraction_name,
-            subdomains=ad_system.mdg.subdomains()
+            self.fraction_name, subdomains=ad_system.mdg.subdomains()
         )
         """Molar fraction variable in AD form."""
 
@@ -279,8 +277,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             # create compositional variables for the component in this phase
             fraction_name = self.fraction_of_component_name(comp)
             comp_fraction = self.ad_system.create_variables(
-                fraction_name,
-                subdomains=self.ad_system.mdg.subdomains()
+                fraction_name, subdomains=self.ad_system.mdg.subdomains()
             )
 
             # set fractional values to zero
