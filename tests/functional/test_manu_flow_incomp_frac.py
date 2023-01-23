@@ -25,11 +25,11 @@ def test_pressure_and_fluxes():
     keeping the test meaningful while minimizing the chances of failure due to
     floating-point arithmetic close to machine precision.
 
-    In this test, we are comparing errors for the pressure (for the rock and the
-    fracture) and fluxes (for the rock, the fracture, and on the interface). The errors
-    are measured in a discrete relative L2-error norm (such as the ones defined in [2]).
-    The desired errors were obtained by running the :class:`ManufacturedFlow2D`
-    simulation setup with default parameters.
+    In this test, we are comparing errors for the pressure (for the matrix and the
+    fracture) and fluxes (for the matrix, the fracture, and on the interface). The
+    errors are measured in a discrete relative L2-error norm (such as the ones
+    defined in [2]). The desired errors were obtained by running the
+    :class:`ManufacturedFlow2D` simulation setup with default parameters.
 
     References:
 
@@ -58,24 +58,27 @@ def test_pressure_and_fluxes():
     setup = ManufacturedIncompressibleFlow2d(params)
     pp.run_stationary_model(setup, params)
 
-    desired_rock_pressure_error = 0.003967565610557834
-    desired_rock_flux_error = 0.003137353186856967
+    desired_matrix_pressure_error = 0.003967565610557834
+    desired_matrix_flux_error = 0.003137353186856967
     desired_frac_pressure_error = 0.7106357756119986
     desired_frac_flux_error = 0.00041600808643628363
     desired_intf_flux_error = 0.5023434810025456
 
-    actual_rock_pressure_error = setup.results[0].error_rock_pressure
-    actual_rock_flux_error = setup.results[0].error_rock_flux
+    actual_matrix_pressure_error = setup.results[0].error_matrix_pressure
+    actual_matrix_flux_error = setup.results[0].error_matrix_flux
     actual_frac_pressure_error = setup.results[0].error_frac_pressure
     actual_frac_flux_error = setup.results[0].error_frac_flux
     actual_intf_flux_error = setup.results[0].error_intf_flux
 
     np.testing.assert_allclose(
-        actual_rock_pressure_error, desired_rock_pressure_error, atol=1e-5, rtol=1e-3
+        actual_matrix_pressure_error,
+        desired_matrix_pressure_error,
+        atol=1e-5,
+        rtol=1e-3,
     )
 
     np.testing.assert_allclose(
-        actual_rock_flux_error, desired_rock_flux_error, atol=1e-5, rtol=1e-3
+        actual_matrix_flux_error, desired_matrix_flux_error, atol=1e-5, rtol=1e-3
     )
 
     np.testing.assert_allclose(

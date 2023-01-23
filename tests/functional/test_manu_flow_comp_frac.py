@@ -20,8 +20,8 @@ up to absolute (1e-5) and relative (1e-3) tolerances. The values of such toleran
 aim at keeping the test meaningful while minimizing the chances of failure due to
 floating-point arithmetic close to machine precision.
 
-For this functional test, we are comparing errors for the pressure (for the rock and
-the fracture) and fluxes (for the rock, the fracture, and on the interface). The
+For this functional test, we are comparing errors for the pressure (for the matrix and
+the fracture) and fluxes (for the matrix, the fracture, and on the interface). The
 errors are measured in a discrete relative L2-error norm (such as the ones defined
 in [2]). The desired errors were obtained by running the
 :class:`ManufacturedCompressibleFlow2d` simulation setup with the parameters given in the
@@ -74,8 +74,8 @@ pp.run_time_dependent_model(setup, params)
 # Desired errors
 DesiredError = namedtuple(
     "DesiredError",
-    "error_rock_pressure, "
-    "error_rock_flux, "
+    "error_matrix_pressure, "
+    "error_matrix_flux, "
     "error_frac_pressure, "
     "error_frac_flux, "
     "error_intf_flux",
@@ -84,24 +84,24 @@ DesiredError = namedtuple(
 desired_errors: list[DesiredError] = [
     # t = 0.2 [s]
     DesiredError(
-        error_rock_pressure=0.0036348942968626903,
-        error_rock_flux=0.004269623457013436,
+        error_matrix_pressure=0.0036348942968626903,
+        error_matrix_flux=0.004269623457013436,
         error_frac_pressure=0.6583594878262145,
         error_frac_flux=0.0004147458073966614,
         error_intf_flux=0.4694294365244132,
     ),
     # t = 0.6 [s]
     DesiredError(
-        error_rock_pressure=0.003028196249337853,
-        error_rock_flux=0.0029348589540767584,
+        error_matrix_pressure=0.003028196249337853,
+        error_matrix_flux=0.0029348589540767584,
         error_frac_pressure=0.6596212819386692,
         error_frac_flux=0.0005294349183034246,
         error_intf_flux=0.4943796145199786,
     ),
     # t = 1.0 [s]
     DesiredError(
-        error_rock_pressure=0.0028115632547158387,
-        error_rock_flux=0.002959106297324448,
+        error_matrix_pressure=0.0028115632547158387,
+        error_matrix_flux=0.002959106297324448,
         error_frac_pressure=0.651546529657672,
         error_frac_flux=0.0005572271352671979,
         error_intf_flux=0.49619460256620995,
@@ -118,11 +118,14 @@ def test_manufactured_flow_compressible_fractured_2d(desired, actual):
     """Check errors for pressure and flux solutions."""
 
     np.testing.assert_allclose(
-        actual.error_rock_pressure, desired.error_rock_pressure, atol=1e-5, rtol=1e-3
+        actual.error_matrix_pressure,
+        desired.error_matrix_pressure,
+        atol=1e-5,
+        rtol=1e-3,
     )
 
     np.testing.assert_allclose(
-        actual.error_rock_flux, desired.error_rock_flux, atol=1e-5, rtol=1e-3
+        actual.error_matrix_flux, desired.error_matrix_flux, atol=1e-5, rtol=1e-3
     )
 
     np.testing.assert_allclose(

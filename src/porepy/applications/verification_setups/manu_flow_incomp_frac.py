@@ -56,11 +56,11 @@ class SaveData:
     approx_intf_flux: np.ndarray = np.zeros(1)
     """Numerical flux on the interfaces."""
 
-    approx_rock_flux: np.ndarray = np.zeros(1)
-    """Numerical flux in the rock."""
+    approx_matrix_flux: np.ndarray = np.zeros(1)
+    """Numerical flux in the matrix."""
 
-    approx_rock_pressure: np.ndarray = np.zeros(1)
-    """Numerical pressure in the rock."""
+    approx_matrix_pressure: np.ndarray = np.zeros(1)
+    """Numerical pressure in the matrix."""
 
     error_frac_flux: number = 0
     """L2-discrete relative error for the flux in the fracture."""
@@ -71,11 +71,11 @@ class SaveData:
     error_intf_flux: number = 0
     """L2-discrete relative error for the flux on the interfaces."""
 
-    error_rock_flux: number = 0
-    """L2-discrete relative error for the flux in the rock."""
+    error_matrix_flux: number = 0
+    """L2-discrete relative error for the flux in the matrix."""
 
-    error_rock_pressure: number = 0
-    """L2-discrete relative error for the pressure in the rock."""
+    error_matrix_pressure: number = 0
+    """L2-discrete relative error for the pressure in the matrix."""
 
     exact_frac_flux: np.ndarray = np.zeros(1)
     """Exact flux in the fracture."""
@@ -86,11 +86,11 @@ class SaveData:
     exact_intf_flux: np.ndarray = np.zeros(1)
     """Exact flux on the interfaces."""
 
-    exact_rock_flux: np.ndarray = np.zeros(1)
-    """Exact flux in the rock."""
+    exact_matrix_flux: np.ndarray = np.zeros(1)
+    """Exact flux in the matrix."""
 
-    exact_rock_pressure: np.ndarray = np.zeros(1)
-    """Exact pressure in the rock."""
+    exact_matrix_pressure: np.ndarray = np.zeros(1)
+    """Exact pressure in the matrix."""
 
 
 class ManuIncompExactSolution:
@@ -113,18 +113,18 @@ class ManuIncompExactSolution:
         ]
         bubble_fun = (y - 0.25) ** 2 * (y - 0.75) ** 2
 
-        # Exact pressure in the rock
-        p_rock = [
+        # Exact pressure in the matrix
+        p_matrix = [
             distance_fun[0] ** (1 + n),
             distance_fun[1] ** (1 + n) + bubble_fun * distance_fun[1],
             distance_fun[2] ** (1 + n),
         ]
 
-        # Exact Darcy flux in the rock
-        q_rock = [[-sym.diff(p, x), -sym.diff(p, y)] for p in p_rock]
+        # Exact Darcy flux in the matrix
+        q_matrix = [[-sym.diff(p, x), -sym.diff(p, y)] for p in p_matrix]
 
-        # Exact source in the rock
-        f_rock = [sym.diff(q[0], x) + sym.diff(q[1], y) for q in q_rock]
+        # Exact source in the matrix
+        f_matrix = [sym.diff(q[0], x) + sym.diff(q[1], y) for q in q_matrix]
 
         # Exact interface flux
         q_intf = bubble_fun
@@ -139,9 +139,9 @@ class ManuIncompExactSolution:
         f_frac = sym.diff(q_frac, y) - 2 * q_intf
 
         # Public attributes
-        self.p_rock = p_rock
-        self.q_rock = q_rock
-        self.f_rock = f_rock
+        self.p_matrix = p_matrix
+        self.q_matrix = q_matrix
+        self.f_matrix = f_matrix
         self.p_frac = p_frac
         self.q_frac = q_frac
         self.f_frac = f_frac
@@ -150,14 +150,14 @@ class ManuIncompExactSolution:
         # Private attributes
         self._bubble = bubble_fun
 
-    def rock_pressure(self, sd_rock: pp.Grid) -> np.ndarray:
-        """Evaluate exact rock pressure at the cell centers.
+    def matrix_pressure(self, sd_matrix: pp.Grid) -> np.ndarray:
+        """Evaluate exact matrix pressure at the cell centers.
 
         Parameters:
-            sd_rock: Rock grid.
+            sd_matrix: Matrix grid.
 
         Returns:
-            Array of ``shape=(sd_rock.num_cells, )`` containing the exact pressures at
+            Array of ``shape=(sd_matrix.num_cells, )`` containing the exact pressures at
             the cell centers.
 
         """
@@ -165,41 +165,41 @@ class ManuIncompExactSolution:
         x, y = sym.symbols("x y")
 
         # Get list of cell indices
-        cc = sd_rock.cell_centers
+        cc = sd_matrix.cell_centers
         bot = cc[1] < 0.25
         mid = (cc[1] >= 0.25) & (cc[1] <= 0.75)
         top = cc[1] > 0.75
         cell_idx = [bot, mid, top]
 
         # Lambdify expression
-        p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_rock]
+        p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_matrix]
 
         # Cell-centered pressures
-        p_cc = np.zeros(sd_rock.num_cells)
+        p_cc = np.zeros(sd_matrix.num_cells)
         for (p, idx) in zip(p_fun, cell_idx):
             p_cc += p(cc[0], cc[1]) * idx
 
         return p_cc
 
-    def rock_flux(self, sd_rock: pp.Grid) -> np.ndarray:
-        """Evaluate exact rock Darcy flux at the face centers.
+    def matrix_flux(self, sd_matrix: pp.Grid) -> np.ndarray:
+        """Evaluate exact matrix Darcy flux at the face centers.
 
         Parameters:
-            sd_rock: Rock grid.
+            sd_matrix: Matrix grid.
 
         Returns:
-            Array of ``shape=(sd_rock.num_faces, )`` containing the exact Darcy
+            Array of ``shape=(sd_matrix.num_faces, )`` containing the exact Darcy
             fluxes at the face centers.
 
         Note:
-            The returned fluxes are already scaled with ``sd_rock.face_normals``.
+            The returned fluxes are already scaled with ``sd_matrix.face_normals``.
 
         """
         # Symbolic variables
         x, y = sym.symbols("x y")
 
         # Get list of face indices
-        fc = sd_rock.face_centers
+        fc = sd_matrix.face_centers
         bot = fc[1] < 0.25
         mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
         top = fc[1] > 0.75
@@ -211,12 +211,12 @@ class ManuIncompExactSolution:
         # Lambdify expression
         q_fun = [
             [sym.lambdify((x, y), q[0], "numpy"), sym.lambdify((x, y), q[1], "numpy")]
-            for q in self.q_rock
+            for q in self.q_matrix
         ]
 
         # Face-centered Darcy fluxes
-        fn = sd_rock.face_normals
-        q_fc = np.zeros(sd_rock.num_faces)
+        fn = sd_matrix.face_normals
+        q_fc = np.zeros(sd_matrix.num_faces)
         for (q, idx) in zip(q_fun, face_idx):
             q_fc += (q[0](fc[0], fc[1]) * fn[0] + q[1](fc[0], fc[1]) * fn[1]) * idx
 
@@ -226,23 +226,23 @@ class ManuIncompExactSolution:
         # continuous sense, and use that expression on internal boundaries instead.
         # Here, we cannot use the face normals since we'll get wrong signs (not
         # entirely sure why). Instead, we multiply by the face area and the face sign.
-        frac_faces = np.where(sd_rock.tags["fracture_faces"])[0]
+        frac_faces = np.where(sd_matrix.tags["fracture_faces"])[0]
         q_fc[frac_faces] = (
             bubble_fun(fc[1][frac_faces])
-            * sd_rock.face_areas[frac_faces]
-            * sd_rock.signs_and_cells_of_boundary_faces(frac_faces)[0]
+            * sd_matrix.face_areas[frac_faces]
+            * sd_matrix.signs_and_cells_of_boundary_faces(frac_faces)[0]
         )
 
         return q_fc
 
-    def rock_source(self, sd_rock: pp.Grid) -> np.ndarray:
-        """Compute exact integrated rock source.
+    def matrix_source(self, sd_matrix: pp.Grid) -> np.ndarray:
+        """Compute exact integrated matrix source.
 
         Parameters:
-            sd_rock: Rock grid.
+            sd_matrix: Matrix grid.
 
         Returns:
-            Array of ``shape=(sd_rock.num_cells, )`` containing the exact integrated
+            Array of ``shape=(sd_matrix.num_cells, )`` containing the exact integrated
             sources.
 
         """
@@ -250,18 +250,18 @@ class ManuIncompExactSolution:
         x, y = sym.symbols("x y")
 
         # Get list of cell indices
-        cc = sd_rock.cell_centers
+        cc = sd_matrix.cell_centers
         bot = cc[1] < 0.25
         mid = (cc[1] >= 0.25) & (cc[1] <= 0.75)
         top = cc[1] > 0.75
         cell_idx = [bot, mid, top]
 
         # Lambdify expression
-        f_fun = [sym.lambdify((x, y), f, "numpy") for f in self.f_rock]
+        f_fun = [sym.lambdify((x, y), f, "numpy") for f in self.f_matrix]
 
         # Integrated cell-centered sources
-        vol = sd_rock.cell_volumes
-        f_cc = np.zeros(sd_rock.num_cells)
+        vol = sd_matrix.cell_volumes
+        f_cc = np.zeros(sd_matrix.num_cells)
         for (f, idx) in zip(f_fun, cell_idx):
             f_cc += f(cc[0], cc[1]) * vol * idx
 
@@ -375,14 +375,14 @@ class ManuIncompExactSolution:
 
         return lmbda_cc
 
-    def boundary_values(self, sd_rock: pp.Grid) -> np.ndarray:
+    def boundary_values(self, sd_matrix: pp.Grid) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            sd_rock: Rock grid.
+            sd_matrix: Matrix grid.
 
         Returns:
-            Array of ``shape=(sd_rock.num_faces, )`` with the exact pressure values
+            Array of ``shape=(sd_matrix.num_faces, )`` with the exact pressure values
             at the exterior boundary faces.
 
         """
@@ -390,20 +390,20 @@ class ManuIncompExactSolution:
         x, y = sym.symbols("x y")
 
         # Get list of face indices
-        fc = sd_rock.face_centers
+        fc = sd_matrix.face_centers
         bot = fc[1] < 0.25
         mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
         top = fc[1] > 0.75
         face_idx = [bot, mid, top]
 
         # Boundary faces
-        bc_faces = sd_rock.get_boundary_faces()
+        bc_faces = sd_matrix.get_boundary_faces()
 
         # Lambdify expression
-        p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_rock]
+        p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(sd_rock.num_faces)
+        p_bf = np.zeros(sd_matrix.num_faces)
         for (p, idx) in zip(p_fun, face_idx):
             p_bf[bc_faces] += p(fc[0], fc[1])[bc_faces] * idx[bc_faces]
 
@@ -455,8 +455,8 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
 
         """
 
-        sd_rock: pp.Grid = self.mdg.subdomains()[0]
-        data_rock: dict = self.mdg.subdomain_data(sd_rock)
+        sd_matrix: pp.Grid = self.mdg.subdomains()[0]
+        data_matrix: dict = self.mdg.subdomain_data(sd_matrix)
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
         data_frac: dict = self.mdg.subdomain_data(sd_frac)
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
@@ -469,13 +469,13 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
         # Instantiate data class
         out = SaveData()
 
-        # Rock pressure
-        out.exact_rock_pressure = exact_sol.rock_pressure(sd_rock)
-        out.approx_rock_pressure = data_rock[pp.STATE][p_name]
-        out.error_rock_pressure = self.relative_l2_error(
-            grid=sd_rock,
-            true_array=out.exact_rock_pressure,
-            approx_array=out.approx_rock_pressure,
+        # Matrix pressure
+        out.exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
+        out.approx_matrix_pressure = data_matrix[pp.STATE][p_name]
+        out.error_matrix_pressure = self.relative_l2_error(
+            grid=sd_matrix,
+            true_array=out.exact_matrix_pressure,
+            approx_array=out.approx_matrix_pressure,
             is_scalar=True,
             is_cc=True,
         )
@@ -491,13 +491,13 @@ class ModifiedDataSavingMixin(pp.DataSavingMixin):
             is_cc=True,
         )
 
-        # Rock flux
-        out.exact_rock_flux = exact_sol.rock_flux(sd_rock)
-        out.approx_rock_flux = data_rock[pp.STATE][q_name]
-        out.error_rock_flux = self.relative_l2_error(
-            grid=sd_rock,
-            true_array=out.exact_rock_flux,
-            approx_array=out.approx_rock_flux,
+        # Matrix flux
+        out.exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
+        out.approx_matrix_flux = data_matrix[pp.STATE][q_name]
+        out.error_matrix_flux = self.relative_l2_error(
+            grid=sd_matrix,
+            true_array=out.exact_matrix_flux,
+            approx_array=out.approx_matrix_flux,
             is_scalar=True,
             is_cc=False,
         )
@@ -538,21 +538,21 @@ class SetupUtilities:
 
     def plot_results(self) -> None:
         """Plotting results."""
-        self._plot_rock_pressure()
+        self._plot_matrix_pressure()
         self._plot_fracture_pressure()
         self._plot_interface_fluxes()
         self._plot_fracture_fluxes()
 
-    def _plot_rock_pressure(self) -> None:
-        """Plots exact and numerical pressures in the rock."""
-        sd_rock = self.mdg.subdomains()[0]
-        p_num = self.results[-1].approx_rock_pressure
-        p_ex = self.results[-1].exact_rock_pressure
+    def _plot_matrix_pressure(self) -> None:
+        """Plots exact and numerical pressures in the matrix."""
+        sd_matrix = self.mdg.subdomains()[0]
+        p_num = self.results[-1].approx_matrix_pressure
+        p_ex = self.results[-1].exact_matrix_pressure
         pp.plot_grid(
-            sd_rock, p_ex, plot_2d=True, linewidth=0, title="Rock pressure (Exact)"
+            sd_matrix, p_ex, plot_2d=True, linewidth=0, title="Matrix pressure (Exact)"
         )
         pp.plot_grid(
-            sd_rock, p_num, plot_2d=True, linewidth=0, title="Rock pressure (MPFA)"
+            sd_matrix, p_num, plot_2d=True, linewidth=0, title="Matrix pressure (MPFA)"
         )
 
     def _plot_fracture_pressure(self):
@@ -668,7 +668,7 @@ class ManuIncompBoundaryConditions:
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition type."""
-        if sd.dim == 2:  # Dirichlet for the rock
+        if sd.dim == 2:  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
@@ -682,7 +682,7 @@ class ManuIncompBoundaryConditions:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             val_loc = np.zeros(sd.num_faces)
             if sd.dim == 2:
-                exact_bc = self.exact_sol.boundary_values(sd_rock=sd)
+                exact_bc = self.exact_sol.boundary_values(sd_matrix=sd)
                 val_loc[boundary_faces] = exact_bc[boundary_faces]
             values.append(val_loc)
         return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_darcy")
@@ -711,7 +711,7 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         values = []
         for sd in subdomains:
             if sd.dim == 2:
-                values.append(self.exact_sol.rock_source(sd_rock=sd))
+                values.append(self.exact_sol.matrix_source(sd_matrix=sd))
             else:
                 values.append(self.exact_sol.fracture_source(sd_frac=sd))
         external_sources = pp.wrap_as_ad_array(np.hstack(values))
