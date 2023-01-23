@@ -600,14 +600,14 @@ class ManuCompExactSolution:
 class ManuCompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    """Utility function to access the domain boundary sides."""
+
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid object."""
 
     time_manager: pp.TimeManager
     """Properly initialized time manager object."""
-
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
-    """Utility function to access the domain boundary sides."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition types for the elliptic discretization."""
