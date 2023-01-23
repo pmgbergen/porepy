@@ -710,8 +710,8 @@ class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
 
 
 class ManuPoroMechEquationsPoromechanics(
-        ManuPoroMechMassBalance,
-        ManuPoroMechMomentumBalance,
+    ManuPoroMechMassBalance,
+    ManuPoroMechMomentumBalance,
 ):
     """Mixer class for modified poromoechanics equations."""
 
