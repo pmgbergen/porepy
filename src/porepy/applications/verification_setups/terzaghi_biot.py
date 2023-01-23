@@ -450,7 +450,7 @@ class TerzaghiUtils(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$t=${np.round(result.time, 4)}",
+                label=rf"$t=${np.round(t, 4)}",
             )
 
         ax.set_xlabel(r"Non-dimensional pressure, $p/p_0$", fontsize=15)
