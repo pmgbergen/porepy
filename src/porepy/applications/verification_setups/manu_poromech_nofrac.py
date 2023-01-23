@@ -83,6 +83,7 @@ number = pp.number
 grid = pp.GridLike
 
 
+# -----> Data-saving
 @dataclass
 class ManuPoroMechSaveData:
     """Data class to save relevant results from the verification setup."""
@@ -127,6 +128,104 @@ class ManuPoroMechSaveData:
     """Currrent simulation time."""
 
 
+class ManuPoroMechDataSaving(VerificationDataSaving):
+    """Mixin class to save relevant data."""
+
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
+
+    """
+
+    displacement_variable: str
+    """Keyword for accessing the displacement variable."""
+
+    exact_sol: ManuPoroMechExactSolution
+    """Exact solution object."""
+
+    pressure_variable: str
+    """Keyword for accessing the pressure variable."""
+
+    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the (integrated) poroelastic stress in the form of an Ad
+    operator. Usually provided by the mixin class
+    :class:`porepy.models.poromechanics.ConstitutiveLawsPoromechanics`.
+
+    """
+
+    def collect_data(self) -> ManuPoroMechSaveData:
+        """Collect data from the verification setup.
+
+        Returns:
+            ManuPoroMechSaveData object containing the results of the verification for
+            the current time.
+
+        """
+
+        # Retrieve information from setup
+        mdg: pp.MixedDimensionalGrid = self.mdg
+        sd: pp.Grid = mdg.subdomains()[0]
+        data: dict = mdg.subdomain_data(sd)
+        t: number = self.time_manager.time
+        p_name: str = self.pressure_variable
+        u_name: str = self.displacement_variable
+
+        # Instantiate data class
+        out = ManuPoroMechSaveData()
+
+        # Time
+        out.time = t
+
+        # Pressure
+        out.exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
+        out.approx_pressure = data[pp.STATE][pp.ITERATE][p_name].copy()
+        out.error_pressure = self.relative_l2_error(
+            grid=sd,
+            true_array=out.exact_pressure,
+            approx_array=out.approx_pressure,
+            is_scalar=True,
+            is_cc=True,
+        )
+
+        # Displacement
+        out.exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
+        out.approx_displacement = data[pp.STATE][pp.ITERATE][u_name].copy()
+        out.error_displacement = self.relative_l2_error(
+            grid=sd,
+            true_array=out.exact_displacement,
+            approx_array=out.approx_displacement,
+            is_scalar=False,
+            is_cc=True,
+        )
+
+        # Flux
+        out.exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
+        flux_ad = self.darcy_flux([sd])
+        out.approx_flux = flux_ad.evaluate(self.equation_system).val
+        out.error_flux = self.relative_l2_error(
+            grid=sd,
+            true_array=out.exact_flux,
+            approx_array=out.approx_flux,
+            is_scalar=True,
+            is_cc=False,
+        )
+
+        # Force
+        out.exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
+        force_ad = self.stress([sd])
+        out.approx_force = force_ad.evaluate(self.equation_system).val
+        out.error_force = self.relative_l2_error(
+            grid=sd,
+            true_array=out.exact_force,
+            approx_array=out.approx_force,
+            is_scalar=False,
+            is_cc=False,
+        )
+
+        return out
+
+
+# -----> Exact solution
 class ManuPoroMechExactSolution:
     """Class containing the exact manufactured solution for the verification setup."""
 
@@ -470,111 +569,15 @@ class ManuPoroMechExactSolution:
         return source_flow
 
 
-class ManuPoroMechDataSaving(VerificationDataSaving):
-    """Mixin class to save relevant data."""
-
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-
-    displacement_variable: str
-    """Keyword for accessing the displacement variable."""
-
-    exact_sol: ManuPoroMechExactSolution
-    """Exact solution object."""
-
-    pressure_variable: str
-    """Keyword for accessing the pressure variable."""
-
-    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the (integrated) poroelastic stress in the form of an Ad
-    operator. Usually provided by the mixin class
-    :class:`porepy.models.poromechanics.ConstitutiveLawsPoromechanics`.
-
-    """
-
-    def collect_data(self) -> ManuPoroMechSaveData:
-        """Collect data from the verification setup.
-
-        Returns:
-            ManuPoroMechSaveData object containing the results of the verification for
-            the current time.
-
-        """
-
-        # Retrieve information from setup
-        mdg: pp.MixedDimensionalGrid = self.mdg
-        sd: pp.Grid = mdg.subdomains()[0]
-        data: dict = mdg.subdomain_data(sd)
-        t: number = self.time_manager.time
-        p_name: str = self.pressure_variable
-        u_name: str = self.displacement_variable
-
-        # Instantiate data class
-        out = ManuPoroMechSaveData()
-
-        # Time
-        out.time = t
-
-        # Pressure
-        out.exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
-        out.approx_pressure = data[pp.STATE][pp.ITERATE][p_name].copy()
-        out.error_pressure = self.relative_l2_error(
-            grid=sd,
-            true_array=out.exact_pressure,
-            approx_array=out.approx_pressure,
-            is_scalar=True,
-            is_cc=True,
-        )
-
-        # Displacement
-        out.exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
-        out.approx_displacement = data[pp.STATE][pp.ITERATE][u_name].copy()
-        out.error_displacement = self.relative_l2_error(
-            grid=sd,
-            true_array=out.exact_displacement,
-            approx_array=out.approx_displacement,
-            is_scalar=False,
-            is_cc=True,
-        )
-
-        # Flux
-        out.exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
-        flux_ad = self.darcy_flux([sd])
-        out.approx_flux = flux_ad.evaluate(self.equation_system).val
-        out.error_flux = self.relative_l2_error(
-            grid=sd,
-            true_array=out.exact_flux,
-            approx_array=out.approx_flux,
-            is_scalar=True,
-            is_cc=False,
-        )
-
-        # Force
-        out.exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
-        force_ad = self.stress([sd])
-        out.approx_force = force_ad.evaluate(self.equation_system).val
-        out.error_force = self.relative_l2_error(
-            grid=sd,
-            true_array=out.exact_force,
-            approx_array=out.approx_force,
-            is_scalar=False,
-            is_cc=False,
-        )
-
-        return out
-
-
-class SetupUtilities:
+# -----> Utilities
+class ManuPoroMechUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
     results: list[ManuPoroMechSaveData]
-    """List of SaveData objects."""
+    """List of ManuPoroMechSaveData objects."""
 
     def plot_results(self) -> None:
         """Plotting results."""
@@ -609,6 +612,7 @@ class SetupUtilities:
         )
 
 
+# -----> Geometry
 class UnitSquareTriangleGrid(pp.ModelGeometry):
     """Class for setting up the geometry of the unit square domain."""
 
@@ -645,7 +649,8 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
             self.domain_bounds = domain
 
 
-class ModifiedMassBalance(mass.MassBalanceEquations):
+# -----> Balance equations
+class ManuPoroMechMassBalance(mass.MassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -689,7 +694,7 @@ class ModifiedMassBalance(mass.MassBalanceEquations):
         return fluid_sources  # - prod
 
 
-class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
+class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
     """Modify momentum balance to account for time-dependent body force."""
 
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -704,7 +709,10 @@ class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
         return external_sources
 
 
-class ModifiedEquationsPoromechanics(ModifiedMassBalance, ModifiedMomentumBalance):
+class ManuPoroMechEquationsPoromechanics(
+        ManuPoroMechMassBalance,
+        ManuPoroMechMomentumBalance,
+):
     """Mixer class for modified poromoechanics equations."""
 
     def set_equations(self):
@@ -713,11 +721,12 @@ class ModifiedEquationsPoromechanics(ModifiedMassBalance, ModifiedMomentumBalanc
         Call both parent classes' `set_equations` methods.
 
         """
-        ModifiedMassBalance.set_equations(self)
-        ModifiedMomentumBalance.set_equations(self)
+        ManuPoroMechMassBalance.set_equations(self)
+        ManuPoroMechMomentumBalance.set_equations(self)
 
 
-class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+# -----> Solution strategy
+class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy for the verification setup."""
 
     exact_sol: ManuPoroMechExactSolution
@@ -779,12 +788,12 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
             self.plot_results()
 
 
+# -----> Mixer class
 class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
     UnitSquareTriangleGrid,
-    ModifiedEquationsPoromechanics,
-    ModifiedSolutionStrategy,
-    SetupUtilities,
-    VerificationUtils,
+    ManuPoroMechEquationsPoromechanics,
+    ManuPoroMechSolutionStrategy,
+    ManuPoroMechUtils,
     ManuPoroMechDataSaving,
     poromechanics.Poromechanics,
 ):
