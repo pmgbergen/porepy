@@ -1125,6 +1125,43 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         data[pp.STATE][u_name] = self.exact_sol.displacement(sd, 0)
         data[pp.STATE][pp.ITERATE][u_name] = data[pp.STATE][u_name].copy()
 
+    def before_nonlinear_loop(self) -> None:
+        """Update values of mechanical boundary conditions."""
+        super().before_nonlinear_loop()
+
+
+class ModifiedBoundaryConditionsMechanicsTimeDependent(
+    poromechanics.BoundaryConditionsMechanicsTimeDependent
+):
+
+    bc_values_mechanics_key: str
+    """Keyword for accessing the boundary values for the mechanical subproblem."""
+
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    """Named tuple containing the boundary sides indices."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
+
+    params: dict
+    """Parameter dictionary of the verification setup."""
+
+    stress_keyword: str
+    """Keyword for the mechanical subproblem."""
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Define type of boundary conditions.
+
+        For Mandel's problem, we set all boundary sides as rollers, except the East
+        side which is kept at stress-free conditions.
+
+        Parameters:
+            sd: Subdomain grid.
+
+        Returns:
+            Vectorial boundary condition object on the grid ``sd``.
+
+        """
 
 
 class Mandel(pp.ContactMechanicsBiot):
