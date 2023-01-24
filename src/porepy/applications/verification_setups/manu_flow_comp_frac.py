@@ -27,7 +27,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 import sympy as sym
@@ -68,7 +68,7 @@ manu_comp_solid: dict[str, number] = {
 class ManuCompSaveData(ManuIncompSaveData):
     """Data class to store relevant data from the verification setup."""
 
-    time: Optional[number] = None
+    time: number
     """Current simulation time."""
 
 
@@ -84,11 +84,19 @@ class ManuCompDataSaving(VerificationDataSaving):
     exact_sol: ManuCompExactSolution
     """Exact solution object."""
 
-    interface_darcy_flux_variable: str
-    """Key to access the interface variable."""
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """Darcy flux variables on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
-    pressure_variable: str
-    """Key to access the pressure variable."""
+    """
+
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
 
     def collect_data(self) -> ManuCompSaveData:
         """Collect data from the verification setup.
@@ -100,80 +108,88 @@ class ManuCompDataSaving(VerificationDataSaving):
         """
 
         sd_matrix: pp.Grid = self.mdg.subdomains()[0]
-        data_matrix: dict = self.mdg.subdomain_data(sd_matrix)
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
-        data_frac: dict = self.mdg.subdomain_data(sd_frac)
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
-        data_intf: dict = self.mdg.interface_data(intf)
-        p_name: str = self.pressure_variable
-        lmbda_name: str = self.interface_darcy_flux_variable
         exact_sol: ManuCompExactSolution = self.exact_sol
         t: number = self.time_manager.time
 
-        # Instantiate data class
-        out = ManuCompSaveData()
-
-        # Time
-        out.time = t
-
-        # Pressure in the matrix
-        out.exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix, t)
-        out.approx_matrix_pressure = data_matrix[pp.STATE][pp.ITERATE][p_name].copy()
-        out.error_matrix_pressure = self.relative_l2_error(
+        # Collect data
+        exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix, t)
+        matrix_pressure_ad = self.pressure([sd_matrix])
+        approx_matrix_pressure = matrix_pressure_ad.evaluate(self.equation_system).val
+        error_matrix_pressure = self.relative_l2_error(
             grid=sd_matrix,
-            true_array=out.exact_matrix_pressure,
-            approx_array=out.approx_matrix_pressure,
+            true_array=exact_matrix_pressure,
+            approx_array=approx_matrix_pressure,
             is_scalar=True,
             is_cc=True,
         )
 
-        # Darcy flux in the matrix
-        out.exact_matrix_flux = exact_sol.matrix_flux(sd_matrix, t)
+        exact_matrix_flux = exact_sol.matrix_flux(sd_matrix, t)
         matrix_flux_ad = self.darcy_flux([sd_matrix])
-        out.approx_matrix_flux = matrix_flux_ad.evaluate(self.equation_system).val
-        out.error_matrix_flux = self.relative_l2_error(
+        approx_matrix_flux = matrix_flux_ad.evaluate(self.equation_system).val
+        error_matrix_flux = self.relative_l2_error(
             grid=sd_matrix,
-            true_array=out.exact_matrix_flux,
-            approx_array=out.approx_matrix_flux,
+            true_array=exact_matrix_flux,
+            approx_array=approx_matrix_flux,
             is_scalar=True,
             is_cc=False,
         )
 
-        # Pressure in the fracture
-        out.exact_frac_pressure = exact_sol.fracture_pressure(sd_frac, t)
-        out.approx_frac_pressure = data_frac[pp.STATE][pp.ITERATE][p_name].copy()
-        out.error_frac_pressure = self.relative_l2_error(
+        exact_frac_pressure = exact_sol.fracture_pressure(sd_frac, t)
+        frac_pressure_ad = self.pressure([sd_frac])
+        approx_frac_pressure = frac_pressure_ad.evaluate(self.equation_system).val
+        error_frac_pressure = self.relative_l2_error(
             grid=sd_frac,
-            true_array=out.exact_frac_pressure,
-            approx_array=out.approx_frac_pressure,
+            true_array=exact_frac_pressure,
+            approx_array=approx_frac_pressure,
             is_scalar=True,
             is_cc=True,
         )
 
-        # Flux in the fracture
-        out.exact_frac_flux = exact_sol.fracture_flux(sd_frac, t)
+        exact_frac_flux = exact_sol.fracture_flux(sd_frac, t)
         frac_flux_ad = self.darcy_flux([sd_frac])
-        out.approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
-        out.error_frac_flux = self.relative_l2_error(
+        approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
+        error_frac_flux = self.relative_l2_error(
             grid=sd_frac,
-            true_array=out.exact_frac_flux,
-            approx_array=out.approx_frac_flux,
+            true_array=exact_frac_flux,
+            approx_array=approx_frac_flux,
             is_scalar=True,
             is_cc=False,
         )
 
-        # Interface flux
-        out.exact_intf_flux = exact_sol.interface_flux(intf, t)
-        out.approx_intf_flux = data_intf[pp.STATE][pp.ITERATE][lmbda_name]
-        out.error_intf_flux = self.relative_l2_error(
+        exact_intf_flux = exact_sol.interface_flux(intf, t)
+        int_flux_ad = self.interface_darcy_flux([intf])
+        approx_intf_flux = int_flux_ad.evaluate(self.equation_system).val
+        error_intf_flux = self.relative_l2_error(
             grid=intf,
-            true_array=out.exact_intf_flux,
-            approx_array=out.approx_intf_flux,
+            true_array=exact_intf_flux,
+            approx_array=approx_intf_flux,
             is_scalar=True,
             is_cc=True,
         )
 
-        return out
+        # Store collected data in data class
+        collected_data = ManuCompSaveData(
+            approx_frac_flux=approx_frac_flux,
+            approx_frac_pressure=approx_frac_pressure,
+            approx_intf_flux=approx_intf_flux,
+            approx_matrix_flux=approx_matrix_flux,
+            approx_matrix_pressure=approx_matrix_pressure,
+            error_frac_flux=error_frac_flux,
+            error_frac_pressure=error_frac_pressure,
+            error_intf_flux=error_intf_flux,
+            error_matrix_flux=error_matrix_flux,
+            error_matrix_pressure=error_matrix_pressure,
+            exact_frac_flux=exact_frac_flux,
+            exact_frac_pressure=exact_frac_pressure,
+            exact_intf_flux=exact_intf_flux,
+            exact_matrix_flux=exact_matrix_flux,
+            exact_matrix_pressure=exact_matrix_pressure,
+            time=t,
+        )
+
+        return collected_data
 
 
 # -----> Exact solution
