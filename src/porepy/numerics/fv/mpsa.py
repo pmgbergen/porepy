@@ -422,19 +422,20 @@ class Mpsa(Discretization):
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side for a discretization of a second
-            order elliptic equation using a FV method with a multi-point stress
-            approximation.
+        order elliptic equation using a FV method with a multi-point stress
+        approximation.
 
-            Parameters:
-                g: Grid to be discretized.
-                data: dictionary to store the data. For details on necessary keywords,
-                    see ``:meth:discretize``.
+        Parameters:
+            g: Grid to be discretized.
+            data: dictionary to store the data. For details on necessary keywords,
+                see ``:meth:discretize``.
 
         Returns:
-                :obj:`~scipy.sparse.spmatrix`: ``(sd.dim * g_num_cells, sd.dim * g_num_cells)``
+            :obj:`~scipy.sparse.spmatrix`: ``(sd.dim * g_num_cells,
+                                              sd.dim * g_num_cells)``
 
                     Discretization matrix.
-                :obj:`~np.ndarray`: ``(sd.dim * g_num_cells)``
+            :obj:`~np.ndarray`: ``(sd.dim * g_num_cells)``
 
                 Right-hand side which contains the boundary conditions and the vector
                 source term.
@@ -1417,11 +1418,12 @@ class Mpsa(Discretization):
     ) -> tuple[np.ndarray, np.ndarray]:
         """Split the stiffness matrix into symmetric and asymetric part
 
-                Parameters:
-                    constit: The stiffness matrix.
+        Parameters:
+            constit: The stiffness matrix.
 
-                Returns:
-                    The symmetric part of the stiffness matrix.
+        Returns:
+            The symmetric part of the stiffness matrix.
+
         The asymmetric part of the stiffness matrix.
 
         """
