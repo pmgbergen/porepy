@@ -793,30 +793,4 @@ class ManufacturedIncompressibleFlow2d(  # type: ignore[misc]
     """
     Mixer class for the incompressible flow with a single fracture verification setup.
 
-    Examples:
-
-        .. code:: python
-
-            from time import time
-            from porepy.applications.verification_setups.manu_flow_incomp_frac import (
-                manu_incomp_solid,
-                manu_incomp_fluid,
-            )
-
-            # Simulation parameters
-            material_constants = {
-                "solid": pp.SolidConstants(manu_incomp_solid),
-                "fluid": pp.FluidConstants(manu_incomp_fluid),
-            }
-
-            params = {"material_constants": material_constants, "plot_results": True}
-
-            # Run verification setup
-            tic = time()
-            setup = ManufacturedIncompressibleFlow2d(params)
-            print("Simulation started...")
-            pp.run_stationary_model(setup, params)
-            toc = time()
-            print(f"Simulation finished in {round(toc - tic)} seconds.")
-
     """

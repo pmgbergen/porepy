@@ -773,38 +773,4 @@ class ManufacturedCompressibleFlow2d(  # type: ignore[misc]
     """
     Mixer class for the compressible flow with a single fracture verification setup.
 
-    Examples:
-
-        .. code:: python
-
-            from time import time
-            from porepy.applications.verification_setups.manu_flow_comp_frac import (
-                manu_comp_solid,
-                manu_comp_fluid,
-            )
-
-            # Simulation parameters
-            material_constants = {
-                "solid": pp.SolidConstants(manu_comp_solid),
-                "fluid": pp.FluidConstants(manu_comp_fluid),
-            }
-
-            time_manager = pp.TimeManager(
-                schedule=[0, 0.2, 0.6, 1.0], dt_init=0.2, constant_dt=True
-            )
-
-            params = {
-                "material_constants": material_constants,
-                "plot_results": True,
-                "time_manager": time_manager,
-            }
-
-            # Run verification setup
-            tic = time()
-            setup = ManufacturedCompressibleFlow2d(params)
-            print("Simulation started...")
-            pp.run_time_dependent_model(setup, params)
-            toc = time()
-            print(f"Simulation finished in {round(toc - tic)} seconds.")
-
     """
