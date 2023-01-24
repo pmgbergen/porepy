@@ -50,19 +50,20 @@ FLASH.use_armijo = False
 
 M.roots.compute_roots()
 
-FLASH.flash("isothermal", "npipm", "feed", False, True)
+FLASH.flash("isothermal", "npipm", "feed", True, True)
 FLASH.post_process_fractions()
 FLASH.evaluate_specific_enthalpy()
 FLASH.evaluate_saturations()
-
-h = sys.get_variable_values(variables=[M.h_name], from_iterate=False) * 1.25
-sys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=True)
 FLASH.print_state()
+
+h = sys.get_variable_values(variables=[M.h_name]) * 1.25
+sys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=True)
+FLASH.print_state()  # print state resulting from isenthalpic state
 FLASH.use_armijo = False
 FLASH.flash("isenthalpic", "npipm", "iterate", False, True)
 FLASH.post_process_fractions()
 FLASH.evaluate_saturations()
-FLASH.print_state(True)
-FLASH.print_state(False)
+FLASH.print_state(True)  # print state with temperature values after isenthalpic flash
+FLASH.print_state(False)  # print state with T values before isenthalpic flash
 
 print("DONE")
