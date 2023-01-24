@@ -82,33 +82,28 @@ class PR_Component(Component):
     def cohesion_correction(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
         """Returns the linearized alpha-correction for the cohesion parameter"""
 
-        alpha_root = 1 + self.cohesion_correction_weight * (
+        alpha = 1 + self.cohesion_correction_weight * (
             1 - _sqrt(T / self.critical_temperature())
         )
 
-        return alpha_root * alpha_root
+        return alpha
 
     def cohesion(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
         """Returns an expression for ``a`` in the EoS for this component."""
-        return self.critical_cohesion * self.cohesion_correction(T)
+        alpha = self.cohesion_correction(T)
+        return self.critical_cohesion * alpha * alpha
 
     def dT_cohesion(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
         """Returns an expression for the derivative of ``a`` with respect to
         temperature."""
-        T_r = T / self.critical_temperature()
 
         # external derivative of cohesion correction squared
-        dt_a = (
-            2
-            * self.critical_cohesion
-            * (1 + self.cohesion_correction_weight * (1 - _sqrt(T_r)))
-        )
+        dt_a = 2 * self.critical_cohesion * self.cohesion_correction(T)
         # internal derivative of cohesion correction
         dt_a *= (
-            (-1)
+            (-1 / (2 * self.critical_temperature()))
             * self.cohesion_correction_weight
-            / (2 * self.critical_temperature())
-            * _power(T_r, pp.ad.Scalar(-1 / 2))
+            * _power(T / self.critical_temperature(), pp.ad.Scalar(-1 / 2))
         )
 
         return dt_a
