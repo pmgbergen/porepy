@@ -242,13 +242,13 @@ class NaClBrine(PR_Compound, H2O):
         exponent_1 = pp.ad.Scalar(1.1)
         exponent_2 = pp.ad.Scalar(-3)
 
-        alpha_root = (
+        alpha = (
             1
             + 0.453 * (1 - T_r * (1 - 0.0103 * _power(cw, exponent_1)))
             + 0.0034 * (_power(T_r, exponent_2) - 1)
         )
 
-        return alpha_root * alpha_root
+        return alpha
 
 
 # endregion

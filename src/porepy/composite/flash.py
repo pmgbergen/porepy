@@ -427,20 +427,29 @@ class Flash:
         print(filler)
         print("Pressure:")
         print(
-            sys.get_variable_values(
-                variables=[self._C.p_name], from_iterate=from_iterate
+            "\t"
+            + str(
+                sys.get_variable_values(
+                    variables=[self._C.p_name], from_iterate=from_iterate
+                )
             )
         )
         print("Temperature:")
         print(
-            sys.get_variable_values(
-                variables=[self._C.T_name], from_iterate=from_iterate
+            "\t"
+            + str(
+                sys.get_variable_values(
+                    variables=[self._C.T_name], from_iterate=from_iterate
+                )
             )
         )
         print("Enthalpy:")
         print(
-            sys.get_variable_values(
-                variables=[self._C.h_name], from_iterate=from_iterate
+            "\t"
+            + str(
+                sys.get_variable_values(
+                    variables=[self._C.h_name], from_iterate=from_iterate
+                )
             )
         )
         print(filler)
@@ -448,16 +457,22 @@ class Flash:
         for phase in self._C.phases:
             print(f"{phase.name}: ")
             print(
-                sys.get_variable_values(
-                    variables=[phase.fraction_name], from_iterate=from_iterate
+                "\t"
+                + str(
+                    sys.get_variable_values(
+                        variables=[phase.fraction_name], from_iterate=from_iterate
+                    )
                 )
             )
         print("Saturations:")
         for phase in self._C.phases:
             print(f"{phase.name}: ")
             print(
-                sys.get_variable_values(
-                    variables=[phase.saturation_name], from_iterate=from_iterate
+                "\t"
+                + str(
+                    sys.get_variable_values(
+                        variables=[phase.saturation_name], from_iterate=from_iterate
+                    )
                 )
             )
         print(filler)
@@ -467,9 +482,12 @@ class Flash:
             for component in self._C.components:
                 print(f"{phase.fraction_of_component_name(component)}: ")
                 print(
-                    sys.get_variable_values(
-                        variables=[phase.fraction_of_component_name(component)],
-                        from_iterate=from_iterate,
+                    "\t"
+                    + str(
+                        sys.get_variable_values(
+                            variables=[phase.fraction_of_component_name(component)],
+                            from_iterate=from_iterate,
+                        )
                     )
                 )
         print(filler)
@@ -595,9 +613,6 @@ class Flash:
                 variables=var_names, from_iterate=True
             )
             self._C.ad_system.set_variable_values(X, variables=var_names, to_state=True)
-
-        if do_logging:
-            self.print_last_flash_results()
 
         return success
 
