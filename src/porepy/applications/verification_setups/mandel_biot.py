@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -43,9 +43,12 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.classic_models.biot import BiotPoromechanics
-from porepy.applications.verification_setups.verification_utils import VerificationUtils
+from porepy.applications.verification_setups.verification_utils import (
+    VerificationUtils,
+    VerificationDataSaving,
+)
 from porepy.applications.verification_setups.manu_poromech_nofrac import (
-    SaveData,
+    ManuPoroMechSaveData,
     ModifiedDataSavingMixin,
 )
 
@@ -68,23 +71,52 @@ mandel_fluid_constants: dict[str, number] = {
 }
 
 
-class MandelDataSavingMixin(ModifiedDataSavingMixin):
-    """Modify base class to store consolidation degrees."""
+# -----> Data-saving
+@dataclass
+class MandelSaveData(ManuPoroMechSaveData):
+    """Class to store relevant data from the verification setup."""
 
-    def _collect_data(self) -> SaveData:
-        """Collect the data from the verification setup."""
-        out: SaveData = super()._collect_data(self)
-        setattr(out, "exact_consolidation_degree", 0)
-        setattr(out, "approx_consolidation_degree", (0, 0))
-        setattr(out, "error_consolidation_degree", (0, 0))
+    approx_consolidation_degree: Optional[tuple[number]] = None
+    """Approximated degree of consolidation. First element of the tuple corresponds 
+    to the horizontal and second to the vertical degrees of consolidation.
 
-        # Store degrees of consolidation
-        out.exact_consolidation_degree = self.exact_sol.consolidation_degree(out.time)
-        out.approx_consolidation_degree = self.numerical_consolidation_degree()
-        for idx, _ in out.approx_consolidation_degree:
-            out.error_consolidation_degree[idx] = np.abs(
-                out.approx_consolidation_degree[idx] - out.exact_consolidation_degree
-            )
+    """
+
+    exact_consolidation_degree: Optional[number] = None
+    """Exact degree of consolidation."""
+
+    error_consolidation_degree: Optional[tuple[number]] = None
+    """Absolute error for the degree of consolidation. First element is the error in 
+    the horizontal direction. Second element is the error in the vertical direction.
+    
+    """
+
+
+class MandelDataSaving(VerificationDataSaving):
+    """Mixin class to save relevant data."""
+
+    def collect_data(self) -> MandelSaveData:
+        """Collect the data from the verification setup.
+
+        Returns:
+            MandelSaveData object containing the results of the verification for the
+            current time.
+
+        """
+
+        # Retrieve information from setup
+        mdg: pp.MixedDimensionalGrid = self.mdg
+        sd: pp.Grid = mdg.subdomains()[0]
+        data: dict = mdg.subdomain_data(sd)
+        t: number = self.time_manager.time
+        p_name: str = self.pressure_variable
+        u_name: str = self.displacement_variable
+
+        # Instantiate data class
+        out = MandelSaveData()
+
+        # Time
+
 
 
 class MandelUtilities:
