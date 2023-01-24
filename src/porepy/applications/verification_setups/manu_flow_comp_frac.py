@@ -754,20 +754,6 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         data_matrix[pp.STATE]["mobrho_bc_values"] = matrix_mobrho
         data_frac[pp.STATE]["mobrho_bc_values"] = np.zeros(sd_frac.num_faces)
 
-    def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called after convergence."""
-
-        # Store subdomain Darcy fluxes in pp.STATE
-        for sd, data in self.mdg.subdomains(return_data=True):
-            darcy_flux_ad = self.darcy_flux([sd])
-            vals = darcy_flux_ad.evaluate(self.equation_system).val
-            data[pp.STATE][pp.ITERATE][self.subdomain_darcy_flux_variable] = vals
-
-        # Inherit from base class
-        super().after_nonlinear_convergence(solution, errors, iteration_counter)
-
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         if self.params.get("plot_results", False):
