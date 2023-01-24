@@ -42,14 +42,14 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.classic_models.biot import BiotPoromechanics
+from porepy.applications.derived_models.biot import BiotPoromechanics
 from porepy.applications.verification_setups.verification_utils import (
     VerificationUtils,
     VerificationDataSaving,
 )
 from porepy.applications.verification_setups.manu_poromech_nofrac import (
     ManuPoroMechSaveData,
-    ModifiedDataSavingMixin,
+    ManuPoroMechDataSaving,
 )
 
 # PorePy typings
@@ -76,16 +76,16 @@ mandel_fluid_constants: dict[str, number] = {
 class MandelSaveData(ManuPoroMechSaveData):
     """Class to store relevant data from the verification setup."""
 
-    approx_consolidation_degree: Optional[tuple[number]] = None
+    approx_consolidation_degree: tuple[number, number]
     """Approximated degree of consolidation. First element of the tuple corresponds 
     to the horizontal and second to the vertical degrees of consolidation.
 
     """
 
-    exact_consolidation_degree: Optional[number] = None
+    exact_consolidation_degree: number
     """Exact degree of consolidation."""
 
-    error_consolidation_degree: Optional[tuple[number]] = None
+    error_consolidation_degree: tuple[number, number]
     """Absolute error for the degree of consolidation. First element is the error in 
     the horizontal direction. Second element is the error in the vertical direction.
     
@@ -94,6 +94,37 @@ class MandelSaveData(ManuPoroMechSaveData):
 
 class MandelDataSaving(VerificationDataSaving):
     """Mixin class to save relevant data."""
+
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
+
+    """
+
+    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+
+    exact_sol: MandelExactSolution
+    """Exact solution object."""
+
+    numerical_consolidation_degree: Callable[[], tuple[number, number]]
+    """Numerical degree of consolidation in the horizontal and vertical directions."""
+
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the (integrated) poroelastic stress in the form of an Ad
+    operator. Usually provided by the mixin class
+    :class:`porepy.models.poromechanics.ConstitutiveLawsPoromechanics`.
+
+    """
 
     def collect_data(self) -> MandelSaveData:
         """Collect the data from the verification setup.
@@ -107,16 +138,86 @@ class MandelDataSaving(VerificationDataSaving):
         # Retrieve information from setup
         mdg: pp.MixedDimensionalGrid = self.mdg
         sd: pp.Grid = mdg.subdomains()[0]
-        data: dict = mdg.subdomain_data(sd)
         t: number = self.time_manager.time
-        p_name: str = self.pressure_variable
-        u_name: str = self.displacement_variable
 
-        # Instantiate data class
-        out = MandelSaveData()
+        # Collect data
+        exact_pressure = self.exact_sol.pressure(sd, t)
+        pressure_ad = self.pressure([sd])
+        approx_pressure = pressure_ad.evaluate(self.equation_system).val
+        error_pressure = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_pressure,
+            approx_array=approx_pressure,
+            is_scalar=True,
+            is_cc=True,
+        )
 
-        # Time
+        exact_displacement = self.exact_sol.displacement(sd, t)
+        displacement_ad = self.displacement([sd])
+        approx_displacement = displacement_ad.evaluate(self.equation_system).val
+        error_displacement = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_displacement,
+            approx_array=approx_displacement,
+            is_scalar=False,
+            is_cc=True,
+        )
 
+        exact_flux = self.exact_sol.flux(sd, t)
+        flux_ad = self.darcy_flux([sd])
+        approx_flux = flux_ad.evaluate(self.equation_system).val
+        error_flux = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_flux,
+            approx_array=approx_flux,
+            is_scalar=True,
+            is_cc=False,
+        )
+
+        exact_force = self.exact_sol.poroelastic_force(sd, t)
+        force_ad = self.stress([sd])
+        approx_force = force_ad.evaluate(self.equation_system).val
+        error_force = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_force,
+            approx_array=approx_force,
+            is_scalar=False,
+            is_cc=False,
+        )
+
+        exact_consolidation_degree = self.exact_sol.degree_of_consolidation(t)
+        approx_consolidation_degree = self.numerical_consolidation_degree()
+        error_consolidation_degree_x = np.abs(
+            approx_consolidation_degree[0] - exact_consolidation_degree
+        )
+        error_consolidation_degree_y = np.abs(
+            approx_consolidation_degree[1] - exact_consolidation_degree
+        )
+        error_consolidation_degree = (
+            error_consolidation_degree_x, error_consolidation_degree_y
+        )
+
+        # Store collected data in data class
+        collected_data = MandelSaveData(
+            approx_consolidation_degree=approx_consolidation_degree,
+            approx_displacement=approx_displacement,
+            approx_flux=approx_flux,
+            approx_force=approx_force,
+            approx_pressure=approx_pressure,
+            error_consolidation_degree=error_consolidation_degree,
+            error_displacement=error_displacement,
+            error_flux=error_flux,
+            error_force=error_force,
+            error_pressure=error_pressure,
+            exact_consolidation_degree=exact_consolidation_degree,
+            exact_displacement=exact_displacement,
+            exact_flux=exact_flux,
+            exact_force=exact_force,
+            exact_pressure=exact_pressure,
+            time=t,
+        )
+
+        return collected_data
 
 
 class MandelUtilities:
@@ -130,17 +231,35 @@ class MandelUtilities:
 
     fluid: pp.FluidConstants
 
-    fluid_diffusivity: Callable
-    """Fluid diffusivity in `m^2 * s^{-1}`."""
+    fluid_diffusivity: Callable[[], number]
+    """Fluid diffusivity in `m^2 * s^{-1}`. Provided by an instance of 
+    :class:MandelUtilities.
+    
+    """
+
+    poisson_coefficient: Callable[[], number]
+    """Poisson coefficient [-]. Provided by an instance of :class:MandelUtilities."""
+
+    undrained_poisson_coefficient: Callable[[], number]
+    """"Undrained Poisson coefficient [-]. Provided by an instance of 
+    :class:MandelUtilities.
+    
+    """
+
+    bulk_modulus: Callable[[], number]
+    """Bulk modulus [Pa]. Provided by an instance of :class:MandelUtilities."""
 
     mdg: pp.MixedDimensionalGrid
 
     params: dict
     """Model parameters dictionary."""
 
-    results: list[SaveData]
+    results: list[MandelSaveData]
 
     solid: pp.SolidConstants
+
+    stress_keyword: str
+    """Keyword to access data parameters from the mechanical subproblem."""
 
     time_manager: pp.TimeManager
 
@@ -246,6 +365,56 @@ class MandelUtilities:
         sides = self.domain_boundary_sides(sd)
         east_idx = np.where(sides.east)[0]
         return sd.signs_and_cells_of_boundary_faces(east_idx)[1]
+
+    def numerical_consolidation_degree(self) -> tuple[float, float]:
+        """ Compute approximated degree of consolidation.
+
+        Returns:
+            Numerical degree of consolidation in the horizontal and vertical directions.
+
+        """
+        sd = self.mdg.subdomains()[0]
+        data = self.mdg.subdomain_data(sd)
+
+        F = self.params["vertical_load"]  # [N * m^{-1}]
+        mu_s = self.solid.shear_modulus()  # [Pa]
+        nu_s = self.poisson_coefficient()  # [-]
+        nu_u = self.undrained_poisson_coefficient()  # [-]
+        a, b = self.params.get("domain_size", (100, 10))  # [m]
+
+        kw_m = self.stress_keyworkd
+        disc = data[pp.DISCRETIZATION_MATRICES][kw_m]
+
+        p = data[pp.STATE][self.scalar_variable]
+        u = data[pp.STATE][self.displacement_variable]
+        t = self.time_manager.time
+
+        if t == 0:
+            consol_deg_x, consol_deg_y = 0, 0
+        else:
+            bc_vals = data[pp.PARAMETERS][kw_m]["bc_values"]
+            bound_u_cell = disc["bound_displacement_cell"]
+            bound_u_face = disc["bound_displacement_face"]
+            bound_u_pressure = disc["bound_displacement_pressure"]
+
+            trace_u = bound_u_cell * u + bound_u_face * bc_vals + bound_u_pressure * p
+
+            sides = self.domain_boundary_sides(sd)
+
+            trace_ux = trace_u[::2]
+            trace_uy = trace_u[1::2]
+
+            ux_a_t = np.max(trace_ux[sides.east])
+            ux_a_0 = (F * nu_u) / (2 * mu_s)
+            ux_a_inf = (F * nu_s) / (2 * mu_s)
+            consol_deg_x = (ux_a_t - ux_a_0) / (ux_a_inf - ux_a_0)
+
+            uy_b_t = np.max(trace_uy[sides.north])
+            uy_b_0 = (-F * b * (1 - nu_u)) / (2 * mu_s * a)
+            uy_b_inf = (-F * b * (1 - nu_s)) / (2 * mu_s * a)
+            consol_deg_y = (uy_b_t - uy_b_0) / (uy_b_inf - uy_b_0)
+
+        return consol_deg_x, consol_deg_y
 
     # -----> Plotting methods
     def plot_results(self):
