@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 from time import time
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -354,7 +354,9 @@ class Biot(pp.Mpsa):
         constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
 
         eta: float = parameter_dictionary.get("mpsa_eta", pp.fvutils.determine_eta(sd))
-        inverter: str = parameter_dictionary.get("inverter", None)
+        inverter: Literal["python", "numba"] = parameter_dictionary.get(
+            "inverter", "numba"
+        )
 
         alpha: float = parameter_dictionary["biot_alpha"]
 
@@ -617,7 +619,7 @@ class Biot(pp.Mpsa):
         bound_mech: pp.BoundaryConditionVectorial,
         alpha: float,
         eta: float,
-        inverter: str,
+        inverter: Literal["python", "numba"],
         hf_output: bool = False,
     ) -> tuple[
         sps.spmatrix,
