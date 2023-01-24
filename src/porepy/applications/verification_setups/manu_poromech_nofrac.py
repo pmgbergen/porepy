@@ -709,7 +709,7 @@ class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
         return external_sources
 
 
-class ManuPoroMechEquationsPoromechanics(
+class ManuPoroMechEquations(
     ManuPoroMechMassBalance,
     ManuPoroMechMomentumBalance,
 ):
@@ -791,7 +791,7 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 # -----> Mixer class
 class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
     UnitSquareTriangleGrid,
-    ManuPoroMechEquationsPoromechanics,
+    ManuPoroMechEquations,
     ManuPoroMechSolutionStrategy,
     ManuPoroMechUtils,
     ManuPoroMechDataSaving,
