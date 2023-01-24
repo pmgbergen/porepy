@@ -369,8 +369,8 @@ class PR_Roots:
             z1_3 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_3 / 3
 
             # assert roots are ordered by size
-            assert np.all(
-                z1_3.val <= z2_3.val <= z3_3.val
+            assert np.all(z1_3.val <= z2_3.val) and np.all(
+                z2_3.val <= z3_3.val
             ), "Roots in three-root-region improperly ordered."
 
             ## Smoothing of roots close to double-real-root case
