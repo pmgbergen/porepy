@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Callable, Literal, Sequence, Union
+from typing import Callable, Literal, Optional, Sequence, Union
 
 import numpy as np
 
@@ -1355,37 +1355,49 @@ class AdvectiveFlux:
         advected_entity: pp.ad.Operator,
         discr: pp.ad.UpwindAd,
         bc_values: pp.ad.Operator,
-        interface_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator],
+        interface_flux: Optional[
+            Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+        ] = None,
     ) -> pp.ad.Operator:
         """An operator represetning the advective flux on subdomains.
+
         .. note::
             The implementation assumes that the advective flux is discretized using a
             standard upwind discretization. Other discretizations may be possible, but
             this has not been considered.
+
         Parameters:
             subdomains: List of subdomains.
             advected_entity: Operator representing the advected entity.
             discr: Discretization of the advective flux.
             bc_values: Boundary conditions for the advective flux.
-            interface_flux: Interface flux operator/variable.
+            interface_flux: Interface flux operator/variable. If subdomains have no
+                neighboring interfaces, this argument can be omitted.
+
         Returns:
             Operator representing the advective flux.
+
         """
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=1
         )
+
         flux: pp.ad.Operator = (
             darcy_flux * (discr.upwind * advected_entity)
             - discr.bound_transport_dir * darcy_flux * bc_values
             # Advective flux coming from lower-dimensional subdomains
-            - discr.bound_transport_neu
-            * (
-                mortar_projection.mortar_to_primary_int * interface_flux(interfaces)
-                + bc_values
-            )
+            - discr.bound_transport_neu * bc_values
         )
+        if interface_flux is not None:
+            flux -= (
+                discr.bound_transport_neu
+                * mortar_projection.mortar_to_primary_int
+                * interface_flux(interfaces)
+            )
+        else:
+            assert len(interfaces) == 0
         return flux
 
     def interface_advective_flux(
