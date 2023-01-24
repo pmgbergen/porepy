@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import copy
 import itertools
+import warnings
 from itertools import count
 from typing import Any, Optional, Union
-import warnings
 
 import numpy as np
 from scipy import sparse as sps
@@ -441,7 +441,8 @@ class Grid:
         is_oriented = (fn_orient * self.cell_faces).nnz == 0
         if not is_oriented:
             warnings.warn(
-                "Orientations in face_nodes and cell_faces are inconsistent, we will now assume convex cells."
+                "Orientations in face_nodes and cell_faces are inconsistent, "
+                "we will now assume convex cells."
             )
 
         # Compute the tangent vectors and use them to compute face attributes
@@ -479,7 +480,8 @@ class Grid:
         # If the nodes are counter clock-wise these are positive values.
         subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
 
-        # In case of inconsistent orientation, the sub-simplex volumes and normals need to be corrected
+        # In case of inconsistent orientation,
+        # the sub-simplex volumes and normals need to be corrected
         if not is_oriented:
             subsimplex_volumes = np.abs(subsimplex_volumes)
 
