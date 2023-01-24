@@ -584,7 +584,7 @@ class ManuIncompUtils(VerificationUtils):
         plt.show()
 
 
-# -----> Geomtery
+# -----> Geometry
 class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
     """Generate fracture network and mixed-dimensional grid."""
 
@@ -750,9 +750,6 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
         self.results: list[ManuIncompSaveData] = []
         """Results object that stores exact and approximated solutions and errors."""
-
-        self.subdomain_darcy_flux_variable: str = "darcy_flux"
-        """Keyword to access the subdomain Darcy fluxes."""
 
     def set_materials(self):
         """Set material constants for the verification setup."""
