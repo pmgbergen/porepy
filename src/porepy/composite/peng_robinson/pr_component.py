@@ -104,8 +104,9 @@ class PR_Component(Component):
             * (1 + self.cohesion_correction_weight * (1 - _sqrt(T_r)))
         )
         # internal derivative of cohesion correction
-        dt_a *= -(
-            self.cohesion_correction_weight
+        dt_a *= (
+            (-1)
+            * self.cohesion_correction_weight
             / (2 * self.critical_temperature())
             * _power(T_r, pp.ad.Scalar(-1 / 2))
         )

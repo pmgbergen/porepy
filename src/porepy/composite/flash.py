@@ -571,6 +571,7 @@ class Flash:
             raise ValueError(f"Unknown flash type {flash_type}.")
 
         if do_logging:
+            print("+++")
             print(f"Flash procedure: {flash_type}")
             print(f"Method: {method}")
             print(f"Setting initial guesses: {initial_guess}", flush=True)
@@ -582,6 +583,7 @@ class Flash:
         elif method == "npipm":
             if do_logging:
                 print("Setting initial NPIPM variables.", flush=True)
+                print("+++")
             self._set_NPIPM_initial_guess()
             success = self._NPIPM(flash_type, do_logging)
         else:
