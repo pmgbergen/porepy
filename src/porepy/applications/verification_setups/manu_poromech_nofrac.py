@@ -64,7 +64,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 import sympy as sym
@@ -88,44 +88,44 @@ grid = pp.GridLike
 class ManuPoroMechSaveData:
     """Data class to save relevant results from the verification setup."""
 
-    approx_displacement: Optional[np.ndarray] = None
+    approx_displacement: np.ndarray
     """Numerical displacement."""
 
-    approx_flux: Optional[np.ndarray] = None
+    approx_flux: np.ndarray
     """Numerical Darcy flux."""
 
-    approx_force: Optional[np.ndarray] = None
+    approx_force: np.ndarray
     """Numerical poroelastic force."""
 
-    approx_pressure: Optional[np.ndarray] = None
+    approx_pressure: np.ndarray
     """Numerical pressure."""
 
-    error_displacement: Optional[number] = None
+    error_displacement: number
     """L2-discrete relative error for the displacement."""
 
-    error_flux: Optional[number] = None
+    error_flux: number
     """L2-discrete relative error for the Darcy flux."""
 
-    error_force: Optional[number] = None
+    error_force: number
     """L2-discrete relative error for the poroelastic force."""
 
-    error_pressure: Optional[number] = None
+    error_pressure: number
     """L2-discrete relative error for the pressure."""
 
-    exact_displacement: Optional[np.ndarray] = None
+    exact_displacement: np.ndarray
     """Exact displacement."""
 
-    exact_flux: Optional[np.ndarray] = None
+    exact_flux: np.ndarray
     """Exact Darcy flux."""
 
-    exact_force: Optional[np.ndarray] = None
+    exact_force: np.ndarray
     """Exact poroelastic force."""
 
-    exact_pressure: Optional[np.ndarray] = None
+    exact_pressure: np.ndarray
     """Exact pressure."""
 
-    time: Optional[number] = None
-    """Currrent simulation time."""
+    time: number
+    """Current simulation time."""
 
 
 class ManuPoroMechDataSaving(VerificationDataSaving):
@@ -137,14 +137,20 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
     """
 
-    displacement_variable: str
-    """Keyword for accessing the displacement variable."""
+    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
 
     exact_sol: ManuPoroMechExactSolution
     """Exact solution object."""
 
-    pressure_variable: str
-    """Keyword for accessing the pressure variable."""
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
 
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the (integrated) poroelastic stress in the form of an Ad
@@ -162,67 +168,73 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         """
 
-        # Retrieve information from setup
         mdg: pp.MixedDimensionalGrid = self.mdg
         sd: pp.Grid = mdg.subdomains()[0]
-        data: dict = mdg.subdomain_data(sd)
         t: number = self.time_manager.time
-        p_name: str = self.pressure_variable
-        u_name: str = self.displacement_variable
 
-        # Instantiate data class
-        out = ManuPoroMechSaveData()
-
-        # Time
-        out.time = t
-
-        # Pressure
-        out.exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
-        out.approx_pressure = data[pp.STATE][pp.ITERATE][p_name].copy()
-        out.error_pressure = self.relative_l2_error(
+        # Collect data
+        exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
+        pressure_ad = self.pressure([sd])
+        approx_pressure = pressure_ad.evaluate(self.equation_system).val
+        error_pressure = self.relative_l2_error(
             grid=sd,
-            true_array=out.exact_pressure,
-            approx_array=out.approx_pressure,
+            true_array=exact_pressure,
+            approx_array=approx_pressure,
             is_scalar=True,
             is_cc=True,
         )
 
-        # Displacement
-        out.exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
-        out.approx_displacement = data[pp.STATE][pp.ITERATE][u_name].copy()
-        out.error_displacement = self.relative_l2_error(
+        exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
+        displacement_ad = self.displacement([sd])
+        approx_displacement = displacement_ad.evaluate(self.equation_system).val
+        error_displacement = self.relative_l2_error(
             grid=sd,
-            true_array=out.exact_displacement,
-            approx_array=out.approx_displacement,
+            true_array=exact_displacement,
+            approx_array=approx_displacement,
             is_scalar=False,
             is_cc=True,
         )
 
-        # Flux
-        out.exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
+        exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
         flux_ad = self.darcy_flux([sd])
-        out.approx_flux = flux_ad.evaluate(self.equation_system).val
-        out.error_flux = self.relative_l2_error(
+        approx_flux = flux_ad.evaluate(self.equation_system).val
+        error_flux = self.relative_l2_error(
             grid=sd,
-            true_array=out.exact_flux,
-            approx_array=out.approx_flux,
+            true_array=exact_flux,
+            approx_array=approx_flux,
             is_scalar=True,
             is_cc=False,
         )
 
-        # Force
-        out.exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
+        exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
-        out.approx_force = force_ad.evaluate(self.equation_system).val
-        out.error_force = self.relative_l2_error(
+        approx_force = force_ad.evaluate(self.equation_system).val
+        error_force = self.relative_l2_error(
             grid=sd,
-            true_array=out.exact_force,
-            approx_array=out.approx_force,
+            true_array=exact_force,
+            approx_array=approx_force,
             is_scalar=False,
             is_cc=False,
         )
 
-        return out
+        # Store collected data in data class
+        collected_data = ManuPoroMechSaveData(
+            approx_displacement=approx_displacement,
+            approx_flux=approx_flux,
+            approx_force=approx_force,
+            approx_pressure=approx_pressure,
+            error_displacement=error_displacement,
+            error_flux=error_flux,
+            error_force=error_force,
+            error_pressure=error_pressure,
+            exact_displacement=exact_displacement,
+            exact_flux=exact_flux,
+            exact_force=exact_force,
+            exact_pressure=exact_pressure,
+            time=t,
+        )
+
+        return collected_data
 
 
 # -----> Exact solution

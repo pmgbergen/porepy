@@ -36,7 +36,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
@@ -46,9 +46,6 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.derived_models.biot import BiotPoromechanics
-from porepy.applications.verification_setups.manu_poromech_nofrac import (
-    ManuPoroMechSaveData,
-)
 from porepy.applications.verification_setups.verification_utils import (
     VerificationDataSaving,
     VerificationUtils,
@@ -74,50 +71,71 @@ terzaghi_fluid_constants: dict[str, number] = {
 
 # -----> Data-saving
 @dataclass
-class TerzaghiSaveData(ManuPoroMechSaveData):
+class TerzaghiSaveData:
     """Data class to save relevant results from the verification setup."""
 
-    approx_consolidation_degree: Optional[number] = None
+    approx_displacement: np.ndarray
+    """Numerical displacement."""
+
+    approx_pressure: np.ndarray
+    """Numerical pressure."""
+
+    exact_pressure: np.ndarray
+    """Exact pressure."""
+
+    error_pressure: np.ndarray
+    """L2-discrete relative error for the pressure."""
+
+    approx_consolidation_degree: number
     """Numerical degree of consolidation."""
 
-    error_consolidation_degree: Optional[number] = None
+    error_consolidation_degree: number
     """Absolute error in the degree of consolidation."""
 
-    exact_consolidation_degree: Optional[number] = None
+    exact_consolidation_degree: number
     """Exact degree of consolidation."""
+
+    time: number
+    """Current simulation time."""
 
 
 class TerzaghiDataSaving(VerificationDataSaving):
     """Mixin class to save relevant data."""
 
-    pressure_variable: str
-    """Key to access the pressure variable."""
+    exact_sol: TerzaghiExactSolution
+    """Exact solution object."""
 
-    displacement_variable: str
-    """Key to access the displacement variable."""
+    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
-    nondim_time: Callable
+    """
+
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    nondim_time: Callable[[number], number]
     """Method that non-dimensionalizes time. The method is provided by the mixin class
     :class:`TerzaghiUtils`.
 
     """
 
-    nondim_length: Callable
+    nondim_length: Callable[[np.ndarray], np.ndarray]
     """Method that non-dimensionalises length. The method is provided by the mixin
     class :class:`TerzaghiUtils`.
 
     """
 
-    nondim_pressure: Callable
+    nondim_pressure: Callable[[np.ndarray], np.ndarray]
     """Method that non-dimensionalises pressure. The method is provided by the mixin
     class :class:`TerzaghiUtils`.
 
     """
 
-    exact_sol: TerzaghiExactSolution
-    """Exact solution object."""
-
-    numerical_consolidation_degree: Callable
+    numerical_consolidation_degree: Callable[[np.ndarray, np.ndarray], number]
     """Method that computes the numerical degree of consolidation. The method is
     provided by the mixin class :class:`TerzaghiUtils`.
 
@@ -131,42 +149,46 @@ class TerzaghiDataSaving(VerificationDataSaving):
 
         """
 
-        # Retrieve data from setup
         sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-        p_name = self.pressure_variable
-        u_name = self.displacement_variable
         t = self.time_manager.time
 
-        # Instantiate data class
-        out = TerzaghiSaveData()
-
-        # Store time data
-        out.time = t
-
-        # Pressure
-        out.exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
-        out.approx_pressure = data[pp.STATE][p_name].copy()
-        out.error_pressure = self.relative_l2_error(
+        # Collect data
+        exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
+        pressure_ad = self.pressure([sd])
+        approx_pressure = pressure_ad.evaluate(self.equation_system).val
+        error_pressure = self.relative_l2_error(
             grid=sd,
-            true_array=out.exact_pressure,
-            approx_array=out.approx_pressure,
+            true_array=exact_pressure,
+            approx_array=approx_pressure,
             is_scalar=True,
             is_cc=True,
         )
 
-        # Degree of consolidation
-        out.approx_displacement = data[pp.STATE][u_name].copy()
-        num_consol_deg = self.numerical_consolidation_degree(
-            np.array(out.approx_displacement),
-            np.array(out.approx_pressure),
-        )
-        out.approx_consolidation_degree = num_consol_deg
-        ex_consol_deg = self.exact_sol.consolidation_degree(t)
-        out.exact_consolidation_degree = ex_consol_deg
-        out.error_consolidation_degree = np.abs(num_consol_deg - ex_consol_deg)
+        displacement_ad = self.displacement([sd])
+        approx_displacement = displacement_ad.evaluate(self.equation_system).val
 
-        return out
+        approx_consolidation_degree = self.numerical_consolidation_degree(
+            approx_displacement,
+            approx_pressure,
+        )
+        exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
+        error_consolidation_degree = np.abs(
+            approx_consolidation_degree - exact_consolidation_degree
+        )
+
+        # Store collected data in data class
+        collected_data = TerzaghiSaveData(
+            approx_displacement=approx_displacement,
+            approx_pressure=approx_pressure,
+            error_pressure=error_pressure,
+            exact_pressure=exact_pressure,
+            approx_consolidation_degree=approx_consolidation_degree,
+            error_consolidation_degree=error_consolidation_degree,
+            exact_consolidation_degree=exact_consolidation_degree,
+            time=t,
+        )
+
+        return collected_data
 
 
 # -----> Exact solution
