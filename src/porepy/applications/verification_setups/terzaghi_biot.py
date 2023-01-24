@@ -24,13 +24,13 @@ one-dimensional subdomains.
 
 References:
 
-    [1] von Terzaghi, K. (1923). Die berechnung der durchassigkeitsziffer des tones aus
-      dem verlauf der hydrodynamischen spannungs. erscheinungen. Sitzungsber. Akad.
+    - [1] von Terzaghi, K. (1923). Die berechnung der durchassigkeitsziffer des tones
+      aus dem verlauf der hydrodynamischen spannungs. erscheinungen. Sitzungsber. Akad.
       Wiss. Math. Naturwiss. Kl. Abt. 2A, 132, 105-124.
 
-    [2] von Terzaghi, K. (1944). Theoretical Soil Mechanics.
+    - [2] von Terzaghi, K. (1944). Theoretical Soil Mechanics.
 
-    [3] Verruijt, A. (2017). An Introduction to Soil Mechanics (Vol. 30). Springer.
+    - [3] Verruijt, A. (2017). An Introduction to Soil Mechanics (Vol. 30). Springer.
 
 """
 from __future__ import annotations
@@ -45,9 +45,13 @@ import numpy as np
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.classic_models.biot import BiotPoromechanics
-from porepy.models.verification_setups.verifications_utils import VerificationUtils
+from porepy.applications.derived_models.biot import BiotPoromechanics
+from porepy.applications.verification_setups.verification_utils import (
+    VerificationDataSaving,
+    VerificationUtils,
+)
 
+# PorePy typings
 number = pp.number
 grid = pp.GridLike
 
@@ -65,52 +69,131 @@ terzaghi_fluid_constants: dict[str, number] = {
 }
 
 
+# -----> Data-saving
 @dataclass
-class SaveData:
+class TerzaghiSaveData:
     """Data class to save relevant results from the verification setup."""
 
-    consolidation_degree_error: number = 0
-    """Absolute error in the degree of consolidation."""
+    approx_displacement: np.ndarray
+    """Numerical displacement."""
 
-    exact_consolidation_degree: number = 0
-    """Exact degree of consolidation."""
+    approx_pressure: np.ndarray
+    """Numerical pressure."""
 
-    exact_nondim_pressure: np.ndarray = np.zeros(1)
-    """Exact non-dimensional pressure."""
-
-    exact_pressure: np.ndarray = np.zeros(1)
+    exact_pressure: np.ndarray
     """Exact pressure."""
 
-    nondim_time: number = 0
-    """Non-dimensional time."""
-
-    nondim_vertical_coo: np.ndarray = np.zeros(1)
-    """Non-dimensional vertical coordinate."""
-
-    numerical_consolidation_degree: number = 0
-    """Numerical degree of consolidation."""
-
-    numerical_displacement: np.ndarray = np.zeros(1)
-    """Numerical displacement solution."""
-
-    numerical_nondim_pressure: np.ndarray = np.zeros(1)
-    """Numerical non-dimensional pressure solution."""
-
-    numerical_pressure: np.ndarray = np.zeros(1)
-    """Numerical pressure solution."""
-
-    pressure_error: number = 0
+    error_pressure: np.ndarray
     """L2-discrete relative error for the pressure."""
 
-    time: number = 0
-    """Current time in seconds."""
+    approx_consolidation_degree: number
+    """Numerical degree of consolidation."""
 
-    vertical_coo: np.ndarray = np.zeros(1)
-    """Vertical coordinate in meters."""
+    error_consolidation_degree: number
+    """Absolute error in the degree of consolidation."""
+
+    exact_consolidation_degree: number
+    """Exact degree of consolidation."""
+
+    time: number
+    """Current simulation time."""
 
 
-class ExactSolution:
-    """Parent class containing exact solutions to Terzaghi's consolidation problem."""
+class TerzaghiDataSaving(VerificationDataSaving):
+    """Mixin class to save relevant data."""
+
+    exact_sol: TerzaghiExactSolution
+    """Exact solution object."""
+
+    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    nondim_time: Callable[[number], number]
+    """Method that non-dimensionalizes time. The method is provided by the mixin class
+    :class:`TerzaghiUtils`.
+
+    """
+
+    nondim_length: Callable[[np.ndarray], np.ndarray]
+    """Method that non-dimensionalises length. The method is provided by the mixin
+    class :class:`TerzaghiUtils`.
+
+    """
+
+    nondim_pressure: Callable[[np.ndarray], np.ndarray]
+    """Method that non-dimensionalises pressure. The method is provided by the mixin
+    class :class:`TerzaghiUtils`.
+
+    """
+
+    numerical_consolidation_degree: Callable[[np.ndarray, np.ndarray], number]
+    """Method that computes the numerical degree of consolidation. The method is
+    provided by the mixin class :class:`TerzaghiUtils`.
+
+    """
+
+    def collect_data(self) -> TerzaghiSaveData:
+        """Collect data for the current simulation time.
+
+        Returns:
+            TerzaghiSaveData object containing the results of the verification.
+
+        """
+
+        sd = self.mdg.subdomains()[0]
+        t = self.time_manager.time
+
+        # Collect data
+        exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
+        pressure_ad = self.pressure([sd])
+        approx_pressure = pressure_ad.evaluate(self.equation_system).val
+        error_pressure = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_pressure,
+            approx_array=approx_pressure,
+            is_scalar=True,
+            is_cc=True,
+        )
+
+        displacement_ad = self.displacement([sd])
+        approx_displacement = displacement_ad.evaluate(self.equation_system).val
+
+        approx_consolidation_degree = self.numerical_consolidation_degree(
+            approx_displacement,
+            approx_pressure,
+        )
+        exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
+        error_consolidation_degree = np.abs(
+            approx_consolidation_degree - exact_consolidation_degree
+        )
+
+        # Store collected data in data class
+        collected_data = TerzaghiSaveData(
+            approx_displacement=approx_displacement,
+            approx_pressure=approx_pressure,
+            error_pressure=error_pressure,
+            exact_pressure=exact_pressure,
+            approx_consolidation_degree=approx_consolidation_degree,
+            error_consolidation_degree=error_consolidation_degree,
+            exact_consolidation_degree=exact_consolidation_degree,
+            time=t,
+        )
+
+        return collected_data
+
+
+# -----> Exact solution
+class TerzaghiExactSolution:
+    """Class containing exact solutions to Terzaghi's consolidation problem."""
 
     def __init__(self, setup):
         """Constructor of the class"""
@@ -176,119 +259,8 @@ class ExactSolution:
         return deg_cons
 
 
-class ModifiedDataSavingMixin(pp.DataSavingMixin):
-    """Mixin class to save relevant data."""
-
-    pressure_variable: str
-    """Key to access the pressure variable."""
-
-    displacement_variable: str
-    """Key to access the displacement variable."""
-
-    nondim_time: Callable[[number], number]
-    """Method that non-dimensionalizes time. The method is provided by the mixin class
-    :class:`SetupUtilities`.
-
-    """
-
-    nondim_length: Callable[[np.ndarray], np.ndarray]
-    """Method that non-dimensionalises length. The method is provided by the mixin
-    class :class:`SetupUtilities`.
-
-    """
-
-    nondim_pressure: Callable[[np.ndarray], np.ndarray]
-    """Method that non-dimensionalises pressure. The method is provided by the mixin
-    class :class:`SetupUtilities`.
-
-    """
-
-    exact_sol: ExactSolution
-    """Exact solution object."""
-
-    results: list[SaveData]
-    """List of :class:`SaveData` objects containing the results of the verification."""
-
-    numerical_consolidation_degree: Callable[[np.ndarray, np.ndarray], number]
-    """Method that computes the numerical degree of consolidation. The method is
-    provided by the mixin class :class:`SetupUtilities`.
-
-    """
-
-    relative_l2_error: Callable[[grid, np.ndarray, np.ndarray, bool, bool], number]
-    """Method that computes the discrete relative L2-error. The method is provided by
-    the mixin class:class:`porepy.models.verification_setups.VerificationUtils`.
-
-    """
-
-    def save_data_time_step(self) -> None:
-        """Save data to the `results` list.
-
-        Note:
-            Data will be appended to the ``results`` list only if the current time
-            matches a time from ``self.time_manager.schedule[1:]``.
-
-        """
-        if any(np.isclose(self.time_manager.time, self.time_manager.schedule[1:])):
-            collected_data = self._collect_data()
-            self.results.append(collected_data)
-
-    def _collect_data(self) -> SaveData:
-        """Collect data for the current simulation time.
-
-        Returns:
-            SaveData object containing the results of the verification.
-
-        """
-
-        # Retrieve data from setup
-        sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-        p_name = self.pressure_variable
-        u_name = self.displacement_variable
-        t = self.time_manager.time
-
-        # Instantiate data class
-        out = SaveData()
-
-        # Store time data
-        out.time = t
-        out.nondim_time = self.nondim_time(t)
-
-        # Spatial variables
-        out.vertical_coo = sd.cell_centers[1]
-        out.nondim_vertical_coo = self.nondim_length(sd.cell_centers[1])
-
-        # Pressure data
-        out.numerical_pressure = data[pp.STATE][p_name]
-        out.exact_pressure = self.exact_sol.pressure(out.vertical_coo, out.time)
-        out.numerical_nondim_pressure = self.nondim_pressure(out.numerical_pressure)
-        out.exact_nondim_pressure = self.nondim_pressure(out.exact_pressure)
-
-        # Mechanical data
-        out.numerical_displacement = data[pp.STATE][u_name]
-        out.numerical_consolidation_degree = self.numerical_consolidation_degree(
-            out.numerical_displacement,  # displacement
-            out.numerical_pressure,  # pressure
-        )
-        out.exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
-
-        # Store errors data
-        out.pressure_error = self.relative_l2_error(  # type: ignore[call-arg]
-            grid=sd,
-            true_array=out.exact_pressure,
-            approx_array=out.numerical_pressure,
-            is_scalar=True,
-            is_cc=True,
-        )
-        out.consolidation_degree_error = np.abs(
-            out.exact_consolidation_degree - out.numerical_consolidation_degree
-        )
-
-        return out
-
-
-class SetupUtilities:
+# -----> Utilities
+class TerzaghiUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
     params: dict
@@ -312,13 +284,16 @@ class SetupUtilities:
     fluid: pp.FluidConstants
     """Fluid constant object."""
 
-    exact_sol: ExactSolution
+    exact_sol: TerzaghiExactSolution
     """Exact solution object."""
 
-    results: list[SaveData]
-    """List of :class:`SaveData` objects containing the results of the verification."""
+    results: list[TerzaghiSaveData]
+    """List of :class:`TerzaghiSaveData` objects containing the results of the
+    verification.
 
-    # ----> Derived physical quantities
+    """
+
+    # ---> Derived physical quantities
     def confined_compressibility(self) -> number:
         """Compute confined compressibility [Pa^-1].
 
@@ -329,7 +304,6 @@ class SetupUtilities:
         mu_s = self.solid.shear_modulus()
         lambda_s = self.solid.lame_lambda()
         m_v = 1 / (2 * mu_s + lambda_s)
-
         return m_v
 
     def consolidation_coefficient(self) -> number:
@@ -345,16 +319,13 @@ class SetupUtilities:
         gamma_f = rho * pp.GRAVITY_ACCELERATION  # specific weight [Pa * m^-1]
         hydraulic_conductivity = (k * gamma_f) / mu_f  # [m * s^-1]
         storage = self.solid.specific_storage()  # [Pa^-1]
-        if not storage == 0.0:
-            raise ValueError("Terzaghi's solution requires zero specific storage.")
         alpha_biot = self.solid.biot_coefficient()  # [-]
         m_v = self.confined_compressibility()  # [Pa^-1]
-
         c_v = hydraulic_conductivity / (gamma_f * (storage + alpha_biot**2 * m_v))
 
         return c_v
 
-    # ----> Non-dimensionalization methods
+    # ---> Non-dimensionalization methods
     def nondim_time(self, t: number) -> number:
         """Non-dimensional time.
 
@@ -394,7 +365,7 @@ class SetupUtilities:
         """
         return pressure / np.abs(self.params.get("vertical_load", 6e8))
 
-    # ----> Postprocessing methods
+    # ---> Postprocessing methods
     # TODO: Consider moving this method to a place where can be reused.
     def displacement_trace(
         self, displacement: np.ndarray, pressure: np.ndarray
@@ -459,9 +430,9 @@ class SetupUtilities:
 
         return consol_deg
 
-    # ----> Methods related to plotting
+    # ---> Methods related to plotting
     def plot_results(self) -> None:
-        """Plot the results."""
+        """Plotting the results."""
         cmap = mcolors.ListedColormap(plt.cm.tab20.colors[: len(self.results)])
         self._pressure_plot(color_map=cmap)
         self._consolidation_degree_plot(color_map=cmap)
@@ -474,18 +445,21 @@ class SetupUtilities:
 
         """
 
-        fig, ax = plt.subplots(figsize=(9, 8))
+        sd = self.mdg.subdomains()[0]
+        nondim_vertical_coo = self.nondim_length(sd.cell_centers[1])
 
+        fig, ax = plt.subplots(figsize=(9, 8))
         y_ex = np.linspace(0, self.params.get("height", 1.0), 400)
-        for idx, sol in enumerate(self.results):
+        t = self.time_manager.time
+        for idx, result in enumerate(self.results):
             ax.plot(
-                self.nondim_pressure(self.exact_sol.pressure(y=y_ex, t=sol.time)),
+                self.nondim_pressure(self.exact_sol.pressure(y=y_ex, t=t)),
                 self.nondim_length(y_ex),
                 color=color_map.colors[idx],
             )
             ax.plot(
-                sol.numerical_nondim_pressure,
-                sol.nondim_vertical_coo,
+                self.nondim_pressure(np.array(result.approx_pressure)),
+                nondim_vertical_coo,
                 color=color_map.colors[idx],
                 linewidth=0,
                 marker=".",
@@ -498,7 +472,7 @@ class SetupUtilities:
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$t=${np.round(sol.time, 4)}",
+                label=rf"$t=${np.round(t, 4)}",
             )
 
         ax.set_xlabel(r"Non-dimensional pressure, $p/p_0$", fontsize=15)
@@ -525,9 +499,11 @@ class SetupUtilities:
             [self.exact_sol.consolidation_degree(t) for t in t_ex]
         )
 
-        nondim_t = np.asarray([sol.nondim_time for sol in self.results])
+        nondim_t = np.asarray(
+            [self.nondim_time(t) for t in self.time_manager.schedule[1:]]
+        )
         numerical_consolidation = np.asarray(
-            [sol.numerical_consolidation_degree for sol in self.results]
+            [result.approx_consolidation_degree for result in self.results]
         )
 
         fig, ax = plt.subplots(figsize=(9, 8))
@@ -550,6 +526,7 @@ class SetupUtilities:
         plt.show()
 
 
+# -----> Geometry
 class PseudoOneDimensionalColumn(pp.ModelGeometry):
     """Define geometry of the verification setup."""
 
@@ -571,8 +548,8 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
 
 
-# ----> Boundary conditions
-class ModifiedBoundaryConditionsMechanicsTimeDependent(
+# -----> Boundary conditions
+class TerzaghiBoundaryConditionsMechanicsTimeDependent(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
     mdg: pp.MixedDimensionalGrid
@@ -644,7 +621,7 @@ class ModifiedBoundaryConditionsMechanicsTimeDependent(
         return bc_values.ravel("F")
 
 
-class ModifiedBoundaryConditionsSinglePhaseFlow(
+class TerzaghiBoundaryConditionsSinglePhaseFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
 
@@ -675,29 +652,28 @@ class ModifiedBoundaryConditionsSinglePhaseFlow(
         return bc
 
 
-class ModifiedPoromechanicsBoundaryConditions(
-    ModifiedBoundaryConditionsSinglePhaseFlow,
-    ModifiedBoundaryConditionsMechanicsTimeDependent,
+class TerzaghiPoromechanicsBoundaryConditions(
+    TerzaghiBoundaryConditionsSinglePhaseFlow,
+    TerzaghiBoundaryConditionsMechanicsTimeDependent,
 ):
     """Mixer class for poromechanics boundary conditions."""
 
 
 # -----> Solution strategy
-class ModifiedSolutionStrategy(
+class TerzaghiSolutionStrategy(
     poromechanics.SolutionStrategyPoromechanics,
 ):
+    exact_sol: TerzaghiExactSolution
+    """Exact solution object."""
+
     plot_results: Callable
     """Method that plots the pressure and degree of consolidation."""
 
-    save_data: Callable
-    """Method that saves the data. The method is provided by the Mixin
-    :class:`ModifiedDataSavingMixin`."""
+    results: list[TerzaghiSaveData]
+    """List of :class:`TerzaghiSaveData` objects, containing the results of the
+    verification.
 
-    exact_sol: ExactSolution
-    """Exact solution object."""
-
-    results: list[SaveData]
-    """List of :class:`SaveData` objects, containing the results of the verification."""
+    """
 
     def __init__(self, params: dict) -> None:
         """Constructor of the class.
@@ -708,10 +684,10 @@ class ModifiedSolutionStrategy(
         """
         super().__init__(params)
 
-        self.exact_sol: ExactSolution
+        self.exact_sol: TerzaghiExactSolution
         """Exact solution object"""
 
-        self.results: list[SaveData] = []
+        self.results: list[TerzaghiSaveData] = []
         """List of stored results from the verification."""
 
     def set_materials(self):
@@ -720,7 +696,7 @@ class ModifiedSolutionStrategy(
         Add exact solution object to the simulation model after materials have been set.
         """
         super().set_materials()
-        self.exact_sol = ExactSolution(self)
+        self.exact_sol = TerzaghiExactSolution(self)
 
         # Specific storage must be zero
         assert self.solid.specific_storage() == 0
@@ -745,62 +721,22 @@ class ModifiedSolutionStrategy(
         data[pp.STATE][self.pressure_variable] = initial_p
         data[pp.STATE][pp.ITERATE][self.pressure_variable] = initial_p
 
-    def _is_nonlinear_problem(self) -> bool:
-        """The problem is linear."""
-        return False
-
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         if self.params.get("plot_results", False):
             self.plot_results()
 
+    def _is_nonlinear_problem(self) -> bool:
+        """The problem is linear."""
+        return False
 
-class TerzaghiSetup(  # type: ignore
-    ModifiedPoromechanicsBoundaryConditions,
-    ModifiedSolutionStrategy,
+
+class TerzaghiSetup(  # type: ignore[misc]
     PseudoOneDimensionalColumn,
-    SetupUtilities,
+    TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiSolutionStrategy,
+    TerzaghiUtils,
+    TerzaghiDataSaving,
     BiotPoromechanics,
-    VerificationUtils,
-    ModifiedDataSavingMixin,
 ):
-    """
-    Mixer class for Terzaghi's consolidation problem.
-
-    Examples:
-
-        .. code::python
-
-        from time import time
-        from porepy.models.verification_setups.terzaghi_biot import (
-            terzaghi_solid_constants,
-            terzaghi_fluid_constants,
-        )
-
-        # Simulation parameters
-        time_manager = pp.TimeManager(
-            schedule=[0, 0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
-            dt_init=0.001,
-            constant_dt=True
-        )
-
-        material_constants = {
-            "solid": pp.SolidConstants(terzaghi_solid_constants),
-            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
-        }
-
-        params = {
-            "time_manager": time_manager,
-            "material_constants": material_constants,
-            "plot_results": True
-        }
-
-        # Run verification
-        tic = time()
-        setup = TerzaghiSetup(params)
-        print("Simulation started...")
-        pp.run_time_dependent_model(setup, params)
-        toc = time()
-        print(f"Simulation finished in {round(toc - tic)} seconds.")
-
-    """
+    """Mixer class for Terzaghi's consolidation problem."""
