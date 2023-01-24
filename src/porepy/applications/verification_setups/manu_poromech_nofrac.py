@@ -800,29 +800,4 @@ class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
     """
     Mixer class for the two-dimensional non-linear poromechanics verification setup.
 
-    Examples:
-
-        .. code:: python
-
-        from time import time
-
-        # Simulation parameters
-        fluid = pp.FluidConstants({"compressibility": 0.02})
-        solid = pp.SolidConstants({"biot_coefficient": 0.50})
-        material_constants = {"fluid": fluid, "solid": solid}
-        params = {
-            "manufactured_solution": "nordbotten_2016"
-            "material_constants": material_constants,
-            "plot_results": True,
-            "time_manager": pp.TimeManager([0, 0.2, 0.6, 1], 0.2, True),
-        }
-
-        # Run verification setup
-        tic = time()
-        setup = ManufacturedNonlinearPoromechanicsNoFrac2d(params)
-        print("Simulation started...")
-        pp.run_time_dependent_model(setup, params)
-        toc = time()
-        print(f"Simulation finished in {round(toc - tic)} seconds.")
-
     """

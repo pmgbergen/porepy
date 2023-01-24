@@ -717,43 +717,4 @@ class TerzaghiSetup(  # type: ignore[misc]
     TerzaghiDataSaving,
     BiotPoromechanics,
 ):
-    """
-    Mixer class for Terzaghi's consolidation problem.
-
-    Examples:
-
-        .. code::python
-
-        from time import time
-        from porepy.models.verification_setups.terzaghi_biot import (
-            terzaghi_solid_constants,
-            terzaghi_fluid_constants,
-        )
-
-        # Simulation parameters
-        time_manager = pp.TimeManager(
-            schedule=[0, 0.02, 0.05, 0.1, 0.3, 0.4, 0.8, 1.2, 1.6, 2.0],
-            dt_init=0.001,
-            constant_dt=True
-        )
-
-        material_constants = {
-            "solid": pp.SolidConstants(terzaghi_solid_constants),
-            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
-        }
-
-        params = {
-            "time_manager": time_manager,
-            "material_constants": material_constants,
-            "plot_results": True
-        }
-
-        # Run verification
-        tic = time()
-        setup = TerzaghiSetup(params)
-        print("Simulation started...")
-        pp.run_time_dependent_model(setup, params)
-        toc = time()
-        print(f"Simulation finished in {round(toc - tic)} seconds.")
-
-    """
+    """Mixer class for Terzaghi's consolidation problem."""
