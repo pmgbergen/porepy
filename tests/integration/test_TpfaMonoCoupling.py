@@ -370,7 +370,6 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                     if np.sum(face_faces) == 0:
                         continue
 
-
                     if gi.id < gj.id:
                         # gj is left
                         g_m, _, _ = pp.partition.extract_subgrid(
