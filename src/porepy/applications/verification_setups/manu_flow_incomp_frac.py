@@ -15,7 +15,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -51,49 +51,49 @@ manu_incomp_solid: dict[str, number] = {
 class ManuIncompSaveData:
     """Data class to save relevant results from the verification setup."""
 
-    approx_frac_flux: Optional[np.ndarray] = None
+    approx_frac_flux: np.ndarray
     """Numerical flux in the fracture."""
 
-    approx_frac_pressure: Optional[np.ndarray] = None
+    approx_frac_pressure: np.ndarray
     """Numerical pressure in the fracture."""
 
-    approx_intf_flux: Optional[np.ndarray] = None
+    approx_intf_flux: np.ndarray
     """Numerical flux on the interfaces."""
 
-    approx_matrix_flux: Optional[np.ndarray] = None
+    approx_matrix_flux: np.ndarray
     """Numerical flux in the matrix."""
 
-    approx_matrix_pressure: Optional[np.ndarray] = None
+    approx_matrix_pressure: np.ndarray
     """Numerical pressure in the matrix."""
 
-    error_frac_flux: Optional[number] = None
+    error_frac_flux: number
     """L2-discrete relative error for the flux in the fracture."""
 
-    error_frac_pressure: Optional[number] = None
+    error_frac_pressure: number
     """L2-discrete relative error for the pressure in the fracture."""
 
-    error_intf_flux: Optional[number] = None
+    error_intf_flux: number
     """L2-discrete relative error for the flux on the interfaces."""
 
-    error_matrix_flux: Optional[number] = None
+    error_matrix_flux: number
     """L2-discrete relative error for the flux in the matrix."""
 
-    error_matrix_pressure: Optional[number] = None
+    error_matrix_pressure: number
     """L2-discrete relative error for the pressure in the matrix."""
 
-    exact_frac_flux: Optional[np.ndarray] = None
+    exact_frac_flux: np.ndarray
     """Exact flux in the fracture."""
 
-    exact_frac_pressure: Optional[np.ndarray] = None
+    exact_frac_pressure: np.ndarray
     """Exact pressure in the fracture."""
 
-    exact_intf_flux: Optional[np.ndarray] = None
+    exact_intf_flux: np.ndarray
     """Exact flux on the interfaces."""
 
-    exact_matrix_flux: Optional[np.ndarray] = None
+    exact_matrix_flux: np.ndarray
     """Exact flux in the matrix."""
 
-    exact_matrix_pressure: Optional[np.ndarray] = None
+    exact_matrix_pressure: np.ndarray
     """Exact pressure in the matrix."""
 
 
@@ -134,67 +134,78 @@ class ManuIncompDataSaving(VerificationDataSaving):
         lmbda_name: str = self.interface_darcy_flux_variable
         exact_sol: ManuIncompExactSolution = self.exact_sol
 
-        # Instantiate data class to save verification data
-        out = ManuIncompSaveData()
-
-        # Pressure in the matrix
-        out.exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
-        out.approx_matrix_pressure = data_matrix[pp.STATE][p_name].copy()
-        out.error_matrix_pressure = self.relative_l2_error(
+        # Collect data
+        exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
+        approx_matrix_pressure = data_matrix[pp.STATE][p_name].copy()
+        error_matrix_pressure = self.relative_l2_error(
             grid=sd_matrix,
-            true_array=out.exact_matrix_pressure,
-            approx_array=out.approx_matrix_pressure,
+            true_array=exact_matrix_pressure,
+            approx_array=approx_matrix_pressure,
             is_scalar=True,
             is_cc=True,
         )
 
-        # Darcy flux in the matrix
-        out.exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
-        frac_flux_ad = self.darcy_flux([sd_matrix])
-        out.approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
-        out.error_matrix_flux = self.relative_l2_error(
+        exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
+        matrix_flux_ad = self.darcy_flux([sd_matrix])
+        approx_matrix_flux = matrix_flux_ad.evaluate(self.equation_system).val
+        error_matrix_flux = self.relative_l2_error(
             grid=sd_matrix,
-            true_array=out.exact_matrix_flux,
-            approx_array=out.approx_frac_flux,
+            true_array=exact_matrix_flux,
+            approx_array=approx_matrix_flux,
             is_scalar=True,
             is_cc=False,
         )
 
-        # Pressure in the fracture
-        out.exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
-        out.approx_frac_pressure = data_frac[pp.STATE][p_name].copy()
-        out.error_frac_pressure = self.relative_l2_error(
+        exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
+        approx_frac_pressure = data_frac[pp.STATE][p_name].copy()
+        error_frac_pressure = self.relative_l2_error(
             grid=sd_frac,
-            true_array=out.exact_frac_pressure,
-            approx_array=out.approx_frac_pressure,
+            true_array=exact_frac_pressure,
+            approx_array=approx_frac_pressure,
             is_scalar=True,
             is_cc=True,
         )
 
-        # Flux in the fracture
-        out.exact_frac_flux = exact_sol.fracture_flux(sd_frac)
+        exact_frac_flux = exact_sol.fracture_flux(sd_frac)
         frac_flux_ad = self.darcy_flux([sd_frac])
-        out.approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
-        out.error_frac_flux = self.relative_l2_error(
+        approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
+        error_frac_flux = self.relative_l2_error(
             grid=sd_frac,
-            true_array=out.exact_frac_flux,
-            approx_array=out.approx_frac_flux,
+            true_array=exact_frac_flux,
+            approx_array=approx_frac_flux,
             is_scalar=True,
             is_cc=False,
         )
 
-        # Interface flux
-        out.exact_intf_flux = exact_sol.interface_flux(intf)
-        out.approx_intf_flux = data_intf[pp.STATE][lmbda_name]
-        out.error_intf_flux = self.relative_l2_error(
+        exact_intf_flux = exact_sol.interface_flux(intf)
+        approx_intf_flux = data_intf[pp.STATE][lmbda_name].copy()
+        error_intf_flux = self.relative_l2_error(
             grid=intf,
-            true_array=out.exact_intf_flux,
-            approx_array=out.approx_intf_flux,
+            true_array=exact_intf_flux,
+            approx_array=approx_intf_flux,
             is_scalar=True,
             is_cc=True,
         )
 
-        return out
+        # Store collected data in data class
+        collected_data = ManuIncompSaveData(
+            approx_frac_flux=approx_frac_flux,
+            approx_frac_pressure=approx_frac_pressure,
+            approx_intf_flux=approx_intf_flux,
+            approx_matrix_flux=approx_matrix_flux,
+            approx_matrix_pressure=approx_matrix_pressure,
+            error_frac_flux=error_frac_flux,
+            error_frac_pressure=error_frac_pressure,
+            error_intf_flux=error_intf_flux,
+            error_matrix_flux=error_matrix_flux,
+            error_matrix_pressure=error_matrix_pressure,
+            exact_frac_flux=exact_frac_flux,
+            exact_intf_flux=exact_intf_flux,
+            exact_matrix_flux=exact_matrix_flux,
+            exact_matrix_pressure=exact_matrix_pressure,
+        )
+
+        return collected_data
 
 
 # -----> Exact solution
