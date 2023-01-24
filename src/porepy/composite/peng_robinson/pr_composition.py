@@ -299,7 +299,7 @@ class PR_Composition(Composition):
         multiply_fractions: bool = True,
     ) -> pp.ad.Operator:
         """Get the derivative w.r.t. temperature of ``z_i * z_j * a_ij``
-        (see :meth:`_get_a_ij`)."""
+        (see :meth:`_vdW_a_ij`)."""
         # the expression for two different components
         if comp_i != comp_j:
             # the derivative of a_ij
@@ -408,11 +408,11 @@ class PR_Composition(Composition):
         )
 
         def h_Z(p, T, *X):
-            ln_l = _log(
+            ln_Z = _log(
                 (Z + (1 - np.sqrt(2)) * self.B) / (Z + (1 + np.sqrt(2)) * self.B)
             )
             return (
-                coeff * ln_l + R_IDEAL * self.T * (Z - 1) + H_REF
+                coeff * ln_Z + R_IDEAL * self.T * (Z - 1) + H_REF
             )  # TODO check relation H_REF and H_0 in standard formula
 
         return h_Z
