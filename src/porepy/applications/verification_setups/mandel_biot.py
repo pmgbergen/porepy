@@ -1151,10 +1151,11 @@ class MandelUtilities(VerificationUtils):
         c_f = self.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Generate exact consolidation times
-        tau_0 = 1e-3
-        tau_1 = 1e-2
-        tau_2 = 1e0
-        tau_3 = 1e1
+        tau_0 = 1e-4
+        tau_1 = 1e-3
+        tau_2 = 1e-2
+        tau_3 = 1e0
+        tau_4 = 1e1
 
         # Physical time as a function of dimensionless time
         t = lambda tau: tau * a**2 / c_f
@@ -1163,8 +1164,10 @@ class MandelUtilities(VerificationUtils):
         interval_0 = np.linspace(t(tau_0), t(tau_1), 100)
         interval_1 = np.linspace(t(tau_1), t(tau_2), 100)
         interval_2 = np.linspace(t(tau_2), t(tau_3), 100)
+        interval_3 = np.linspace(t(tau_3), t(tau_4), 100)
         ex_times = np.concatenate((interval_0, interval_1))
         ex_times = np.concatenate((ex_times, interval_2))
+        ex_times = np.concatenate((ex_times, interval_3))
 
         # Exact consolidation degree
         ex_consol_degree = np.array(
