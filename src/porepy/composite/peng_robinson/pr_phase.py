@@ -2,8 +2,6 @@
 Peng-Robinson EoS."""
 from __future__ import annotations
 
-from typing import Callable
-
 import numpy as np
 
 import porepy as pp
@@ -26,8 +24,6 @@ class PR_Phase(Phase):
 
     def __init__(self, ad_system: pp.ad.EquationSystem, name: str = "") -> None:
         super().__init__(ad_system, name=name)
-
-        self._h: Callable
 
         self.Z: Leaf = Leaf(f"Compressibility {self.name}")
         """An operator representing the compressibility factor of this phase.
@@ -236,7 +232,12 @@ class PR_Phase(Phase):
             self.Z - 1
         )
 
-        h_ideal = 0.0  # TODO enter formula
+        h_ideal = sum(
+            [
+                self.normalized_fraction_of_component(comp) * comp.h_ideal(p, T)
+                for comp in self
+            ]
+        )
 
         return h_ideal + h_departure
 

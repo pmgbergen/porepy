@@ -48,8 +48,6 @@ M.initialize()
 FLASH = pp.composite.Flash(M)
 FLASH.use_armijo = False
 
-M.roots.compute_roots()
-
 FLASH.flash("isothermal", "npipm", "feed", True, True)
 FLASH.post_process_fractions()
 FLASH.evaluate_specific_enthalpy()
