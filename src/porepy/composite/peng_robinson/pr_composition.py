@@ -336,7 +336,7 @@ class PR_Composition(Composition):
         # evaluate necessary parameters
         A = self.A.evaluate(self.ad_system, state)
         B = self.B.evaluate(self.ad_system, state)
-        p = self.p.evaluate(self.ad_system, state)
+        r = self._r.evaluate(self.ad_system, state)
         q = self._q.evaluate(self.ad_system, state)
         c2 = self._c2.evaluate(self.ad_system, state)
         delta = self._delta.evaluate(self.ad_system, state)
@@ -359,9 +359,9 @@ class PR_Composition(Composition):
 
         # discriminant of zero indicates one or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
-        double_root_region = np.logical_and(degenerate_region, np.abs(p.val) > self.eps)
+        double_root_region = np.logical_and(degenerate_region, np.abs(r.val) > self.eps)
         triple_root_region = np.logical_and(
-            degenerate_region, np.isclose(p.val, 0.0, atol=self.eps)
+            degenerate_region, np.isclose(r.val, 0.0, atol=self.eps)
         )
 
         # ensure we are not in the uncovered two-real-root case or triple-root case
@@ -384,7 +384,7 @@ class PR_Composition(Composition):
         # conjugated imaginary roots
         if np.any(one_root_region):
             B_1 = pp.ad.Ad_array(B.val[one_root_region], B.jac[one_root_region])
-            p_1 = pp.ad.Ad_array(p.val[one_root_region], p.jac[one_root_region])
+            r_1 = pp.ad.Ad_array(r.val[one_root_region], r.jac[one_root_region])
             q_1 = pp.ad.Ad_array(q.val[one_root_region], q.jac[one_root_region])
             delta_1 = pp.ad.Ad_array(
                 delta.val[one_root_region], delta.jac[one_root_region]
@@ -410,10 +410,10 @@ class PR_Composition(Composition):
 
             ## Relevant roots
             # only real root, Cardano formula, positive discriminant
-            z_1 = u_1 - p_1 / (u_1 * 3) - c2_1 / 3
+            z_1 = u_1 - r_1 / (u_1 * 3) - c2_1 / 3
             # real part of the conjugate imaginary roots
             # used for extension of vanished roots
-            r_1 = (1 - B_1 - z_1) / 2
+            w_1 = (1 - B_1 - z_1) / 2
 
             ## PHASE LABELING in one-root-region
             # This has to hold, otherwise the polynomial can't have 3 distinct roots.
@@ -431,14 +431,14 @@ class PR_Composition(Composition):
             # )
 
             ## simplified labeling, Vu et al. (2021), equ. 4.24
-            gas_region = r_1.val < z_1.val
-            liquid_region = z_1.val < r_1.val
+            gas_region = w_1.val < z_1.val
+            liquid_region = z_1.val < w_1.val
 
             # assert the roots are not overlapping,
             # this should not happen,
             # except in cases where the polynomial has "almost" a triple root
             assert not np.any(
-                np.isclose(r_1.val - z_1.val, 0.0, atol=self.eps)
+                np.isclose(w_1.val - z_1.val, 0.0, atol=self.eps)
             ), "Triple root proximity detected in one-root-region."
             # assert the whole one-root-region is covered
             assert np.all(
@@ -458,14 +458,14 @@ class PR_Composition(Composition):
 
             # store gas root where actual gas, use extension where liquid
             Z_G_val_1[gas_region] = z_1.val[gas_region]
-            Z_G_val_1[liquid_region] = r_1.val[liquid_region]
+            Z_G_val_1[liquid_region] = w_1.val[liquid_region]
             Z_G_jac_1[gas_region] = z_1.jac[gas_region]
-            Z_G_jac_1[liquid_region] = r_1.jac[liquid_region]
+            Z_G_jac_1[liquid_region] = w_1.jac[liquid_region]
             # store liquid where actual liquid, use extension where gas
             Z_L_val_1[liquid_region] = z_1.val[liquid_region]
-            Z_L_val_1[gas_region] = r_1.val[gas_region]
+            Z_L_val_1[gas_region] = w_1.val[gas_region]
             Z_L_jac_1[liquid_region] = z_1.jac[liquid_region]
-            Z_L_jac_1[gas_region] = r_1.jac[gas_region]
+            Z_L_jac_1[gas_region] = w_1.jac[gas_region]
 
             # store values in global root structure
             Z_L_val[one_root_region] = Z_L_val_1
@@ -475,14 +475,14 @@ class PR_Composition(Composition):
 
         ### compute the two relevant roots in the three root region
         if np.any(three_root_region):
-            p_3 = pp.ad.Ad_array(p.val[three_root_region], p.jac[three_root_region])
+            r_3 = pp.ad.Ad_array(r.val[three_root_region], r.jac[three_root_region])
             q_3 = pp.ad.Ad_array(q.val[three_root_region], q.jac[three_root_region])
             c2_3 = pp.ad.Ad_array(c2.val[three_root_region], c2.jac[three_root_region])
 
             # compute roots in three-root-region using Cardano formula,
             # Casus Irreducibilis
-            t_2 = pp.ad.arccos(-q_3 / 2 * pp.ad.sqrt(-27 * pp.ad.power(p_3, -3))) / 3
-            t_1 = pp.ad.sqrt(-4 / 3 * p_3)
+            t_2 = pp.ad.arccos(-q_3 / 2 * pp.ad.sqrt(-27 * pp.ad.power(r_3, -3))) / 3
+            t_1 = pp.ad.sqrt(-4 / 3 * r_3)
 
             z3_3 = t_1 * pp.ad.cos(t_2) - c2_3 / 3
             z2_3 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_3 / 3

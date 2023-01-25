@@ -819,6 +819,8 @@ class Flash:
                 feed_c = comp.fraction.evaluate(ad_system).val
                 # set values in reference phase to feed fraction
                 composition[self._C.reference_phase].update({comp: np.copy(feed_c)})
+                # TODO store values in AD system to avoid division by zero errors
+                # for normalized fractions
             phase_sums[self._C.reference_phase] = sum(
                 composition[self._C.reference_phase].values()
             )
