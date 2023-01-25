@@ -391,3 +391,25 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
         """
         pass
+
+    @abc.abstractmethod
+    def fugacity_of(
+        self,
+        p: pp.ad.MixedDimensionalVariable,
+        T: pp.ad.MixedDimensionalVariable,
+        component: Component,
+    ) -> pp.ad.Operator:
+        """
+        | Math. Dimension:    scalar
+        | Phys. Dimension:    [Pa]
+
+        Parameters:
+            p: Pressure.
+            T: Temperature.
+            component: A component present in this mixture
+
+        Returns:
+            An AD operator representing the fugacity of ``component`` in this phase.
+
+        """
+        pass

@@ -51,6 +51,9 @@ class IncompressibleFluid(Phase):
     def thermal_conductivity(self, p, T):
         return pp.ad.Scalar(1.0)
 
+    def fugacity_of(self, p, T, component) -> pp.ad.Operator:
+        return pp.ad.Scalar(component.k_value)
+
 
 class IdealGas(Phase):
     """Ideal gas phase with EoS
@@ -77,17 +80,22 @@ class IdealGas(Phase):
     def thermal_conductivity(self, p, T):
         return pp.ad.Scalar(0.1)
 
+    def fugacity_of(self, p, T, component) -> pp.ad.Operator:
+        return pp.ad.Scalar(1)
+
 
 class SimpleWater(Component, H2O_ps):
     """Simple representation of water."""
 
-    pass
+    k_value: float = 1.2
+    """A constant k-value for liquid-gas-equilibrium calculations."""
 
 
 class SimpleCO2(Component, CO2_ps):
     """Simple representation of Sodium Chloride."""
 
-    pass
+    k_value: float = 2.0
+    """A constant k-value for liquid-gas-equilibrium calculations."""
 
 
 class SimpleComposition(Composition):
@@ -114,27 +122,3 @@ class SimpleComposition(Composition):
             IncompressibleFluid(self.ad_system, name="L"),
             IdealGas(self.ad_system, name="G"),
         ]
-
-        ### PUBLIC
-        self.k_values: dict[Component, float] = dict()
-        """A dictionary containing constant k-values per component.
-
-        The k-values are to be formulated w.r.t the reference phase, i.e.
-
-            ``x_cG - k_c * x_cL = 0``.
-
-        """
-
-    def set_fugacities(self) -> None:
-        """Sets constant fugacities for this simple model, where the fugacity in the
-        gas phase is set to 1 and the fugacity in the liquid phase is equal the
-        set :data:`k_values`."""
-        L = self._phases[0]
-        G = self._phases[1]
-
-        one = pp.ad.Scalar(1.0)
-
-        for comp in self.components:
-            k_val = pp.ad.Scalar(self.k_values[comp])
-
-            self.fugacity_coeffs[comp] = {L: k_val, G: one}

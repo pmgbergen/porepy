@@ -79,7 +79,7 @@ def log(var):
 def sqrt(var):
     if isinstance(var, Ad_array):
         val = np.sqrt(var.val)
-        der = var.diagvec_mul_jac(0.5 * (1 / val))
+        der = var.diagvec_mul_jac(0.5 / val)
         return Ad_array(val, der)
     else:
         return np.sqrt(var)

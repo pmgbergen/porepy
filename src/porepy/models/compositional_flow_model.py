@@ -269,9 +269,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ## initialize and construct flasher
         print("Computing initial, domain-wide equilibrium ...")
         self.composition.initialize()
-        self.composition.roots.compute_roots()
         self.flash = pp.composite.Flash(self.composition)
+        self.composition.roots.compute_roots()
+        self.flash.use_armijo = False
         self.flash.flash("isothermal", "npipm", "feed", True, True)
+        self.flash.use_armijo = True
         self.flash.post_process_fractions()
         self.flash.evaluate_specific_enthalpy()
         self.flash.evaluate_saturations()
@@ -328,9 +330,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         print("Computing inflow boundary equilibrium ...")
         C.initialize()
-        C.roots.compute_roots()
-
         F = pp.composite.Flash(C)
+        C.roots.compute_roots()
         F.flash("isothermal", "npipm", "feed", True, False)
         F.post_process_fractions()
         F.evaluate_specific_enthalpy()
@@ -373,8 +374,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
         self.set_composition()
 
-        # Define primary and secondary variables/system which are secondary and primary in
-        # the composition subsystem
+        # Storage of primary and secondary vars and equs for splitting solver
         self.flow_subsystem.update(
             {
                 "primary_equations": list(),
@@ -434,6 +434,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         # deep copies, just in case
         sec_eq = [eq for eq in self.composition.ph_subsystem["equations"]]
+        sec_eq += [eq for eq in self.flash.complementary_equations]
         self.flow_subsystem.update({"secondary_equations": sec_eq})
 
         self._set_up()
@@ -841,15 +842,12 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         if not self._monolithic:
             print(f".. .. isenthalpic flash at iteration {self._nonlinear_iteration}.")
-            success = self.composition.flash(
-                flash_type="isenthalpic", initial_guess="feed", copy_to_state=False
-            )
+            success = self.flash.flash("isenthalpic", "npipm", "iterate", False, True)
             if not success:
                 raise RuntimeError("FAILURE: Isenthalpic flash.")
-            else:
-                flash_i = self.composition.flash_history[-1].get("iterations", "")
-                print(f".. .. Success: Isenthalpic flash after iteration {flash_i}.")
-            self.composition.evaluate_saturations(False)
+
+            self.flash.post_process_fractions(False)
+            self.flash.evaluate_saturations(False)
 
     def after_newton_iteration(
         self, solution_vector: np.ndarray, iteration: int
@@ -883,7 +881,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             self._post_process_feed(False)
         # post process composition, including eliminated phase fraction
         if self._monolithic:
-            self.composition.post_process_fractions(False)
+            self.flash.post_process_fractions(False)
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -904,7 +902,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             self._post_process_feed(True)
         # post process composition, including eliminated phase fraction
         if self._monolithic:
-            self.composition.post_process_fractions(True)
+            self.flash.post_process_fractions(True)
         # export converged results
         self._export()
 
@@ -1014,36 +1012,36 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
     def print_matrix(self, print_dense: bool = False):
         print("PRIMARY BLOCK:")
         print("Primary variables:")
-        self.composition.print_ordered_vars(self.flow_subsystem["primary_vars"])
+        self.flash.print_ordered_vars(self.flow_subsystem["primary_vars"])
         for equ in self.flow_subsystem["primary_equations"]:
             A, b = self.ad_system.assemble_subsystem(
                 equ, self.flow_subsystem["primary_vars"]
             )
             print("---")
             print(equ)
-            self.composition.print_system(A, b, print_dense)
+            self.flash.print_system(A, b, print_dense)
         print("---")
         print("SECONDARY BLOCK:")
         print("Secondary variables:")
-        self.composition.print_ordered_vars(self.flow_subsystem["secondary_vars"])
+        self.flash.print_ordered_vars(self.flow_subsystem["secondary_vars"])
         for equ in self.flow_subsystem["secondary_equations"]:
             A, b = self.ad_system.assemble_subsystem(
                 equ, self.flow_subsystem["secondary_vars"]
             )
             print("---")
             print(equ)
-            self.composition.print_system(A, b, print_dense)
+            self.flash.print_system(A, b, print_dense)
         print("---")
 
     def print_matrix2(self, print_dense: bool = False):
         print("Variables:")
-        self.composition.print_ordered_vars(self._system_vars)
+        self.flash.print_ordered_vars(self._system_vars)
         print("PRIMARY BLOCK:")
         for equ in self.flow_subsystem["primary_equations"]:
             A, b = self.ad_system.assemble_subsystem(equ, self._system_vars)
             print("---")
             print(equ)
-            self.composition.print_system(A, b, print_dense)
+            self.flash.print_system(A, b, print_dense)
             self.matrix_plot(A)
         print("---")
         print("SECONDARY BLOCK:")
@@ -1051,7 +1049,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             A, b = self.ad_system.assemble_subsystem(equ, self._system_vars)
             print("---")
             print(equ)
-            self.composition.print_system(A, b, print_dense)
+            self.flash.print_system(A, b, print_dense)
         print("---")
 
     def matrix_plot(self, A):
@@ -1347,12 +1345,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ]
         equ_names = [f"phase_fraction_relation_{phase.name}" for phase in phases]
 
-        image_info = dict()
-        for sd in self.mdg.subdomains():
-            image_info.update({sd: {"cells": 1}})
         # setting equations
         for name, equ in zip(equ_names, equations):
-            self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
+            equ.set_name(name)
+            self.ad_system.set_equation(equ, self.mdg.subdomains(), {"cells": 1})
         self.flow_subsystem["secondary_equations"] += equ_names
 
     ### CONSTITUTIVE LAWS --------------------------------------------------------------
