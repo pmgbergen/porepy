@@ -299,7 +299,7 @@ class MandelExactSolution:
         c_f = self.setup.fluid_diffusivity()
 
         # Retrieve geometrical data
-        a, _ = self.setup.params("domain_size", (100, 10))
+        a, _ = self.setup.params.get("domain_size", (100, 10))
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -358,7 +358,7 @@ class MandelExactSolution:
         c_f = self.setup.fluid_diffusivity()
 
         # Retrieve geometrical data
-        a, _ = self.setup.params("domain_size", (100, 10))
+        a, _ = self.setup.params.get("domain_size", (100, 10))
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -411,7 +411,7 @@ class MandelExactSolution:
         c_f = self.setup.fluid_diffusivity()
 
         # Retrieve geometrical data
-        a, _ = self.setup.params("domain_size", (100, 10))
+        a, _ = self.setup.params.get("domain_size", (100, 10))
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -470,15 +470,15 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8)
-        B = self.setup.skempton_coefficient()
-        k = self.setup.solid("permeability")
-        mu_f = self.setup.fluid("viscosity")
-        nu_u = self.setup.undrained_poisson_coefficient()
-        c_f = self.setup.fluid_diffusivity()
+        F = self.setup.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        B = self.setup.skempton_coefficient()  # [-]
+        k = self.setup.solid.permeability()  # [m^2]
+        mu_f = self.setup.fluid.viscosity()  # [Pa * s]
+        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
+        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params("domain_size", (100, 10))
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -533,13 +533,13 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8)
-        nu_s = self.setup.poisson_coefficient()
-        nu_u = self.setup.undrained_poisson_coefficient()
-        c_f = self.setup.fluid_diffusivity()
+        F = self.setup.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        nu_s = self.setup.poisson_coefficient()  # [-]
+        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
+        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params("domain_size", (100, 10))
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -613,7 +613,7 @@ class MandelExactSolution:
         nu_s = self.setup.poisson_coefficient()  # [-]
         mu_s = self.setup.solid.shear_modulus()  # [Pa]
         F = self.setup.params.get("vertical_load", 6e8)  # [N * m^{-1}]
-        a, b = self.setup.params("domain_size", (100, 10))  # ([m], [m])
+        a, b = self.setup.params.get("domain_size", (100, 10))  # [m]
 
         # Vertical displacement on the north boundary at time `t`
         uy_b_t = self.vertical_displacement_profile(np.array([b]), t)
@@ -643,27 +643,6 @@ class MandelUtilities(VerificationUtils):
     fluid: pp.FluidConstants
     """Fluid constant object."""
 
-    fluid_diffusivity: Callable[[], number]
-    """Fluid diffusivity in `m^2 * s^{-1}`. Provided by an instance of
-    :class:MandelUtilities.
-
-    """
-
-    poisson_coefficient: Callable[[], number]
-    """Poisson coefficient [-]. Provided by an instance of :class:MandelUtilities."""
-
-    undrained_poisson_coefficient: Callable[[], number]
-    """"Undrained Poisson coefficient [-]. Provided by an instance of
-    :class:MandelUtilities.
-
-    """
-
-    bulk_modulus: Callable[[], number]
-    """Bulk modulus [Pa]. Provided by an instance of :class:MandelUtilities."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid. Only one subdomain for this verification."""
-
     params: dict
     """Model parameters dictionary."""
 
@@ -678,6 +657,102 @@ class MandelUtilities(VerificationUtils):
 
     time_manager: pp.TimeManager
     """Time-stepping object."""
+
+    # -----> Derived physical constants
+    def bulk_modulus(self) -> number:
+        """Set bulk modulus [Pa].
+
+        Returns:
+            Bulk modulus.
+
+        """
+        mu_s = self.solid.shear_modulus()
+        lambda_s = self.solid.lame_lambda()
+        K_s = (2 / 3) * mu_s + lambda_s
+        return K_s
+
+    def young_modulus(self) -> number:
+        """Set Young modulus [Pa].
+
+        Returns:
+            Young modulus.
+
+        """
+        mu_s = self.solid.shear_modulus()
+        K_s = self.bulk_modulus()
+        E_s = mu_s * ((9 * K_s) / (3 * K_s + mu_s))
+        return E_s
+
+    def poisson_coefficient(self) -> number:
+        """Set Poisson coefficient [-]
+
+        Returns:
+            Poisson coefficient.
+
+        """
+        mu_s = self.solid.shear_modulus()
+        K_s = self.bulk_modulus()
+        nu_s = (3 * K_s - 2 * mu_s) / (2 * (3 * K_s + mu_s))
+        return nu_s
+
+    def undrained_bulk_modulus(self) -> number:
+        """Set undrained bulk modulus [Pa].
+
+        Returns:
+            Undrained bulk modulus.
+
+        """
+        alpha_biot = self.solid.biot_coefficient()  # [-]
+        K_s = self.bulk_modulus()  # [Pa]
+        S_epsilon = self.solid.specific_storage()  # [Pa^-1]
+        K_u = K_s + (alpha_biot ** 2) / S_epsilon  # [Pa]
+        return K_u
+
+    def skempton_coefficient(self) -> number:
+        """Set Skempton's coefficient [-].
+
+        Returns:
+            Skempton's coefficent.
+
+        """
+        alpha_biot = self.solid.biot_coefficient()  # [-]
+        K_u = self.undrained_bulk_modulus()  # [Pa]
+        S_epsilon = self.solid.specific_storage()  # [Pa^-1]
+        B = alpha_biot / (S_epsilon * K_u)  # [-]
+        return B
+
+    def undrained_poisson_coefficient(self) -> float:
+        """Set Poisson coefficient under undrained conditions [-].
+
+        Returns:
+            Undrained Poisson coefficient.
+
+        Notes:
+            Expression taken from https://doi.org/10.1016/j.camwa.2018.09.005.
+
+        """
+        nu_s = self.poisson_coefficient()
+        B = self.skempton_coefficient()
+        nu_u = (3 * nu_s + B * (1 - 2 * nu_s)) / (3 - B * (1 - 2 * nu_s))
+        return nu_u
+
+    def fluid_diffusivity(self) -> number:
+        """Set fluid diffusivity [m^2 * s^{-1}].
+
+        Returns:
+            Fluid diffusivity.
+
+        """
+        k_s = self.solid.permeability()  # [m^2]
+        B = self.skempton_coefficient()  # [-]
+        mu_s = self.solid.shear_modulus()  # [Pa]
+        nu_s = self.poisson_coefficient()  # [-]
+        nu_u = self.undrained_poisson_coefficient()  # [-]
+        mu_f = self.fluid.viscosity()  # [Pa * s]
+        c_f = (2 * k_s * (B ** 2) * mu_s * (1 - nu_s) * (1 + nu_u) ** 2) / (
+                9 * mu_f * (1 - nu_u) * (nu_u - nu_s)
+        )
+        return c_f
 
     # -----> Non-dimensionalization methods
     def nondim_t(self, t: Union[float, int, np.ndarray]) -> float:
@@ -1438,3 +1513,32 @@ class MandelSetup(  # type: ignore[misc]
     BiotPoromechanics,
 ):
     """Mixer class for Mandel's consolidation problem."""
+
+#%% Runner
+from time import time
+
+# Set model parameters
+material_constants = {
+    "solid": pp.SolidConstants(mandel_solid_constants),
+    "fluid": pp.FluidConstants(mandel_fluid_constants),
+}
+
+time_manager = pp.TimeManager(
+    schedule=[0, 1e1, 5e1, 1e2, 1e3, 5e3, 8e3, 1e4, 2e4, 3e4, 5e4],
+    dt_init=10,
+    constant_dt=True,
+)
+
+params = {
+    "material_constants": material_constants,
+    "time_manager": time_manager,
+    "plot_results": True,
+}
+
+# Run verification setup
+tic = time()
+setup = MandelSetup(params)
+print("Simulation started...")
+pp.run_time_dependent_model(setup, setup.params)
+toc = time()
+print(f"Simulation finished in {round(toc - tic)} seconds.")
