@@ -222,10 +222,31 @@ class H2S(PR_Component, H2S_ps):
 
     """
 
+    cp1: float = 3.931
+    """``ci`` are heat capacity coefficients at constant pressure
+    (see :meth:`h_ideal`) given in [kJ / mol K^i]."""
+    cp2: float = 1.49 - 3
+    cp3: float = -0.232e5
+
     @property
     def acentric_factor(self) -> float:
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.1081
+
+    def h_ideal(
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
+    ) -> pp.ad.Operator:
+        """The specific molar enthalpy of is constructed using
+        heat capacity coefficients from
+        `de Nevers (2012), table A.9 <https://onlinelibrary.wiley.com/doi/
+        book/10.1002/9781118135341>`_ .
+
+        """
+        return R_IDEAL * (
+            self.cp1 * (T - T_REF)
+            + self.cp2 / 2 * (_power(T, pp.ad.Scalar(2)) - T_REF**2)
+            - self.cp3 * (_power(T, pp.ad.Scalar(-1)) - T_REF ** (-1))
+        )
 
 
 class N2(PR_Component, N2_ps):
