@@ -51,6 +51,7 @@ from porepy.applications.verification_setups.manu_poromech_nofrac import (
     ManuPoroMechSaveData,
     ManuPoroMechDataSaving,
 )
+from porepy.applications.verification_setups.terzaghi_biot import TerzaghiUtils
 
 # PorePy typings
 number = pp.number
@@ -366,49 +367,45 @@ class MandelUtilities:
         east_idx = np.where(sides.east)[0]
         return sd.signs_and_cells_of_boundary_faces(east_idx)[1]
 
-    def numerical_consolidation_degree(self) -> tuple[float, float]:
-        """ Compute approximated degree of consolidation.
+    def numerical_consolidation_degree(
+            self, displacement: np.ndarray, pressure: np.ndarray
+    ) -> tuple[number, number]:
+        """Numerical consolidation degree.
+
+        Parameters:
+            displacement: Displacement solution of shape (sd.dim * sd.num_cells).
+            pressure: Pressure solution of shape (sd.num_cells, ).
 
         Returns:
             Numerical degree of consolidation in the horizontal and vertical directions.
 
         """
         sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
+        sides = self.domain_boundary_sides(sd)
+        a, b = self.params.get("domain_size", (100, 10))  # [m]
 
-        F = self.params["vertical_load"]  # [N * m^{-1}]
+        F = self.params.get("vertical_load", 6e8)  # [N * m^{-1}]
         mu_s = self.solid.shear_modulus()  # [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
-        a, b = self.params.get("domain_size", (100, 10))  # [m]
 
-        kw_m = self.stress_keyworkd
-        disc = data[pp.DISCRETIZATION_MATRICES][kw_m]
-
-        p = data[pp.STATE][self.scalar_variable]
-        u = data[pp.STATE][self.displacement_variable]
         t = self.time_manager.time
 
-        if t == 0:
+        if t == 0:  # soil is initially unconsolidated
             consol_deg_x, consol_deg_y = 0, 0
         else:
-            bc_vals = data[pp.PARAMETERS][kw_m]["bc_values"]
-            bound_u_cell = disc["bound_displacement_cell"]
-            bound_u_face = disc["bound_displacement_face"]
-            bound_u_pressure = disc["bound_displacement_pressure"]
-
-            trace_u = bound_u_cell * u + bound_u_face * bc_vals + bound_u_pressure * p
-
-            sides = self.domain_boundary_sides(sd)
-
+            # Retrieve displacement trace
+            trace_u = TerzaghiUtils.displacement_trace(displacement, pressure)
             trace_ux = trace_u[::2]
             trace_uy = trace_u[1::2]
 
+            # Consolidation degree in the horizontal direction
             ux_a_t = np.max(trace_ux[sides.east])
             ux_a_0 = (F * nu_u) / (2 * mu_s)
             ux_a_inf = (F * nu_s) / (2 * mu_s)
             consol_deg_x = (ux_a_t - ux_a_0) / (ux_a_inf - ux_a_0)
 
+            # Consolidation degree in the vertical direction
             uy_b_t = np.max(trace_uy[sides.north])
             uy_b_0 = (-F * b * (1 - nu_u)) / (2 * mu_s * a)
             uy_b_inf = (-F * b * (1 - nu_s)) / (2 * mu_s * a)
@@ -418,7 +415,7 @@ class MandelUtilities:
 
     # -----> Plotting methods
     def plot_results(self):
-        """Ploting results."""
+        """Plotting results."""
         num_lines = len(self.time_manager.schedule) - 1
         cmap = mcolors.ListedColormap(plt.cm.tab20.colors[: num_lines])
 
