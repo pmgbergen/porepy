@@ -256,3 +256,4 @@ from porepy.utils.default_domains import (
 )
 
 from . import composite
+from .models.compositional_flow_model import CompositionalFlowModel

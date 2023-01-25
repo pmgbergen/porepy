@@ -559,22 +559,23 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         return
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
-file_name = "testmodel_"  # + timestamp
+file_name = "PR_test_"  # + timestamp
 params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/" + file_name + "/",
     "file_name": file_name,
-    "use_ad": False,
+    "use_ad": True,
     "use_pressure_equation": True,
-    "monolithic": True,
+    "eliminate_ref_phase": True,
+    "monolithic": False,
 }
 
 t = 0.
 T = 10.
-dt = 0.1
+dt = 0.05
 max_iter = 200
-tol = 1e-5
+tol = 1e-7
 
-model =TestModel(params=params)
+model = pp.CompositionalFlowModel(params=params)
 
 model.dt = dt
 model.prepare_simulation()

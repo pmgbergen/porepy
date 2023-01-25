@@ -137,19 +137,23 @@ class PR_Roots:
     def c1(self) -> pp.ad.Operator:
         """An operator representing the coefficient of the monomial ``Z`` in the
         characteristic polynomial."""
-        return self.A - 3 * self.B * self.B - 2 * self.B
+        return self.A - 2 * self.B - 3 * _power(self.B, pp.ad.Scalar(2))
 
     @property
     def c0(self) -> pp.ad.Operator:
         """An operator representing the coefficient of the monomial ``Z**0`` in the
         characteristic polynomial."""
-        return _power(self.B, pp.ad.Scalar(3)) + self.B * self.B - self.A * self.B
+        return (
+            _power(self.B, pp.ad.Scalar(3))
+            + _power(self.B, pp.ad.Scalar(2))
+            - self.A * self.B
+        )
 
     @property
     def p(self) -> pp.ad.Operator:
         """An operator representing the coefficient of the monomial ``Z`` of the
         **reduced** characteristic polynomial."""
-        return self.c1 - self.c2 * self.c2 / 3
+        return self.c1 - _power(self.c2, pp.ad.Scalar(2)) / 3
 
     @property
     def q(self) -> pp.ad.Operator:
@@ -184,7 +188,9 @@ class PR_Roots:
             unclear as of now.
 
         """
-        return self.q * self.q / 4 + _power(self.p, pp.ad.Scalar(3)) / 27
+        return (
+            _power(self.q, pp.ad.Scalar(2)) / 4 + _power(self.p, pp.ad.Scalar(3)) / 27
+        )
 
     ### root computation ---------------------------------------------------------------
 
@@ -277,15 +283,23 @@ class PR_Roots:
                 delta.val[one_root_region], delta.jac[one_root_region]
             )
             c2_1 = pp.ad.Ad_array(c2.val[one_root_region], c2.jac[one_root_region])
+
             # delta has only positive values in this case by logic
             t_1 = -q_1 / 2 + pp.ad.sqrt(delta_1)
 
-            # t_1 should only be positive, since delta positive and greater than q
-            # assert above, because cubic root is imaginary otherwise
-            assert np.all(
-                t_1.val > 0.0
-            ), "Real root in one-root-region has imaginary parts."
-            u_1 = pp.ad.cbrt(t_1)
+            # t_1 might be negative, in this case we must choose the real cubic root
+            # by extracting cbrt(-1), where -1 is the real cubic root.
+            im_cube = t_1.val < 0.0
+            if np.any(im_cube):
+                t_1.val[im_cube] *= -1
+                t_1.jac[im_cube] *= -1
+
+                u_1 = pp.ad.cbrt(t_1)
+
+                u_1.val[im_cube] *= -1
+                u_1.jac[im_cube] *= -1
+            else:
+                u_1 = pp.ad.cbrt(t_1)
 
             ## Relevant roots
             # only real root, Cardano formula, positive discriminant

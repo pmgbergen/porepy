@@ -70,8 +70,9 @@ class Composition(abc.ABC):
     This class can be used to program composition classes which implement a specific
     equations of state.
 
-    Child classes have to implement their own phases and fugacities.
-    The equations in the unified flash procedure are set by this class.
+    The equations in the unified flash procedure are set by this class,
+    except the KKT conditions, which are part of the numerical solution strategy
+    (see :class:`~porepy.composite.flash.Flash`).
 
     Notes:
         - The first phase is treated as the reference phase: its molar fraction will not
@@ -184,15 +185,6 @@ class Composition(abc.ABC):
 
         - enthalpy constraint (1 equation)
         - temperature (1 primary variable)
-
-        """
-
-        self.fugacity_coeffs: dict[Component, dict[Phase, pp.ad.Operator]] = dict()
-        """A nested dictionary containing an operator representing the fugacity
-        coefficients for a given ``[component][phase]``.
-
-        This dictionary must be created in :meth:`set_fugacities`, which in return
-        is called during :meth:`initialize`.
 
         """
 
@@ -508,7 +500,6 @@ class Composition(abc.ABC):
         ph_subsystem["equations"].append(self._enthalpy_constraint)
 
         ### setting fugacities and and equilibrium equation
-        self.set_fugacities()
         ref_phase = self.reference_phase
 
         for comp in self.components:
@@ -1030,21 +1021,7 @@ class Composition(abc.ABC):
             An operator representing ``k_ce`` in above equations.
 
         """
-        phi_ce = self.fugacity_coeffs[component][other_phase]
-        phi_cR = self.fugacity_coeffs[component][self.reference_phase]
+        phi_ce = other_phase.fugacity_of(self.p, self.T, component)
+        phi_cR = self.reference_phase.fugacity_of(self.p, self.T, component)
 
         return phi_cR / phi_ce
-
-    @abc.abstractmethod
-    def set_fugacities(self) -> None:
-        """Abstract method to create fugacity operators for a component in a specific
-        phase.
-
-        This method should fill the dictionary :data:`fugacities`.
-
-        Note:
-            Equilibrium equations are formulated using fugacities,
-            with respect to the reference phase.
-
-        """
-        pass
