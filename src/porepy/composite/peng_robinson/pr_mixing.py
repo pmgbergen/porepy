@@ -60,6 +60,9 @@ def dT_VdW_a_ij(
 ) -> pp.ad.Operator:
     """Returns an operator representing the derivative of :meth:`VdW_a_ij` w.r.t. to the
     temperature.
+
+    See :meth:`VdW_a_ij` for more.
+
     """
     # the expression for two different components
     if comp_i != comp_j:

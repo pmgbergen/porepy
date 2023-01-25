@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import porepy as pp
 
+from .._composite_utils import R_IDEAL, T_REF
 from ..component import PseudoComponent
 from .pr_component import PR_Component, PR_Compound
 from .pr_utils import _power
@@ -150,10 +151,33 @@ class H2O(PR_Component, H2O_ps):
 
     """
 
+    cp1: float = 0.0322
+    """``ci`` are heat capacity coefficients at constant pressure
+    (see :meth:`h_ideal`) given in [kJ / mol K^i]."""
+    cp2: float = 1.904e-6
+    cp3: float = 1.055e-8
+    cp4: float = -3.596e-12
+
     @property
     def acentric_factor(self) -> float:
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.3434
+
+    def h_ideal(
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
+    ) -> pp.ad.Operator:
+        """The specific molar enthalpy of is constructed using
+        heat capacity coefficients from
+        `Zhu, Okuno (2015) <https://onepetro.org/spersc/proceedings/15RSS/
+        1-15RSS/D011S001R002/183434>`_ .
+
+        """
+        return (
+            self.cp1 * (T - T_REF)
+            + self.cp2 / 2 * (_power(T, pp.ad.Scalar(2)) - T_REF**2)
+            + self.cp3 / 3 * (_power(T, pp.ad.Scalar(3)) - T_REF**3)
+            + self.cp4 / 4 * (_power(T, pp.ad.Scalar(4)) - T_REF**4)
+        )
 
 
 class CO2(PR_Component, CO2_ps):
@@ -163,10 +187,32 @@ class CO2(PR_Component, CO2_ps):
 
     """
 
+    cp1: float = 0.019795
+    """``ci`` are heat capacity coefficients at constant pressure
+    (see :meth:`h_ideal`) given in [kJ / mol K^i]."""
+    cp2: float = 7.343e-5
+    cp3: float = -5.602e-8
+    cp4: float = 1.715e-11
+
     @property
     def acentric_factor(self) -> float:
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.2273
+
+    def h_ideal(
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
+    ) -> pp.ad.Operator:
+        """The specific molar enthalpy of is constructed using
+        heat capacity coefficients from
+        `Zhu, Okuno (2014) <http://dx.doi.org/10.1016/j.fluid.2014.07.003>`_ .
+
+        """
+        return (
+            self.cp1 * (T - T_REF)
+            + self.cp2 / 2 * (_power(T, pp.ad.Scalar(2)) - T_REF**2)
+            + self.cp3 / 3 * (_power(T, pp.ad.Scalar(3)) - T_REF**3)
+            + self.cp4 / 4 * (_power(T, pp.ad.Scalar(4)) - T_REF**4)
+        )
 
 
 class H2S(PR_Component, H2S_ps):
@@ -189,10 +235,31 @@ class N2(PR_Component, N2_ps):
 
     """
 
+    cp1: float = 3.280
+    """``ci`` are heat capacity coefficients at constant pressure
+    (see :meth:`h_ideal`) given in [kJ / mol K^i]."""
+    cp2: float = 0.593e-3
+    cp3: float = 0.04e5
+
     @property
     def acentric_factor(self) -> float:
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.0403
+
+    def h_ideal(
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
+    ) -> pp.ad.Operator:
+        """The specific molar enthalpy of is constructed using
+        heat capacity coefficients from
+        `de Nevers (2012), table A.9 <https://onlinelibrary.wiley.com/doi/
+        book/10.1002/9781118135341>`_ .
+
+        """
+        return R_IDEAL * (
+            self.cp1 * (T - T_REF)
+            + self.cp2 / 2 * (_power(T, pp.ad.Scalar(2)) - T_REF**2)
+            - self.cp3 * (_power(T, pp.ad.Scalar(-1)) - T_REF ** (-1))
+        )
 
 
 # endregion

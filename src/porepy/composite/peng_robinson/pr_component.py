@@ -121,6 +121,28 @@ class PR_Component(Component):
             B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
 
+    @abc.abstractmethod
+    def h_ideal(
+        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
+    ) -> pp.ad.Operator:
+        """Abstract method for implementing the component-specific ideal part of the
+        specific molar enthalpy.
+
+        This function depends on experimental data and heuristic laws.
+
+        | Math. Dimension:        scalar
+        | Phys. Dimension:        [-]
+
+        Parameters:
+            p: The pressure of the mixture.
+            T: The temperature of the mixture.
+
+        Returns:
+            Acentric factor.
+
+        """
+        pass
+
 
 class PR_Compound(PR_Component, Compound):
     """Intermediate abstraction layer for (fluid) compounds in a Peng-Robinson mixture.

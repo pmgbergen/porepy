@@ -270,7 +270,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print("Computing initial, domain-wide equilibrium ...")
         self.composition.initialize()
         self.flash = pp.composite.Flash(self.composition)
-        self.composition.roots.compute_roots()
         self.flash.use_armijo = False
         self.flash.flash("isothermal", "npipm", "feed", True, True)
         self.flash.use_armijo = True
@@ -331,7 +330,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print("Computing inflow boundary equilibrium ...")
         C.initialize()
         F = pp.composite.Flash(C)
-        C.roots.compute_roots()
         F.flash("isothermal", "npipm", "feed", True, False)
         F.post_process_fractions()
         F.evaluate_specific_enthalpy()
