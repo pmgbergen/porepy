@@ -64,7 +64,7 @@ mandel_solid_constants: dict[str, number] = {
 }
 
 mandel_fluid_constants: dict[str, number] = {
-    "density": 1e3,  # [kg * m^3]
+    "density": 1e3,  # [kg * m^-3}]
     "viscosity": 1e-3,  # [Pa * s]
 }
 
@@ -75,17 +75,14 @@ class MandelSaveData(ManuPoroMechSaveData):
     """Class to store relevant data from the verification setup."""
 
     approx_consolidation_degree: tuple[number, number]
-    """Approximated degree of consolidation. First element of the tuple corresponds
-    to the horizontal and second to the vertical degrees of consolidation.
-
-    """
+    """Numerical degrees of consolidation in the horizontal and vertical directions."""
 
     exact_consolidation_degree: number
     """Exact degree of consolidation."""
 
     error_consolidation_degree: tuple[number, number]
-    """Absolute error for the degree of consolidation. First element is the error in
-    the horizontal direction. Second element is the error in the vertical direction.
+    """Absolute error for the degrees of consolidation in the horizontal and vertical
+    directions.
 
     """
 
@@ -95,7 +92,7 @@ class MandelDataSaving(VerificationDataSaving):
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
+    provided by the mixin class :class:`~porepy.models.fluid_mass_balance.DarcysLaw`.
 
     """
 
@@ -165,7 +162,8 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_flux = self.exact_sol.flux(sd, t)
         flux_ad = self.darcy_flux([sd])
-        approx_flux = flux_ad.evaluate(self.equation_system).val
+        viscosity = self.fluid.viscosity()
+        approx_flux = (1 / viscosity) * flux_ad.evaluate(self.equation_system).val
         error_flux = self.relative_l2_error(
             grid=sd,
             true_array=exact_flux,
@@ -257,8 +255,8 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        nu_s = self.setup.poisson_coefficient()
-        nu_u = self.setup.undrained_poisson_coefficient()
+        nu_s = self.setup.poisson_coefficient()  # [-]
+        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
 
         # Define algebraic function
         def f(x):
@@ -293,33 +291,28 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8)
-        B = self.setup.skempton_coefficient()
-        nu_u = self.setup.undrained_poisson_coefficient()
-        c_f = self.setup.fluid_diffusivity()
+        F = self.setup.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        B = self.setup.skempton_coefficient()  # [-]
+        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
+        c_f = self.setup.fluid_diffusivity()  # [-]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params.get("domain_size", (100, 10))
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
 
-        # Exact pressure
+        # Compute exact pressure
         if t == 0:  # initial condition has its own expression
-
             p = ((F * B * (1 + nu_u)) / (3 * a)) * np.ones_like(x)
-
         else:
-
             c0 = (2 * F * B * (1 + nu_u)) / (3 * a)
-
             p_sum_0 = np.sum(
                 ((np.sin(aa_n)) / (aa_n - (np.sin(aa_n) * np.cos(aa_n))))
                 * (np.cos((aa_n * x) / a) - np.cos(aa_n))
                 * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
                 axis=0,
             )
-
             p = c0 * p_sum_0
 
         return p
@@ -351,43 +344,37 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8)
-        nu_s = self.setup.poisson_coefficient()
-        nu_u = self.setup.undrained_poisson_coefficient()
-        mu_s = self.setup.solid.shear_modulus()
-        c_f = self.setup.fluid_diffusivity()
+        F = self.setup.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        nu_s = self.setup.poisson_coefficient()  # [-]
+        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
+        mu_s = self.setup.solid.shear_modulus()  # [Pa]
+        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params.get("domain_size", (100, 10))
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
 
-        # Exact horizontal displacement
+        # Compute horizontal displacement
         if t == 0:  # initial condition has its own expression
-
             ux = ((F * nu_u) / (2 * mu_s * a)) * x
-
         else:
-
             cx0 = (F * nu_s) / (2 * mu_s * a)
             cx1 = -((F * nu_u) / (mu_s * a))
             cx2 = F / mu_s
-
             ux_sum1 = np.sum(
                 (np.sin(aa_n) * np.cos(aa_n))
                 / (aa_n - np.sin(aa_n) * np.cos(aa_n))
                 * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
                 axis=0,
             )
-
             ux_sum2 = np.sum(
                 (np.cos(aa_n) / (aa_n - (np.sin(aa_n) * np.cos(aa_n))))
                 * np.sin((aa_n * x) / a)
                 * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
                 axis=0,
             )
-
             ux = (cx0 + cx1 * ux_sum1) * x + cx2 * ux_sum2
 
         return ux
@@ -404,34 +391,29 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8)
-        nu_s = self.setup.poisson_coefficient()
-        nu_u = self.setup.undrained_poisson_coefficient()
-        mu_s = self.setup.solid.shear_modulus()
-        c_f = self.setup.fluid_diffusivity()
+        F = self.setup.params.get("vertical_load", 6e8)  # [N * m^-1]
+        nu_s = self.setup.poisson_coefficient()  # [-]
+        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
+        mu_s = self.setup.solid.shear_modulus()  # [Pa]
+        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^-1]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params.get("domain_size", (100, 10))
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
 
-        # Exact vertical displacement
+        # Compute exact vertical displacement
         if t == 0:  # initial condition has its own expression
-
             uy = ((-F * (1 - nu_u)) / (2 * mu_s * a)) * y
-
         else:
-
             cy0 = (-F * (1 - nu_s)) / (2 * mu_s * a)
             cy1 = F * (1 - nu_u) / (mu_s * a)
-
             uy_sum1 = np.sum(
                 ((np.sin(aa_n) * np.cos(aa_n)) / (aa_n - np.sin(aa_n) * np.cos(aa_n)))
                 * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
                 axis=0,
             )
-
             uy = (cy0 + cy1 * uy_sum1) * y
 
         return uy
@@ -483,7 +465,7 @@ class MandelExactSolution:
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
 
-        # Compute horizontal specific discharge
+        # Compute exact horizontal specific discharge
         if t == 0:
             qx = np.zeros_like(x)  # zero initial discharge
         else:
@@ -544,18 +526,13 @@ class MandelExactSolution:
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
 
-        # Compute exact stress tensor
-
+        # Compute exact vertical component of the stress tensor
         if t == 0:  # vertical stress at t = 0 has a different expression
-
             syy = -F / a * np.ones_like(x)
-
         else:
-
             c0 = -F / a
             c1 = (-2 * F * (nu_u - nu_s)) / (a * (1 - nu_s))
             c2 = 2 * F / a
-
             syy_sum1 = np.sum(
                 (np.sin(aa_n))
                 / (aa_n - np.sin(aa_n) * np.cos(aa_n))
@@ -563,14 +540,12 @@ class MandelExactSolution:
                 * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
                 axis=0,
             )
-
             syy_sum2 = np.sum(
                 (np.sin(aa_n) * np.cos(aa_n))
                 / (aa_n - np.sin(aa_n) * np.cos(aa_n))
                 * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
                 axis=0,
             )
-
             syy = c0 + c1 * syy_sum1 + c2 * syy_sum2
 
         return syy
@@ -666,10 +641,9 @@ class MandelUtilities(VerificationUtils):
             Bulk modulus.
 
         """
-        mu_s = self.solid.shear_modulus()
-        lambda_s = self.solid.lame_lambda()
-        K_s = (2 / 3) * mu_s + lambda_s
-        return K_s
+        mu_s = self.solid.shear_modulus()  # [Pa]
+        lambda_s = self.solid.lame_lambda()  # [Pa]
+        return (2 / 3) * mu_s + lambda_s
 
     def young_modulus(self) -> number:
         """Set Young modulus [Pa].
@@ -678,10 +652,9 @@ class MandelUtilities(VerificationUtils):
             Young modulus.
 
         """
-        mu_s = self.solid.shear_modulus()
-        K_s = self.bulk_modulus()
-        E_s = mu_s * ((9 * K_s) / (3 * K_s + mu_s))
-        return E_s
+        mu_s = self.solid.shear_modulus()  # [Pa]
+        K_s = self.bulk_modulus()  # [Pa]
+        return mu_s * ((9 * K_s) / (3 * K_s + mu_s))
 
     def poisson_coefficient(self) -> number:
         """Set Poisson coefficient [-]
@@ -692,8 +665,7 @@ class MandelUtilities(VerificationUtils):
         """
         mu_s = self.solid.shear_modulus()
         K_s = self.bulk_modulus()
-        nu_s = (3 * K_s - 2 * mu_s) / (2 * (3 * K_s + mu_s))
-        return nu_s
+        return (3 * K_s - 2 * mu_s) / (2 * (3 * K_s + mu_s))
 
     def undrained_bulk_modulus(self) -> number:
         """Set undrained bulk modulus [Pa].
@@ -705,8 +677,7 @@ class MandelUtilities(VerificationUtils):
         alpha_biot = self.solid.biot_coefficient()  # [-]
         K_s = self.bulk_modulus()  # [Pa]
         S_epsilon = self.solid.specific_storage()  # [Pa^-1]
-        K_u = K_s + (alpha_biot ** 2) / S_epsilon  # [Pa]
-        return K_u
+        return K_s + (alpha_biot ** 2) / S_epsilon
 
     def skempton_coefficient(self) -> number:
         """Set Skempton's coefficient [-].
@@ -718,8 +689,7 @@ class MandelUtilities(VerificationUtils):
         alpha_biot = self.solid.biot_coefficient()  # [-]
         K_u = self.undrained_bulk_modulus()  # [Pa]
         S_epsilon = self.solid.specific_storage()  # [Pa^-1]
-        B = alpha_biot / (S_epsilon * K_u)  # [-]
-        return B
+        return alpha_biot / (S_epsilon * K_u)
 
     def undrained_poisson_coefficient(self) -> float:
         """Set Poisson coefficient under undrained conditions [-].
@@ -731,10 +701,9 @@ class MandelUtilities(VerificationUtils):
             Expression taken from https://doi.org/10.1016/j.camwa.2018.09.005.
 
         """
-        nu_s = self.poisson_coefficient()
-        B = self.skempton_coefficient()
-        nu_u = (3 * nu_s + B * (1 - 2 * nu_s)) / (3 - B * (1 - 2 * nu_s))
-        return nu_u
+        nu_s = self.poisson_coefficient()  # [-]
+        B = self.skempton_coefficient()  # [-]
+        return (3 * nu_s + B * (1 - 2 * nu_s)) / (3 - B * (1 - 2 * nu_s))
 
     def fluid_diffusivity(self) -> number:
         """Set fluid diffusivity [m^2 * s^{-1}].
@@ -749,8 +718,9 @@ class MandelUtilities(VerificationUtils):
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
         mu_f = self.fluid.viscosity()  # [Pa * s]
-        c_f = (2 * k_s * (B ** 2) * mu_s * (1 - nu_s) * (1 + nu_u) ** 2) / (
-                9 * mu_f * (1 - nu_u) * (nu_u - nu_s)
+        c_f = (
+                (2 * k_s * (B ** 2) * mu_s * (1 - nu_s) * (1 + nu_u) ** 2)
+                / (9 * mu_f * (1 - nu_u) * (nu_u - nu_s))
         )
         return c_f
 
@@ -759,7 +729,7 @@ class MandelUtilities(VerificationUtils):
         """Non-dimensionalized time.
 
         Parameters:
-            t: Time in seconds.
+            t: Time [s].
 
         Returns:
             Dimensionless time for the given time ``t``.
@@ -773,7 +743,7 @@ class MandelUtilities(VerificationUtils):
         """Nondimensionalized length in the horizontal direction.
 
         Parameters:
-            x: horizontal length in meters.
+            x: horizontal length [m].
 
         Returns:
             Dimensionless horizontal length with ``shape=(num_points, )``.
@@ -786,7 +756,7 @@ class MandelUtilities(VerificationUtils):
         """Non-dimensionalized length in the vertical direction.
 
         Parameters:
-            y: vertical length in meters.
+            y: vertical length [m].
 
         Returns:
             Dimensionless vertical length with ``shape=(num_points, )``.
@@ -799,7 +769,7 @@ class MandelUtilities(VerificationUtils):
         """Non-dimensionalized pressure.
 
         Parameters:
-            p: Fluid pressure in Pascals.
+            p: Fluid pressure [Pa].
 
         Returns:
             Dimensionaless pressure with ``shape=(num_points, )``.
@@ -831,7 +801,7 @@ class MandelUtilities(VerificationUtils):
         """Non-dimensionalized vertical component of the stress tensor.
 
         Parameters:
-            syy: Vertical component of the stress tensor.
+            syy: Vertical component of the stress tensor [Pa].
 
         Returns:
             Dimensionless vertical component of the stress tensor with
@@ -863,8 +833,8 @@ class MandelUtilities(VerificationUtils):
         """Numerical consolidation degree.
 
         Parameters:
-            displacement: Displacement solution of shape (sd.dim * sd.num_cells).
-            pressure: Pressure solution of shape (sd.num_cells, ).
+            displacement: Displacement [m] solution of shape (sd.dim * sd.num_cells).
+            pressure: Pressure [Pa] solution of shape (sd.num_cells, ).
 
         Returns:
             Numerical degree of consolidation in the horizontal and vertical directions.
@@ -905,7 +875,7 @@ class MandelUtilities(VerificationUtils):
 
     # -----> Plotting methods
     def plot_results(self):
-        """Plotting results."""
+        """Plot results."""
         num_lines = len(self.time_manager.schedule) - 1
         cmap = mcolors.ListedColormap(plt.cm.tab20.colors[:num_lines])
 
@@ -956,6 +926,7 @@ class MandelUtilities(VerificationUtils):
         ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
         ax.set_ylabel(r"Non-dimensional pressure, $p ~ a ~ F^{-1}$", fontsize=13)
         ax.legend(loc="center right", bbox_to_anchor=(1.4, 0.5), fontsize=13)
+        ax.grid()
         plt.subplots_adjust(right=0.7)
         plt.show()
 
@@ -1261,7 +1232,7 @@ class MandelGeometry(pp.ModelGeometry):
 
     def set_fracture_network(self) -> None:
         """Set fracture network. Unit square with no fractures."""
-        a, b = self.params.get("domain_size", (100, 10))
+        a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = {"xmin": 0.0, "xmax": a, "ymin": 0.0, "ymax": b}
         self.fracture_network = pp.FractureNetwork2d(None, None, domain)
 
@@ -1291,12 +1262,6 @@ class MandelGeometry(pp.ModelGeometry):
 class MandelBoundaryConditionsMechanicsTimeDependent(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
-
-    bc_values_mechanics_key: str
-    """Keyword for accessing the boundary values for the mechanical subproblem."""
-
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
-    """Named tuple containing the boundary sides indices."""
 
     exact_sol: MandelExactSolution
     """Exact solution object."""
@@ -1375,12 +1340,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
         return bc_vals
 
 
-class MandelBoundaryConditionsSinglePhaseFlow(
-    mass.BoundaryConditionsSinglePhaseFlow,
-):
-
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
-    """Utility function containing the indices of the domain boundary sides."""
+class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the flow subproblem.
@@ -1514,31 +1474,3 @@ class MandelSetup(  # type: ignore[misc]
 ):
     """Mixer class for Mandel's consolidation problem."""
 
-#%% Runner
-from time import time
-
-# Set model parameters
-material_constants = {
-    "solid": pp.SolidConstants(mandel_solid_constants),
-    "fluid": pp.FluidConstants(mandel_fluid_constants),
-}
-
-time_manager = pp.TimeManager(
-    schedule=[0, 1e1, 5e1, 1e2, 1e3, 5e3, 8e3, 1e4, 2e4, 3e4, 5e4],
-    dt_init=10,
-    constant_dt=True,
-)
-
-params = {
-    "material_constants": material_constants,
-    "time_manager": time_manager,
-    "plot_results": True,
-}
-
-# Run verification setup
-tic = time()
-setup = MandelSetup(params)
-print("Simulation started...")
-pp.run_time_dependent_model(setup, setup.params)
-toc = time()
-print(f"Simulation finished in {round(toc - tic)} seconds.")
