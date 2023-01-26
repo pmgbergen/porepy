@@ -1487,6 +1487,128 @@ class EquationSystem:
         # Multiply rhs by -1 to move to the rhs.
         column_projection = self.projection_to(variables).transpose()
         return A * column_projection, -rhs_cat
+    
+    def assemble_rhs(
+        self,
+        state: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Assemble residual vector of the whole system.
+
+        This is a shallow wrapper of :meth:`assemble_subsystem`. Here, the subsystem is
+        the complete set of equations, variables and grids.
+        
+        See also :meth: `assemble`
+        
+        Parameters:
+            state (optional): see :meth:`assemble_subsystem`. Defaults to None.
+
+        Returns:
+            np.ndarray: Residual vector corresponding to the targeted state, scaled
+            by -1 (moved to rhs).
+
+        """
+        return self.assemble_subrhs(state=state)
+
+    def assemble_subrhs(
+        self,
+        equations: Optional[EquationList | EquationRestriction] = None,
+        variables: Optional[VariableList] = None,
+        state: Optional[np.ndarray] = None,
+    ) -> tuple[sps.spmatrix, np.ndarray]:
+        """Assemble residual vector using a specified subset of
+        equations, variables and grids.
+        
+        The method is intended for use in splitting algorithms. 
+        
+        See also :meth: `assemble_subssystem`
+        
+        Note:
+            The ordering of columns in the returned system are defined by the global
+            DOF order. The row blocks are in the same order as equations were added to
+            this system. If an equation is defined on multiple grids, the respective
+            row-block is internally ordered as given by the mixed-dimensional grid
+            (for sd in subdomains, for intf in interfaces).
+
+            The columns of the subsystem are assumed to be properly defined by
+            ``variables``, otherwise a matrix of shape ``(M,)`` is returned. This
+            happens if grid variables are passed which are unknown to this
+            :class:`EquationSystem`.
+
+        Parameters:
+            equations (optional): a subset of equations to which the subsystem should be
+                restricted. If not provided (None), all equations known to this
+                :class:`EquationSystem` will be included.
+
+                The user can specify grids per equation (name) to which the subsystem
+                should be restricted in the row-sense. Grids not belonging to the domain
+                of an equation will raise an error.
+
+            variables (optional): VariableType input specifying the subspace in
+                column-sense. If not provided (None), all variables will be included.
+            state (optional): State vector to assemble from. By default, the stored
+                ``pp.ITERATE`` or ``pp.STATE`` are used, in that order.
+
+        Returns:
+            Tuple with two elements
+
+                spmatrix: (Part of the) Jacobian matrix corresponding to the targeted
+                variable state, for the specified equations and variables.
+                ndarray: Residual vector corresponding to the targeted variable state,
+                for the specified equations. Scaled with -1 (moved to rhs).
+
+        """
+        if variables is None:
+            variables = self._variables
+
+        # equ_blocks is a dictionary with equation names as keys and the corresponding
+        # row indices of the equations. If the user has requested that equations are
+        # restricted to a subset of grids, the row indices are restricted accordingly.
+        # If no such request has been made, the value is None.
+        equ_blocks: dict[str, np.ndarray | None] = self._parse_equations(equations)
+
+        # Data structures for building matrix and residual vector
+        rhs: list[np.ndarray] = []
+
+        # Keep track of DOFs for each equation/block
+        ind_start = 0
+        self.assembled_equation_indices = dict()
+
+        # Iterate over equations, assemble.
+        # Also keep track of the row indices of each equation, and store it in
+        # assembled_equation_indices.
+        for equ_name, rows in equ_blocks.items():
+            # This will raise a key error if the equation name is unknown.
+            eq = self._equations[equ_name]
+            ad = eq.evaluate(self, state)
+
+            # If restriction to grid-related row blocks was made,
+            # perform row slicing based on information we have obtained from parsing.
+            if rows is not None:
+                rhs.append(ad.val[rows])
+                block_length = len(rhs[-1])
+            # If no grid-related row restriction was made, append the whole thing.
+            else:
+                rhs.append(ad.val)
+                block_length = len(ad.val)
+
+            # Create indices range and shift to correct position.
+            block_indices = np.arange(block_length) + ind_start
+            # Extract last index and add 1 to get the starting point for next block of
+            # indices.
+
+            self.assembled_equation_indices.update({equ_name: block_indices})
+
+            if block_length > 0:
+                ind_start = block_indices[-1] + 1
+        # Concatenate results equation-wise.
+        if len(rhs) > 0:
+            rhs_cat = np.concatenate(rhs)
+        else:
+            # Special case if the restriction produced an empty system.
+            rhs_cat = np.empty(0)
+
+        # Multiply rhs by -1 to move to the rhs.
+        return -rhs_cat
 
     def assemble_schur_complement_system(
         self,
