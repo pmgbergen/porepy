@@ -772,7 +772,7 @@ class MandelUtilities(VerificationUtils):
             p: Fluid pressure [Pa].
 
         Returns:
-            Dimensionaless pressure with ``shape=(num_points, )``.
+            Dimensionless pressure with ``shape=(num_points, )``.
 
         """
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
