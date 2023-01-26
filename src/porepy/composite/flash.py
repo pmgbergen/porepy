@@ -811,35 +811,43 @@ class Flash:
             composition: dict[Any, dict] = dict()
             # store sum of composition per phase, to use for normalization
             phase_sums: dict[Any, np.ndarray] = dict()
+            # storing feed fractions
+            feeds: dict[Any, np.ndarray] = dict()
 
-            # store reference phase compositions as feed fraction
-            composition[self._C.reference_phase] = dict()
-            for comp in self._C.reference_phase:
-                # first get the feed fractions
-                feed_c = comp.fraction.evaluate(ad_system).val
-                # set values in reference phase to feed fraction
-                composition[self._C.reference_phase].update({comp: np.copy(feed_c)})
-                # TODO store values in AD system to avoid division by zero errors
-                # for normalized fractions
-            phase_sums[self._C.reference_phase] = sum(
-                composition[self._C.reference_phase].values()
-            )
-            # for other phases, get values using the k-values, s.t. initial guess
+            for comp in self._C.components:
+                # evaluate feed fractions
+                z_c = comp.fraction.evaluate(ad_system).val
+                feeds[comp] = z_c
+
+                # use feed fractions as first value for all phase compositions
+                # values are initiated as zero, thats is why this step is necessary
+                # to avoid division by zero when evaluating k-values.
+                for phase in self._C.phases:
+                    ad_system.set_variable_values(
+                        z_c,
+                        variables=[phase.fraction_of_component_name(comp)],
+                        to_iterate=True,
+                    )
+
+            # for phases except ref phase,
+            # change values using the k-values, s.t. initial guess
             # fulfils the equilibrium equations
             for phase in phases:
                 composition[phase] = dict()
-                for comp in phase:
+                for comp in self._C.components:
                     k_ce = self._C.get_k_value(comp, phase).evaluate(ad_system).val
 
-                    x_ce = composition[self._C.reference_phase][comp] * k_ce
+                    x_ce = feeds[comp] * k_ce
 
                     composition[phase].update({comp: x_ce})
 
                 # compute sum per phase
                 phase_sums[phase] = sum(composition[phase].values())
 
-            # normalize initial guesses (in all phases) and set values
-            for phase in self._C.phases:
+            # normalize initial guesses and set values in phases except ref phase.
+            # feed fractions (composition of ref phase)
+            # are assumed to be already normalized
+            for phase in phases:
                 for comp in self._C.components:
                     # normalize
                     x_ce = composition[phase][comp] / phase_sums[phase]
@@ -852,9 +860,8 @@ class Flash:
 
             # use the feed fraction of the reference component to set an initial guess
             # for the phase fractions
-            feed_R = self._C.reference_component.fraction.evaluate(ad_system).val
             # re-normalize to set fractions fulfilling the unity constraint
-            feed_R = feed_R / len(phases)
+            feed_R = feeds[self._C.reference_component] / len(phases)
             for phase in phases:
                 ad_system.set_variable_values(
                     np.copy(feed_R), variables=[phase.fraction_name], to_iterate=True

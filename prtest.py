@@ -20,8 +20,6 @@ pressure = 0.1  # 1 10 20 23
 h2o_fraction = 0.99
 co2_fraction = 0.005
 n2_fraction = 0.005
-salt_fraction = 0.01
-salt_molality = 3.0
 
 sys.set_variable_values(
     h2o_fraction * vec, variables=[h2o.fraction_name], to_iterate=True, to_state=True
@@ -32,8 +30,6 @@ sys.set_variable_values(
 sys.set_variable_values(
     n2_fraction * vec, variables=[n2.fraction_name], to_iterate=True, to_state=True
 )
-# brine.set_solute_fractions({brine.NaCl: salt_fraction})
-# brine.set_solute_fractions_with_molality({brine.NaCl: salt_molality})
 
 sys.set_variable_values(
     temperature * vec, variables=[M.T_name], to_iterate=True, to_state=True
