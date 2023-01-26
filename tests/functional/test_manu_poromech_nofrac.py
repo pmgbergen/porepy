@@ -47,7 +47,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.verification_setups.manu_poromech_nofrac import (
-    ManufacturedNonlinearPoromechanicsNoFrac2d,
+    ManuPoroMechSetup,
 )
 
 # Run verification setup and retrieve results for three different times
@@ -60,7 +60,7 @@ params = {
     "material_constants": material_constants,
     "time_manager": pp.TimeManager([0, 0.2, 0.6, 1], 0.2, True),
 }
-setup = ManufacturedNonlinearPoromechanicsNoFrac2d(params)
+setup = ManuPoroMechSetup(params)
 pp.run_time_dependent_model(setup, params)
 
 # Desired errors
