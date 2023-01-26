@@ -907,21 +907,22 @@ class Composition(abc.ABC):
             AD operator representing the left-hand side of the equation (rhs=0).
 
         """
-        if eliminate_ref_phase:
-            # enthalpy of reference phase
-            h_R = self.reference_phase.specific_enthalpy(self.p, self.T)
-            equation = self.h - h_R
+        equation = pp.ad.Scalar(1.0)
 
-            for phase in self.phases:
-                if phase != self.reference_phase:
-                    equation -= phase.fraction * (
-                        phase.specific_enthalpy(self.p, self.T) - h_R
-                    )
-        else:
-            equation = self.h
+        phase_parts = list()
 
-            for phase in self.phases:
-                equation -= phase.fraction * phase.specific_enthalpy(self.p, self.T)
+        for phase in self.phases:
+            if phase == self.reference_phase and eliminate_ref_phase:
+                phase_parts.append(
+                    self.get_reference_phase_fraction_by_unity()
+                    * phase.specific_enthalpy(self.p, self.T)
+                )
+            else:
+                phase_parts.append(
+                    phase.fraction * phase.specific_enthalpy(self.p, self.T)
+                )
+
+        equation -= sum(phase_parts) / self.h
 
         return equation
 
@@ -990,9 +991,15 @@ class Composition(abc.ABC):
                 "itself."
             )
 
-        equation = other_phase.fraction_of_component(component) - (
-            self.get_k_value(component, other_phase)
-        ) * self.reference_phase.fraction_of_component(component)
+        equation = other_phase.fugacity_of(
+            self.p, self.T, component
+        ) * other_phase.fraction_of_component(
+            component
+        ) - self.reference_phase.fugacity_of(
+            self.p, self.T, component
+        ) * self.reference_phase.fraction_of_component(
+            component
+        )
 
         return equation
 
