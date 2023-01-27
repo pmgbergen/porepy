@@ -15,11 +15,13 @@ M.add_component(h2o)
 M.add_component(co2)
 M.add_component(n2)
 
+EPS = 1e-15
+
 temperature = 273.15
 pressure = 0.1  # 1 10 20 23
-h2o_fraction = 0.99
-co2_fraction = 0.005
-n2_fraction = 0.005
+co2_fraction = EPS
+n2_fraction = EPS
+h2o_fraction = 1 - co2_fraction - n2_fraction
 
 sys.set_variable_values(
     h2o_fraction * vec, variables=[h2o.fraction_name], to_iterate=True, to_state=True
