@@ -705,48 +705,33 @@ class Composition(abc.ABC):
             AD operator representing the right-hand side of the equation.
 
         """
-        if eliminate_ref_phase:
-            if normalize_phase_composition:
-                equation = sum(
-                    [
-                        phase.fraction
-                        * phase.normalized_fraction_of_component(component)
-                        if phase != self.reference_phase
-                        else self.get_reference_phase_fraction_by_unity()
-                        * phase.normalized_fraction_of_component(component)
-                        for phase in self.phases
-                    ]
-                )
-            else:
-                equation = sum(
-                    [
-                        phase.fraction * phase.fraction_of_component(component)
-                        if phase != self.reference_phase
-                        else self.get_reference_phase_fraction_by_unity()
-                        * phase.fraction_of_component(component)
-                        for phase in self.phases
-                    ]
-                )
 
-            return equation
+        if normalize_phase_composition:
+
+            equation = sum(
+                [
+                    self.get_reference_phase_fraction_by_unity()
+                    * phase.normalized_fraction_of_component(component)
+                    if phase == self.reference_phase and eliminate_ref_phase
+                    else phase.fraction
+                    * phase.normalized_fraction_of_component(component)
+                    for phase in self.phases
+                ]
+            )
+
         else:
-            if normalize_phase_composition:
-                equation = sum(
-                    [
-                        phase.fraction
-                        * phase.normalized_fraction_of_component(component)
-                        for phase in self.phases
-                    ]
-                )
-            else:
-                equation = sum(
-                    [
-                        phase.fraction * phase.fraction_of_component(component)
-                        for phase in self.phases
-                    ]
-                )
 
-            return equation
+            equation = sum(
+                [
+                    self.get_reference_phase_fraction_by_unity()
+                    * phase.fraction_of_component(component)
+                    if phase == self.reference_phase and eliminate_ref_phase
+                    else phase.fraction * phase.fraction_of_component(component)
+                    for phase in self.phases
+                ]
+            )
+
+        return equation
 
     def get_phase_fraction_unity(self) -> pp.ad.Operator:
         """Returns an equation representing the phase fraction unity
@@ -968,21 +953,24 @@ class Composition(abc.ABC):
                 "itself."
             )
 
-        equation = other_phase.fugacity_of(
-            self.p, self.T, component
-        ) * other_phase.fraction_of_component(
-            component
-        ) - self.reference_phase.fugacity_of(
-            self.p, self.T, component
-        ) * self.reference_phase.fraction_of_component(
-            component
-        )
+        # equation = other_phase.fugacity_of(
+        #     self.p, self.T, component
+        # ) * other_phase.fraction_of_component(
+        #     component
+        # ) - self.reference_phase.fugacity_of(
+        #     self.p, self.T, component
+        # ) * self.reference_phase.fraction_of_component(
+        #     component
+        # )
+
+        equation = other_phase.fraction_of_component(component) + self.get_k_value(
+            component, other_phase
+        ) * self.reference_phase.fraction_of_component(component)
 
         return equation
 
     def get_k_value(self, component: Component, other_phase: Phase) -> pp.ad.Operator:
-        """Once the fugacities are set (see :meth:`set_fugacities`), the k-values
-        are obtained w.r.t. the reference phase
+        """The k-values are obtained w.r.t. the reference phase
 
             ``x_ce * phi_ce - x_cR * phi_cR = 0``,
             ``x_ce - k_ce * x_cR = 0``,
@@ -999,12 +987,18 @@ class Composition(abc.ABC):
             other_phase: A phase other than the reference phase in this composition.
 
         Raises:
-            KeyError: If fugacities are not found for given input.
+            ValueError: If ``other_phase`` is the reference phase.
 
         Returns:
             An operator representing ``k_ce`` in above equations.
 
         """
+        # sanity check
+        if other_phase == self.reference_phase:
+            raise ValueError(
+                "Cannot construct k-values between reference phase and itself."
+            )
+
         phi_ce = other_phase.fugacity_of(self.p, self.T, component)
         phi_cR = self.reference_phase.fugacity_of(self.p, self.T, component)
 

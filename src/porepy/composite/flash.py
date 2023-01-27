@@ -608,16 +608,18 @@ class Flash:
             print(f"Flash procedure: {flash_type}")
             print(f"Method: {method}")
             print(f"Using Armijo line search: {self.use_armijo}")
-            print(f"Setting initial guesses: {initial_guess}", flush=True)
+            print(f"Setting initial guesses: {initial_guess}")
 
         self._set_initial_guess(initial_guess)
 
         if method == "newton-min":
+            if do_logging:
+                print("+++", flush=True)
             success = self._Newton_min(flash_type, do_logging)
         elif method == "npipm":
             if do_logging:
-                print("Setting initial NPIPM variables.", flush=True)
-                print("+++")
+                print("Setting initial NPIPM variables.")
+                print("+++", flush=True)
             self._set_NPIPM_initial_guess()
             success = self._NPIPM(flash_type, do_logging)
         else:
@@ -1104,7 +1106,7 @@ class Flash:
 
         if do_logging:
             print(f"Armijo line search initial potential: {b_k_pot}")
-            print(f"Armijo line search j=1; potential {b_k_pot}", end="", flush=True)
+            print(f"Armijo line search j=1; potential {pot_j}", end="", flush=True)
 
         # start with first step size. If sufficient, return rho
         if pot_j <= (1 - 2 * kappa * rho) * b_k_pot:
@@ -1144,7 +1146,8 @@ class Flash:
                     f"Armijo line-search did not yield results after {j_max} steps."
                 )
             # if no j_max is defined, use while loop
-            # NOTE: If system is wrong in some sense, this might possible never finish.
+            # NOTE: If system is bad in some sense,
+            # this might not finish in feasable time.
             else:
                 # prepare for while loop
                 j = 1
