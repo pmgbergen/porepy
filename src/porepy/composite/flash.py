@@ -451,6 +451,18 @@ class Flash:
                 )
             )
         )
+        print("Feed fractions:")
+        for component in self._C.components:
+                print(f"{component.fraction_name}: ")
+                print(
+                    "\t"
+                    + str(
+                        sys.get_variable_values(
+                            variables=[component.fraction_name],
+                            from_iterate=from_iterate,
+                        )
+                    )
+                )
         print(filler)
         print("Phase fractions:")
         for phase in self._C.phases:
