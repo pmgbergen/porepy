@@ -626,6 +626,15 @@ class Flash:
             )
             self._C.ad_system.set_variable_values(X, variables=var_names, to_state=True)
 
+            # evaluate reference phase fractions
+            y_R = self._y_R.evaluate(self._C.ad_system).val
+            self._C.ad_system.set_variable_values(
+                y_R,
+                variables=[self._C.reference_phase.fraction_name],
+                to_iterate=True,
+                to_state=True,
+            )
+
         return success
 
     def evaluate_saturations(self, copy_to_state: bool = True) -> None:
@@ -689,8 +698,7 @@ class Flash:
         )
 
     def post_process_fractions(self, copy_to_state: bool = True) -> None:
-        """Evaluates the fraction of the reference phase and removes numerical artifacts
-        from all fractional values.
+        """Removes numerical artifacts from all fractional values.
 
         Fractional values are supposed to be between 0 and 1 after any valid flash
         result. Molar phase fractions and phase compositions are post-processed
@@ -1073,7 +1081,7 @@ class Flash:
 
         # get starting point from current ITERATE state at iteration k
         _, b_k = F()
-        b_k_pot = np.dot(b_k, b_k) / 2  # -b0 since above method returns rhs
+        b_k_pot = self._Armijo_potential(b_k)
         X_k = self._C.ad_system.get_variable_values(from_iterate=True)
 
         _, b_1 = F(X_k + rho * DX)
@@ -1082,7 +1090,7 @@ class Flash:
             print(f"Armijo line search j=1; potential {b_k_pot}", end="", flush=True)
 
         # start with first step size. If sufficient, return rho
-        if np.dot(b_1, b_1) <= (1 - 2 * kappa * rho) * b_k_pot:
+        if self._Armijo_potential(b_1) <= (1 - 2 * kappa * rho) * b_k_pot:
             if do_logging:
                 _del_log()
                 print("Armijo line search j=1: success", end="", flush=True)
@@ -1096,17 +1104,19 @@ class Flash:
 
                     # compute system state at preliminary step-size
                     _, b_j = F(X_k + rho_j * DX)
+                    
+                    pot_j = self._Armijo_potential(b_j)
 
                     if do_logging:
                         _del_log()
                         print(
-                            f"Armijo line search j={j}; potential: {np.dot(b_j, b_j)}",
+                            f"Armijo line search j={j}; potential: {pot_j}",
                             end="",
                             flush=True,
                         )
 
                     # check potential and return if reduced.
-                    if np.dot(b_j, b_j) <= (1 - 2 * kappa * rho_j) * b_k_pot:
+                    if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
                         if do_logging:
                             _del_log()
                             print(f"Armijo line search j={j}: success", flush=True)
@@ -1124,18 +1134,20 @@ class Flash:
                 # compute system state at preliminary step-size
                 _, b_j = F(X_k + rho_j * DX)
                 j = 2
+                pot_j = self._Armijo_potential(b_j)
 
                 # while potential not decreasing, compute next step-size
-                while np.dot(b_j, b_j) > (1 - 2 * kappa * rho_j) * b_k_pot:
+                while pot_j > (1 - 2 * kappa * rho_j) * b_k_pot:
                     # next power of step-size
                     rho_j *= rho
                     _, b_j = F(X_k + rho_j * DX)
                     j += 1
+                    pot_j = self._Armijo_potential(b_j)
 
                     if do_logging:
                         _del_log()
                         print(
-                            f"Armijo line search j={j}; potential: {np.dot(b_j, b_j)}",
+                            f"Armijo line search j={j}; potential: {pot_j}",
                             end="",
                             flush=True,
                         )
@@ -1145,6 +1157,19 @@ class Flash:
                         _del_log()
                         print(f"Armijo line search j={j}: success", flush=True)
                     return rho_j
+
+    def _Armijo_potential(self, vec: np.ndarray) -> float:
+        """Auxiliary method implementing the potential function which is to be
+        minimized in the line search. Currently it uses the least-squares-potential.
+
+        Parameters:
+            vec: Vector for which the potential should be computed
+
+        Returns: 
+            Value of potential.
+
+        """
+        return float(np.dot(vec, vec) / 2)
 
     def _newton_iterations(
         self,

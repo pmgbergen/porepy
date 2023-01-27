@@ -19,8 +19,8 @@ EPS = 1e-15
 
 temperature = 273.15
 pressure = 0.1  # 1 10 20 23
-co2_fraction = EPS
-n2_fraction = EPS
+co2_fraction = 0.4
+n2_fraction = 0.01
 h2o_fraction = 1 - co2_fraction - n2_fraction
 
 sys.set_variable_values(
@@ -44,10 +44,11 @@ sys.set_variable_values(0 * vec, variables=[M.h_name], to_iterate=True, to_state
 M.initialize()
 
 FLASH = pp.composite.Flash(M)
-FLASH.use_armijo = False
+FLASH.use_armijo = True
+FLASH.armijo_parameters["rho"] = 0.7
 M.compute_roots()
 FLASH.flash("isothermal", "npipm", "feed", True, True)
-FLASH.post_process_fractions()
+# FLASH.post_process_fractions()
 FLASH.evaluate_specific_enthalpy()
 FLASH.evaluate_saturations()
 FLASH.print_state()
@@ -55,10 +56,10 @@ FLASH.print_state()
 # isenthalpic procedure, storing only as ITERATE
 h = sys.get_variable_values(variables=[M.h_name]) * 1.25
 sys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=False)
-FLASH.print_state()  # print state resulting from isenthalpic state
+
 FLASH.use_armijo = False
 FLASH.flash("isenthalpic", "npipm", "iterate", False, True)
-FLASH.post_process_fractions(False)
+# FLASH.post_process_fractions(False)
 FLASH.evaluate_saturations(False)
 FLASH.print_state(True)  # print state with temperature values after isenthalpic flash
 
