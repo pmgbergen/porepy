@@ -50,14 +50,14 @@ FLASH.evaluate_specific_enthalpy()
 FLASH.evaluate_saturations()
 FLASH.print_state()
 
+# isenthalpic procedure, storing only as ITERATE
 h = sys.get_variable_values(variables=[M.h_name]) * 1.25
-sys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=True)
+sys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=False)
 FLASH.print_state()  # print state resulting from isenthalpic state
 FLASH.use_armijo = False
 FLASH.flash("isenthalpic", "npipm", "iterate", False, True)
-FLASH.post_process_fractions()
-FLASH.evaluate_saturations()
+FLASH.post_process_fractions(False)
+FLASH.evaluate_saturations(False)
 FLASH.print_state(True)  # print state with temperature values after isenthalpic flash
-FLASH.print_state(False)  # print state with T values before isenthalpic flash
 
 print("DONE")

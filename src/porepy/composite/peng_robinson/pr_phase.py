@@ -51,34 +51,38 @@ class PR_Phase(Phase):
         """
         if self.num_components > 0:
             components: list[PR_Component] = [c for c in self]  # type: ignore
+            # phase composition must be normalized to obtain physically meaningful values
+            normalization = sum([self.fraction_of_component(comp) for comp in self])
+            _2 = pp.ad.Scalar(2)
 
             # First we sum over the diagonal elements of the mixture matrix,
             # starting with the first component
             comp_0 = components[0]
             a = VdW_a_ij(T, comp_0, comp_0) * _power(
-                self.normalized_fraction_of_component(comp_0), pp.ad.Scalar(2)
+                self.fraction_of_component(comp_0), _2
             )
 
             if len(components) > 1:
                 # add remaining diagonal elements
                 for comp in components[1:]:
                     a += VdW_a_ij(T, comp, comp) * _power(
-                        self.normalized_fraction_of_component(comp), pp.ad.Scalar(2)
+                        self.fraction_of_component(comp), _2
                     )
 
+                mixed_parts = list()
                 # adding off-diagonal elements, including BIPs
                 for comp_i in components:
                     for comp_j in components:
                         if comp_i != comp_j:
                             # computing the cohesion between components i and j
-                            a += (
+                            mixed_parts.append(
                                 VdW_a_ij(T, comp_i, comp_j)
-                                * self.normalized_fraction_of_component(comp_i)
-                                * self.normalized_fraction_of_component(comp_j)
+                                * self.fraction_of_component(comp_i)
+                                * self.fraction_of_component(comp_j)
                             )
 
             # store cohesion parameters
-            return a
+            return (a + sum(mixed_parts)) / _power(normalization, _2)
         else:
             return pp.ad.Scalar(0.0)
 
@@ -87,34 +91,38 @@ class PR_Phase(Phase):
         :meth:`cohesion`."""
         if self.num_components > 0:
             components: list[PR_Component] = [c for c in self]  # type: ignore
+            # phase composition must be normalized to obtain physically meaningful values
+            normalization = sum([self.fraction_of_component(comp) for comp in self])
+            _2 = pp.ad.Scalar(2)
 
             # First we sum over the diagonal elements of the mixture matrix,
             # starting with the first component
             comp_0 = components[0]
             dT_a = dT_VdW_a_ij(T, comp_0, comp_0) * _power(
-                self.normalized_fraction_of_component(comp_0), pp.ad.Scalar(2)
+                self.fraction_of_component(comp_0), _2
             )
 
             if len(components) > 1:
                 # add remaining diagonal elements
                 for comp in components[1:]:
                     dT_a += dT_VdW_a_ij(T, comp, comp) * _power(
-                        self.normalized_fraction_of_component(comp), pp.ad.Scalar(2)
+                        self.fraction_of_component(comp), _2
                     )
 
+                mixed_parts = list()
                 # adding off-diagonal elements, including BIPs
                 for comp_i in components:
                     for comp_j in components:
                         if comp_i != comp_j:
                             # computing the cohesion between components i and j
-                            dT_a += (
+                            mixed_parts.append(
                                 dT_VdW_a_ij(T, comp_i, comp_j)
-                                * self.normalized_fraction_of_component(comp_i)
-                                * self.normalized_fraction_of_component(comp_j)
+                                * self.fraction_of_component(comp_i)
+                                * self.fraction_of_component(comp_j)
                             )
 
             # store cohesion parameters
-            return dT_a
+            return (dT_a + sum(mixed_parts)) / _power(normalization, _2)
         else:
             return pp.ad.Scalar(0.0)
 
@@ -123,18 +131,21 @@ class PR_Phase(Phase):
         """An operator representing ``b`` in the Peng-Robinson EoS using the component
         molar fractions in this phase, and the Van der Waals mixing rule.
 
-        If the phase is empty (no components), a wrapped zero is returned."""
+        If the phase is empty (no components), a wrapped zero is returned.
+
+        """
         if self.num_components > 0:
             components: list[PR_Component] = [c for c in self]  # type: ignore
             comp_0 = components[0]
 
             # updating covolume term
-            b = self.normalized_fraction_of_component(comp_0) * comp_0.covolume
+            b = self.fraction_of_component(comp_0) * comp_0.covolume
             if len(components) > 1:
                 for comp in components[1:]:
-                    b += self.normalized_fraction_of_component(comp) * comp.covolume
+                    b += self.fraction_of_component(comp) * comp.covolume
 
-            return b
+            # phase composition must be normalized to obtain physically meaningful values
+            return b / sum([self.fraction_of_component(comp) for comp in self])
         else:
             return pp.ad.Scalar(0.0)
 
@@ -170,33 +181,26 @@ class PR_Phase(Phase):
     ) -> pp.ad.Operator:
         """Auxiliary function implementing the logarithmic fugacity coefficients for a
         ``component``."""
+        # phase composition must be normalized to obtain physically meaningful values
+        normalization = sum([self.fraction_of_component(comp) for comp in self])
         # index c for component
         # index m for mixture
         b_c = component.covolume
-        b_m = sum(
-            [
-                self.normalized_fraction_of_component(comp) * comp.covolume
-                for comp in self
-            ]
-        )
-        B_m = (b_m * p) / (R_IDEAL * T)
 
-        a_c = sum(
-            [
-                self.normalized_fraction_of_component(other_c)
-                * VdW_a_ij(T, component, other_c)
-                for other_c in self
-            ]
+        a_c = (
+            sum(
+                [
+                    self.fraction_of_component(other_c)
+                    * VdW_a_ij(T, component, other_c)
+                    for other_c in self
+                ]
+            )
+            / normalization
         )
-        a_m = sum(
-            [
-                self.normalized_fraction_of_component(comp_i)
-                * self.normalized_fraction_of_component(comp_j)
-                * VdW_a_ij(T, comp_i, comp_j)
-                for comp_i in self
-                for comp_j in self
-            ]
-        )
+
+        a_m = self.cohesion(T)
+        b_m = self.covolume
+        B_m = (b_m * p) / (R_IDEAL * T)
 
         log_phi_c_e = (
             b_c / b_m * (self.Z - 1)
@@ -233,11 +237,8 @@ class PR_Phase(Phase):
         )
 
         h_ideal = sum(
-            [
-                self.normalized_fraction_of_component(comp) * comp.h_ideal(p, T)
-                for comp in self
-            ]
-        )
+            [self.fraction_of_component(comp) * comp.h_ideal(p, T) for comp in self]
+        ) / sum([self.fraction_of_component(comp) for comp in self])
 
         return h_ideal + h_departure
 

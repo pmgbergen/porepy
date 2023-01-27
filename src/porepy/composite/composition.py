@@ -907,7 +907,8 @@ class Composition(abc.ABC):
             AD operator representing the left-hand side of the equation (rhs=0).
 
         """
-        equation = pp.ad.Scalar(1.0)
+        # equation = pp.ad.Scalar(1.0)
+        equation = self.h
 
         phase_parts = list()
 
@@ -922,7 +923,7 @@ class Composition(abc.ABC):
                     phase.fraction * phase.specific_enthalpy(self.p, self.T)
                 )
 
-        equation -= sum(phase_parts) / self.h
+        equation -= sum(phase_parts)  # / self.h
 
         return equation
 

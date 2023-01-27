@@ -366,8 +366,7 @@ class Flash:
 
     def print_ordered_vars(self, vars):
         all_vars = [var.name for var in self._C.ad_system._variable_numbers]
-        print("Variables:")
-        print(list(sorted(set(vars), key=lambda x: all_vars.index(x))))
+        print(list(sorted(set(vars), key=lambda x: all_vars.index(x))), flush=True)
 
     def print_ph_system(self, print_dense: bool = False):
         print("---")
@@ -592,6 +591,7 @@ class Flash:
             print("+++")
             print(f"Flash procedure: {flash_type}")
             print(f"Method: {method}")
+            print(f"Using Armijo line search: {self.use_armijo}")
             print(f"Setting initial guesses: {initial_guess}", flush=True)
 
         self._set_initial_guess(initial_guess)
@@ -656,10 +656,12 @@ class Flash:
 
         """
         # obtain values by forward evaluation
-        equ_ = list()
-        for phase in self._C.phases:
-            equ_.append(phase.fraction * phase.specific_enthalpy(self._C.p, self._C.T))
-        equ = sum(equ_)
+        equ = sum(
+            [
+                phase.fraction * phase.specific_enthalpy(self._C.p, self._C.T)
+                for phase in self._C.phases
+            ]
+        )
 
         # if no phase present (list empty) zero is returned and enthalpy is zero
         if equ == 0:
@@ -809,8 +811,6 @@ class Flash:
             phases = [p for p in self._C.phases if p != self._C.reference_phase]
             # store preliminary phase composition
             composition: dict[Any, dict] = dict()
-            # store sum of composition per phase, to use for normalization
-            phase_sums: dict[Any, np.ndarray] = dict()
             # storing feed fractions
             feeds: dict[Any, np.ndarray] = dict()
 
@@ -824,7 +824,7 @@ class Flash:
                 # to avoid division by zero when evaluating k-values.
                 for phase in self._C.phases:
                     ad_system.set_variable_values(
-                        z_c,
+                        np.copy(z_c),
                         variables=[phase.fraction_of_component_name(comp)],
                         to_iterate=True,
                     )
@@ -841,16 +841,13 @@ class Flash:
 
                     composition[phase].update({comp: x_ce})
 
-                # compute sum per phase
-                phase_sums[phase] = sum(composition[phase].values())
-
             # normalize initial guesses and set values in phases except ref phase.
             # feed fractions (composition of ref phase)
             # are assumed to be already normalized
             for phase in phases:
                 for comp in self._C.components:
                     # normalize
-                    x_ce = composition[phase][comp] / phase_sums[phase]
+                    x_ce = composition[phase][comp] / sum(composition[phase].values())
                     # set values
                     ad_system.set_variable_values(
                         x_ce,
@@ -1180,7 +1177,8 @@ class Flash:
         A, b = F()
 
         if do_logging:
-            print("Starting Newton iterations.", end="", flush=True)
+            print("Starting Newton iterations with variables:", flush=True)
+            self.print_ordered_vars(var_names)
 
         if self.use_armijo:
             logging_end = "\n"
@@ -1190,7 +1188,6 @@ class Flash:
         # if residual is already small enough
         if np.linalg.norm(b) <= self.flash_tolerance:
             if do_logging:
-                _del_log()
                 print("Newton iteration 0: success", flush=True)
             success = True
         else:
