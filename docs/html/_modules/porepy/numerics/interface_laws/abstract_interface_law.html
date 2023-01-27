@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.interface_laws.abstract_interface_law &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/interface_laws/abstract_interface_law.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.interface_laws.abstract_interface_law</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.interface_laws.abstract_interface_law</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Mother class for all interface laws.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">from</span> <span class="nn">porepy.numerics.discretization</span> <span class="kn">import</span> <span class="n">Discretization</span>
+
+
+<div class="viewcode-block" id="AbstractInterfaceLaw"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw">[docs]</a><span class="k">class</span> <span class="nc">AbstractInterfaceLaw</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Partial implementation of an interface (between two grids) law. Any full</span>
+<span class="sd">    interface law must implement the missing functions.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        keyword (str): Used to identify the right parameter dictionary from the full</span>
+<span class="sd">            data dictionary of this grid.</span>
+<span class="sd">        intf_coupling_via_high_dim (boolean): If True, assembly will allow for a direct</span>
+<span class="sd">            coupling between different interfaces. The class must then implement the function</span>
+<span class="sd">            assemble_intf_coupling_via_high_dim().</span>
+<span class="sd">        intf_coupling_via_low_dim (boolean): If True, assembly will allow for a direct</span>
+<span class="sd">            coupling between different interfaces. The class must then implement the function</span>
+<span class="sd">            assemble_intf_coupling_via_low_dim().</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">intf_coupling_via_high_dim</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">intf_coupling_via_low_dim</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_discretization_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span><span class="p">()</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION</span>
+
+<div class="viewcode-block" id="AbstractInterfaceLaw.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw.ndof">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get the number of degrees of freedom of this interface law for a</span>
+<span class="sd">        given mortar grid.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            mg (pp.MortarGrid): Mortar grid of an interface.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: Number of degrees of freedom.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="AbstractInterfaceLaw.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw.discretize">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_intf</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Discretize the interface law and store the discretization in the</span>
+<span class="sd">        interface data.</span>
+
+<span class="sd">        The discretization matrix will be stored in the data dictionary of this</span>
+<span class="sd">        interface.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid of the primary domanin.</span>
+<span class="sd">            sd_secondary: Grid of the secondary domain.</span>
+<span class="sd">            data_primary: Data dictionary for the primary domain.</span>
+<span class="sd">            data_secondary: Data dictionary for the secondary domain.</span>
+<span class="sd">            data_intf: Data dictionary for the interface between the domains.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="AbstractInterfaceLaw.update_discretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw.update_discretization">[docs]</a>    <span class="k">def</span> <span class="nf">update_discretization</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_intf</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Partial update of discretization.</span>
+
+<span class="sd">        Intended use is when the discretization should be updated, e.g. because of</span>
+<span class="sd">        changes in parameters, grid geometry or grid topology, and it is not</span>
+<span class="sd">        desirable to recompute the discretization on the entire grid. A typical case</span>
+<span class="sd">        will be when the discretization operation is costly, and only a minor update</span>
+<span class="sd">        is necessary.</span>
+
+<span class="sd">        The updates can generally come as a combination of two forms:</span>
+<span class="sd">            1) The discretization on part of the grid should be recomputed.</span>
+<span class="sd">            2) The old discretization can be used (in parts of the grid), but the</span>
+<span class="sd">               numbering of unknowns has changed, and the discretization should be</span>
+<span class="sd">               reorder accordingly.</span>
+
+<span class="sd">        By default, this method will simply forward the call to the standard</span>
+<span class="sd">        discretize method. Discretization methods that wants a tailored approach</span>
+<span class="sd">        should override the standard implementation.</span>
+
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid of the primary domanin.</span>
+<span class="sd">            sd_secondary: Grid of the secondary domain.</span>
+<span class="sd">            data_primary: Data dictionary for the primary domain.</span>
+<span class="sd">            data_secondary: Data dictionary for the secondary domain.</span>
+<span class="sd">            data_intf: Data dictionary for the interface between the domains.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discretize</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="p">,</span> <span class="n">intf</span><span class="p">,</span> <span class="n">data_primary</span><span class="p">,</span> <span class="n">data_secondary</span><span class="p">,</span> <span class="n">data_intf</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractInterfaceLaw.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw.assemble_matrix_rhs">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_intf</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble the dicretization of the interface law, and its impact on</span>
+<span class="sd">        the neighboring domains.</span>
+
+<span class="sd">        The matrix will be</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary: Grid on the other neighboring subdomain.</span>
+<span class="sd">            data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            data_intf: Data dictionary for the interface between the subdomains</span>
+<span class="sd">            matrix_primary: original discretization for the primary subdomain</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array: Block matrix of size 3 x 3, whwere each block represents</span>
+<span class="sd">                coupling between variables on this interface. Index 0, 1 and 2</span>
+<span class="sd">                represent the primary, secondary and mortar variable, respectively.</span>
+<span class="sd">            np.array: Block matrix of size 3 x 1, representing the right hand</span>
+<span class="sd">                side of this coupling. Index 0, 1 and 2 represent the primary,</span>
+<span class="sd">                secondary and mortar variable, respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="AbstractInterfaceLaw.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_intf</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble the dicretization of the interface law, and its impact on</span>
+<span class="sd">        the neighboring domains.</span>
+
+<span class="sd">        The default implementation will assemble both the discretization matrix and the</span>
+<span class="sd">        right hand side vector, and return only the former. This behavior is overridden</span>
+<span class="sd">        by some discretization methods.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary: Grid on the other neighboring subdomain.</span>
+<span class="sd">            data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            data_intf: Data dictionary for the interface between the subdomains</span>
+<span class="sd">            matrix_primary: original discretization for the primary subdomain</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array: Block matrix of size 3 x 3, whwere each block represents</span>
+<span class="sd">                coupling between variables on this interface. Index 0, 1 and 2</span>
+<span class="sd">                represent the primary, secondary and mortar variable, respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">A</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_matrix_rhs</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="n">data_primary</span><span class="p">,</span>
+            <span class="n">data_secondary</span><span class="p">,</span>
+            <span class="n">data_intf</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+
+<div class="viewcode-block" id="AbstractInterfaceLaw.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">data_intf</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Assemble the dicretization of the interface law, and its impact on</span>
+<span class="sd">        the neighboring domains.</span>
+
+<span class="sd">        The default implementation will assemble both the discretization matrix and the</span>
+<span class="sd">        right hand side vector, and return only the latter. This behavior is overridden</span>
+<span class="sd">        by some discretization methods.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary: Grid on the other neighboring subdomain.</span>
+<span class="sd">            data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            data_intf: Data dictionary for the interface between the subdomains</span>
+<span class="sd">            matrix_primary: original discretization for the primary subdomain</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array: Block matrix of size 3 x 3, whwere each block represents</span>
+<span class="sd">                coupling between variables on this interface. Index 0, 1 and 2</span>
+<span class="sd">                represent the primary, secondary and mortar variable, respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_matrix_rhs</span><span class="p">(</span>
+            <span class="n">sd_primary</span><span class="p">,</span>
+            <span class="n">sd_secondary</span><span class="p">,</span>
+            <span class="n">intf</span><span class="p">,</span>
+            <span class="n">data_primary</span><span class="p">,</span>
+            <span class="n">data_secondary</span><span class="p">,</span>
+            <span class="n">data_intf</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">b</span></div>
+
+    <span class="k">def</span> <span class="nf">_define_local_block_matrix</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">discr_primary</span><span class="p">:</span> <span class="n">Discretization</span><span class="p">,</span>
+        <span class="n">discr_secondary</span><span class="p">:</span> <span class="n">Discretization</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">create_matrix</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a block matrix and right hand side for the local linear</span>
+<span class="sd">        system of the primary and secondary grid and the interface.</span>
+
+<span class="sd">        The generated block matrix is 3x3, where each block is initialized as</span>
+<span class="sd">        a sparse matrix with size corresponding to the number of dofs for</span>
+<span class="sd">        the primary, secondary and mortar variables for this interface law.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary: Grid on the other neighboring subdomain.</span>
+<span class="sd">            data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            data_intf: Data dictionary for the interface between the subdomains</span>
+<span class="sd">            matrix_primary: original discretization for the primary subdomain</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array: Block matrix of size 3 x 3, whwere each block represents</span>
+<span class="sd">                coupling between variables on this interface. Index 0, 1 and 2</span>
+<span class="sd">                represent the primary, secondary and mortar variable, respectively.</span>
+<span class="sd">                Each of the blocks have an empty sparse matrix with size</span>
+<span class="sd">                corresponding to the number of dofs of the grid and variable.</span>
+<span class="sd">            np.array: Block matrix of size 3 x 1, representing the right hand</span>
+<span class="sd">                side of this coupling. Index 0, 1 and 2 represent the primary,</span>
+<span class="sd">                secondary and mortar variable, respectively.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError if the number of degrees of freedom associated to the</span>
+<span class="sd">                discretization matrices (primary and secondary) do not match</span>
+<span class="sd">                the number of dofs of the matrix.</span>
+<span class="sd">            ValueError if the number of degrees of freedom associated to the</span>
+<span class="sd">                interface discretization does not match the number of dofs</span>
+<span class="sd">                given by the matrix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">primary_ind</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">secondary_ind</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">mortar_ind</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="n">dof_primary</span> <span class="o">=</span> <span class="n">discr_primary</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">)</span>
+        <span class="n">dof_secondary</span> <span class="o">=</span> <span class="n">discr_secondary</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">)</span>
+        <span class="n">dof_mortar</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+        <span class="c1"># We know the number of dofs from the primary and secondary side from their</span>
+        <span class="c1"># discretizations</span>
+        <span class="n">dof</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dof_primary</span><span class="p">,</span> <span class="n">dof_secondary</span><span class="p">,</span> <span class="n">dof_mortar</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">create_matrix</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dof_primary</span> <span class="o">==</span> <span class="n">matrix</span><span class="p">[</span><span class="n">primary_ind</span><span class="p">,</span> <span class="n">primary_ind</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;The number of dofs of the primary discretization given</span>
+<span class="sd">                in the coupling discretization must match the number of dofs given by the</span>
+<span class="sd">                matrix.</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">dof_secondary</span> <span class="o">==</span> <span class="n">matrix</span><span class="p">[</span><span class="n">primary_ind</span><span class="p">,</span> <span class="n">secondary_ind</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;The number of dofs of the secondary discretization given</span>
+<span class="sd">                in the coupling discretization must match the number of dofs given by the</span>
+<span class="sd">                matrix.</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span> <span class="o">==</span> <span class="n">matrix</span><span class="p">[</span><span class="n">primary_ind</span><span class="p">,</span> <span class="n">mortar_ind</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;The number of dofs of the interface discretization given</span>
+<span class="sd">                in the coupling discretization must match the number of dofs given by the</span>
+<span class="sd">                matrix.</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="n">cc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dof</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">dof</span><span class="p">])</span>
+            <span class="n">cc</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+
+        <span class="c1"># The rhs is just zeros</span>
+        <span class="n">rhs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">primary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof_primary</span><span class="p">)</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">secondary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof_secondary</span><span class="p">)</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">mortar_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof_mortar</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">create_matrix</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">rhs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span>
+
+    <span class="k">def</span> <span class="nf">_define_local_block_matrix_intf_coupling</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">discr_grid</span><span class="p">:</span> <span class="n">Discretization</span><span class="p">,</span>
+        <span class="n">intf_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">intf_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">create_matrix</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a block matrix and right hand side for the local linear</span>
+<span class="sd">        system of the primary and secondary grid and the interface.</span>
+
+<span class="sd">        The generated block matrix is 3x3, where each block is initialized as</span>
+<span class="sd">        a sparse matrix with size corresponding to the number of dofs for</span>
+<span class="sd">        the primary, secondary and mortar variables for this interface law.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd_primary: Grid on one neighboring subdomain.</span>
+<span class="sd">            sd_secondary: Grid on the other neighboring subdomain.</span>
+<span class="sd">            data_primary: Data dictionary for the primary suddomain</span>
+<span class="sd">            data_secondary: Data dictionary for the secondary subdomain.</span>
+<span class="sd">            data_intf: Data dictionary for the interface between the subdomains</span>
+<span class="sd">            matrix_primary: original discretization for the primary subdomain</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array: Block matrix of size 3 x 3, whwere each block represents</span>
+<span class="sd">                coupling between variables on this interface. Index 0, 1 and 2</span>
+<span class="sd">                represent the primary, secondary and mortar variable, respectively.</span>
+<span class="sd">                Each of the blocks have an empty sparse matrix with size</span>
+<span class="sd">                corresponding to the number of dofs of the grid and variable.</span>
+<span class="sd">            np.array: Block matrix of size 3 x 1, representing the right hand</span>
+<span class="sd">                side of this coupling. Index 0, 1 and 2 represent the primary,</span>
+<span class="sd">                secondary and mortar variable, respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">grid_ind</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">primary_ind</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">secondary_ind</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="n">dof_grid</span> <span class="o">=</span> <span class="n">discr_grid</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+        <span class="n">dof_mortar_primary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">intf_primary</span><span class="p">)</span>
+        <span class="n">dof_mortar_secondary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">intf_secondary</span><span class="p">)</span>
+        <span class="n">dof</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dof_grid</span><span class="p">,</span> <span class="n">dof_mortar_primary</span><span class="p">,</span> <span class="n">dof_mortar_secondary</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">create_matrix</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dof_grid</span> <span class="o">==</span> <span class="n">matrix</span><span class="p">[</span><span class="n">grid_ind</span><span class="p">,</span> <span class="n">grid_ind</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;The number of dofs of the primary discretization given</span>
+<span class="sd">                in the coupling discretization must match the number of dofs given by the</span>
+<span class="sd">                matrix.</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">dof_mortar_primary</span> <span class="o">==</span> <span class="n">matrix</span><span class="p">[</span><span class="n">grid_ind</span><span class="p">,</span> <span class="n">primary_ind</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;The number of dofs of the secondary discretization given</span>
+<span class="sd">                in the coupling discretization must match the number of dofs given by the</span>
+<span class="sd">                matrix.</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">dof_mortar_secondary</span> <span class="o">==</span> <span class="n">matrix</span><span class="p">[</span><span class="n">grid_ind</span><span class="p">,</span> <span class="n">secondary_ind</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;The number of dofs of the interface discretization given</span>
+<span class="sd">                in the coupling discretization must match the number of dofs given by the</span>
+<span class="sd">                matrix.</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="c1"># We know the number of dofs from the primary and secondary side from their</span>
+            <span class="c1"># discretizations</span>
+            <span class="n">cc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dof</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">dof</span><span class="p">])</span>
+            <span class="n">cc</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+
+        <span class="c1"># The rhs is just zeros</span>
+        <span class="n">rhs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">grid_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof_grid</span><span class="p">)</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">primary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof_mortar_primary</span><span class="p">)</span>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">secondary_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof_mortar_secondary</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">create_matrix</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">rhs</span>
+
+<div class="viewcode-block" id="AbstractInterfaceLaw.assemble_intf_coupling_via_high_dim"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw.assemble_intf_coupling_via_high_dim">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_intf_coupling_via_high_dim</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">g_between</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">data_between</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">intf_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_pair_primary</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">data_intf_primary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">intf_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_pair_secondary</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">data_intf_secondary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">assemble_matrix</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">assemble_rhs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Method to assemble the contribution from one interface to another one.</span>
+
+<span class="sd">        The method must be implemented for subclasses of AbstractInterfaceLaw which has</span>
+<span class="sd">        the attribute intf_coupling_via_high_dim set to True. For classes where the</span>
+<span class="sd">        variable is False, there is no need for action.</span>
+
+<span class="sd">        Note that the mixed-dimensional modeling framework does not allow for direct</span>
+<span class="sd">        couplings between interfaces. However, there may be cases where an interface law</span>
+<span class="sd">        is dependent on variables on the boundary between the higher dimensional</span>
+<span class="sd">        grid and another interface. As we normally associate these boundary values</span>
+<span class="sd">        with the variable on the secondary interface, this method is available</span>
+<span class="sd">        as an alternative.</span>
+
+<span class="sd">        For more details on how this function is invoked see pp.Assembler.</span>
+<span class="sd">        Note that the coupling currently only can be invoked if the variables</span>
+<span class="sd">        on the primary and secondary interface have the same name.</span>
+
+<span class="sd">        Any discretization operation should be done as part of self.discretize().</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            g_between (pp.Grid): Grid of the higher dimensional neighbor to the</span>
+<span class="sd">                main interface</span>
+<span class="sd">            data_between (dict): Data dictionary of the intermediate grid.</span>
+<span class="sd">            intf_primary (tuple of grids): The grids of the primary interface</span>
+<span class="sd">            data_intf_primary (dict): Data dictionary of the primary interface.</span>
+<span class="sd">            intf_secondary (tuple of grids): The grids of the secondary interface.</span>
+<span class="sd">            data_intf_secondary (dict): Data dictionary of the secondary interface.</span>
+<span class="sd">            matrix: original discretization.</span>
+<span class="sd">            assemble_matrix (optional): If True (defalut), contributions to local matrix</span>
+<span class="sd">                are assembled.</span>
+<span class="sd">            assemble_rhs (optional): If True (defalut), contributions to local rhs</span>
+<span class="sd">                are assembled.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array: Block matrix of size 3 x 3, whwere each block represents</span>
+<span class="sd">                coupling between variables on this interface. Index 0, 1 and 2</span>
+<span class="sd">                represent the primary grid, the primary and secondary interface,</span>
+<span class="sd">                respectively.</span>
+<span class="sd">            np.array: Block matrix of size 3 x 1, representing the right hand</span>
+<span class="sd">                side of this coupling. Index 0, 1 and 2 represent the primary grid,</span>
+<span class="sd">                the primary and secondary interface, respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">intf_coupling_via_high_dim</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="sd">&quot;&quot;&quot;Interface laws with interface couplings via the high</span>
+<span class="sd">                                      dimensional grid must implement this model&quot;&quot;&quot;</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractInterfaceLaw.assemble_intf_coupling_via_low_dim"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw.assemble_intf_coupling_via_low_dim">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_intf_coupling_via_low_dim</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">g_between</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">data_between</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">intf_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_pair_primary</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">data_intf_primary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">intf_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">sd_pair_secondary</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">data_intf_secondary</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">assemble_matrix</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">assemble_rhs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Method to assemble the contribution from one interface to another one.</span>
+
+<span class="sd">        The method must be implemented for subclasses of AbstractInterfaceLaw which has</span>
+<span class="sd">        the attribute intf_coupling_via_low_dim set to True. For classes where the</span>
+<span class="sd">        variable is False, there is no need for action.</span>
+
+<span class="sd">        Note that the mixed-dimensional modeling framework does not allow for direct</span>
+<span class="sd">        couplings between interfaces. However, there may be cases where an interface law</span>
+<span class="sd">        is dependent on variables on the boundary between the lower-dimensional</span>
+<span class="sd">        grid and another interface. As we normally associate these boundary values</span>
+<span class="sd">        with the variable on the secondary interface, this method is available</span>
+<span class="sd">        as an alternative.</span>
+
+<span class="sd">        For more details on how this function is invoked see pp.Assembler.</span>
+<span class="sd">        Note that the coupling currently only can be invoked if the variables</span>
+<span class="sd">        on the primary and secondary interface have the same name.</span>
+
+<span class="sd">        Any discretization operation should be done as part of self.discretize().</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            g_between (pp.Grid): Grid of the lower-dimensional neighbor to the</span>
+<span class="sd">                main interface</span>
+<span class="sd">            data_between (dict): Data dictionary of the intermediate grid.</span>
+<span class="sd">            intf_primary (tuple of grids): The grids of the primary interface</span>
+<span class="sd">            data_intf_primary (dict): Data dictionary of the primary interface.</span>
+<span class="sd">            intf_secondary (tuple of grids): The grids of the secondary interface.</span>
+<span class="sd">            data_intf_secondary (dict): Data dictionary of the secondary interface.</span>
+<span class="sd">            matrix: original discretization.</span>
+<span class="sd">            assemble_matrix (optional): If True (defalut), contributions to local matrix</span>
+<span class="sd">                are assembled.</span>
+<span class="sd">            assemble_rhs (optional): If True (defalut), contributions to local rhs</span>
+<span class="sd">                are assembled.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.array: Block matrix of size 3 x 3, whwere each block represents</span>
+<span class="sd">                coupling between variables on this interface. Index 0, 1 and 2</span>
+<span class="sd">                represent the primary, secondary and mortar variable, respectively.</span>
+<span class="sd">            np.array: Block matrix of size 3 x 1, representing the right hand</span>
+<span class="sd">                side of this coupling. Index 0, 1 and 2 represent the primary,</span>
+<span class="sd">                secondary and mortar variable, respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">intf_coupling_via_low_dim</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="sd">&quot;&quot;&quot;Interface laws with interface couplings via the high</span>
+<span class="sd">                                      dimensional grid must implement this model&quot;&quot;&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">pass</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

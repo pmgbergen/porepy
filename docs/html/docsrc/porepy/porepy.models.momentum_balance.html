@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.models.momentum_balance module &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.momentum_balance.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="porepy.models.poromechanics module" href="porepy.models.poromechanics.html" />
+    <link rel="prev" title="porepy.models.material_constants module" href="porepy.models.material_constants.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="porepy.html">porepy package</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="reference internal" href="porepy.models.html">porepy.models package</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
+          <li class="breadcrumb-item"><a href="porepy.models.html">porepy.models package</a></li>
+      <li class="breadcrumb-item active">porepy.models.momentum_balance module</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-porepy.models.momentum_balance">
+<span id="porepy-models-momentum-balance-module"></span><h1>porepy.models.momentum_balance module<a class="headerlink" href="#module-porepy.models.momentum_balance" title="Permalink to this heading"></a></h1>
+<dl>
+<dt>Class types:</dt><dd><ul class="simple">
+<li><p>MomentumBalanceEquations defines subdomain and interface equations through the</p></li>
+</ul>
+<p>terms entering. Momentum balance between opposing fracture interfaces is imposed.</p>
+</dd>
+</dl>
+<div class="admonition-notes admonition">
+<p class="admonition-title">Notes</p>
+<ul class="simple">
+<li><p>The class MomentumBalanceEquations is a mixin class, and should be inherited by a
+class that defines the variables and discretization.</p></li>
+<li><p>Refactoring needed for constitutive equations. Modularisation and moving to the
+library.</p></li>
+</ul>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.BoundaryConditionsMomentumBalance">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryConditionsMomentumBalance</span></span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#BoundaryConditionsMomentumBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Boundary conditions for the momentum balance.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.bc_type_mechanics">
+<span class="sig-name descname"><span class="pre">bc_type_mechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#BoundaryConditionsMomentumBalance.bc_type_mechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.bc_type_mechanics" title="Permalink to this definition"></a></dt>
+<dd><p>Define type of boundary conditions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Subdomain grid.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Boundary condition representation. Dirichlet on all global boundaries,
+Dirichlet also on fracture faces.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>bc</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.bc_values_mechanics">
+<span class="sig-name descname"><span class="pre">bc_values_mechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#BoundaryConditionsMomentumBalance.bc_values_mechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.bc_values_mechanics" title="Permalink to this definition"></a></dt>
+<dd><p>Boundary values for the momentum balance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Array of boundary condition values, zero by default. If combined
+with transient problems in e.g. Biot, this should be a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.TimeDependentArray</span></code> (or a variable following BoundaryGrid
+extension).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>bc_values</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.nd">
+<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.nd" title="Permalink to this definition"></a></dt>
+<dd><p>Ambient dimension of the problem. Normally set by a mixin instance of
+<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ConstitutiveLawsMomentumBalance</span></span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#ConstitutiveLawsMomentumBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.LinearElasticSolid" title="porepy.models.constitutive_laws.LinearElasticSolid"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearElasticSolid</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FracturedSolid" title="porepy.models.constitutive_laws.FracturedSolid"><code class="xref py py-class docutils literal notranslate"><span class="pre">FracturedSolid</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FrictionBound" title="porepy.models.constitutive_laws.FrictionBound"><code class="xref py py-class docutils literal notranslate"><span class="pre">FrictionBound</span></code></a></p>
+<p>Class for constitutive equations for momentum balance equations.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.stress">
+<span class="sig-name descname"><span class="pre">stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#ConstitutiveLawsMomentumBalance.stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.stress" title="Permalink to this definition"></a></dt>
+<dd><p>Stress operator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains where the stress is defined.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Operator for the stress.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.bc_values_mechanics">
+<span class="sig-name descname"><span class="pre">bc_values_mechanics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Array" title="porepy.numerics.ad.operators.Array"><span class="pre">Array</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.bc_values_mechanics" title="Permalink to this definition"></a></dt>
+<dd><p>Mechanics boundary conditions. Normally defined in a mixin instance of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConditionsMomentumBalance</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.contact_traction">
+<span class="sig-name descname"><span class="pre">contact_traction</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.MixedDimensionalVariable" title="porepy.numerics.ad.operators.MixedDimensionalVariable"><span class="pre">MixedDimensionalVariable</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.contact_traction" title="Permalink to this definition"></a></dt>
+<dd><p>Contact traction variable. Normally defined in a mixin instance of
+<a class="reference internal" href="#porepy.models.momentum_balance.VariablesMomentumBalance" title="porepy.models.momentum_balance.VariablesMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.displacement">
+<span class="sig-name descname"><span class="pre">displacement</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.MixedDimensionalVariable" title="porepy.numerics.ad.operators.MixedDimensionalVariable"><span class="pre">MixedDimensionalVariable</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.displacement" title="Permalink to this definition"></a></dt>
+<dd><p>Displacement variable. Normally defined in a mixin instance of
+<a class="reference internal" href="#porepy.models.momentum_balance.VariablesMomentumBalance" title="porepy.models.momentum_balance.VariablesMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.interface_displacement">
+<span class="sig-name descname"><span class="pre">interface_displacement</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.MixedDimensionalVariable" title="porepy.numerics.ad.operators.MixedDimensionalVariable"><span class="pre">MixedDimensionalVariable</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.interface_displacement" title="Permalink to this definition"></a></dt>
+<dd><p>Displacement variable on interfaces. Normally defined in a mixin instance of
+<a class="reference internal" href="#porepy.models.momentum_balance.VariablesMomentumBalance" title="porepy.models.momentum_balance.VariablesMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.interfaces_to_subdomains">
+<span class="sig-name descname"><span class="pre">interfaces_to_subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.interfaces_to_subdomains" title="Permalink to this definition"></a></dt>
+<dd><p>Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.local_coordinates">
+<span class="sig-name descname"><span class="pre">local_coordinates</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><span class="pre">Matrix</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.local_coordinates" title="Permalink to this definition"></a></dt>
+<dd><p>Mapping to local coordinates. Normally defined in a mixin instance of
+<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.mdg">
+<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><span class="pre">MixedDimensionalGrid</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.mdg" title="Permalink to this definition"></a></dt>
+<dd><p>Mixed dimensional grid for the current model. Normally defined in a mixin
+instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.nd">
+<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.nd" title="Permalink to this definition"></a></dt>
+<dd><p>Ambient dimension of the problem. Normally set by a mixin instance of
+<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.solid">
+<span class="sig-name descname"><span class="pre">solid</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants" title="porepy.models.material_constants.SolidConstants"><span class="pre">SolidConstants</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.solid" title="Permalink to this definition"></a></dt>
+<dd><p>Solid constant object that takes care of scaling of solid-related quantities.
+Normally, this is set by a mixin of instance
+<a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategy</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.stress_keyword">
+<span class="sig-name descname"><span class="pre">stress_keyword</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.stress_keyword" title="Permalink to this definition"></a></dt>
+<dd><p>Keyword used to identify the stress discretization. Normally set by a mixin
+instance of
+<a class="reference internal" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance" title="porepy.models.momentum_balance.SolutionStrategyMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.subdomains_to_interfaces">
+<span class="sig-name descname"><span class="pre">subdomains_to_interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.subdomains_to_interfaces" title="Permalink to this definition"></a></dt>
+<dd><p>Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalance">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MomentumBalance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalance" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#porepy.models.momentum_balance.MomentumBalanceEquations" title="porepy.models.momentum_balance.MomentumBalanceEquations"><code class="xref py py-class docutils literal notranslate"><span class="pre">MomentumBalanceEquations</span></code></a>, <a class="reference internal" href="#porepy.models.momentum_balance.VariablesMomentumBalance" title="porepy.models.momentum_balance.VariablesMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesMomentumBalance</span></code></a>, <a class="reference internal" href="#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance" title="porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstitutiveLawsMomentumBalance</span></code></a>, <a class="reference internal" href="#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance" title="porepy.models.momentum_balance.BoundaryConditionsMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConditionsMomentumBalance</span></code></a>, <a class="reference internal" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance" title="porepy.models.momentum_balance.SolutionStrategyMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyMomentumBalance</span></code></a>, <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>, <a class="reference internal" href="porepy.viz.data_saving_model_mixin.html#porepy.viz.data_saving_model_mixin.DataSavingMixin" title="porepy.viz.data_saving_model_mixin.DataSavingMixin"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataSavingMixin</span></code></a></p>
+<p>Class for mixed-dimensional momentum balance with contact mechanics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>]</em>) – </p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalance.mdg">
+<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.MixedDimensionalGrid</span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalance.mdg" title="Permalink to this definition"></a></dt>
+<dd><p>Mixed dimensional grid for the current model. Normally defined in a mixin
+instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MomentumBalanceEquations</span></span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalanceEquations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="porepy.models.abstract_equations.html#porepy.models.abstract_equations.BalanceEquation" title="porepy.models.abstract_equations.BalanceEquation"><code class="xref py py-class docutils literal notranslate"><span class="pre">BalanceEquation</span></code></a></p>
+<p>Class for momentum balance equations and fracture deformation equations.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.body_force">
+<span class="sig-name descname"><span class="pre">body_force</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalanceEquations.body_force"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.body_force" title="Permalink to this definition"></a></dt>
+<dd><p>Body force integrated over the subdomain cells.</p>
+<p>FIXME: See FluidMassBalanceEquations.fluid_source.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains where the body force is defined.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Operator for the body force.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.inertia">
+<span class="sig-name descname"><span class="pre">inertia</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalanceEquations.inertia"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.inertia" title="Permalink to this definition"></a></dt>
+<dd><p>Inertial term [m^2/s].</p>
+<p>Added here for completeness, but not used in the current implementation. Be
+aware that the elasticity discretization has employed herein has, as far as we
+know, never been used to solve a problem with inertia. Thus, if inertia is added
+in a submodel, proceed with caution. In addition to overriding this method, it
+would also be necessary to add the inertial term to the balance equation
+<a class="reference internal" href="#porepy.models.momentum_balance.MomentumBalanceEquations.momentum_balance_equation" title="porepy.models.momentum_balance.MomentumBalanceEquations.momentum_balance_equation"><code class="xref py py-meth docutils literal notranslate"><span class="pre">momentum_balance_equation()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains where the inertial term is defined.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Operator for the inertial term.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.interface_force_balance_equation">
+<span class="sig-name descname"><span class="pre">interface_force_balance_equation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalanceEquations.interface_force_balance_equation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.interface_force_balance_equation" title="Permalink to this definition"></a></dt>
+<dd><p>Momentum balance equation at matrix-fracture interfaces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>]</em>) – Fracture-matrix interfaces.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Operator representing the force balance equation.</p>
+</dd>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If an interface is not a fracture-matrix interface.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.momentum_balance_equation">
+<span class="sig-name descname"><span class="pre">momentum_balance_equation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalanceEquations.momentum_balance_equation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.momentum_balance_equation" title="Permalink to this definition"></a></dt>
+<dd><p>Momentum balance equation in the matrix.</p>
+<p>Inertial term is not included.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains where the force balance is defined. Only</p></li>
+<li><p><strong>usage</strong> (<em>known</em>) – is for the matrix domain(s).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Operator for the force balance equation in the matrix.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.normal_fracture_deformation_equation">
+<span class="sig-name descname"><span class="pre">normal_fracture_deformation_equation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalanceEquations.normal_fracture_deformation_equation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.normal_fracture_deformation_equation" title="Permalink to this definition"></a></dt>
+<dd><p>Equation for the normal component of the fracture deformation.</p>
+<p>This constraint equation enforces non-penetration of opposing fracture
+interfaces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains where the normal deformation equation is</p></li>
+<li><p><strong>defined.</strong> – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Operator for the normal deformation equation.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.set_equations">
+<span class="sig-name descname"><span class="pre">set_equations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalanceEquations.set_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.set_equations" title="Permalink to this definition"></a></dt>
+<dd><p>Set equations for the subdomains and interfaces.</p>
+<dl class="simple">
+<dt>The following equations are set:</dt><dd><ul class="simple">
+<li><p>Momentum balance in the matrix.</p></li>
+<li><p>Force balance between fracture interfaces.</p></li>
+<li><p>Deformation constraints for fractures, split into normal and tangential
+part.</p></li>
+</ul>
+</dd>
+</dl>
+<p>See individual equation methods for details.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.tangential_fracture_deformation_equation">
+<span class="sig-name descname"><span class="pre">tangential_fracture_deformation_equation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#MomentumBalanceEquations.tangential_fracture_deformation_equation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.tangential_fracture_deformation_equation" title="Permalink to this definition"></a></dt>
+<dd><p>Contact mechanics equation for the tangential constraints.</p>
+<p>The function reads
+.. math:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">C_t</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">b_p</span><span class="p">,</span> <span class="o">||</span><span class="n">T_t</span><span class="o">+</span><span class="n">c_t</span> <span class="n">u_t</span><span class="o">||</span><span class="p">)</span> <span class="n">T_t</span> <span class="o">-</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">b_p</span><span class="p">)</span> <span class="p">(</span><span class="n">T_t</span><span class="o">+</span><span class="n">c_t</span> <span class="n">u_t</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>with <cite>u</cite> being displacement jump increments, <cite>t</cite> denoting tangential component
+and <cite>b_p</cite> the friction bound.</p>
+<p>For <cite>b_p = 0</cite>, the equation <cite>C_t = 0</cite> does not in itself imply <cite>T_t = 0</cite>, which
+is what the contact conditions require. The case is handled through the use of a
+characteristic function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fracture_subdomains</strong> – List of fracture subdomains.</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Contact mechanics equation for the tangential constraints.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>complementary_eq</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.basis">
+<span class="sig-name descname"><span class="pre">basis</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">Grid</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">MortarGrid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><span class="pre">porepy.numerics.ad.operators.Matrix</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.basis" title="Permalink to this definition"></a></dt>
+<dd><p>Basis for the local coordinate system. Normally set by a mixin instance of
+<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.contact_mechanics_numerical_constant">
+<span class="sig-name descname"><span class="pre">contact_mechanics_numerical_constant</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Scalar" title="porepy.numerics.ad.operators.Scalar"><span class="pre">Scalar</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.contact_mechanics_numerical_constant" title="Permalink to this definition"></a></dt>
+<dd><p>Numerical constant for contact mechanics. Normally provided by a mixin instance
+of <code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyMomentumBalance</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.contact_traction">
+<span class="sig-name descname"><span class="pre">contact_traction</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.MixedDimensionalVariable" title="porepy.numerics.ad.operators.MixedDimensionalVariable"><span class="pre">MixedDimensionalVariable</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.contact_traction" title="Permalink to this definition"></a></dt>
+<dd><p>Contact traction variable. Normally defined in a mixin instance of
+<a class="reference internal" href="#porepy.models.momentum_balance.VariablesMomentumBalance" title="porepy.models.momentum_balance.VariablesMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.displacement_jump">
+<span class="sig-name descname"><span class="pre">displacement_jump</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><span class="pre">Operator</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.displacement_jump" title="Permalink to this definition"></a></dt>
+<dd><p>Operator giving the displacement jump on fracture grids. Normally defined in a
+mixin instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.fracture_stress">
+<span class="sig-name descname"><span class="pre">fracture_stress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><span class="pre">Operator</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.fracture_stress" title="Permalink to this definition"></a></dt>
+<dd><p>Stress on the fracture faces. Provided by a suitable mixin class that specifies
+the physical laws governing the stress, see for instance
+<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.LinearElasticMechanicalStress" title="porepy.models.constitutive_laws.LinearElasticMechanicalStress"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearElasticMechanicalStress</span></code></a> or
+<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.PressureStress" title="porepy.models.constitutive_laws.PressureStress"><code class="xref py py-class docutils literal notranslate"><span class="pre">PressureStress</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.friction_bound">
+<span class="sig-name descname"><span class="pre">friction_bound</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><span class="pre">Operator</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.friction_bound" title="Permalink to this definition"></a></dt>
+<dd><p>Friction bound of a fracture. Normally provided by a mixin instance of
+<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FrictionBound" title="porepy.models.constitutive_laws.FrictionBound"><code class="xref py py-class docutils literal notranslate"><span class="pre">FrictionBound</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.gap">
+<span class="sig-name descname"><span class="pre">gap</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><span class="pre">Operator</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.gap" title="Permalink to this definition"></a></dt>
+<dd><p>Gap of a fracture. Normally provided by a mixin instance of
+<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FracturedSolid" title="porepy.models.constitutive_laws.FracturedSolid"><code class="xref py py-class docutils literal notranslate"><span class="pre">FracturedSolid</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.interfaces_to_subdomains">
+<span class="sig-name descname"><span class="pre">interfaces_to_subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.interfaces_to_subdomains" title="Permalink to this definition"></a></dt>
+<dd><p>Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.internal_boundary_normal_to_outwards">
+<span class="sig-name descname"><span class="pre">internal_boundary_normal_to_outwards</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><span class="pre">Matrix</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.internal_boundary_normal_to_outwards" title="Permalink to this definition"></a></dt>
+<dd><p>Switch interface normal vectors to point outwards from the subdomain. Normally
+set by a mixin instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.mdg">
+<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><span class="pre">MixedDimensionalGrid</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.mdg" title="Permalink to this definition"></a></dt>
+<dd><p>Mixed dimensional grid for the current model. Normally defined in a mixin
+instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.normal_component">
+<span class="sig-name descname"><span class="pre">normal_component</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><span class="pre">Matrix</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.normal_component" title="Permalink to this definition"></a></dt>
+<dd><p>Operator giving the normal component of vectors. Normally defined in a mixin
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.stress">
+<span class="sig-name descname"><span class="pre">stress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><span class="pre">Operator</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.stress" title="Permalink to this definition"></a></dt>
+<dd><p>Stress on the grid faces. Provided by a suitable mixin class that specifies the
+physical laws governing the stress.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.MomentumBalanceEquations.tangential_component">
+<span class="sig-name descname"><span class="pre">tangential_component</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><span class="pre">Matrix</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.MomentumBalanceEquations.tangential_component" title="Permalink to this definition"></a></dt>
+<dd><p>Operator giving the tangential component of vectors. Normally defined in a mixin
+instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SolutionStrategyMomentumBalance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#SolutionStrategyMomentumBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategy</span></code></a></p>
+<p>This is whatever is left of pp.ContactMechanics.</p>
+<p>At some point, this will be refined to be a more sophisticated (modularised)
+solution strategy class. More refactoring may be beneficial.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>]</em>) – Parameters for the solution strategy.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.contact_mechanics_numerical_constant">
+<span class="sig-name descname"><span class="pre">contact_mechanics_numerical_constant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#SolutionStrategyMomentumBalance.contact_mechanics_numerical_constant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.contact_mechanics_numerical_constant" title="Permalink to this definition"></a></dt>
+<dd><p>Numerical constant for the contact problem.</p>
+<p>The numerical constant is a cell-wise scalar, but we return a matrix to allow
+for automatic differentiation and left multiplication.</p>
+<p>Not sure about method location, but it is a property of the contact problem, and
+more solution strategy than material property or constitutive law.</p>
+<p>TODO: We need a more descritive name for this method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains. Only the first is used.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Numerical constant, as scalar.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>c_num</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.initial_condition">
+<span class="sig-name descname"><span class="pre">initial_condition</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#SolutionStrategyMomentumBalance.initial_condition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.initial_condition" title="Permalink to this definition"></a></dt>
+<dd><p>Set initial guess for the variables.</p>
+<p>The displacement is set to zero in the Nd-domain, and at the fracture interfaces
+The displacement jump is thereby also zero.</p>
+<p>The contact pressure is set to zero in the tangential direction, and -1 (that
+is, in contact) in the normal direction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.set_discretization_parameters">
+<span class="sig-name descname"><span class="pre">set_discretization_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#SolutionStrategyMomentumBalance.set_discretization_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.set_discretization_parameters" title="Permalink to this definition"></a></dt>
+<dd><p>Set discretization parameters for the simulation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.bc_type_mechanics">
+<span class="sig-name descname"><span class="pre">bc_type_mechanics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.BoundaryConditionVectorial</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.bc_type_mechanics" title="Permalink to this definition"></a></dt>
+<dd><p>Function that returns the boundary condition type for the momentum problem.
+Normally provided by a mixin instance of
+<a class="reference internal" href="#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance" title="porepy.models.momentum_balance.BoundaryConditionsMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConditionsMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.contact_traction_variable">
+<span class="sig-name descname"><span class="pre">contact_traction_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.contact_traction_variable" title="Permalink to this definition"></a></dt>
+<dd><p>Name of the contact traction variable.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.displacement_variable">
+<span class="sig-name descname"><span class="pre">displacement_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.displacement_variable" title="Permalink to this definition"></a></dt>
+<dd><p>Name of the displacement variable.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.equation_system">
+<span class="sig-name descname"><span class="pre">equation_system</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.ad.EquationSystem</span></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.equation_system" title="Permalink to this definition"></a></dt>
+<dd><p>EquationSystem object for the current model. Normally defined in a mixin class
+defining the solution strategy.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.interface_displacement_variable">
+<span class="sig-name descname"><span class="pre">interface_displacement_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.interface_displacement_variable" title="Permalink to this definition"></a></dt>
+<dd><p>Name of the displacement variable on fracture-matrix interfaces.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.nd">
+<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.nd" title="Permalink to this definition"></a></dt>
+<dd><p>Ambient dimension of the problem. Normally set by a mixin instance of
+<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.solid">
+<span class="sig-name descname"><span class="pre">solid</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.SolidConstants</span></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.solid" title="Permalink to this definition"></a></dt>
+<dd><p>Solid constant object that takes care of scaling of solid-related quantities.
+Normally, this is set by a mixin of instance
+<a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategy</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.stiffness_tensor">
+<span class="sig-name descname"><span class="pre">stiffness_tensor</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.FourthOrderTensor</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.stiffness_tensor" title="Permalink to this definition"></a></dt>
+<dd><p>Function that returns the stiffness tensor of a subdomain. Normally provided by a
+mixin of instance <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.LinearElasticSolid" title="porepy.models.constitutive_laws.LinearElasticSolid"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearElasticSolid</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.SolutionStrategyMomentumBalance.stress_keyword">
+<span class="sig-name descname"><span class="pre">stress_keyword</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.stress_keyword" title="Permalink to this definition"></a></dt>
+<dd><p>Keyword for stress term.</p>
+<p>Used to access discretization parameters and store discretization matrices.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">VariablesMomentumBalance</span></span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#VariablesMomentumBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="simple">
+<dt>Variables for mixed-dimensional deformation:</dt><dd><p>Displacement in matrix and on fracture-matrix interfaces. Fracture contact
+traction.</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Implementation postponed till Veljko’s more convenient SystemManager is available.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.contact_traction">
+<span class="sig-name descname"><span class="pre">contact_traction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#VariablesMomentumBalance.contact_traction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.contact_traction" title="Permalink to this definition"></a></dt>
+<dd><p>Fracture contact traction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains where the contact traction is defined. Should
+be of co-dimension one, i.e. fractures.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Variable for fracture contact traction.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.create_variables">
+<span class="sig-name descname"><span class="pre">create_variables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#VariablesMomentumBalance.create_variables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.create_variables" title="Permalink to this definition"></a></dt>
+<dd><p>Set variables for the subdomains and interfaces.</p>
+<dl class="simple">
+<dt>The following variables are set:</dt><dd><ul class="simple">
+<li><p>Displacement in the matrix.</p></li>
+<li><p>Displacement on fracture-matrix interfaces.</p></li>
+<li><p>Fracture contact traction.</p></li>
+</ul>
+</dd>
+</dl>
+<p>See individual variable methods for details.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.displacement">
+<span class="sig-name descname"><span class="pre">displacement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#VariablesMomentumBalance.displacement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.displacement" title="Permalink to this definition"></a></dt>
+<dd><p>Displacement in the matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grids</strong> – List of subdomains or interface grids where the displacement is
+defined. Should be the matrix subdomains.</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Variable for the displacement.</p>
+</dd>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the dimension of the subdomains is not equal to the ambient
+    dimension of the problem.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.displacement_jump">
+<span class="sig-name descname"><span class="pre">displacement_jump</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#VariablesMomentumBalance.displacement_jump"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.displacement_jump" title="Permalink to this definition"></a></dt>
+<dd><p>Displacement jump on fracture-matrix interfaces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains where the displacement jump is defined.
+Should be a fracture subdomain.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Operator for the displacement jump.</p>
+</dd>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#AssertionError" title="(in Python v3.11)"><strong>AssertionError</strong></a> – If the subdomains are not fractures, i.e. have dimension
+    <cite>nd - 1</cite>.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.interface_displacement">
+<span class="sig-name descname"><span class="pre">interface_displacement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/momentum_balance.html#VariablesMomentumBalance.interface_displacement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.interface_displacement" title="Permalink to this definition"></a></dt>
+<dd><p>Displacement on fracture-matrix interfaces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>]</em>) – List of interface grids where the displacement is defined.
+Should be between the matrix and fractures.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Variable for the displacement.</p>
+</dd>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the dimension of the interfaces is not equal to the ambient
+    dimension of the problem minus one.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.contact_traction_variable">
+<span class="sig-name descname"><span class="pre">contact_traction_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.contact_traction_variable" title="Permalink to this definition"></a></dt>
+<dd><p>Name of the primary variable representing the contact traction on a fracture
+subdomain. Normally defined in a mixin of instance
+<a class="reference internal" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance" title="porepy.models.momentum_balance.SolutionStrategyMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.displacement_variable">
+<span class="sig-name descname"><span class="pre">displacement_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.displacement_variable" title="Permalink to this definition"></a></dt>
+<dd><p>Name of the primary variable representing the displacement in subdomains.
+Normally defined in a mixin of instance
+<a class="reference internal" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance" title="porepy.models.momentum_balance.SolutionStrategyMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.equation_system">
+<span class="sig-name descname"><span class="pre">equation_system</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.equation_system.html#porepy.numerics.ad.equation_system.EquationSystem" title="porepy.numerics.ad.equation_system.EquationSystem"><span class="pre">EquationSystem</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.equation_system" title="Permalink to this definition"></a></dt>
+<dd><p>EquationSystem object for the current model. Normally defined in a mixin class
+defining the solution strategy.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.interface_displacement_variable">
+<span class="sig-name descname"><span class="pre">interface_displacement_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.interface_displacement_variable" title="Permalink to this definition"></a></dt>
+<dd><p>Name of the primary variable representing the displacement on an interface.
+Normally defined in a mixin of instance
+<a class="reference internal" href="#porepy.models.momentum_balance.SolutionStrategyMomentumBalance" title="porepy.models.momentum_balance.SolutionStrategyMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyMomentumBalance</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.local_coordinates">
+<span class="sig-name descname"><span class="pre">local_coordinates</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><span class="pre">Matrix</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.local_coordinates" title="Permalink to this definition"></a></dt>
+<dd><p>Mapping to local coordinates. Normally defined in a mixin instance of
+<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.mdg">
+<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><span class="pre">MixedDimensionalGrid</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.mdg" title="Permalink to this definition"></a></dt>
+<dd><p>Mixed dimensional grid for the current model. Normally defined in a mixin
+instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.nd">
+<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.nd" title="Permalink to this definition"></a></dt>
+<dd><p>Ambient dimension of the problem. Normally set by a mixin instance of
+<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.models.momentum_balance.VariablesMomentumBalance.subdomains_to_interfaces">
+<span class="sig-name descname"><span class="pre">subdomains_to_interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.momentum_balance.VariablesMomentumBalance.subdomains_to_interfaces" title="Permalink to this definition"></a></dt>
+<dd><p>Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="porepy.models.material_constants.html" class="btn btn-neutral float-left" title="porepy.models.material_constants module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="porepy.models.poromechanics.html" class="btn btn-neutral float-right" title="porepy.models.poromechanics module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.geometry.constrain_geometry &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/geometry/constrain_geometry.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docsrc/howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.geometry.constrain_geometry</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.geometry.constrain_geometry</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Module with various functions to constrain a geometry.</span>
+
+<span class="sd">Examples are to cut objects to lie within other objects, etc.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+
+<div class="viewcode-block" id="lines_by_polygon"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html#porepy.geometry.constrain_geometry.lines_by_polygon">[docs]</a><span class="k">def</span> <span class="nf">lines_by_polygon</span><span class="p">(</span>
+    <span class="n">poly_pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">edges</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Compute the intersections between a polygon (also not convex) and a set of lines.</span>
+
+<span class="sd">    The computation is done line by line to avoid the splitting of edges caused by other</span>
+<span class="sd">    edges. The implementation assumes that the polygon and lines are on the plane ``(x,</span>
+<span class="sd">    y)``.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        poly_pts: ``shape=(nd, np)``</span>
+
+<span class="sd">            Points that define the polygon.</span>
+<span class="sd">        pts: ``shape=(nd, np)``</span>
+
+<span class="sd">            Points associated to the lines.</span>
+<span class="sd">        edges: ``shape=(2, np)``</span>
+
+<span class="sd">            for each column the id of the points for the line.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A 3-tuple containing</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``shape=(2, np)``</span>
+<span class="sd">            Points associated to the lines after the intersection.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``(shape=(2, np), dtype=int)``</span>
+<span class="sd">            For each column the id of the points for the line after the intersection. If</span>
+<span class="sd">            the input edges have tags, stored in ``rows[2:]``, these will be preserved.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``(shape=(np, ), dtype=int)``</span>
+<span class="sd">            Column index of the kept edges. This will have recurring values if an edge</span>
+<span class="sd">            is cut by a non-convex domain.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">shapely.geometry</span> <span class="k">as</span> <span class="nn">shapely_geometry</span>
+    <span class="kn">import</span> <span class="nn">shapely.speedups</span> <span class="k">as</span> <span class="nn">shapely_speedups</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">shapely_speedups</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="c1"># it stores the points after the intersection</span>
+    <span class="n">int_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="c1"># define the polygon</span>
+    <span class="n">poly</span> <span class="o">=</span> <span class="n">shapely_geometry</span><span class="o">.</span><span class="n">Polygon</span><span class="p">(</span><span class="n">poly_pts</span><span class="p">[:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+    <span class="c1"># Kept edges</span>
+    <span class="n">edges_kept_aslist</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># we do the computation for each edge once at time, to avoid the splitting caused by</span>
+    <span class="c1"># other edges.</span>
+    <span class="k">for</span> <span class="n">ei</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">edges</span><span class="o">.</span><span class="n">T</span><span class="p">):</span>
+        <span class="c1"># define the line</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="n">shapely_geometry</span><span class="o">.</span><span class="n">LineString</span><span class="p">([</span><span class="n">pts</span><span class="p">[:</span><span class="mi">2</span><span class="p">,</span> <span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">pts</span><span class="p">[:</span><span class="mi">2</span><span class="p">,</span> <span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">]]])</span>
+        <span class="c1"># compute the intersections between the polygon and the current line</span>
+        <span class="n">int_lines</span> <span class="o">=</span> <span class="n">poly</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="c1"># only line or multilines are considered, no points</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">int_lines</span><span class="p">,</span> <span class="n">shapely_geometry</span><span class="o">.</span><span class="n">LineString</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">int_lines</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="p">):</span>
+            <span class="c1"># consider the case of single intersection by avoiding considering</span>
+            <span class="c1"># lines on the boundary of the polygon</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">int_lines</span><span class="o">.</span><span class="n">touches</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span> <span class="ow">and</span> <span class="n">int_lines</span><span class="o">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">int_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">int_pts</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">int_lines</span><span class="o">.</span><span class="n">xy</span><span class="p">)]</span>
+                <span class="n">edges_kept_aslist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ei</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">int_lines</span><span class="p">)</span> <span class="ow">is</span> <span class="n">shapely_geometry</span><span class="o">.</span><span class="n">MultiLineString</span><span class="p">:</span>
+            <span class="c1"># Consider the case of multiple intersections by avoiding considering</span>
+            <span class="c1"># lines on the boundary of the polygon.</span>
+
+            <span class="c1"># NOTE: After updating to shapely 2.0, iteration over the components</span>
+            <span class="c1"># of a multiline should call the geoms attribute.</span>
+            <span class="c1"># We could have enforced an update for all users, but instead do a</span>
+            <span class="c1"># gentler version which should accommodate v1 and v2.</span>
+            <span class="kn">import</span> <span class="nn">shapely</span>
+
+            <span class="k">if</span> <span class="n">shapely</span><span class="o">.</span><span class="n">__version__</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="s2">&quot;1&quot;</span><span class="p">:</span>
+                <span class="n">lines_for_iteration</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">int_lines</span><span class="o">.</span><span class="n">geoms</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># shapely v1</span>
+                <span class="n">lines_for_iteration</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">int_lines</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">int_line</span> <span class="ow">in</span> <span class="n">lines_for_iteration</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">int_line</span><span class="o">.</span><span class="n">touches</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span> <span class="ow">and</span> <span class="n">int_line</span><span class="o">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">int_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">int_pts</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">int_line</span><span class="o">.</span><span class="n">xy</span><span class="p">)]</span>
+                    <span class="n">edges_kept_aslist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ei</span><span class="p">)</span>
+
+    <span class="c1"># define the list of edges</span>
+    <span class="n">int_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">int_pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Also preserve tags, if any</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">edges_kept_aslist</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">edges_kept_asarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">edges_kept_aslist</span><span class="p">)</span>
+        <span class="n">edges_kept_asarray</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+        <span class="n">int_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">int_edges</span><span class="p">,</span> <span class="n">edges</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="n">edges_kept_asarray</span><span class="p">]))</span>
+        <span class="n">edges_kept</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">edges_kept_asarray</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># If no edges are kept, return an empty array with the right dimensions</span>
+        <span class="n">int_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">edges_kept</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">edges_kept_aslist</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">int_pts</span><span class="p">,</span> <span class="n">int_edges</span><span class="p">,</span> <span class="n">edges_kept</span></div>
+
+
+<div class="viewcode-block" id="polygons_by_polyhedron"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html#porepy.geometry.constrain_geometry.polygons_by_polyhedron">[docs]</a><span class="k">def</span> <span class="nf">polygons_by_polyhedron</span><span class="p">(</span>
+    <span class="n">polygons</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+    <span class="n">polyhedron</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Constrain polygons in 3d to lie inside a (generally non-convex) polyhedron.</span>
+
+<span class="sd">    Polygons not inside the polyhedron will be removed from descriptions. For non-convex</span>
+<span class="sd">    polyhedra, polygons can be split in several parts.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        polygons: Each element is an array of ``shape=(3, num_vertex)``, describing the</span>
+<span class="sd">            vertexes of a polygon.</span>
+<span class="sd">        polyhedron: Each element is an array of ``shape=(3, num_vertex)``,</span>
+<span class="sd">            describing the vertexes of the polygons that together form the polygon.</span>
+<span class="sd">        tol: ``default=1e-8``</span>
+
+<span class="sd">            Tolerance used to compare points.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple with two elements.</span>
+
+<span class="sd">        list of :obj:`~numpy.ndarray`:</span>
+
+<span class="sd">            Polygons lying inside the polyhedra.</span>
+<span class="sd">            Each array has ``shape=(3, num_vertex)``.</span>
+
+<span class="sd">        :obj:`~numpy.ndarray`: ``(shape=(num_polygons, ), dytpe=int)``</span>
+
+<span class="sd">            For each constrained polygon, corresponding list of its original polygon.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">polygons</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">polygons</span> <span class="o">=</span> <span class="p">[</span><span class="n">polygons</span><span class="p">]</span>
+
+    <span class="n">constrained_polygons</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">orig_poly_ind</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Construct bounding box for polyhedron</span>
+    <span class="n">bounding_box</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">from_points</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">polyhedron</span><span class="p">]))</span>
+
+    <span class="c1"># Loop over the polygons. For each, find the intersections with all</span>
+    <span class="c1"># polygons on the side of the polyhedra.</span>
+    <span class="k">for</span> <span class="n">pi</span><span class="p">,</span> <span class="n">poly</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">polygons</span><span class="p">):</span>
+        <span class="c1"># First check if polyhedron is outside the bounding box - if so, we can move on.</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">bounding_box</span><span class="p">[</span><span class="s2">&quot;xmin&quot;</span><span class="p">]</span>
+            <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">bounding_box</span><span class="p">[</span><span class="s2">&quot;xmax&quot;</span><span class="p">]</span>
+            <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">bounding_box</span><span class="p">[</span><span class="s2">&quot;ymin&quot;</span><span class="p">]</span>
+            <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">bounding_box</span><span class="p">[</span><span class="s2">&quot;ymax&quot;</span><span class="p">]</span>
+            <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">bounding_box</span><span class="p">[</span><span class="s2">&quot;zmin&quot;</span><span class="p">]</span>
+            <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">bounding_box</span><span class="p">[</span><span class="s2">&quot;zmax&quot;</span><span class="p">]</span>
+        <span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Add this polygon to the list of constraining polygons. Put this first</span>
+        <span class="n">all_poly</span> <span class="o">=</span> <span class="p">[</span><span class="n">poly</span><span class="p">]</span> <span class="o">+</span> <span class="n">polyhedron</span>
+
+        <span class="c1"># Find intersections</span>
+        <span class="p">(</span>
+            <span class="n">coord</span><span class="p">,</span>
+            <span class="n">point_ind</span><span class="p">,</span>
+            <span class="n">_</span><span class="p">,</span>
+            <span class="n">_</span><span class="p">,</span>
+            <span class="n">seg_vert_all</span><span class="p">,</span>
+            <span class="n">point_contact</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">intersections</span><span class="o">.</span><span class="n">polygons_3d</span><span class="p">(</span>
+            <span class="n">all_poly</span><span class="p">,</span>
+            <span class="n">target_poly</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Find indices of the intersection points for this polygon (the first one)</span>
+        <span class="n">isect_poly</span> <span class="o">=</span> <span class="n">point_ind</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Only consider segment-vertex information for the first polygon</span>
+        <span class="n">seg_vert</span> <span class="o">=</span> <span class="n">seg_vert_all</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Find number of unique intersection points.</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">uniquify_point_set</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+        <span class="c1"># If there are no, or a single intersection point, we just need to test if the</span>
+        <span class="c1"># entire polygon is inside the polyhedral.</span>
+        <span class="c1"># A single intersection point can only be combined with a polygon fully inside</span>
+        <span class="c1"># for a non-convex polygon.</span>
+        <span class="k">if</span> <span class="n">isect_poly</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">mapping</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Testing with a single point should suffice, but until the code</span>
+            <span class="c1"># for in-polyhedron testing is more mature, we do some safeguarding:</span>
+            <span class="c1"># Test for all points in the polygon, they should all be on the</span>
+            <span class="c1"># inside or outside.</span>
+            <span class="n">inside</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry_property_checks</span><span class="o">.</span><span class="n">point_in_polyhedron</span><span class="p">(</span><span class="n">polyhedron</span><span class="p">,</span> <span class="n">poly</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">inside</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+                <span class="c1"># Add the polygon to the constrained ones and continue</span>
+                <span class="n">constrained_polygons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span>
+                <span class="n">orig_poly_ind</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pi</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">inside</span><span class="p">)):</span>
+                <span class="c1"># Do not add it.</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This indicates that the inside_polyhedron test is bad</span>
+                <span class="k">assert</span> <span class="kc">False</span>
+
+        <span class="c1"># At this point we know there are intersections between the polygon and</span>
+        <span class="c1"># polyhedra. The constrained polygon can have up to four types of segments:</span>
+        <span class="c1"># 1) Both vertexes are on the boundary. The segment is formed by the pair of</span>
+        <span class="c1"># intersection points between two polygons.</span>
+        <span class="c1"># 2) Both vertexes are in the interior. This is one of the original segments</span>
+        <span class="c1"># of the polygon.</span>
+        <span class="c1"># 3) A vertex is a point contact, another is interior or a point contact.</span>
+        <span class="c1"># 4) A segment of the original polygon crosses on or more of the polyhedron</span>
+        <span class="c1"># boundaries. This includes the case where the original polygon has a vertex on</span>
+        <span class="c1"># the polyhedron boundary. This can produce one or several segments. Convenience</span>
+        <span class="c1"># arrays for navigating between vertexes in the polygon.</span>
+        <span class="n">num_vert</span> <span class="o">=</span> <span class="n">poly</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_vert</span><span class="p">)</span>
+        <span class="n">next_ind</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">ind</span>
+        <span class="n">next_ind</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">prev_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_vert</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">prev_ind</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_vert</span> <span class="o">-</span> <span class="mi">1</span>
+
+        <span class="c1"># Case 1): Find index of intersection points</span>
+        <span class="n">main_ind</span> <span class="o">=</span> <span class="n">point_ind</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Storage for intersection segments between the main polygon and the</span>
+        <span class="c1"># polyhedron sides.</span>
+        <span class="n">boundary_segments_aslist</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">point_contact</span> <span class="o">=</span> <span class="n">point_contact</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">point_contact_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">point_contact</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="n">point_contact_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">point_contact_ind</span><span class="p">,</span> <span class="n">p</span><span class="p">])</span>
+
+        <span class="c1"># First find segments fully on the boundary.</span>
+        <span class="c1"># Loop over all sides of the polyhedral. Look for intersection points that are</span>
+        <span class="c1"># both in main and the other</span>
+        <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_poly</span><span class="p">)):</span>
+            <span class="n">other_ip</span> <span class="o">=</span> <span class="n">point_ind</span><span class="p">[</span><span class="n">other</span><span class="p">]</span>
+
+            <span class="n">common</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">other_ip</span><span class="p">,</span> <span class="n">main_ind</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">common</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># This is at most a point contact, no need to do anything</span>
+                <span class="k">continue</span>
+            <span class="c1"># There is a real intersection between the segments. Add it.</span>
+            <span class="n">boundary_segments_aslist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">other_ip</span><span class="p">[</span><span class="n">common</span><span class="p">])</span>
+
+        <span class="n">boundary_segments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">boundary_segments_aslist</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">if</span> <span class="n">boundary_segments</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">boundary_segments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="c1"># For segments with at least one interior point, we need to jointly consider</span>
+        <span class="c1"># intersection points and the original vertexes</span>
+        <span class="n">num_coord</span> <span class="o">=</span> <span class="n">coord</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">coord_extended</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">coord</span><span class="p">,</span> <span class="n">poly</span><span class="p">))</span>
+
+        <span class="c1"># Case 2): Find segments that are defined by two interior points</span>
+        <span class="n">points_inside_polyhedron</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry_property_checks</span><span class="o">.</span><span class="n">point_in_polyhedron</span><span class="p">(</span>
+            <span class="n">polyhedron</span><span class="p">,</span> <span class="n">poly</span>
+        <span class="p">)</span>
+        <span class="c1"># segment_inside[0] tells whether the point[:, -1] - point[:, 0] is fully</span>
+        <span class="c1"># inside the remaining elements are point[:, 0] - point[:, 1] etc.</span>
+        <span class="n">segments_inside</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span>
+            <span class="n">points_inside_polyhedron</span><span class="p">,</span> <span class="n">points_inside_polyhedron</span><span class="p">[</span><span class="n">next_ind</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="c1"># Temporary list of interior segments, it will be adjusted below</span>
+        <span class="n">interior_segments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">ind</span><span class="p">[</span><span class="n">segments_inside</span><span class="p">],</span> <span class="n">next_ind</span><span class="p">[</span><span class="n">segments_inside</span><span class="p">]))</span>
+
+        <span class="c1"># Case 3: Segment involving a point contact. This is not that special, however,</span>
+        <span class="c1"># it needs special treatment due to the data structures used in polygon</span>
+        <span class="c1"># intersection identification.</span>
+        <span class="n">point_contact_segments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">pci</span> <span class="ow">in</span> <span class="n">point_contact_ind</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">points_inside_polyhedron</span><span class="p">[</span><span class="n">next_ind</span><span class="p">[</span><span class="n">pci</span><span class="p">]]</span>
+                <span class="ow">or</span> <span class="n">next_ind</span><span class="p">[</span><span class="n">pci</span><span class="p">]</span> <span class="ow">in</span> <span class="n">point_contact_ind</span>
+            <span class="p">):</span>
+                <span class="n">point_contact_segments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">point_contact_segments</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">pci</span><span class="p">],</span> <span class="p">[</span><span class="n">next_ind</span><span class="p">[</span><span class="n">pci</span><span class="p">]]]))</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">points_inside_polyhedron</span><span class="p">[</span><span class="n">prev_ind</span><span class="p">[</span><span class="n">pci</span><span class="p">]]</span>
+                <span class="ow">or</span> <span class="n">prev_ind</span><span class="p">[</span><span class="n">pci</span><span class="p">]</span> <span class="ow">in</span> <span class="n">point_contact_ind</span>
+            <span class="p">):</span>
+                <span class="n">point_contact_segments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">point_contact_segments</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">pci</span><span class="p">],</span> <span class="p">[</span><span class="n">prev_ind</span><span class="p">[</span><span class="n">pci</span><span class="p">]]]))</span>
+                <span class="p">)</span>
+
+        <span class="c1"># From here on, we will lean heavily on information on segments that cross the</span>
+        <span class="c1"># boundary. The test for interior points does not check if the segment crosses</span>
+        <span class="c1"># the domain boundary due to a non-convex domain; these must be removed. What we</span>
+        <span class="c1"># really want is multiple small segments, excluding those that are on the</span>
+        <span class="c1"># outside of the domain. These are identified below, under case 3.</span>
+
+        <span class="c1"># First, count the number of times a segment of the polygon is associated with</span>
+        <span class="c1"># an intersection point.</span>
+        <span class="n">count_boundary_segment</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_vert</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">isect</span> <span class="ow">in</span> <span class="n">seg_vert</span><span class="p">:</span>
+            <span class="c1"># Only consider segment intersections, not interior (len==0), and vertexes</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isect</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">isect</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">count_boundary_segment</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Find presumed interior segments that crosses the boundary</span>
+        <span class="n">segment_crosses_boundary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">count_boundary_segment</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">segments_inside</span><span class="p">)</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Sanity check: If both points are interior, there must be an even number of</span>
+        <span class="c1"># segment crossings</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">count_boundary_segment</span><span class="p">[</span><span class="n">segment_crosses_boundary</span><span class="p">]</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># The index of the segments are associated with the first row of the</span>
+        <span class="c1"># interior_segments. Find the columns to keep by using invert argument to isin</span>
+        <span class="n">keep_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">interior_segments</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">segment_crosses_boundary</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Delete false interior segments.</span>
+        <span class="n">interior_segments</span> <span class="o">=</span> <span class="n">interior_segments</span><span class="p">[:,</span> <span class="n">keep_ind</span><span class="p">]</span>
+
+        <span class="c1"># Adjust index so that it refers to the extended coordinate array</span>
+        <span class="n">interior_segments</span> <span class="o">+=</span> <span class="n">num_coord</span>
+
+        <span class="c1"># Case 3: Where a segment of the original polygon crosses (including start and</span>
+        <span class="c1"># end point) the polyhedron an unknown number of times. This gives rise to at</span>
+        <span class="c1"># least one segment, but can be multiple.</span>
+
+        <span class="c1"># Storage of identified segments in the constrained polygon</span>
+        <span class="n">segments_interior_boundary_aslist</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Check if individual vertexes are on the boundary</span>
+        <span class="n">vertex_on_boundary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_vert</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">isect</span> <span class="ow">in</span> <span class="n">seg_vert</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isect</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">isect</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">vertex_on_boundary</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># Also count point contacts among the vertexes on the boundary.</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">point_contact_ind</span><span class="p">:</span>
+            <span class="n">vertex_on_boundary</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># Storage of the intersections associated with each segment of the original</span>
+        <span class="c1"># polygon</span>
+        <span class="n">isects_of_segment</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_vert</span><span class="p">,</span> <span class="nb">object</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_vert</span><span class="p">):</span>
+            <span class="n">isects_of_segment</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Identify intersections of each segment.</span>
+        <span class="c1"># This is a bit involved, possibly because of a poor choice of data formats: The</span>
+        <span class="c1"># actual identification of the sub-segments (next for-loop) uses the identified</span>
+        <span class="c1"># intersection points, with an empty point list signifying that there are no</span>
+        <span class="c1"># intersections (that is, no sub-segments from this original segment).</span>
+        <span class="c1"># The only problem is the case where the original segment runs from a vertex on</span>
+        <span class="c1"># the polyhedron boundary to an interior point: This segment must be processed</span>
+        <span class="c1"># despite there being no intersections. We achieve that by adding an empty list</span>
+        <span class="c1"># to the relevant data field, and then remove the list if a true intersection is</span>
+        <span class="c1"># found later.</span>
+        <span class="k">for</span> <span class="n">isect_ind</span><span class="p">,</span> <span class="n">isect</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seg_vert</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isect</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">isect</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="c1"># intersection point lies on a segment</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isects_of_segment</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">isects_of_segment</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="n">isect_ind</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Remove empty list if necessary, then add the information</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">isects_of_segment</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="mi">0</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
+                            <span class="n">isects_of_segment</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="n">isect_ind</span><span class="p">]</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">isects_of_segment</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">isect_ind</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># intersection point is on a segment</span>
+                    <span class="c1"># This segment can be connected to both the previous and next point</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isects_of_segment</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">isects_of_segment</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isects_of_segment</span><span class="p">[</span><span class="n">prev_ind</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]]])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">isects_of_segment</span><span class="p">[</span><span class="n">prev_ind</span><span class="p">[</span><span class="n">isect</span><span class="p">[</span><span class="mi">0</span><span class="p">]]]</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+
+        <span class="c1"># For all original segments that have intersection points (or vertex) on a</span>
+        <span class="c1"># polyhedron boundary, find all points along the segment (original endpoints and</span>
+        <span class="c1"># intersection points. Find out which of these sub-segments are inside and</span>
+        <span class="c1"># outside the polyhedron, remove exterior parts.</span>
+        <span class="c1"># FIXME: The above is not correct in the case where a polygon segment lies</span>
+        <span class="c1"># in the plane of several parallel boundary surfaces.</span>
+        <span class="k">for</span> <span class="n">seg_ind</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_vert</span><span class="p">):</span>
+            <span class="c1"># If no intersections of this segment, continue</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isects_of_segment</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Index and coordinate of intersection points on this segment</span>
+            <span class="n">loc_isect_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">isects_of_segment</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+            <span class="c1"># Consider unique intersection points; there may be repititions in cases</span>
+            <span class="c1"># where the polyhedron has multiple parallel sides.</span>
+            <span class="n">isect_coord</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">uniquify_point_set</span><span class="p">(</span>
+                <span class="n">coord</span><span class="p">[:,</span> <span class="n">loc_isect_ind</span><span class="p">],</span> <span class="n">tol</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Start and end of the full segment</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">poly</span><span class="p">[:,</span> <span class="n">seg_ind</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">poly</span><span class="p">[:,</span> <span class="n">next_ind</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+            <span class="c1"># Special case: If there are no points between start and end, this is a</span>
+            <span class="c1"># segment going between a boundary vertex and a point which may be internal</span>
+            <span class="c1"># to the polyhedron on the boundary or external. In the latter case, we</span>
+            <span class="c1"># should not add any information.</span>
+            <span class="c1"># Any yes, this case actually showed up during debugging.</span>
+            <span class="k">if</span> <span class="n">loc_isect_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+                    <span class="p">(</span>
+                        <span class="p">(</span>
+                            <span class="n">points_inside_polyhedron</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]</span>
+                            <span class="ow">or</span> <span class="n">vertex_on_boundary</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]</span>
+                        <span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">vertex_on_boundary</span><span class="p">[</span><span class="n">next_ind</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]]</span>
+                    <span class="p">)</span>
+                    <span class="ow">or</span> <span class="p">(</span>
+                        <span class="p">(</span>
+                            <span class="n">points_inside_polyhedron</span><span class="p">[</span><span class="n">next_ind</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]]</span>
+                            <span class="ow">or</span> <span class="n">vertex_on_boundary</span><span class="p">[</span><span class="n">next_ind</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]]</span>
+                        <span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">vertex_on_boundary</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="p">):</span>
+                    <span class="k">continue</span>
+
+            <span class="c1"># Sanity check</span>
+            <span class="k">assert</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry_property_checks</span><span class="o">.</span><span class="n">points_are_collinear</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">start</span><span class="p">,</span> <span class="n">isect_coord</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+            <span class="p">)</span>
+            <span class="c1"># Sort the intersection points according to their distance from the start</span>
+            <span class="n">sorted_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">isect_coord</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+            <span class="c1"># Indices (in terms of columns in coords_extended) along the segment</span>
+            <span class="n">index_along_segment</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="n">num_coord</span> <span class="o">+</span> <span class="n">seg_ind</span><span class="p">,</span>
+                    <span class="n">loc_isect_ind</span><span class="p">[</span><span class="n">sorted_ind</span><span class="p">],</span>
+                    <span class="n">num_coord</span> <span class="o">+</span> <span class="n">next_ind</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="c1"># Since the sub-segments are formed by intersection points, every second</span>
+            <span class="c1"># will be in the interior of the polyhedron. The first one is interior if</span>
+            <span class="c1"># the start point is in the interior or on the boundary of the polyhedron.</span>
+            <span class="k">if</span> <span class="n">points_inside_polyhedron</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]</span> <span class="ow">or</span> <span class="n">vertex_on_boundary</span><span class="p">[</span><span class="n">seg_ind</span><span class="p">]:</span>
+                <span class="n">start_pairs</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">start_pairs</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="c1"># Define the vertex pairs of the sub-segments, and add the relevant ones.</span>
+            <span class="n">pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">index_along_segment</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">index_along_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+            <span class="k">for</span> <span class="n">pair_ind</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start_pairs</span><span class="p">,</span> <span class="n">pairs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">2</span><span class="p">):</span>
+                <span class="n">segments_interior_boundary_aslist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pairs</span><span class="p">[:,</span> <span class="n">pair_ind</span><span class="p">])</span>
+
+        <span class="c1"># Clean up boundary-interior segments</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">segments_interior_boundary_aslist</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">segments_interior_boundary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">segments_interior_boundary_aslist</span><span class="p">]</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">segments_interior_boundary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="c1"># At this stage, we have identified all segments, possibly with duplicates. Next</span>
+        <span class="c1"># task is to arrive at a unique representation of the segments. To that end,</span>
+        <span class="c1"># first collect the segments in a single list</span>
+        <span class="n">segments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="n">boundary_segments</span><span class="p">,</span>
+                    <span class="n">interior_segments</span><span class="p">,</span>
+                    <span class="n">segments_interior_boundary</span><span class="p">,</span>
+                    <span class="n">point_contact_segments</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Uniquify intersection coordinates, and update the segments</span>
+        <span class="n">unique_coords</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">ib</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">uniquify_point_set</span><span class="p">(</span>
+            <span class="n">coord_extended</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span>
+        <span class="p">)</span>
+        <span class="n">unique_segments</span> <span class="o">=</span> <span class="n">ib</span><span class="p">[</span><span class="n">segments</span><span class="p">]</span>
+        <span class="c1"># Then uniquify the segments, in terms of the unique coordinates</span>
+        <span class="n">unique_segments</span><span class="p">,</span> <span class="o">*</span><span class="n">rest</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setmembership</span><span class="o">.</span><span class="n">uniquify_point_set</span><span class="p">(</span>
+            <span class="n">unique_segments</span>
+        <span class="p">)</span>
+        <span class="c1"># Remove point segments.</span>
+        <span class="n">point_segment</span> <span class="o">=</span> <span class="n">unique_segments</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">unique_segments</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">unique_segments</span> <span class="o">=</span> <span class="n">unique_segments</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">point_segment</span><span class="p">)]</span>
+
+        <span class="c1"># Also remove dead ends, identified by points which only occurs once. Such</span>
+        <span class="c1"># points may be indications that something went wrong in the identification</span>
+        <span class="c1"># algorithm above, but cutting them seems like a reasonable option.</span>
+        <span class="n">dead_end_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">unique_segments</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">dead_end_lines</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">unique_segments</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">dp</span> <span class="ow">in</span> <span class="n">dead_end_points</span><span class="p">:</span>
+            <span class="n">dead_end_lines</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">unique_segments</span> <span class="o">==</span> <span class="n">dp</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">unique_segments</span> <span class="o">=</span> <span class="n">unique_segments</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">dead_end_lines</span><span class="p">)]</span>
+
+        <span class="c1"># The final stage is to collect the constrained polygons.</span>
+        <span class="c1"># If the segments are connected, which will always be the case if the polyhedron</span>
+        <span class="c1"># is convex, the graph will have a single connected component. If not, there</span>
+        <span class="c1"># will be multiple connected components. Find these, and make a separate polygon</span>
+        <span class="c1"># for each.</span>
+        <span class="c1"># Represent the segments as a graph.</span>
+        <span class="n">graph</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">unique_segments</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">unique_segments</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">],</span> <span class="n">unique_segments</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span>
+
+        <span class="c1"># Loop over connected components</span>
+        <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">nx</span><span class="o">.</span><span class="n">connected_components</span><span class="p">(</span><span class="n">graph</span><span class="p">):</span>
+            <span class="c1"># Extract subgraph of this cluster</span>
+            <span class="n">sg</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">subgraph</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
+            <span class="c1"># Make a list of edges of this subgraph</span>
+            <span class="n">el_aslist</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">sg</span><span class="o">.</span><span class="n">edges</span><span class="p">():</span>
+                <span class="n">el_aslist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">el</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">el_aslist</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+
+            <span class="c1"># The vertexes of the polygon must be ordered. This is done slightly</span>
+            <span class="c1"># differently depending on whether the polygon forms a closed circle or not</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">el</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">):</span>
+                <span class="c1"># A single component (polygon) has nodes occuring more than twice.</span>
+                <span class="c1"># This is presumably caused by overlapping segments in the constrained</span>
+                <span class="c1"># polygon, which can happen if the constraining polyhedron has parallel</span>
+                <span class="c1"># sides.</span>
+                <span class="c1"># Remove these by projecting to the 2d plane of the main polygon, and</span>
+                <span class="c1"># then use standard function for intersection removal there.</span>
+                <span class="n">center</span> <span class="o">=</span> <span class="n">unique_coords</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="n">coords_centered</span> <span class="o">=</span> <span class="n">unique_coords</span> <span class="o">-</span> <span class="n">center</span>
+                <span class="n">R</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">map_geometry</span><span class="o">.</span><span class="n">project_plane_matrix</span><span class="p">(</span><span class="n">coords_centered</span><span class="p">)</span>
+                <span class="n">pt</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coords_centered</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">el</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">intersections</span><span class="o">.</span><span class="n">split_intersecting_segments_2d</span><span class="p">(</span><span class="n">pt</span><span class="p">,</span> <span class="n">el</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="c1"># There should be exactly two loose ends, if not, this is really</span>
+                <span class="c1"># several polygons, and who knows how we ended up there.</span>
+                <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+                <span class="n">sorted_pairs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">sort_points</span><span class="o">.</span><span class="n">sort_point_pairs</span><span class="p">(</span>
+                    <span class="n">el</span><span class="p">,</span> <span class="n">is_circular</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+                <span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">sorted_pairs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sorted_pairs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+                <span class="c1"># TODO: check for hanging nodes here?</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sorted_pairs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">sort_points</span><span class="o">.</span><span class="n">sort_point_pairs</span><span class="p">(</span><span class="n">el</span><span class="p">)</span>
+
+                <span class="c1"># Check for hanging nodes</span>
+                <span class="n">hang_ind</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry_property_checks</span><span class="o">.</span><span class="n">polygon_hanging_nodes</span><span class="p">(</span>
+                    <span class="n">unique_coords</span><span class="p">,</span> <span class="n">sorted_pairs</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">hang_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="c1"># We will need to decrease the index of the edges with hanging nodes</span>
+                    <span class="c1"># as we delete previous edges (with hanging nodes).</span>
+                    <span class="n">decrease</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="k">for</span> <span class="n">edge_ind</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">hang_ind</span><span class="p">):</span>  <span class="c1"># sort to be sure</span>
+                        <span class="n">ei</span> <span class="o">=</span> <span class="n">edge_ind</span> <span class="o">-</span> <span class="n">decrease</span>  <span class="c1"># effective index</span>
+                        <span class="c1"># Adjust the endpoint of this edge</span>
+                        <span class="k">if</span> <span class="n">ei</span> <span class="o">&lt;</span> <span class="n">sorted_pairs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="n">sorted_pairs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">ei</span><span class="p">]</span> <span class="o">=</span> <span class="n">sorted_pairs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">ei</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                            <span class="n">sorted_pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">sorted_pairs</span><span class="p">,</span> <span class="n">ei</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="c1"># special treatment at the end of the node</span>
+                            <span class="n">sorted_pairs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">ei</span><span class="p">]</span> <span class="o">=</span> <span class="n">sorted_pairs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+                            <span class="n">sorted_pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">sorted_pairs</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+                        <span class="c1"># Adjust the decrease index</span>
+                        <span class="n">decrease</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="n">inds</span> <span class="o">=</span> <span class="n">sorted_pairs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># And there we are</span>
+
+            <span class="c1"># In cases where polygons touch the polyhedron along an edge, there may be</span>
+            <span class="c1"># two point indices only. Disregard these cases.</span>
+            <span class="c1"># NOTE: It is not clear there are not additional cases (or bugs) that are</span>
+            <span class="c1"># masked by this if.</span>
+            <span class="k">if</span> <span class="n">inds</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">constrained_polygons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">unique_coords</span><span class="p">[:,</span> <span class="n">inds</span><span class="p">])</span>
+                <span class="n">orig_poly_ind</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pi</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">constrained_polygons</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">orig_poly_ind</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="snap_points_to_segments"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.constrain_geometry.html#porepy.geometry.constrain_geometry.snap_points_to_segments">[docs]</a><span class="k">def</span> <span class="nf">snap_points_to_segments</span><span class="p">(</span>
+    <span class="n">p_edges</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">edges</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">p_to_snap</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Snap points in the proximity of lines to the lines.</span>
+
+<span class="sd">    Note that if two vertices of two edges are close, they may effectively be co-located</span>
+<span class="sd">    by the snapping. Thus, the modified point set may have duplicate coordinates.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        p_edges: ``shape=(nd, np)``</span>
+
+<span class="sd">            Points defining endpoints of segments.</span>
+
+<span class="sd">        edges: ``shape=(2, num_edges)``</span>
+
+<span class="sd">            Connection between lines in ``p_edges``. If</span>
+<span class="sd">            ``edges.shape[0] &gt; 2``, the extra rows are ignored.</span>
+
+<span class="sd">        tol: Tolerance for snapping, points that are closer will be snapped.</span>
+
+<span class="sd">        p_to_snap: ``(shape=(nd, np_to_snap), default=None)``</span>
+
+<span class="sd">            The points to snap.</span>
+<span class="sd">            If not provided, ``p_edges`` will be snapped,</span>
+<span class="sd">            that is, the lines will be modified.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A copy of ``p_to_snap`` (or ``p_edges``) with modified coordinates of</span>
+<span class="sd">        ``shape=(nd, np_to_snap)``.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">p_to_snap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">p_to_snap</span> <span class="o">=</span> <span class="n">p_edges</span>
+        <span class="n">mod_edges</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">mod_edges</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">pn</span> <span class="o">=</span> <span class="n">p_to_snap</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">nl</span> <span class="o">=</span> <span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">ei</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nl</span><span class="p">):</span>
+
+        <span class="c1"># Find start and endpoint of this segment.</span>
+        <span class="c1"># If we modify the edges themselves (mod_edges==True), we should use the updated</span>
+        <span class="c1"># point coordinates. If not, we risk trouble for almost coinciding vertexes.</span>
+        <span class="k">if</span> <span class="n">mod_edges</span><span class="p">:</span>
+            <span class="n">p_start</span> <span class="o">=</span> <span class="n">pn</span><span class="p">[:,</span> <span class="n">edges</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">ei</span><span class="p">]]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">p_end</span> <span class="o">=</span> <span class="n">pn</span><span class="p">[:,</span> <span class="n">edges</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">ei</span><span class="p">]]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">p_start</span> <span class="o">=</span> <span class="n">p_edges</span><span class="p">[:,</span> <span class="n">edges</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">ei</span><span class="p">]]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">p_end</span> <span class="o">=</span> <span class="n">p_edges</span><span class="p">[:,</span> <span class="n">edges</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">ei</span><span class="p">]]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">d_segment</span><span class="p">,</span> <span class="n">cp</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">distances</span><span class="o">.</span><span class="n">points_segments</span><span class="p">(</span><span class="n">pn</span><span class="p">,</span> <span class="n">p_start</span><span class="p">,</span> <span class="n">p_end</span><span class="p">)</span>
+        <span class="n">hit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">d_segment</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">hit</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">mod_edges</span> <span class="ow">and</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">edges</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">ei</span><span class="p">]</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">==</span> <span class="n">edges</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">ei</span><span class="p">]):</span>
+                <span class="k">continue</span>
+            <span class="n">pn</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">cp</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">pn</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>porepy.numerics.fracture_deformation.contact_conditions &mdash; PorePy 1.6.0 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fracture_deformation/contact_conditions.html" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                1.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/porepy/porepy.html">porepy package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.html">porepy.fracs package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture.html">porepy.fracs.fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_importer.html">porepy.fracs.fracture_importer module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_2d.html">porepy.fracs.fracture_network_2d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html">porepy.fracs.fracture_network_3d module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.gmsh_interface.html">porepy.fracs.gmsh_interface module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.line_fracture.html">porepy.fracs.line_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.meshing.html">porepy.fracs.meshing module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.msh_2_grid.html">porepy.fracs.msh_2_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.non_conforming.html">porepy.fracs.non_conforming module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.plane_fracture.html">porepy.fracs.plane_fracture module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.simplex.html">porepy.fracs.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.split_grid.html">porepy.fracs.split_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.structured.html">porepy.fracs.structured module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.tools.html">porepy.fracs.tools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.utils.html">porepy.fracs.utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.fracs.wells_3d.html">porepy.fracs.wells_3d module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.html">porepy.geometry package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.bounding_box.html">porepy.geometry.bounding_box module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.constrain_geometry.html">porepy.geometry.constrain_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.distances.html">porepy.geometry.distances module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html">porepy.geometry.geometry_property_checks module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.half_space.html">porepy.geometry.half_space module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.intersections.html">porepy.geometry.intersections module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.map_geometry.html">porepy.geometry.map_geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.geometry.point_in_polyhedron_test.html">porepy.geometry.point_in_polyhedron_test module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.html">porepy.grids package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.html">porepy.grids.standard_grids package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_2d.html">porepy.grids.standard_grids.md_grids_2d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.md_grids_3d.html">porepy.grids.standard_grids.md_grids_3d module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html">porepy.grids.standard_grids.utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.boundary_grid.html">porepy.grids.boundary_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.coarsening.html">porepy.grids.coarsening module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid.html">porepy.grids.grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.grid_extrusion.html">porepy.grids.grid_extrusion module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.match_grids.html">porepy.grids.match_grids module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.md_grid.html">porepy.grids.md_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.mortar_grid.html">porepy.grids.mortar_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.partition.html">porepy.grids.partition module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.point_grid.html">porepy.grids.point_grid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.refinement.html">porepy.grids.refinement module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.simplex.html">porepy.grids.simplex module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.grids.structured.html">porepy.grids.structured module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.html">porepy.models package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.html">porepy.models.verification_setups package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_comp_frac.html">porepy.models.verification_setups.manu_flow_comp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.manu_flow_incomp_frac.html">porepy.models.verification_setups.manu_flow_incomp_frac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.manu_poromech_nofrac.html">porepy.models.verification_setups.manu_poromech_nofrac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.verification_setups.verifications_utils.html">porepy.models.verification_setups.verifications_utils module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_equations.html">porepy.models.abstract_equations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.abstract_model.html">porepy.models.abstract_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.constitutive_laws.html">porepy.models.constitutive_laws module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html">porepy.models.contact_mechanics_biot_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.contact_mechanics_model.html">porepy.models.contact_mechanics_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.energy_balance.html">porepy.models.energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.fluid_mass_balance.html">porepy.models.fluid_mass_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.geometry.html">porepy.models.geometry module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.incompressible_flow_model.html">porepy.models.incompressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html">porepy.models.mass_and_energy_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.material_constants.html">porepy.models.material_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.momentum_balance.html">porepy.models.momentum_balance module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.poromechanics.html">porepy.models.poromechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.run_models.html">porepy.models.run_models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html">porepy.models.slightly_compressible_flow_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.solution_strategy.html">porepy.models.solution_strategy module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thermoporomechanics.html">porepy.models.thermoporomechanics module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.thm_model.html">porepy.models.thm_model module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.models.units.html">porepy.models.units module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.html">porepy.numerics package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.html">porepy.numerics.ad package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html">porepy.numerics.ad.discretizations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_manager.html">porepy.numerics.ad.equation_manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html">porepy.numerics.ad.equation_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.forward_mode.html">porepy.numerics.ad.forward_mode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.functions.html">porepy.numerics.ad.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.grid_operators.html">porepy.numerics.ad.grid_operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operator_functions.html">porepy.numerics.ad.operator_functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html">porepy.numerics.ad.operators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.ad.time_derivatives.html">porepy.numerics.ad.time_derivatives module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.html">porepy.numerics.fem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fem.rt0.html">porepy.numerics.fem.rt0 module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.conforming_propagation.html">porepy.numerics.fracture_deformation.conforming_propagation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html">porepy.numerics.fracture_deformation.contact_conditions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagate_fracture.html">porepy.numerics.fracture_deformation.propagate_fracture module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.propagation_model.html">porepy.numerics.fracture_deformation.propagation_model module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.html">porepy.numerics.fv package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html">porepy.numerics.fv.biot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html">porepy.numerics.fv.fv_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html">porepy.numerics.fv.fvutils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html">porepy.numerics.fv.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html">porepy.numerics.fv.mpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.mpsa.html">porepy.numerics.fv.mpsa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.source.html">porepy.numerics.fv.source module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.tpfa.html">porepy.numerics.fv.tpfa module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.fv.upwind.html">porepy.numerics.fv.upwind module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.abstract_interface_law.html">porepy.numerics.interface_laws.abstract_interface_law module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html">porepy.numerics.interface_laws.cell_dof_face_dof_map module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html">porepy.numerics.interface_laws.contact_mechanics_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_discretization.html">porepy.numerics.interface_laws.elliptic_discretization module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.elliptic_interface_laws.html">porepy.numerics.interface_laws.elliptic_interface_laws module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.interface_laws.hyperbolic_interface_laws.html">porepy.numerics.interface_laws.hyperbolic_interface_laws module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.html">porepy.numerics.linalg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html">porepy.numerics.linalg.matrix_operations module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.html">porepy.numerics.mixed_dim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html">porepy.numerics.mixed_dim.assembler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler_filters.html">porepy.numerics.mixed_dim.assembler_filters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.dof_manager.html">porepy.numerics.mixed_dim.dof_manager module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.html">porepy.numerics.nonlinear package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.nonlinear.nonlinear_solvers.html">porepy.numerics.nonlinear.nonlinear_solvers module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.html">porepy.numerics.solvers package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.solvers.andersonacceleration.html">porepy.numerics.solvers.andersonacceleration module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.html">porepy.numerics.vem package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.dual_elliptic.html">porepy.numerics.vem.dual_elliptic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.hybrid.html">porepy.numerics.vem.hybrid module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mass_matrix.html">porepy.numerics.vem.mass_matrix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.mvem.html">porepy.numerics.vem.mvem module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.vem.vem_source.html">porepy.numerics.vem.vem_source module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.discretization.html">porepy.numerics.discretization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.displacement_correlation.html">porepy.numerics.displacement_correlation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.linear_solvers.html">porepy.numerics.linear_solvers module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.numerics.time_step_control.html">porepy.numerics.time_step_control module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.html">porepy.params package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.bc.html">porepy.params.bc module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.data.html">porepy.params.data module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.fluid.html">porepy.params.fluid module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.parameter_dictionaries.html">porepy.params.parameter_dictionaries module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.rock.html">porepy.params.rock module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.params.tensor.html">porepy.params.tensor module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.html">porepy.utils package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html">porepy.utils.derived_discretizations.implicit_euler module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.accumarray.html">porepy.utils.accumarray module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.adtree.html">porepy.utils.adtree module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.array_operations.html">porepy.utils.array_operations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.common_constants.html">porepy.utils.common_constants module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.default_domains.html">porepy.utils.default_domains module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.error.html">porepy.utils.error module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.graph.html">porepy.utils.graph module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.grid_utils.html">porepy.utils.grid_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.interpolation_tables.html">porepy.utils.interpolation_tables module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.mcolon.html">porepy.utils.mcolon module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.permutations.html">porepy.utils.permutations module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.porepy_types.html">porepy.utils.porepy_types module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.setmembership.html">porepy.utils.setmembership module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.sort_points.html">porepy.utils.sort_points module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tags.html">porepy.utils.tags module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.utils.tangential_normal_projection.html">porepy.utils.tangential_normal_projection module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.html">porepy.viz package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.data_saving_model_mixin.html">porepy.viz.data_saving_model_mixin module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.exporter.html">porepy.viz.exporter module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.fracture_visualization.html">porepy.viz.fracture_visualization module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../docsrc/porepy/porepy.viz.plot_grid.html">porepy.viz.plot_grid module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-docstring.html">1. How to docstring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docsrc/howto/howto-build-docs.html">2. How to build documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">porepy.numerics.fracture_deformation.contact_conditions</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for porepy.numerics.fracture_deformation.contact_conditions</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">For details on the conditions discretized herein, see</span>
+
+<span class="sd">Berge et al., 2019: Finite volume discretization for poroelastic media with fractures</span>
+<span class="sd">modeled by contact mechanics.</span>
+
+<span class="sd">When solving contact problems, the sought fracture displacement (jumps) are defined</span>
+<span class="sd">relative to an initial state. For transient problems, this initial state is the solution</span>
+<span class="sd">at the previous time step. The state should be available in</span>
+
+<span class="sd">    d[pp.STATE][self.mortar_displacement_variable],</span>
+
+<span class="sd">and may usually be set to zero for stationary problems. The ColoumbContact</span>
+<span class="sd">discretization operates on relative tangential jumps and absolute normal jumps.</span>
+<span class="sd">See also contact_mechanics_interface_laws.py.</span>
+
+<span class="sd">Signs of displacement jumps are reversed compared to Berge due to the PorePy definition</span>
+<span class="sd">of the jump as [[ var ]] = var_k - var_j, which implies that positive normal jumps</span>
+<span class="sd">correspond to fracture opening. Note that the fracture normal is in agreement with</span>
+<span class="sd">Berge, i.e. it equals the outwards normal on the j side.</span>
+
+<span class="sd">Option added to the Berge model:</span>
+<span class="sd">Include a simple relationship between the gap and tangential displacements, i.e.</span>
+
+<span class="sd">   g = g_0 + tan(dilation_angle) * || u_t ||,</span>
+
+<span class="sd">with g_0 indicating initial gap distance. This only affects the normal relations when</span>
+<span class="sd">fractures are in contact. The relation [u_n^{k+1}] = g of eqs. 30 and 31 becomes</span>
+
+<span class="sd">   u_n^{k+1} - Dg^k \dot u_t^{k+1} = g^k - Dg \dot u_t^{k},</span>
+
+<span class="sd">with Dg = dg/du_t. For the above g, we have Dg = tan(dilation_angle) * u_t / || u_t ||.</span>
+<span class="sd">For the case u_t = 0, we extend the Jacobian to 0, i.e.</span>
+<span class="sd">    dg/du_t(|| u_t || = 0) = 0.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span> <span class="nn">porepy.numerics.interface_laws.abstract_interface_law</span>
+<span class="kn">from</span> <span class="nn">porepy.numerics.interface_laws.abstract_interface_law</span> <span class="kn">import</span> <span class="n">AbstractInterfaceLaw</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ColoumbContact"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact">[docs]</a><span class="k">class</span> <span class="nc">ColoumbContact</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">discr_h</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">ambient_dimension</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mortar_displacement_variable</span> <span class="o">=</span> <span class="s2">&quot;mortar_u&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">contact_variable</span> <span class="o">=</span> <span class="s2">&quot;contact_traction&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">traction_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;traction_discretization&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">displacement_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;displacement_discretization&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rhs_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;contact_rhs&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_h</span> <span class="o">=</span> <span class="n">discr_h</span>
+        <span class="c1"># Tolerance used to define numbers that effectively are zero.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-10</span>
+
+    <span class="k">def</span> <span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_discretization_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span><span class="p">()</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION</span>
+
+<div class="viewcode-block" id="ColoumbContact.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span></div>
+
+<div class="viewcode-block" id="ColoumbContact.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_edge</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Discretize the contact conditions using a semi-smooth Newton</span>
+<span class="sd">        approach.</span>
+
+<span class="sd">        The function relates the contact forces, represented on the</span>
+<span class="sd">        lower-dimensional grid, to the jump in displacement between the two</span>
+<span class="sd">        adjacent mortar grids. The function provides a (linearized)</span>
+<span class="sd">        disrcetizaiton of the contact conditions, as described in Berge et al.</span>
+
+<span class="sd">        The discertization is stated in the coordinate system defined by the</span>
+<span class="sd">        projection operator associated with the surface. The contact forces</span>
+<span class="sd">        should be interpreted as tangential and normal to this plane.</span>
+
+<span class="sd">        Parameters in data_secondary:</span>
+<span class="sd">            &quot;friction_coefficient&quot;: float or np.ndarray (sd_secondary.num_cells). A float</span>
+<span class="sd">        is interpreted as a homogenous coefficient for all cells of the fracture.</span>
+<span class="sd">            &quot;c_num&quot;: float. Numerical parameter, defaults to 100. The sensitivity</span>
+<span class="sd">        is currently unknown.</span>
+
+<span class="sd">        Optional parameters: float or np.ndarray (sd_secondary.num_cells), all default to 0:</span>
+<span class="sd">            &quot;initial_gap&quot;: The gap (minimum normal opening) in the undeformed state.</span>
+<span class="sd">            &quot;dilation_angle&quot;: Angle for dilation relation, see above.</span>
+<span class="sd">            &quot;cohesion&quot;: Threshold value for tangential traction.</span>
+
+<span class="sd">        NOTES:</span>
+<span class="sd">            Quantities stated in the global coordinate system (e.g.</span>
+<span class="sd">        displacements on the adjacent mortar grids) must be projected to the</span>
+<span class="sd">        local system, using the same projection operator, when paired with the</span>
+<span class="sd">        produced discretization (that is, in the global assembly).</span>
+
+<span class="sd">        Assumptions and other noteworthy aspects:  TODO: Rewrite this when the</span>
+<span class="sd">        implementation is ready.</span>
+<span class="sd">            * The contact surface is planar, so that all cells on the surface can</span>
+<span class="sd">            be described by a single normal vector.</span>
+<span class="sd">            * The contact forces are represented directly in the local</span>
+<span class="sd">            coordinate system of the surface. The first self.dim - 1 elements</span>
+<span class="sd">            of the contact vector are the tangential components of the first</span>
+<span class="sd">            cell, then the normal component, then tangential of the second cell</span>
+<span class="sd">            etc.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># CLARIFICATIONS NEEDED:</span>
+        <span class="c1">#   1) Do projection and rotation commute on non-matching grids? The</span>
+        <span class="c1">#   gut feel says yes, but I&#39;m not sure.</span>
+
+        <span class="c1"># Process input</span>
+        <span class="n">parameters_l</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">]</span>
+
+        <span class="c1"># Numerical parameter, value and sensitivity is currently unknown.</span>
+        <span class="c1"># The thesis of Hueeber is probably a good place to look for information.</span>
+        <span class="n">c_num</span> <span class="o">=</span> <span class="n">parameters_l</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">&quot;contact_mechanics_numerical_parameter&quot;</span><span class="p">,</span> <span class="mi">100</span>
+        <span class="p">)</span>
+        <span class="c1"># Obtain the four cellwise parameters:</span>
+        <span class="c1"># Mandatory friction coefficient relates normal and tangential forces.</span>
+        <span class="c1"># The initial gap will usually be zero.</span>
+        <span class="c1"># The gap value may be a function of tangential displacement.</span>
+        <span class="c1"># We assume g(u_t) = - tan(dilation_angle) * || u_t ||</span>
+        <span class="c1"># The cohesion represents a minimal force, independent of the normal force,</span>
+        <span class="c1"># that must be overcome before the onset of sliding.</span>
+        <span class="n">cellwise_parameters</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;friction_coefficient&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;initial_gap&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dilation_angle&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cohesion&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="n">defaults</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">parameters_l</span><span class="o">.</span><span class="n">expand_scalars</span><span class="p">(</span>
+            <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">,</span> <span class="n">cellwise_parameters</span><span class="p">,</span> <span class="n">defaults</span>
+        <span class="p">)</span>
+        <span class="n">friction_coefficient</span><span class="p">,</span> <span class="n">initial_gap</span><span class="p">,</span> <span class="n">dilation_angle</span><span class="p">,</span> <span class="n">cohesion</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">vals</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">vals</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+            <span class="n">vals</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="c1"># In an attempt to reduce the sensitivity of the numerical parameter on the</span>
+        <span class="c1"># model parameters, we scale it with area and an order-of-magnitude estimate</span>
+        <span class="c1"># for the elastic moduli.</span>
+        <span class="n">area</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_volumes</span>
+
+        <span class="n">parameters_primary</span> <span class="o">=</span> <span class="n">data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">discr_h</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
+        <span class="n">constit_primary</span> <span class="o">=</span> <span class="n">parameters_primary</span><span class="p">[</span><span class="s2">&quot;fourth_order_tensor&quot;</span><span class="p">]</span>
+        <span class="n">mean_constit</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="p">()</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_avg</span><span class="p">()</span>
+            <span class="o">*</span> <span class="mf">0.5</span>
+            <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span>
+                <span class="n">sd_primary</span><span class="o">.</span><span class="n">cell_faces</span> <span class="o">*</span> <span class="p">(</span><span class="n">constit_primary</span><span class="o">.</span><span class="n">mu</span> <span class="o">+</span> <span class="n">constit_primary</span><span class="o">.</span><span class="n">lmbda</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">c_num_normal</span> <span class="o">=</span> <span class="n">c_num</span> <span class="o">*</span> <span class="n">mean_constit</span> <span class="o">*</span> <span class="n">area</span>
+        <span class="n">c_num_tangential</span> <span class="o">=</span> <span class="n">c_num</span> <span class="o">*</span> <span class="n">mean_constit</span> <span class="o">*</span> <span class="n">area</span>
+
+        <span class="c1"># The tractions are scaled with area, so do the same with the cohesion.</span>
+        <span class="n">scaled_cohesion</span> <span class="o">=</span> <span class="n">cohesion</span> <span class="o">*</span> <span class="n">area</span>
+
+        <span class="c1"># TODO: Implement a single method to get the normal vector with right sign</span>
+        <span class="c1"># thus the right local coordinate system.</span>
+
+        <span class="c1"># Pick the projection operator (defined elsewhere) for this surface.</span>
+        <span class="c1"># IMPLEMENATION NOTE: It is paramount that this projection is used for all</span>
+        <span class="c1"># operations relating to this surface, or else directions of normal vectors</span>
+        <span class="c1"># will get confused.</span>
+        <span class="n">projection</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="s2">&quot;tangential_normal_projection&quot;</span><span class="p">]</span>
+
+        <span class="c1"># The contact force is already computed in local coordinates</span>
+        <span class="n">contact_force</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">contact_variable</span><span class="p">]</span>
+
+        <span class="c1"># Pick out the tangential and normal direction of the contact force.</span>
+        <span class="c1"># The contact force of the first cell is in the first self.dim elements</span>
+        <span class="c1"># of the vector, second cell has the next self.dim etc.</span>
+        <span class="c1"># By design the tangential force is the first self.dim-1 components of</span>
+        <span class="c1"># each cell, while the normal force is the last component.</span>
+        <span class="n">normal_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">contact_force</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">tangential_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">contact_force</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">normal_indices</span><span class="p">)</span>
+        <span class="n">contact_force_normal</span> <span class="o">=</span> <span class="n">contact_force</span><span class="p">[</span><span class="n">normal_indices</span><span class="p">]</span>
+        <span class="n">contact_force_tangential</span> <span class="o">=</span> <span class="n">contact_force</span><span class="p">[</span><span class="n">tangential_indices</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># The displacement jump (in global coordinates) is found by switching the</span>
+        <span class="c1"># sign of the second mortar grid, and then sum the displacements on the</span>
+        <span class="c1"># two sides (which is really a difference since one of the sides have</span>
+        <span class="c1"># its sign switched).</span>
+        <span class="c1"># The tangential displacements are relative to the initial state, which in the</span>
+        <span class="c1"># transient case equals the previous time step.</span>
+        <span class="n">previous_displacement_iterate</span> <span class="o">=</span> <span class="n">data_edge</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mortar_displacement_variable</span>
+        <span class="p">]</span>
+        <span class="n">previous_displacement_time</span> <span class="o">=</span> <span class="n">data_edge</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mortar_displacement_variable</span>
+        <span class="p">]</span>
+        <span class="n">displacement_jump_global_coord_iterate</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">previous_displacement_iterate</span>
+        <span class="p">)</span>
+        <span class="n">displacement_jump_global_coord_time</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">sign_of_mortar_sides</span><span class="p">(</span><span class="n">nd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">previous_displacement_time</span>
+        <span class="p">)</span>
+        <span class="c1"># Rotated displacement jumps. These are in the local coordinates, on</span>
+        <span class="c1"># the lower-dimensional grid. For the normal direction, we consider the absolute</span>
+        <span class="c1"># displacement, not that relative to the initial state.</span>
+        <span class="n">displacement_jump_normal</span> <span class="o">=</span> <span class="n">projection</span><span class="o">.</span><span class="n">project_normal</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="n">displacement_jump_global_coord_iterate</span>
+        <span class="p">)</span>
+        <span class="c1"># The jump in the tangential direction is in sd_secondary.dim columns, one per</span>
+        <span class="c1"># dimension in the tangential direction. For the tangential direction, we</span>
+        <span class="c1"># consider the relative displacement.</span>
+        <span class="n">displacement_jump_tangential</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">projection</span><span class="o">.</span><span class="n">project_tangential</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+            <span class="o">*</span> <span class="p">(</span>
+                <span class="n">displacement_jump_global_coord_iterate</span>
+                <span class="o">-</span> <span class="n">displacement_jump_global_coord_time</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+
+        <span class="n">cumulative_tangential_jump</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">projection</span><span class="o">.</span><span class="n">project_tangential</span><span class="p">(</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">displacement_jump_global_coord_iterate</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Compute gap if it is a function of tangential jump, i.e.</span>
+        <span class="c1"># g = g(u) + g_0 (careful with sign!)</span>
+        <span class="c1"># Both dilation angle and g_0 default to zero (see above), implying g(u) = 0</span>
+        <span class="n">norm_displacement_jump_tangential</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span>
+            <span class="n">cumulative_tangential_jump</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
+        <span class="p">)</span>
+        <span class="n">gap</span> <span class="o">=</span> <span class="n">initial_gap</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">dilation_angle</span><span class="p">)</span> <span class="o">*</span> <span class="n">norm_displacement_jump_tangential</span>
+
+        <span class="c1"># Compute dg/du_t = tan(dilation_angle) u_t / || u_t ||</span>
+        <span class="c1"># Avoid dividing by zero if u_t = 0. In this case, we extend to the limit value</span>
+        <span class="c1"># to zero, see module level explanation.</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">cumulative_tangential_jump</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tol</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tol</span><span class="p">)</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">d_gap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">sd_secondary</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">num_cells</span><span class="p">))</span>
+        <span class="c1"># Compute dg/du_t where u_t is nonzero</span>
+        <span class="n">tan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">dilation_angle</span><span class="p">)[</span><span class="n">ind</span><span class="p">])</span>
+        <span class="n">d_gap</span><span class="p">[:,</span> <span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">tan</span>
+            <span class="o">*</span> <span class="n">cumulative_tangential_jump</span><span class="p">[:,</span> <span class="n">ind</span><span class="p">]</span>
+            <span class="o">/</span> <span class="n">norm_displacement_jump_tangential</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="c1"># The friction bound is computed from the previous state of the contact</span>
+        <span class="c1"># force and normal component of the displacement jump.</span>
+        <span class="c1"># Note that the displacement jump is rotated before adding to the contact force</span>
+        <span class="n">friction_bound</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">friction_coefficient</span>
+            <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span>
+                <span class="o">-</span><span class="n">contact_force_normal</span> <span class="o">-</span> <span class="n">c_num_normal</span> <span class="o">*</span> <span class="p">(</span><span class="n">displacement_jump_normal</span> <span class="o">-</span> <span class="n">gap</span><span class="p">),</span>
+                <span class="mi">0</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="n">scaled_cohesion</span>
+        <span class="p">)</span>
+
+        <span class="n">num_cells</span> <span class="o">=</span> <span class="n">friction_coefficient</span><span class="o">.</span><span class="n">size</span>
+
+        <span class="c1"># Find contact and sliding region</span>
+
+        <span class="c1"># Contact region is determined from the normal direction.</span>
+        <span class="n">penetration_bc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_penetration</span><span class="p">(</span>
+            <span class="n">contact_force_normal</span><span class="p">,</span> <span class="n">displacement_jump_normal</span><span class="p">,</span> <span class="n">c_num_normal</span><span class="p">,</span> <span class="n">gap</span>
+        <span class="p">)</span>
+        <span class="c1"># Check criterion for sliding</span>
+        <span class="n">sliding_bc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sliding</span><span class="p">(</span>
+            <span class="n">contact_force_tangential</span><span class="p">,</span>
+            <span class="n">displacement_jump_tangential</span><span class="p">,</span>
+            <span class="n">friction_bound</span><span class="p">,</span>
+            <span class="n">c_num_tangential</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Structures for storing the computed coefficients.</span>
+        <span class="n">displacement_weight</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Multiplies displacement jump</span>
+        <span class="n">traction_weight</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Multiplies the normal forces</span>
+        <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>  <span class="c1"># Goes to the right hand side.</span>
+
+        <span class="c1"># Zero vectors of the size of the tangential space and the full space,</span>
+        <span class="c1"># respectively. These are needed to complement the discretization</span>
+        <span class="c1"># coefficients to be determined below.</span>
+        <span class="n">zer</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">zer1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+        <span class="n">zer1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># Loop over all mortar cells, discretize according to the current state of</span>
+        <span class="c1"># the contact</span>
+        <span class="c1"># The loop computes three parameters:</span>
+        <span class="c1"># L will eventually multiply the displacement jump, and be associated with</span>
+        <span class="c1">#   the coefficient in a Robin boundary condition (using the terminology of</span>
+        <span class="c1">#   the mpsa implementation)</span>
+        <span class="c1"># r is the right hand side term</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_cells</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">sliding_bc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">penetration_bc</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>  <span class="c1"># in contact and sliding</span>
+                <span class="c1"># This is Eq (31) in Berge et al, including the regularization</span>
+                <span class="c1"># described in (32) and onwards. The expressions are somewhat complex,</span>
+                <span class="c1"># and are therefore moved to subfunctions.</span>
+                <span class="n">loc_displacement_tangential</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sliding_coefficients</span><span class="p">(</span>
+                    <span class="n">contact_force_tangential</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span>
+                    <span class="n">displacement_jump_tangential</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span>
+                    <span class="n">friction_bound</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                    <span class="n">c_num_tangential</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="p">)</span>
+
+                <span class="c1"># There is no interaction between displacement jumps in normal and</span>
+                <span class="c1"># tangential direction. Opposite sign compared to Berge because</span>
+                <span class="c1"># of jump conventions being opposite.</span>
+                <span class="n">L</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">loc_displacement_tangential</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">zer</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+                <span class="n">normal_displacement</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="o">-</span><span class="n">d_gap</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="n">loc_displacement_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">L</span><span class="p">,</span> <span class="n">normal_displacement</span><span class="p">))</span>
+                <span class="c1"># Right hand side is computed from (24-25). In the normal</span>
+                <span class="c1"># direction, a contribution from the previous iterate enters to cancel</span>
+                <span class="c1"># the gap</span>
+                <span class="n">r_n</span> <span class="o">=</span> <span class="n">gap</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">d_gap</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">cumulative_tangential_jump</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+                <span class="n">r_t</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="n">friction_bound</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">r_t</span><span class="p">,</span> <span class="n">r_n</span><span class="p">))</span>
+                <span class="c1"># Unit contribution from tangential force</span>
+                <span class="n">loc_traction_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+                <span class="c1"># Zero weight on normal force</span>
+                <span class="n">loc_traction_weight</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="c1"># Contribution from normal force</span>
+                <span class="c1"># NOTE: The sign is different from Berge (31); the paper is wrong</span>
+                <span class="n">loc_traction_weight</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">friction_coefficient</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+            <span class="k">elif</span> <span class="o">~</span><span class="n">sliding_bc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">penetration_bc</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>  <span class="c1"># In contact and sticking</span>
+                <span class="c1"># Weight for contact force computed according to (30) in Berge.</span>
+                <span class="c1"># NOTE: There is a sign error in the paper, the coefficient for the</span>
+                <span class="c1"># normal contact force should have a minus in front of it</span>
+                <span class="n">loc_traction_tangential</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="o">-</span><span class="n">friction_coefficient</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># The minus sign is correct</span>
+                    <span class="o">*</span> <span class="n">displacement_jump_tangential</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+                    <span class="o">/</span> <span class="n">friction_bound</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="c1"># Unit coefficient for all displacement jumps</span>
+                <span class="n">loc_displacement_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+                <span class="c1"># For non-constant gap, relate normal and tangential jumps</span>
+                <span class="n">loc_displacement_weight</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">d_gap</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+
+                <span class="c1"># Tangential traction dependent on normal one</span>
+                <span class="n">loc_traction_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+                <span class="n">loc_traction_weight</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">loc_traction_tangential</span>
+
+                <span class="c1"># The right hand side is the previous tangential jump, and the gap</span>
+                <span class="c1"># value in the normal direction.</span>
+                <span class="n">r_t</span> <span class="o">=</span> <span class="n">displacement_jump_tangential</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+                <span class="n">r_n</span> <span class="o">=</span> <span class="n">gap</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">d_gap</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">cumulative_tangential_jump</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                <span class="c1"># assert np.isclose(r_n, initial_gap[i])</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">r_t</span><span class="p">,</span> <span class="n">r_n</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+            <span class="k">elif</span> <span class="o">~</span><span class="n">penetration_bc</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>  <span class="c1"># not in contact</span>
+                <span class="c1"># This is a free boundary, no conditions on displacement</span>
+                <span class="n">loc_displacement_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+
+                <span class="c1"># Free boundary conditions on the forces.</span>
+                <span class="n">loc_traction_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># should never happen</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;Should not get here&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Depending on the state of the system, the weights in the tangential direction may</span>
+            <span class="c1"># become huge or tiny compared to the other equations. This will</span>
+            <span class="c1"># impede convergence of an iterative solver for the linearized</span>
+            <span class="c1"># system. As a partial remedy, rescale the condition to become</span>
+            <span class="c1"># closer to unity.</span>
+            <span class="n">w_diag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">loc_displacement_weight</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">loc_traction_weight</span><span class="p">)</span>
+            <span class="n">W_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">w_diag</span><span class="p">)</span>
+            <span class="n">loc_displacement_weight</span> <span class="o">=</span> <span class="n">W_inv</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">loc_displacement_weight</span><span class="p">)</span>
+            <span class="n">loc_traction_weight</span> <span class="o">=</span> <span class="n">W_inv</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">loc_traction_weight</span><span class="p">)</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">/</span> <span class="n">w_diag</span>
+
+            <span class="c1"># Append to the list of global coefficients.</span>
+            <span class="n">displacement_weight</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loc_displacement_weight</span><span class="p">)</span>
+            <span class="n">traction_weight</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loc_traction_weight</span><span class="p">)</span>
+            <span class="n">rhs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">rhs</span><span class="p">,</span> <span class="n">r</span><span class="p">))</span>
+
+        <span class="n">num_blocks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">traction_weight</span><span class="p">)</span>
+        <span class="n">data_traction</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">traction_weight</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+
+        <span class="n">data_displacement</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">displacement_weight</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+
+        <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">traction_matrix_key</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">csr_matrix_from_blocks</span><span class="p">(</span>
+            <span class="n">data_traction</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">num_blocks</span>
+        <span class="p">)</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">displacement_matrix_key</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">csr_matrix_from_blocks</span><span class="p">(</span>
+            <span class="n">data_displacement</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">num_blocks</span>
+        <span class="p">)</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rhs_matrix_key</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">rhs</span>
+
+        <span class="c1"># Also store the contact state</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="s2">&quot;penetration&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">penetration_bc</span>
+        <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="s2">&quot;sliding&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sliding_bc</span></div>
+
+<div class="viewcode-block" id="ColoumbContact.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_intf</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># Generate matrix for the coupling. This can probably be generalized</span>
+        <span class="c1"># once we have decided on a format for the general variables</span>
+        <span class="n">traction_coefficient</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">traction_matrix_key</span>
+        <span class="p">]</span>
+        <span class="n">displacement_coefficient</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span>
+        <span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">displacement_matrix_key</span><span class="p">]</span>
+
+        <span class="n">rhs</span> <span class="o">=</span> <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rhs_matrix_key</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">traction_coefficient</span><span class="p">,</span> <span class="n">displacement_coefficient</span><span class="p">,</span> <span class="n">rhs</span></div>
+
+    <span class="c1"># Active and inactive boundary faces</span>
+    <span class="k">def</span> <span class="nf">_sliding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ct</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find faces where the frictional bound is exceeded, that is, the face is</span>
+<span class="sd">        sliding.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            Tt (np.array, nd-1 x num_cells): Tangential forces.</span>
+<span class="sd">            ut (np.array, nd-1 x num_cells): Displacements jump velocity in tangential</span>
+<span class="sd">                direction.</span>
+<span class="sd">            bf (np.array, num_cells): Friction bound.</span>
+<span class="sd">            ct (np.array, num_cells): Numerical parameter that relates displacement jump to</span>
+<span class="sd">                tangential forces. See Huber et al for explanation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            boolean, size num_faces: True if |-Tt + ct*ut| &gt; bf for a face</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Use thresholding to not pick up faces that are just about sticking</span>
+        <span class="c1"># Not sure about the sensitivity to the tolerance parameter here.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">ct</span> <span class="o">*</span> <span class="n">ut</span><span class="p">)</span> <span class="o">-</span> <span class="n">bf</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
+
+    <span class="k">def</span> <span class="nf">_penetration</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">Tn</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">un</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cn</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">gap</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Find faces that are in contact.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            Tn (np.array, num_cells): Normal forces.</span>
+<span class="sd">            un (np.array, num_cells): Displament jump in normal direction.</span>
+<span class="sd">            cn (np.array, num_cells): Numerical parameter that relates displacement jump to</span>
+<span class="sd">                normal forces. See Huber et al for explanation.</span>
+<span class="sd">            gap (np.array, num_cells): Value of gap function.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            boolean, size num_cells: True if |-Tu + cn*un| &gt; 0 for a cell.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Not sure about the sensitivity to the tolerance parameter here.</span>
+        <span class="k">return</span> <span class="p">(</span><span class="o">-</span><span class="n">Tn</span> <span class="o">-</span> <span class="n">cn</span> <span class="o">*</span> <span class="p">(</span><span class="n">un</span> <span class="o">-</span> <span class="n">gap</span><span class="p">))</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
+
+    <span class="c1">#####</span>
+    <span class="c1">## Below here are different help function for calculating the Newton step</span>
+    <span class="c1">#####</span>
+
+    <span class="k">def</span> <span class="nf">_e</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="c1"># Compute part of (32) in Berge et al.</span>
+        <span class="k">return</span> <span class="n">bf</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_Q</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="c1"># Implementation of the term Q involved in the calculation of (32) in Berge</span>
+        <span class="c1"># et al.</span>
+        <span class="c1"># This is the regularized Q</span>
+        <span class="n">numerator</span> <span class="o">=</span> <span class="o">-</span><span class="n">Tt</span><span class="o">.</span><span class="n">dot</span><span class="p">((</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+        <span class="c1"># Regularization to avoid issues during the iterations to avoid dividing by</span>
+        <span class="c1"># zero if the faces are not in contact durign iterations.</span>
+        <span class="n">denominator</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">bf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span><span class="p">))</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">numerator</span> <span class="o">/</span> <span class="n">denominator</span>
+
+    <span class="k">def</span> <span class="nf">_M</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Compute the coefficient M used in Eq. (32) in Berge et al.&quot;&quot;&quot;</span>
+        <span class="n">Id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">Tt</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="c1"># M = e * (I - Q)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_e</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">Id</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Q</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_hf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="c1"># This is the product e * Q * (-Tt + cut), used in computation of r in (32)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_e</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Q</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_sliding_coefficients</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the regularized versions of coefficients L, v and r, defined in</span>
+<span class="sd">        Eq. (32) and section 3.2.1 in Berge et al. and used in Eq. (31).</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            Tt: Tangential forces. np array, one or two elements</span>
+<span class="sd">            ut: Tangential displacement increment. Same size as Tt.</span>
+<span class="sd">            bf: Friction bound for this mortar cell.</span>
+<span class="sd">            c: Numerical parameter</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            L: Weights for tangential displacement increment.</span>
+<span class="sd">            v: Weights for normal traction.</span>
+<span class="sd">            r: rhs contribution.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">Tt</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">Tt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">Tt</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">ut</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">ut</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="n">cut</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">ut</span>
+        <span class="c1"># Identity matrix</span>
+        <span class="n">Id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">Tt</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1"># Shortcut if the friction coefficient is effectively zero.</span>
+        <span class="c1"># Numerical tolerance here is likely somewhat arbitrary.</span>
+        <span class="k">if</span> <span class="n">bf</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="mi">0</span> <span class="o">*</span> <span class="n">Id</span><span class="p">,</span>
+                <span class="n">bf</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">Id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)),</span>
+                <span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Compute the coefficient M</span>
+        <span class="n">coeff_M</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_M</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">)</span>
+
+        <span class="c1"># Regularization during the iterations requires computations of parameters</span>
+        <span class="c1"># alpha, beta, delta. In degenerate cases, use</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="c1"># Avoid division by zero:</span>
+        <span class="n">l2_Tt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">l2_Tt</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span><span class="p">:</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="o">-</span><span class="n">Tt</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">l2_Tt</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">))</span>
+            <span class="c1"># Parameter delta.</span>
+            <span class="c1"># NOTE: The denominator bf is correct. The definition given in Berge is wrong.</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">l2_Tt</span> <span class="o">/</span> <span class="n">bf</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">alpha</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">beta</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">delta</span><span class="p">)</span>
+
+        <span class="c1"># The expression (I - beta * M)^-1</span>
+        <span class="c1"># NOTE: In the definition of \tilde{L} in Berge, the inverse on the inner</span>
+        <span class="c1"># paranthesis is missing.</span>
+        <span class="n">IdM_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">Id</span> <span class="o">-</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">coeff_M</span><span class="p">)</span>
+
+        <span class="n">L</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="n">IdM_inv</span> <span class="o">-</span> <span class="n">Id</span><span class="p">)</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="o">-</span><span class="n">IdM_inv</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hf</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">))</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">IdM_inv</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">L</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">v</span>
+
+    <span class="k">def</span> <span class="nf">_l2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="set_projections"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.set_projections">[docs]</a><span class="k">def</span> <span class="nf">set_projections</span><span class="p">(</span>
+    <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Define a local coordinate system, and projection matrices, for all</span>
+<span class="sd">    grids of co-dimension 1.</span>
+
+<span class="sd">    The function adds one item to the data dictionary of all MixedDimensionalGrid edges</span>
+<span class="sd">    that neighbors a co-dimension 1 grid, defined as:</span>
+<span class="sd">        key: tangential_normal_projection, value: pp.TangentialNormalProjection</span>
+<span class="sd">            provides projection to the surface of the lower-dimensional grid</span>
+
+<span class="sd">    Note that grids of co-dimension 2 and higher are ignored in this construction,</span>
+<span class="sd">    as we do not plan to do contact mechanics on these objects.</span>
+
+<span class="sd">    It is assumed that the surface is planar.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">interfaces</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">interfaces</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">()</span>
+
+    <span class="c1"># Information on the vector normal to the surface is not available directly</span>
+    <span class="c1"># from the surface grid (it could be constructed from the surface geometry,</span>
+    <span class="c1"># which spans the tangential plane). We instead get the normal vector from</span>
+    <span class="c1"># the adjacent higher dimensional grid.</span>
+    <span class="c1"># We therefore access the grids via the edges of the mixed-dimensional grid.</span>
+    <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="n">interfaces</span><span class="p">:</span>
+        <span class="c1"># Only consider edges where the lower-dimensional neighbor is of co-dimension 1</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">intf</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="p">(</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Neighboring grids</span>
+        <span class="n">sd_primary</span><span class="p">,</span> <span class="n">sd_secondary</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_to_subdomain_pair</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
+
+        <span class="c1"># Find faces of the higher dimensional grid that coincide with the mortar</span>
+        <span class="c1"># grid. Go via the primary to mortar projection</span>
+        <span class="c1"># Convert matrix to csr, then the relevant face indices are found from</span>
+        <span class="c1"># the (column) indices</span>
+        <span class="n">faces_on_surface</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">()</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span><span class="o">.</span><span class="n">indices</span>
+
+        <span class="c1"># Find out whether the boundary faces have outwards pointing normal vectors</span>
+        <span class="c1"># Negative sign implies that the normal vector points inwards.</span>
+        <span class="n">sgn</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">signs_and_cells_of_boundary_faces</span><span class="p">(</span><span class="n">faces_on_surface</span><span class="p">)</span>
+
+        <span class="c1"># Unit normal vector</span>
+        <span class="n">unit_normal</span> <span class="o">=</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_normals</span><span class="p">[:</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span> <span class="o">/</span> <span class="n">sd_primary</span><span class="o">.</span><span class="n">face_areas</span>
+        <span class="c1"># Ensure all normal vectors on the relevant surface points outwards</span>
+        <span class="n">unit_normal</span><span class="p">[:,</span> <span class="n">faces_on_surface</span><span class="p">]</span> <span class="o">*=</span> <span class="n">sgn</span>
+
+        <span class="c1"># Now we need to pick out *one*  normal vector of the higher dimensional grid</span>
+
+        <span class="c1"># which coincides with this mortar grid, so we kill off all entries for the</span>
+        <span class="c1"># &quot;other&quot; side:</span>
+        <span class="n">unit_normal</span><span class="p">[:,</span> <span class="n">intf</span><span class="o">.</span><span class="n">_ind_face_on_other_side</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Project to the mortar and then to the fracture</span>
+        <span class="n">outwards_unit_vector_mortar</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_int</span><span class="p">()</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">unit_normal</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">normal_lower</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_int</span><span class="p">()</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">outwards_unit_vector_mortar</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="p">)</span>
+
+        <span class="c1"># NOTE: The normal vector is based on the first cell in the mortar grid,</span>
+        <span class="c1"># and will be pointing from that cell towards the other side of the</span>
+        <span class="c1"># mortar grid. This defines the positive direction in the normal direction.</span>
+        <span class="c1"># Although a simpler implementation seems to be possible, going via the</span>
+        <span class="c1"># first element in faces_on_surface, there is no guarantee that this will</span>
+        <span class="c1"># give us a face on the positive (or negative) side, hence the more general</span>
+        <span class="c1"># approach is preferred.</span>
+        <span class="c1">#</span>
+        <span class="c1"># NOTE: The basis for the tangential direction is determined by the</span>
+        <span class="c1"># construction internally in TangentialNormalProjection.</span>
+        <span class="n">projection</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">TangentialNormalProjection</span><span class="p">(</span><span class="n">normal_lower</span><span class="p">)</span>
+
+        <span class="n">d_l</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd_secondary</span><span class="p">)</span>
+        <span class="c1"># Store the projection operator in the lower-dimensional data</span>
+        <span class="n">d_l</span><span class="p">[</span><span class="s2">&quot;tangential_normal_projection&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">projection</span></div>
+
+
+<div class="viewcode-block" id="ContactTraction"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction">[docs]</a><span class="k">class</span> <span class="nc">ContactTraction</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Discretization class for obtaining contact traction from contact force.</span>
+
+<span class="sd">    Contact force is the primary variable used in the Model classes. However,</span>
+<span class="sd">    it is beneficial to also use the secondary variable traction.</span>
+<span class="sd">    The traction is scaled with the inverse of a characteristic elastic</span>
+<span class="sd">    modulus for stable comparison with displacement jumps in the contact</span>
+<span class="sd">    equations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">discr_h</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">ambient_dimension</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">traction_scaling_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;force_to_scaled_traction&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elastic_scaling_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;elastic_scaling&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">area_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;fracture_area&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discr_h</span> <span class="o">=</span> <span class="n">discr_h</span>
+
+<div class="viewcode-block" id="ContactTraction.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span></div>
+
+<div class="viewcode-block" id="ContactTraction.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_interface</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Discretize the conversion from contact force to contact traction.</span>
+
+<span class="sd">        The diagonal discretization matrix is stored in the self.keyword</span>
+<span class="sd">        discretization matrix dictionary under the name self.traction_scaling_matrix_key</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sd_primary : pp.Grid</span>
+<span class="sd">            Grid of the matrix subdomain.</span>
+<span class="sd">        sd_secondary : pp.Grid</span>
+<span class="sd">            Grid of the fracture subdomain.</span>
+<span class="sd">        data_primary : dict</span>
+<span class="sd">            Data dictionary of the matrix subdomain.</span>
+<span class="sd">        data_secondary : dict</span>
+<span class="sd">            Data dictionary of the fracture subdomain.</span>
+<span class="sd">        data_interface : dict</span>
+<span class="sd">            Data dictionary of the matrix-fracture interface.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None</span>
+<span class="sd">            DESCRIPTION.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">area</span> <span class="o">=</span> <span class="n">sd_secondary</span><span class="o">.</span><span class="n">cell_volumes</span>
+
+        <span class="n">parameters_primary</span> <span class="o">=</span> <span class="n">data_primary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">discr_h</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
+        <span class="n">constit_primary</span> <span class="o">=</span> <span class="n">parameters_primary</span><span class="p">[</span><span class="s2">&quot;fourth_order_tensor&quot;</span><span class="p">]</span>
+        <span class="n">mean_constit</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_avg</span><span class="p">()</span>
+            <span class="o">*</span> <span class="n">intf</span><span class="o">.</span><span class="n">primary_to_mortar_avg</span><span class="p">()</span>
+            <span class="o">*</span> <span class="mf">0.5</span>
+            <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span>
+                <span class="n">sd_primary</span><span class="o">.</span><span class="n">cell_faces</span> <span class="o">*</span> <span class="p">(</span><span class="n">constit_primary</span><span class="o">.</span><span class="n">mu</span> <span class="o">+</span> <span class="n">constit_primary</span><span class="o">.</span><span class="n">lmbda</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">traction_scaling</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">mean_constit</span> <span class="o">*</span> <span class="n">area</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd_primary</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+
+        <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">traction_scaling_matrix_key</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">traction_scaling</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ContactTraction.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
+        <span class="n">data_primary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data_interface</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Abstract method required by base class.</span>
+
+<span class="sd">        TODO:</span>
+<span class="sd">            Decide if the abstract method should be removed as part of our migration</span>
+<span class="sd">            to AD</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sd_primary : pp.Grid</span>
+<span class="sd">            Higher-dimensional grid.</span>
+<span class="sd">        sd_secondary : pp.Grid</span>
+<span class="sd">            Lower-dimensional grid.</span>
+<span class="sd">        data_primary : dict</span>
+<span class="sd">            Data dictionary corresponding to sd_primary.</span>
+<span class="sd">        data_secondary : dict</span>
+<span class="sd">            Data dictionary corresponding to sd_secondary.</span>
+<span class="sd">        data_interface : dict</span>
+<span class="sd">            Data dictionary corresponding to the interface.</span>
+<span class="sd">        matrix : TYPE</span>
+<span class="sd">            Discretization matrix.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NotImplementedError</span>
+<span class="sd">            The class is not intended for use without the ad framework.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">&quot;This discretization has been designed for AD only and has no assemble method&quot;</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
