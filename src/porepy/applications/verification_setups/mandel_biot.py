@@ -304,7 +304,8 @@ class MandelExactSolution:
         c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
+        a *= m
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -362,7 +363,8 @@ class MandelExactSolution:
         c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
+        a *= m
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -413,7 +415,8 @@ class MandelExactSolution:
         c_f = self.setup.fluid_diffusivity()  # [m^2 * s^-1]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
+        a *= m
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -479,7 +482,8 @@ class MandelExactSolution:
         c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
+        a *= m
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -544,7 +548,8 @@ class MandelExactSolution:
         c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Retrieve geometrical data
-        a, _ = self.setup.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
+        a *= m
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -615,7 +620,7 @@ class MandelExactSolution:
         nu_s = self.setup.poisson_coefficient()  # [-]
         mu_s = self.setup.solid.shear_modulus()  # [Pa]
         F = self.setup.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
-        a, b = self.setup.params.get("domain_size", (100, 10))
+        a, b = self.setup.params.get("domain_size", (100, 10))  # [m]
         a *= m
         b *= m
 
@@ -770,7 +775,8 @@ class MandelUtilities(VerificationUtils):
 
         """
         m = 1 / self.units.m
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         c_f = self.fluid_diffusivity()  # [m^2 * s^{-1}]
         return (t * c_f) / (a**2)
 
@@ -785,7 +791,8 @@ class MandelUtilities(VerificationUtils):
 
         """
         m = 1 / self.units.m
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         return x / a
 
     def nondim_y(self, y: np.ndarray) -> np.ndarray:
@@ -799,7 +806,8 @@ class MandelUtilities(VerificationUtils):
 
         """
         m = 1 / self.units.m
-        _, b = self.params.get("domain_size", (100, 10)) * m  # [m]
+        _, b = self.params.get("domain_size", (100, 10))  # [m]
+        b *= m
         return y / b
 
     def nondim_p(self, p: np.ndarray) -> np.ndarray:
@@ -816,7 +824,8 @@ class MandelUtilities(VerificationUtils):
         N = 1 / self.units.N  # force scaling
         m = 1 / self.units.m  # length scaling
 
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         F = self.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
         return p / (F * a)
 
@@ -838,7 +847,8 @@ class MandelUtilities(VerificationUtils):
         k = self.solid.permeability()  # [m^2]
         F = self.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
         mu = self.fluid.viscosity()  # [Pa * s]
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         factor = (F * k) / (mu * a**2)  # [m * s^{-1}]
         return qx / factor
 
@@ -857,7 +867,8 @@ class MandelUtilities(VerificationUtils):
         N = 1 / self.units.N  # force scaling
         m = 1 / self.units.m  # length scaling
 
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         F = self.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
 
         return syy / (F / a)
@@ -954,7 +965,8 @@ class MandelUtilities(VerificationUtils):
         sd = self.mdg.subdomains()[0]
         xc = sd.cell_centers[0]
         south_cells = self.south_cells()
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         x_ex = np.linspace(0, a, 400)
 
         fig, ax = plt.subplots(figsize=(9, 8))
@@ -999,7 +1011,8 @@ class MandelUtilities(VerificationUtils):
         sd = self.mdg.subdomains()[0]
         xc = sd.cell_centers[0]
         south_cells = self.south_cells()
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         x_ex = np.linspace(0, a, 400)
 
         fig, ax = plt.subplots(figsize=(9, 8))
@@ -1048,7 +1061,8 @@ class MandelUtilities(VerificationUtils):
         sd = self.mdg.subdomains()[0]
         yc = sd.cell_centers[1]
         east_cells = self.east_cells()
-        _, b = self.params.get("domain_size", (100, 10)) * m  # [m]
+        _, b = self.params.get("domain_size", (100, 10)) # [m]
+        b *= m
         y_ex = np.linspace(0, b, 400)
 
         fig, ax = plt.subplots(figsize=(9, 8))
@@ -1103,7 +1117,8 @@ class MandelUtilities(VerificationUtils):
         int_faces_of_south_cells = np.setdiff1d(faces_of_south_cells, south_faces)
 
         m = 1 / self.units.m
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         x_ex = np.linspace(0, a, 400)
 
         fig, ax = plt.subplots(figsize=(9, 8))
@@ -1160,7 +1175,8 @@ class MandelUtilities(VerificationUtils):
         ny = sd.face_normals[1]
 
         m = 1 / self.units.m
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         x_ex = np.linspace(0, a, 400)
 
         # Vertical stress plot
@@ -1210,7 +1226,8 @@ class MandelUtilities(VerificationUtils):
 
         # Retrieve data
         m = 1 / self.units.m
-        a, _ = self.params.get("domain_size", (100, 10)) * m  # [m]
+        a, _ = self.params.get("domain_size", (100, 10))  # [m]
+        a *= m
         c_f = self.fluid_diffusivity()  # [m^2 * s^{-1}]
 
         # Generate exact consolidation times
