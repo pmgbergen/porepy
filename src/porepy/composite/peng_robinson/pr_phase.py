@@ -135,14 +135,8 @@ class PR_Phase(Phase):
 
         """
         if self.num_components > 0:
-            components: list[PR_Component] = [c for c in self]  # type: ignore
-            comp_0 = components[0]
 
-            # updating covolume term
-            b = self.fraction_of_component(comp_0) * comp_0.covolume
-            if len(components) > 1:
-                for comp in components[1:]:
-                    b += self.fraction_of_component(comp) * comp.covolume
+            b = sum([self.fraction_of_component(comp) * comp.covolume for comp in self])
 
             # phase composition must be normalized to obtain physically meaningful values
             return b / sum([self.fraction_of_component(comp) for comp in self])

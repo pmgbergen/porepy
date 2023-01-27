@@ -144,7 +144,7 @@ class Flash:
         self.armijo_parameters: dict[str, float] = {
             "kappa": 0.4,
             "rho": 0.99,
-            "j_max": 100,
+            "j_max": 150,
         }
         """A dictionary containing per parameter name (str, key) the respective
         parameter for the Armijo line-search.
@@ -374,7 +374,7 @@ class Flash:
         self.print_ordered_vars(self._C.ph_subsystem["primary_vars"])
         for equ in self._C.ph_subsystem["equations"]:
             A, b = self._C.ad_system.assemble_subsystem(
-                equ, self._C.ph_subsystem["primary_vars"]
+                [equ], self._C.ph_subsystem["primary_vars"]
             )
             print("---")
             print(equ)
@@ -387,7 +387,7 @@ class Flash:
         self.print_ordered_vars(self._C.pT_subsystem["primary_vars"])
         for equ in self._C.pT_subsystem["equations"]:
             A, b = self._C.ad_system.assemble_subsystem(
-                equ, self._C.pT_subsystem["primary_vars"]
+                [equ], self._C.pT_subsystem["primary_vars"]
             )
             print("---")
             print(equ)
@@ -453,16 +453,16 @@ class Flash:
         )
         print("Feed fractions:")
         for component in self._C.components:
-                print(f"{component.fraction_name}: ")
-                print(
-                    "\t"
-                    + str(
-                        sys.get_variable_values(
-                            variables=[component.fraction_name],
-                            from_iterate=from_iterate,
-                        )
+            print(f"{component.fraction_name}: ")
+            print(
+                "\t"
+                + str(
+                    sys.get_variable_values(
+                        variables=[component.fraction_name],
+                        from_iterate=from_iterate,
                     )
                 )
+            )
         print(filler)
         print("Phase fractions:")
         for phase in self._C.phases:
@@ -570,6 +570,10 @@ class Flash:
                   guesses.
                 - ``'uniform'``: uniform fractions adding up to 1 are used as initial
                   guesses.
+
+                Note:
+                    For performance reasons, k-values are always evaluated using the
+                    Wilson-correlation for computing initial guesses.
 
             copy_to_state: Copies the values to the STATE of the AD variables,
                 additionally to ITERATE.
@@ -833,6 +837,8 @@ class Flash:
             composition: dict[Any, dict] = dict()
             # storing feed fractions
             feeds: dict[Any, np.ndarray] = dict()
+            pressure = self._C.p.evaluate(ad_system).val
+            temperature = self._C.T.evaluate(ad_system).val
 
             for comp in self._C.components:
                 # evaluate feed fractions
@@ -855,7 +861,16 @@ class Flash:
             for phase in phases:
                 composition[phase] = dict()
                 for comp in self._C.components:
-                    k_ce = self._C.get_k_value(comp, phase).evaluate(ad_system).val
+                    # k_ce = self._C.get_k_value(comp, phase).evaluate(ad_system).val
+                    k_ce = (
+                        comp.critical_pressure()
+                        / pressure
+                        * np.exp(
+                            5.37
+                            * (1 + comp.acentric_factor)
+                            * (1 - comp.critical_temperature() / temperature)
+                        )
+                    )
 
                     x_ce = feeds[comp] * k_ce
 
@@ -1084,13 +1099,15 @@ class Flash:
         b_k_pot = self._Armijo_potential(b_k)
         X_k = self._C.ad_system.get_variable_values(from_iterate=True)
 
-        _, b_1 = F(X_k + rho * DX)
+        _, b_j = F(X_k + rho * DX)
+        pot_j = self._Armijo_potential(b_j)
 
         if do_logging:
+            print(f"Armijo line search initial potential: {b_k_pot}")
             print(f"Armijo line search j=1; potential {b_k_pot}", end="", flush=True)
 
         # start with first step size. If sufficient, return rho
-        if self._Armijo_potential(b_1) <= (1 - 2 * kappa * rho) * b_k_pot:
+        if pot_j <= (1 - 2 * kappa * rho) * b_k_pot:
             if do_logging:
                 _del_log()
                 print("Armijo line search j=1: success", end="", flush=True)
@@ -1104,7 +1121,7 @@ class Flash:
 
                     # compute system state at preliminary step-size
                     _, b_j = F(X_k + rho_j * DX)
-                    
+
                     pot_j = self._Armijo_potential(b_j)
 
                     if do_logging:
@@ -1130,11 +1147,7 @@ class Flash:
             # NOTE: If system is wrong in some sense, this might possible never finish.
             else:
                 # prepare for while loop
-                rho_j = rho * rho
-                # compute system state at preliminary step-size
-                _, b_j = F(X_k + rho_j * DX)
-                j = 2
-                pot_j = self._Armijo_potential(b_j)
+                j = 1
 
                 # while potential not decreasing, compute next step-size
                 while pot_j > (1 - 2 * kappa * rho_j) * b_k_pot:
@@ -1165,7 +1178,7 @@ class Flash:
         Parameters:
             vec: Vector for which the potential should be computed
 
-        Returns: 
+        Returns:
             Value of potential.
 
         """

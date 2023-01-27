@@ -7,20 +7,20 @@ nc = sys.mdg.num_subdomain_cells()
 vec = np.ones(nc)
 h2o = pp.composite.H2O(sys)
 co2 = pp.composite.CO2(sys)
-n2 = pp.composite.N2(sys)
+# n2 = pp.composite.N2(sys)
 
 L, G = tuple([p for p in M.phases])
 
 M.add_component(h2o)
 M.add_component(co2)
-M.add_component(n2)
+# M.add_component(n2)
 
 EPS = 1e-15
 
 temperature = 273.15
 pressure = 0.1  # 1 10 20 23
-co2_fraction = 0.4
-n2_fraction = 0.01
+co2_fraction = 0.6
+n2_fraction = 0.0
 h2o_fraction = 1 - co2_fraction - n2_fraction
 
 sys.set_variable_values(
@@ -29,9 +29,9 @@ sys.set_variable_values(
 sys.set_variable_values(
     co2_fraction * vec, variables=[co2.fraction_name], to_iterate=True, to_state=True
 )
-sys.set_variable_values(
-    n2_fraction * vec, variables=[n2.fraction_name], to_iterate=True, to_state=True
-)
+# sys.set_variable_values(
+#     n2_fraction * vec, variables=[n2.fraction_name], to_iterate=True, to_state=True
+# )
 
 sys.set_variable_values(
     temperature * vec, variables=[M.T_name], to_iterate=True, to_state=True
@@ -42,10 +42,11 @@ sys.set_variable_values(
 sys.set_variable_values(0 * vec, variables=[M.h_name], to_iterate=True, to_state=True)
 
 M.initialize()
+M.compute_roots()
 
-FLASH = pp.composite.Flash(M)
+FLASH = pp.composite.Flash(M, auxiliary_npipm=False)
 FLASH.use_armijo = True
-FLASH.armijo_parameters["rho"] = 0.7
+FLASH.armijo_parameters["rho"] = 0.9
 M.compute_roots()
 FLASH.flash("isothermal", "npipm", "feed", True, True)
 # FLASH.post_process_fractions()
