@@ -5,10 +5,10 @@ We consider two functional tests:
 
     - The first test compares desired and actual relative errors for the pressure,
       displacement, flux, poroelastic force, and degrees of consolidation, for three
-      different times, namely 10, 20, and 50 seconds.
+      different times, namely 10, 30, and 50 seconds.
 
     - The second test checks that the same errors for pressure and displacement (up to
-      5 decimals) are obtained for scaled and an unscaled problems. Scaling is
+      5 decimals) are obtained for scaled and unscaled problems. Scaling is
       performed for length and mass.
 
 """
@@ -27,8 +27,6 @@ from porepy.applications.verification_setups.mandel_biot import (
 )
 
 # Run verification setup and retrieve results for three different times
-fluid = pp.FluidConstants({"compressibility": 0.02})
-solid = pp.SolidConstants({"biot_coefficient": 0.5})
 material_constants = {
     "fluid": pp.FluidConstants(mandel_fluid_constants),
     "solid": pp.SolidConstants(mandel_solid_constants),
@@ -137,8 +135,8 @@ def test_error_primary_and_secondary_variables(desired, actual):
     )
 
     np.testing.assert_allclose(
-        actual.error_consolidation_degree[0],
-        desired.error_consolidation_degree[0],
+        actual.error_consolidation_degree[1],
+        desired.error_consolidation_degree[1],
         atol=1e-5,
         rtol=1e-3,
     )
@@ -160,13 +158,13 @@ def test_scaled_vs_unscaled_systems():
     unscaled = MandelSetup(params=params_unscaled)
     pp.run_time_dependent_model(model=unscaled, params=params_unscaled)
 
-    # Run the scaled problem
+    # The scaled problem
     material_constants_scaled = {
         "fluid": pp.FluidConstants(mandel_fluid_constants),
         "solid": pp.SolidConstants(mandel_solid_constants),
     }
     time_manager_scaled = pp.TimeManager([0, 10], 10, True)
-    scaling = {"m": 1e-3, "kg": 1e-3}
+    scaling = {"m": 1e-3, "kg": 1e-3}  # length in millimeters and mass in grams
     units = pp.Units(**scaling)
     params_scaled = {
         "material_constants": material_constants_scaled,
