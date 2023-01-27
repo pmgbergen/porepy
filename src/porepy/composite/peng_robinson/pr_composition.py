@@ -246,8 +246,22 @@ class PR_Composition(Composition):
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Before the system is linearized by a super call to the parent method,
-        the PR mixture computes the EoS Roots for (iterative) updates."""
-        self.compute_roots(state=state)
+        the PR mixture computes the EoS Roots for (iterative) updates.
+
+        Warning:
+            If the isothermal system is assembled, the roots of the EoS must be
+            computed beforehand using :meth:`compute_roots`.
+
+            In the isenthalpic system they are computed here due to the
+            temperature-dependency of the roots.
+
+            This is for performance reasons, since the roots must be evaluated only
+            once in the isothermal flash.
+
+        """
+
+        if flash_type == "isenthalpic":
+            self.compute_roots(state=state)
         return super().linearize_subsystem(flash_type, other_vars, other_eqns, state)
 
     ### Model equations ----------------------------------------------------------------
