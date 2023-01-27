@@ -197,8 +197,8 @@ class MandelDataSaving(VerificationDataSaving):
             approx_consolidation_degree[1] - exact_consolidation_degree
         )
         error_consolidation_degree = (
-            error_consolidation_degree_x,
-            error_consolidation_degree_y,
+            float(error_consolidation_degree_x),
+            float(error_consolidation_degree_y),
         )
 
         # Store collected data in data class
@@ -1061,7 +1061,7 @@ class MandelUtilities(VerificationUtils):
         sd = self.mdg.subdomains()[0]
         yc = sd.cell_centers[1]
         east_cells = self.east_cells()
-        _, b = self.params.get("domain_size", (100, 10)) # [m]
+        _, b = self.params.get("domain_size", (100, 10))  # [m]
         b *= m
         y_ex = np.linspace(0, b, 400)
 
