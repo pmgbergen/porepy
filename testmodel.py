@@ -566,7 +566,7 @@ params = {
     "use_ad": True,
     "use_pressure_equation": True,
     "eliminate_ref_phase": True,
-    "monolithic": False,
+    "monolithic": True,
 }
 
 t = 0.
@@ -575,7 +575,7 @@ dt = 0.05
 max_iter = 200
 tol = 1e-7
 
-model = pp.CompositionalFlowModel(params=params)
+model = TestModel(params=params)
 
 model.dt = dt
 model.prepare_simulation()

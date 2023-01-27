@@ -7,10 +7,10 @@ file_name = "cf_test" # + timestamp
 params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/" + file_name + "/",
     "file_name": file_name,
-    "use_ad": False,
+    "use_ad": True,
     "eliminate_ref_phase": True,
     "use_pressure_equation": True,
-    "monolithic": True,
+    "monolithic": False,
 }
 
 t = 0.
