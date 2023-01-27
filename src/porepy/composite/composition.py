@@ -673,34 +673,10 @@ class Composition(abc.ABC):
             AD operator representing the left-hand side of the equation (rhs=0).
 
         """
-        # z_c
-        equation = component.fraction - self.get_component_fraction_by_definition(
+
+        return component.fraction - self.get_component_fraction_by_definition(
             component, eliminate_ref_phase, normalize_phase_composition
         )
-        # if eliminate_ref_phase:
-        #     if normalize_phase_composition:
-        #         chi_cR = self.reference_phase.normalized_fraction_of_component(component)
-        #     else:
-        #         chi_cR = self.reference_phase.fraction_of_component(component)
-        #     # z_c  - chi_cR
-        #     equation -= chi_cR
-        #     # - sum_{e != R} y_e * (chi_ce - chi_cR)
-        #     for phase in self.phases:
-        #         if phase != self.reference_phase:
-        #             if normalize_phase_composition:
-        #                 chi_ce = phase.normalized_fraction_of_component(component)
-        #             else:
-        #                 chi_ce = phase.fraction_of_component(component)
-        #             equation -= phase.fraction * (chi_ce - chi_cR)
-        # else:
-        #     for phase in self.phases:
-        #         if normalize_phase_composition:
-        #                 chi_ce = phase.normalized_fraction_of_component(component)
-        #             else:
-        #                 chi_ce = phase.fraction_of_component(component)
-        #         equation -= phase.fraction * chi_ce
-
-        return equation
 
     def get_component_fraction_by_definition(
         self,

@@ -844,7 +844,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             if not success:
                 raise RuntimeError("FAILURE: Isenthalpic flash.")
 
-            self.flash.post_process_fractions(False)
+            # self.flash.post_process_fractions(False)
             self.flash.evaluate_saturations(False)
 
     def after_newton_iteration(
