@@ -718,12 +718,12 @@ def admethod(
         .. rubric:: Example 4
 
         As of now, this decorator is compatible with Python's
-        :obj:`classmethod`, :obj:`staticmethod` and :obj:`abs.abstractmethod`.
+        :obj:`classmethod`, :obj:`staticmethod` and :obj:`~abc.abstractmethod`.
 
         In combination with other decorators, make sure to use ``admethod`` as the
         outermost/topmost decorator.
 
-        ..code:: python
+        .. code:: python
 
             import abc
             import porepy as pp
@@ -816,6 +816,13 @@ class ADMethod:
         In this context, instances of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
         are treated as *numerical* values, whereas instances of
         :class:`~porepy.numerics.ad.operator.Operator` are treated as AD operators.
+
+    Important:
+        As of now, the framework for AD Operator functions treats only arguments,
+        not keyword arguments.
+
+        Therefore, this decorator is restricted to functions which take only positional
+        arguments.
 
     The decorated function will be able to take
     :class:`~porepy.numerics.ad.operator.Operator`-instances as arguments and return

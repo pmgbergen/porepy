@@ -953,19 +953,19 @@ class Composition(abc.ABC):
                 "itself."
             )
 
-        # equation = other_phase.fugacity_of(
-        #     self.p, self.T, component
-        # ) * other_phase.fraction_of_component(
-        #     component
-        # ) - self.reference_phase.fugacity_of(
-        #     self.p, self.T, component
-        # ) * self.reference_phase.fraction_of_component(
-        #     component
-        # )
+        equation = other_phase.fugacity_of(
+            self.p, self.T, component
+        ) * other_phase.fraction_of_component(
+            component
+        ) - self.reference_phase.fugacity_of(
+            self.p, self.T, component
+        ) * self.reference_phase.fraction_of_component(
+            component
+        )
 
-        equation = other_phase.fraction_of_component(component) + self.get_k_value(
-            component, other_phase
-        ) * self.reference_phase.fraction_of_component(component)
+        # equation = other_phase.fraction_of_component(component) + self.get_k_value(
+        #     component, other_phase
+        # ) * self.reference_phase.fraction_of_component(component)
 
         return equation
 
