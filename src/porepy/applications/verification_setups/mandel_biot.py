@@ -1430,24 +1430,7 @@ class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhase
             Scalar boundary condition representation.
 
         """
-        # Inherit from base class. All sides are set as Dirichlet.
-        bc = super().bc_type_darcy(sd)
-
-        sides = self.domain_boundary_sides(sd)
-
-        # West side
-        bc.is_neu[sides.west] = True
-        bc.is_dir[sides.west] = False
-
-        # North side
-        bc.is_neu[sides.north] = True
-        bc.is_dir[sides.north] = False
-
-        # South side
-        bc.is_neu[sides.south] = True
-        bc.is_dir[sides.south] = False
-
-        return bc
+        return pp.BoundaryCondition(sd, self.domain_boundary_sides(sd).east, "dir")
 
 
 class MandelPoromechanicsBoundaryConditions(
