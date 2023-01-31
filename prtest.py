@@ -47,7 +47,7 @@ FLASH.armijo_parameters["rho"] = 0.9
 
 # compute roots once for pT flash
 M.compute_roots()
-FLASH.flash("isothermal", "npipm", "feed", True, True)
+FLASH.flash("isothermal", "npipm", "rachford_rice", True, True)
 # evaluate enthalpy after pT flash
 FLASH.evaluate_specific_enthalpy()
 FLASH.evaluate_saturations()
