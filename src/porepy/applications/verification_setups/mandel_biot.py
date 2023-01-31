@@ -1,7 +1,7 @@
 """
 This module contains the implementation of Mandel's consolidation problem. The problem
 is discretized using MPFA/MPSA-FV in space and backward Euler in time. For further
-details on Mandel's problem, see [1 – 5]. For the implementation details, see [6].
+details on Mandel's problem, see [1 – 3]. For the implementation details, see [4].
 
 References:
 
@@ -11,18 +11,11 @@ References:
     - [2] Cheng, A.H.-D., Detournay, E.: A direct boundary element method for plane
      strain poroelasticity. Int. J. Numer. Anal. Methods Geomech. 12(5), 551–572 (1988).
 
-    - [3] Abousleiman, Y., Cheng, A. D., Cui, L., Detournay, E., & Roegiers, J. C.
-      (1996). Mandel's problem revisited. Geotechnique, 46(2), 187-195.
-
-    - [4] Mikelić, A., Wang, B., & Wheeler, M. F. (2014). Numerical convergence study of
+    - [3] Mikelić, A., Wang, B., & Wheeler, M. F. (2014). Numerical convergence study of
       iterative coupling for coupled flow and geomechanics. Computational Geosciences,
       18(3), 325-341.
 
-    - [5] Borregales, M., Kumar, K., Radu, F. A., Rodrigo, C., & Gaspar, F. J. (2019). A
-      partially parallel-in-time fixed-stress splitting method for Biot’s consolidation
-      model. Computers & Mathematics with Applications, 77(6), 1466-1478.
-
-    - [6] Keilegavlen, E., Berge, R., Fumagalli, A. et al. PorePy: an open-source
+    - [4] Keilegavlen, E., Berge, R., Fumagalli, A. et al. PorePy: an open-source
       software for simulation of multiphysics processes in fractured porous media.
       Comput Geosci 25, 243–265 (2021).
 
@@ -226,7 +219,7 @@ class MandelDataSaving(VerificationDataSaving):
 
 # -----> Exact solution
 class MandelExactSolution:
-    """Exact solutions to Mandel's problem."""
+    """Exact solutions to Mandel's problem taken from [2]."""
 
     def __init__(self, setup):
         """Constructor of the class."""
@@ -1513,13 +1506,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     def initial_condition(self) -> None:
         """Set initial conditions.
 
-        Initial conditions are given by Eqs. (41) - (43) from [1].
-
-        References:
-
-            - [1] Mikelić, A., Wang, B. & Wheeler, M.F. Numerical convergence study of
-               iterative coupling for coupled flow and geomechanics. Comput Geosci
-               18, 325–341 (2014). https://doi.org/10.1007/s10596-013-9393-8
+        Initial conditions are given by Eqs. (41) - (43) from [3].
 
         """
         super().initial_condition()
