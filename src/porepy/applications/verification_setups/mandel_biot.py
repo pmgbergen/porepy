@@ -57,7 +57,7 @@ mandel_solid_constants: dict[str, number] = {
 }
 
 mandel_fluid_constants: dict[str, number] = {
-    "density": 1e3,  # [kg * m^-3}]
+    "density": 1e3,  # [kg * m^-3]
     "viscosity": 1e-3,  # [Pa * s]
 }
 
@@ -276,27 +276,26 @@ class MandelExactSolution:
 
     # ---> Pressure
     def pressure_profile(self, x: np.ndarray, t: number) -> np.ndarray:
-        """Exact fluid pressure in `Pa`.
+        """Exact fluid pressure in scaled [Pa].
 
         Parameters:
-            x: Points in the horizontal axis in meters.
-            t: Time in seconds.
+            x: Points in the horizontal axis in scaled [m].
+            t: Time in [s].
 
         Returns:
             Exact pressure solution with ``shape=(num_points, )``.
 
         """
-        # Scaling
-        N = 1 / self.setup.units.N  # force scaling
-        m = 1 / self.setup.units.m  # length scaling
 
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
         B = self.setup.skempton_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
 
         # Retrieve geometrical data
+        # TODO: Retrieve from domain
+        m = 1 / self.setup.units.m  # length scaling
         a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
         a *= m
 
@@ -319,7 +318,7 @@ class MandelExactSolution:
         return p
 
     def pressure(self, sd: pp.Grid, t: number) -> np.ndarray:
-        """Evaluate exact pressure [Pa] at the cell centers.
+        """Evaluate exact pressure in scaled [Pa] at the cell centers.
 
         Parameters:
             sd: Grid.
@@ -334,28 +333,27 @@ class MandelExactSolution:
 
     # ---> Displacements
     def horizontal_displacement_profile(self, x: np.ndarray, t: number) -> np.ndarray:
-        """Exact horizontal displacement in `m`.
+        """Exact horizontal displacement in scaled [m].
 
         Parameters:
-            x: Points in the horizontal axis in meters.
-            t: Time in seconds.
+            x: Points in the horizontal axis in scaled [m].
+            t: Time in [s].
 
         Returns:
             Exact horizontal displacement with ``shape=(num_points, )``.
 
         """
-        # Scaling
-        N = 1 / self.setup.units.N  # force scaling
-        m = 1 / self.setup.units.m  # length scaling
 
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # [Pa]
-        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
+        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
 
         # Retrieve geometrical data
+        # TODO: Retrieve from domain
+        m = 1 / self.setup.units.m  # length scaling
         a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
         a *= m
 
@@ -386,28 +384,27 @@ class MandelExactSolution:
         return ux
 
     def vertical_displacement_profile(self, y: np.ndarray, t: number) -> np.ndarray:
-        """Exact vertical displacement in `m`.
+        """Exact vertical displacement in scaled [m].
 
         Parameters:
-            y: Points in the horizontal axis in meters.
-            t: Time in seconds.
+            y: Points in the horizontal axis in scaled [m].
+            t: Time in [s].
 
         Returns:
             Exact vertical displacement with ``shape=(num_points, )``.
 
         """
-        # Scaling
-        N = 1 / self.setup.units.N  # force scaling
-        m = 1 / self.setup.units.m  # length scaling
 
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8) * (N / m)  # [N * m^-1]
+        F = self.setup.vertical_load()  # scaled [N * m^-1]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # [Pa]
-        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^-1]
+        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
 
         # Retrieve geometrical data
+        # TODO: Retrieve from domain
+        m = 1 / self.setup.units.m  # length scaling
         a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
         a *= m
 
@@ -430,11 +427,11 @@ class MandelExactSolution:
         return uy
 
     def displacement(self, sd: pp.Grid, t: number) -> np.ndarray:
-        """Evaluate exact displacement [m] at the cell centers.
+        """Evaluate exact displacement in scaled [m] at the cell centers.
 
         Parameters:
             sd: Grid.
-            t: Time in seconds.
+            t: Time in [s].
 
         Returns:
             Array of ``shape=(sd.num_cells * 2, )`` containing the exact displacement at
@@ -444,18 +441,17 @@ class MandelExactSolution:
         """
         ux = self.horizontal_displacement_profile(sd.cell_centers[0], t)
         uy = self.vertical_displacement_profile(sd.cell_centers[1], t)
-        u = np.stack((ux, uy)).ravel("F")
-        return u
+        return np.stack((ux, uy)).ravel("F")
 
     # ---> Flux
     def horizontal_velocity_profile(self, x: np.ndarray, t: number) -> np.ndarray:
-        """Exact horiztonal specific discharge in `m * s^{-1}`.
+        """Exact horiztonal specific discharge in scaled [m * s^{-1}].
 
         Note that for Mandel's problem, the vertical specific discharge is zero.
 
         Parameters:
-            x: Points in the horizontal axis in `m`.
-            t: Time in `s`.
+            x: Points in the horizontal axis in scaled [m].
+            t: Time in [s].
 
         Returns:
             Exact specific discharge for the given time ``t``. The returned array has
@@ -463,18 +459,18 @@ class MandelExactSolution:
 
         """
         # Scaling
-        N = 1 / self.setup.units.N  # force scaling
-        m = 1 / self.setup.units.m  # length scaling
 
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
         B = self.setup.skempton_coefficient()  # [-]
-        k = self.setup.solid.permeability()  # [m^2]
-        mu_f = self.setup.fluid.viscosity()  # [Pa * s]
+        k = self.setup.solid.permeability()  # scaled [m^2]
+        mu_f = self.setup.fluid.viscosity()  # scaled [Pa * s]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
 
         # Retrieve geometrical data
+        # TODO: Retrieve from domain
+        m = 1 / self.setup.units.m  # length scaling
         a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
         a *= m
 
@@ -498,31 +494,30 @@ class MandelExactSolution:
         return qx
 
     def flux(self, sd: pp.Grid, t: number) -> np.ndarray:
-        """Evaluate exact Darcy flux [m^3 * s^{-1}] at the face centers.
+        """Evaluate exact Darcy flux in scaled [m^3 * s^{-1}] at the face centers.
 
         Parameters:
             sd: Grid.
-            t: Time in seconds.
+            t: Time in [s].
 
         Returns:
             Array of ``shape=(sd.num_faces, )`` containing the exact Darcy flux at
             the face centers at the given time ``t``.
 
         """
-        qx = self.horizontal_velocity_profile(sd.face_centers[0], t)
-        nx = sd.face_normals[0]
-        darcy_flux = qx * nx
-        return darcy_flux
+        q_x = self.horizontal_velocity_profile(sd.face_centers[0], t)
+        n_x = sd.face_normals[0]
+        return q_x * n_x
 
     # ---> Force
     def vertical_stress_profile(self, x: np.ndarray, t: number) -> np.ndarray:
-        """Exact vertical stress in `Pa`.
+        """Exact vertical stress in scaled [Pa].
 
         Note that for Mandel's problem, all the other components of the stress tensor
         are zero.
 
         Parameters:
-            x: Points in the horizontal axis in meters.
+            x: Points in the horizontal axis in scaled [m].
             t: Time in seconds.
 
         Returns:
@@ -530,17 +525,15 @@ class MandelExactSolution:
             ``shape=(num_points, )``.
 
         """
-        # Scaling
-        N = 1 / self.setup.units.N  # force scaling
-        m = 1 / self.setup.units.m  # length scaling
-
         # Retrieve physical data
-        F = self.setup.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # [m^2 * s^{-1}]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
 
         # Retrieve geometrical data
+        # TODO: Retrieve from domain
+        m = 1 / self.setup.units.m  # length scaling
         a, _ = self.setup.params.get("domain_size", (100, 10))  # [m]
         a *= m
 
@@ -572,11 +565,11 @@ class MandelExactSolution:
         return s_yy
 
     def poroelastic_force(self, sd: pp.Grid, t: number) -> np.ndarray:
-        """Evaluate exact poroelastic force [N] at the face centers.
+        """Evaluate exact poroelastic force in scaled [N] at the face centers.
 
         Parameters:
             sd: Grid.
-            t: Time in seconds.
+            t: Time in [s].
 
         Returns:
             Array of ``shape=(sd.num_faces * 2, )`` containing the exact poroelastic
@@ -587,8 +580,7 @@ class MandelExactSolution:
         n_y = sd.face_normals[1]
         force_y = s_yy * n_y
         force_x = np.zeros_like(force_y)
-        force = np.stack((force_x, force_y)).ravel("F")
-        return force
+        return np.stack((force_x, force_y)).ravel("F")
 
     # ---> Degree of consolidation
     def degree_of_consolidation(self, t: number) -> number:
@@ -598,21 +590,20 @@ class MandelExactSolution:
         horizontal and vertical axes are identical.
 
         Parameters:
-              t: Time in seconds.
+              t: Time in [s].
 
         Returns:
               Exact degree of consolidation for a given time ``t``.
 
         """
-        # Scaling
-        N = 1 / self.setup.units.N  # force scaling
-        m = 1 / self.setup.units.m  # length scaling
-
         # Retrieve physical and geometric data
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
         nu_s = self.setup.poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # [Pa]
-        F = self.setup.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
+        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
+
+        # TODO: Retrieve from domain
+        m = 1 / self.setup.units.m  # length scaling
         a, b = self.setup.params.get("domain_size", (100, 10))  # [m]
         a *= m
         b *= m
@@ -666,16 +657,23 @@ class MandelUtilities(VerificationUtils):
     units: pp.Units
     """Units object, containing the scaling of base magnitudes."""
 
+    vertical_load: Callable
+    """Method that retrieves the applied vertical load from the model parameters and 
+    applies the proper scaling. Provided by an instance of 
+    :class:~`MandelBoundaryConditionsMechanicsTimeDependent`
+    
+    """
+
     # -----> Derived physical constants
     def bulk_modulus(self) -> number:
-        """Set bulk modulus [Pa].
+        """Set bulk modulus in scaled [Pa].
 
         Returns:
             Bulk modulus.
 
         """
-        mu_s = self.solid.shear_modulus()  # [Pa]
-        lambda_s = self.solid.lame_lambda()  # [Pa]
+        mu_s = self.solid.shear_modulus()  # scaled [Pa]
+        lambda_s = self.solid.lame_lambda()  # scaled [Pa]
         return (2 / 3) * mu_s + lambda_s
 
     def poisson_coefficient(self) -> number:
@@ -690,15 +688,15 @@ class MandelUtilities(VerificationUtils):
         return (3 * K_s - 2 * mu_s) / (2 * (3 * K_s + mu_s))
 
     def undrained_bulk_modulus(self) -> number:
-        """Set undrained bulk modulus [Pa].
+        """Set undrained bulk modulus in scaled [Pa].
 
         Returns:
             Undrained bulk modulus.
 
         """
         alpha_biot = self.solid.biot_coefficient()  # [-]
-        K_s = self.bulk_modulus()  # [Pa]
-        S_epsilon = self.solid.specific_storage()  # [Pa^-1]
+        K_s = self.bulk_modulus()  # scaled [Pa]
+        S_epsilon = self.solid.specific_storage()  # scaled [Pa^-1]
         return K_s + (alpha_biot**2) / S_epsilon
 
     def skempton_coefficient(self) -> number:
@@ -709,8 +707,8 @@ class MandelUtilities(VerificationUtils):
 
         """
         alpha_biot = self.solid.biot_coefficient()  # [-]
-        K_u = self.undrained_bulk_modulus()  # [Pa]
-        S_epsilon = self.solid.specific_storage()  # [Pa^-1]
+        K_u = self.undrained_bulk_modulus()  # scaled [Pa]
+        S_epsilon = self.solid.specific_storage()  # scaled [Pa^-1]
         return alpha_biot / (S_epsilon * K_u)
 
     def undrained_poisson_coefficient(self) -> float:
@@ -728,18 +726,18 @@ class MandelUtilities(VerificationUtils):
         return (3 * nu_s + B * (1 - 2 * nu_s)) / (3 - B * (1 - 2 * nu_s))
 
     def fluid_diffusivity(self) -> number:
-        """Set fluid diffusivity [m^2 * s^{-1}].
+        """Set fluid diffusivity scaled [m^2 * s^{-1}].
 
         Returns:
             Fluid diffusivity.
 
         """
-        k_s = self.solid.permeability()  # [m^2]
+        k_s = self.solid.permeability()  # scaled [m^2]
         B = self.skempton_coefficient()  # [-]
-        mu_s = self.solid.shear_modulus()  # [Pa]
+        mu_s = self.solid.shear_modulus()  # scaled [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
-        mu_f = self.fluid.viscosity()  # [Pa * s]
+        mu_f = self.fluid.viscosity()  # scaled [Pa * s]
         c_f = (2 * k_s * (B**2) * mu_s * (1 - nu_s) * (1 + nu_u) ** 2) / (
             9 * mu_f * (1 - nu_u) * (nu_u - nu_s)
         )
@@ -747,7 +745,7 @@ class MandelUtilities(VerificationUtils):
 
     # -----> Non-dimensionalization methods
     def nondim_t(self, t: Union[float, int, np.ndarray]) -> float:
-        """Non-dimensionalized time.
+        """Non-dimensionalize time.
 
         Parameters:
             t: Time [s].
@@ -756,104 +754,87 @@ class MandelUtilities(VerificationUtils):
             Dimensionless time for the given time ``t``.
 
         """
+        # TODO: Retrieve from domain
         m = 1 / self.units.m
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
-        c_f = self.fluid_diffusivity()  # [m^2 * s^{-1}]
+        c_f = self.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
         return (t * c_f) / (a**2)
 
     def nondim_x(self, x: np.ndarray) -> np.ndarray:
-        """Nondimensionalized length in the horizontal direction.
+        """Nondimensionalize length in the horizontal direction.
 
         Parameters:
-            x: horizontal length [m].
+            x: horizontal length in scaled [m].
 
         Returns:
             Dimensionless horizontal length with ``shape=(num_points, )``.
 
         """
+        # TODO: Retrieve from domain
         m = 1 / self.units.m
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
         return x / a
 
     def nondim_y(self, y: np.ndarray) -> np.ndarray:
-        """Non-dimensionalized length in the vertical direction.
+        """Non-dimensionalize length in the vertical direction.
 
         Parameters:
-            y: vertical length [m].
+            y: vertical length in scaled [m].
 
         Returns:
             Dimensionless vertical length with ``shape=(num_points, )``.
 
         """
+        # TODO: Retrieve from domain
         m = 1 / self.units.m
         _, b = self.params.get("domain_size", (100, 10))  # [m]
         b *= m
         return y / b
 
     def nondim_p(self, p: np.ndarray) -> np.ndarray:
-        """Non-dimensionalized pressure.
+        """Non-dimensionalize pressure.
 
         Parameters:
-            p: Fluid pressure [Pa].
+            p: Fluid pressure in scaled [Pa].
 
         Returns:
             Dimensionless pressure with ``shape=(num_points, )``.
 
-        """
-        # Scaling
-        N = 1 / self.units.N  # force scaling
-        m = 1 / self.units.m  # length scaling
+        Note:
+            This method is also valid to non-dimensionalize stress.
 
+        """
+        F = self.vertical_load()  # scaled [N * m^{-1}]
+
+        m = 1 / self.units.m  # length scaling
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
-        F = self.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
         return p / (F * a)
 
     def nondim_flux(self, qx: np.ndarray) -> np.ndarray:
-        """Non-dimensionalized horizontal component of the specific discharge vector.
+        """Non-dimensionalize horizontal component of the specific discharge vector.
 
         Parameters:
-            qx: Horizontal component of the specific discharge in `m * s^{-1}`.
+            qx: Horizontal component of the specific discharge in scaled `m * s^{-1}].
 
         Returns:
             Dimensionless horizontal component of the specific discharge with
             ``shape=(num_points, )``.
 
         """
-        # Scaling
-        N = 1 / self.solid.units.N  # force scaling
-        m = 1 / self.solid.units.m  # length scaling
-
         k = self.solid.permeability()  # [m^2]
-        F = self.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
+        F = self.vertical_load()  # scaled [N * m^{-1}]
         mu = self.fluid.viscosity()  # [Pa * s]
+
+        # TODO: Retrieve from domain
+        m = 1 / self.solid.units.m  # length scaling
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
-        factor = (F * k) / (mu * a**2)  # [m * s^{-1}]
+
+        factor = (F * k) / (mu * a**2)  # scaled [m * s^{-1}]
         return qx / factor
-
-    def nondim_stress(self, s_yy: np.ndarray) -> np.ndarray:
-        """Non-dimensionalized vertical component of the stress tensor.
-
-        Parameters:
-            s_yy: Vertical component of the stress tensor [Pa].
-
-        Returns:
-            Dimensionless vertical component of the stress tensor with
-            ``shape=(num_points, )``.
-
-        """
-        # Scaling
-        N = 1 / self.units.N  # force scaling
-        m = 1 / self.units.m  # length scaling
-
-        a, _ = self.params.get("domain_size", (100, 10))  # [m]
-        a *= m
-        F = self.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
-
-        return s_yy / (F / a)
 
     # -----> Post-processing methods
     def south_cells(self) -> np.ndarray:
@@ -873,33 +854,32 @@ class MandelUtilities(VerificationUtils):
     def numerical_consolidation_degree(
         self, displacement: np.ndarray, pressure: np.ndarray
     ) -> tuple[number, number]:
-        """Numerical consolidation degree.
+        """Numerical consolidation degree [-].
 
         Parameters:
-            displacement: Displacement [m] solution of shape (sd.dim * sd.num_cells).
-            pressure: Pressure [Pa] solution of shape (sd.num_cells, ).
+            displacement: Displacement in scaled [m] solution of shape
+                (sd.dim * sd.num_cells).
+            pressure: Pressure in scaled [Pa] solution of shape (sd.num_cells, ).
 
         Returns:
             Numerical degree of consolidation in the horizontal and vertical directions.
 
         """
-        # Scaling
-        N = 1 / self.units.N  # force scaling
-        m = 1 / self.units.m  # length scaling
-
         sd = self.mdg.subdomains()[0]
         sides = self.domain_boundary_sides(sd)
 
+        # TODO: Retrieve from domain
+        m = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
         b *= m
 
-        F = self.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
-        mu_s = self.solid.shear_modulus()  # [Pa]
+        F = self.vertical_load()  # scaled [N * m^{-1}]
+        mu_s = self.solid.shear_modulus()  # scaled [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
 
-        t = self.time_manager.time
+        t = self.time_manager.time  # [s]
 
         if t == 0:  # soil is initially unconsolidated
             consol_deg_x, consol_deg_y = 0, 0
@@ -943,10 +923,12 @@ class MandelUtilities(VerificationUtils):
             color_map: listed color map object.
 
         """
-        m = 1 / self.units.m
         sd = self.mdg.subdomains()[0]
         xc = sd.cell_centers[0]
         south_cells = self.south_cells()
+
+        # TODO: Retrieve from domain
+        m = 1 / self.units.m
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
         x_ex = np.linspace(0, a, 400)
@@ -989,10 +971,12 @@ class MandelUtilities(VerificationUtils):
             color_map: listed color map object.
 
         """
-        m = 1 / self.units.m
         sd = self.mdg.subdomains()[0]
         xc = sd.cell_centers[0]
         south_cells = self.south_cells()
+
+        # TODO: Retrieve from domain
+        m = 1 / self.units.m
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
         x_ex = np.linspace(0, a, 400)
@@ -1039,10 +1023,12 @@ class MandelUtilities(VerificationUtils):
             color_map: listed color map object.
 
         """
-        m = 1 / self.units.m
         sd = self.mdg.subdomains()[0]
         yc = sd.cell_centers[1]
         east_cells = self.east_cells()
+
+        # TODO: Retrieve from domain
+        m = 1 / self.units.m
         _, b = self.params.get("domain_size", (100, 10))  # [m]
         b *= m
         y_ex = np.linspace(0, b, 400)
@@ -1098,6 +1084,7 @@ class MandelUtilities(VerificationUtils):
         south_faces = np.where(sides.south)[0]
         int_faces_of_south_cells = np.setdiff1d(faces_of_south_cells, south_faces)
 
+        # TODO: Retrieve from domain
         m = 1 / self.units.m
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
@@ -1156,6 +1143,7 @@ class MandelUtilities(VerificationUtils):
         south_faces = sides.south
         ny = sd.face_normals[1]
 
+        # TODO: Retrieve from domain
         m = 1 / self.units.m
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
@@ -1166,13 +1154,13 @@ class MandelUtilities(VerificationUtils):
         for idx, result in enumerate(self.results):
             ax.plot(
                 self.nondim_x(x_ex),
-                self.nondim_stress(
+                self.nondim_p(
                     self.exact_sol.vertical_stress_profile(x_ex, result.time)),
                 color=color_map.colors[idx],
             )
             ax.plot(
                 self.nondim_x(xf[south_faces]),
-                self.nondim_stress(
+                self.nondim_p(
                     result.approx_force[1:: sd.dim][south_faces] / ny[south_faces]),
                 color=color_map.colors[idx],
                 linewidth=0,
@@ -1313,6 +1301,7 @@ class MandelGeometry(pp.ModelGeometry):
         """Set mixed-dimensional grid."""
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
         domain = self.fracture_network.domain
+        # TODO: Purge after domain object type unification
         if isinstance(domain, np.ndarray):
             assert domain.shape == (2, 2)
             self.domain_bounds: dict[str, float] = {
@@ -1348,6 +1337,21 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
     time_manager: pp.TimeManager
     """Time-stepping object."""
+
+    units: pp.Units
+    """Units object, containing the scaling of base magnitudes."""
+
+    def vertical_load(self):
+        """Retrieve and scale applied force.
+
+        Returns:
+            Applied vertical load on the North boundary in scaled [N * m^{-1}].
+
+        """
+        N = 1 / self.units.N  # force scaling
+        m = 1 / self.units.m  # length scaling
+        applied_force = self.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        return applied_force * (N / m)
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
@@ -1404,7 +1408,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
         sides = self.domain_boundary_sides(sd)
         yf_north = sd.face_centers[1][sides.north]
 
-        t = self.time_manager.time
+        t = self.time_manager.time  # [s]
         uy_north_bc = self.exact_sol.vertical_displacement_profile(yf_north, t)
         bc_vals[1::2][sides.north] = uy_north_bc
 
