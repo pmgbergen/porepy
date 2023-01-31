@@ -658,10 +658,10 @@ class MandelUtilities(VerificationUtils):
     """Units object, containing the scaling of base magnitudes."""
 
     vertical_load: Callable
-    """Method that retrieves the applied vertical load from the model parameters and 
-    applies the proper scaling. Provided by an instance of 
+    """Method that retrieves the applied vertical load from the model parameters and
+    applies the proper scaling. Provided by an instance of
     :class:~`MandelBoundaryConditionsMechanicsTimeDependent`
-    
+
     """
 
     # -----> Derived physical constants
@@ -1155,13 +1155,15 @@ class MandelUtilities(VerificationUtils):
             ax.plot(
                 self.nondim_x(x_ex),
                 self.nondim_p(
-                    self.exact_sol.vertical_stress_profile(x_ex, result.time)),
+                    self.exact_sol.vertical_stress_profile(x_ex, result.time)
+                ),
                 color=color_map.colors[idx],
             )
             ax.plot(
                 self.nondim_x(xf[south_faces]),
                 self.nondim_p(
-                    result.approx_force[1:: sd.dim][south_faces] / ny[south_faces]),
+                    result.approx_force[1 :: sd.dim][south_faces] / ny[south_faces]
+                ),
                 color=color_map.colors[idx],
                 linewidth=0,
                 marker=".",
