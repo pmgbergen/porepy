@@ -43,29 +43,53 @@ def from_points(pts: np.ndarray, overlap: float = 0) -> dict[str, float]:
     return domain
 
 
-def from_grid(g: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
-    """Return the bounding box of the grid.
+def min_max_node_coordinates(
+            subdomains: list[pp.Grid]
+    ) -> tuple[np.ndarray, np.ndarray]:
 
-    Parameters:
-        g: The grid for which the bounding box is to be computed.
+        num_sd: int = len(subdomains)
+        c_0s = np.empty((3, num_sd))
+        c_1s = np.empty((3, num_sd))
 
-    Returns:
-        A 2-tuple containing
+        for idx, sd in enumerate(subdomains):
 
-        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+            if sd.dim == 0:
+                coords = sd.cell_centers
+            else:
+                coords = sd.nodes
 
-            Minimum node coordinates in each direction.
+            c_0s[:, idx] = np.amin(coords, axis=1)
+            c_1s[:, idx] = np.amax(coords, axis=1)
 
-        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+        min_vals = np.amin(c_0s, axis=1)
+        max_vals = np.amax(c_1s, axis=1)
 
-            Maximum node coordinates in each direction.
+        return min_vals, max_vals
 
-    """
-    if g.dim == 0:
-        coords = g.cell_centers
-    else:
-        coords = g.nodes
-    return np.amin(coords, axis=1), np.amax(coords, axis=1)
+
+# def from_grid(g: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
+#     """Return the bounding box of the grid.
+#
+#     Parameters:
+#         g: The grid for which the bounding box is to be computed.
+#
+#     Returns:
+#         A 2-tuple containing
+#
+#         :obj:`~numpy.ndrarray`: ``shape=(3,)``
+#
+#             Minimum node coordinates in each direction.
+#
+#         :obj:`~numpy.ndrarray`: ``shape=(3,)``
+#
+#             Maximum node coordinates in each direction.
+#
+#     """
+#     if g.dim == 0:
+#         coords = g.cell_centers
+#     else:
+#         coords = g.nodes
+#     return np.amin(coords, axis=1), np.amax(coords, axis=1)
 
 
 def from_md_grid(
@@ -92,7 +116,7 @@ def from_md_grid(
     c_1s = np.empty((3, mdg.num_subdomains()))
 
     for i, grid in enumerate(mdg.subdomains()):
-        c_0s[:, i], c_1s[:, i] = from_grid(grid)
+        c_0s[:, i], c_1s[:, i] = min_max_node_coordinates([grid])
 
     min_vals = np.amin(c_0s, axis=1)
     max_vals = np.amax(c_1s, axis=1)

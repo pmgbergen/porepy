@@ -296,7 +296,7 @@ class TestImportDFN1d(unittest.TestCase):
         self.assertTrue(mdg.num_interfaces() == 0)
 
         for sd in mdg.subdomains():
-            _, bmax = pp.bounding_box.from_grid(sd)
+            _, bmax = pp.bounding_box.min_max_node_coordinates([sd])
             self.assertTrue(
                 np.allclose(bmax, [1, 0.45, 0]) ^ np.allclose(bmax, [1, 1, 0])
             )
@@ -317,7 +317,7 @@ class TestImportDFN1d(unittest.TestCase):
         self.assertTrue(mdg.num_interfaces() == 2)
 
         for sd in mdg.subdomains():
-            _, bmax = pp.bounding_box.from_grid(sd)
+            _, bmax = pp.bounding_box.min_max_node_coordinates([sd])
             if sd.dim == 1:
                 self.assertTrue(
                     np.allclose(bmax, [1, 0.5, 0]) ^ np.allclose(bmax, [1, 1, 0])
