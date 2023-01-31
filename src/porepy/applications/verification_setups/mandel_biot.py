@@ -1527,4 +1527,35 @@ class MandelSetup(  # type: ignore[misc]
     MandelDataSaving,
     BiotPoromechanics,
 ):
-    """Mixer class for Mandel's consolidation problem."""
+    """Mixer class for Mandel's consolidation problem.
+
+    Admissible model parameters at are:
+
+        - vertical_load (pp.number): Applied load in [N * m^{-1}]. Default is 6e8.
+        - domain_size (tuple(pp.number, pp.number)): Length and height of the domain
+          in [m]. Default is (100, 10).
+        - number_of_roots (int): Number of roots used to solve the exact solution.
+          Default is 200.
+        - material_constants (dict): Dictionary containing the solid and fluid
+          constants. For suggested parameters, see ``mandel_solid_constants`` and
+          ``mandel_fluid_constants`` at the top of file. Unitary/zero values are
+          assigned by default. See below for the relevant material constants accessed
+          by this verification.
+        - time_manager (pp.TimeManager): Time manager object.
+        - plot_results (bool): Whether to plot the results in non-dimensional form.
+        - mesh_arguments (dict(str, number)): Mesh arguments in [m]. Default is 2.0.
+
+    Accessed material constants:
+
+        - solid:
+            - biot_coefficient
+            - lame_lambda
+            - permeability
+            - shear_modulus
+            - specific_storage
+
+        - fluid:
+            - density
+            - viscosity
+
+    """
