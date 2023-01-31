@@ -1543,7 +1543,10 @@ class MandelSetup(  # type: ignore[misc]
           by this verification.
         - time_manager (pp.TimeManager): Time manager object.
         - plot_results (bool): Whether to plot the results in non-dimensional form.
-        - mesh_arguments (dict(str, number)): Mesh arguments in [m]. Default is 2.0.
+        - mesh_arguments (dict(str, number)): Mesh arguments in [m]. Default is
+          2.0 * length_scaling.
+        - units (pp.Units): Object containing scaling of base magnitudes. No scaling
+          applied by default.
 
     Accessed material constants:
 
