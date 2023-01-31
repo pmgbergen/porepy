@@ -8,7 +8,7 @@ nc = sys.mdg.num_subdomain_cells()
 h2o = pp.composite.H2O(sys)
 co2 = pp.composite.CO2(sys)
 
-components = [co2]
+components = [h2o, co2]
 
 # EOS with gas or liquid role
 GAS = pp.composite.PR_EoS(gaslike=True)
@@ -37,14 +37,14 @@ x_co2 = np.array(
 x_h2o = 1 - x_co2
 
 # computing everything for gas
-GAS.compute(pressure, temperature, x_co2)
+GAS.compute(pressure, temperature, x_h2o, x_co2)
 # print state
 print(GAS.Z)
 print(GAS.h_dep)
 print(list(GAS.phi.values()))
 
 # computing everything for liquid
-LIQ.compute(pressure, temperature, x_co2)
+LIQ.compute(pressure, temperature, x_h2o, x_co2)
 # print state
 print(LIQ.Z)
 print(LIQ.h_dep)
