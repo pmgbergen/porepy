@@ -1,12 +1,69 @@
 """
-This module contains an implementation of a verification setup for a poromechanical
-system (without fractures) using a two-dimensional manufactured solution.
+This module contains the implementation of a verification setup for a poromechanical
+system (without fractures) using two-dimensional manufactured solutions.
 
-For the exact solution, we refer to https://doi.org/10.1137/15M1014280.
+The implementation considers a compressible fluid, resulting in a coupled non-linear
+set of equations. The dependecy of the fluid density with the pressure is given by [1]:
+
+.. math:
+
+    \\rho(p) =  \\rho_0 \\exp{c_f \\left(p - p_0\\right)},
+
+where :math:`\\rho` and :math:`p` are the density and pressure, :math:`\\rho_0`` and
+:math:``p_0`` are the _reference_ density and pressure, and :math:`c_f` is the
+_constant_ fluid compressibility.
+
+We provide three different manufactured solutions, namely `parabolic`,
+`nordbotten2016` [2], and `varela2021` [2], which can be specified as a model
+parameter.
+
+Parabolic manufactured solution:
+
+.. math:
+
+    p(x, y, t) = t x (1 - x) y (1- y),
+
+    u_x(x, y, t) = p(x, y, t),
+
+    u_y(x, y, t) = p(x, y, t).
+
+Manufactured solution based on [2]:
+
+.. math:
+
+    p(x, y, t) = t x (1 - x) \\sin{2 \\pi y},
+
+    u_x(x, y, t) = p(x, y, t),
+
+    u_y(x, y, t) = t * \\sin{2 \\pi x} \\sin{2 \\pi y}.
+
+Manufactured solutions based on [3]:
+
+.. math:
+
+    p(x, y, t) = t x (1 - x) y (1 - y) \\sin{\\pi x} \\sin{\\pi y},
+
+    u(x, y, t) = t x (1 - x) y (1 - y) \\sin{\\pi x},
+
+    u(x, y, t) = t x (1 - x) y (1 - y) \\cos{\\pi x}.
+
+References:
+
+    - [1] Garipov, T. T., & Hui, M. H. (2019). Discrete fracture modeling approach for
+      simulating coupled thermo-hydro-mechanical effects in fractured reservoirs.
+      International Journal of Rock Mechanics and Mining Sciences, 122, 104075.
+
+    - [2] Nordbotten, J. M. (2016). Stable cell-centered finite volume discretization
+      for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
+
+    - [3] Varela, J., Gasda, S. E., Keilegavlen, E., & Nordbotten, J. M. (2021). A
+      Finite-Volume-Based Module for Unsaturated Poroelasticity. Advanced Modeling
+      with the MATLAB Reservoir Simulation Toolbox.
 
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Callable
 
 import numpy as np
@@ -16,12 +73,173 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
-from porepy.models.verification_setups.verifications_utils import VerificationUtils
+from porepy.applications.verification_setups.verification_utils import (
+    VerificationDataSaving,
+    VerificationUtils,
+)
+
+# PorePy typings
+number = pp.number
+grid = pp.GridLike
 
 
-# ----> Manufactured solution
-class ExactSolution:
-    """Parent class for the manufactured poromechanical solution."""
+# -----> Data-saving
+@dataclass
+class ManuPoroMechSaveData:
+    """Data class to save relevant results from the verification setup."""
+
+    approx_displacement: np.ndarray
+    """Numerical displacement."""
+
+    approx_flux: np.ndarray
+    """Numerical Darcy flux."""
+
+    approx_force: np.ndarray
+    """Numerical poroelastic force."""
+
+    approx_pressure: np.ndarray
+    """Numerical pressure."""
+
+    error_displacement: number
+    """L2-discrete relative error for the displacement."""
+
+    error_flux: number
+    """L2-discrete relative error for the Darcy flux."""
+
+    error_force: number
+    """L2-discrete relative error for the poroelastic force."""
+
+    error_pressure: number
+    """L2-discrete relative error for the pressure."""
+
+    exact_displacement: np.ndarray
+    """Exact displacement."""
+
+    exact_flux: np.ndarray
+    """Exact Darcy flux."""
+
+    exact_force: np.ndarray
+    """Exact poroelastic force."""
+
+    exact_pressure: np.ndarray
+    """Exact pressure."""
+
+    time: number
+    """Current simulation time."""
+
+
+class ManuPoroMechDataSaving(VerificationDataSaving):
+    """Mixin class to save relevant data."""
+
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
+
+    """
+
+    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+
+    exact_sol: ManuPoroMechExactSolution
+    """Exact solution object."""
+
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the (integrated) poroelastic stress in the form of an Ad
+    operator. Usually provided by the mixin class
+    :class:`porepy.models.poromechanics.ConstitutiveLawsPoromechanics`.
+
+    """
+
+    def collect_data(self) -> ManuPoroMechSaveData:
+        """Collect data from the verification setup.
+
+        Returns:
+            ManuPoroMechSaveData object containing the results of the verification for
+            the current time.
+
+        """
+
+        mdg: pp.MixedDimensionalGrid = self.mdg
+        sd: pp.Grid = mdg.subdomains()[0]
+        t: number = self.time_manager.time
+
+        # Collect data
+        exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
+        pressure_ad = self.pressure([sd])
+        approx_pressure = pressure_ad.evaluate(self.equation_system).val
+        error_pressure = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_pressure,
+            approx_array=approx_pressure,
+            is_scalar=True,
+            is_cc=True,
+        )
+
+        exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
+        displacement_ad = self.displacement([sd])
+        approx_displacement = displacement_ad.evaluate(self.equation_system).val
+        error_displacement = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_displacement,
+            approx_array=approx_displacement,
+            is_scalar=False,
+            is_cc=True,
+        )
+
+        exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
+        flux_ad = self.darcy_flux([sd])
+        approx_flux = flux_ad.evaluate(self.equation_system).val
+        error_flux = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_flux,
+            approx_array=approx_flux,
+            is_scalar=True,
+            is_cc=False,
+        )
+
+        exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
+        force_ad = self.stress([sd])
+        approx_force = force_ad.evaluate(self.equation_system).val
+        error_force = self.relative_l2_error(
+            grid=sd,
+            true_array=exact_force,
+            approx_array=approx_force,
+            is_scalar=False,
+            is_cc=False,
+        )
+
+        # Store collected data in data class
+        collected_data = ManuPoroMechSaveData(
+            approx_displacement=approx_displacement,
+            approx_flux=approx_flux,
+            approx_force=approx_force,
+            approx_pressure=approx_pressure,
+            error_displacement=error_displacement,
+            error_flux=error_flux,
+            error_force=error_force,
+            error_pressure=error_pressure,
+            exact_displacement=exact_displacement,
+            exact_flux=exact_flux,
+            exact_force=exact_force,
+            exact_pressure=exact_pressure,
+            time=t,
+        )
+
+        return collected_data
+
+
+# -----> Exact solution
+class ManuPoroMechExactSolution:
+    """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
         """Constructor of the class."""
@@ -204,7 +422,7 @@ class ExactSolution:
         ]
 
         # Flatten array
-        u_flat: np.ndarray = np.ravel(np.array(u_cc), "F")
+        u_flat: np.ndarray = np.asarray(u_cc).ravel("F")
 
         return u_flat
 
@@ -258,7 +476,7 @@ class ExactSolution:
         Notes:
             - The returned poroelastic force is given in PorePy's flattened vector
               format.
-            - Recall that force = (stress \dot unit_normal) * face_area.
+            - Recall that force = (stress dot_prod unit_normal) * face_area.
 
         """
         # Symbolic variables
@@ -362,159 +580,52 @@ class ExactSolution:
 
         return source_flow
 
-    # -----> Other variables
 
-    def density(self, sd: pp.Grid, time: float) -> np.ndarray:
-        x, y, t = sym.symbols("x y t")
-        rho_fun = sym.lambdify((x, y, t), self.rho, "numpy")
-        rho_cc = rho_fun(sd.cell_centers[0], sd.cell_centers[1], time)
-        return rho_cc
+# -----> Utilities
+class ManuPoroMechUtils(VerificationUtils):
+    """Mixin class containing useful utility methods for the setup."""
 
-    def poromechanics_porosity(self, sd: pp.Grid, time: float) -> np.ndarray:
-        x, y, t = sym.symbols("x y t")
-        phi_fun = sym.lambdify((x, y, t), self.phi, "numpy")
-        phi_cc = phi_fun(sd.cell_centers[0], sd.cell_centers[1], time)
-        return phi_cc
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
 
-    def mass_flux(self, sd: pp.Grid, time: float) -> np.ndarray:
-        """Evaluate exact mass flux [kg * s^-1] at the face centers.
+    results: list[ManuPoroMechSaveData]
+    """List of ManuPoroMechSaveData objects."""
 
-        Parameters:
-            sd: Subdomain grid.
-            time: Time in seconds.
+    def plot_results(self) -> None:
+        """Plotting results."""
+        self._plot_displacement()
+        self._plot_pressure()
 
-        Returns:
-            Array of ``shape=(sd.num_faces, )`` containing the exact mass fluxes at
-            the face centers for the given ``time``.
+    def _plot_pressure(self):
+        """Plot exact and numerical pressures."""
 
-        """
-        # Symbolic variables
-        x, y, t = sym.symbols("x y t")
+        sd = self.mdg.subdomains()[0]
+        p_ex = self.results[-1].exact_pressure
+        p_num = self.results[-1].approx_pressure
 
-        # Get list of face indices
-        fc = sd.face_centers
-        fn = sd.face_normals
+        pp.plot_grid(sd, p_ex, plot_2d=True, linewidth=0, title="p (Exact)")
+        pp.plot_grid(sd, p_num, plot_2d=True, linewidth=0, title="p (Numerical)")
 
-        # Lambdify expression
-        mf_fun: list[Callable] = [
-            sym.lambdify((x, y, t), self.mf[0], "numpy"),
-            sym.lambdify((x, y, t), self.mf[1], "numpy"),
-        ]
+    def _plot_displacement(self):
+        """Plot exact and numerical displacements."""
 
-        # Face-centered mass fluxes
-        mf_fc: np.ndarray = (
-            mf_fun[0](fc[0], fc[1], time) * fn[0]
-            + mf_fun[1](fc[0], fc[1], time) * fn[1]
-        )
+        sd = self.mdg.subdomains()[0]
+        u_ex = self.results[-1].exact_displacement
+        u_num = self.results[-1].approx_displacement
 
-        return mf_fc
+        # Horizontal displacement
+        pp.plot_grid(sd, u_ex[::2], plot_2d=True, linewidth=0, title="u_x (Exact)")
+        pp.plot_grid(sd, u_num[::2], plot_2d=True, linewidth=0, title="u_x (Numerical)")
 
-    def elastic_force(self, sd: pp.Grid, time: float) -> np.ndarray:
-        """Evaluate exact elastic force [N] at the face centers"""
-
-        x, y, t = sym.symbols("x y t")
-
-        # Get list of face indices
-        fc = sd.face_centers
-        fn = sd.face_normals
-
-        sigma_elas_fun: list[list[Callable]] = [
-            [
-                sym.lambdify((x, y, t), self.sigma_elast[0][0], "numpy"),
-                sym.lambdify((x, y, t), self.sigma_elast[0][1], "numpy"),
-            ],
-            [
-                sym.lambdify((x, y, t), self.sigma_elast[1][0], "numpy"),
-                sym.lambdify((x, y, t), self.sigma_elast[1][1], "numpy"),
-            ],
-        ]
-
-        # Face-centered elastic force
-        force_elast_fc: list[np.ndarray] = [
-            # (sigma_xx * n_x + sigma_xy * n_y) * face_area
-            sigma_elas_fun[0][0](fc[0], fc[1], time) * fn[0]
-            + sigma_elas_fun[0][1](fc[0], fc[1], time) * fn[1],
-            # (sigma_yx * n_x + sigma_yy * n_y) * face_area
-            sigma_elas_fun[1][0](fc[0], fc[1], time) * fn[0]
-            + sigma_elas_fun[1][1](fc[0], fc[1], time) * fn[1],
-        ]
-
-        # Flatten array
-        force_elast_flat = np.array(force_elast_fc).ravel("F")
-
-        return force_elast_flat
-
-
-# ----> Results storage
-class StoreResults(VerificationUtils):
-    """Class for storing results."""
-
-    def __init__(self, setup) -> None:
-        """Constructor of the class"""
-
-        # Retrieve information from setup
-        mdg: pp.MixedDimensionalGrid = setup.mdg
-        sd: pp.Grid = mdg.subdomains()[0]
-        data: dict = mdg.subdomain_data(sd)
-        t: float = setup.time_manager.time
-        ex: ExactSolution = setup.exact_sol
-        p_name: str = setup.pressure_variable
-        q_name: str = "darcy_flux"
-        u_name: str = setup.displacement_variable
-        force_name: str = "poroelastic_force"
-
-        # Store time for convenience
-        self.time = t
-
-        # Pressure
-        self.exact_pressure = ex.pressure(sd=sd, time=t)
-        self.approx_pressure = data[pp.STATE][pp.ITERATE][p_name]
-        self.error_pressure = self.relative_l2_error(
-            grid=sd,
-            true_array=self.exact_pressure,
-            approx_array=self.approx_pressure,
-            is_scalar=True,
-            is_cc=True,
-        )
-
-        # Darcy flux
-        self.exact_flux = ex.darcy_flux(sd=sd, time=t)
-        self.approx_flux = data[pp.STATE][pp.ITERATE][q_name]
-        self.error_flux = self.relative_l2_error(
-            grid=sd,
-            true_array=self.exact_flux,
-            approx_array=self.approx_flux,
-            is_scalar=True,
-            is_cc=False,
-        )
-
-        # Displacement
-        self.exact_displacement = ex.displacement(sd=sd, time=t)
-        self.approx_displacement = data[pp.STATE][pp.ITERATE][u_name]
-        self.error_displacement = self.relative_l2_error(
-            grid=sd,
-            true_array=self.exact_displacement,
-            approx_array=self.approx_displacement,
-            is_scalar=False,
-            is_cc=True,
-        )
-
-        # Poroelastic force
-        self.exact_force = ex.poroelastic_force(sd=sd, time=t)
-        self.approx_force = data[pp.STATE][pp.ITERATE][force_name]
-        self.error_force = self.relative_l2_error(
-            grid=sd,
-            true_array=self.exact_force,
-            approx_array=self.approx_force,
-            is_scalar=False,
-            is_cc=False,
+        # Vertical displacement
+        pp.plot_grid(sd, u_ex[1::2], plot_2d=True, linewidth=0, title="u_y (Exact)")
+        pp.plot_grid(
+            sd, u_num[1::2], plot_2d=True, linewidth=0, title="u_y (Numerical)"
         )
 
 
-# ----> Simulation model
-
-# --------> Geometry
-class UnitSquare(pp.ModelGeometry):
+# -----> Geometry
+class UnitSquareTriangleGrid(pp.ModelGeometry):
     """Class for setting up the geometry of the unit square domain."""
 
     params: dict
@@ -524,14 +635,17 @@ class UnitSquare(pp.ModelGeometry):
     """Fracture network. Empty in this case."""
 
     def set_fracture_network(self) -> None:
-        domain = {"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0}
-        self.fracture_network = pp.FractureNetwork2d(None, None, domain)
+        """Set fracture network. Unit square with no fractures."""
+        domain = pp.grids.standard_grids.utils.unit_domain(2)
+        self.fracture_network = pp.FractureNetwork2d(domain=domain)
 
     def mesh_arguments(self) -> dict:
+        """Set mesh arguments."""
         default_mesh_arguments = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05}
         return self.params.get("mesh_arguments", default_mesh_arguments)
 
     def set_md_grid(self) -> None:
+        """Set mixed-dimensional grid."""
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
         domain = self.fracture_network.domain
         if isinstance(domain, np.ndarray):
@@ -547,8 +661,8 @@ class UnitSquare(pp.ModelGeometry):
             self.domain_bounds = domain
 
 
-# --------> Equations
-class ModifiedMassBalance(mass.MassBalanceEquations):
+# -----> Balance equations
+class ManuPoroMechMassBalance(mass.MassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -566,24 +680,37 @@ class ModifiedMassBalance(mass.MassBalanceEquations):
             previous_timestep=True,
         )
 
-        # The following is a hack to include cross term missing from the dt operator.
-        # This reduces the discretization error significantly, but we don't include it
-        # since the purpose of this verification setup is to be used in functional
-        # test to test the correct *default* behaviour of the models.
-        # Add cross term missing from dt operator relative to proper
-        # application of the product rule.
-        # rho = self.fluid_density(subdomains)
-        # phi = self.volume_integral(self.porosity(subdomains), subdomains, dim=1)
-        # dt_op = pp.ad.time_derivatives.dt
-        # dt = pp.ad.Scalar(self.time_manager.dt, name="delta_t")
-        # prod = dt_op(rho, dt) * dt_op(phi, dt)
+        # Add up contribution of internal and external sources of fluid
+        fluid_sources = internal_sources + external_sources
+        fluid_sources.set_name("Fluid source")
 
-        return internal_sources + external_sources  # - prod
+        """
+        The following is a "hack" to include cross term missing from the dt operator.
+        This reduces the discretization error significantly, but we don't include it
+        since the purpose of this verification setup is to be used in functional
+        tests to check the correct *default* behaviour of the models.
+
+        Add cross term missing from dt operator relative to proper application of
+        the product rule.
+
+        .. code:: python
+
+            rho = self.fluid_density(subdomains)
+            phi = self.volume_integral(self.porosity(subdomains), subdomains, dim=1)
+            dt_op = pp.ad.time_derivatives.dt
+            dt = pp.ad.Scalar(self.time_manager.dt, name="delta_t")
+            prod = dt_op(rho, dt) * dt_op(phi, dt)
+
+        """
+
+        return fluid_sources  # - prod
 
 
-class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
+class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
+    """Modify momentum balance to account for time-dependent body force."""
+
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Mechanics source term."""
+        """Body force."""
 
         external_sources = pp.ad.TimeDependentArray(
             name="source_mechanics",
@@ -594,50 +721,69 @@ class ModifiedMomentumBalance(momentum.MomentumBalanceEquations):
         return external_sources
 
 
-class ModifiedEquationsPoromechanics(ModifiedMassBalance, ModifiedMomentumBalance):
-    ...
+class ManuPoroMechEquations(
+    ManuPoroMechMassBalance,
+    ManuPoroMechMomentumBalance,
+):
+    """Mixer class for modified poromoechanics equations."""
+
+    def set_equations(self):
+        """Set the equations for the modified poromechanics problem.
+
+        Call both parent classes' `set_equations` methods.
+
+        """
+        ManuPoroMechMassBalance.set_equations(self)
+        ManuPoroMechMomentumBalance.set_equations(self)
 
 
-# ---------> Solution Strategy
-class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+# -----> Solution strategy
+class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy for the verification setup."""
 
+    exact_sol: ManuPoroMechExactSolution
+    """Exact solution object."""
+
     fluid: pp.FluidConstants
-    mdg: pp.MixedDimensionalGrid
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
-    results: list[StoreResults]
-    exact_sol: ExactSolution
+    """Object containing the fluid constants."""
+
+    plot_results: Callable
+    """Method for plotting results. Usually provided by the mixin class
+    :class:`SetupUtilities`.
+
+    """
+
+    results: list[ManuPoroMechSaveData]
+    """List of SaveData objects."""
 
     def __init__(self, params: dict):
-        """Constructor for the class"""
-
+        """Constructor for the class."""
         super().__init__(params)
 
-        # Exact solution
-        self.exact_sol: ExactSolution
-        """Exact solution object"""
+        self.exact_sol: ManuPoroMechExactSolution
+        """Exact solution object."""
 
-        # Prepare object to store solutions after each `stored_time`.
-        self.results: list[StoreResults] = []
-        """Object that stores exact and approximated solutions and L2 errors"""
+        self.results: list[ManuPoroMechSaveData] = []
+        """Results object that stores exact and approximated solutions and errors."""
+
+        self.flux_variable: str = "darcy_flux"
+        """Keyword to access the Darcy fluxes."""
+
+        self.stress_variable: str = "poroelastic_force"
+        """Keyword to access the poroelastic force."""
 
     def set_materials(self):
-        """Set material parameters.
-
-        Add exact solution object to the simulation model after materials have been set.
-        """
+        """Set material parameters."""
         super().set_materials()
-        self.exact_sol = ExactSolution(self)
+
+        # Instantiate exact solution object after materials have been set
+        self.exact_sol = ManuPoroMechExactSolution(self)
 
     def before_nonlinear_loop(self) -> None:
         """Update values of external sources."""
 
-        # Retrieve subdomain and data dictionary
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
-
-        # Retrieve current time
         t = self.time_manager.time
 
         # Mechanics source
@@ -648,98 +794,22 @@ class ModifiedSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         flow_source = self.exact_sol.flow_source(sd=sd, time=t)
         data[pp.STATE]["source_flow"] = flow_source
 
-    def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called after the non-linear solver has converged."""
-        super().after_nonlinear_convergence(solution, errors, iteration_counter)
-
-        # Subdomain grid and data dictionary
-        sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-
-        # Recover Darcy flux and store it in pp.ITERATE
-        darcy_flux_ad = self.darcy_flux([sd])
-        darcy_flux_vals = darcy_flux_ad.evaluate(self.equation_system).val
-        data[pp.STATE][pp.ITERATE]["darcy_flux"] = darcy_flux_vals
-
-        # Recover poroelastic force and store it in pp.ITERATE
-        force_ad = self.stress([sd])
-        force_vals = force_ad.evaluate(self.equation_system).val
-        data[pp.STATE][pp.ITERATE]["poroelastic_force"] = force_vals
-
-        # Store results
-        t = self.time_manager.time
-        tf = self.time_manager.time_final
-        if np.any(np.isclose(t, self.params.get("stored_times", [tf]))):
-            self.results.append(StoreResults(self))
-
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         if self.params.get("plot_results", False):
             self.plot_results()
 
-    # -----> Plotting-related methods
-    def plot_results(self) -> None:
-        """Plotting results"""
-        self._plot_displacement()
-        self._plot_pressure()
 
-    def _plot_pressure(self):
-        """Plot exact and numerical pressures"""
-        sd = self.mdg.subdomains()[0]
-        p_ex = self.results[-1].exact_pressure
-        p_num = self.results[-1].approx_pressure
-        pp.plot_grid(sd, p_ex, plot_2d=True, linewidth=0, title="pressure (Exact)")
-        pp.plot_grid(sd, p_num, plot_2d=True, linewidth=0, title="pressure (Numerical)")
-
-    def _plot_displacement(self):
-        """Plot exact and numerical displacements."""
-        sd = self.mdg.subdomains()[0]
-        u_ex = self.results[-1].exact_displacement
-        u_num = self.results[-1].approx_displacement
-        # Horizontal displacement
-        pp.plot_grid(sd, u_ex[::2], plot_2d=True, linewidth=0, title="u_x (Exact)")
-        pp.plot_grid(sd, u_num[::2], plot_2d=True, linewidth=0, title="u_x (Numerical)")
-        # Vertical displacement
-        pp.plot_grid(sd, u_ex[1::2], plot_2d=True, linewidth=0, title="u_y (Exact)")
-        pp.plot_grid(
-            sd, u_num[1::2], plot_2d=True, linewidth=0, title="u_y (Numerical)"
-        )
-
-
-# ---------> Mixer class
-class ManuPoromechanics2d(  # type: ignore
-    UnitSquare,
-    ModifiedEquationsPoromechanics,
-    ModifiedSolutionStrategy,
+# -----> Mixer class
+class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
+    UnitSquareTriangleGrid,
+    ManuPoroMechEquations,
+    ManuPoroMechSolutionStrategy,
+    ManuPoroMechUtils,
+    ManuPoroMechDataSaving,
     poromechanics.Poromechanics,
 ):
     """
-    Mixer class for the verification setup.
-
-    Examples:
-
-        .. code:: python
-
-        from time import time
-
-        tic = time()
-        fluid = pp.FluidConstants({"compressibility": 0.02})
-        solid = pp.SolidConstants({"biot_coefficient": 0.50})
-        material_constants = {"fluid": fluid, "solid": solid}
-        params = {
-            "plot_results": True,
-            "time_manager": pp.TimeManager([0, 0.2, 0.4, 0.6, 0.8, 1], 0.2, True),
-            "material_constants": material_constants,
-            "manufactured_solution": "nordbotten_2016"
-        }
-        setup = ManuPoromechanics2d(params)
-        print("Simulation started...")
-        pp.run_time_dependent_model(setup, params)
-        toc = time()
-        print(f"Simulation finished in {round(toc - tic)} seconds.")
+    Mixer class for the two-dimensional non-linear poromechanics verification setup.
 
     """
-
-    ...
