@@ -37,6 +37,7 @@ from __future__ import annotations
 from typing import Callable, Literal
 
 import porepy as pp
+from porepy.numerics.ad.operator_functions import NumericType
 
 from .pr_model_components import *
 from .pr_utils import _exp, _power
@@ -47,9 +48,7 @@ __all__ = [
 ]
 
 
-def bip_H2O_CO2(
-    T: pp.ad.MixedDimensionalVariable, h2o: H2O, co2: CO2
-) -> pp.ad.Operator:
+def bip_H2O_CO2(T: NumericType, h2o: H2O, co2: CO2) -> NumericType:
     """(Constant) BIP for water and carbon dioxide.
 
     The value is taken from
@@ -63,12 +62,10 @@ def bip_H2O_CO2(
         An AD Operator representing the constant scalar BIP.
 
     """
-    return pp.ad.Scalar(0.0952)
+    return 0.0952
 
 
-def bip_H2O_H2S(
-    T: pp.ad.MixedDimensionalVariable, h20: H2O, h2s: H2S
-) -> pp.ad.Operator:
+def bip_H2O_H2S(T: NumericType, h20: H2O, h2s: H2S) -> NumericType:
     """(Constant) BIP for water and hydrogen sulfide.
 
     The value is taken from
@@ -82,10 +79,10 @@ def bip_H2O_H2S(
         An AD Operator representing the constant scalar BIP.
 
     """
-    return pp.ad.Scalar(0.0394)
+    return 0.0394
 
 
-def bip_H2O_N2(T: pp.ad.MixedDimensionalVariable, h2o: H2O, n2: N2) -> pp.ad.Operator:
+def bip_H2O_N2(T: NumericType, h2o: H2O, n2: N2) -> NumericType:
     """(Constant) BIP for water and nitrogen.
 
     The law is taken from
@@ -105,20 +102,16 @@ def bip_H2O_N2(T: pp.ad.MixedDimensionalVariable, h2o: H2O, n2: N2) -> pp.ad.Ope
 
     """
     # return 0.9909 - 379.9691 / T
-    return pp.ad.Scalar(0.0)
+    return 0.0
 
 
-def dT_bip_H2O_N2(
-    T: pp.ad.MixedDimensionalVariable, h2o: H2O, n2: N2
-) -> pp.ad.Operator:
+def dT_bip_H2O_N2(T: NumericType, h2o: H2O, n2: N2) -> NumericType:
     """Analytical derivative of :func:`bip_H2O_N2` w.r.t. temperature ``T``."""
     # return 379.9691 / (T * T)
-    return pp.ad.Scalar(0.0)
+    return 0.0
 
 
-def bip_CO2_H2S(
-    T: pp.ad.MixedDimensionalVariable, co2: CO2, h2s: H2S
-) -> pp.ad.Operator:
+def bip_CO2_H2S(T: NumericType, co2: CO2, h2s: H2S) -> NumericType:
     """(Constant) BIP for carbon dioxide and hydrogen sulfide.
 
     The value is taken from
@@ -132,10 +125,10 @@ def bip_CO2_H2S(
         An AD Operator representing the constant scalar BIP.
 
     """
-    return pp.ad.Scalar(0.0967)
+    return 0.0967
 
 
-def bip_CO2_N2(T: pp.ad.MixedDimensionalVariable, co2: CO2, n2: N2) -> pp.ad.Operator:
+def bip_CO2_N2(T: NumericType, co2: CO2, n2: N2) -> NumericType:
     """(Constant) BIP for carbon dioxide and nitrogen.
 
     The value is taken from
@@ -149,10 +142,10 @@ def bip_CO2_N2(T: pp.ad.MixedDimensionalVariable, co2: CO2, n2: N2) -> pp.ad.Ope
         An AD Operator representing the constant scalar BIP.
 
     """
-    return pp.ad.Scalar(-0.0122)
+    return -0.0122
 
 
-def bip_N2_H2S(T: pp.ad.MixedDimensionalVariable, n2: N2, h2s: H2S) -> pp.ad.Operator:
+def bip_N2_H2S(T: NumericType, n2: N2, h2s: H2S) -> NumericType:
     """(Constant) BIP for nitrogen and hydrogen sulfide.
 
     The value is taken from
@@ -166,12 +159,11 @@ def bip_N2_H2S(T: pp.ad.MixedDimensionalVariable, n2: N2, h2s: H2S) -> pp.ad.Ope
         An AD Operator representing the constant scalar BIP.
 
     """
-    return pp.ad.Scalar(0.1652)
+    return 0.1652
 
 
-def bip_NaClBrine_H2S(
-    T: pp.ad.MixedDimensionalVariable, naclbrine: NaClBrine, h2s: H2S
-) -> pp.ad.Operator:
+# TODO FIX molality access in all brine bips: Must not return ad.Operator
+def bip_NaClBrine_H2S(T: NumericType, naclbrine: NaClBrine, h2s: H2S) -> NumericType:
     """Temperature- and salinity-dependent BIP for NaCl-brine and hydrogen sulfide.
 
     The law is taken from
@@ -185,16 +177,12 @@ def bip_NaClBrine_H2S(
     return -0.20441 + 0.23426 * T_r
 
 
-def dT_bip_NaClBrine_H2S(
-    T: pp.ad.MixedDimensionalVariable, naclbrine: NaClBrine, h2s: H2S
-) -> pp.ad.Operator:
+def dT_bip_NaClBrine_H2S(T: NumericType, naclbrine: NaClBrine, h2s: H2S) -> NumericType:
     """Analytical derivative of :func:`bip_NaClBrine_H2S` w.r.t. temperature ``T``."""
     return 0.23426 / h2s.critical_temperature()
 
 
-def bip_NaClBrine_CO2(
-    T: pp.ad.MixedDimensionalVariable, naclbrine: NaClBrine, co2: CO2
-) -> pp.ad.Operator:
+def bip_NaClBrine_CO2(T: NumericType, naclbrine: NaClBrine, co2: CO2) -> NumericType:
     """Temperature- and salinity-dependent BIP for NaCl-brine and carbon dioxide.
 
     The law is taken from
@@ -206,34 +194,27 @@ def bip_NaClBrine_CO2(
     """
     T_r = T / co2.critical_temperature()
     molality = naclbrine.molality_of(naclbrine.NaCl)
-    exponent_1 = pp.ad.Scalar(0.7505)
-    exponent_2 = pp.ad.Scalar(0.979)
 
     return (
-        -0.31092 * (1 + 0.15587 * _power(molality, exponent_1))
-        + 0.23580 * (1 + 0.17837 * _power(molality, exponent_2)) * T_r
-        - 21.2566 * _exp(-6.7222 * T_r - molality)
+        -0.31092 * (1 + 0.15587 * pp.ad.power(molality, 0.7505))
+        + 0.23580 * (1 + 0.17837 * pp.ad.power(molality, 0.979)) * T_r
+        - 21.2566 * pp.ad.exp(-6.7222 * T_r - molality)
     )
 
 
-def dT_bip_NaClBrine_CO2(
-    T: pp.ad.MixedDimensionalVariable, naclbrine: NaClBrine, co2: CO2
-) -> pp.ad.Operator:
+def dT_bip_NaClBrine_CO2(T: NumericType, naclbrine: NaClBrine, co2: CO2) -> NumericType:
     """Analytical derivative of :func:`bip_NaClBrine_CO2` w.r.t. temperature ``T``."""
     T_r = T / co2.critical_temperature()
     molality = naclbrine.molality_of(naclbrine.NaCl)
-    exponent_2 = pp.ad.Scalar(0.979)
 
     return 0.23580 * (
-        1 + 0.17837 * _power(molality, exponent_2)
-    ) / co2.critical_temperature() + 21.2566 * _exp(-6.7222 * T_r - molality) * (
+        1 + 0.17837 * pp.ad.power(molality, 0.979)
+    ) / co2.critical_temperature() + 21.2566 * pp.ad.exp(-6.7222 * T_r - molality) * (
         6.7222 / co2.critical_temperature()
     )
 
 
-def bip_NaClBrine_N2(
-    T: pp.ad.MixedDimensionalVariable, naclbrine: NaClBrine, n2: N2
-) -> pp.ad.Operator:
+def bip_NaClBrine_N2(T: NumericType, naclbrine: NaClBrine, n2: N2) -> NumericType:
     """Temperature- and salinity-dependent BIP for NaCl-brine and nitrogen.
 
     The law is taken from
@@ -245,23 +226,21 @@ def bip_NaClBrine_N2(
     """
     T_r = T / n2.critical_temperature()
     molality = naclbrine.molality_of(naclbrine.NaCl)
-    exponent = pp.ad.Scalar(0.75)
 
     return (
-        -1.70235 * (1 + 0.25587 * _power(molality, exponent))
-        + 0.44338 * (1 + 0.08126 * _power(molality, exponent)) * T_r
+        -1.70235 * (1 + 0.25587 * pp.ad.power(molality, 0.75))
+        + 0.44338 * (1 + 0.08126 * pp.ad.power(molality, 0.75)) * T_r
     )
 
 
-def dT_bip_NaClBrine_N2(
-    T: pp.ad.MixedDimensionalVariable, naclbrine: NaClBrine, n2: N2
-) -> pp.ad.Operator:
+def dT_bip_NaClBrine_N2(T: NumericType, naclbrine: NaClBrine, n2: N2) -> NumericType:
     """Analytical derivative of :func:`bip_NaClBrine_N2` w.r.t. temperature ``T``."""
     molality = naclbrine.molality_of(naclbrine.NaCl)
-    exponent = pp.ad.Scalar(0.75)
 
     return (
-        0.44338 * (1 + 0.08126 * _power(molality, exponent)) / n2.critical_temperature()
+        0.44338
+        * (1 + 0.08126 * pp.ad.power(molality, 0.75))
+        / n2.critical_temperature()
     )
 
 

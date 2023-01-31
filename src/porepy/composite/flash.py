@@ -531,7 +531,8 @@ class Flash:
         self,
         flash_type: Literal["isothermal", "isenthalpic"] = "isothermal",
         method: Literal["newton-min", "npipm"] = "newton-min",
-        initial_guess: Literal["iterate", "feed", "uniform", "rachford_rice"] | str = "iterate",
+        initial_guess: Literal["iterate", "feed", "uniform", "rachford_rice"]
+        | str = "iterate",
         copy_to_state: bool = False,
         do_logging: bool = False,
     ) -> bool:
@@ -914,34 +915,33 @@ class Flash:
 
             # for each cell ....
 
-
             # Compute K values initially
             # Collects Initial K values from Wilson's correlation
             K_vals = []
             for comp in self._C.components:
                 k_ce = (
-                        comp.critical_pressure()
-                        / pressure
-                        * np.exp(
-                    5.37
-                    * (1 + comp.acentric_factor)
-                    * (1 - comp.critical_temperature() / temperature)
-                )
+                    comp.critical_pressure()
+                    / pressure
+                    * np.exp(
+                        5.37
+                        * (1 + comp.acentric_factor)
+                        * (1 - comp.critical_temperature() / temperature)
+                    )
                 )
 
                 K_vals.append(k_ce)
 
             def ResidualRR(Y, z_c, K_vals):
                 res = 0.0 * Y
-                for z_i, K_i in zip(z_c,K_vals):
-                    res = res + (z_i*(K_i - 1.0)) / (1.0 + Y*(K_i - 1))
+                for z_i, K_i in zip(z_c, K_vals):
+                    res = res + (z_i * (K_i - 1.0)) / (1.0 + Y * (K_i - 1))
                 return res
 
             res_L = ResidualRR(np.zeros(nc), z_c, K_vals)
             res_G = ResidualRR(np.ones(nc), z_c, K_vals)
 
             Y = np.zeros(nc)
-            for i, chunk in enumerate(zip(res_L,res_G)):
+            for i, chunk in enumerate(zip(res_L, res_G)):
                 resL, resG = chunk
                 if resL <= 0.0:
                     Y[i] = 0.0
@@ -949,14 +949,16 @@ class Flash:
                     Y[i] = 1.0
 
                 if 0.0 < resL and resG < 0.0:
-                    def FindRoot(z_c, K_vals):
 
+                    def FindRoot(z_c, K_vals):
                         def bisection(a, b, n):
                             i = 1
                             condition = True
                             while condition:
                                 x = (a + b) / 2
-                                prod = ResidualRR(a, z_c, K_vals) * ResidualRR(x, z_c, K_vals)
+                                prod = ResidualRR(a, z_c, K_vals) * ResidualRR(
+                                    x, z_c, K_vals
+                                )
                                 if prod[0] < 0:
                                     b = x
                                 else:
@@ -973,7 +975,7 @@ class Flash:
                         b = 1.0
                         return bisection(a, b, n)
 
-                    Y[i] = FindRoot(z_c,K_vals)
+                    Y[i] = FindRoot(z_c, K_vals)
 
             composition: dict[Any, dict] = dict()
             phases = [p for p in self._C.phases]
@@ -981,12 +983,12 @@ class Flash:
                 composition[phase] = dict()
                 i = 0
                 for comp in self._C.components:
-                    z_i, K_i = [z_c[i],K_vals[i]]
+                    z_i, K_i = [z_c[i], K_vals[i]]
 
-                    if phase.name == 'L':
-                        x_ce = z_i / (1 + Y*(K_i - 1))
-                    if phase.name == 'G':
-                        x_ce = z_i * K_i / (1 + Y*(K_i - 1))
+                    if phase.name == "L":
+                        x_ce = z_i / (1 + Y * (K_i - 1))
+                    if phase.name == "G":
+                        x_ce = z_i * K_i / (1 + Y * (K_i - 1))
                     composition[phase].update({comp: x_ce})
                     i = i + 1
 

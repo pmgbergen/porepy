@@ -9,7 +9,7 @@ import porepy as pp
 from .._composite_utils import R_IDEAL
 from ..phase import Phase
 from .pr_component import PR_Component
-from .pr_mixing import VdW_a_ij, dT_VdW_a_ij
+from .pr_mixing import VdW_a_ij, VdW_dT_a_ij
 from .pr_utils import Leaf, _exp, _log, _power
 
 
@@ -98,14 +98,14 @@ class PR_Phase(Phase):
             # First we sum over the diagonal elements of the mixture matrix,
             # starting with the first component
             comp_0 = components[0]
-            dT_a = dT_VdW_a_ij(T, comp_0, comp_0) * _power(
+            dT_a = VdW_dT_a_ij(T, comp_0, comp_0) * _power(
                 self.fraction_of_component(comp_0), _2
             )
 
             if len(components) > 1:
                 # add remaining diagonal elements
                 for comp in components[1:]:
-                    dT_a += dT_VdW_a_ij(T, comp, comp) * _power(
+                    dT_a += VdW_dT_a_ij(T, comp, comp) * _power(
                         self.fraction_of_component(comp), _2
                     )
 
@@ -116,7 +116,7 @@ class PR_Phase(Phase):
                         if comp_i != comp_j:
                             # computing the cohesion between components i and j
                             mixed_parts.append(
-                                dT_VdW_a_ij(T, comp_i, comp_j)
+                                VdW_dT_a_ij(T, comp_i, comp_j)
                                 * self.fraction_of_component(comp_i)
                                 * self.fraction_of_component(comp_j)
                             )

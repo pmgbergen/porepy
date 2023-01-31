@@ -22,7 +22,7 @@ __all__ = [
     "VARIABLE_SYMBOLS",
 ]
 
-R_IDEAL: float = 0.00831446261815324
+R_IDEAL: float = 8.31446261815324 * 1e-3
 """Universal molar gas constant.
 
 | Math. Dimension:        scalar

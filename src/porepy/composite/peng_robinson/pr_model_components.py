@@ -3,6 +3,7 @@ Peng-Robinson EoS."""
 from __future__ import annotations
 
 import porepy as pp
+from porepy.numerics.ad.operator_functions import NumericType
 
 from .._composite_utils import R_IDEAL, T_REF
 from ..component import PseudoComponent
@@ -318,7 +319,7 @@ class NaClBrine(PR_Compound, H2O):
         self.NaCl: PseudoComponent = solute
         """Reference to the pseudo-component representing NaCl."""
 
-    def cohesion_correction(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
+    def cohesion_correction(self, T: NumericType) -> NumericType:
         """The attraction correction for NaCl-brine based on molal salinity can be found
         in
         `Soereide (1992), equation 9 <https://doi.org/10.1016/0378-3812(92)85105-H>`_

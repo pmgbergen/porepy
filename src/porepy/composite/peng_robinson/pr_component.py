@@ -7,10 +7,11 @@ from __future__ import annotations
 import abc
 
 import porepy as pp
+from porepy.numerics.ad.operator_functions import NumericType
 
 from .._composite_utils import R_IDEAL
 from ..component import Component, Compound
-from .pr_utils import A_CRIT, B_CRIT, _power, _sqrt
+from .pr_utils import A_CRIT, B_CRIT
 
 
 class PR_Component(Component):
@@ -79,37 +80,36 @@ class PR_Component(Component):
                 + 0.016666 * self.acentric_factor**3
             )
 
-    def cohesion_correction(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
+    def cohesion_correction(self, T: NumericType) -> NumericType:
         """Returns the linearized alpha-correction for the cohesion parameter"""
 
-        alpha = 1 + self.cohesion_correction_weight * (
-            1 - _sqrt(T / self.critical_temperature())
+        alpha = pp.ad.sqrt(
+            1
+            + self.cohesion_correction_weight
+            * (1 - pp.ad.sqrt(T / self.critical_temperature()))
         )
 
         return alpha
 
-    def cohesion(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
+    def cohesion(self, T: NumericType) -> NumericType:
         """Returns an expression for ``a`` in the EoS for this component."""
-        alpha = self.cohesion_correction(T)
-        return self.critical_cohesion * alpha * alpha
+        return self.critical_cohesion * self.cohesion_correction(T)
 
-    def dT_cohesion(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
+    def dT_cohesion(self, T: NumericType) -> NumericType:
         """Returns an expression for the derivative of ``a`` with respect to
         temperature."""
 
-        # external derivative of cohesion correction squared
-        dt_a = 2 * self.critical_cohesion * self.cohesion_correction(T)
-        # internal derivative of cohesion correction
+        # external derivative of alpha term
+        dt_a = self.critical_cohesion / self.cohesion_correction(T) / 2
+        # internal derivative of alpha term
         dt_a *= (
-            (-1 / (2 * self.critical_temperature()))
-            * self.cohesion_correction_weight
-            * _power(T / self.critical_temperature(), pp.ad.Scalar(-1 / 2))
-        )
+            -self.cohesion_correction_weight / (2 * self.critical_temperature())
+        ) * pp.ad.power(T / self.critical_temperature(), -1 / 2)
 
         return dt_a
 
     @property
-    def covolume(self) -> pp.ad.Operator:
+    def covolume(self) -> NumericType:
         """The constant covolume ``b`` in the Peng-Robinson EoS
 
             ``b = B_CRIT * (R_IDEAL * T_critical) / p_critical
@@ -117,14 +117,12 @@ class PR_Component(Component):
         wrapped in an AD operator.
 
         """
-        return pp.ad.Scalar(
+        return (
             B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
 
     @abc.abstractmethod
-    def h_ideal(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """Abstract method for implementing the component-specific ideal part of the
         specific molar enthalpy.
 
@@ -156,7 +154,7 @@ class PR_Compound(PR_Component, Compound):
     """
 
     @abc.abstractmethod
-    def cohesion_correction(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
+    def cohesion_correction(self, T: NumericType) -> NumericType:
         """Abstraction of the corrective term in ``a``.
 
         To be implemented in child classes using heuristic laws depending on present
