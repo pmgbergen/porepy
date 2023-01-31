@@ -744,7 +744,7 @@ class MandelUtilities(VerificationUtils):
         return c_f
 
     # -----> Non-dimensionalization methods
-    def nondim_t(self, t: Union[float, int, np.ndarray]) -> float:
+    def nondim_time(self, t: Union[float, int, np.ndarray]) -> float:
         """Non-dimensionalize time.
 
         Parameters:
@@ -793,7 +793,7 @@ class MandelUtilities(VerificationUtils):
         b *= m
         return y / b
 
-    def nondim_p(self, p: np.ndarray) -> np.ndarray:
+    def nondim_pressure(self, p: np.ndarray) -> np.ndarray:
         """Non-dimensionalize pressure.
 
         Parameters:
@@ -808,25 +808,26 @@ class MandelUtilities(VerificationUtils):
         """
         F = self.vertical_load()  # scaled [N * m^{-1}]
 
+        # TODO: Retrieve from domain
         m = 1 / self.units.m  # length scaling
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
         return p / (F * a)
 
-    def nondim_flux(self, qx: np.ndarray) -> np.ndarray:
+    def nondim_flux(self, q_x: np.ndarray) -> np.ndarray:
         """Non-dimensionalize horizontal component of the specific discharge vector.
 
         Parameters:
-            qx: Horizontal component of the specific discharge in scaled `m * s^{-1}].
+            q_x: Horizontal component of the specific discharge in scaled [m * s^{-1}].
 
         Returns:
             Dimensionless horizontal component of the specific discharge with
             ``shape=(num_points, )``.
 
         """
-        k = self.solid.permeability()  # [m^2]
+        k = self.solid.permeability()  # scaled [m^2]
         F = self.vertical_load()  # scaled [N * m^{-1}]
-        mu = self.fluid.viscosity()  # [Pa * s]
+        mu = self.fluid.viscosity()  # scaled [Pa * s]
 
         # TODO: Retrieve from domain
         m = 1 / self.solid.units.m  # length scaling
@@ -834,7 +835,7 @@ class MandelUtilities(VerificationUtils):
         a *= m
 
         factor = (F * k) / (mu * a**2)  # scaled [m * s^{-1}]
-        return qx / factor
+        return q_x / factor
 
     # -----> Post-processing methods
     def south_cells(self) -> np.ndarray:
@@ -937,12 +938,14 @@ class MandelUtilities(VerificationUtils):
         for idx, result in enumerate(self.results):
             ax.plot(
                 self.nondim_x(x_ex),
-                self.nondim_p(self.exact_sol.pressure_profile(x_ex, result.time)),
+                self.nondim_pressure(
+                    self.exact_sol.pressure_profile(x_ex, result.time)
+                ),
                 color=color_map.colors[idx],
             )
             ax.plot(
                 self.nondim_x(xc[south_cells]),
-                self.nondim_p(result.approx_pressure[south_cells]),
+                self.nondim_pressure(result.approx_pressure[south_cells]),
                 color=color_map.colors[idx],
                 linewidth=0,
                 marker=".",
@@ -955,7 +958,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
         ax.set_ylabel(r"Non-dimensional pressure, $p ~ a ~ F^{-1}$", fontsize=13)
@@ -1005,7 +1008,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
         ax.set_ylabel(
@@ -1057,7 +1060,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(r"Non-dimensional vertical distance, $y ~ b^{-1}$", fontsize=13)
         ax.set_ylabel(
@@ -1117,7 +1120,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
         ax.set_ylabel(
@@ -1154,14 +1157,14 @@ class MandelUtilities(VerificationUtils):
         for idx, result in enumerate(self.results):
             ax.plot(
                 self.nondim_x(x_ex),
-                self.nondim_p(
+                self.nondim_pressure(
                     self.exact_sol.vertical_stress_profile(x_ex, result.time)
                 ),
                 color=color_map.colors[idx],
             )
             ax.plot(
                 self.nondim_x(xf[south_faces]),
-                self.nondim_p(
+                self.nondim_pressure(
                     result.approx_force[1 :: sd.dim][south_faces] / ny[south_faces]
                 ),
                 color=color_map.colors[idx],
@@ -1176,7 +1179,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_t(result.time), 5)}",
+                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(
             r"Non-dimensional horizontal distance, $ x ~ a^{-1}$", fontsize=13
@@ -1235,7 +1238,7 @@ class MandelUtilities(VerificationUtils):
 
         fig, ax = plt.subplots(figsize=(9, 8))
         ax.semilogx(
-            self.nondim_t(ex_times),
+            self.nondim_time(ex_times),
             ex_consol_degree,
             alpha=0.5,
             color="black",
@@ -1243,7 +1246,7 @@ class MandelUtilities(VerificationUtils):
             label="Exact",
         )
         ax.semilogx(
-            self.nondim_t(times),
+            self.nondim_time(times),
             approx_consol_degree_x,
             marker="s",
             linewidth=0,
@@ -1254,7 +1257,7 @@ class MandelUtilities(VerificationUtils):
             label="Horizontal MPFA/MPSA-FV",
         )
         ax.semilogx(
-            self.nondim_t(times),
+            self.nondim_time(times),
             approx_consol_degree_y,
             marker="+",
             markeredgewidth=2,
@@ -1531,7 +1534,7 @@ class MandelSetup(  # type: ignore[misc]
 ):
     """Mixer class for Mandel's consolidation problem.
 
-    Admissible model parameters at are:
+    Model parameters of special relevance for this class:
 
         - vertical_load (pp.number): Applied load in [N * m^{-1}]. Default is 6e8.
         - domain_size (tuple(pp.number, pp.number)): Length and height of the domain
