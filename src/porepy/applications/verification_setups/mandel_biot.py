@@ -549,27 +549,27 @@ class MandelExactSolution:
 
         # Compute exact vertical component of the stress tensor
         if t == 0:  # vertical stress at t = 0 has a different expression
-            syy = -F / a * np.ones_like(x)
+            s_yy = -F / a * np.ones_like(x)
         else:
             c0 = -F / a
             c1 = (-2 * F * (nu_u - nu_s)) / (a * (1 - nu_s))
             c2 = 2 * F / a
-            syy_sum1 = np.sum(
+            s_yy_sum1 = np.sum(
                 (np.sin(aa_n))
                 / (aa_n - np.sin(aa_n) * np.cos(aa_n))
                 * np.cos(aa_n * x / a)
                 * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
                 axis=0,
             )
-            syy_sum2 = np.sum(
+            s_yy_sum2 = np.sum(
                 (np.sin(aa_n) * np.cos(aa_n))
                 / (aa_n - np.sin(aa_n) * np.cos(aa_n))
                 * np.exp((-(aa_n**2) * c_f * t) / (a**2)),
                 axis=0,
             )
-            syy = c0 + c1 * syy_sum1 + c2 * syy_sum2
+            s_yy = c0 + c1 * s_yy_sum1 + c2 * s_yy_sum2
 
-        return syy
+        return s_yy
 
     def poroelastic_force(self, sd: pp.Grid, t: number) -> np.ndarray:
         """Evaluate exact poroelastic force [N] at the face centers.
@@ -583,9 +583,9 @@ class MandelExactSolution:
             force at the face centers at the given time ``t``.
 
         """
-        syy = self.vertical_stress_profile(sd.face_centers[0], t)
-        ny = sd.face_normals[1]
-        force_y = syy * ny
+        s_yy = self.vertical_stress_profile(sd.face_centers[0], t)
+        n_y = sd.face_normals[1]
+        force_y = s_yy * n_y
         force_x = np.zeros_like(force_y)
         force = np.stack((force_x, force_y)).ravel("F")
         return force
@@ -834,11 +834,11 @@ class MandelUtilities(VerificationUtils):
         factor = (F * k) / (mu * a**2)  # [m * s^{-1}]
         return qx / factor
 
-    def nondim_stress(self, syy: np.ndarray) -> np.ndarray:
+    def nondim_stress(self, s_yy: np.ndarray) -> np.ndarray:
         """Non-dimensionalized vertical component of the stress tensor.
 
         Parameters:
-            syy: Vertical component of the stress tensor [Pa].
+            s_yy: Vertical component of the stress tensor [Pa].
 
         Returns:
             Dimensionless vertical component of the stress tensor with
@@ -853,7 +853,7 @@ class MandelUtilities(VerificationUtils):
         a *= m
         F = self.params.get("vertical_load", 6e8) * (N / m)  # [N * m^{-1}]
 
-        return syy / (F / a)
+        return s_yy / (F / a)
 
     # -----> Post-processing methods
     def south_cells(self) -> np.ndarray:
@@ -1167,15 +1167,13 @@ class MandelUtilities(VerificationUtils):
             ax.plot(
                 self.nondim_x(x_ex),
                 self.nondim_stress(
-                    self.exact_sol.vertical_stress_profile(x_ex, result.time)
-                ),
+                    self.exact_sol.vertical_stress_profile(x_ex, result.time)),
                 color=color_map.colors[idx],
             )
             ax.plot(
                 self.nondim_x(xf[south_faces]),
                 self.nondim_stress(
-                    result.approx_force[1 :: sd.dim][south_faces] / ny[south_faces]
-                ),
+                    result.approx_force[1:: sd.dim][south_faces] / ny[south_faces]),
                 color=color_map.colors[idx],
                 linewidth=0,
                 marker=".",
