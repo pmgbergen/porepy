@@ -685,17 +685,6 @@ class MandelUtilities(VerificationUtils):
         lambda_s = self.solid.lame_lambda()  # [Pa]
         return (2 / 3) * mu_s + lambda_s
 
-    def young_modulus(self) -> number:
-        """Set Young modulus [Pa].
-
-        Returns:
-            Young modulus.
-
-        """
-        mu_s = self.solid.shear_modulus()  # [Pa]
-        K_s = self.bulk_modulus()  # [Pa]
-        return mu_s * ((9 * K_s) / (3 * K_s + mu_s))
-
     def poisson_coefficient(self) -> number:
         """Set Poisson coefficient [-]
 
