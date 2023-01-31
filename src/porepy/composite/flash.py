@@ -531,7 +531,7 @@ class Flash:
         self,
         flash_type: Literal["isothermal", "isenthalpic"] = "isothermal",
         method: Literal["newton-min", "npipm"] = "newton-min",
-        initial_guess: Literal["iterate", "feed", "uniform"] | str = "iterate",
+        initial_guess: Literal["iterate", "feed", "uniform", "rachford_rice"] | str = "iterate",
         copy_to_state: bool = False,
         do_logging: bool = False,
     ) -> bool:
@@ -896,6 +896,114 @@ class Flash:
             # for the phase fractions
             # re-normalize to set fractions fulfilling the unity constraint
             feed_R = feeds[self._C.reference_component] / len(phases)
+            for phase in phases:
+                ad_system.set_variable_values(
+                    np.copy(feed_R), variables=[phase.fraction_name], to_iterate=True
+                )
+            # evaluate reference phase fraction by unity
+            ad_system.set_variable_values(
+                self._y_R.evaluate(ad_system).val,
+                variables=[self._C.reference_phase.fraction_name],
+                to_iterate=True,
+            )
+        elif initial_guess == "rachford_rice":
+
+            pressure = self._C.p.evaluate(ad_system).val
+            temperature = self._C.T.evaluate(ad_system).val
+            z_c = [comp.fraction.evaluate(ad_system).val for comp in self._C.components]
+
+            # for each cell ....
+
+
+            # Compute K values initially
+            # Collects Initial K values from Wilson's correlation
+            K_vals = []
+            for comp in self._C.components:
+                k_ce = (
+                        comp.critical_pressure()
+                        / pressure
+                        * np.exp(
+                    5.37
+                    * (1 + comp.acentric_factor)
+                    * (1 - comp.critical_temperature() / temperature)
+                )
+                )
+
+                K_vals.append(k_ce)
+
+            def ResidualRR(Y, z_c, K_vals):
+                res = 0.0 * Y
+                for z_i, K_i in zip(z_c,K_vals):
+                    res = res + (z_i*(K_i - 1.0)) / (1.0 + Y*(K_i - 1))
+                return res
+
+            res_L = ResidualRR(np.zeros(nc), z_c, K_vals)
+            res_G = ResidualRR(np.ones(nc), z_c, K_vals)
+
+            Y = np.zeros(nc)
+            for i, chunk in enumerate(zip(res_L,res_G)):
+                resL, resG = chunk
+                if resL <= 0.0:
+                    Y[i] = 0.0
+                if resG >= 0.0:
+                    Y[i] = 1.0
+
+                if 0.0 < resL and resG < 0.0:
+                    def FindRoot(z_c, K_vals):
+
+                        def bisection(a, b, n):
+                            i = 1
+                            condition = True
+                            while condition:
+                                x = (a + b) / 2
+                                prod = ResidualRR(a, z_c, K_vals) * ResidualRR(x, z_c, K_vals)
+                                if prod[0] < 0:
+                                    b = x
+                                else:
+                                    a = x
+                                if i == n:
+                                    condition = False
+                                else:
+                                    condition = True
+                                    i = i + 1
+                            return x
+
+                        n = 10
+                        a = 0.0
+                        b = 1.0
+                        return bisection(a, b, n)
+
+                    Y[i] = FindRoot(z_c,K_vals)
+
+            composition: dict[Any, dict] = dict()
+            phases = [p for p in self._C.phases]
+            for phase in phases:
+                composition[phase] = dict()
+                i = 0
+                for comp in self._C.components:
+                    z_i, K_i = [z_c[i],K_vals[i]]
+
+                    if phase.name == 'L':
+                        x_ce = z_i / (1 + Y*(K_i - 1))
+                    if phase.name == 'G':
+                        x_ce = z_i * K_i / (1 + Y*(K_i - 1))
+                    composition[phase].update({comp: x_ce})
+                    i = i + 1
+
+            # normalize initial guesses and set values in phases except ref phase.
+            for phase in phases:
+                for comp in self._C.components:
+                    # normalize
+                    x_ce = composition[phase][comp] / sum(composition[phase].values())
+                    # set values
+                    ad_system.set_variable_values(
+                        x_ce,
+                        variables=[phase.fraction_of_component_name(comp)],
+                        to_iterate=True,
+                    )
+
+            # Setting phase fraction
+            feed_R = Y
             for phase in phases:
                 ad_system.set_variable_values(
                     np.copy(feed_R), variables=[phase.fraction_name], to_iterate=True
