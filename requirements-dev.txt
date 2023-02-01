@@ -1,4 +1,4 @@
-black == 22.*
+black == 23.*
 deepdiff
 flake8
 isort
