@@ -233,7 +233,7 @@ class EquationSystem:
         # Parsing of input arguments.
         equations = list(self._parse_equations(equation_names).keys())
         variables = self._parse_variable_type(variable_names)
-
+        
         # Check that the requested equations and variables are known to the system.
         known_equations = set(self._equations.keys())
         unknown_equations = set(equations).difference(known_equations)
