@@ -235,12 +235,10 @@ class PR_EoS:
         self.h_dep = self._h_dep(T, self.Z, self.a, self.dT_a, self.b, self.B)
         # fugacity per present component
         for i, comp_i in enumerate(self.components):
-            b_i = comp_i.covolume
-            a_i = self._get_a_i(T, list(X), i)
+            B_i = comp_i.covolume * p / (R_IDEAL * T)
+            A_i = self._get_a_i(T, list(X), i) * p / (R_IDEAL**2 * T * T)
 
-            self.phi.update(
-                {comp_i: self._phi_i(T, self.Z, a_i, self.a, b_i, self.b, self.B)}
-            )
+            self.phi.update({comp_i: self._phi_i(self.Z, A_i, self.A, B_i, self.B)})
 
         # these two are open TODO
         self.kappa = self.get_kappa(p, T, self.Z)
@@ -689,13 +687,12 @@ class PR_EoS:
             The specific enthalpy departure value.
 
         """
-        b_i = self.components[i].covolume
-        b = self.get_b(*X)
+        B_i = self.components[i].covolume * p / (R_IDEAL * T)
         B = self.get_B(p, T, *X)
-        a = self.get_a(T, *X)
-        a_i = self._get_a_i(T, list(X), i)
+        A = self.get_A(T, *X)
+        A_i = self._get_a_i(T, list(X), i) * p / (R_IDEAL**2 * T * T)
 
-        return self._phi_i(T, Z, a_i, a, b_i, b, B)
+        return self._phi_i(Z, A_i, A, B_i, B)
 
     def _get_a_i(self, T: NumericType, X: list[NumericType], i: int) -> NumericType:
         """Auxiliary method to compute parts of the fugacity coefficients."""
@@ -706,12 +703,10 @@ class PR_EoS:
 
     def _phi_i(
         self,
-        T: NumericType,
         Z: NumericType,
-        a_i: NumericType,
-        a: NumericType,
-        b_i: NumericType,
-        b: NumericType,
+        A_i: NumericType,
+        A: NumericType,
+        B_i: NumericType,
         B: NumericType,
     ) -> NumericType:
         """Auxiliary method implementing the formula for the fugacity coefficient."""
@@ -719,11 +714,11 @@ class PR_EoS:
         # TODO: Implement expression (A-4) in https://doi.org/10.1016/j.fluid.2014.07.003
         # The expression below does not correspond with the ones in thermo.
         log_phi_i = (
-            b_i / b * (Z - 1)
+            B_i / B * (Z - 1)
             - pp.ad.log(Z - B)
-            - a
-            / (b * R_IDEAL * T * np.sqrt(8))
-            * (a_i / a - b_i / b)
+            - A
+            / (B * np.sqrt(8))
+            * (A_i / A - B_i / B)
             * pp.ad.log((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B))
         )
 
