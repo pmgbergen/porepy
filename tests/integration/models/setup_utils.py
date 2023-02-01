@@ -63,7 +63,7 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         phys_dims = np.array([2, 1]) * ls
         n_cells = np.array([8, 2])
         domain_bounds = np.array([[0, 0], phys_dims]).T
-        self.domain_bounds = pp.geometry.bounding_box.from_points(domain_bounds)
+        self.domain_bounds = pp.geometry.bounding_box.domain_from_points(domain_bounds)
         # Translate fracture network to cart_grid format
         fracs = []
         for f in self.fracture_network.edges.T:
