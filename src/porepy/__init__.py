@@ -72,6 +72,7 @@ from porepy.geometry import (
     bounding_box,
     half_space,
 )
+from porepy.geometry.domain import Domain
 
 # Parameters
 from porepy.params.bc import (
