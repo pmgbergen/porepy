@@ -437,12 +437,16 @@ class Grid:
         fn_orient = sps.csc_matrix(self.face_nodes, dtype=int, copy=True)
         fn_orient.data = -np.power(-1, np.arange(fn_orient.data.size))
 
-        # Check consistency
+        # Consistency check: For each cell, the nodes should occur twice in the face-node relation:
+        # Once as a start node and once as an end node. Summed over all faces of the cell, the
+        # result should be zero.
         is_oriented = (fn_orient * self.cell_faces).nnz == 0
         if not is_oriented:
+           # The assumptions underlying the computation for general cells is broken. 
+           # Fall back to a legacy implementation which is only valid for convex cells.
             warnings.warn(
-                "Orientations in face_nodes and cell_faces are inconsistent, "
-                "we will now assume convex cells."
+                "Orientations in face_nodes and cell_faces are inconsistent. "
+                "Fall back on an implementation that assumes all cells are convex."
             )
 
         # Compute the tangent vectors and use them to compute face attributes
@@ -458,7 +462,7 @@ class Grid:
         temp_cell_centers = np.vstack((cx, cy, cz)) / np.bincount(cellno)
 
         # Create sub-simplexes based on (face, cell center) pairs.
-        # Compute the vectors that is normal to the sub-simplex and whose length is the
+        # Compute the vectors that are normal to the sub-simplex and whose length is the
         # area.
         subsimplex_heights = self.face_centers[:, faceno] - temp_cell_centers[:, cellno]
         subsimplex_normals = 0.5 * np.cross(
@@ -483,6 +487,7 @@ class Grid:
         # In case of inconsistent orientation,
         # the sub-simplex volumes and normals need to be corrected
         if not is_oriented:
+            # The volume is still correct, but it may be negative. Fix this.
             subsimplex_volumes = np.abs(subsimplex_volumes)
 
             # We flip the normal if the inner product between
