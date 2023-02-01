@@ -18,9 +18,12 @@ __all__ = [
     "H_REF",
     "CP_REF",
     "CV_REF",
+    "MPa_kJ_SCALE",
     "CompositionalSingleton",
     "VARIABLE_SYMBOLS",
 ]
+
+MPa_kJ_SCALE = 1e3
 
 R_IDEAL: float = 8.31446261815324 * 1e-3
 """Universal molar gas constant.

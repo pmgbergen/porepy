@@ -501,6 +501,18 @@ class Flash:
                     )
                 )
         print(filler)
+        print("Algorithmic Variables:")
+        for var in self.npipm_variables:
+            print(f"\t{var}:")
+            print(
+                "\t"
+                + str(
+                    sys.get_variable_values(
+                        variables=[var],
+                        from_iterate=from_iterate,
+                    )
+                )
+            )
 
     def _history_entry(
         self,
@@ -685,7 +697,12 @@ class Flash:
         # obtain values by forward evaluation
         equ = sum(
             [
-                phase.fraction * phase.specific_enthalpy(self._C.p, self._C.T)
+                phase.fraction
+                * phase.specific_enthalpy(
+                    self._C.p,
+                    self._C.T,
+                    *[phase.normalized_fraction_of_component(comp) for comp in phase],
+                )
                 for phase in self._C.phases
             ]
         )
@@ -802,6 +819,7 @@ class Flash:
         nu_mat = np.matmul(V, W)
         nu = np.diag(nu_mat)
         nu = nu / self._C.num_phases
+        nu[nu < 0] = 0
 
         ad_system.set_variable_values(nu, variables=[self._nu_name], to_iterate=True)
 
@@ -847,27 +865,35 @@ class Flash:
                 z_c = comp.fraction.evaluate(ad_system).val
                 feeds[comp] = z_c
 
-                # use feed fractions as first value for all phase compositions
-                # values are initiated as zero, thats is why this step is necessary
-                # to avoid division by zero when evaluating k-values.
-                for phase in self._C.phases:
-                    ad_system.set_variable_values(
-                        np.copy(z_c),
-                        variables=[phase.fraction_of_component_name(comp)],
-                        to_iterate=True,
-                    )
+                # set fractions in reference phase to feed
+                ad_system.set_variable_values(
+                    np.copy(z_c),
+                    variables=[
+                        self._C.reference_phase.fraction_of_component_name(comp)
+                    ],
+                    to_iterate=True,
+                )
+
+                # # use feed fractions as first value for all phase compositions
+                # # values are initiated as zero, thats is why this step is necessary
+                # # to avoid division by zero when evaluating k-values.
+                # for phase in self._C.phases:
+                #     ad_system.set_variable_values(
+                #         np.copy(z_c),
+                #         variables=[phase.fraction_of_component_name(comp)],
+                #         to_iterate=True,
+                #     )
 
             # for phases except ref phase,
-            # change values using the k-values, s.t. initial guess
+            # change values using the k-value estimates, s.t. initial guess
             # fulfils the equilibrium equations
             for phase in phases:
                 composition[phase] = dict()
                 for comp in self._C.components:
-                    # k_ce = self._C.get_k_value(comp, phase).evaluate(ad_system).val
                     k_ce = (
                         comp.critical_pressure()
                         / pressure
-                        * np.exp(
+                        * pp.ad.exp(
                             5.37
                             * (1 + comp.acentric_factor)
                             * (1 - comp.critical_temperature() / temperature)
@@ -896,6 +922,7 @@ class Flash:
             # for the phase fractions
             # re-normalize to set fractions fulfilling the unity constraint
             feed_R = feeds[self._C.reference_component] / len(phases)
+            feed_R = np.ones(nc) * 0.9
             for phase in phases:
                 ad_system.set_variable_values(
                     np.copy(feed_R), variables=[phase.fraction_name], to_iterate=True
@@ -921,7 +948,7 @@ class Flash:
                 k_ce = (
                     comp.critical_pressure()
                     / pressure
-                    * np.exp(
+                    * pp.ad.exp(
                         5.37
                         * (1 + comp.acentric_factor)
                         * (1 - comp.critical_temperature() / temperature)
@@ -1260,6 +1287,7 @@ class Flash:
             else:
                 # prepare for while loop
                 j = 1
+                rho_j = rho
 
                 # while potential not decreasing, compute next step-size
                 while pot_j > (1 - 2 * kappa * rho_j) * b_k_pot:
@@ -1335,7 +1363,7 @@ class Flash:
         success: bool = False
         iter_final: int = 0
 
-        # assemble linear system of eq for semi-smooth subsystem
+        # assemble linear system of eq
         A, b = F()
 
         if do_logging:

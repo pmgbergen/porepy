@@ -403,25 +403,22 @@ class Composition(abc.ABC):
         if self._components:
             return self._components[0]
 
-    def add_component(self, component: Component | list[Component]) -> None:
+    def add_components(self, components: list[Component]) -> None:
         """Adds one or multiple components to the composition.
 
         Components must be added before the composition is initialized.
 
         Parameters:
-            component: One or multiple components to be added to this mixture.
+            component: Component(s) to be added to this mixture.
 
         Raises:
-            ValueError: If the component was instantiated using a different AD system
+            ValueError: If a component was instantiated using a different AD system
                 than the one used for this composition.
 
         """
-        if isinstance(component, Component):
-            component = [component]  # type: ignore
-
         added_components = [comp.name for comp in self._components]
 
-        for comp in component:
+        for comp in components:
             if comp.name in added_components:
                 # already added components are skipped
                 continue
@@ -434,9 +431,39 @@ class Composition(abc.ABC):
 
             # add component
             self._components.append(comp)
-            # add component to all phases
-            for phase in self.phases:
-                phase.add_component(comp)
+            # avoid double adding
+            added_components.append(comp.name)
+
+    def add_phases(self, phases: list[Phase]) -> None:
+        """Adds one or multiple phases to the composition.
+
+        Phases must be added before the composition is initialized.
+
+        Parameters:
+            phases: Phase(s) to be added to this mixture.
+
+        Raises:
+            ValueError: If a phase was instantiated using a different AD system
+                than the one used for this composition.
+
+        """
+        added_phases = [phase.name for phase in self._phases]
+
+        for phase in phases:
+            if phase.name in added_phases:
+                # already added phases are skipped
+                continue
+
+            # sanity check when using the AD framework
+            if self.ad_system != phase.ad_system:
+                raise ValueError(
+                    f"Phase '{phase.name}' instantiated with a different AD system."
+                )
+
+            # add component
+            self._phases.append(phase)
+            # avoid double adding
+            added_phases.append(phase.name)
 
     def initialize(self) -> None:
         """Initializes the flash equations for this mixture based on the added
@@ -460,6 +487,10 @@ class Composition(abc.ABC):
         assert self.num_components >= 1, "No components added to mixture."
         # assert there are at least 2 phases modelled
         assert self.num_phases >= 2, "Composition modelled with only one phase."
+
+        # adding all components to every phase, according to unified procedure
+        for phase in self._phases:
+            phase.components = self._components
 
         # allocating subsystems
         equations: dict[str, pp.ad.Operator] = dict()
@@ -874,14 +905,15 @@ class Composition(abc.ABC):
         phase_parts = list()
 
         for phase in self.phases:
+            X = [phase.normalized_fraction_of_component(comp) for comp in phase]
             if phase == self.reference_phase and eliminate_ref_phase:
                 phase_parts.append(
                     self.get_reference_phase_fraction_by_unity()
-                    * phase.specific_enthalpy(self.p, self.T)
+                    * phase.specific_enthalpy(self.p, self.T, *X)
                 )
             else:
                 phase_parts.append(
-                    phase.fraction * phase.specific_enthalpy(self.p, self.T)
+                    phase.fraction * phase.specific_enthalpy(self.p, self.T, *X)
                 )
 
         equation -= sum(phase_parts)  # / self.h

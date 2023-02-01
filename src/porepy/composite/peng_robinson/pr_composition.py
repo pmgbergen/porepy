@@ -23,12 +23,9 @@ from typing import Literal, Optional
 import numpy as np
 import scipy.sparse as sps
 
-import porepy as pp
-
 from ..composition import Composition
 from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
-from .pr_phase import PR_Phase
 
 __all__ = ["PR_Composition"]
 
@@ -40,25 +37,9 @@ class PR_Composition(Composition):
     where the roots of the cubic polynomial must be computed before the flash system
     is linearized.
 
-    Note:
-        - This class currently supports only a liquid and a gaseous phase.
-        - The various properties of this class depend on the thermodynamic state.
-          They are defined during initialization since they depend on all components.
-
     """
 
-    def __init__(self, ad_system: Optional[pp.ad.EquationSystem] = None) -> None:
-        super().__init__(ad_system)
-
-        ### PRIVATE
-
-        # setting of currently supported phases
-        self._phases: list[PR_Phase] = [
-            PR_Phase(self.ad_system, name="L"),
-            PR_Phase(self.ad_system, name="G"),
-        ]
-
-    def add_component(self, component: PR_Component | list[PR_Component]) -> None:
+    def add_components(self, components: list[PR_Component]) -> None:
         """This child class method checks additionally if BIPs are defined for
         components to be added and components already added.
 
@@ -67,20 +48,18 @@ class PR_Composition(Composition):
         :data:`~porepy.composite.peng_robinson.pr_bip.PR_BIP_MAP`.
 
         Parameters:
-            component: One or multiple model (PR-) components for this EoS.
+            components: Peng-Robinson component(s) for this composition.
 
         Raises:
             NotImplementedError: If a BIP is not available for any combination of
                 modelled components.
 
         """
-        if isinstance(component, PR_Component):
-            component = [component]  # type: ignore
 
         missing_bips: list[tuple[str, str]] = list()
 
         # check for missing bips between new components and present components
-        for comp_new in component:
+        for comp_new in components:
             for comp_present in self.components:
                 # there is no bip between a component and itself
                 if comp_new != comp_present:
@@ -90,8 +69,8 @@ class PR_Composition(Composition):
                         missing_bips.append((comp_new.name, comp_present.name))
 
         # check for missing bips between new components
-        for comp_1 in component:
-            for comp_2 in component:
+        for comp_1 in components:
+            for comp_2 in components:
                 # no bip between a component and itself
                 if comp_2 != comp_1:
                     bip, *_ = get_PR_BIP(comp_1.name, comp_2.name)
@@ -104,9 +83,7 @@ class PR_Composition(Composition):
                 f"BIPs not available for following component-pairs:\n\t{missing_bips}"
             )
         # if no missing bips, we proceed adding the components using the parent method.
-        super().add_component(component)
-
-    ### Subsystem assembly method ------------------------------------------------------
+        super().add_components(components)
 
     def linearize_subsystem(
         self,
@@ -116,17 +93,13 @@ class PR_Composition(Composition):
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Before the system is linearized by a super call to the parent method,
-        the PR mixture computes the EoS Roots for (iterative) updates.
+        the PR mixture computes the EoS Roots in each phase for (iterative) updates.
 
-        Warning:
-            If the isothermal system is assembled, the roots of the EoS must be
-            computed beforehand using :meth:`compute_roots`.
-
-            In the isenthalpic system they are computed here due to the
-            temperature-dependency of the roots.
-
-            This is for performance reasons, since the roots must be evaluated only
-            once in the isothermal flash.
+        Note:
+            This is for performance reasons, since the roots can be evaluated only
+            once and used for all thermodynamic properties.
+            If they are computed during each call to every property, this becomes
+            very inefficient.
 
         """
 
@@ -165,4 +138,15 @@ class PR_Composition(Composition):
                 without smoothing.
 
         """
-        pass
+        # evaluate variables in AD form to get the derivatives
+        pressure = self.p.evaluate(self.ad_system, state=state)
+        temperature = self.T.evaluate(self.ad_system, state=state)
+
+        for phase in self.phases:
+            X = [
+                phase.normalized_fraction_of_component(comp).evaluate(
+                    self.ad_system, state=state
+                )
+                for comp in self.components
+            ]
+            phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)

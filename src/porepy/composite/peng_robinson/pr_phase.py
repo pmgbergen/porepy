@@ -8,6 +8,8 @@ from ..phase import Phase
 from .pr_component import PR_Component
 from .pr_eos import PR_EoS
 
+__all__ = ["PR_Phase"]
+
 
 class PR_Phase(Phase):
     """Representation of a phase using the Peng-Robinson EoS and the Van der Waals
@@ -18,10 +20,34 @@ class PR_Phase(Phase):
 
     """
 
-    def __init__(self, ad_system: pp.ad.EquationSystem, name: str = "") -> None:
+    def __init__(
+        self, ad_system: pp.ad.EquationSystem, gas_like: bool, name: str = ""
+    ) -> None:
         super().__init__(ad_system, name=name)
 
-        self.eos: PR_EoS
+        self.eos: PR_EoS = PR_EoS(gas_like)
+        """The equation of state providing property computations for the Peng-Robinson
+        framework.
+
+        For the correct values, the user must call
+        :meth:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.compute`
+        before evaluating any phase property.
+
+        """
+
+    @property
+    def components(self) -> list[PR_Component]:
+        """Additional to the functionalities of the parent property, the setter
+        of the child property also sets the components in
+        :data:`eos`.
+
+        """
+        return super().components
+
+    @components.setter
+    def components(self, components: list[PR_Component]) -> None:
+        Phase.components.fset(self, components)
+        self.eos.components = [comp for comp in components]
 
     def fugacity_of(
         self,
@@ -34,14 +60,22 @@ class PR_Phase(Phase):
         Since for efficiency reasons roots are ought to be computed once before
         linearization,
         this method wraps :data:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.phi`
-        into an AD operator function.
+        into an AD operator function for each ``component``.
 
         """
         if component in self:
-            pass  # TODO
+
+            # wrapping the fugacity coefficient in a component specific
+            # AD operator function
+            @pp.ad.admethod
+            def phi_i(p_, T_):
+                return self.eos.phi[component]
+
+            return phi_i(p, T)
         else:
             return pp.ad.Scalar(0.0)
 
+    @pp.ad.admethod
     def density(self, p, T):
         """See :class:`~porepy.composite.peng_robinson.pr_eos.PR_EoS`.
 
@@ -51,24 +85,25 @@ class PR_Phase(Phase):
         into an AD operator function.
 
         """
-        pass
+        return self.eos.rho
 
-    def specific_enthalpy(self, p, T):
+    @pp.ad.admethod
+    def specific_enthalpy(self, p, T, *X):
         """Returns the sum of fraction weighted ideal component enthalpies (normalized)
         added to the departer enthalpy of the EoS.
 
         The departer enthalpy is wrapped into an AD operator function using
         :data:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.h_dep`.
+
+        Parameters:
+            *X: Normalized component fractions in this phase. This is used for the
+                ideal part, to be able to evaluate it w.r.t. specific values.
+
         """
 
-        # TODO
-        h_departure = 0
+        h_ideal = sum([x * comp.h_ideal(p, T) for x, comp in zip(X, self)]) / sum(X)
 
-        h_ideal = sum(
-            [self.fraction_of_component(comp) * comp.h_ideal(p, T) for comp in self]
-        ) / sum([self.fraction_of_component(comp) for comp in self])
-
-        return h_ideal + h_departure
+        return h_ideal + self.eos.h_dep
 
     def dynamic_viscosity(self, p, T):  # TODO
         return pp.ad.Scalar(1.0)
