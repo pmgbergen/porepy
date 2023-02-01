@@ -28,11 +28,11 @@ LIQ.components = components
 # different row numbers won't work, since they cannot be broadcasted by numpy
 
 pressure = np.array([0.1])  # MPa
-temperature = np.array([300, 310, 400])  # K
+temperature = np.array([273.0])  # K
 # Enthalpy in kJ
 
 x_co2 = np.array(
-    [1.0]
+    [0.6]
 )  # here an array with length 2 or >=4 would cause a broadcasting error
 x_h2o = 1 - x_co2
 

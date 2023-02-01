@@ -83,10 +83,10 @@ class PR_Component(Component):
     def cohesion_correction(self, T: NumericType) -> NumericType:
         """Returns the linearized alpha-correction for the cohesion parameter"""
 
-        alpha = pp.ad.sqrt(
+        alpha = pp.ad.power(
             1
             + self.cohesion_correction_weight
-            * (1 - pp.ad.sqrt(T / self.critical_temperature()))
+            * (1 - pp.ad.sqrt(T / self.critical_temperature())),2
         )
 
         return alpha
@@ -118,7 +118,7 @@ class PR_Component(Component):
 
         """
         return (
-            B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
+            B_CRIT * (1.0e-3) * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
 
     @abc.abstractmethod
