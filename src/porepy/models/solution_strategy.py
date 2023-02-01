@@ -65,8 +65,8 @@ class SolutionStrategy(abc.ABC):
     def __init__(self, params: Optional[dict] = None):
         """Initialize the solution strategy.
 
-        Args:
-            params (dict, optional): Parameters for the solution strategy. Defaults to
+        Parameters:
+            params: Parameters for the solution strategy. Defaults to
                 None.
 
         """
@@ -137,7 +137,6 @@ class SolutionStrategy(abc.ABC):
         # in a ModelGeometry class.
         self.set_geometry()
         # Exporter initialization must be done after grid creation.
-        self.initialize_data_saving()
 
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
@@ -145,10 +144,11 @@ class SolutionStrategy(abc.ABC):
         self.set_materials()
         self.create_variables()
         self.initial_condition()
-        self.set_discretization_parameters()
         self.set_equations()
+        self.set_discretization_parameters()
 
         # Export initial condition
+        self.initialize_data_saving()
         self.save_data_time_step()
 
         self.discretize()
@@ -475,6 +475,14 @@ class SolutionStrategy(abc.ABC):
         Returns:
             bool: True if the problem is nonlinear, False otherwise.
 
+        """
+        return True
+
+    def _is_time_dependent(self) -> bool:
+        """Specifies whether the Model problem is time-dependent.
+
+        Returns:
+            bool: True if the problem is time-dependent, False otherwise.
         """
         return True
 

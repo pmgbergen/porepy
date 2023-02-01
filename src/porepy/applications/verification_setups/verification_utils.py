@@ -3,7 +3,7 @@ This module contains utility functions for verification setups.
 """
 from __future__ import annotations
 
-from typing import Union
+from typing import Callable
 
 import numpy as np
 
@@ -21,13 +21,13 @@ class VerificationUtils:
 
     def relative_l2_error(
         self,
-        grid: Union[pp.Grid, pp.MortarGrid],
+        grid: pp.GridLike,
         true_array: np.ndarray,
         approx_array: np.ndarray,
         is_scalar: bool,
         is_cc: bool,
-    ) -> float:
-        """Compute discrete L2-error.
+    ) -> pp.number:
+        """Compute discrete relative L2-error.
 
         Parameters:
             grid: Either a subdomain grid or a mortar grid.
@@ -69,3 +69,43 @@ class VerificationUtils:
         denominator = np.sqrt(np.sum(meas * np.abs(true_array) ** 2))
 
         return numerator / denominator
+
+
+class VerificationDataSaving(pp.DataSavingMixin):
+    """Class to store relevant data for a generic verification setup."""
+
+    _nonlinear_iteration: int
+    """Number of non-linear iterations needed to solve the system. Used only as an
+    indicator to avoid saving the initial conditions.
+
+    """
+
+    _is_time_dependent: Callable
+    """Wheter the problem is time-dependent."""
+
+    results: list
+    """List of objects containing the results of the verification."""
+
+    relative_l2_error: Callable
+    """Method that computes the discrete relative L2-error between an exact solution
+    and an approximate solution on a given grid. The method is provided by the mixin
+    class :class:`porepy.applications.verification_setups.VerificationUtils`.
+
+    """
+
+    def save_data_time_step(self) -> None:
+        """Save data to the `results` list."""
+        if not self._is_time_dependent():  # stationary problem
+            if self._nonlinear_iteration > 0:  # avoid saving initial condition
+                collected_data = self.collect_data()
+                self.results.append(collected_data)
+        else:  # time-dependent problem
+            t = self.time_manager.time  # current time
+            scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
+            if any(np.isclose(t, scheduled)):
+                collected_data = self.collect_data()
+                self.results.append(collected_data)
+
+    def collect_data(self):
+        """Collect relevant data for the verification setup."""
+        raise NotImplementedError()

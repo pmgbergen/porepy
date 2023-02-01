@@ -278,18 +278,15 @@ def test_evaluated_values(model, method_name, expected):
 @pytest.mark.parametrize(
     "constitutive_mixin, domain_dimension, expected",
     [
+        (c_l.CubicLawPermeability, 2, 42),
         (c_l.CubicLawPermeability, 1, 0.01**3 / 12),
         (c_l.CubicLawPermeability, 0, 0.01**4 / 12),
     ],
 )
 def test_permeability_values(constitutive_mixin, domain_dimension, expected):
     """Test that the value of the parsed operator is as expected."""
-    # The thermoporoelastic model covers most constitutive laws, so we use it for the
-    # test.
-    # Assign non-trivial values to the parameters to avoid masking errors.
-    #  TODO: Same for variables?
 
-    solid = pp.SolidConstants({"residual_aperture": 0.01})
+    solid = pp.SolidConstants({"residual_aperture": 0.01, "permeability": 42})
     params = {"material_constants": {"solid": solid}, "num_fracs": 2}
 
     class LocalThermoporomechanics(constitutive_mixin, setup_utils.Thermoporomechanics):
@@ -302,10 +299,9 @@ def test_permeability_values(constitutive_mixin, domain_dimension, expected):
 
     for sd in setup.mdg.subdomains(dim=domain_dimension):
         # Call the method with the domain as argument.
-        value = setup.permeability([sd])
-        if isinstance(value, pp.ad.Ad_array):
-            value = value.val
-        assert np.allclose(value, expected)
+        tensor = setup.permeability_tensor(sd)
+        values = tensor.values[0, 0]
+        assert np.allclose(values, expected)
 
 
 @pytest.mark.parametrize(

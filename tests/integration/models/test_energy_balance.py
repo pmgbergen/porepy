@@ -22,15 +22,7 @@ from .test_mass_balance import BoundaryConditionLinearPressure
 class BoundaryCondition(BoundaryConditionLinearPressure):
     domain_boundary_sides: Callable[
         [pp.Grid],
-        tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ],
+        pp.bounding_box.DomainSides,
     ]
     """Utility function to access the domain boundary sides."""
     fluid: pp.FluidConstants

@@ -212,7 +212,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         self.assertTrue(intf_list[2] == intf_31)
 
     def test_sort_lists(self):
-        """ Test sorting of lists of subdomains and interfaces.
+        """Test sorting of lists of subdomains and interfaces.
         Includes random lists, noncomplete lists, and lists with duplicates.
         """
         intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4 = self.mdg_dims_3211()
@@ -243,7 +243,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         self.assertTrue(sorted_duplicates[3] == sd_1)
 
     def mdg_dims_3211(self):
-        """ Create a mixed dimensional grid with 4 subdomains and 3 interfaces."""
+        """Create a mixed dimensional grid with 4 subdomains and 3 interfaces."""
         mdg = pp.MixedDimensionalGrid()
         sd_1 = MockGrid(1)
         sd_2 = MockGrid(1)
@@ -265,7 +265,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         return intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4
 
     def test_interface_to_subdomain_pair(self):
-        """ Test the method interface_to_subdomain_pair.
+        """Test the method interface_to_subdomain_pair.
         Check that the returned subdomain pair is sorted according to grid dimension and id.
         """
         intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4 = self.mdg_dims_3211()
