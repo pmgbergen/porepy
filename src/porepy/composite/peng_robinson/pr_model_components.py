@@ -8,7 +8,6 @@ from porepy.numerics.ad.operator_functions import NumericType
 from .._composite_utils import R_IDEAL, T_REF
 from ..component import PseudoComponent
 from .pr_component import PR_Component, PR_Compound
-from .pr_utils import _power
 
 __all__ = [
     "H2O_ps",
@@ -164,9 +163,7 @@ class H2O(PR_Component, H2O_ps):
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.3434
 
-    def h_ideal(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
         heat capacity coefficients from
         `Zhu, Okuno (2015) <https://onepetro.org/spersc/proceedings/15RSS/
@@ -175,9 +172,9 @@ class H2O(PR_Component, H2O_ps):
         """
         return (
             self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (_power(T, pp.ad.Scalar(2)) - T_REF**2)
-            + self.cp3 / 3 * (_power(T, pp.ad.Scalar(3)) - T_REF**3)
-            + self.cp4 / 4 * (_power(T, pp.ad.Scalar(4)) - T_REF**4)
+            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
+            + self.cp3 / 3 * (pp.ad.power(T, 3) - T_REF**3)
+            + self.cp4 / 4 * (pp.ad.power(T, 4) - T_REF**4)
         )
 
 
@@ -200,9 +197,7 @@ class CO2(PR_Component, CO2_ps):
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.2273
 
-    def h_ideal(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
         heat capacity coefficients from
         `Zhu, Okuno (2014) <http://dx.doi.org/10.1016/j.fluid.2014.07.003>`_ .
@@ -210,9 +205,9 @@ class CO2(PR_Component, CO2_ps):
         """
         return (
             self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (_power(T, pp.ad.Scalar(2)) - T_REF**2)
-            + self.cp3 / 3 * (_power(T, pp.ad.Scalar(3)) - T_REF**3)
-            + self.cp4 / 4 * (_power(T, pp.ad.Scalar(4)) - T_REF**4)
+            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
+            + self.cp3 / 3 * (pp.ad.power(T, 3) - T_REF**3)
+            + self.cp4 / 4 * (pp.ad.power(T, 4) - T_REF**4)
         )
 
 
@@ -234,9 +229,7 @@ class H2S(PR_Component, H2S_ps):
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.1081
 
-    def h_ideal(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
         heat capacity coefficients from
         `de Nevers (2012), table A.9 <https://onlinelibrary.wiley.com/doi/
@@ -245,8 +238,8 @@ class H2S(PR_Component, H2S_ps):
         """
         return R_IDEAL * (
             self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (_power(T, pp.ad.Scalar(2)) - T_REF**2)
-            - self.cp3 * (_power(T, pp.ad.Scalar(-1)) - T_REF ** (-1))
+            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
+            - self.cp3 * (pp.ad.power(T, -1) - T_REF ** (-1))
         )
 
 
@@ -268,9 +261,7 @@ class N2(PR_Component, N2_ps):
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.0403
 
-    def h_ideal(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
         heat capacity coefficients from
         `de Nevers (2012), table A.9 <https://onlinelibrary.wiley.com/doi/
@@ -279,8 +270,8 @@ class N2(PR_Component, N2_ps):
         """
         return R_IDEAL * (
             self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (_power(T, pp.ad.Scalar(2)) - T_REF**2)
-            - self.cp3 * (_power(T, pp.ad.Scalar(-1)) - T_REF ** (-1))
+            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
+            - self.cp3 * (pp.ad.power(T, -1) - T_REF ** (-1))
         )
 
 
@@ -328,13 +319,11 @@ class NaClBrine(PR_Compound, H2O):
         # molal salinity
         T_r = T / self.critical_temperature()
         cw = self.molality_of(self.NaCl)
-        exponent_1 = pp.ad.Scalar(1.1)
-        exponent_2 = pp.ad.Scalar(-3)
 
         alpha = (
             1
-            + 0.453 * (1 - T_r * (1 - 0.0103 * _power(cw, exponent_1)))
-            + 0.0034 * (_power(T_r, exponent_2) - 1)
+            + 0.453 * (1 - T_r * (1 - 0.0103 * pp.ad.power(cw, 1.1)))
+            + 0.0034 * (pp.ad.power(T_r, -3) - 1)
         )
 
         return alpha

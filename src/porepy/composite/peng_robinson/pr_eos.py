@@ -149,10 +149,10 @@ class PR_EoS:
         """The covolume using the assigned mixing rule."""
 
         self.A: NumericType = 0.0
-        """The extended cohesion using the assigned mixing rule."""
+        """The non-dimensional cohesion using the assigned mixing rule."""
 
         self.B: NumericType = 0.0
-        """The extended cohesion using the assigned mixing rule."""
+        """The non-dimensional cohesion using the assigned mixing rule."""
 
         self.Z: NumericType = 0.0
         """The compressibility factor of the EoS corresponding to the assigned label:
@@ -224,9 +224,9 @@ class PR_EoS:
         self.a = self.get_a(T, *X)
         self.b = self.get_b(*X)
         self.dT_a = self.get_dT_a(T, *X)
-        # compute extended quantities
+        # compute non-dimensional quantities
         self.A = (self.a * p) / (R_IDEAL**2 * T * T)
-        self.B = (self.b * p) / (R_IDEAL * 1.e-3 * T)
+        self.B = (self.b * p) / (R_IDEAL * T)
         # root
         self.Z = self._Z(self.A, self.B, apply_smoother)
         # density
@@ -308,7 +308,7 @@ class PR_EoS:
             raise ValueError(f"Unknown mixing rule {self._mixingrule}.")
 
     def get_A(self, p: NumericType, T: NumericType, *X: NumericType) -> NumericType:
-        """Returns the extended cohesion term ``A`` in the EoS
+        """Returns the non-dimensional cohesion term ``A`` in the EoS
 
             ``A = (a * p) / (R_IDEAL**2 * T**2)``.
 
@@ -323,13 +323,13 @@ class PR_EoS:
                 of components present in :data:`components`.
 
         Returns:
-            The extended cohesion ``A`` for given thermodynamic state.
+            The non-dimensional cohesion ``A`` for given thermodynamic state.
 
         """
         return (self.get_a(T, *X) * p) / (R_IDEAL**2 * T * T)
 
     def get_B(self, p: NumericType, T: NumericType, *X: NumericType) -> NumericType:
-        """Returns the extended covolume term ``B`` in the EoS
+        """Returns the non-dimensional covolume term ``B`` in the EoS
 
             `` B = (b * p) / (R_IDEAL * T)``.
 
@@ -344,7 +344,7 @@ class PR_EoS:
                 of components present in :data:`components`.
 
         Returns:
-            The extended cohesion ``B`` for given thermodynamic state.
+            The non-dimensional cohesion ``B`` for given thermodynamic state.
 
         """
         return (self.get_b(*X) * p) / (R_IDEAL * T)
@@ -376,8 +376,8 @@ class PR_EoS:
         formulas
 
         Parameters:
-            A: Extended cohesion.
-            B: Extended covolume.
+            A: Non-dimensional cohesion.
+            B: Non-dimensional covolume.
             apply_smoother: ``default=False``
 
                 Flag to apply smoothing procedure.
@@ -626,7 +626,8 @@ class PR_EoS:
             The molar density ``rho`` from above equation.
 
         """
-        return p / (R_IDEAL * T * Z)
+        # Scaling due to to p being in MPa and R in kJ / K / mol
+        return p / (R_IDEAL * T * Z) * 1e3
 
     def get_h_dep(
         self, p: NumericType, T: NumericType, Z: NumericType, *X: NumericType

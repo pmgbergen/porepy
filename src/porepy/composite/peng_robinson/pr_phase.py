@@ -2,146 +2,26 @@
 Peng-Robinson EoS."""
 from __future__ import annotations
 
-import numpy as np
-
 import porepy as pp
 
-from .._composite_utils import R_IDEAL
 from ..phase import Phase
 from .pr_component import PR_Component
-from .pr_mixing import VdW_a_ij, VdW_dT_a_ij
-from .pr_utils import Leaf, _exp, _log, _power
+from .pr_eos import PR_EoS
 
 
 class PR_Phase(Phase):
     """Representation of a phase using the Peng-Robinson EoS and the Van der Waals
-    mixing rule.
+    mixing rule (see :class:`~porepy.composite.peng_robinson.pr_eos.PR_EoS`).
 
-    This class is not intended to be used or instantiated except by the respective
-    composition class.
+    For further information on thermodynamic properties and how they are computed,
+    see respective EoS class.
 
     """
 
     def __init__(self, ad_system: pp.ad.EquationSystem, name: str = "") -> None:
         super().__init__(ad_system, name=name)
 
-        self.Z: Leaf = Leaf(f"Compressibility {self.name}")
-        """An operator representing the compressibility factor of this phase.
-
-        The respective composition class assigns values to this operator upon computing
-        them.
-
-        Due to performance/ algorithmic reasons,
-        the computation of Z is modularized and done in a special way.
-
-        """
-
-    def cohesion(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
-        """An operator representing ``a`` in the Peng-Robinson EoS using the component
-        molar fractions in this phase, and the Van der Waals mixing rule.
-
-        Parameters:
-            T: The temperature variable of the mixture.
-
-        Returns:
-            An operator representing ``a`` of this phase.
-
-            If the phase is empty (no components), a wrapped zero is returned.
-
-        """
-        if self.num_components > 0:
-            components: list[PR_Component] = [c for c in self]  # type: ignore
-            # phase composition must be normalized to obtain physically meaningful values
-            normalization = sum([self.fraction_of_component(comp) for comp in self])
-            _2 = pp.ad.Scalar(2)
-
-            # First we sum over the diagonal elements of the mixture matrix,
-            # starting with the first component
-            comp_0 = components[0]
-            a = VdW_a_ij(T, comp_0, comp_0) * _power(
-                self.fraction_of_component(comp_0), _2
-            )
-
-            if len(components) > 1:
-                # add remaining diagonal elements
-                for comp in components[1:]:
-                    a += VdW_a_ij(T, comp, comp) * _power(
-                        self.fraction_of_component(comp), _2
-                    )
-
-                mixed_parts = list()
-                # adding off-diagonal elements, including BIPs
-                for comp_i in components:
-                    for comp_j in components:
-                        if comp_i != comp_j:
-                            # computing the cohesion between components i and j
-                            mixed_parts.append(
-                                VdW_a_ij(T, comp_i, comp_j)
-                                * self.fraction_of_component(comp_i)
-                                * self.fraction_of_component(comp_j)
-                            )
-
-            # store cohesion parameters
-            return (a + sum(mixed_parts)) / _power(normalization, _2)
-        else:
-            return pp.ad.Scalar(0.0)
-
-    def dT_cohesion(self, T: pp.ad.MixedDimensionalVariable) -> pp.ad.Operator:
-        """Returns an operator representing the temperature-derivative of
-        :meth:`cohesion`."""
-        if self.num_components > 0:
-            components: list[PR_Component] = [c for c in self]  # type: ignore
-            # phase composition must be normalized to obtain physically meaningful values
-            normalization = sum([self.fraction_of_component(comp) for comp in self])
-            _2 = pp.ad.Scalar(2)
-
-            # First we sum over the diagonal elements of the mixture matrix,
-            # starting with the first component
-            comp_0 = components[0]
-            dT_a = VdW_dT_a_ij(T, comp_0, comp_0) * _power(
-                self.fraction_of_component(comp_0), _2
-            )
-
-            if len(components) > 1:
-                # add remaining diagonal elements
-                for comp in components[1:]:
-                    dT_a += VdW_dT_a_ij(T, comp, comp) * _power(
-                        self.fraction_of_component(comp), _2
-                    )
-
-                mixed_parts = list()
-                # adding off-diagonal elements, including BIPs
-                for comp_i in components:
-                    for comp_j in components:
-                        if comp_i != comp_j:
-                            # computing the cohesion between components i and j
-                            mixed_parts.append(
-                                VdW_dT_a_ij(T, comp_i, comp_j)
-                                * self.fraction_of_component(comp_i)
-                                * self.fraction_of_component(comp_j)
-                            )
-
-            # store cohesion parameters
-            return (dT_a + sum(mixed_parts)) / _power(normalization, _2)
-        else:
-            return pp.ad.Scalar(0.0)
-
-    @property
-    def covolume(self) -> pp.ad.Operator:
-        """An operator representing ``b`` in the Peng-Robinson EoS using the component
-        molar fractions in this phase, and the Van der Waals mixing rule.
-
-        If the phase is empty (no components), a wrapped zero is returned.
-
-        """
-        if self.num_components > 0:
-
-            b = sum([self.fraction_of_component(comp) * comp.covolume for comp in self])
-
-            # phase composition must be normalized to obtain physically meaningful values
-            return b / sum([self.fraction_of_component(comp) for comp in self])
-        else:
-            return pp.ad.Scalar(0.0)
+        self.eos: PR_EoS
 
     def fugacity_of(
         self,
@@ -149,86 +29,40 @@ class PR_Phase(Phase):
         T: pp.ad.MixedDimensionalVariable,
         component: PR_Component,
     ) -> pp.ad.Operator:
-        """
-        References:
-            [1]: `Zhu et al. (2014), equ. A-4
-                 <https://doi.org/10.1016/j.fluid.2014.07.003>`_
-            [2]: `ePaper <https://www.yumpu.com/en/document/view/36008448/
-                 1-derivation-of-the-fugacity-coefficient-for-the-peng-robinson-fet>`_
-            [3]: `therm <https://thermo.readthedocs.io/
-                 thermo.eos_mix.html#thermo.eos_mix.PRMIX.fugacity_coefficients>`_
+        """See :class:`~porepy.composite.peng_robinson.pr_eos.PR_EoS`.
+
+        Since for efficiency reasons roots are ought to be computed once before
+        linearization,
+        this method wraps :data:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.phi`
+        into an AD operator function.
 
         """
         if component in self:
-            log_phi_c_e = self._log_phi_c_e(p, T, component)
-            phi_c_e = _exp(log_phi_c_e)
-
-            return phi_c_e
+            pass  # TODO
         else:
             return pp.ad.Scalar(0.0)
 
-    def _log_phi_c_e(
-        self,
-        p: pp.ad.MixedDimensionalVariable,
-        T: pp.ad.MixedDimensionalVariable,
-        component: PR_Component,
-    ) -> pp.ad.Operator:
-        """Auxiliary function implementing the logarithmic fugacity coefficients for a
-        ``component``."""
-        # phase composition must be normalized to obtain physically meaningful values
-        normalization = sum([self.fraction_of_component(comp) for comp in self])
-        # index c for component
-        # index m for mixture
-        b_c = component.covolume
-
-        a_c = (
-            sum(
-                [
-                    self.fraction_of_component(other_c)
-                    * VdW_a_ij(T, component, other_c)
-                    for other_c in self
-                ]
-            )
-            / normalization
-        )
-
-        a_m = self.cohesion(T)
-        b_m = self.covolume
-        B_m = (b_m * p) / (R_IDEAL * T)
-
-        log_phi_c_e = (
-            b_c / b_m * (self.Z - 1)
-            - _log(self.Z - B_m)
-            + _log(
-                (self.Z + (1 + np.sqrt(2)) * B_m) / (self.Z + (1 - np.sqrt(2)) * B_m)
-            )
-            * a_m
-            / (b_m * R_IDEAL * T * np.sqrt(8))
-            * (b_c / b_m - 2 * a_c / a_m)
-        )
-
-        return log_phi_c_e
-
     def density(self, p, T):
-        """ideal gas law modified by the compressibility factor."""
-        return p / (R_IDEAL * T * self.Z)
+        """See :class:`~porepy.composite.peng_robinson.pr_eos.PR_EoS`.
+
+        Since for efficiency reasons roots are ought to be computed once before
+        linearization,
+        this method wraps :data:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.rho`
+        into an AD operator function.
+
+        """
+        pass
 
     def specific_enthalpy(self, p, T):
-        """
-        References:
-            [1]: `Connolly et al. (2021), eq. B-15 <https://doi.org/10.1016/
-                 j.ces.2020.116150>`_
+        """Returns the sum of fraction weighted ideal component enthalpies (normalized)
+        added to the departer enthalpy of the EoS.
+
+        The departer enthalpy is wrapped into an AD operator function using
+        :data:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.h_dep`.
         """
 
-        B = (self.covolume * p) / (R_IDEAL * T)
-
-        h_departure = _power(self.covolume, pp.ad.Scalar(-1 / 2)) / (2 * np.sqrt(2)) * (
-            T * self.dT_cohesion(T) - self.cohesion(T)
-        ) * _log(
-            (self.Z + (1 - np.sqrt(2)) * B) / (self.Z + (1 + np.sqrt(2)) * B)
-        ) + R_IDEAL * T * (
-            self.Z - 1
-        )
+        # TODO
+        h_departure = 0
 
         h_ideal = sum(
             [self.fraction_of_component(comp) * comp.h_ideal(p, T) for comp in self]

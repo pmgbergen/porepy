@@ -171,7 +171,7 @@ class Component(PseudoComponent):
         return self._fraction
 
 
-class Compound(Component):
+class Compound(Component):  # TODO fix molality to make it an ad.Function call
     """Abstract base class for all compounds in a mixture.
 
     A compound is a simplified, but meaningfully generalized component inside a mixture,

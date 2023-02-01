@@ -25,13 +25,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .._composite_utils import R_IDEAL
 from ..composition import Composition
 from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
-from .pr_mixing import VdW_a_ij, VdW_dT_a_ij
 from .pr_phase import PR_Phase
-from .pr_utils import A_CRIT, B_CRIT, _power
 
 __all__ = ["PR_Composition"]
 
@@ -39,9 +36,9 @@ __all__ = ["PR_Composition"]
 class PR_Composition(Composition):
     """A composition modelled using the Peng-Robinson equation of state.
 
-        ``p = R * T / (v - b) - a / (b**2 + 2 * v * b - b**2)``.
-
-    Van der Waals mixing rules are applied to ``a`` and ``b``.
+    This composition class is in principle applicable to any cubic EoS,
+    where the roots of the cubic polynomial must be computed before the flash system
+    is linearized.
 
     Note:
         - This class currently supports only a liquid and a gaseous phase.
@@ -133,8 +130,9 @@ class PR_Composition(Composition):
 
         """
 
-        if flash_type == "isenthalpic":
-            self.compute_roots(state=state)
+        # compute roots and thermodynamic properties ONCE, since they depend on
+        # fractions, pressure and temperature.
+        self.compute_roots(state=state)
         return super().linearize_subsystem(flash_type, other_vars, other_eqns, state)
 
     ### root computation ---------------------------------------------------------------

@@ -16,6 +16,7 @@ from typing import Generator
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad.operator_functions import NumericType
 
 from ._composite_utils import VARIABLE_SYMBOLS, CompositionalSingleton
 from .component import Component
@@ -233,11 +234,10 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
         """
         if component in self._composition:
-            fraction_sum = list()
-            for comp in self:
-                fraction_sum.append(self.fraction_of_component(comp))
             # normalization by division through fraction sum
-            return self.fraction_of_component(comp) / sum(fraction_sum)
+            return self.fraction_of_component(component) / sum(
+                [self.fraction_of_component(comp) for comp in self]
+            )
         else:
             return pp.ad.Scalar(0.0)
 
@@ -321,9 +321,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return weight * self.density(p, T)
 
     @abc.abstractmethod
-    def density(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def density(self, p: NumericType, T: NumericType) -> NumericType:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / REV]
@@ -333,15 +331,13 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             T: Temperature.
 
         Returns:
-            An AD Operator representing the molar density of this phase.
+            The molar density of this phase in AD compatible form.
 
         """
         pass
 
     @abc.abstractmethod
-    def specific_enthalpy(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def specific_enthalpy(self, p: NumericType, T: NumericType) -> NumericType:
         """
         | Math. Dimension:        scalar
         | Phys.Dimension:         [kJ / mol / K]
@@ -351,15 +347,13 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             T: Temperature.
 
         Returns:
-            An AD operator representing the specific molar enthalpy of this phase.
+            The specific molar enthalpy of this phase in AD compatible form.
 
         """
         pass
 
     @abc.abstractmethod
-    def dynamic_viscosity(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def dynamic_viscosity(self, p: NumericType, T: NumericType) -> NumericType:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / m / s]
@@ -369,15 +363,13 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             T: Temperature.
 
         Returns:
-            An AD operator representing the dynamic viscosity of this phase.
+            The dynamic viscosity of this phase in AD compatible form.
 
         """
         pass
 
     @abc.abstractmethod
-    def thermal_conductivity(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
+    def thermal_conductivity(self, p: NumericType, T: NumericType) -> NumericType:
         """
         | Math. Dimension:    2nd-order tensor
         | Phys. Dimension:    [W / m / K]
@@ -387,7 +379,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             T: Temperature.
 
         Returns:
-            An AD operator representing the thermal conductivity of this phase.
+            The thermal conductivity of this phase in AD compatible form.
 
         """
         pass
@@ -395,10 +387,10 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     @abc.abstractmethod
     def fugacity_of(
         self,
-        p: pp.ad.MixedDimensionalVariable,
-        T: pp.ad.MixedDimensionalVariable,
+        p: NumericType,
+        T: NumericType,
         component: Component,
-    ) -> pp.ad.Operator:
+    ) -> NumericType:
         """
         | Math. Dimension:    scalar
         | Phys. Dimension:    [Pa]
@@ -409,7 +401,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             component: A component present in this mixture
 
         Returns:
-            An AD operator representing the fugacity of ``component`` in this phase.
+            The fugacity of ``component`` in this phase in AD compatible form.
 
         """
         pass

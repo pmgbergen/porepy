@@ -32,7 +32,7 @@ temperature = np.array([273.0])  # K
 # Enthalpy in kJ
 
 x_co2 = np.array(
-    [0.6]
+    [0.6, 0.9]
 )  # here an array with length 2 or >=4 would cause a broadcasting error
 x_h2o = 1 - x_co2
 
@@ -42,6 +42,7 @@ GAS.compute(pressure, temperature, x_h2o, x_co2)
 print(GAS.Z)
 print(GAS.h_dep)
 print(list(GAS.phi.values()))
+print(GAS.rho)
 
 # computing everything for liquid
 LIQ.compute(pressure, temperature, x_h2o, x_co2)
@@ -49,3 +50,4 @@ LIQ.compute(pressure, temperature, x_h2o, x_co2)
 print(LIQ.Z)
 print(LIQ.h_dep)
 print(list(LIQ.phi.values()))
+print(LIQ.rho)

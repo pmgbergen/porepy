@@ -325,7 +325,6 @@ class Flash:
         coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self._C.num_phases**2)
         neg = pp.ad.SemiSmoothNegative()
         pos = pp.ad.SemiSmoothPositive()
-        # dot = pp.ad.ScalarProduct()
 
         norm_parts = list()
         dot_parts = list()

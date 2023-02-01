@@ -81,26 +81,22 @@ class PR_Component(Component):
             )
 
     def cohesion_correction(self, T: NumericType) -> NumericType:
-        """Returns the linearized alpha-correction for the cohesion parameter"""
-
-        alpha = pp.ad.power(
-            1
-            + self.cohesion_correction_weight
-            * (1 - pp.ad.sqrt(T / self.critical_temperature())),2
+        """Returns the root of the linearized alpha-correction for the
+        cohesion parameter."""
+        return 1 + self.cohesion_correction_weight * (
+            1 - pp.ad.sqrt(T / self.critical_temperature())
         )
-
-        return alpha
 
     def cohesion(self, T: NumericType) -> NumericType:
         """Returns an expression for ``a`` in the EoS for this component."""
-        return self.critical_cohesion * self.cohesion_correction(T)
+        return self.critical_cohesion * pp.ad.power(self.cohesion_correction(T), 2)
 
     def dT_cohesion(self, T: NumericType) -> NumericType:
         """Returns an expression for the derivative of ``a`` with respect to
         temperature."""
 
         # external derivative of alpha term
-        dt_a = self.critical_cohesion / self.cohesion_correction(T) / 2
+        dt_a = 2 * self.critical_cohesion * self.cohesion_correction(T)
         # internal derivative of alpha term
         dt_a *= (
             -self.cohesion_correction_weight / (2 * self.critical_temperature())
@@ -118,7 +114,7 @@ class PR_Component(Component):
 
         """
         return (
-            B_CRIT * (1.0e-3) * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
+            B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
 
     @abc.abstractmethod
