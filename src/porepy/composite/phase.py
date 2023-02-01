@@ -34,11 +34,6 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     The composition variables (molar fractions of present components)
     can be accessed by internal reference.
 
-    Warning:
-        This class is only meant to be instantiated by a Composition,
-        since the number of phases is an unknown in the thermodynamic equilibrium
-        problem. The unified approach has to explicitly model phases in the mixture.
-
     The Phase is a Singleton per AD system,
     using the **given** name as a unique identifier.
     A Phase class with name ``X`` can only be present once in a system.
@@ -70,6 +65,8 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         #### PRIVATE
         self._name = name
         """Name given to the phase at instantiation."""
+
+        self._components: list[Component] = []
 
         self._composition: dict[Component, pp.ad.MixedDimensionalVariable] = dict()
         """A dictionary containing the composition variable (value) for each
@@ -113,7 +110,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             Components present in this phase.
 
         """
-        for component in self._composition:
+        for component in self._components:
             yield component
 
     @property
@@ -241,38 +238,48 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         else:
             return pp.ad.Scalar(0.0)
 
-    def add_component(
-        self,
-        component: Component | list[Component],
-    ) -> None:
-        """Adds components which are expected by the modeler in this phase.
+    @property
+    def components(self) -> list[Component]:
+        """A container for all components modelled in this phase.
 
-        If a component was already added, nothing happens.
-        Components appear uniquely in a phase and in a mixture.
+        The user does not need to set the components directly in a phase.
+        This is done during
+        :meth:`~porepy.composite.composition.Composition.initialize`.
 
-        This design choice enables the association 'component in phase',
-        as well as proper storage of related, fractional variables.
+        By setting components, variables representing the phase composition
+        are created or overwritten with zero.
+
+        Warning:
+            There is a lose end in the framework, variables once created can not be
+            deleted and are for always in the global DOF order.
+
+            Abstain from overwriting the components in a phase once set.
 
         Parameters:
-            component: One or multiple components which are expected in this phase.
-
-        Raises:
-            ValueError: If the component was instantiated using a different AD system
-                than the one used for the phase.
+            components: List of components to be modelled in this phase.
 
         """
-        if isinstance(component, Component):
-            component = [component]  # type: ignore
+        # deep copy list
+        return [c for c in self]
 
-        for comp in component:
+    @components.setter
+    def components(self, components: list[Component]) -> None:
+        self._composition = dict()
+        self._components = list()
+        # to avoid double setting
+        added_components = list()
+        for comp in components:
             # sanity check when using the AD framework
             if self.ad_system != comp.ad_system:
                 raise ValueError(
                     f"Component '{comp.name}' instantiated with a different AD system."
                 )
-            # skip already present components:
-            if comp.name in self._composition:
+
+            # check if already added
+            if comp.name in added_components:
                 continue
+            else:
+                added_components.append(comp.name)
 
             # create compositional variables for the component in this phase
             fraction_name = self.fraction_of_component_name(comp)
@@ -289,8 +296,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
                 to_iterate=True,
             )
 
-            # store the compositional variable
+            # store the compositional variable and component
             self._composition.update({comp: comp_fraction})
+            self._components.append(comp)
 
     ### Physical properties ------------------------------------------------------------
 
@@ -337,7 +345,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         pass
 
     @abc.abstractmethod
-    def specific_enthalpy(self, p: NumericType, T: NumericType) -> NumericType:
+    def specific_enthalpy(
+        self, p: NumericType, T: NumericType, *X: NumericType
+    ) -> NumericType:
         """
         | Math. Dimension:        scalar
         | Phys.Dimension:         [kJ / mol / K]
@@ -345,6 +355,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         Parameters:
             p: Pressure.
             T: Temperature.
+            *X: (Normalized) Component fractions in this phase.
 
         Returns:
             The specific molar enthalpy of this phase in AD compatible form.

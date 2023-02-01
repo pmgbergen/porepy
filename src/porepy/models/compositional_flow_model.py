@@ -231,9 +231,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         h2o = pp.composite.H2O(self.ad_system)
         co2 = pp.composite.CO2(self.ad_system)
         n2 = pp.composite.N2(self.ad_system)
-        self.composition.add_component(h2o)
-        self.composition.add_component(co2)
-        self.composition.add_component(n2)
+        self.composition.add_components(h2o)
+        self.composition.add_components(co2)
+        self.composition.add_components(n2)
         self.reference_component = h2o
 
         ## setting thermodynamic state in terms of p-T-z
@@ -292,9 +292,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         co2 = pp.composite.CO2(adsys)
         n2 = pp.composite.N2(adsys)
         L, G = (phase for phase in C.phases)
-        C.add_component(h2o)
-        C.add_component(co2)
-        C.add_component(n2)
+        C.add_components(h2o)
+        C.add_components(co2)
+        C.add_components(n2)
 
         # setting thermodynamic state at boundary
 
@@ -1267,7 +1267,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
             scalar_part = (
                 phase.density(cp.p, cp.T)
-                * phase.specific_enthalpy(cp.p, cp.T)
+                * phase.specific_enthalpy(
+                    cp.p,
+                    cp.T,
+                    *[phase.normalized_fraction_of_component(comp) for comp in phase]
+                )
                 * k_re
                 / phase.dynamic_viscosity(cp.p, cp.T)
             )

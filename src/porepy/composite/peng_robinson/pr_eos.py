@@ -10,7 +10,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .._composite_utils import R_IDEAL
+from .._composite_utils import R_IDEAL, MPa_kJ_SCALE
 from .pr_component import PR_Component
 from .pr_mixing import VdW_a, VdW_b, VdW_dT_a, VdW_dXi_a
 from .pr_utils import A_CRIT, B_CRIT
@@ -420,11 +420,21 @@ class PR_EoS:
         # then we simulate a single-column matrix to avoid indexing errors in the
         # following
         revert_broadcast = False
-        if broad_cast_test.jac == 0:
-            revert_broadcast = True
-            shape = (len(broad_cast_test.val), 1)
-            A.jac = sps.lil_matrix(shape)
-            B.jac = sps.lil_matrix(shape)
+        if isinstance(broad_cast_test.jac, (float, int)):
+            # this results from broadcasting arrays and floats
+            if broad_cast_test.jac == 0:
+                revert_broadcast = True
+                shape = (nc, 1)
+                A.jac = sps.lil_matrix(shape)
+                B.jac = sps.lil_matrix(shape)
+                # this happens if AD arrays have non-trivial numbers as jacs
+                # wrap in matrix in this case
+            else:
+                # this should normally not happen
+                assert nc == 1, "Uncovered case encountered in Ad_array broadcasting"
+                A.jac = sps.coo_matrix(([A.jac], (0, 0)), shape=(1, 1))
+                B.jac = sps.coo_matrix(([B.jac], (0, 0)), shape=(1, 1))
+
         # else we assume its a sparse matrix
         else:
             shape = broad_cast_test.jac.shape
@@ -488,7 +498,7 @@ class PR_EoS:
         ### COMPUTATIONS IN THE ONE-ROOT-REGION
         # Missing real root is replaced with conjugated imaginary roots
         if np.any(one_root_region):
-            B_1 = pp.ad.Ad_array(B.val[one_root_region], B.jac[one_root_region])
+            # B_1 = pp.ad.Ad_array(B.val[one_root_region], B.jac[one_root_region])
             r_1 = pp.ad.Ad_array(r.val[one_root_region], r.jac[one_root_region])
             q_1 = pp.ad.Ad_array(q.val[one_root_region], q.jac[one_root_region])
             delta_1 = pp.ad.Ad_array(
@@ -515,10 +525,12 @@ class PR_EoS:
 
             ## Relevant roots
             # only real root, Cardano formula, positive discriminant
-            z_1 = u_1 - r_1 / (u_1 * 3) - c2_1 / 3
+            real_part = u_1 - r_1 / (u_1 * 3)
+            z_1 = real_part - c2_1 / 3
             # real part of the conjugate imaginary roots
             # used for extension of vanished roots
-            w_1 = (1 - B_1 - z_1) / 2
+            # w_1 = (1 - B_1 - z_1) / 2
+            w_1 = -real_part / 2 - c2_1 / 3
 
             ## simplified labeling, Vu et al. (2021), equ. 4.24
             gas_region = w_1.val < z_1.val
@@ -543,8 +555,8 @@ class PR_EoS:
             nc_1 = np.count_nonzero(one_root_region)
             Z_L_val_1 = np.zeros(nc_1)
             Z_G_val_1 = np.zeros(nc_1)
-            Z_L_jac_1 = sps.csr_matrix((nc_1, shape[1]))
-            Z_G_jac_1 = sps.csr_matrix((nc_1, shape[1]))
+            Z_L_jac_1 = sps.lil_matrix((nc_1, shape[1]))
+            Z_G_jac_1 = sps.lil_matrix((nc_1, shape[1]))
 
             # store gas root where actual gas, use extension where liquid
             Z_G_val_1[gas_region] = z_1.val[gas_region]
@@ -625,7 +637,7 @@ class PR_EoS:
 
         """
         # Scaling due to to p being in MPa and R in kJ / K / mol
-        return p / (R_IDEAL * T * Z) * 1e3
+        return p / (R_IDEAL * T * Z) * MPa_kJ_SCALE
 
     def get_h_dep(
         self, p: NumericType, T: NumericType, Z: NumericType, *X: NumericType
@@ -664,7 +676,7 @@ class PR_EoS:
         B: NumericType,
     ) -> NumericType:
         """Auxiliary function for computing the departure function."""
-        return 1 / (b * np.sqrt(8)) * (T * dT_a - a) * pp.ad.log(
+        return 1 / np.sqrt(8) * (T * dT_a - a) / b * pp.ad.log(
             (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B)
         ) + R_IDEAL * T * (Z - 1)
 
@@ -711,8 +723,6 @@ class PR_EoS:
     ) -> NumericType:
         """Auxiliary method implementing the formula for the fugacity coefficient."""
 
-        # TODO: Implement expression (A-4) in https://doi.org/10.1016/j.fluid.2014.07.003
-        # The expression below does not correspond with the ones in thermo.
         log_phi_i = (
             B_i / B * (Z - 1)
             - pp.ad.log(Z - B)
