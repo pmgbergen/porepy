@@ -88,7 +88,7 @@ class FractureNetwork2d:
         """
 
         if isinstance(domain, np.ndarray):
-            domain = pp.bounding_box.from_points(domain)
+            domain = pp.bounding_box.domain_from_points(domain)
 
         self.domain: dict[str, float] | None = domain
         """The domain for this fracture network.

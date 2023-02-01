@@ -539,8 +539,8 @@ def mdg_refinement(
         subdomains_ref
     ), "Weakly check that MixedDimensionalGrids refer to same domains"
     assert np.allclose(
-        np.append(*pp.bounding_box.from_md_grid(mdg)),
-        np.append(*pp.bounding_box.from_md_grid(mdg_ref)),
+        np.append(*pp.bounding_box.bounding_box_from_mdg(mdg)),
+        np.append(*pp.bounding_box.bounding_box_from_mdg(mdg_ref)),
     ), "Weakly check that MixedDimensionalGrids refer to same domains"
 
     for i in np.arange(len(subdomains)):
