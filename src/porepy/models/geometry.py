@@ -73,19 +73,18 @@ class ModelGeometry:
             # Mono-dimensional grid by default
             phys_dims = np.array([1, 1]) * ls
             n_cells = np.array([2, 2])
-            self.domain_bounds = pp.geometry.bounding_box.from_points(
-                np.array([[0, 0], phys_dims]).T
-            )
+            self.domain_bounds = {
+                "xmin": 0,
+                "xmax": phys_dims[0] * ls,
+                "ymin": 0,
+                "ymax": phys_dims[1] * ls,
+            }
             g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
             g.compute_geometry()
             self.mdg = pp.meshing.subdomains_to_mdg([[g]])
         else:
             self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-            domain = self.fracture_network.domain
-            if isinstance(domain, dict):
-                self.domain_bounds = domain
-            elif isinstance(domain, np.ndarray):
-                self.domain_bounds = pp.geometry.bounding_box.from_points(domain)
+            self.domain_bounds = self.fracture_network.domain
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]

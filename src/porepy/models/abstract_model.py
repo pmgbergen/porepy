@@ -89,7 +89,12 @@ class AbstractModel:
         """
         phys_dims = np.array([1, 1])
         n_cells = np.array([1, 1])
-        self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
+        self.box = {
+            "xmin": 0,
+            "xmax": phys_dims[0],
+            "ymin": 0,
+            "ymax": phys_dims[1],
+        }
         g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         g.compute_geometry()
         self.mdg = pp.meshing.subdomains_to_mdg([[g]])
