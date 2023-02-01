@@ -226,7 +226,7 @@ class PR_EoS:
         self.dT_a = self.get_dT_a(T, *X)
         # compute extended quantities
         self.A = (self.a * p) / (R_IDEAL**2 * T * T)
-        self.B = (self.b * p) / (R_IDEAL * T)
+        self.B = (self.b * p) / (R_IDEAL * 1.e-3 * T)
         # root
         self.Z = self._Z(self.A, self.B, apply_smoother)
         # density
@@ -715,6 +715,8 @@ class PR_EoS:
     ) -> NumericType:
         """Auxiliary method implementing the formula for the fugacity coefficient."""
 
+        # TODO: Implement expression (A-4) in https://doi.org/10.1016/j.fluid.2014.07.003
+        # The expression below does not correspond with the ones in thermo.
         log_phi_i = (
             b_i / b * (Z - 1)
             - pp.ad.log(Z - B)
