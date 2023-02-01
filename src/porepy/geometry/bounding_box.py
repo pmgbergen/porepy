@@ -88,7 +88,7 @@ def bounding_box_from_mdg(mdg: pp.MixedDimensionalGrid) -> Box:
 
     Parameters:
         mdg: Mixed-dimensional grid for which the bounding box is to be computed.
-        
+
     A 2-tuple containing
 
         :obj:`~numpy.ndarray`: ``shape=(3, )``
@@ -145,7 +145,7 @@ def bounding_box_as_domain(bounding_box: Box) -> Domain:
     return domain
 
 
-def make_bounding_planes_from_domain(domain: Domain) -> list[np.ndarray]:
+def bounding_planes_from_domain(domain: Domain) -> list[np.ndarray]:
     """Translate a domain into fractures. Tag them as boundaries.
 
     For now the domain specification is limited to a box consisting of six planes.
