@@ -38,6 +38,7 @@ class TriangleGrid(Grid):
         tri: ``shape=(3, num_cells), default=None``
 
             Cell-node connections. If None, a Delaunay triangulation will be applied.
+            The ordering of nodes in each cell is assumed to be counter-clockwise.
         name: ``default=None``
 
             Name of the grid. If None, ``'TriangleGrid'`` will be assigned.
@@ -79,6 +80,7 @@ class TriangleGrid(Grid):
         cf_data = np.sign(face_nodes[:, 1] - face_nodes[:, 0])
 
         # Face node relations
+        # Each face is oriented from low to high node index
         face_nodes.sort(axis=1)
         face_nodes, _, cell_faces = setmembership.unique_rows(face_nodes)
 
