@@ -158,7 +158,8 @@ def polygons_by_polyhedron(
 
     # Construct bounding box for polyhedron
     bounding_box = pp.bounding_box.domain_from_points(
-        np.hstack([p for p in polyhedron]))
+        np.hstack([p for p in polyhedron])
+    )
 
     # Loop over the polygons. For each, find the intersections with all
     # polygons on the side of the polyhedra.

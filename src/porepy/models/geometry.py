@@ -84,7 +84,9 @@ class ModelGeometry:
             self.mdg = pp.meshing.subdomains_to_mdg([[g]])
         else:
             self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-            self.domain_bounds = self.fracture_network.domain
+            domain = self.fracture_network.domain
+            if isinstance(domain, dict):
+                self.domain_bounds = domain
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
