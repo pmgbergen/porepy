@@ -434,7 +434,7 @@ class Grid:
 
         # Define an oriented face to nodes mapping, the orientation is determined by the
         # ordering in self.face_nodes.indices. The start node gets a -1 and the end node a +1.
-        fn_orient = self.face_nodes.copy()
+        fn_orient = sps.csc_matrix(self.face_nodes, dtype=int, copy=True)
         fn_orient.data = -np.power(-1, np.arange(fn_orient.data.size))
 
         # Check consistency
