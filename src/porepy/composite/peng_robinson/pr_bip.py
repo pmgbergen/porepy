@@ -40,7 +40,6 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from .pr_model_components import *
-from .pr_utils import _exp, _power
 
 __all__ = [
     "PR_BIP_MAP",
