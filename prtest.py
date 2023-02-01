@@ -17,7 +17,7 @@ M.add_components([h2o, co2])
 M.add_phases([LIQ, GAS])
 
 temperature = 300
-pressure = 0.1  # 1 10 20 23
+pressure = 0.01
 co2_fraction = 0.6
 n2_fraction = 0.0
 h2o_fraction = 1 - co2_fraction - n2_fraction
@@ -46,13 +46,14 @@ FLASH = pp.composite.Flash(M, auxiliary_npipm=False)
 FLASH.use_armijo = True
 FLASH.armijo_parameters["rho"] = 0.9
 FLASH.armijo_parameters["j_max"] = 150
-FLASH.newton_update_chop = 0.5
+FLASH.newton_update_chop = 1.0
+FLASH.flash_tolerance = 1e-7
 
-FLASH.flash("isothermal", "npipm", "feed", True, True)
+FLASH.flash("isothermal", "npipm", "rachford_rice", True, True)
 # evaluate enthalpy after pT flash
 FLASH.evaluate_specific_enthalpy()
 FLASH.evaluate_saturations()
-# print thermodynamic state stored as STATE in ad
+# print thermodynamic state stored as STATE in AD
 FLASH.print_state()
 
 # modifying enthalpy for isenthalpic flash
@@ -64,6 +65,6 @@ FLASH.use_armijo = False
 FLASH.flash("isenthalpic", "npipm", "iterate", False, True)
 FLASH.evaluate_saturations(False)
 # print thermodynamic state stored as ITERATE in ad
-FLASH.print_state(True)  # print state with temperature values after isenthalpic flash
+FLASH.print_state(True)
 
 print("DONE")
