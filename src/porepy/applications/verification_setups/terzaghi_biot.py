@@ -266,14 +266,8 @@ class TerzaghiUtils(VerificationUtils):
     params: dict
     """Setup parameters dictionary."""
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid. Only one subdomain for this verification."""
-
     time_manager: pp.TimeManager
     """Time-stepping object."""
-
-    stress_keyword: str
-    """Key for accessing data parameters for the mechanics subproblem."""
 
     bc_values_mechanics_key: str
     """Key for accessing mechanical boundary values."""
@@ -366,40 +360,6 @@ class TerzaghiUtils(VerificationUtils):
         return pressure / np.abs(self.params.get("vertical_load", 6e8))
 
     # ---> Postprocessing methods
-    # TODO: Consider moving this method to a place where can be reused.
-    def displacement_trace(
-        self, displacement: np.ndarray, pressure: np.ndarray
-    ) -> np.ndarray:
-        """Project the displacement vector onto the faces.
-
-        Parameters:
-            displacement: displacement solution of shape (sd.dim * sd.num_cells, ).
-            pressure: pressure solution of shape (sd.num_cells, ).
-
-        Returns:
-            Trace of the displacement with shape (sd.dim * sd.num_faces, ).
-
-        """
-        # Rename arguments
-        u = displacement
-        p = pressure
-
-        # Discretization matrices
-        sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-        discr = data[pp.DISCRETIZATION_MATRICES][self.stress_keyword]
-        bound_u_cell = discr["bound_displacement_cell"]
-        bound_u_face = discr["bound_displacement_face"]
-        bound_u_pressure = discr["bound_displacement_pressure"]
-
-        # Mechanical boundary values
-        bc_vals = data[pp.STATE][self.bc_values_mechanics_key]
-
-        # Compute trace of the displacement
-        trace_u = bound_u_cell * u + bound_u_face * bc_vals + bound_u_pressure * p
-
-        return trace_u
-
     def numerical_consolidation_degree(
         self, displacement: np.ndarray, pressure: np.ndarray
     ) -> number:
@@ -574,7 +534,7 @@ class TerzaghiBoundaryConditionsMechanicsTimeDependent(
             sd: Subdomain grid.
 
         Returns:
-            bc: Boundary condition representation. Neumann on the North, Dirichlet on
+            Boundary condition representation. Neumann on the North, Dirichlet on
             the South, and rollers on the sides.
 
         """
@@ -610,7 +570,7 @@ class TerzaghiBoundaryConditionsMechanicsTimeDependent(
 
         Returns:
             Array of boundary values. Only non-zero values are the ones associated to
-              the North side of the domain.
+            the North side of the domain.
 
         """
         sd = subdomains[0]
@@ -660,9 +620,9 @@ class TerzaghiPoromechanicsBoundaryConditions(
 
 
 # -----> Solution strategy
-class TerzaghiSolutionStrategy(
-    poromechanics.SolutionStrategyPoromechanics,
-):
+class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+    """Solution strategy class for Terzaghi's setup."""
+
     exact_sol: TerzaghiExactSolution
     """Exact solution object."""
 
@@ -685,7 +645,7 @@ class TerzaghiSolutionStrategy(
         super().__init__(params)
 
         self.exact_sol: TerzaghiExactSolution
-        """Exact solution object"""
+        """Exact solution object."""
 
         self.results: list[TerzaghiSaveData] = []
         """List of stored results from the verification."""
