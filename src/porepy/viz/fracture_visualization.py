@@ -58,7 +58,7 @@ def plot_fractures(
     """
     # If not provided, determine the domain as bounding box
     if domain is None:
-        domain = pp.bounding_box.domain_from_points(pts)
+        domain = pp.bounding_box.from_points(pts)
 
     # If no axis is provided, construct one
     if ax is None:

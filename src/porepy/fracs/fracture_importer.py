@@ -295,7 +295,7 @@ def network_2d_from_csv(
 
     if domain is None:
         overlap = kwargs.get("domain_overlap", 0)
-        domain = pp.bounding_box.domain_from_points(pts, overlap)
+        domain = pp.bounding_box.from_points(pts, overlap)
 
     pts, _, old_2_new = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
 
