@@ -2,61 +2,31 @@
 Module containing a worker function to generate mixed-dimensional grids in an unified
 way.
 """
-
+from __future__ import annotations
 from typing import Dict, Literal, Optional, Union
 import numpy as np
 import porepy as pp
 
 import porepy.grids.standard_grids.utils as utils
 
-def simplex_2d_grid():
+def simplex_2d_grid(fracture_network: pp.FractureNetwork2d,
+mesh_arguments: dict[str],
+**kwargs) -> pp.MixedDimensionalGrid:
+    utils.set_mesh_sizes(mesh_arguments)
+    mdg = fracture_network.mesh(mesh_arguments)
+    mdg.compute_geometry()
 
-    # Connected zig-zag fractures
-    points = np.array([
-        [0.1, 0.1],
-        [0.5, 0.4],
-        [0.3, 0.7],
-        [0.6, 0.8],
-        [0.65, 0.75],
-        [0.9, 0.9]
-    ]).T
-
-    edges = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]]).T
-
-    # Set mesh size close to the fracture
-    mesh_args = {'mesh_size_frac': 0.2}
-
-    # Define the domain
-    domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
-
-    mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
     return mdg
 
-
-
-def simplex_3d_grid():
-    # Connected zig-zag fractures
-    points = np.array([
-        [0.1, 0.1],
-        [0.5, 0.4],
-        [0.3, 0.7],
-        [0.6, 0.8],
-        [0.65, 0.75],
-        [0.9, 0.9]
-    ]).T
-
-    edges = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]]).T
-
-    # Set mesh size close to the fracture
-    mesh_args = {'mesh_size_frac': 0.2}
-
-    # Define the domain
-    domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
-
-    mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
+def simplex_3d_grid(fracture_network: pp.FractureNetwork3d,
+mesh_arguments: dict[str],
+**kwargs) -> pp.MixedDimensionalGrid:
+    utils.set_mesh_sizes(mesh_arguments)
+    mdg = fracture_network.mesh(mesh_arguments)
+    mdg.compute_geometry()
     return mdg
 
-def simplex_3d_grid():
+def cartesian_3d_grid():
 
     # define points
     x0 = 0.1
@@ -157,13 +127,18 @@ def cartersian_3d():
     mdg = pp.meshing.cart_grid(fracs = [frac1,frac2,frac3,frac4], physdims = phys_dims, nx = np.array(n_cells))
     return mdg
 
+def _validate_arguments(grid_type: Literal["simplex", "cartesian", "tensor_grid"],mesh_arguments: dict[str],**kwargs):
+    validity_q = True
+
+    return validity_q
 
 def create_mdg(fracture_network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d],
 grid_type: Literal["simplex", "cartesian", "tensor_grid"],
 mesh_arguments: dict[str],
 **kwargs) -> pp.MixedDimensionalGrid:
 
-    # TODO: give a try on unify signatures
+    if not _validate_arguments(grid_type,mesh_arguments,**kwargs):
+        raise (ValueError)
 
     # Assertion for FN type
     assert isinstance(fracture_network, pp.FractureNetwork2d) or isinstance(fracture_network, pp.FractureNetwork3d)
@@ -172,18 +147,19 @@ mesh_arguments: dict[str],
     # 2d cases
     if isinstance(fracture_network, pp.FractureNetwork2d):
         if grid_type == "simplex":
-            mdg = simplex_2d_grid()
+            mdg = simplex_2d_grid(fracture_network,mesh_arguments,**kwargs)
         elif grid_type == "cartesian":
             mdg = cartersian_2d()
 
     # 3d cases
-    if isinstance(fracture_network, pp.FractureNetwork2d):
+    if isinstance(fracture_network, pp.FractureNetwork3d):
         if grid_type == "simplex":
-            mdg = simplex_3d_grid()
+            mdg = simplex_3d_grid(fracture_network,mesh_arguments,**kwargs)
         elif grid_type == "cartesian":
             mdg = cartersian_3d()
 
     # TODO: write conditions for this case
-    save = pp.Exporter(mdg, "mdg")
-    save.write_vtu(mdg)
+    e_arguments: dict[str] = {"fixed_grid": False}
+    save = pp.Exporter(mdg, "mdg",**e_arguments)
+    save.write_vtu(grid = mdg)
     return mdg
