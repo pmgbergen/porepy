@@ -1,12 +1,13 @@
 """ Frontend utility functions related to fractures and their meshing.
 
 """
+from __future__ import annotations
+
 import logging
 
 import numpy as np
 
 import porepy as pp
-from porepy import LineFracture
 
 # Module level logger
 logger = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ def uniquify_points(pts, edges, tol):
 
 
 def linefractures_to_pts_edges(
-    fractures: list[LineFracture],
+    fractures: list[pp.LineFracture],
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert a list of fractures into two numpy arrays of the corresponding points and
     edges.
@@ -104,7 +105,7 @@ def linefractures_to_pts_edges(
 
 def pts_edges_to_linefractures(
     pts: np.ndarray, edges: np.ndarray
-) -> list[LineFracture]:
+) -> list[pp.LineFracture]:
     """Convert points and edges into a list of fractures
 
     Parameters:
@@ -114,9 +115,9 @@ def pts_edges_to_linefractures(
     Returns:
         List of fractures.
     """
-    fractures: list[LineFracture] = []
+    fractures: list[pp.LineFracture] = []
     for start_index, end_index in zip(edges[0, :], edges[1, :]):
         fractures.append(
-            LineFracture(np.array([pts[:, start_index], pts[:, end_index]]).T)
+            pp.LineFracture(np.array([pts[:, start_index], pts[:, end_index]]).T)
         )
     return fractures
