@@ -126,6 +126,17 @@ class PR_EoS:
 
         """
 
+        self.is_super_critical: np.ndarray = np.array([], dtype=bool)
+        """A boolean array flagging if the mixture became super-critical.
+
+        In vectorized computations, the results are stored component-wise.
+
+        Important:
+            It is unclear, what the meaning of super-critical phases is using this EoS
+            and values in this phase region should be used with suspicion.
+
+        """
+
         self._gaslike: bool = bool(gaslike)
         """Flag passed at instantiation denoting the state of matter, liquid or gas."""
 
@@ -465,12 +476,9 @@ class PR_EoS:
         delta.jac = delta.jac.tolil()
 
         ### CLASSIFYING REGIONS
-        # identify super-critical region
-        is_super_critical = B.val > B_CRIT / A_CRIT * A.val
-
-        # as of now, this is not covered
-        if np.any(is_super_critical):
-            raise NotImplementedError("Super-critical roots not available yet.")
+        # identify super-critical region and store information
+        # limited physical insight into what this means with this EoS
+        self.is_super_critical = B.val > B_CRIT / A_CRIT * A.val
 
         # discriminant of zero indicates one or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
