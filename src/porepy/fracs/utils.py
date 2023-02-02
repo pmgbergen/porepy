@@ -9,7 +9,6 @@ from itertools import zip_longest
 import numpy as np
 
 import porepy as pp
-from porepy import LineFracture
 
 # Module level logger
 logger = logging.getLogger(__name__)
