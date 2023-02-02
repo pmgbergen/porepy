@@ -5,7 +5,7 @@ import scipy.sparse as sps
 
 from porepy.numerics.ad.forward_mode import Ad_array, initAdArrays
 from porepy.numerics.ad.functions import exp
-from porepy.numerics.ad._ad_utils import concatenate
+from porepy.numerics.ad._ad_utils import concatenate_ad_arrays
 
 
 class AdTest(unittest.TestCase):
@@ -38,7 +38,7 @@ class AdTest(unittest.TestCase):
         z1 = exp(x) + y
         z2 = exp(y) + x
 
-        z = concatenate((z1, z2))
+        z = concatenate_ad_arrays((z1, z2))
 
         val = np.array([np.exp(1) + 2, np.exp(2) + 1])
         J = np.array([[np.exp(1), 1], [1, np.exp(2)]])

@@ -314,7 +314,7 @@ def find_active_indices(
     Args:
         parameter_dictionary (dict): Parameters, potentially containing fields
             "specified_cells", "specified_faces", "specified_nodes".
-        g (pp.Grid): Grid to be discretized.
+        sd (pp.Grid): Grid to be discretized.
 
     Returns:
         np.ndarray: Cells to be included in the active grid.
@@ -432,16 +432,16 @@ def remove_nonlocal_contribution(
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
 
 
-def expand_indices_nd(ind, nd, direction="F"):
+def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
     """
     Expand indices from scalar to vector form.
 
     Examples:
     >>> i = np.array([0, 1, 3])
-    >>> __expand_indices_nd(i, 2)
+    >>> expand_indices_nd(i, 2)
     (array([0, 1, 2, 3, 6, 7]))
 
-    >>> __expand_indices_nd(i, 3, "C")
+    >>> expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
     Args:
@@ -1456,6 +1456,35 @@ def map_subgrid_to_grid(
     return face_map, cell_map
 
 
+def diagonal_scaling_matrix(mat: sps.spmatrix) -> sps.spmatrix:
+    """Helper function to form a diagonal matrix that scales the rows of a matrix.
+
+    Parameters:
+        mat: Matrix to be scaled.
+
+    Returns:
+        Diagonal matrix with the diagonal elements equal to the row-wise sum of the
+        absolute values of the input matrix.
+
+    """
+
+    # Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,
+    # since we want to manipulate the matrix elements.
+    tmp = mat.copy()
+    # Use an absolute value here. For some of the matrices the row sum will be zero
+    # on interior faces.
+    tmp.data = np.abs(tmp.data)
+    # Take a sum here. Intuitively, an average would be better, but calling tmp.mean()
+    # would take the average over all elements, most of which are zero (this turned out
+    # not to be optimal). We could also find the number of non-zero elements and divide
+    # the sum by this, but a sum seems to be good enough.
+    scalings = tmp.sum(axis=1).A.ravel()
+    # Diagonal scaling matrix
+    full_scaling = sps.dia_matrix((1.0 / scalings, 0), shape=mat.shape)
+
+    return full_scaling
+
+
 def compute_darcy_flux(
     mdg,
     keyword="flow",
@@ -1499,7 +1528,7 @@ def compute_darcy_flux(
         fluxes between grids will be added only at the mdg edge, not at the node
         fields. The signs of the darcy_flux correspond to the directions of the
         normals, in the edge/coupling case those of the higher grid. For edges
-        beteween grids of equal dimension, there is an implicit assumption
+        between grids of equal dimension, there is an implicit assumption
         that all normals point from the second to the first of the sorted grids
         (mdg.sorted_nodes_of_edge(e)).
     """
