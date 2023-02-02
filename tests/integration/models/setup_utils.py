@@ -27,28 +27,17 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
 
         num_fracs = self.params.get("num_fracs", 1)
         domain = {"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls}
-        if num_fracs == 0:
-            p = np.zeros((2, 0), dtype=float) * ls
-            e = np.zeros((2, 0), dtype=int)
-        elif num_fracs == 1:
-            p = np.array([[0, 2], [0.5, 0.5]]) * ls
-            e = np.array([[0], [1]])
-        elif num_fracs == 2:
-            p = np.array([[0, 2, 0.5, 0.5], [0.5, 0.5, 0, 1]]) * ls
-            e = np.array([[0, 2], [1, 3]])
-        elif num_fracs == 3:
-            if self.params.get("cartesian", False):
-                raise ValueError("Only up to 2 fractures supported in Cartesian mode.")
-            p = np.array([[0, 2, 0.5, 0.5, 0.3, 0.7], [0.5, 0.5, 0, 1, 0.3, 0.7]]) * ls
-            e = np.array([[0, 2, 4], [1, 3, 5]])
-        else:
-            raise ValueError("Only up to 3 fractures supported.")
-        self.fracture_network = pp.FractureNetwork2d(p, e, domain)
+        fractures = [
+            pp.LineFracture(np.array([[0, 2], [0.5, 0.5]]) * ls),
+            pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
+            pp.LineFracture(np.array([[0.3, 0.7], [0.3, 0.7]]) * ls),
+        ]
+        self.fracture_network = pp.FractureNetwork2d(fractures[:num_fracs], domain)
 
     def mesh_arguments(self) -> dict:
-        # Length scale:
-        ls = 1 / self.units.m
-        return {"mesh_size_frac": 0.5 * ls, "mesh_size_bound": 0.5 * ls}
+        # Divide by length scale:
+        h = 0.5 / self.units.m
+        return {"mesh_size_frac": h, "mesh_size_bound": h}
 
     def set_md_grid(self) -> None:
         if not self.params.get("cartesian", False):
@@ -117,6 +106,40 @@ class OrthogonalFractures3d(pp.ModelGeometry):
             "mesh_size_min": 0.2 * ls,
         }
         return mesh_sizes
+
+
+class WellGeometryMixin:
+    """Mixin class for models with wells."""
+
+    nd: int
+    """Number of dimensions."""
+    params: dict
+    """Model parameters."""
+
+    def set_well_network(self) -> None:
+        """Assign well network class."""
+        num_wells = self.params.get("num_wells", 1)
+        if self.nd == 2:
+            # Comments are the intersection with fractures in
+            # RectangularDomainOrthogonalFractures
+            wells = [
+                pp.Well(np.array([0.5, 0.1])),  # Intersects one fracture
+                pp.Well(np.array([0.5, 0.5])),  # Intersects both fractures
+                pp.Well(np.array([0.25, 0.9])),  # Intersects no fractures
+            ]
+            self.well_network = pp.WellNetwork2d(wells[:num_wells])
+        else:
+            wells = [
+                # Intersects one (horizontal) fracture of OrthogonalFractures3d and
+                # extends to the top of the domain
+                pp.Well(np.array([[0.2, 0.2], [0.1, 0.1], [0.2, 1]])),
+                # Intersects two (horizontal and vertical) fractures of
+                # OrthogonalFractures3d. Extends between two domain boundaries.
+                pp.Well(np.array([[0.0, 0.6], [0.5, 0.5], [0.4, 1]])),
+                # Intersects no fractures. Internal well.
+                pp.Well(np.array([[0.3, 0.3], [0.3, 0.3], [0.3, 0.4]])),
+            ]
+            self.well_network = pp.WellNetwork3d(wells[:num_wells])
 
 
 class BoundaryConditionsMassAndEnergyDirNorthSouth(
