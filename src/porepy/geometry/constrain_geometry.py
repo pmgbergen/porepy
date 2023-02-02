@@ -157,7 +157,7 @@ def polygons_by_polyhedron(
     orig_poly_ind = []
 
     # Construct bounding box for polyhedron
-    bounding_box = pp.bounding_box.domain_from_points(
+    bounding_box = pp.bounding_box.from_points(
         np.hstack([p for p in polyhedron])
     )
 

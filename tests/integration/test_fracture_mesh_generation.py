@@ -47,7 +47,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
                     return False
             return True
 
-        bb = pp.bounding_box.domain_from_points(mdg.subdomains(dim=3)[0].nodes)
+        bb = pp.bounding_box.from_points(mdg.subdomains(dim=3)[0].nodes)
 
         self.assertTrue(compare_bounding_boxes(bb, domain))
 
@@ -62,8 +62,8 @@ class TestDFMMeshGeneration(unittest.TestCase):
                 if g.frac_num == fi:
                     self.assertTrue(
                         compare_bounding_boxes(
-                            pp.bounding_box.domain_from_points(f.pts),
-                            pp.bounding_box.domain_from_points(g.nodes),
+                            pp.bounding_box.from_points(f.pts),
+                            pp.bounding_box.from_points(g.nodes),
                         )
                     )
 
@@ -106,7 +106,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
         for g in mdg.subdomains(dim=1):
             n = mdg.neighboring_subdomains(g, only_higher=True)
-            box = pp.bounding_box.domain_from_points(g.nodes)
+            box = pp.bounding_box.from_points(g.nodes)
 
             if len(n) == 2:
                 f_0, f_1 = sorted([n[0].frac_num, n[1].frac_num])
@@ -121,7 +121,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             isect = val["isect"]
             self.assertTrue(
                 compare_bounding_boxes(coord,
-                                       pp.bounding_box.domain_from_points(isect.coord))
+                                       pp.bounding_box.from_points(isect.coord))
             )
 
         for g in mdg.subdomains(dim=0):

@@ -42,16 +42,13 @@ class FractureNetwork2d:
             can be shared by fractures.
         edges (size: (2 + num_tags) x num_fracs): Fractures, defined as connections
             between the points.
-        domain: The domain in which the fracture set is defined. A dictionary with
-            keys 'xmin', 'xmax', 'ymin', 'ymax', each of which maps to a float giving
-            the range of the domain.
-
-            PorePy also allows for non-box domains. In this case, ``domain`` must be
-            given as a ndarray point cloud of ``shape=(2, num_points)`` containing
-            the (x, y) coordinates. Be aware of potential conflicts in static typing
-            if you use this functionality.
-
-            Note that the fractures do not need to lay inside the domain.
+        domain: The domain in which the fracture set is defined. If dictionary, it
+            should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which maps to a
+            double giving the range of the domain. If np.array, it should be of size
+            2 x n, and given the vertexes of the domain. The fractures need not lay
+            inside the domain.
+            TODO: The np.ndarray gives all kind of trouble with typing in other places.
+            Should be dropped.
         tol: Tolerance used in geometric computations.
 
     """
@@ -60,7 +57,7 @@ class FractureNetwork2d:
         self,
         pts: Optional[np.ndarray] = None,
         edges: Optional[np.ndarray] = None,
-        domain: Optional[dict[str, float]] = None,
+        domain: Optional[dict[str, float] | np.ndarray] = None,
         tol: float = 1e-8,
     ) -> None:
         """Define the fracture set.
@@ -90,22 +87,16 @@ class FractureNetwork2d:
 
         """
 
-        self.domain: Optional[dict[str, float]]
+        if isinstance(domain, np.ndarray):
+            domain = pp.bounding_box.from_points(domain)
+
+        self.domain: dict[str, float] | None = domain
         """The domain for this fracture network.
 
         The domain is defined by a dictionary with keys 'xmin', 'xmax', 'ymin', 'ymax'.
         If not specified, the domain will be set to the bounding box of the fractures.
 
         """
-        if domain is not None:
-            if isinstance(domain, dict):
-                self.domain = domain
-            elif isinstance(domain, np.ndarray):
-                self.domain = pp.bounding_box.domain_from_points(domain)
-            else:
-                raise TypeError
-        else:
-            self.domain = None
 
         self.tol = tol
         """Tolerance used in geometric computations."""
