@@ -135,7 +135,7 @@ class Exporter:
         self._file_name: str = file_name
         """Prefix for output files."""
 
-        self._folder_name: str = folder_name
+        self._folder_name: Optional[str] = folder_name
         """Folder name for output."""
 
         # Check for optional keywords
@@ -208,6 +208,11 @@ class Exporter:
         self._has_constant_interface_data = False
         """Identifier for whether constant interface data has been assigned to
         Exporter."""
+
+        # Misc
+
+        self._padding = 6
+        """Padding of zeros for creating the time step dependent appendix for output."""
 
     def import_from_vtu(
         self, keys: Union[str, list[str]], file_names: Union[str, list[str]], **kwargs
@@ -903,7 +908,9 @@ class Exporter:
 
         # Aux. method: Detect and convert data of form ([interfaces], "key").
         def add_data_from_tuple_interfaces_str(
-            data_pt: str, subdomain_data: dict, interface_data: dict
+            data_pt: tuple[list[pp.MortarGrid], str],
+            subdomain_data: dict,
+            interface_data: dict,
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (interfaces, key),
@@ -914,7 +921,8 @@ class Exporter:
                 interfaces.
 
             Parameters:
-                data_pt: data identifier via the associated key used in pp.STATE.
+                data_pt: data identifier combining to be addressed interfaces and
+                    a key present in pp.STATE.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
 
@@ -966,7 +974,7 @@ class Exporter:
                 return subdomain_data, interface_data, False
 
         def add_data_from_tuple_subdomain_str_array(
-            data_pt: tuple[pp.Grid, np.ndarray],
+            data_pt: tuple[pp.Grid, str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
         ) -> tuple[dict, dict, bool]:
@@ -1016,7 +1024,9 @@ class Exporter:
                 return subdomain_data, interface_data, False
 
         def add_data_from_tuple_interface_str_array(
-            data_pt, subdomain_data: dict, interface_data: dict
+            data_pt: tuple[pp.MortarGrid, str, np.ndarray],
+            subdomain_data: dict,
+            interface_data: dict,
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (g, key, data),
@@ -1138,7 +1148,7 @@ class Exporter:
         # Define methods to be used for checking the data type and performing
         # the conversion. This list implicitly also defines which input data is
         # allowed.
-        methods = [
+        methods: list = [
             add_data_from_str,
             add_data_from_tuple_subdomains_str,
             add_data_from_tuple_interfaces_str,
