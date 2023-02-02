@@ -1,8 +1,48 @@
 import porepy as pp
 import numpy as np
 from typing import Optional, Union
+from typing import NamedTuple, Union
+import numpy.typing as npt
 
 __all__ = ["Domain"]
+
+
+# -----> Utility functions
+def bounding_box_of_point_cloud(
+        point_cloud: np.ndarray, overlap: pp.number = 0
+) -> dict[str, float]:
+    """Obtain a bounding box of a point cloud.
+
+    Parameters:
+        point_cloud: ``shape=(nd, num_points)``
+
+            Point cloud. nd should be 2 or 3.
+        overlap: ``default=0``
+
+            Extension of the bounding box outside the point cloud. Scaled with extent of
+            the point cloud in the respective dimension.
+
+    Returns:
+        The domain represented as a dictionary with keywords ``xmin``, ``xmax``,
+        ``ymin``, ``ymax``, and (if ``nd == 3``) ``zmin`` and ``zmax``.
+
+    """
+    max_coord = point_cloud.max(axis=1)
+    min_coord = point_cloud.min(axis=1)
+    dx = max_coord - min_coord
+    bounding_box = {
+        "xmin": min_coord[0] - dx[0] * overlap,
+        "xmax": max_coord[0] + dx[0] * overlap,
+    }
+    if max_coord.size > 1:
+        bounding_box["ymin"] = min_coord[1] - dx[1] * overlap
+        bounding_box["ymax"] = max_coord[1] + dx[1] * overlap
+
+    if max_coord.size == 3:
+        bounding_box["zmin"] = min_coord[2] - dx[2] * overlap
+        bounding_box["zmax"] = max_coord[2] + dx[2] * overlap
+
+    return bounding_box
 
 
 class Domain:
@@ -170,3 +210,21 @@ class Domain:
             return 1
         else:
             raise ValueError
+
+class DomainSides(NamedTuple):
+    """Type for domain sides."""
+
+    all_bf: npt.NDArray[np.int_]
+    """All boundary faces."""
+    east: npt.NDArray[np.bool_]
+    """East boundary faces."""
+    west: npt.NDArray[np.bool_]
+    """West boundary faces."""
+    north: npt.NDArray[np.bool_]
+    """North boundary faces."""
+    south: npt.NDArray[np.bool_]
+    """South boundary faces."""
+    top: npt.NDArray[np.bool_]
+    """Top boundary faces."""
+    bottom: npt.NDArray[np.bool_]
+    """Bottom boundary faces."""
