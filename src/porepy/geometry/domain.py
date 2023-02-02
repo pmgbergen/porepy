@@ -11,10 +11,10 @@ class Domain:
     Attributes:
         bounding_box (``dict[str, pp.number]``): Dictionary containing the bounding
             box of the domain. See __init__ documentation.
-        polytope (``list[np.ndarray]``): Polytope (polygon for 2d and poyhedron for
+        polytope (``list[np.ndarray]``): Polytope (polygon for 2d and polyhedron for
             3d) defining the domain. See __init__ documentation.
         dim (int): Dimension on the domain.
-        is_boxed (bool): Whether the domain is boxed. We assume that if ``polytope``
+        is_boxed (bool): Whether the domain is a box. We assume that if ``polytope``
             is used for instantiation, ``is_boxed = False``.
 
     """
@@ -54,130 +54,119 @@ class Domain:
 
         if bounding_box is not None:
             self.bounding_box: dict[str, pp.number] = bounding_box
-            self.polytope: list[np.ndarray] = polytope_from_box(bounding_box)
-            self.dim: int = dim_from_box(bounding_box)
+            self.polytope: list[np.ndarray] = self.polytope_from_bounding_box()
+            self.dim: int = self.dimension_from_bounding_box()
             self.is_boxed: bool = True
         elif polytope is not None:
             self.polytope: list[np.ndarray] = polytope
             self.dim: int = polytope[0].shape[0]
-            self.bounding_box: dict[str, pp.number] = box_from_polytope(polytope)
+            self.bounding_box: dict[str, pp.number] = self.bounding_box_from_polytope()
             self.is_boxed: bool = False  # A non-boxed domain is assumed in this case
         else:
             raise ValueError("Not enough arguments. Expected box OR polytope.")
 
+    def bounding_box_from_polytope(self) -> dict[str, pp.number]:
 
-def box_from_polytope(polytope: list[np.ndarray]) -> dict[str, pp.number]:
+        if self.dim == 2:
 
-    # polygon (list of lines): list of np.ndarrays of shape (2, 2).
-    # polyhedron (list of polygons): list of np.ndarrays of shape (3, num_vertices).
+            # For a polygon, is easier to convert the polytope into an array
+            polygon = np.empty(shape=(len(self.polytope), 4))
+            for idx, side in enumerate(self.polytope):
+                polygon[idx, :] = np.concatenate(side)
 
-    if polytope[0].shape[1] == 2:
+            xmin = np.min(polygon[:, :1])
+            xmax = np.max(polygon[:, :1])
+            ymin = np.min(polygon[:, 2:])
+            ymax = np.max(polygon[:, 2:])
 
-        num_sides = len(polytope)
+            box = {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
 
-        # For a polygon, is easier to convert the polytope into an array
-        polygon = np.empty(shape=(num_sides, 4))
-        for idx, side in enumerate(polytope):
-            polygon[idx, :] = np.concatenate(side)
+        else:
+            # For a polyhedron, we have to consider that the domain can be composed
+            # of polygons with different number of vertices. This means that we
+            # cannot use the trick from above
 
-        xmin = np.min(polygon[:, :1])
-        xmax = np.max(polygon[:, :1])
-        ymin = np.min(polygon[:, 2:])
-        ymax = np.max(polygon[:, 2:])
+            x_coo = []
+            y_coo = []
+            z_coo = []
 
-        box = {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
+            for polygon in self.polytope:
+                x_coo.append(polygon[0])
+                y_coo.append(polygon[1])
+                z_coo.append(polygon[2])
 
-    else:
+            x = np.concatenate(x_coo, axis=0)
+            y = np.concatenate(y_coo, axis=0)
+            z = np.concatenate(z_coo, axis=0)
 
-        # For a polyhedron, we have to consider that the domain can be composed
-        # of polygons with different number of vertices. This means that we
-        # cannot use the trick from above
+            box = {
+                "xmin": np.min(x),
+                "xmax": np.max(x),
+                "ymin": np.min(y),
+                "ymax": np.max(y),
+                "zmin": np.min(z),
+                "zmax": np.max(z),
+            }
 
-        x_coo = []
-        y_coo = []
-        z_coo = []
+        return box
 
-        for polygon in polytope:
-            x_coo.append(polygon[0])
-            y_coo.append(polygon[1])
-            z_coo.append(polygon[2])
+    def polytope_from_bounding_box(self) -> list[np.ndarray]:
 
-        x = np.concatenate(x_coo, axis=0)
-        y = np.concatenate(y_coo, axis=0)
-        z = np.concatenate(z_coo, axis=0)
+        if "zmin" in self.bounding_box.keys() and "zmax" in self.bounding_box.keys():
+            polytope = self._polyhedron_from_bounding_box()
+        else:
+            polytope = self._polygon_from_bounding_box()
 
-        box = {
-             "xmin": np.min(x),
-             "xmax": np.max(x),
-             "ymin": np.min(y),
-             "ymax": np.max(y),
-             "zmin": np.min(z),
-             "zmax": np.max(z),
-        }
+        return polytope
 
-    return box
+    def _polygon_from_bounding_box(self) -> list[np.ndarray]:
 
+        x0 = self.bounding_box["xmin"]
+        x1 = self.bounding_box["xmax"]
+        y0 = self.bounding_box["ymin"]
+        y1 = self.bounding_box["ymax"]
 
-def polytope_from_box(box: dict[str, pp.number]) -> list[np.ndarray]:
+        west = np.array([[x0, x0], [y0, y1]])
+        east = np.array([[x1, x1], [y1, y0]])
+        south = np.array([[x1, x0], [y0, y0]])
+        north = np.array([[x0, x1], [y1, y1]])
 
-    if "zmin" in box.keys() and "zmax" in box.keys():
-        polytope = _polyhedron_from_box(box)
-    else:
-        polytope = _polygon_from_box(box)
+        bound_lines = [west, east, south, north]
 
-    return polytope
+        return bound_lines
 
+    def _polyhedron_from_bounding_box(self) -> list[np.ndarray]:
 
-def _polygon_from_box(box: dict[str, pp.number]) -> list[np.ndarray]:
+        x0 = self.bounding_box["xmin"]
+        x1 = self.bounding_box["xmax"]
+        y0 = self.bounding_box["ymin"]
+        y1 = self.bounding_box["ymax"]
+        z0 = self.bounding_box["zmin"]
+        z1 = self.bounding_box["zmax"]
 
-    x0 = box["xmin"]
-    x1 = box["xmax"]
-    y0 = box["ymin"]
-    y1 = box["ymax"]
+        west = np.array([[x0, x0, x0, x0], [y0, y1, y1, y0], [z0, z0, z1, z1]])
+        east = np.array([[x1, x1, x1, x1], [y0, y1, y1, y0], [z0, z0, z1, z1]])
+        south = np.array([[x0, x1, x1, x0], [y0, y0, y0, y0], [z0, z0, z1, z1]])
+        north = np.array([[x0, x1, x1, x0], [y1, y1, y1, y1], [z0, z0, z1, z1]])
+        bottom = np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z0, z0, z0, z0]])
+        top = np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z1, z1, z1, z1]])
 
-    west = np.array([[x0, x0], [y0, y1]])
-    east = np.array([[x1, x1], [y1, y0]])
-    south = np.array([[x1, x0], [y0, y0]])
-    north = np.array([[x0, x1], [y1, y1]])
+        bound_planes = [west, east, south, north, bottom, top]
 
-    bound_lines = [west, east, south, north]
+        return bound_planes
 
-    return bound_lines
+    def dimension_from_bounding_box(self) -> int:
 
+        # Required keywords
+        kw_1d = "xmin" and "xmax"
+        kw_2d = kw_1d and "ymin" and "ymax"
+        kw_3d = kw_2d and "zmin" and "zmax"
 
-def _polyhedron_from_box(box: dict[str, pp.number]) -> list[np.ndarray]:
-
-    x0 = box["xmin"]
-    x1 = box["xmax"]
-    y0 = box["ymin"]
-    y1 = box["ymax"]
-    z0 = box["zmin"]
-    z1 = box["zmax"]
-
-    west = np.array([[x0, x0, x0, x0], [y0, y1, y1, y0], [z0, z0, z1, z1]])
-    east = np.array([[x1, x1, x1, x1], [y0, y1, y1, y0], [z0, z0, z1, z1]])
-    south = np.array([[x0, x1, x1, x0], [y0, y0, y0, y0], [z0, z0, z1, z1]])
-    north = np.array([[x0, x1, x1, x0], [y1, y1, y1, y1], [z0, z0, z1, z1]])
-    bottom = np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z0, z0, z0, z0]])
-    top = np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z1, z1, z1, z1]])
-
-    bound_planes = [west, east, south, north, bottom, top]
-
-    return bound_planes
-
-
-def dim_from_box(box: dict[str, pp.number]) -> int:
-
-    # Required keywords
-    kw_1d = "xmin" and "xmax"
-    kw_2d = kw_1d and "ymin" and "ymax"
-    kw_3d = kw_2d and "zmin" and "zmax"
-
-    if kw_3d in box.keys():
-        return 3
-    elif kw_2d in box.keys():
-        return 2
-    elif kw_1d in box.keys():
-        return 1
-    else:
-        raise ValueError
+        if kw_3d in self.bounding_box.keys():
+            return 3
+        elif kw_2d in self.bounding_box.keys():
+            return 2
+        elif kw_1d in self.bounding_box.keys():
+            return 1
+        else:
+            raise ValueError
