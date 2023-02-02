@@ -158,7 +158,7 @@ def cartersian_3d():
     return mdg
 
 
-def create_mixed_dimensional_grid(fracture_network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d],
+def create_mdg(fracture_network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d],
 grid_type: Literal["simplex", "cartesian", "tensor_grid"],
 mesh_arguments: dict[str],
 **kwargs) -> pp.MixedDimensionalGrid:
