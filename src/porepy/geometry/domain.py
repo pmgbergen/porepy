@@ -6,7 +6,18 @@ __all__ = ["Domain"]
 
 
 class Domain:
-    """Class for the geometrical representation of the domain."""
+    """Class for the geometrical representation of the domain.
+
+    Attributes:
+        bounding_box (``dict[str, pp.number]``): Dictionary containing the bounding
+            box of the domain. See __init__ documentation.
+        polytope (``list[np.ndarray]``): Polytope (polygon for 2d and poyhedron for
+            3d) defining the domain. See __init__ documentation.
+        dim (int): Dimension on the domain.
+        is_boxed (bool): Whether the domain is boxed. We assume that if ``polytope``
+            is used for instantiation, ``is_boxed = False``.
+
+    """
 
     def __init__(
             self,
@@ -42,15 +53,15 @@ class Domain:
             raise ValueError("Too many arguments. Expected box OR polytope.")
 
         if bounding_box is not None:
-            self.box: dict[str, pp.number] = bounding_box
+            self.bounding_box: dict[str, pp.number] = bounding_box
             self.polytope: list[np.ndarray] = polytope_from_box(bounding_box)
             self.dim: int = dim_from_box(bounding_box)
             self.is_boxed: bool = True
         elif polytope is not None:
             self.polytope: list[np.ndarray] = polytope
             self.dim: int = polytope[0].shape[0]
-            self.box: dict[str, pp.number] = box_from_polytope(polytope)
-            self.is_boxed: bool = False
+            self.bounding_box: dict[str, pp.number] = box_from_polytope(polytope)
+            self.is_boxed: bool = False  # A non-boxed domain is assumed in this case
         else:
             raise ValueError("Not enough arguments. Expected box OR polytope.")
 
