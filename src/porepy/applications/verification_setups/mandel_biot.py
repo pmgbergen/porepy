@@ -288,10 +288,10 @@ class MandelExactSolution:
         """
 
         # Retrieve physical data
-        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^-1]
         B = self.setup.skempton_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
 
         # Retrieve geometrical data
         # TODO: Retrieve from domain
@@ -345,11 +345,11 @@ class MandelExactSolution:
         """
 
         # Retrieve physical data
-        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^-1]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
         mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
 
         # Retrieve geometrical data
         # TODO: Retrieve from domain
@@ -445,7 +445,7 @@ class MandelExactSolution:
 
     # ---> Flux
     def horizontal_velocity_profile(self, x: np.ndarray, t: number) -> np.ndarray:
-        """Exact horiztonal specific discharge in scaled [m * s^{-1}].
+        """Exact horiztonal specific discharge in scaled [m * s^-1].
 
         Note that for Mandel's problem, the vertical specific discharge is zero.
 
@@ -461,12 +461,12 @@ class MandelExactSolution:
         # Scaling
 
         # Retrieve physical data
-        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^-1]
         B = self.setup.skempton_coefficient()  # [-]
         k = self.setup.solid.permeability()  # scaled [m^2]
         mu_f = self.setup.fluid.viscosity()  # scaled [Pa * s]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
 
         # Retrieve geometrical data
         # TODO: Retrieve from domain
@@ -494,7 +494,7 @@ class MandelExactSolution:
         return qx
 
     def flux(self, sd: pp.Grid, t: number) -> np.ndarray:
-        """Evaluate exact Darcy flux in scaled [m^3 * s^{-1}] at the face centers.
+        """Evaluate exact Darcy flux in scaled [m^3 * s^-1] at the face centers.
 
         Parameters:
             sd: Grid.
@@ -526,10 +526,10 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^-1]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
+        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
 
         # Retrieve geometrical data
         # TODO: Retrieve from domain
@@ -600,7 +600,7 @@ class MandelExactSolution:
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
         nu_s = self.setup.poisson_coefficient()  # [-]
         mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
-        F = self.setup.vertical_load()  # scaled [N * m^{-1}]
+        F = self.setup.vertical_load()  # scaled [N * m^-1]
 
         # TODO: Retrieve from domain
         m = 1 / self.setup.units.m  # length scaling
@@ -726,7 +726,7 @@ class MandelUtilities(VerificationUtils):
         return (3 * nu_s + B * (1 - 2 * nu_s)) / (3 - B * (1 - 2 * nu_s))
 
     def fluid_diffusivity(self) -> number:
-        """Set fluid diffusivity scaled [m^2 * s^{-1}].
+        """Set fluid diffusivity scaled [m^2 * s^-1].
 
         Returns:
             Fluid diffusivity.
@@ -758,7 +758,7 @@ class MandelUtilities(VerificationUtils):
         m = 1 / self.units.m
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
-        c_f = self.fluid_diffusivity()  # scaled [m^2 * s^{-1}]
+        c_f = self.fluid_diffusivity()  # scaled [m^2 * s^-1]
         return (t * c_f) / (a**2)
 
     def nondim_x(self, x: np.ndarray) -> np.ndarray:
@@ -806,7 +806,7 @@ class MandelUtilities(VerificationUtils):
             This method is also valid to non-dimensionalize stress.
 
         """
-        F = self.vertical_load()  # scaled [N * m^{-1}]
+        F = self.vertical_load()  # scaled [N * m^-1]
 
         # TODO: Retrieve from domain
         m = 1 / self.units.m  # length scaling
@@ -818,7 +818,7 @@ class MandelUtilities(VerificationUtils):
         """Non-dimensionalize horizontal component of the specific discharge vector.
 
         Parameters:
-            q_x: Horizontal component of the specific discharge in scaled [m * s^{-1}].
+            q_x: Horizontal component of the specific discharge in scaled [m * s^-1].
 
         Returns:
             Dimensionless horizontal component of the specific discharge with
@@ -826,7 +826,7 @@ class MandelUtilities(VerificationUtils):
 
         """
         k = self.solid.permeability()  # scaled [m^2]
-        F = self.vertical_load()  # scaled [N * m^{-1}]
+        F = self.vertical_load()  # scaled [N * m^-1]
         mu = self.fluid.viscosity()  # scaled [Pa * s]
 
         # TODO: Retrieve from domain
@@ -834,7 +834,7 @@ class MandelUtilities(VerificationUtils):
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
 
-        factor = (F * k) / (mu * a**2)  # scaled [m * s^{-1}]
+        factor = (F * k) / (mu * a**2)  # scaled [m * s^-1]
         return q_x / factor
 
     # -----> Post-processing methods
@@ -875,7 +875,7 @@ class MandelUtilities(VerificationUtils):
         a *= m
         b *= m
 
-        F = self.vertical_load()  # scaled [N * m^{-1}]
+        F = self.vertical_load()  # scaled [N * m^-1]
         mu_s = self.solid.shear_modulus()  # scaled [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
@@ -1201,7 +1201,7 @@ class MandelUtilities(VerificationUtils):
         m = 1 / self.units.m
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
-        c_f = self.fluid_diffusivity()  # [m^2 * s^{-1}]
+        c_f = self.fluid_diffusivity()  # [m^2 * s^-1]
 
         # Generate exact consolidation times
         tau_0 = 1e-4
@@ -1350,12 +1350,12 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
         """Retrieve and scale applied force.
 
         Returns:
-            Applied vertical load on the North boundary in scaled [N * m^{-1}].
+            Applied vertical load on the North boundary in scaled [N * m^-1].
 
         """
         N = 1 / self.units.N  # force scaling
         m = 1 / self.units.m  # length scaling
-        applied_force = self.params.get("vertical_load", 6e8)  # [N * m^{-1}]
+        applied_force = self.params.get("vertical_load", 6e8)  # [N * m^-1]
         return applied_force * (N / m)
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
@@ -1536,7 +1536,7 @@ class MandelSetup(  # type: ignore[misc]
 
     Model parameters of special relevance for this class:
 
-        - vertical_load (pp.number): Applied load in [N * m^{-1}]. Default is 6e8.
+        - vertical_load (pp.number): Applied load in [N * m^-1]. Default is 6e8.
         - domain_size (tuple(pp.number, pp.number)): Length and height of the domain
           in [m]. Default is (100, 10).
         - number_of_roots (int): Number of roots used to solve the exact solution.
