@@ -177,7 +177,8 @@ class TestFractureNetwork2d(unittest.TestCase):
 
         # Assign tags to network1
         tag1 = 2
-        network_1.edges = np.vstack((network_1.edges, tag1 * np.ones(2)))
+        # Had to change this to ensure that edges still has ``dtype np.int8``
+        network_1.edges = np.vstack((network_1.edges, tag1 * np.ones(2, dtype=np.int8)))
         together = network_1.add_network(network_2)
         known_tags = np.array([tag1, tag1, tag2, tag2])
         self.assertTrue(np.all(together.edges[2] == known_tags))
