@@ -14,7 +14,7 @@ def bounding_box_of_point_cloud(
     """Obtain a bounding box of a point cloud.
 
     Parameters:
-        point_cloud: ``shape=(nd, num_points)``
+        point_cloud: ``shape=(nd, num_points)``.
 
             Point cloud. nd should be 2 or 3.
         overlap: ``default=0``
@@ -27,20 +27,27 @@ def bounding_box_of_point_cloud(
         ``ymin``, ``ymax``, and (if ``nd == 3``) ``zmin`` and ``zmax``.
 
     """
+    # Sanity check
+    if point_cloud.shape[0] not in [2, 3]:
+        raise ValueError("Point cloud must be either 2d or 3d.")
+
+    # Get min/max coordinates and range of the point cloud
     max_coord = point_cloud.max(axis=1)
     min_coord = point_cloud.min(axis=1)
-    dx = max_coord - min_coord
-    bounding_box = {
-        "xmin": min_coord[0] - dx[0] * overlap,
-        "xmax": max_coord[0] + dx[0] * overlap,
-    }
-    if max_coord.size > 1:
-        bounding_box["ymin"] = min_coord[1] - dx[1] * overlap
-        bounding_box["ymax"] = max_coord[1] + dx[1] * overlap
+    range = max_coord - min_coord
 
+    # First and second dimension always preseent
+    bounding_box = {
+        "xmin": min_coord[0] - range[0] * overlap,
+        "xmax": max_coord[0] + range[0] * overlap,
+        "ymin": min_coord[1] - range[1] * overlap,
+        "ymax": max_coord[1] + range[1] * overlap,
+    }
+
+    # Add third dimension if ``nd==3``.
     if max_coord.size == 3:
-        bounding_box["zmin"] = min_coord[2] - dx[2] * overlap
-        bounding_box["zmax"] = max_coord[2] + dx[2] * overlap
+        bounding_box["zmin"] = min_coord[2] - range[2] * overlap
+        bounding_box["zmax"] = max_coord[2] + range[2] * overlap
 
     return bounding_box
 
@@ -48,15 +55,11 @@ def bounding_box_of_point_cloud(
 class Domain:
     """Class for the geometrical representation of the domain.
 
-    Attributes:
-        bounding_box (``dict[str, pp.number]``): Dictionary containing the bounding
-            box of the domain. See __init__ documentation.
-        polytope (``list[np.ndarray]``): Polytope (polygon for 2d and polyhedron for
-            3d) defining the domain. See __init__ documentation.
-        dim (``int``): Dimension on the domain.
-        is_boxed (``bool``): Whether the domain is a box. We assume that if ``polytope``
-            is used for instantiation ``is_boxed = False`` even if the polytope
-            represents a box.
+    There are two ways of constructing a domain in PorePy: (1) by passing the
+    bounding box (we assume therefore that the domain is a box) or (2) by passing a
+    polytope (polygon in 2d and poyhedron in 3d) which are lists of numpy arrays
+    defining a general domain (this also includes non-convex domains). See the class
+    constructor documentation for more details.
 
     """
 
@@ -64,8 +67,8 @@ class Domain:
             self,
             bounding_box: Optional[dict[str, pp.number]] = None,
             polytope: Optional[list[np.ndarray]] = None,
-    ):
-        """
+    ) -> None:
+        """Class constructor.
 
         Parameters:
             bounding_box: Dictionary containing the minimum and maximum coordinates
@@ -88,21 +91,37 @@ class Domain:
                 second row the y-coordinates, and third row the z-coordinates.
 
         """
-
-        # Make sure only one argument is passed
+        # Santity check
         if bounding_box is not None and polytope is not None:
             raise ValueError("Too many arguments. Expected box OR polytope.")
 
+        # Attributes declaration
+        self.bounding_box: dict[str, pp.number]
+        """Bounding box of the domain. See __init__ documenation for details."""
+
+        self.polytope: list[np.ndarray]
+        """Polytope defining the domain. See __init__ documentation for details."""
+
+        self.dim: int
+        """Dimension of the domain. Inferred from the bounding box or the polytope."""
+
+        self.is_boxed: bool
+        """Whether the domain is a box or not. If ``polytope`` is used to instantiate
+        the class, we assume that ``is_boxed=False`` (irrespective of whether the 
+        polytope is a box or not).
+        
+        """
+
         if bounding_box is not None:
-            self.bounding_box: dict[str, pp.number] = bounding_box
-            self.polytope: list[np.ndarray] = self.polytope_from_bounding_box()
-            self.dim: int = self.dimension_from_bounding_box()
-            self.is_boxed: bool = True
+            self.bounding_box = bounding_box
+            self.polytope = self.polytope_from_bounding_box()
+            self.dim = self.dimension_from_bounding_box()
+            self.is_boxed = True
         elif polytope is not None:
-            self.polytope: list[np.ndarray] = polytope
-            self.dim: int = polytope[0].shape[0]
-            self.bounding_box: dict[str, pp.number] = self.bounding_box_from_polytope()
-            self.is_boxed: bool = False  # A non-boxed domain is assumed in this case
+            self.polytope = polytope
+            self.dim = polytope[0].shape[0]
+            self.bounding_box = self.bounding_box_from_polytope()
+            self.is_boxed = False
         else:
             raise ValueError("Not enough arguments. Expected box OR polytope.")
 
