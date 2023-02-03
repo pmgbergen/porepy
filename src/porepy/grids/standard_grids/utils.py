@@ -16,11 +16,14 @@ def unit_domain(dimension: int):
 
     """
     assert dimension in np.arange(1, 4)
-    domain = {"xmin": 0, "xmax": 1}
-    if dimension > 1:
-        domain.update({"ymin": 0, "ymax": 1})
-    if dimension > 2:
-        domain.update({"zmin": 0, "zmax": 1})
+
+    if dimension == 2:
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+    else:
+        domain = pp.Domain(
+            {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+        )
+
     return domain
 
 
@@ -39,7 +42,7 @@ def set_mesh_sizes(mesh_args: dict):
 
 
 def make_mdg_2d_simplex(
-    mesh_args: dict, points: np.ndarray, fractures: np.ndarray, domain: dict
+    mesh_args: dict, points: np.ndarray, fractures: np.ndarray, domain: pp.Domain
 ):
     """Construct a mixed-dimensional simplex grid in the 2d domain.
 
@@ -50,7 +53,7 @@ def make_mdg_2d_simplex(
         points: Fracture endpoints.
         fractures: Connectivity list of the fractures, pointing to the provided
             endpoint list.
-        domain: Defines the size of the rectangular domain.
+        domain: Domain object.
 
     Returns:
         Mixed-dimensional grid with geometry computation and node ordering performed.

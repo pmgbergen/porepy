@@ -636,7 +636,8 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
 
     def set_fracture_network(self) -> None:
         """Set fracture network. Unit square with no fractures."""
-        domain = {"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0}
+        bounding_box = {"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0}
+        domain = pp.Domain(bounding_box=bounding_box)
         self.fracture_network = pp.FractureNetwork2d(None, None, domain)
 
     def mesh_arguments(self) -> dict:
