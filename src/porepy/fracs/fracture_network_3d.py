@@ -65,7 +65,7 @@ class FractureNetwork3d(object):
     def __init__(
         self,
         fractures: Optional[list[PlaneFracture]] = None,
-        domain: Optional[Union[dict[str, float], list[np.ndarray]]] = None,
+        domain: Optional[dict[str, float] | list[np.ndarray]] = None,
         tol: float = 1e-8,
         run_checks: bool = False,
     ) -> None:
