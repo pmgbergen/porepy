@@ -258,7 +258,7 @@ def bounding_box_dimension(bounding_box: dict[str, pp.number]) -> int:
 def bounding_box_of_point_cloud(
     point_cloud: np.ndarray, overlap: pp.number = 0
 ) -> dict[str, float]:
-    """Obtain a bounding box of a point cloud.
+    """Obtain the bounding box of a point cloud.
 
     Parameters:
         point_cloud: ``shape=(nd, num_points)``.
@@ -303,7 +303,7 @@ def mdg_minmax_coordinates(mdg: pp.MixedDimensionalGrid) -> tuple[np.array, np.a
     """Return the minimum and maximum coordinates of a mixed-dimensional grid.
 
     Parameters:
-        mdg: The mixed-dimensional grid for which the min/max coordinates are to be
+        mdg: The mixed-dimensional grid for which the min/max coordinates will be
             computed.
 
     Returns:
@@ -335,7 +335,7 @@ def grid_minmax_coordinates(sd: pp.Grid) -> tuple[np.array, np.array]:
     """Return the minimum and maximum coordinates of a grid.
 
     Parameters:
-        sd: The grid for which the bounding box is to be computed.
+        sd: The grid for which the bounding box will be computed.
 
     Returns:
         A 2-tuple containing
@@ -349,8 +349,10 @@ def grid_minmax_coordinates(sd: pp.Grid) -> tuple[np.array, np.array]:
             Maximum node coordinates in each direction.
 
     """
+
     if sd.dim == 0:
         coords = sd.cell_centers
     else:
         coords = sd.nodes
+
     return np.amin(coords, axis=1), np.amax(coords, axis=1)
