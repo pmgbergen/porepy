@@ -71,6 +71,7 @@ from porepy.geometry import (
     point_in_polyhedron_test,
     bounding_box,
     half_space,
+    domain,
 )
 from porepy.geometry.domain import Domain
 
