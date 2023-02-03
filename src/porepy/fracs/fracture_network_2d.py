@@ -40,10 +40,12 @@ class FractureNetwork2d:
     may be removed.
 
     Parameters:
-        pts (siz: 2 x num_pts): Start and endpoints of the fractures. Points
+        pts: ``(shape=(2, num_pts))`` Start and endpoints of the fractures. Points
             can be shared by fractures.
-        edges (size: (2 + num_tags) x num_fracs): Fractures, defined as connections
-            between the points.
+        edges: ``(shape=(2 + num_tags, num_fracs), dtype=np.int8)``
+            Fractures, defined as connections between the points.
+            When accessing and changing the edges, ensure that ``dtype`` always remains
+            an integer type.
         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
             the domain. Can be box-shaped or a general (non-convex) polygon.
         tol: Tolerance used in geometric computations.
@@ -59,10 +61,10 @@ class FractureNetwork2d:
         """Define the fracture set.
 
         Parameters:
-            fractures: Fractures that make up the network.
-                Defaults to None, which will create a domain empty of fractures.
+            fractures: Fractures that make up the network. Defaults to None, which will
+                create a domain empty of fractures.
             domain: Domain specification. See ``self.impose_external_boundary()`` for
-            details.
+                details.
             tol: Tolerance used in geometric computations. Defaults to 1e-8.
 
         """
@@ -79,10 +81,10 @@ class FractureNetwork2d:
         numbering of the edges (referring to the original order of the edges) in
         geometry processing like intersection removal. Additional tags can be assigned
         by the user.
-        # TODO: Figure out if removing the ability to pass tags along the edges breaks
-        anything.
-        # TODO: Find an alternate way to pass tags.
         """
+
+        self.tol = tol
+        """Tolerance used in geometric computations."""
 
         self._fractures = [] if fractures is None else fractures
         """List of fractures.
@@ -90,16 +92,13 @@ class FractureNetwork2d:
         Internally transformed to points and edges.
         """
         if fractures is not None:
-            self.pts, self.edges = linefractures_to_pts_edges(self._fractures)
+            self.pts, self.edges = linefractures_to_pts_edges(self._fractures, self.tol)
         else:
             self.pts = np.zeros((2, 0))
             self.edges = np.zeros((2, 0), dtype=int)
 
         self.domain: pp.Domain | None = domain
         """The domain for this fracture network."""
-
-        self.tol = tol
-        """Tolerance used in geometric computations."""
 
         self.tags: dict[int | str, np.ndarray] = dict()
         """Tags for the fractures."""
@@ -147,8 +146,8 @@ class FractureNetwork2d:
         It is assumed that the domains, if specified, are on a dictionary form.
 
         WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have
-        different set of tags, the necessary rows and columns are filled with what is
-        essentially random values.
+        different set of tags, the necessary rows and columns are filled with the value
+        ``-1``, which equals no tag.
 
         Parameters:
             fs (FractureSet): Another set to be added
@@ -189,10 +188,10 @@ class FractureNetwork2d:
             n_self = self_tags.shape[0]
             n_fs = fs_tags.shape[0]
             if n_self < n_fs:
-                extra_tags = np.empty((n_fs - n_self, self.num_frac()), dtype=int)
+                extra_tags = np.full((n_fs - n_self, self.num_frac()), -1, dtype=int)
                 self_tags = np.vstack((self_tags, extra_tags))
             elif n_self > n_fs:
-                extra_tags = np.empty((n_self - n_fs, fs.num_frac()), dtype=int)
+                extra_tags = np.full((n_self - n_fs, fs.num_frac()), -1, dtype=int)
                 fs_tags = np.vstack((fs_tags, extra_tags))
             tags = np.hstack((self_tags, fs_tags)).astype(int)
             e = np.vstack((e, tags))
