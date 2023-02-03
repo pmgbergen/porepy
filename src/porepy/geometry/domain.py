@@ -53,9 +53,10 @@ class Domain:
             box of the domain. See __init__ documentation.
         polytope (``list[np.ndarray]``): Polytope (polygon for 2d and polyhedron for
             3d) defining the domain. See __init__ documentation.
-        dim (int): Dimension on the domain.
-        is_boxed (bool): Whether the domain is a box. We assume that if ``polytope``
-            is used for instantiation, ``is_boxed = False``.
+        dim (``int``): Dimension on the domain.
+        is_boxed (``bool``): Whether the domain is a box. We assume that if ``polytope``
+            is used for instantiation ``is_boxed = False`` even if the polytope
+            represents a box.
 
     """
 
@@ -68,7 +69,7 @@ class Domain:
 
         Parameters:
             bounding_box: Dictionary containing the minimum and maximum coordinates
-                of the vertices of the bounding box of the domain.
+                defining the bounding box of the domain.
 
                 Expected keywords are ``xmin``, ``xmax``, ``ymin``, ``ymax``, and if 3d,
                 ``zmin`` and ``zmax``.
