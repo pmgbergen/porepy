@@ -12,10 +12,10 @@ class Domain:
     """Class for the geometrical representation of the domain.
 
     There are two ways of constructing a domain in PorePy: (1) by passing the
-    bounding box (we assume therefore that the domain is a box) or (2) by passing a
-    polytope (polygon in 2d and poyhedron in 3d), which are lists of numpy arrays
-    defining a general domain (this also includes non-convex domains). See the class
-    constructor documentation for more details.
+    bounding box as a dictionary (we assume therefore that the domain is a box) or
+    (2) by passing a polytope (polygon in 2d and poyhedron in 3d), which are lists of
+    numpy arrays defining a general domain (this also includes non-convex domains).
+    See the class constructor documentation for more details.
 
     """
 
@@ -51,17 +51,17 @@ class Domain:
             .. code:: python3
 
                 # Create a domain from a bounding box
-                domain_from_box = pp.Domain = (
+                domain_from_box = pp.Domain(
                     bounding_box={"xmin":0, "xmax":1, "ymin":0, "ymin":1}
                 )
 
                 # Create a domain from a 2d-polytope
-                line_1 = np.array([0, 0], [0, 1])
-                line_2 = np.array([0, 0.5], [1, 1.5])
-                line_3 = np.array([0.5, 1], [1.5, 1])
-                line_4 = np.array([1, 1], [1, 0])
-                line_5 = np.array([1, 0], [0, 0])
-                irregular_pentagon = list[line_1, line_2, line_3, line_4, line_5]
+                line_1 = np.array([[0, 0], [0, 1]])
+                line_2 = np.array([[0, 0.5], [1, 1.5]])
+                line_3 = np.array([[0.5, 1], [1.5, 1]])
+                line_4 = np.array([[1, 1], [1, 0]])
+                line_5 = np.array([[1, 0], [0, 0]])
+                irregular_pentagon = [line_1, line_2, line_3, line_4, line_5]
                 domain_from_polytope = pp.Domain(polytope=irregular_pentagon)
 
         """
@@ -218,16 +218,22 @@ class DomainSides(NamedTuple):
 
     all_bf: npt.NDArray[np.int_]
     """All boundary faces."""
+
     east: npt.NDArray[np.bool_]
     """East boundary faces."""
+
     west: npt.NDArray[np.bool_]
     """West boundary faces."""
+
     north: npt.NDArray[np.bool_]
     """North boundary faces."""
+
     south: npt.NDArray[np.bool_]
     """South boundary faces."""
+
     top: npt.NDArray[np.bool_]
     """Top boundary faces."""
+
     bottom: npt.NDArray[np.bool_]
     """Bottom boundary faces."""
 
@@ -299,7 +305,9 @@ def bounding_box_of_point_cloud(
     return bounding_box
 
 
-def mdg_minmax_coordinates(mdg: pp.MixedDimensionalGrid) -> tuple[np.array, np.array]:
+def mdg_minmax_coordinates(
+        mdg: pp.MixedDimensionalGrid
+) -> tuple[np.ndarray, np.ndarray]:
     """Return the minimum and maximum coordinates of a mixed-dimensional grid.
 
     Parameters:
@@ -331,7 +339,7 @@ def mdg_minmax_coordinates(mdg: pp.MixedDimensionalGrid) -> tuple[np.array, np.a
     return min_vals, max_vals
 
 
-def grid_minmax_coordinates(sd: pp.Grid) -> tuple[np.array, np.array]:
+def grid_minmax_coordinates(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
     """Return the minimum and maximum coordinates of a grid.
 
     Parameters:

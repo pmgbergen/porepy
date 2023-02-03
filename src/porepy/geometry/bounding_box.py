@@ -8,6 +8,7 @@ import numpy.typing as npt
 
 import porepy as pp
 
+
 def from_points(pts: np.ndarray, overlap: float = 0) -> dict[str, float]:
     """Obtain a bounding box for a point cloud.
 
