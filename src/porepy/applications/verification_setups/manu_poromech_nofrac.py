@@ -636,7 +636,7 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
 
     def set_fracture_network(self) -> None:
         """Set fracture network. Unit square with no fractures."""
-        domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
+        domain = pp.grids.standard_grids.utils.unit_domain(2)
         self.fracture_network = pp.FractureNetwork2d(domain=domain)
 
     def mesh_arguments(self) -> dict:
@@ -648,8 +648,17 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
         """Set mixed-dimensional grid."""
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
         domain = self.fracture_network.domain
-        if domain is not None and domain.is_boxed:
-            self.domain = domain
+        if isinstance(domain, np.ndarray):
+            assert domain.shape == (2, 2)
+            self.domain_bounds: dict[str, float] = {
+                "xmin": domain[0, 0],
+                "xmax": domain[1, 0],
+                "ymin": domain[0, 1],
+                "ymax": domain[1, 1],
+            }
+        else:
+            assert isinstance(domain, dict)
+            self.domain_bounds = domain
 
 
 # -----> Balance equations
@@ -792,7 +801,7 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
 
 # -----> Mixer class
-class ManuPoroMechSetup(  # type: ignore[misc]
+class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
     UnitSquareTriangleGrid,
     ManuPoroMechEquations,
     ManuPoroMechSolutionStrategy,
