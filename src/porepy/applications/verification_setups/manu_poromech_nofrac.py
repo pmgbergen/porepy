@@ -801,7 +801,7 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
 
 # -----> Mixer class
-class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
+class ManuPoroMechSetup(  # type: ignore[misc]
     UnitSquareTriangleGrid,
     ManuPoroMechEquations,
     ManuPoroMechSolutionStrategy,
