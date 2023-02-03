@@ -13,7 +13,6 @@ import numpy as np
 
 import porepy as pp
 from porepy.fracs import structured
-from porepy.geometry.domain import bounding_box_of_point_cloud
 
 # Named tuple used to identify intersections of fractures by their parent fractures
 # and their coordinates
@@ -48,7 +47,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
                     return False
             return True
 
-        bb = bounding_box_of_point_cloud(mdg.subdomains(dim=3)[0].nodes)
+        bb = pp.domain.bounding_box_of_point_cloud(mdg.subdomains(dim=3)[0].nodes)
 
         self.assertTrue(compare_bounding_boxes(bb, domain))
 
@@ -63,8 +62,8 @@ class TestDFMMeshGeneration(unittest.TestCase):
                 if g.frac_num == fi:
                     self.assertTrue(
                         compare_bounding_boxes(
-                            bounding_box_of_point_cloud(f.pts),
-                            bounding_box_of_point_cloud(g.nodes),
+                            pp.domain.bounding_box_of_point_cloud(f.pts),
+                            pp.domain.bounding_box_of_point_cloud(g.nodes),
                         )
                     )
 
@@ -107,7 +106,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
         for g in mdg.subdomains(dim=1):
             n = mdg.neighboring_subdomains(g, only_higher=True)
-            box = bounding_box_of_point_cloud(g.nodes)
+            box = pp.domain.bounding_box_of_point_cloud(g.nodes)
 
             if len(n) == 2:
                 f_0, f_1 = sorted([n[0].frac_num, n[1].frac_num])
@@ -121,8 +120,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
             coord = val["coord"]
             isect = val["isect"]
             self.assertTrue(
-                compare_bounding_boxes(coord,
-                                       bounding_box_of_point_cloud(isect.coord))
+                compare_bounding_boxes(
+                    coord, pp.domain.bounding_box_of_point_cloud(isect.coord)
+                )
             )
 
         for g in mdg.subdomains(dim=0):

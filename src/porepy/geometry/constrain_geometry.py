@@ -9,7 +9,6 @@ from typing import Optional, Union
 import numpy as np
 
 import porepy as pp
-from porepy.geometry.domain import bounding_box_of_point_cloud
 
 
 def lines_by_polygon(
@@ -158,7 +157,9 @@ def polygons_by_polyhedron(
     orig_poly_ind = []
 
     # Construct bounding box for polyhedron
-    bounding_box = bounding_box_of_point_cloud(np.hstack([p for p in polyhedron]))
+    bounding_box = pp.domain.bounding_box_of_point_cloud(
+        np.hstack([p for p in polyhedron])
+    )
 
     # Loop over the polygons. For each, find the intersections with all
     # polygons on the side of the polyhedra.

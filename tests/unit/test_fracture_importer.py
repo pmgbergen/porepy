@@ -264,7 +264,8 @@ class TestImportDFN1d(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         mdg = network.mesh(mesh_args, dfn=True)
 
-        bmin, bmax = pp.bounding_box.from_md_grid(mdg)
+        bbox = pp.domain.bounding_box_of_mdg(mdg)
+        bmin, bmax = pp.domain.bounding_box_as_tuple(bbox)
         self.assertTrue(np.allclose(bmin, [0, 0, 0]))
         self.assertTrue(np.allclose(bmax, [1, 1, 0]))
 
@@ -286,7 +287,8 @@ class TestImportDFN1d(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
         mdg = network.mesh(mesh_args, dfn=True)
 
-        bmin, bmax = pp.bounding_box.from_md_grid(mdg)
+        bbox = pp.domain.bounding_box_of_mdg(mdg)
+        bmin, bmax = pp.domain.bounding_box_as_tuple(bbox)
         self.assertTrue(np.allclose(bmin, [0, 0, 0]))
         self.assertTrue(np.allclose(bmax, [1, 1, 0]))
 
@@ -296,7 +298,7 @@ class TestImportDFN1d(unittest.TestCase):
         self.assertTrue(mdg.num_interfaces() == 0)
 
         for sd in mdg.subdomains():
-            _, bmax = pp.bounding_box.from_grid(sd)
+            _, bmax = pp.domain.grid_minmax_coordinates(sd)
             self.assertTrue(
                 np.allclose(bmax, [1, 0.45, 0]) ^ np.allclose(bmax, [1, 1, 0])
             )
@@ -317,7 +319,7 @@ class TestImportDFN1d(unittest.TestCase):
         self.assertTrue(mdg.num_interfaces() == 2)
 
         for sd in mdg.subdomains():
-            _, bmax = pp.bounding_box.from_grid(sd)
+            _, bmax = pp.domain.grid_minmax_coordinates(sd)
             if sd.dim == 1:
                 self.assertTrue(
                     np.allclose(bmax, [1, 0.5, 0]) ^ np.allclose(bmax, [1, 1, 0])

@@ -358,9 +358,9 @@ class WellNetwork3d:
                     _add_well_2_intersection_interface(sd_w, previous_g_isec, mdg)
 
                 # Finally, update tags for the well's faces (boundary, tip, fracture).
-                bounding_planes = pp.geometry.bounding_box.make_bounding_planes_from_box(
-                    self.domain
-                )
+                # TODO: Construct class with pp.Domain()
+                domain = pp.Domain(self.domain)
+                bounding_planes = domain.polytope_from_bounding_box()
                 boundary = np.zeros(2, dtype=bool)
                 endp_inds = [0, -1]
                 endpts = sd_w.face_centers[:, endp_inds]

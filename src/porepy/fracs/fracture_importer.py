@@ -6,8 +6,6 @@ import numpy as np
 
 import porepy as pp
 
-from porepy.geometry.domain import bounding_box_of_point_cloud
-
 
 def network_3d_from_csv(
     file_name: str, has_domain: bool = True, tol: float = 1e-4, **kwargs
@@ -297,7 +295,7 @@ def network_2d_from_csv(
 
     if domain is None:
         overlap = kwargs.get("domain_overlap", 0)
-        domain = bounding_box_of_point_cloud(pts, overlap)
+        domain = pp.domain.bounding_box_of_point_cloud(pts, overlap)
 
     pts, _, old_2_new = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
 

@@ -1353,9 +1353,8 @@ class FractureNetwork3d(object):
 
         if domain is not None:
             if isinstance(domain, dict):
-                polyhedron = pp.geometry.bounding_box.make_bounding_planes_from_box(
-                    domain
-                )
+                # TODO: Construct with domain
+                polyhedron = pp.Domain(bounding_box=domain).polytope_from_bounding_box()
             else:
                 polyhedron = domain
             self.domain = domain
@@ -1386,7 +1385,8 @@ class FractureNetwork3d(object):
                 "zmin": cmin[2] - dx[2],
                 "zmax": cmax[2] + dx[2],
             }
-            polyhedron = pp.geometry.bounding_box.make_bounding_planes_from_box(box)
+            # TODO: Construct with domain
+            polyhedron = pp.Domain(bounding_box=box).polytope_from_bounding_box()
             self.domain = polyhedron
 
         # Constrain the fractures to lie within the bounding polyhedron

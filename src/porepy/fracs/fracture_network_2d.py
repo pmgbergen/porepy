@@ -15,7 +15,6 @@ import numpy as np
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
-from porepy.geometry.domain import bounding_box_of_point_cloud
 
 from .gmsh_interface import GmshData2d, GmshWriter
 from .gmsh_interface import Tags as GmshInterfaceTags
@@ -89,7 +88,7 @@ class FractureNetwork2d:
         """
 
         if isinstance(domain, np.ndarray):
-            domain = bounding_box_of_point_cloud(domain)
+            domain = pp.domain.bounding_box_of_point_cloud(domain)
 
         self.domain: dict[str, float] | None = domain
         """The domain for this fracture network.

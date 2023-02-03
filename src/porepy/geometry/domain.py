@@ -1,10 +1,11 @@
-import porepy as pp
+from __future__ import annotations
+
+from typing import NamedTuple, Optional
+
 import numpy as np
-from typing import Optional, Union
-from typing import NamedTuple, Union
 import numpy.typing as npt
 
-__all__ = ["Domain"]
+import porepy as pp
 
 
 class Domain:
@@ -17,10 +18,11 @@ class Domain:
     constructor documentation for more details.
 
     """
+
     def __init__(
-            self,
-            bounding_box: Optional[dict[str, pp.number]] = None,
-            polytope: Optional[list[np.ndarray]] = None,
+        self,
+        bounding_box: Optional[dict[str, pp.number]] = None,
+        polytope: Optional[list[np.ndarray]] = None,
     ) -> None:
         """Class constructor.
 
@@ -79,15 +81,15 @@ class Domain:
 
         self.is_boxed: bool
         """Whether the domain is a box or not. If ``polytope`` is used to instantiate
-        the class, we assume that ``is_boxed=False`` (irrespective of whether the 
+        the class, we assume that ``is_boxed=False`` (irrespective of whether the
         polytope is a box or not).
-        
+
         """
 
         if bounding_box is not None:
             self.bounding_box = bounding_box
             self.polytope = self.polytope_from_bounding_box()
-            self.dim = self.dimension_from_bounding_box()
+            self.dim = bounding_box_dimension(bounding_box)
             self.is_boxed = True
         elif polytope is not None:
             self.polytope = polytope
@@ -100,8 +102,8 @@ class Domain:
     def bounding_box_from_polytope(self) -> dict[str, pp.number]:
         """Obtain the bounding box of a polytope.
 
-            Returns:
-                Dictionary containing the bounding box information.
+        Returns:
+            Dictionary containing the bounding box information.
 
         """
         if self.dim == 2:
@@ -150,10 +152,10 @@ class Domain:
     def polytope_from_bounding_box(self) -> list[np.ndarray]:
         """Obtain the polytope representation of a bounding box.
 
-            Returns:
-                List of arrays representing the polytope. Shape of array will depend
-                on the dimesion of the bounding box. See __init__ documentation for a
-                detailed explanation.
+        Returns:
+            List of arrays representing the polytope. Shape of array will depend
+            on the dimesion of the bounding box. See __init__ documentation for a
+            detailed explanation.
 
         """
         if "zmin" in self.bounding_box.keys() and "zmax" in self.bounding_box.keys():
@@ -166,9 +168,9 @@ class Domain:
     def _polygon_from_bounding_box(self) -> list[np.ndarray]:
         """Compute the polygon associated with a two-dimensional bounding box.
 
-            Returns:
-                List of four arrays of ``shape = (2, 2)`` representing the sides of
-                the polygon (e.g., the rectangle).
+        Returns:
+            List of four arrays of ``shape = (2, 2)`` representing the sides of
+            the polygon (e.g., the rectangle).
         """
         x0 = self.bounding_box["xmin"]
         x1 = self.bounding_box["xmax"]
@@ -187,9 +189,9 @@ class Domain:
     def _polyhedron_from_bounding_box(self) -> list[np.ndarray]:
         """Compute the polyhedron associated with a three-dimensional bounding box.
 
-            Returns:
-                List of six arrays of ``shape = (3, 4)`` representing the bounding
-                planes of the polyhedron (e.g., the box).
+        Returns:
+            List of six arrays of ``shape = (3, 4)`` representing the bounding
+            planes of the polyhedron (e.g., the box).
 
         """
         x0 = self.bounding_box["xmin"]
@@ -209,27 +211,6 @@ class Domain:
         bound_planes = [west, east, south, north, bottom, top]
 
         return bound_planes
-
-    def dimension_from_bounding_box(self) -> int:
-        """Obtain the dimension of a bounding box.
-
-            Returns:
-                Dimension of the bounding box.
-
-        """
-        # Required keywords
-        kw_1d = "xmin" and "xmax"
-        kw_2d = kw_1d and "ymin" and "ymax"
-        kw_3d = kw_2d and "zmin" and "zmax"
-
-        if kw_3d in self.bounding_box.keys():
-            return 3
-        elif kw_2d in self.bounding_box.keys():
-            return 2
-        elif kw_1d in self.bounding_box.keys():
-            return 1
-        else:
-            raise ValueError
 
 
 class DomainSides(NamedTuple):
@@ -251,9 +232,31 @@ class DomainSides(NamedTuple):
     """Bottom boundary faces."""
 
 
-# -----> Utility functions related to domain specification
+# -----> Functions related to manipulation/coversion of bounding boxes
+def bounding_box_dimension(bounding_box: dict[str, pp.number]) -> int:
+    """Obtain the dimension of a bounding box.
+
+    Returns:
+        Dimension of the bounding box.
+
+    """
+    # Required keywords
+    kw_1d = "xmin" and "xmax"
+    kw_2d = kw_1d and "ymin" and "ymax"
+    kw_3d = kw_2d and "zmin" and "zmax"
+
+    if kw_3d in bounding_box.keys():
+        return 3
+    elif kw_2d in bounding_box.keys():
+        return 2
+    elif kw_1d in bounding_box.keys():
+        return 1
+    else:
+        raise ValueError
+
+
 def bounding_box_of_point_cloud(
-        point_cloud: np.ndarray, overlap: pp.number = 0
+    point_cloud: np.ndarray, overlap: pp.number = 0
 ) -> dict[str, float]:
     """Obtain a bounding box of a point cloud.
 
@@ -278,19 +281,119 @@ def bounding_box_of_point_cloud(
     # Get min/max coordinates and range of the point cloud
     max_coord = point_cloud.max(axis=1)
     min_coord = point_cloud.min(axis=1)
-    range = max_coord - min_coord
+    point_cloud_range = max_coord - min_coord
 
     # First and second dimension always preseent
     bounding_box = {
-        "xmin": min_coord[0] - range[0] * overlap,
-        "xmax": max_coord[0] + range[0] * overlap,
-        "ymin": min_coord[1] - range[1] * overlap,
-        "ymax": max_coord[1] + range[1] * overlap,
+        "xmin": min_coord[0] - point_cloud_range[0] * overlap,
+        "xmax": max_coord[0] + point_cloud_range[0] * overlap,
+        "ymin": min_coord[1] - point_cloud_range[1] * overlap,
+        "ymax": max_coord[1] + point_cloud_range[1] * overlap,
     }
 
     # Add third dimension if ``nd==3``.
     if max_coord.size == 3:
-        bounding_box["zmin"] = min_coord[2] - range[2] * overlap
-        bounding_box["zmax"] = max_coord[2] + range[2] * overlap
+        bounding_box["zmin"] = min_coord[2] - point_cloud_range[2] * overlap
+        bounding_box["zmax"] = max_coord[2] + point_cloud_range[2] * overlap
 
     return bounding_box
+
+
+def bounding_box_of_mdg(mdg: pp.MixedDimensionalGrid) -> dict[str, pp.number]:
+    """Return the minimum and maximum node coordinates of a grid.
+
+    Parameters:
+        mdg: The grid for which the bounding box is to be computed.
+
+    Returns:
+        A 2-tuple containing
+
+        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+
+            Minimum node coordinates in each direction.
+
+        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+
+            Maximum node coordinates in each direction.
+
+    """
+    c_0s = np.empty((3, mdg.num_subdomains()))
+    c_1s = np.empty((3, mdg.num_subdomains()))
+
+    for i, grid in enumerate(mdg.subdomains()):
+        c_0s[:, i], c_1s[:, i] = grid_minmax_coordinates(grid)
+
+    min_vals = np.amin(c_0s, axis=1)
+    max_vals = np.amax(c_1s, axis=1)
+
+    if mdg.dim_max() == 2:
+        bounding_box = {
+            "xmin": min_vals[0],
+            "xmax": max_vals[0],
+            "ymin": min_vals[1],
+            "ymax": max_vals[1],
+        }
+    else:
+        bounding_box = {
+            "xmin": min_vals[0],
+            "xmax": max_vals[0],
+            "ymin": min_vals[1],
+            "ymax": max_vals[1],
+            "zmin": min_vals[2],
+            "zmax": max_vals[2],
+        }
+
+    return bounding_box
+
+
+def bounding_box_as_tuple(
+    bounding_box: dict[str, pp.number]
+) -> tuple[np.ndarray, np.ndarray]:
+    """Converts a bounding box into a 2-tuple of arrays of min/max coordinates."""
+
+    min_array = np.zeros(3)
+    max_array = np.zeros(3)
+
+    dim = bounding_box_dimension(bounding_box)
+    if dim == 1:
+        min_array[0] = bounding_box["xmin"]
+        max_array[0] = bounding_box["xmax"]
+    elif dim == 2:
+        min_array[0] = bounding_box["xmin"]
+        max_array[0] = bounding_box["xmax"]
+        min_array[1] = bounding_box["ymin"]
+        max_array[1] = bounding_box["ymax"]
+    elif dim == 3:
+        min_array[0] = bounding_box["xmin"]
+        max_array[0] = bounding_box["xmax"]
+        min_array[1] = bounding_box["ymin"]
+        max_array[1] = bounding_box["ymax"]
+        min_array[2] = bounding_box["zmin"]
+        max_array[2] = bounding_box["zmax"]
+
+    return min_array, max_array
+
+
+def grid_minmax_coordinates(sd: pp.Grid) -> tuple[np.array, np.array]:
+    """Return the minimum and maximum coordinates of a grid.
+
+    Parameters:
+        sd: The grid for which the bounding box is to be computed.
+
+    Returns:
+        A 2-tuple containing
+
+        :obj:`~numpy.ndarray`: ``shape=(3, )``
+
+            Minimum node coordinates in each direction.
+
+        :obj:`~numpy.ndarray`: ``shape=(3, )``
+
+            Maximum node coordinates in each direction.
+
+    """
+    if sd.dim == 0:
+        coords = sd.cell_centers
+    else:
+        coords = sd.nodes
+    return np.amin(coords, axis=1), np.amax(coords, axis=1)

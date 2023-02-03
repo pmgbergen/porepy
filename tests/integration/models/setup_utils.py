@@ -7,7 +7,6 @@ from typing import Any
 import numpy as np
 
 import porepy as pp
-from porepy.geometry.domain import bounding_box_of_point_cloud
 
 class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
     """A 2d domain with up to two orthogonal fractures.
@@ -63,7 +62,7 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         phys_dims = np.array([2, 1]) * ls
         n_cells = np.array([8, 2])
         domain_bounds = np.array([[0, 0], phys_dims]).T
-        self.domain_bounds = bounding_box_of_point_cloud(domain_bounds)
+        self.domain_bounds = pp.domain.bounding_box_of_point_cloud(domain_bounds)
         # Translate fracture network to cart_grid format
         fracs = []
         for f in self.fracture_network.edges.T:
