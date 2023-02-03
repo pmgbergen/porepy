@@ -622,7 +622,7 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
 
         """
         # Unit square domain
-        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+        domain: dict[str, number] = pp.grids.standard_grids.utils.unit_domain(2)
 
         fractures = [
             pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
@@ -646,15 +646,27 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
             self.mesh_arguments(), constraints=np.array([1, 2])
         )
         domain = self.fracture_network.domain
-        if domain is not None and domain.is_boxed:
-            self.domain: pp.Domain = domain
+        # Convert domain to dictionary if it is given as a numpy array.
+        # TODO: We should rather unify the way we define the domain in the
+        # FractureNetwork2d class.
+        if isinstance(domain, np.ndarray):
+            assert domain.shape == (2, 2)
+            self.domain_bounds: dict[str, float] = {
+                "xmin": domain[0, 0],
+                "xmax": domain[1, 0],
+                "ymin": domain[0, 1],
+                "ymax": domain[1, 1],
+            }
+        else:
+            assert isinstance(domain, dict)
+            self.domain_bounds = domain
 
 
 # -----> Boundary conditions
 class ManuIncompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
     """Utility function to access the domain boundary sides."""
 
     exact_sol: ManuIncompExactSolution
@@ -784,7 +796,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
 
 # -----> Mixer
-class ManuIncompFlowSetup(  # type: ignore[misc]
+class ManufacturedIncompressibleFlow2d(  # type: ignore[misc]
     SingleEmbeddedVerticalFracture,
     ManuIncompBalanceEquation,
     ManuIncompBoundaryConditions,
