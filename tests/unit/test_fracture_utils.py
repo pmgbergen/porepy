@@ -9,8 +9,10 @@ Created on Mon Mar 26 10:12:47 2018
 import unittest
 
 import numpy as np
+import pytest
 
 import porepy as pp
+from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
 
 
 def arrays_equal(a, b, tol=1e-5):
@@ -115,6 +117,70 @@ class TestUniquifyPoints(unittest.TestCase):
         self.assertTrue(arrays_equal(e_known, ue))
         self.assertTrue(deleted.size == 1)
         self.assertTrue(deleted[0] == 1)
+
+
+def test_linefractures_to_pts_edges():
+    frac1 = pp.LineFracture([[0, 2], [1, 3]])
+    frac2 = pp.LineFracture([[2, 4], [3, 5]])
+    frac3 = pp.LineFracture([[0, 4], [1, 5]])
+    pts = np.array([[0, 2, 4], [1, 3, 5]])
+    edges = np.array([[0, 1, 0], [1, 2, 2]], dtype=int)
+    converted_pts, converted_edges = linefractures_to_pts_edges([frac1, frac2, frac3])
+    assert np.allclose(converted_pts, pts)
+    assert np.allclose(converted_edges, edges)
+    # TODO: Add a test to check that the tolerance works correctly.
+
+
+def test_linefractures_to_pts_edges_with_tags():
+    frac1 = pp.LineFracture([[0, 2], [1, 3]], tags=[-1, -1, 2])
+    frac2 = pp.LineFracture([[2, 4], [3, 5]])
+    frac3 = pp.LineFracture([[0, 4], [1, 5]], tags=[1, 1])
+    pts = np.array([[0, 2, 4], [1, 3, 5]])
+    # All edges will have the maximal number of tags (3 in this example).
+    edges = np.array(
+        [[0, 1, 0], [1, 2, 2], [-1, -1, 1], [-1, -1, 1], [2, -1, -1]], dtype=int
+    )
+    converted_pts, converted_edges = linefractures_to_pts_edges([frac1, frac2, frac3])
+    assert np.allclose(converted_pts, pts)
+    assert np.allclose(converted_edges, edges)
+
+
+def test_pts_edges_to_linefractures():
+    frac1 = pp.LineFracture([[0, 2], [1, 3]])
+    frac2 = pp.LineFracture([[2, 4], [3, 5]])
+    frac3 = pp.LineFracture([[0, 4], [1, 5]])
+    pts = np.array([[0, 2, 4], [1, 3, 5]])
+    edges = np.array([[0, 1, 0], [1, 2, 2]], dtype=int)
+    converted_fracs = pts_edges_to_linefractures(pts, edges)
+    for converted_pt, pt in zip(converted_fracs[0].points(), frac1.points()):
+        assert np.allclose(converted_pt, pt)
+    for converted_pt, pt in zip(converted_fracs[1].points(), frac2.points()):
+        assert np.allclose(converted_pt, pt)
+    for converted_pt, pt in zip(converted_fracs[2].points(), frac3.points()):
+        assert np.allclose(converted_pt, pt)
+
+
+def test_pts_edges_to_linefractures_with_tags():
+    frac1 = pp.LineFracture([[0, 2], [1, 3]], tags=[-1, 2, -1])
+    frac2 = pp.LineFracture([[2, 4], [3, 5]], tags=[1])
+    frac3 = pp.LineFracture([[0, 4], [1, 5]])
+    pts = np.array([[0, 2, 4], [1, 3, 5]])
+    edges = np.array(
+        [[0, 1, 0], [1, 2, 2], [-1, 1, -1], [2, -1, -1], [-1, -1, -1]], dtype=int
+    )
+    converted_fracs = pts_edges_to_linefractures(pts, edges)
+    for converted_pt, pt in zip(converted_fracs[0].points(), frac1.points()):
+        assert np.allclose(converted_pt, pt)
+    for converted_tag, tag in zip(converted_fracs[0].tags, frac1.tags):
+        assert np.all(converted_tag == tag)
+    for converted_pt, pt in zip(converted_fracs[1].points(), frac2.points()):
+        assert np.allclose(converted_pt, pt)
+    for converted_tag, tag in zip(converted_fracs[1].tags, frac2.tags):
+        assert np.all(converted_tag == tag)
+    for converted_pt, pt in zip(converted_fracs[2].points(), frac3.points()):
+        assert np.allclose(converted_pt, pt)
+    for converted_tag, tag in zip(converted_fracs[2].tags, frac3.tags):
+        assert np.all(converted_tag == tag)
 
 
 if __name__ == "__main__":
