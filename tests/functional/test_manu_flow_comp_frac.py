@@ -58,7 +58,7 @@ from porepy.applications.verification_setups.manu_flow_comp_frac import (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def results() -> list[ManuCompSaveData]:
     # Run verification setup and retrieve results for the scheduled times
     material_constants = {

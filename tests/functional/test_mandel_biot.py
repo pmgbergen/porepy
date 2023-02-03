@@ -28,7 +28,7 @@ from porepy.applications.verification_setups.mandel_biot import (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def results() -> list[MandelSaveData]:
     # Run verification setup and retrieve results for three different times
     material_constants = {
