@@ -106,7 +106,12 @@ class Domain:
             raise ValueError("Not enough arguments. Expected box OR polytope.")
 
     def bounding_box_from_polytope(self) -> dict[str, pp.number]:
+        """Obtain the bounding box of a polytope.
 
+            Returns:
+                Dictionary containing the bounding box information.
+
+        """
         if self.dim == 2:
 
             # For a polygon, is easier to convert the polytope into an array
@@ -151,7 +156,14 @@ class Domain:
         return box
 
     def polytope_from_bounding_box(self) -> list[np.ndarray]:
+        """Obtain the polytope representation of a bounding box.
 
+            Returns:
+                List of arrays representing the polytope. Shape of array will depend
+                on the dimesion of the bounding box. See __init__ documentation for a
+                detailed explanation.
+
+        """
         if "zmin" in self.bounding_box.keys() and "zmax" in self.bounding_box.keys():
             polytope = self._polyhedron_from_bounding_box()
         else:
@@ -160,7 +172,12 @@ class Domain:
         return polytope
 
     def _polygon_from_bounding_box(self) -> list[np.ndarray]:
+        """Compute the polygon associated with a two-dimensional bounding box.
 
+            Returns:
+                List of four arrays of ``shape = (2, 2)`` representing the sides of
+                the polygon (e.g., the rectangle).
+        """
         x0 = self.bounding_box["xmin"]
         x1 = self.bounding_box["xmax"]
         y0 = self.bounding_box["ymin"]
@@ -176,7 +193,13 @@ class Domain:
         return bound_lines
 
     def _polyhedron_from_bounding_box(self) -> list[np.ndarray]:
+        """Compute the polyhedron associated with a three-dimensional bounding box.
 
+            Returns:
+                List of six arrays of ``shape = (3, 4)`` representing the bounding
+                planes of the polyhedron (e.g., the box).
+
+        """
         x0 = self.bounding_box["xmin"]
         x1 = self.bounding_box["xmax"]
         y0 = self.bounding_box["ymin"]
@@ -196,7 +219,12 @@ class Domain:
         return bound_planes
 
     def dimension_from_bounding_box(self) -> int:
+        """Obtain the dimension of a bounding box.
 
+            Returns:
+                Dimension of the bounding box.
+
+        """
         # Required keywords
         kw_1d = "xmin" and "xmax"
         kw_2d = kw_1d and "ymin" and "ymax"
@@ -210,6 +238,7 @@ class Domain:
             return 1
         else:
             raise ValueError
+
 
 class DomainSides(NamedTuple):
     """Type for domain sides."""
