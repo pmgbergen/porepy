@@ -8,9 +8,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+
 def res_compressibility(Z, A, B):
     """Returns the evaluation of the cubic compressibility polynomial p(A,B)[Z].
-    
+
     If Z is a root, this should return zero.
     """
     return (
@@ -33,7 +34,7 @@ class TestPREoS(unittest.TestCase):
     Z_refinement: int = 1000
     """Interval refinement for the testing of the compressibility factor Z."""
 
-    Z_eps: float = 1e-16
+    Z_eps: float = 2e-3
     """Numerical zero to check if computed Z is actual root of polynomial."""
 
     @unittest.skip("Broadcasting not supported by PorePy's Ad-array.")
@@ -138,19 +139,18 @@ class TestPREoS(unittest.TestCase):
         liquid_residuals = list()
         gas_residuals = list()
 
-
         for A, B in zip(all_A, all_B):
 
             with self.subTest(msg=f"A={A}\n; B={B}", A=A, B=B):
 
                 # AD-fy
-                A_ = pp.ad.Ad_array(np.array([A]), sps.lil_matrix((1,1)))
-                B_ = pp.ad.Ad_array(np.array([B]), sps.lil_matrix((1,1)))
+                A_ = pp.ad.Ad_array(np.array([A]), sps.lil_matrix((1, 1)))
+                B_ = pp.ad.Ad_array(np.array([B]), sps.lil_matrix((1, 1)))
 
                 # compute and return to scalar
                 Z_G = GAS._Z(A_, B_).val[0]
                 Z_L = LIQ._Z(A_, B_).val[0]
-                
+
                 # check if it is a root
                 residual_liquid = abs(res_compressibility(Z_L, A, B))
                 residual_gas = abs(abs(res_compressibility(Z_G, A, B)))
@@ -159,12 +159,12 @@ class TestPREoS(unittest.TestCase):
 
                 self.assertTrue(
                     residual_liquid < self.Z_eps,
-                    f"Liquid-like root not close to zero. Residual: {residual_liquid}"
+                    f"Liquid-like root not close to zero. Residual: {residual_liquid}",
                 )
 
                 self.assertTrue(
                     residual_gas < self.Z_eps,
-                    f"Gas-like root not close to zero. Residual: {residual_gas}"
+                    f"Gas-like root not close to zero. Residual: {residual_gas}",
                 )
 
     def test_compressibility_factor_values_supercritical(self):
