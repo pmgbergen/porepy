@@ -7,62 +7,16 @@ import numpy.typing as npt
 __all__ = ["Domain"]
 
 
-# -----> Utility functions
-def bounding_box_of_point_cloud(
-        point_cloud: np.ndarray, overlap: pp.number = 0
-) -> dict[str, float]:
-    """Obtain a bounding box of a point cloud.
-
-    Parameters:
-        point_cloud: ``shape=(nd, num_points)``.
-
-            Point cloud. nd should be 2 or 3.
-        overlap: ``default=0``
-
-            Extension of the bounding box outside the point cloud. Scaled with extent of
-            the point cloud in the respective dimension.
-
-    Returns:
-        The domain represented as a dictionary with keywords ``xmin``, ``xmax``,
-        ``ymin``, ``ymax``, and (if ``nd == 3``) ``zmin`` and ``zmax``.
-
-    """
-    # Sanity check
-    if point_cloud.shape[0] not in [2, 3]:
-        raise ValueError("Point cloud must be either 2d or 3d.")
-
-    # Get min/max coordinates and range of the point cloud
-    max_coord = point_cloud.max(axis=1)
-    min_coord = point_cloud.min(axis=1)
-    range = max_coord - min_coord
-
-    # First and second dimension always preseent
-    bounding_box = {
-        "xmin": min_coord[0] - range[0] * overlap,
-        "xmax": max_coord[0] + range[0] * overlap,
-        "ymin": min_coord[1] - range[1] * overlap,
-        "ymax": max_coord[1] + range[1] * overlap,
-    }
-
-    # Add third dimension if ``nd==3``.
-    if max_coord.size == 3:
-        bounding_box["zmin"] = min_coord[2] - range[2] * overlap
-        bounding_box["zmax"] = max_coord[2] + range[2] * overlap
-
-    return bounding_box
-
-
 class Domain:
     """Class for the geometrical representation of the domain.
 
     There are two ways of constructing a domain in PorePy: (1) by passing the
     bounding box (we assume therefore that the domain is a box) or (2) by passing a
-    polytope (polygon in 2d and poyhedron in 3d) which are lists of numpy arrays
+    polytope (polygon in 2d and poyhedron in 3d), which are lists of numpy arrays
     defining a general domain (this also includes non-convex domains). See the class
     constructor documentation for more details.
 
     """
-
     def __init__(
             self,
             bounding_box: Optional[dict[str, pp.number]] = None,
@@ -89,6 +43,24 @@ class Domain:
                 vertices. The rows of each array contain the coordinates of the
                 vertices defining the polygon, i.e., first row the x-coordinates,
                 second row the y-coordinates, and third row the z-coordinates.
+
+        Examples:
+
+            .. code:: python3
+
+                # Create a domain from a bounding box
+                domain_from_box = pp.Domain = (
+                    bounding_box={"xmin":0, "xmax":1, "ymin":0, "ymin":1}
+                )
+
+                # Create a domain from a 2d-polytope
+                line_1 = np.array([0, 0], [0, 1])
+                line_2 = np.array([0, 0.5], [1, 1.5])
+                line_3 = np.array([0.5, 1], [1.5, 1])
+                line_4 = np.array([1, 1], [1, 0])
+                line_5 = np.array([1, 0], [0, 0])
+                irregular_pentagon = list[line_1, line_2, line_3, line_4, line_5]
+                domain_from_polytope = pp.Domain(polytope=irregular_pentagon)
 
         """
         # Santity check
@@ -277,3 +249,48 @@ class DomainSides(NamedTuple):
     """Top boundary faces."""
     bottom: npt.NDArray[np.bool_]
     """Bottom boundary faces."""
+
+
+# -----> Utility functions related to domain specification
+def bounding_box_of_point_cloud(
+        point_cloud: np.ndarray, overlap: pp.number = 0
+) -> dict[str, float]:
+    """Obtain a bounding box of a point cloud.
+
+    Parameters:
+        point_cloud: ``shape=(nd, num_points)``.
+
+            Point cloud. nd should be 2 or 3.
+        overlap: ``default=0``
+
+            Extension of the bounding box outside the point cloud. Scaled with extent of
+            the point cloud in the respective dimension.
+
+    Returns:
+        The domain represented as a dictionary with keywords ``xmin``, ``xmax``,
+        ``ymin``, ``ymax``, and (if ``nd == 3``) ``zmin`` and ``zmax``.
+
+    """
+    # Sanity check
+    if point_cloud.shape[0] not in [2, 3]:
+        raise ValueError("Point cloud must be either 2d or 3d.")
+
+    # Get min/max coordinates and range of the point cloud
+    max_coord = point_cloud.max(axis=1)
+    min_coord = point_cloud.min(axis=1)
+    range = max_coord - min_coord
+
+    # First and second dimension always preseent
+    bounding_box = {
+        "xmin": min_coord[0] - range[0] * overlap,
+        "xmax": max_coord[0] + range[0] * overlap,
+        "ymin": min_coord[1] - range[1] * overlap,
+        "ymax": max_coord[1] + range[1] * overlap,
+    }
+
+    # Add third dimension if ``nd==3``.
+    if max_coord.size == 3:
+        bounding_box["zmin"] = min_coord[2] - range[2] * overlap
+        bounding_box["zmax"] = max_coord[2] + range[2] * overlap
+
+    return bounding_box

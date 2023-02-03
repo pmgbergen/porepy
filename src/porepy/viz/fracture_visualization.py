@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import porepy as pp
+from porepy.geometry.domain import bounding_box_of_point_cloud
 
 
 def plot_fractures(
@@ -58,7 +59,7 @@ def plot_fractures(
     """
     # If not provided, determine the domain as bounding box
     if domain is None:
-        domain = pp.bounding_box.from_points(pts)
+        domain = bounding_box_of_point_cloud(pts)
 
     # If no axis is provided, construct one
     if ax is None:
