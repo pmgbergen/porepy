@@ -2,8 +2,6 @@
 a liquid- or gas-like phase."""
 from __future__ import annotations
 
-import numbers
-
 from typing import Literal
 
 import numpy as np
@@ -136,6 +134,17 @@ class PR_EoS:
         Important:
             It is unclear, what the meaning of super-critical phases is using this EoS
             and values in this phase region should be used with suspicion.
+
+        """
+
+        self.is_extended: np.ndarray = np.array([], dtype=bool)
+        """A boolean array flagging if where extended roots were used in the
+        one-root-region.
+
+        In vectorized computations, the results are stored component-wise.
+
+        Important:
+            Extended roots are no roots of the original compressibility polynomial.
 
         """
 
@@ -428,6 +437,8 @@ class PR_EoS:
         Z_L_jac = sps.lil_matrix(shape)
         Z_G_jac = sps.lil_matrix(shape)
 
+        self.is_extended = np.zeros(nc, dtype=bool)
+
         ### CLASSIFYING REGIONS
         # identify super-critical region and store information
         # limited physical insight into what this means with this EoS
@@ -440,12 +451,6 @@ class PR_EoS:
             degenerate_region, np.isclose(r.val, 0.0, atol=self.eps)
         )
 
-        # ensure we are not in the uncovered two-real-root case or triple-root case
-        if np.any(double_root_region):
-            raise NotImplementedError("Case with two distinct real roots encountered.")
-        if np.any(triple_root_region):
-            raise NotImplementedError("Case with real triple-root encountered.")
-
         # physically covered cases
         one_root_region = delta.val > self.eps  # can only happen if p is positive
         three_root_region = delta.val < -self.eps  # can only happen if p is negative
@@ -457,7 +462,7 @@ class PR_EoS:
                     one_root_region,
                     triple_root_region,
                     double_root_region,
-                    three_root_region
+                    three_root_region,
                 ]
             )
         ), "Uncovered cells/rows detected in PR root computation."
@@ -468,7 +473,7 @@ class PR_EoS:
             [one_root_region, triple_root_region, double_root_region, three_root_region]
         ).sum(axis=0)
         # TODO assert dtype does not compromise test
-        trues_check = np.ones(nc, dtype = trues_per_row.dtype)
+        trues_check = np.ones(nc, dtype=trues_per_row.dtype)
         assert np.all(
             trues_check == trues_per_row
         ), "Regions with different root scenarios overlap."
@@ -553,6 +558,13 @@ class PR_EoS:
             Z_G_val[one_root_region] = Z_G_val_1
             Z_G_jac[one_root_region] = Z_G_jac_1
 
+            # save information about where it is extended
+            if self._gaslike:
+                if np.any(liquid_region):
+                    self.is_extended = liquid_region
+            else:
+                if np.any(gas_region):
+                    self.is_extended = gas_region
 
         ### COMPUTATIONS IN TRIPLE ROOT REGION
         # the single real root is returned.
@@ -561,7 +573,7 @@ class PR_EoS:
                 c2.val[triple_root_region], c2.jac[triple_root_region]
             )
 
-            z_triple = - c2_triple / 3
+            z_triple = -c2_triple / 3
 
             # store root where it belongs
             if self._gaslike:
@@ -587,7 +599,7 @@ class PR_EoS:
             u = 3 / 2 * q_double / r_double
 
             z_1 = 2 * u - c2_double / 3
-            z_23 = - u - c2_double / 3
+            z_23 = -u - c2_double / 3
 
             # choose bigger root as gas like
             # theoretically they should strictly be different, otherwise it would be
@@ -614,10 +626,10 @@ class PR_EoS:
             Z_L_jac_d[double_is_liquidlike] = z_23.jac[double_is_liquidlike]
 
             # store values in global root structure
-            Z_L_val[double_root_region] = Z_L_val_1
-            Z_L_jac[double_root_region] = Z_L_jac_1
-            Z_G_val[double_root_region] = Z_G_val_1
-            Z_G_jac[double_root_region] = Z_G_jac_1
+            Z_L_val[double_root_region] = Z_L_val_d
+            Z_L_jac[double_root_region] = Z_L_jac_d
+            Z_G_val[double_root_region] = Z_G_val_d
+            Z_G_jac[double_root_region] = Z_G_jac_d
 
         ### COMPUTATIONS IN THE THREE-ROOT-REGION
         # compute all three roots, label them (smallest=liquid, biggest= gas)
@@ -658,9 +670,21 @@ class PR_EoS:
             Z_G_jac[three_root_region] = Z_G_3.jac
 
         if self._gaslike:
-            return pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
+            Z = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
         else:
-            return pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
+            Z = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
+
+        # region = np.array(
+        #     [
+        #         one_root_region[0],
+        #         triple_root_region[0],
+        #         double_root_region[0],
+        #         three_root_region[0]
+        #     ],
+        #     dtype=bool,
+        # )
+
+        return Z  # , region  # region is for plotting purpose
 
     def get_rho(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Computes the molar density from scratch.

@@ -940,14 +940,17 @@ class Flash:
             z_c = [comp.fraction.evaluate(ad_system).val for comp in self._C.components]
 
             # Collects initial K values from Wilson's correlation
-            K = [ comp.critical_pressure()
-                    / pressure
-                    * pp.ad.exp(
-                        5.37
-                        * (1 + comp.acentric_factor)
-                        * (1 - comp.critical_temperature() / temperature)
-                    ) + 1.0e-12
-                for comp in self._C.components]
+            K = [
+                comp.critical_pressure()
+                / pressure
+                * pp.ad.exp(
+                    5.37
+                    * (1 + comp.acentric_factor)
+                    * (1 - comp.critical_temperature() / temperature)
+                )
+                + 1.0e-12
+                for comp in self._C.components
+            ]
 
             def ResidualRR(Y, z_c, K):
                 res = np.zeros_like(Y)
@@ -959,9 +962,7 @@ class Flash:
                 n = 5
                 for i in range(n):
                     x = (a + b) / 2
-                    prod = ResidualRR(a, z_c, K) * ResidualRR(
-                        x, z_c, K
-                    )
+                    prod = ResidualRR(a, z_c, K) * ResidualRR(x, z_c, K)
                     b = np.where(prod < 0, x, b)
                     a = np.where(prod > 0, x, a)
                 return x
@@ -972,7 +973,7 @@ class Flash:
 
             for i in range(3):
 
-                Y = FindPhaseFraction(np.zeros(nc),np.ones(nc),z_c,K)
+                Y = FindPhaseFraction(np.zeros(nc), np.ones(nc), z_c, K)
 
                 res_L_Q = ResidualRR(np.zeros(nc), z_c, K)
                 res_G_Q = ResidualRR(np.ones(nc), z_c, K)
@@ -1008,8 +1009,8 @@ class Flash:
                     if phase.name == "G":
                         phi_G = list(phase.eos.phi.values())
 
-                for i, pair in enumerate(zip(phi_L,phi_G)):
-                    K[i] = pair[0]/ ( pair[1] + 1.0e-12)
+                for i, pair in enumerate(zip(phi_L, phi_G)):
+                    K[i] = pair[0] / (pair[1] + 1.0e-12)
 
             # set values.
             for phase in phases:
