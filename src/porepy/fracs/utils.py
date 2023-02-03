@@ -1,13 +1,13 @@
 """ Frontend utility functions related to fractures and their meshing.
 
 """
-from __future__ import annotations
-
 import logging
+from itertools import zip_longest
 
 import numpy as np
 
 import porepy as pp
+from porepy import LineFracture
 
 # Module level logger
 logger = logging.getLogger(__name__)
@@ -70,10 +70,9 @@ def uniquify_points(pts, edges, tol):
 
 
 def linefractures_to_pts_edges(
-    fractures: list[pp.LineFracture],
+    fractures: list[LineFracture], tol: float = 1e-8
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Convert a list of fractures into two numpy arrays of the corresponding points and
-    edges.
+    """Convert a list of fractures into arrays of the corresponding points and edges.
 
     Parameters:
         fractures: List of fractures.
@@ -97,14 +96,20 @@ def linefractures_to_pts_edges(
 
     """
     pts_list: list[np.ndarray] = []
-    edges_list: list[list[int]] = []
+    edges_list: list[np.ndarray] = []
     for frac in fractures:
-        edge = []
+        # Peter: I did not find a practical way to do this with numpy arrays only
+        # (without the code getting messy).
+        pt_indices: list[int] = []
         for point in frac.points():
-            compare_points = [np.allclose(point, x) for x in pts_list]
+            # Check if the point is already start-/endpoint of another fracture.
+            # TODO: Change the comparison to functions in numpy (e.g. ``np.any``).
+            compare_points = [
+                np.allclose(point.squeeze(), x, atol=tol) for x in pts_list
+            ]
             if not any(compare_points):
-                pts_list.append(point)
-                edge.append(len(pts_list) - 1)
+                pts_list.append(point.squeeze())
+                pt_indices.append(len(pts_list) - 1)
             else:
                 pt_indices.append(compare_points.index(True))
         # TODO: Perhaps remove this assertion, it's impact on computation time should be
@@ -131,19 +136,32 @@ def linefractures_to_pts_edges(
 
 def pts_edges_to_linefractures(
     pts: np.ndarray, edges: np.ndarray
-) -> list[pp.LineFracture]:
-    """Convert points and edges into a list of fractures
+) -> list[LineFracture]:
+    """Convert points and edges into a list of fractures.
 
     Parameters:
-        pts ``(shape=(2, np))``: _description_
-        edges ``(shape=(len(fractures), 2), dtype=int)``: _description_
+        pts: ``(shape=(2, np))``
+            Coordinates of the start- and endpoints of the
+            fractures.
+        edges: ``(2 + num_tags, shape=(len(fractures)), dtype=int)``
+            Indices for the start- and endpoint of each fracture. Note, that one point
+            in ``pts`` may be the start- and/or endpoint of multiple fractures.
+
+            Additional rows are optional tags of the fractures. In the standard form,
+            the third row (first row of tags) identifies the type of edges, referring to
+            the numbering system in GmshInterfaceTags. The second row of tags keeps
+            track of the numbering of the edges (referring to the original order of the
+            edges) in geometry processing like intersection removal. Additional tags can
+            be assigned by the user.
 
     Returns:
         List of fractures.
     """
-    fractures: list[pp.LineFracture] = []
-    for start_index, end_index in zip(edges[0, :], edges[1, :]):
+    fractures: list[LineFracture] = []
+    for start_index, end_index, *tags in edges.T:
         fractures.append(
-            pp.LineFracture(np.array([pts[:, start_index], pts[:, end_index]]).T)
+            LineFracture(
+                np.array([pts[:, start_index], pts[:, end_index]]).T, tags=tags
+            )
         )
     return fractures
