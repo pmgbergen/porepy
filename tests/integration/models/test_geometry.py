@@ -62,8 +62,7 @@ def test_boundary_sides(geometry_class, num_fracs):
     geometry.set_geometry()
 
     # Fetch the bounding box for the domain
-    bounding_box = pp.domain.bounding_box_of_mdg(geometry.mdg)
-    box_min, box_max = pp.domain.bounding_box_as_tuple(bounding_box)
+    box_min, box_max = pp.domain.mdg_minmax_coordinates(geometry.mdg)
 
     for sd in geometry.mdg.subdomains():
         all_bf, east, west, north, south, top, bottom = geometry.domain_boundary_sides(

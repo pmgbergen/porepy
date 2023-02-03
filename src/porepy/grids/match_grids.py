@@ -543,10 +543,8 @@ def mdg_refinement(
     assert len(subdomains) == len(subdomains_ref)
 
     # Check that both mdg's have the same bounding box
-    bbox_mdg = pp.domain.bounding_box_of_mdg(mdg)
-    bbox_mdg_ref = pp.domain.bounding_box_of_mdg(mdg_ref)
-    bmin, bmax = pp.domain.bounding_box_as_tuple(bbox_mdg)
-    bmin_ref, bmax_ref = pp.domain.bounding_box_as_tuple(bbox_mdg_ref)
+    bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
+    bmin_ref, bmax_ref = pp.domain.mdg_minmax_coordinates(mdg_ref)
     np.testing.assert_almost_equal(bmin, bmin_ref, decimal=8)
     np.testing.assert_almost_equal(bmax, bmax_ref, decimal=8)
 

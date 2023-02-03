@@ -299,24 +299,26 @@ def bounding_box_of_point_cloud(
     return bounding_box
 
 
-def bounding_box_of_mdg(mdg: pp.MixedDimensionalGrid) -> dict[str, pp.number]:
-    """Return the minimum and maximum node coordinates of a grid.
+def mdg_minmax_coordinates(mdg: pp.MixedDimensionalGrid) -> tuple[np.array, np.array]:
+    """Return the minimum and maximum coordinates of a mixed-dimensional grid.
 
     Parameters:
-        mdg: The grid for which the bounding box is to be computed.
+        mdg: The mixed-dimensional grid for which the min/max coordinates are to be
+            computed.
 
     Returns:
         A 2-tuple containing
 
-        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+        :obj:`~numpy.ndarray`: ``shape=(3, )``
 
             Minimum node coordinates in each direction.
 
-        :obj:`~numpy.ndrarray`: ``shape=(3,)``
+        :obj:`~numpy.ndarray`: ``shape=(3, )``
 
             Maximum node coordinates in each direction.
 
     """
+
     c_0s = np.empty((3, mdg.num_subdomains()))
     c_1s = np.empty((3, mdg.num_subdomains()))
 
@@ -326,52 +328,7 @@ def bounding_box_of_mdg(mdg: pp.MixedDimensionalGrid) -> dict[str, pp.number]:
     min_vals = np.amin(c_0s, axis=1)
     max_vals = np.amax(c_1s, axis=1)
 
-    if mdg.dim_max() == 2:
-        bounding_box = {
-            "xmin": min_vals[0],
-            "xmax": max_vals[0],
-            "ymin": min_vals[1],
-            "ymax": max_vals[1],
-        }
-    else:
-        bounding_box = {
-            "xmin": min_vals[0],
-            "xmax": max_vals[0],
-            "ymin": min_vals[1],
-            "ymax": max_vals[1],
-            "zmin": min_vals[2],
-            "zmax": max_vals[2],
-        }
-
-    return bounding_box
-
-
-def bounding_box_as_tuple(
-    bounding_box: dict[str, pp.number]
-) -> tuple[np.ndarray, np.ndarray]:
-    """Converts a bounding box into a 2-tuple of arrays of min/max coordinates."""
-
-    min_array = np.zeros(3)
-    max_array = np.zeros(3)
-
-    dim = bounding_box_dimension(bounding_box)
-    if dim == 1:
-        min_array[0] = bounding_box["xmin"]
-        max_array[0] = bounding_box["xmax"]
-    elif dim == 2:
-        min_array[0] = bounding_box["xmin"]
-        max_array[0] = bounding_box["xmax"]
-        min_array[1] = bounding_box["ymin"]
-        max_array[1] = bounding_box["ymax"]
-    elif dim == 3:
-        min_array[0] = bounding_box["xmin"]
-        max_array[0] = bounding_box["xmax"]
-        min_array[1] = bounding_box["ymin"]
-        max_array[1] = bounding_box["ymax"]
-        min_array[2] = bounding_box["zmin"]
-        max_array[2] = bounding_box["zmax"]
-
-    return min_array, max_array
+    return min_vals, max_vals
 
 
 def grid_minmax_coordinates(sd: pp.Grid) -> tuple[np.array, np.array]:

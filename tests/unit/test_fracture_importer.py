@@ -264,8 +264,7 @@ class TestImportDFN1d(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         mdg = network.mesh(mesh_args, dfn=True)
 
-        bbox = pp.domain.bounding_box_of_mdg(mdg)
-        bmin, bmax = pp.domain.bounding_box_as_tuple(bbox)
+        bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
         self.assertTrue(np.allclose(bmin, [0, 0, 0]))
         self.assertTrue(np.allclose(bmax, [1, 1, 0]))
 
@@ -287,8 +286,7 @@ class TestImportDFN1d(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
         mdg = network.mesh(mesh_args, dfn=True)
 
-        bbox = pp.domain.bounding_box_of_mdg(mdg)
-        bmin, bmax = pp.domain.bounding_box_as_tuple(bbox)
+        bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
         self.assertTrue(np.allclose(bmin, [0, 0, 0]))
         self.assertTrue(np.allclose(bmax, [1, 1, 0]))
 

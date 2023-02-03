@@ -357,20 +357,11 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         sd_2.nodes = 1 + np.random.random((sd_2.dim, sd_2.num_nodes))
 
         mdg.add_subdomains([sd_1, sd_2])
-        bbox = pp.domain.bounding_box_of_mdg(mdg)
-        bmin, bmax = pp.domain.bounding_box_as_tuple(bbox)
+        bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
 
         # Since g2 is shifted, minimum should be at g1, maximum in g2
         self.assertTrue(np.allclose(bmin, sd_1.nodes.min(axis=1)))
         self.assertTrue(np.allclose(bmax, sd_2.nodes.max(axis=1)))
-
-        d = pp.domain.bounding_box_of_mdg(mdg)
-        self.assertTrue(d["xmin"] == np.min(sd_1.nodes[0]))
-        self.assertTrue(d["ymin"] == np.min(sd_1.nodes[1]))
-        self.assertTrue(d["zmin"] == np.min(sd_1.nodes[2]))
-        self.assertTrue(d["xmax"] == np.max(sd_2.nodes[0]))
-        self.assertTrue(d["ymax"] == np.max(sd_2.nodes[1]))
-        self.assertTrue(d["zmax"] == np.max(sd_2.nodes[2]))
 
     def test_num_cells(self):
 
