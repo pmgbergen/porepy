@@ -2,6 +2,8 @@
 a liquid- or gas-like phase."""
 from __future__ import annotations
 
+import numbers
+
 from typing import Literal
 
 import numpy as np
@@ -379,10 +381,14 @@ class PR_EoS:
         return self._Z(A, B)
 
     def _Z(
-        self, A: NumericType, B: NumericType, apply_smoother: bool = False
-    ) -> NumericType:
+        self, A: pp.ad.Ad_array, B: pp.ad.Ad_array, apply_smoother: bool = False
+    ) -> pp.ad.Ad_array:
         """Auxiliary method to compute the compressibility factor based on Cardano
-        formulas
+        formulas.
+
+        Warning:
+            Due to the nature of the operations here, the input must be wrapped in
+            Ad-arrays with vectors and matrices as val and jac, i.e. must be indexable.
 
         Parameters:
             A: Non-dimensional cohesion.
@@ -395,68 +401,6 @@ class PR_EoS:
             The root ``Z`` corresponding to the assigned phase label.
 
         """
-        # For compatibility reasons we must broadcast A and B into Ad_arrays with 0-jacs
-        # If the number of rows mismatch and numpy fails to broadcast them in the next
-        # step, this is up to the user.
-        if isinstance(A, np.ndarray):
-            A = pp.ad.Ad_array(A)
-        elif isinstance(A, pp.ad.Ad_array):
-            pass  # keep as is
-        else:
-            # try to convert to float and wrap into array
-            A = pp.ad.Ad_array(np.array([float(A)]))
-
-        if isinstance(B, np.ndarray):
-            B = pp.ad.Ad_array(B)
-        elif isinstance(B, pp.ad.Ad_array):
-            pass  # keep as is
-        else:
-            # try to convert to float and wrap into array
-            B = pp.ad.Ad_array(np.array([float(B)]))
-
-        assert isinstance(A, pp.ad.Ad_array) and isinstance(
-            B, pp.ad.Ad_array
-        ), "Type mismatch for A and B in root computation"
-
-        # If this fails, everything else will faile
-        try:
-            broad_cast_test = A + B
-        except Exception as err:
-            raise TypeError(
-                "Failed to broadcast 'A' and 'B' during root computation."
-            ) from err
-
-        nc = len(broad_cast_test.val)
-        # If the Jacobian is trivial due to the broadcasting (equal 0)
-        # then we simulate a single-column matrix to avoid indexing errors in the
-        # following
-        revert_broadcast = False
-        if isinstance(broad_cast_test.jac, (float, int)):
-            # this results from broadcasting arrays and floats
-            if broad_cast_test.jac == 0:
-                revert_broadcast = True
-                shape = (nc, 1)
-                A.jac = sps.lil_matrix(shape)
-                B.jac = sps.lil_matrix(shape)
-                # this happens if AD arrays have non-trivial numbers as jacs
-                # wrap in matrix in this case
-            else:
-                # this should normally not happen
-                assert nc == 1, "Uncovered case encountered in Ad_array broadcasting"
-                A.jac = sps.coo_matrix(([A.jac], (0, 0)), shape=(1, 1))
-                B.jac = sps.coo_matrix(([B.jac], (0, 0)), shape=(1, 1))
-
-        # else we assume its a sparse matrix
-        else:
-            shape = broad_cast_test.jac.shape
-
-        # prepare storage for roots
-        # storage for roots
-        Z_L_val = np.zeros(nc)
-        Z_G_val = np.zeros(nc)
-        Z_L_jac = sps.lil_matrix(shape)
-        Z_G_jac = sps.lil_matrix(shape)
-
         # the coefficients of the compressibility polynomial
         c0 = pp.ad.power(B, 3) + pp.ad.power(B, 2) - A * B
         c1 = A - 2 * B - 3 * pp.ad.power(B, 2)
@@ -469,18 +413,27 @@ class PR_EoS:
         # discriminant to determine the number of roots
         delta = pp.ad.power(q, 2) / 4 + pp.ad.power(r, 3) / 27
 
-        # convert to more efficient format
+        # convert to more efficient format for region-wise slicing
         c2.jac = c2.jac.tolil()
         r.jac = r.jac.tolil()
         q.jac = q.jac.tolil()
         delta.jac = delta.jac.tolil()
+
+        # prepare storage for roots
+        # storage for roots
+        nc = len(delta.val)
+        shape = delta.jac.shape
+        Z_L_val = np.zeros(nc)
+        Z_G_val = np.zeros(nc)
+        Z_L_jac = sps.lil_matrix(shape)
+        Z_G_jac = sps.lil_matrix(shape)
 
         ### CLASSIFYING REGIONS
         # identify super-critical region and store information
         # limited physical insight into what this means with this EoS
         self.is_super_critical = B.val > B_CRIT / A_CRIT * A.val
 
-        # discriminant of zero indicates one or two real roots with multiplicity
+        # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
         double_root_region = np.logical_and(degenerate_region, np.abs(r.val) > self.eps)
         triple_root_region = np.logical_and(
@@ -498,10 +451,27 @@ class PR_EoS:
         three_root_region = delta.val < -self.eps  # can only happen if p is negative
 
         # sanity check that every cell/case covered (with above exclusions)
-        if np.any(np.logical_not(np.logical_or(one_root_region, three_root_region))):
-            raise NotImplementedError(
-                "Uncovered cells/cases detected in PR root computation."
+        assert np.all(
+            np.logical_or.reduce(
+                [
+                    one_root_region,
+                    triple_root_region,
+                    double_root_region,
+                    three_root_region
+                ]
             )
+        ), "Uncovered cells/rows detected in PR root computation."
+
+        # sanity check that the regions are mutually exclusive
+        # this array must have 1 in every entry for the test to pass
+        trues_per_row = np.vstack(
+            [one_root_region, triple_root_region, double_root_region, three_root_region]
+        ).sum(axis=0)
+        # TODO assert dtype does not compromise test
+        trues_check = np.ones(nc, dtype = trues_per_row.dtype)
+        assert np.all(
+            trues_check == trues_per_row
+        ), "Regions with different root scenarios overlap."
 
         ### COMPUTATIONS IN THE ONE-ROOT-REGION
         # Missing real root is replaced with conjugated imaginary roots
@@ -583,7 +553,75 @@ class PR_EoS:
             Z_G_val[one_root_region] = Z_G_val_1
             Z_G_jac[one_root_region] = Z_G_jac_1
 
+
+        ### COMPUTATIONS IN TRIPLE ROOT REGION
+        # the single real root is returned.
+        if np.any(triple_root_region):
+            c2_triple = pp.ad.Ad_array(
+                c2.val[triple_root_region], c2.jac[triple_root_region]
+            )
+
+            z_triple = - c2_triple / 3
+
+            # store root where it belongs
+            if self._gaslike:
+                Z_G_val[triple_root_region] = z_triple.val
+                Z_G_jac[triple_root_region] = z_triple.jac
+            else:
+                Z_L_val[triple_root_region] = z_triple.val
+                Z_L_jac[triple_root_region] = z_triple.jac
+
+        ### COMPUTATIONS IN DOUBLE ROOT REGION
+        # compute both roots and label the bigger one as the gas root
+        if np.any(double_root_region):
+            r_double = pp.ad.Ad_array(
+                r.val[double_root_region], r.jac[double_root_region]
+            )
+            q_double = pp.ad.Ad_array(
+                q.val[double_root_region], q.jac[double_root_region]
+            )
+            c2_double = pp.ad.Ad_array(
+                c2.val[double_root_region], c2.jac[double_root_region]
+            )
+
+            u = 3 / 2 * q_double / r_double
+
+            z_1 = 2 * u - c2_double / 3
+            z_23 = - u - c2_double / 3
+
+            # choose bigger root as gas like
+            # theoretically they should strictly be different, otherwise it would be
+            # the three root case
+            double_is_gaslike = z_23.val >= z_1.val
+            double_is_liquidlike = np.logical_not(double_is_gaslike)
+
+            # store values in double-root-region
+            nc_d = np.count_nonzero(double_root_region)
+            Z_L_val_d = np.zeros(nc_d)
+            Z_G_val_d = np.zeros(nc_d)
+            Z_L_jac_d = sps.lil_matrix((nc_d, shape[1]))
+            Z_G_jac_d = sps.lil_matrix((nc_d, shape[1]))
+
+            # store bigger as gas root, smaller as liquid root
+            Z_G_val_d[double_is_gaslike] = z_23.val[double_is_gaslike]
+            Z_G_val_d[double_is_liquidlike] = z_1.val[double_is_liquidlike]
+            Z_G_jac_d[double_is_gaslike] = z_23.jac[double_is_gaslike]
+            Z_G_jac_d[double_is_liquidlike] = z_1.jac[double_is_liquidlike]
+            # store liquid where actual liquid, use extension where gas
+            Z_L_val_d[double_is_gaslike] = z_1.val[double_is_gaslike]
+            Z_L_val_d[double_is_liquidlike] = z_23.val[double_is_liquidlike]
+            Z_L_jac_d[double_is_gaslike] = z_1.jac[double_is_gaslike]
+            Z_L_jac_d[double_is_liquidlike] = z_23.jac[double_is_liquidlike]
+
+            # store values in global root structure
+            Z_L_val[double_root_region] = Z_L_val_1
+            Z_L_jac[double_root_region] = Z_L_jac_1
+            Z_G_val[double_root_region] = Z_G_val_1
+            Z_G_jac[double_root_region] = Z_G_jac_1
+
         ### COMPUTATIONS IN THE THREE-ROOT-REGION
+        # compute all three roots, label them (smallest=liquid, biggest= gas)
+        # optionally smooth the,
         if np.any(three_root_region):
             r_3 = pp.ad.Ad_array(r.val[three_root_region], r.jac[three_root_region])
             q_3 = pp.ad.Ad_array(q.val[three_root_region], q.jac[three_root_region])
@@ -620,15 +658,9 @@ class PR_EoS:
             Z_G_jac[three_root_region] = Z_G_3.jac
 
         if self._gaslike:
-            Z = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
+            return pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
         else:
-            Z = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
-
-        # revert broadcasting if it caused an unecessary jac
-        if revert_broadcast:
-            return Z.val
-        else:
-            return Z
+            return pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
 
     def get_rho(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Computes the molar density from scratch.
