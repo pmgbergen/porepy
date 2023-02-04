@@ -16,12 +16,12 @@ def unit_domain(dimension: int):
 
     """
     assert dimension in np.arange(1, 4)
-    domain = {"xmin": 0, "xmax": 1}
+    bbox = {"xmin": 0, "xmax": 1}
     if dimension > 1:
-        domain.update({"ymin": 0, "ymax": 1})
+        bbox.update({"ymin": 0, "ymax": 1})
     if dimension > 2:
-        domain.update({"zmin": 0, "zmax": 1})
-    return domain
+        bbox.update({"zmin": 0, "zmax": 1})
+    return pp.Domain(bbox)
 
 
 def set_mesh_sizes(mesh_args: dict):
