@@ -46,7 +46,7 @@ def test_set_geometry(geometry_class):
     geometry.params = {"num_fracs": 1}
     geometry.units = pp.Units()
     geometry.set_geometry()
-    for attr in ["mdg", "domain_bounds", "nd", "fracture_network"]:
+    for attr in ["mdg", "domain", "nd", "fracture_network"]:
         assert hasattr(geometry, attr)
     # For now, the default is not to assign a well network. Assert to remind ourselves
     # to add testing if default is changed.
