@@ -127,7 +127,8 @@ def test_linear_pressure(fluid_vals, solid_vals):
     for sd in setup.mdg.subdomains():
         var = setup.equation_system.get_variables(["pressure"], [sd])
         vals = setup.equation_system.get_variable_values(var)
-        assert np.allclose(vals, 1 - sd.cell_centers[0] / setup.domain_bounds["xmax"])
+        assert np.allclose(vals, 1 - sd.cell_centers[0] / setup.domain.bounding_box[
+            "xmax"])
 
     # Check that the flux over each face is equal to the x component of the
     # normal vector
@@ -136,7 +137,7 @@ def test_linear_pressure(fluid_vals, solid_vals):
         # Account for specific volume, default value of .01 in fractures.
         normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
         k = setup.solid.permeability() / setup.fluid.viscosity()
-        grad = 1 / setup.domain_bounds["xmax"]
+        grad = 1 / setup.domain.bounding_box["xmax"]
         assert np.allclose(np.abs(val), normals * grad * k)
 
 
