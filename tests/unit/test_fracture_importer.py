@@ -26,10 +26,10 @@ class TestImport2dCsv(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(known_pts, network.pts))
         known_edges = np.array([[0], [1]])
         self.assertTrue(test_utils.compare_arrays(known_edges, network.edges))
-        self.assertTrue(network.domain["xmin"] == 0)
-        self.assertTrue(network.domain["ymin"] == 0)
-        self.assertTrue(network.domain["xmax"] == 1)
-        self.assertTrue(network.domain["ymax"] == 1)
+        self.assertTrue(network.domain.bounding_box["xmin"] == 0)
+        self.assertTrue(network.domain.bounding_box["ymin"] == 0)
+        self.assertTrue(network.domain.bounding_box["xmax"] == 1)
+        self.assertTrue(network.domain.bounding_box["ymax"] == 1)
 
         test_utils.delete_file(file_name)
 
@@ -116,10 +116,10 @@ class TestImport2dCsv(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(known_pts, network.pts))
         known_edges = np.array([[0], [1]])
         self.assertTrue(test_utils.compare_arrays(known_edges, network.edges))
-        self.assertTrue(network.domain["xmin"] == 0)
-        self.assertTrue(network.domain["ymin"] == 0)
-        self.assertTrue(network.domain["xmax"] == 1)
-        self.assertTrue(network.domain["ymax"] == 1)
+        self.assertTrue(network.domain.bounding_box["xmin"] == 0)
+        self.assertTrue(network.domain.bounding_box["ymin"] == 0)
+        self.assertTrue(network.domain.bounding_box["xmax"] == 1)
+        self.assertTrue(network.domain.bounding_box["ymax"] == 1)
 
         self.assertTrue(fid.size == 1)
         self.assertTrue(fid[0] == frac_id)
@@ -279,7 +279,7 @@ class TestImportDFN1d(unittest.TestCase):
         file_name = "frac.csv"
         np.savetxt(file_name, f, delimiter=",")
 
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1.1}
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1.1})
         network = pp.fracture_importer.network_2d_from_csv(
             file_name, domain=domain, skip_header=0
         )
