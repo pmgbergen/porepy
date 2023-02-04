@@ -25,7 +25,8 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         ls = 1 / self.units.m
 
         num_fracs = self.params.get("num_fracs", 1)
-        domain = {"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls}
+        box = {"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls}
+        domain = pp.Domain(box)
         if num_fracs == 0:
             p = np.zeros((2, 0), dtype=float) * ls
             e = np.zeros((2, 0), dtype=int)
@@ -61,8 +62,8 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         # Mono-dimensional grid by default
         phys_dims = np.array([2, 1]) * ls
         n_cells = np.array([8, 2])
-        domain_bounds = np.array([[0, 0], phys_dims]).T
-        self.domain_bounds = pp.domain.bounding_box_of_point_cloud(domain_bounds)
+        box = {"xmin": 0, "xmax": phys_dims[0], "ymin": 0, "ymax": phys_dims[1]}
+        self.domain = pp.Domain(box)
         # Translate fracture network to cart_grid format
         fracs = []
         for f in self.fracture_network.edges.T:
