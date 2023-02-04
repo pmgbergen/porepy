@@ -1290,7 +1290,7 @@ class MandelGeometry(pp.ModelGeometry):
         """Set fracture network. Unit square with no fractures."""
         ls = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
-        domain = {"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls}
+        domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
         self.fracture_network = pp.FractureNetwork2d(None, None, domain)
 
     def mesh_arguments(self) -> dict:

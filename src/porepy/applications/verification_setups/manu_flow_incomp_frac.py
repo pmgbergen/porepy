@@ -622,7 +622,7 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
 
         """
         # Unit square domain
-        domain: dict[str, number] = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
         # Point coordinates
         point_coordinates = np.array(

@@ -57,7 +57,7 @@ class FractureNetwork2d:
         self,
         pts: Optional[np.ndarray] = None,
         edges: Optional[np.ndarray] = None,
-        domain: Optional[dict[str, float] | np.ndarray] = None,
+        domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
     ) -> None:
         """Define the fracture set.
@@ -87,16 +87,8 @@ class FractureNetwork2d:
 
         """
 
-        if isinstance(domain, np.ndarray):
-            domain = pp.domain.bounding_box_of_point_cloud(domain)
-
-        self.domain: dict[str, float] | None = domain
-        """The domain for this fracture network.
-
-        The domain is defined by a dictionary with keys 'xmin', 'xmax', 'ymin', 'ymax'.
-        If not specified, the domain will be set to the bounding box of the fractures.
-
-        """
+        self.domain: pp.Domain | None = domain
+        """The domain for this fracture network."""
 
         self.tol = tol
         """Tolerance used in geometric computations."""
@@ -119,6 +111,7 @@ class FractureNetwork2d:
         This will include intersection points identified.
         """
 
+        # Logging
         if pts is None and edges is None:
             logger.info("Generated empty fracture set")
         elif pts is not None and edges is not None:
@@ -718,7 +711,7 @@ class FractureNetwork2d:
 
     def impose_external_boundary(
         self,
-        domain: Optional[Union[dict, np.ndarray]] = None,
+        domain: Optional[pp.Domain] = None,
         add_domain_edges: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -740,24 +733,32 @@ class FractureNetwork2d:
                 and therefore deleted.
 
         """
-        if domain is None:
-            domain = self.domain
-
-        if isinstance(domain, dict):
+        if domain is not None:
             # First create lines that define the domain
-            x_min = domain["xmin"]
-            x_max = domain["xmax"]
-            y_min = domain["ymin"]
-            y_max = domain["ymax"]
+            x_min = domain.bounding_box["xmin"]
+            x_max = domain.bounding_box["xmax"]
+            y_min = domain.bounding_box["ymin"]
+            y_max = domain.bounding_box["ymax"]
             dom_p: np.ndarray = np.array(
                 [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
             )
             dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
-        else:
-            assert isinstance(domain, np.ndarray)
-            dom_p = domain
-            tmp = np.arange(dom_p.shape[1])
-            dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
+
+        # if isinstance(domain, dict):
+        #     # First create lines that define the domain
+        #     x_min = domain["xmin"]
+        #     x_max = domain["xmax"]
+        #     y_min = domain["ymin"]
+        #     y_max = domain["ymax"]
+        #     dom_p: np.ndarray = np.array(
+        #         [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
+        #     )
+        #     dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+        # else:
+        #     assert isinstance(domain, np.ndarray)
+        #     dom_p = domain
+        #     tmp = np.arange(dom_p.shape[1])
+        #     dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
 
         # Constrain the edges to the domain
         p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(

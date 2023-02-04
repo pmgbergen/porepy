@@ -39,7 +39,7 @@ def set_mesh_sizes(mesh_args: dict):
 
 
 def make_mdg_2d_simplex(
-    mesh_args: dict, points: np.ndarray, fractures: np.ndarray, domain: dict
+    mesh_args: dict, points: np.ndarray, fractures: np.ndarray, domain: pp.Domain
 ):
     """Construct a mixed-dimensional simplex grid in the 2d domain.
 
@@ -50,7 +50,7 @@ def make_mdg_2d_simplex(
         points: Fracture endpoints.
         fractures: Connectivity list of the fractures, pointing to the provided
             endpoint list.
-        domain: Defines the size of the rectangular domain.
+        domain: Domain object.
 
     Returns:
         Mixed-dimensional grid with geometry computation and node ordering performed.
@@ -64,7 +64,7 @@ def make_mdg_2d_simplex(
 
 
 def make_mdg_2d_cartesian(
-    n_cells: np.ndarray, fractures: list[np.ndarray], domain: dict
+    n_cells: np.ndarray, fractures: list[np.ndarray], domain: pp.Domain
 ):
     """
     Construct a Cartesian mixed-dimensional grid in the 2d domain.
@@ -72,13 +72,15 @@ def make_mdg_2d_cartesian(
     Parameters:
         n_cells: Contains number of cells in x and y direction.
         fractures: Each element is an np.array([[x0, x1],[y0,y1]])
-        domain: Defines the size of the rectangular domain.
+        domain: Domain object.
 
     Returns:
         Mixed-dimensional grid with geometry computation and node ordering performed.
 
     """
     mdg: pp.MixedDimensionalGrid = pp.meshing.cart_grid(
-        fractures, n_cells, physdims=[domain["xmax"], domain["ymax"]]
+        fractures,
+        n_cells,
+        physdims=[domain.bounding_box["xmax"], domain.bounding_box["ymax"]]
     )
     return mdg
