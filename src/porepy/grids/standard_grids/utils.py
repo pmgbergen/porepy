@@ -5,7 +5,7 @@ import numpy as np
 import porepy as pp
 
 
-def unit_domain(dimension: int):
+def unit_domain(dimension: int) -> pp.Domain:
     """Return a domain of unitary size extending from 0 to 1 in all dimensions.
 
     Parameters:

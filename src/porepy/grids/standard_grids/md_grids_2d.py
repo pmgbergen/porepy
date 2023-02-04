@@ -176,7 +176,7 @@ def two_intersecting(
         mdg = pp.meshing.cart_grid(
             [fracture0, fracture1],
             _n_cells(mesh_args),
-            physdims=[domain["xmax"], domain["ymax"]],
+            physdims=[domain.bounding_box["xmax"], domain.bounding_box["ymax"]],
         )
         mdg.compute_geometry()
     return mdg, domain
