@@ -1256,7 +1256,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
 class TestMpfaSimplexGrid(unittest.TestCase):
     def grid(self):
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
         mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         network = pp.FractureNetwork2d(domain=domain)
