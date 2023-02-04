@@ -102,14 +102,14 @@ class ProblemDataTime:
         with_fracture = getattr(self, "with_fracture", True)
         simplex = getattr(self, "simplex", True)
         if with_fracture:
-            mdg, self.box = pp.md_grids_2d.single_horizontal(
+            mdg, self.domain = pp.md_grids_2d.single_horizontal(
                 self.mesh_args, simplex=simplex
             )
             pp.contact_conditions.set_projections(mdg)
         else:
             nx = getattr(self, "nx", [3, 3])
             mdg = pp.meshing.cart_grid([], nx, physdims=[1, 1])
-            self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
+            self.domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
         self.mdg = mdg
         self.nd = mdg.dim_max()
 
