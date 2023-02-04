@@ -22,8 +22,8 @@ class ModelGeometry:
     """Well network."""
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
-    domain: pp.Domain
-    """Domain. Set by the method :meth:`set_md_grid`."""
+    domain_bounds: dict[str, float]
+    """Box-shaped domain. Set by the method :meth:`set_md_grid`."""
     nd: int
     """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
     units: pp.Units
@@ -62,7 +62,8 @@ class ModelGeometry:
 
         The method assigns the following attributes to self:
             mdg (pp.MixedDimensionalGrid): The produced grid bucket.
-            domain (pp.Domain): The domain, assumed to be box-shaped.
+            box (dict): The bounding box of the domain, defined through minimum and
+                maximum values in each dimension.
 
         """
 
@@ -72,21 +73,20 @@ class ModelGeometry:
             # Mono-dimensional grid by default
             phys_dims = np.array([1, 1]) * ls
             n_cells = np.array([2, 2])
-            bounding_box = {
+            self.domain_bounds = {
                 "xmin": 0,
                 "xmax": phys_dims[0] * ls,
                 "ymin": 0,
                 "ymax": phys_dims[1] * ls,
             }
-            self.domain = pp.Domain(bounding_box=bounding_box)
             g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
             g.compute_geometry()
             self.mdg = pp.meshing.subdomains_to_mdg([[g]])
         else:
             self.mdg = self.fracture_network.mesh(self.mesh_arguments())
             domain = self.fracture_network.domain
-            if isinstance(domain, pp.Domain) and domain.is_boxed:
-                self.domain = domain
+            if isinstance(domain, dict):
+                self.domain_bounds = domain
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
@@ -475,7 +475,7 @@ class ModelGeometry:
 
         """
         # Get domain boundary sides
-        box = self.domain.bounding_box
+        box = self.domain_bounds
         east = np.abs(box["xmax"] - sd.face_centers[0]) <= tol
         west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
         if self.mdg.dim_max() == 1:

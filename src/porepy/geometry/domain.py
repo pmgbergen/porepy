@@ -364,33 +364,3 @@ def grid_minmax_coordinates(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
         coords = sd.nodes
 
     return np.amin(coords, axis=1), np.amax(coords, axis=1)
-
-
-def point_cloud_from_polygon(polygon: list[np.ndarray]) -> np.ndarray:
-    """Translate a polygon to a point cloud.
-
-    Given a list of lines defining a polygon, obtain the vertices (x, y) that
-    equivalently define the polygon.
-
-    Parameters:
-        polygon: Polygon describing a domain.
-
-    Returns:
-        Point cloud array of ``shape=(2, num_vertex)``.
-
-    """
-    # Sanity check
-    for line in polygon:
-        assert line.shape[0] == 2
-
-    # Convert the polygon into an array
-    poly = np.empty(shape=(len(polygon), 4))
-    for idx, side in enumerate(polygon):
-        poly[idx, :] = np.concatenate(side)
-
-    # Create the point cloud
-    x_coo = poly[:, 0]
-    y_coo = poly[:, 2]
-    point_cloud = np.array([x_coo, y_coo])
-
-    return point_cloud

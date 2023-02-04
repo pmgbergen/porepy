@@ -1290,9 +1290,8 @@ class MandelGeometry(pp.ModelGeometry):
         """Set fracture network. Unit square with no fractures."""
         ls = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
-        bounding_box = {"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls}
-        domain = pp.Domain(bounding_box=bounding_box)
-        self.fracture_network = pp.FractureNetwork2d(None, None, domain=domain)
+        domain = {"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls}
+        self.fracture_network = pp.FractureNetwork2d(None, None, domain)
 
     def mesh_arguments(self) -> dict:
         """Set mesh arguments."""
@@ -1307,8 +1306,19 @@ class MandelGeometry(pp.ModelGeometry):
         """Set mixed-dimensional grid."""
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
         domain = self.fracture_network.domain
-        if isinstance(domain, pp.Domain) and domain.is_boxed:
-            self.domain = domain
+        # TODO: Purge after domain object type unification
+        if isinstance(domain, np.ndarray):
+            assert domain.shape == (2, 2)
+            self.domain_bounds: dict[str, float] = {
+                "xmin": domain[0, 0],
+                "xmax": domain[1, 0],
+                "ymin": domain[0, 1],
+                "ymax": domain[1, 1],
+            }
+        else:
+            assert isinstance(domain, dict)
+            self.domain_bounds = domain
+
 
 # -----> Boundary conditions
 class MandelBoundaryConditionsMechanicsTimeDependent(

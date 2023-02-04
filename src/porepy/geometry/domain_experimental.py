@@ -11,6 +11,3 @@ line_4 = np.array([[1, 1], [1, 0]])
 line_5 = np.array([[1, 0], [0, 0]])
 irregular_pentagon = [line_1, line_2, line_3, line_4, line_5]
 domain_from_polytope = pp.Domain(polytope=irregular_pentagon)
-
-#%% Check point cloud from polytope
-point_cloud = pp.domain.point_cloud_from_polygon(irregular_pentagon)

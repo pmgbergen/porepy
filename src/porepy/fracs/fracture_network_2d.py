@@ -42,7 +42,6 @@ class FractureNetwork2d:
             can be shared by fractures.
         edges (size: (2 + num_tags) x num_fracs): Fractures, defined as connections
             between the points.
-        #TODO: Update to pp.Domain
         domain: The domain in which the fracture set is defined. If dictionary, it
             should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which maps to a
             double giving the range of the domain. If np.array, it should be of size
@@ -58,19 +57,19 @@ class FractureNetwork2d:
         self,
         pts: Optional[np.ndarray] = None,
         edges: Optional[np.ndarray] = None,
-        domain: Optional[pp.Domain] = None,
+        domain: Optional[dict[str, float] | np.ndarray] = None,
         tol: float = 1e-8,
     ) -> None:
         """Define the fracture set.
 
         Parameters:
             pts (np.array, 2 x n): Start and endpoints of the fractures. Points
-                can be shared by fractures.
-            edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
-                indices, refering to pts, of the start and end points of the fractures.
-                Additional rows are optional tags of the fractures.
-            tol (double, optional): Tolerance used in geometric computations. Defaults
-                to1e-8.
+            can be shared by fractures.
+        edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
+            indices, refering to pts, of the start and end points of the fractures.
+            Additional rows are optional tags of the fractures.
+        tol (double, optional): Tolerance used in geometric computations. Defaults to
+            1e-8.
 
         """
         self.pts = np.zeros((2, 0)) if pts is None else pts
@@ -88,9 +87,14 @@ class FractureNetwork2d:
 
         """
 
-        self.domain: pp.Domain | None = domain
-        """The domain for this fracture network. If not specified, the domain will be
-         set to the bounding box of the fractures.
+        if isinstance(domain, np.ndarray):
+            domain = pp.domain.bounding_box_of_point_cloud(domain)
+
+        self.domain: dict[str, float] | None = domain
+        """The domain for this fracture network.
+
+        The domain is defined by a dictionary with keys 'xmin', 'xmax', 'ymin', 'ymax'.
+        If not specified, the domain will be set to the bounding box of the fractures.
 
         """
 
@@ -144,13 +148,12 @@ class FractureNetwork2d:
 
         It is assumed that the domains, if specified, are on a dictionary form.
 
-        WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have
-        different set of tags, the necessary rows and columns are filled with what is
-        essentially
+        WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have different
+        set of tags, the necessary rows and columns are filled with what is essentially
         random values.
 
         Parameters:
-            fs (FractureSet): Another set to be added.
+            fs (FractureSet): Another set to be added
 
         Returns:
             New fracture set, containing all points and edges in both self and
@@ -197,22 +200,12 @@ class FractureNetwork2d:
             e = np.vstack((e, tags))
 
         if self.domain is not None and fs.domain is not None:
-            # Create the new bounding box and domain
-            xmin = np.minimum(
-                self.domain.bounding_box["xmin"], fs.domain.bounding_box["xmin"],
-            )
-            xmax = np.maximum(
-                self.domain.bounding_box["xmax"], fs.domain.bounding_box["xmax"],
-            )
-            ymin = np.minimum(
-                self.domain.bounding_box["ymin"], fs.domain.bounding_box["ymin"],
-            )
-            ymax = np.maximum(
-                self.domain.bounding_box["ymax"], fs.domain.bounding_box["ymax"]
-            )
-            domain = pp.Domain(
-                bounding_box={"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
-            )
+            domain = {
+                "xmin": np.minimum(self.domain["xmin"], fs.domain["xmin"]),
+                "xmax": np.maximum(self.domain["xmax"], fs.domain["xmax"]),
+                "ymin": np.minimum(self.domain["ymin"], fs.domain["ymin"]),
+                "ymax": np.maximum(self.domain["ymax"], fs.domain["ymax"]),
+            }
         elif self.domain is not None:
             domain = self.domain
         elif fs.domain is not None:
@@ -220,14 +213,8 @@ class FractureNetwork2d:
         else:
             domain = None
 
-        fn = FractureNetwork2d(
-            pts=p,
-            edges=e,
-            domain=domain,
-            tol=self.tol
-        )
+        fn = FractureNetwork2d(p, e, domain, self.tol)
         fn.tags = tags
-
         return fn
 
     def mesh(
@@ -342,8 +329,7 @@ class FractureNetwork2d:
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
-        NOTE: Consider using the mesh() function instead to get a ready
-        MixedDimensionalGrid.
+        NOTE: Consider using the mesh() function instead to get a ready MixedDimensionalGrid.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
@@ -732,7 +718,7 @@ class FractureNetwork2d:
 
     def impose_external_boundary(
         self,
-        domain: Optional[pp.Domain] = None,
+        domain: Optional[Union[dict, np.ndarray]] = None,
         add_domain_edges: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -740,9 +726,7 @@ class FractureNetwork2d:
 
         Fractures outside the imposed domain will be deleted.
 
-        The domain will be added to self.pts and self.edges, if add_domain_edges is
-        True.
-
+        The domain will be added to self.pts and self.edges, if add_domain_edges is True.
         The domain boundary edges can be identified from self.tags['boundary'].
 
         Args:
@@ -759,27 +743,21 @@ class FractureNetwork2d:
         if domain is None:
             domain = self.domain
 
-        if isinstance(domain, pp.Domain):
-            # Obtain domain points and domain lines
-            dom_p = pp.domain.point_cloud_from_polygon(domain.polytope)
+        if isinstance(domain, dict):
+            # First create lines that define the domain
+            x_min = domain["xmin"]
+            x_max = domain["xmax"]
+            y_min = domain["ymin"]
+            y_max = domain["ymax"]
+            dom_p: np.ndarray = np.array(
+                [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
+            )
+            dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+        else:
+            assert isinstance(domain, np.ndarray)
+            dom_p = domain
             tmp = np.arange(dom_p.shape[1])
             dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
-
-        # if isinstance(domain, dict):
-        #     # First create lines that define the domain
-        #     x_min = domain["xmin"]
-        #     x_max = domain["xmax"]
-        #     y_min = domain["ymin"]
-        #     y_max = domain["ymax"]
-        #     dom_p: np.ndarray = np.array(
-        #         [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
-        #     )
-        #     dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
-        # else:
-        #     assert isinstance(domain, np.ndarray)
-        #     dom_p = domain
-        #     tmp = np.arange(dom_p.shape[1])
-        #     dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
 
         # Constrain the edges to the domain
         p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(
@@ -963,7 +941,6 @@ class FractureNetwork2d:
     ---------------------------------
     """
 
-    # @EK: Can we drop this private method? Is not used in any part.
     def _decompose_domain(self, domain, num_x, ny=None):
         x0 = domain["xmin"]
         dx = (domain["xmax"] - domain["xmin"]) / num_x
@@ -997,8 +974,7 @@ class FractureNetwork2d:
         if domain is None:
             domain = self.domain
 
-        # p_domain = self._domain_to_points(domain)
-        p_domain = pp.domain.point_cloud_from_polygon(domain.polytope)
+        p_domain = self._domain_to_points(domain)
 
         p, e, _ = pp.constrain_geometry.lines_by_polygon(p_domain, self.pts, self.edges)
 
@@ -1042,14 +1018,9 @@ class FractureNetwork2d:
         p_new = np.copy(self.pts)
         edges_new = np.copy(self.edges)
         domain = self.domain
-        # Since pp.Domain() doesn't have a copy method, create a new object
         if domain is not None:
-            if domain.is_boxed:
-                bounding_box = copy.deepcopy(domain.bounding_box)
-                domain = pp.Domain(bounding_box=bounding_box)
-            else:
-                polytope = domain.polytope.copy()
-                domain = pp.Domain(polytope=polytope)
+            # Get a deep copy of domain, but no need to do that if domain is None
+            domain = copy.deepcopy(domain)
         fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
         fn.tags = self.tags.copy()
 
