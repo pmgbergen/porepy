@@ -452,7 +452,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         alpha_2d=None,
     ):
 
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
         if num_fracs == 0:
             p = np.zeros((2, 0))
@@ -688,7 +688,8 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 class TestMortar3D(unittest.TestCase):
     def setup(self, num_fracs=1, remove_tags=False):
 
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+        bbox = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+        domain = pp.Domain(bbox)
 
         if num_fracs == 0:
             fl = []
@@ -722,7 +723,7 @@ class TestMortar3D(unittest.TestCase):
                 ),
             ]
 
-        network = pp.FractureNetwork3d(fl, domain)
+        network = pp.FractureNetwork3d(fl, domain.bounding_box)
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
         mdg = network.mesh(mesh_args)
 
