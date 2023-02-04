@@ -1065,7 +1065,7 @@ class TestDFMNonConvexDomain(unittest.TestCase):
 
 class Test2dDomain(unittest.TestCase):
     def setUp(self):
-        self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        self.domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
         self.mesh_args = {
             "mesh_size_bound": 1,
             "mesh_size_frac": 1,
