@@ -21,23 +21,29 @@ import pytest
 
 import porepy as pp
 from porepy.applications.verification_setups.mandel_biot import (
+    MandelSaveData,
     MandelSetup,
     mandel_fluid_constants,
     mandel_solid_constants,
 )
 
-# Run verification setup and retrieve results for three different times
-material_constants = {
-    "fluid": pp.FluidConstants(mandel_fluid_constants),
-    "solid": pp.SolidConstants(mandel_solid_constants),
-}
-time_manager = pp.TimeManager([0, 10, 30, 50], 10, True)
-params = {
-    "material_constants": material_constants,
-    "time_manager": time_manager,
-}
-setup = MandelSetup(params)
-pp.run_time_dependent_model(setup, params)
+
+@pytest.fixture(scope="module")
+def results() -> list[MandelSaveData]:
+    # Run verification setup and retrieve results for three different times
+    material_constants = {
+        "fluid": pp.FluidConstants(mandel_fluid_constants),
+        "solid": pp.SolidConstants(mandel_solid_constants),
+    }
+    time_manager = pp.TimeManager([0, 10, 30, 50], 10, True)
+    params = {
+        "material_constants": material_constants,
+        "time_manager": time_manager,
+    }
+    setup = MandelSetup(params)
+    pp.run_time_dependent_model(setup, params)
+    return setup.results
+
 
 # Desired errors
 DesiredError = namedtuple(
@@ -77,11 +83,8 @@ desired_errors: list[DesiredError] = [
 ]
 
 
-@pytest.mark.parametrize(
-    "desired, actual",
-    [(desired, actual) for (desired, actual) in zip(desired_errors, setup.results)],
-)
-def test_error_primary_and_secondary_variables(desired, actual):
+@pytest.mark.parametrize("time_index", [0, 1, 2])
+def test_error_primary_and_secondary_variables(time_index: int, results):
     """Checks error for pressure, displacement, flux, force, and consolidation degree.
 
     Physical parameters used in this test have been adapted from [1].
@@ -110,6 +113,8 @@ def test_error_primary_and_secondary_variables(desired, actual):
           54(2), 942-968.
 
     """
+    actual = results[time_index]
+    desired = desired_errors[time_index]
 
     np.testing.assert_allclose(
         actual.error_pressure, desired.error_pressure, atol=1e-5, rtol=1e-3
