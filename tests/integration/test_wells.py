@@ -37,7 +37,7 @@ def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
         np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.1, 0.1, 0.1, 0.1]]),
     ]
     fractures = [pp.PlaneFracture(fracture_coords[i]) for i in fracture_indices]
-    fracture_network = pp.FractureNetwork3d(fractures, domain)
+    fracture_network = pp.FractureNetwork3d(fractures, domain.bounding_box)
 
     # Vertical well extending from 0.1 (frac 2) to upper boundary and
     #   tilted well extending from 0.2 (frac 1) to upper boundary
