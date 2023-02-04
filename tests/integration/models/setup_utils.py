@@ -106,7 +106,7 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         if num_fracs > 2:
             pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
         fractures = [pp.PlaneFracture(p) for p in pts]
-        self.fracture_network = pp.FractureNetwork3d(fractures, domain)
+        self.fracture_network = pp.FractureNetwork3d(fractures, domain.bounding_box)
 
     def mesh_arguments(self) -> dict:
         # Length scale:
