@@ -8,6 +8,7 @@ import logging
 import numpy as np
 from scipy.spatial.distance import cdist
 
+import copy
 import porepy as pp
 from porepy.models import contact_mechanics_model
 
@@ -41,7 +42,7 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
 
         """
         x_endpoints = np.array([0.2, 0.8])
-        self.mdg, self.box = mdg, self.box = pp.md_grids_2d.single_horizontal(
+        self.mdg, self.domain = pp.md_grids_2d.single_horizontal(
             self.mesh_args,
             x_endpoints,
         )
@@ -57,7 +58,7 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
         boundaries.
         """
         tol = 1e-10
-        box = self.box
+        box = copy.deepcopy(self.domain.bounding_box)
         east = g.face_centers[0] > box["xmax"] - tol
         west = g.face_centers[0] < box["xmin"] + tol
         north = g.face_centers[1] > box["ymax"] - tol
