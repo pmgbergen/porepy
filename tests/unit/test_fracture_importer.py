@@ -184,12 +184,12 @@ class TestImport3dCsv(unittest.TestCase):
 
         network = pp.fracture_importer.network_3d_from_csv(file_name)
         self.assertTrue(len(network._fractures) == 0)
-        self.assertTrue(network.domain["xmin"] == 0)
-        self.assertTrue(network.domain["ymin"] == 1)
-        self.assertTrue(network.domain["zmin"] == 2)
-        self.assertTrue(network.domain["xmax"] == 3)
-        self.assertTrue(network.domain["ymax"] == 4)
-        self.assertTrue(network.domain["zmax"] == 5)
+        self.assertTrue(network.domain.bounding_box["xmin"] == 0)
+        self.assertTrue(network.domain.bounding_box["ymin"] == 1)
+        self.assertTrue(network.domain.bounding_box["zmin"] == 2)
+        self.assertTrue(network.domain.bounding_box["xmax"] == 3)
+        self.assertTrue(network.domain.bounding_box["ymax"] == 4)
+        self.assertTrue(network.domain.bounding_box["zmax"] == 5)
 
     def test_single_fracture(self):
         p = np.atleast_2d(np.array([0, 0, 0, 1, 1, 1, 1, 0, 1]))
@@ -224,12 +224,12 @@ class TestImport3dElliptic(unittest.TestCase):
 
         network = pp.fracture_importer.network_3d_from_csv(file_name)
         self.assertTrue(len(network._fractures) == 0)
-        self.assertTrue(network.domain["xmin"] == 0)
-        self.assertTrue(network.domain["ymin"] == 1)
-        self.assertTrue(network.domain["zmin"] == 2)
-        self.assertTrue(network.domain["xmax"] == 3)
-        self.assertTrue(network.domain["ymax"] == 4)
-        self.assertTrue(network.domain["zmax"] == 5)
+        self.assertTrue(network.domain.bounding_box["xmin"] == 0)
+        self.assertTrue(network.domain.bounding_box["ymin"] == 1)
+        self.assertTrue(network.domain.bounding_box["zmin"] == 2)
+        self.assertTrue(network.domain.bounding_box["xmax"] == 3)
+        self.assertTrue(network.domain.bounding_box["ymax"] == 4)
+        self.assertTrue(network.domain.bounding_box["zmax"] == 5)
 
     def test_create_fracture(self):
         p = np.atleast_2d([0, 0, 0, 2, 1, 0, 0, 0, 16])

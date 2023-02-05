@@ -42,13 +42,8 @@ class FractureNetwork2d:
             can be shared by fractures.
         edges (size: (2 + num_tags) x num_fracs): Fractures, defined as connections
             between the points.
-        domain: The domain in which the fracture set is defined. If dictionary, it
-            should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which maps to a
-            double giving the range of the domain. If np.array, it should be of size
-            2 x n, and given the vertexes of the domain. The fractures need not lay
-            inside the domain.
-            TODO: The np.ndarray gives all kind of trouble with typing in other places.
-            Should be dropped.
+        domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
+            the domain. Can be box-shaped or a general (non-convex) polygon.
         tol: Tolerance used in geometric computations.
 
     """
@@ -87,6 +82,7 @@ class FractureNetwork2d:
 
         """
 
+        # TODO: Is it possible to always set pp.Domain as attribute?
         self.domain: pp.Domain | None = domain
         """The domain for this fracture network."""
 
@@ -141,9 +137,9 @@ class FractureNetwork2d:
 
         It is assumed that the domains, if specified, are on a dictionary form.
 
-        WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have different
-        set of tags, the necessary rows and columns are filled with what is essentially
-        random values.
+        WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have
+        different set of tags, the necessary rows and columns are filled with what is
+        essentially random values.
 
         Parameters:
             fs (FractureSet): Another set to be added
@@ -193,12 +189,20 @@ class FractureNetwork2d:
             e = np.vstack((e, tags))
 
         if self.domain is not None and fs.domain is not None:
-            domain = {
-                "xmin": np.minimum(self.domain["xmin"], fs.domain["xmin"]),
-                "xmax": np.maximum(self.domain["xmax"], fs.domain["xmax"]),
-                "ymin": np.minimum(self.domain["ymin"], fs.domain["ymin"]),
-                "ymax": np.maximum(self.domain["ymax"], fs.domain["ymax"]),
-            }
+            xmin = np.minimum(
+                self.domain.bounding_box["xmin"], fs.domain.bounding_box["xmin"]
+            )
+            ymin = np.minimum(
+                self.domain.bounding_box["ymin"], fs.domain.bounding_box["ymin"]
+            )
+            xmax = np.maximum(
+                self.domain.bounding_box["xmax"], fs.domain.bounding_box["xmax"]
+            )
+            ymax = np.maximum(
+                self.domain.bounding_box["ymax"], fs.domain.bounding_box["ymax"]
+            )
+            new_bounding_box = {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
+            domain = pp.Domain(new_bounding_box)
         elif self.domain is not None:
             domain = self.domain
         elif fs.domain is not None:
@@ -225,10 +229,10 @@ class FractureNetwork2d:
         clear_gmsh: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
-        """Create MixedDimensionalGrid (mixed-dimensional grid) for this fracture network.
+        """Create a mixed-dimensional grid for this fracture network.
 
         Parameters:
-            mesh_args: Arguments passed on to mesh size control
+            mesh_args: Arguments passed on to mesh size control.
             tol (double, optional): Tolerance used for geometric computations.
                 Defaults to the tolerance of this network.
             do_snap (boolean, optional): Whether to snap lines to avoid small
@@ -255,7 +259,7 @@ class FractureNetwork2d:
                 geometry before adding a new one. Defaults to False.
 
         Returns:
-            MixedDimensionalGrid: Mixed-dimensional mesh.
+            MixedDimensionalGrid: Mixed-dimensional grid.
 
         """
         if file_name is None:
@@ -322,10 +326,11 @@ class FractureNetwork2d:
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
-        NOTE: Consider using the mesh() function instead to get a ready MixedDimensionalGrid.
+        NOTE: Consider using the mesh() function instead to get a ready
+        MixedDimensionalGrid.
 
         Parameters:
-            mesh_args: Arguments passed on to mesh size control
+            mesh_args: Arguments passed on to mesh size control.
             tol (double, optional): Tolerance used for geometric computations.
                 Defaults to the tolerance of this network.
             do_snap (boolean, optional): Whether to snap lines to avoid small
@@ -335,8 +340,8 @@ class FractureNetwork2d:
                 the meshing algorithm.
             dfn (boolean, optional): If True, a DFN mesh (of the network, but not
                 the surrounding matrix) is created.
-                remove_small_fractures
-                Whether to remove small fractures. FIXME: expand documentation.
+            remove_small_fractures: Whether to remove small fractures.
+                FIXME: expand documentation.
 
         Returns:
             MixedDimensionalGrid: Mixed-dimensional mesh.
@@ -975,31 +980,26 @@ class FractureNetwork2d:
         if domain is None:
             domain = self.domain
 
-        p_domain = self._domain_to_points(domain)
+        p_domain = self._bounding_box_to_points(domain.bounding_box)
 
         p, e, _ = pp.constrain_geometry.lines_by_polygon(p_domain, self.pts, self.edges)
 
         return FractureNetwork2d(p, e, domain, self.tol)
 
-    def _domain_to_points(self, domain):
-        """Helper function to convert a domain specification in the form of
-        a dictionary into a point set.
+    def _bounding_box_to_points(self, box: dict[str, pp.number]) -> np.ndarray:
+        """Helper function to convert a bounding box in the form of a dictionary into
+        a point set."""
 
-        If the domain is already a point set, nothing happens
+        if isinstance(box, dict):
+            p00 = np.array([box["xmin"], box["ymin"]]).reshape((-1, 1))
+            p10 = np.array([box["xmax"], box["ymin"]]).reshape((-1, 1))
+            p11 = np.array([box["xmax"], box["ymax"]]).reshape((-1, 1))
+            p01 = np.array([box["xmin"], box["ymax"]]).reshape((-1, 1))
+            point_set = np.hstack((p00, p10, p11, p01))
+        else:  # not a good practice, but kept for legacy reasons
+            point_set = box
 
-        """
-        if domain is None:
-            domain = self.domain
-
-        if isinstance(domain, dict):
-            p00 = np.array([domain["xmin"], domain["ymin"]]).reshape((-1, 1))
-            p10 = np.array([domain["xmax"], domain["ymin"]]).reshape((-1, 1))
-            p11 = np.array([domain["xmax"], domain["ymax"]]).reshape((-1, 1))
-            p01 = np.array([domain["xmin"], domain["ymax"]]).reshape((-1, 1))
-            return np.hstack((p00, p10, p11, p01))
-
-        else:
-            return domain
+        return point_set
 
     # Methods for copying fracture network
     def copy(self) -> "pp.FractureNetwork2d":
