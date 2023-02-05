@@ -1020,8 +1020,12 @@ class FractureNetwork2d:
         edges_new = np.copy(self.edges)
         domain = self.domain
         if domain is not None:
-            # Get a deep copy of domain, but no need to do that if domain is None
-            domain = copy.deepcopy(domain)
+            if domain.is_boxed:
+                box = copy.deepcopy(domain.bounding_box)
+                domain = pp.Domain(bounding_box=box)
+            else:
+                polytope = domain.polytope.copy()
+                domain = pp.Domain(polytope=polytope)
         fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
         fn.tags = self.tags.copy()
 
@@ -1141,7 +1145,10 @@ class FractureNetwork2d:
         return self.edges.shape[1]
 
     def _remove_orphan_pts(self):
-        """Remove points that are not part of any edge. Modify the numerations accordingly"""
+        """Remove points that are not part of any edge. Modify the numerations
+        accordingly.
+
+        """
 
         pts_id = np.unique(self.edges)
         all_pts_id = np.arange(self.pts.shape[1])
@@ -1307,14 +1314,14 @@ class FractureNetwork2d:
         pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
         return pts_c
 
-    def domain_measure(self, domain=None):
+    def bounding_box_measure(self, bounding_box=None):
         """Get the measure (length, area) of a given box domain, specified by its
         extensions stored in a dictionary.
 
         The dimension of the domain is inferred from the dictionary fields.
 
         Parameters:
-            domain (dictionary, optional): Should contain keys 'xmin' and 'xmax'
+            bounding_box (dictionary, optional): Should contain keys 'xmin' and 'xmax'
                 specifying the extension in the x-direction. If the domain is 2d,
                 it should also have keys 'ymin' and 'ymax'. If no domain is specified
                 the domain of this object will be used.
@@ -1323,12 +1330,14 @@ class FractureNetwork2d:
             double: Measure of the domain.
 
         """
-        if domain is None:
-            domain = self.domain
-        if "ymin" and "ymax" in domain.keys():
-            return (domain["xmax"] - domain["xmin"]) * (domain["ymax"] - domain["ymin"])
+        if bounding_box is None:
+            bounding_box = self.domain.bounding_box
+        if "ymin" and "ymax" in bounding_box.keys():
+            return (bounding_box["xmax"] - bounding_box["xmin"]) * (
+                bounding_box["ymax"] - bounding_box["ymin"]
+            )
         else:
-            return domain["xmax"] - domain["xmin"]
+            return bounding_box["xmax"] - bounding_box["xmin"]
 
     def plot(self, **kwargs):
         """Plot the fracture set.
