@@ -185,8 +185,9 @@ def plot_fractures(
     return ax
 
 
-def plot_wells(d: pp.Domain, w: np.ndarray, colortag: Optional[np.ndarray] = None,
-               **kwargs):
+def plot_wells(
+    d: pp.Domain, w: np.ndarray, colortag: Optional[np.ndarray] = None, **kwargs
+):
     """Plot 2d wells as points in a domain.
 
     The function is primarily intended for data exploration.
