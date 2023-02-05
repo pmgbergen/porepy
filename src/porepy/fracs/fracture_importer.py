@@ -84,7 +84,7 @@ def network_3d_from_csv(
 
     # Create the network
     if has_domain:
-        return pp.FractureNetwork3d(frac_list, tol=tol, domain=domain.bounding_box)
+        return pp.FractureNetwork3d(frac_list, tol=tol, domain=domain)
     else:
         return pp.FractureNetwork3d(frac_list, tol=tol)
 
