@@ -1,3 +1,5 @@
+"""Module containing classes and functions for definining and manupilating a domain."""
+
 from __future__ import annotations
 
 from typing import NamedTuple, Optional
@@ -11,10 +13,14 @@ import porepy as pp
 class Domain:
     """Class for the geometrical representation of the domain.
 
-    There are two ways of constructing a domain in PorePy: (1) by passing the
-    bounding box as a dictionary (we assume therefore that the domain is a box) or
-    (2) by passing a polytope (polygon in 2d and poyhedron in 3d), which are lists of
-    numpy arrays defining a general domain (this also includes non-convex domains).
+    There are two ways of constructing a domain in PorePy:
+
+    - (1) By passing the bounding box as a dictionary (we assume therefore that the
+      domain is a box) or,
+
+    - (2) By passing a polytope (polygon in 2d and poyhedron in 3d), which are lists of
+      numpy arrays defining a general domain (this also includes non-convex domains).
+
     See the class constructor documentation for more details.
 
     """
@@ -40,11 +46,12 @@ class Domain:
                 vertices defining the line, i.e., first row the x-coordinates and
                 second row the y-coordinates.
 
-                A 3d-polytope (e.g., a polyhedron) is a list of arrays of ``shape = (3,
-                num_vertex)``. Every array represents a polygon with ``num_vertex``
-                vertices. The rows of each array contain the coordinates of the
-                vertices defining the polygon, i.e., first row the x-coordinates,
-                second row the y-coordinates, and third row the z-coordinates.
+                A 3d-polytope (e.g., a polyhedron) is a list of arrays of
+                ``shape = (3, num_vertex)``. Every array represents a polygon with
+                ``num_vertex`` vertices. The rows of each array contain the
+                coordinates of the vertices defining the polygon, i.e., first row the
+                x-coordinates, second row the y-coordinates, and third row the
+                z-coordinates.
 
         Examples:
 
@@ -52,7 +59,7 @@ class Domain:
 
                 # Create a domain from a bounding box
                 domain_from_box = pp.Domain(
-                    bounding_box={"xmin":0, "xmax":1, "ymin":0, "ymin":1}
+                    bounding_box={"xmin": 0, "xmax": 1, "ymin": 0, "ymin": 1}
                 )
 
                 # Create a domain from a 2d-polytope
@@ -171,6 +178,7 @@ class Domain:
         Returns:
             List of four arrays of ``shape = (2, 2)`` representing the sides of
             the polygon (e.g., the rectangle).
+
         """
         x0 = self.bounding_box["xmin"]
         x1 = self.bounding_box["xmax"]
