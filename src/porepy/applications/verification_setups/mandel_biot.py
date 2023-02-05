@@ -1306,18 +1306,8 @@ class MandelGeometry(pp.ModelGeometry):
         """Set mixed-dimensional grid."""
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
         domain = self.fracture_network.domain
-        # TODO: Purge after domain object type unification
-        if isinstance(domain, np.ndarray):
-            assert domain.shape == (2, 2)
-            self.domain_bounds: dict[str, float] = {
-                "xmin": domain[0, 0],
-                "xmax": domain[1, 0],
-                "ymin": domain[0, 1],
-                "ymax": domain[1, 1],
-            }
-        else:
-            assert isinstance(domain, dict)
-            self.domain_bounds = domain
+        if domain is not None and domain.is_boxed:
+            self.domain: pp.Domain = domain
 
 
 # -----> Boundary conditions
