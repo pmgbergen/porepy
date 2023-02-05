@@ -500,12 +500,14 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
         ls = 1 / self.units.m
         phys_dims = np.array([height, height]) * ls  # scaled [m]
         n_cells = np.array([1, num_cells])
-        self.domain = pp.Domain({
-            "xmin": 0,
-            "xmax": phys_dims[0],
-            "ymin": 0,
-            "ymax": phys_dims[1],
-        })
+        self.domain = pp.Domain(
+            {
+                "xmin": 0,
+                "xmax": phys_dims[0],
+                "ymin": 0,
+                "ymax": phys_dims[1],
+            }
+        )
         sd: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         sd.compute_geometry()
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])

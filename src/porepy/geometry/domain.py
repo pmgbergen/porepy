@@ -306,7 +306,7 @@ def bounding_box_of_point_cloud(
 
 
 def mdg_minmax_coordinates(
-        mdg: pp.MixedDimensionalGrid
+    mdg: pp.MixedDimensionalGrid,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return the minimum and maximum coordinates of a mixed-dimensional grid.
 

@@ -186,8 +186,6 @@ class WellNetwork3d:
 
         if domain is not None:
             self.domain: pp.Domain = domain
-        else:
-            self.domain = domain
 
         self.tol = tol
 

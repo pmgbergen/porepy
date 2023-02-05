@@ -16,7 +16,7 @@ def unit_domain(dimension: int) -> pp.Domain:
 
     """
     assert dimension in np.arange(1, 4)
-    bbox = {"xmin": 0, "xmax": 1}
+    bbox: dict[str, pp.number] = {"xmin": 0, "xmax": 1}
     if dimension > 1:
         bbox.update({"ymin": 0, "ymax": 1})
     if dimension > 2:
@@ -81,6 +81,6 @@ def make_mdg_2d_cartesian(
     mdg: pp.MixedDimensionalGrid = pp.meshing.cart_grid(
         fractures,
         n_cells,
-        physdims=[domain.bounding_box["xmax"], domain.bounding_box["ymax"]]
+        physdims=[domain.bounding_box["xmax"], domain.bounding_box["ymax"]],
     )
     return mdg

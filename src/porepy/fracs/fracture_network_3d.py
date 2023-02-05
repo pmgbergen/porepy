@@ -1354,7 +1354,7 @@ class FractureNetwork3d(object):
         self.bounding_box_imposed = True
 
         if domain is not None:
-            self.domain: pp.Domain = domain
+            self.domain = domain
         else:
             # Compute a bounding box from the extension of the fractures.
             overlap = 0.15

@@ -7,7 +7,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import meshio
 import numpy as np

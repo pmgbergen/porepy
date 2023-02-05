@@ -15,13 +15,13 @@ and general name would be something like "equation_solve".
 from __future__ import annotations
 
 import abc
+import copy
 import logging
 import time
 import warnings
 from collections import namedtuple
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
-import copy
 import numpy as np
 import scipy.sparse as sps
 
@@ -90,12 +90,14 @@ class AbstractModel:
         """
         phys_dims = np.array([1, 1])
         n_cells = np.array([1, 1])
-        self.domain = pp.Domain({
-            "xmin": 0,
-            "xmax": phys_dims[0],
-            "ymin": 0,
-            "ymax": phys_dims[1],
-        })
+        self.domain = pp.Domain(
+            {
+                "xmin": 0,
+                "xmax": phys_dims[0],
+                "ymin": 0,
+                "ymax": phys_dims[1],
+            }
+        )
         g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         g.compute_geometry()
         self.mdg = pp.meshing.subdomains_to_mdg([[g]])
