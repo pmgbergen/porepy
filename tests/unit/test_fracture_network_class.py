@@ -3,6 +3,7 @@ Various checks of the FractureNetwork2d and 3d class
 
 Also test unitily function for generation of defalut domains.
 """
+from __future__ import annotations
 
 import unittest
 
