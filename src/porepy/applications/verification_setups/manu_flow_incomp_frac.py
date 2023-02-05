@@ -656,7 +656,7 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
 class ManuIncompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility function to access the domain boundary sides."""
 
     exact_sol: ManuIncompExactSolution

@@ -440,7 +440,7 @@ class ModelGeometry:
 
     def domain_boundary_sides(
         self, sd: pp.Grid, tol: Optional[float] = 1e-10
-    ) -> pp.bounding_box.DomainSides:
+    ) -> pp.domain.DomainSides:
         """Obtain indices of the faces lying on the sides of the domain boundaries.
 
         The method is primarily intended for box-shaped domains. However, it can also be
@@ -495,7 +495,7 @@ class ModelGeometry:
         all_bf = sd.get_boundary_faces()
 
         # Create a namedtuple to store the arrays
-        domain_sides = pp.bounding_box.DomainSides(
+        domain_sides = pp.domain.DomainSides(
             all_bf, east, west, north, south, top, bottom
         )
 

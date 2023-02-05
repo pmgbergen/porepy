@@ -518,7 +518,7 @@ class TerzaghiBoundaryConditionsMechanicsTimeDependent(
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Named tuple containing the boundary sides indices."""
 
     stress_keyword: str
@@ -588,7 +588,7 @@ class TerzaghiBoundaryConditionsSinglePhaseFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility function containing the indices of the domain boundary sides."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:

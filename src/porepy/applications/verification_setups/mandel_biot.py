@@ -627,7 +627,7 @@ class MandelExactSolution:
 class MandelUtilities(VerificationUtils):
     """Mixin class that provides useful utility methods for the verification setup."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Named tuple containing the boundary sides indices."""
 
     exact_sol: MandelExactSolution
@@ -1315,7 +1315,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility method to access the indices of the sides of the domain."""
 
     exact_sol: MandelExactSolution
@@ -1412,7 +1412,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
 class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility method to access the indices of the sides of the domain."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
