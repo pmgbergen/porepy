@@ -723,7 +723,7 @@ class TestMortar3D(unittest.TestCase):
                 ),
             ]
 
-        network = pp.FractureNetwork3d(fl, domain.bounding_box)
+        network = pp.FractureNetwork3d(fl, domain)
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
         mdg = network.mesh(mesh_args)
 
