@@ -93,7 +93,7 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         ls = 1 / self.units.m
 
         num_fracs = self.params.get("num_fracs", 1)
-        domain = pp.grids.standard_grids.utils.unit_domain(3)
+        domain: pp.Domain = pp.grids.standard_grids.utils.unit_domain(3)
         pts = []
         if num_fracs > 0:
             # The three fractures are defined by pertubations of the coordinate arrays.
@@ -106,7 +106,7 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         if num_fracs > 2:
             pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
         fractures = [pp.PlaneFracture(p) for p in pts]
-        self.fracture_network = pp.FractureNetwork3d(fractures, domain.bounding_box)
+        self.fracture_network = pp.FractureNetwork3d(fractures, domain)
 
     def mesh_arguments(self) -> dict:
         # Length scale:
