@@ -32,9 +32,8 @@ class FractureNetwork3d(object):
     """
     Collection of Fractures with geometrical information. Facilitates
     computation of intersections of the fracture. Also incorporates the
-    bounding box of the domain. To ensure
-    that all fractures lie within the box, call impose_external_boundary()
-    _after_ all fractures have been specified.
+    bounding box of the domain. To ensure that all fractures lie within the box,
+    call :meth:`impose_external_boundary()` _after_ all fractures have been specified.
 
     Attributes:
         _fractures (list of Fracture): All fractures forming the network.
@@ -44,8 +43,7 @@ class FractureNetwork3d(object):
             method has been run. Useful in meshing algorithms to avoid
             recomputing known information.
         tol (double): Geometric tolerance used in computations.
-        domain (dictionary): External bounding box. See
-            impose_external_boundary() for details.
+        domain (pp.Domain): Domain specification.
         tags (dictionary): Tags used on Fractures and subdomain boundaries.
         mesh_size_min (double): Mesh size parameter, minimum mesh size to be
             sent to gmsh. Set by insert_auxiliary_points().
@@ -65,7 +63,7 @@ class FractureNetwork3d(object):
     def __init__(
         self,
         fractures: Optional[list[PlaneFracture]] = None,
-        domain: Optional[Union[dict[str, float], list[np.ndarray]]] = None,
+        domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
         run_checks: bool = False,
     ) -> None:
@@ -80,8 +78,7 @@ class FractureNetwork3d(object):
         Parameters:
             fractures (list of Fracture, optional): Fractures that make up the network.
                 Defaults to None, which will create a domain empty of fractures.
-            domain (either dictionary or list of np.arrays): Domain specification. See
-                self.impose_external_boundary() for details.
+            domain (pp.Domain): Domain specification.
             tol (double, optional): Tolerance used in geometric computations. Defaults
                 to 1e-8.
             run_checks (boolean, optional): Run consistency checks during the network
@@ -165,7 +162,12 @@ class FractureNetwork3d(object):
         domain = self.domain
         if domain is not None:
             # Get a deep copy of domain, but no need to do that if domain is None
-            domain = copy.deepcopy(domain)
+            if domain.is_boxed:
+                box = copy.deepcopy(domain.bounding_box)
+                domain = pp.Domain(bounding_box=box)
+            else:
+                polytope = domain.polytope.copy()
+                domain = pp.Domain(polytope=polytope)
 
         return FractureNetwork3d(fracs, domain, self.tol)
 
@@ -1289,7 +1291,7 @@ class FractureNetwork3d(object):
 
     def impose_external_boundary(
         self,
-        domain: Optional[Union[dict[str, float], list[np.ndarray]]] = None,
+        domain: Optional[pp.Domain] = None,
         keep_box: bool = True,
         area_threshold: float = 1e-4,
         clear_gmsh: bool = True,
@@ -1316,7 +1318,7 @@ class FractureNetwork3d(object):
 
         Parameters
         ----------
-        domain (dictionary or list of np.ndarray): See above for description.
+        domain (pp.Domain): See above for description.
         keep_box (bool, optional): If True (default), the bounding surfaces will be
             added to the end of the fracture list, and tagged as boundary.
         area_threshold (float): Lower threshold for how much of a fracture's area
@@ -1352,12 +1354,7 @@ class FractureNetwork3d(object):
         self.bounding_box_imposed = True
 
         if domain is not None:
-            if isinstance(domain, dict):
-                # TODO: Construct with domain
-                polyhedron = pp.Domain(bounding_box=domain).polytope_from_bounding_box()
-            else:
-                polyhedron = domain
-            self.domain = domain
+            self.domain: pp.Domain = domain
         else:
             # Compute a bounding box from the extension of the fractures.
             overlap = 0.15
@@ -1385,15 +1382,13 @@ class FractureNetwork3d(object):
                 "zmin": cmin[2] - dx[2],
                 "zmax": cmax[2] + dx[2],
             }
-            # TODO: Construct with domain
-            polyhedron = pp.Domain(bounding_box=box).polytope_from_bounding_box()
-            self.domain = polyhedron
+            self.domain = pp.Domain(box)
 
         # Constrain the fractures to lie within the bounding polyhedron
         polys = [f.pts for f in self._fractures]
 
         constrained_polys, inds = pp.constrain_geometry.polygons_by_polyhedron(
-            polys, polyhedron
+            polys, self.domain.polytope
         )
         # Delete fractures that are not member of any constrained fracture
         old_frac_ind = np.arange(len(self._fractures))
@@ -1772,7 +1767,7 @@ class FractureNetwork3d(object):
 
         boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
         if keep_box:
-            for pnt in polyhedron:
+            for pnt in self.domain.polytope:
                 self.add(PlaneFracture(pnt))
                 boundary_tags.append(True)
         self.tags["boundary"] = boundary_tags
@@ -2515,7 +2510,7 @@ class FractureNetwork3d(object):
             # if the domain (as bounding box) is defined save it
             if domain is not None:
                 order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
-                csv_writer.writerow([domain[o] for o in order])
+                csv_writer.writerow([domain.bounding_box[o] for o in order])
 
             # write all the fractures
             for f in self._fractures:
