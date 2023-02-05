@@ -1,12 +1,12 @@
 """
 Various integration tests for contact mechanics.
 """
-import tests.common.contact_mechanics_examples
 import unittest
 
 import numpy as np
 
 import porepy as pp
+import tests.common.contact_mechanics_examples
 
 
 class TestDilation(unittest.TestCase):

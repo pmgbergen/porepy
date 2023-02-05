@@ -11,12 +11,12 @@
 
 """
 import unittest
-from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 def setup_stiffness(g, mu=1, l=1):

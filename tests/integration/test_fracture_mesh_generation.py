@@ -7,12 +7,12 @@ on any problems if ran as a main method.
 """
 import unittest
 from collections import namedtuple
-from tests import test_utils
 
 import numpy as np
 
 import porepy as pp
 from porepy.fracs import structured
+from tests import test_utils
 
 # Named tuple used to identify intersections of fractures by their parent fractures
 # and their coordinates

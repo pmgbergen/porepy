@@ -1,9 +1,9 @@
 """ Various tests of MixedDimensionalGrid functionality. Covers getters and setters, topological
 information on the bucket, and pickling and unpickling of buckets.
 """
+import os
 import pickle
 import unittest
-import os
 
 import numpy as np
 import scipy.sparse as sps

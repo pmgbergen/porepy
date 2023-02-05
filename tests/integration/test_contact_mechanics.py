@@ -205,11 +205,13 @@ class Model(pp.ContactMechanics):
             else:
                 self.frac_pts = np.array([[0.3, 0.7], [0.5, 0.5]])
             frac_edges = np.array([[0], [1]])
-            network = pp.FractureNetwork2d(self.frac_pts, frac_edges,
-                                           domain=self.domain)
+            network = pp.FractureNetwork2d(
+                self.frac_pts, frac_edges, domain=self.domain
+            )
         else:
-            self.domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1,
-                                     "zmin": 0, "zmax": 1})
+            self.domain = pp.Domain(
+                {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+            )
             pts = np.array(
                 [[0.2, 0.2, 0.8, 0.8], [0.5, 0.5, 0.5, 0.5], [0.2, 0.8, 0.8, 0.2]]
             )

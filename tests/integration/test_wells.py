@@ -9,12 +9,12 @@ Both tests check for number of grids, number of edges and three types of face
 tags. Grid node ordering is tacitly assumed - if the assumption is broken, the
 well implementation should also be revisited.
 """
+from typing import List
+
 import numpy as np
 import pytest
 
 import porepy as pp
-
-from typing import List
 
 
 def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):

@@ -8,6 +8,7 @@ import numpy as np
 
 import porepy as pp
 
+
 class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
     """A 2d domain with up to two orthogonal fractures.
 

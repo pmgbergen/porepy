@@ -3,12 +3,12 @@
 """ This module contains completed setups for simple contact mechanics problems,
 with and without poroelastic effects in the deformation of the Nd domain.
 """
+import copy
 import logging
 
 import numpy as np
 from scipy.spatial.distance import cdist
 
-import copy
 import porepy as pp
 from porepy.models import contact_mechanics_model
 

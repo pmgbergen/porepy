@@ -164,8 +164,9 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
             var = setup.equation_system.get_variables(["temperature"], [sd])
             vals = setup.equation_system.get_variable_values(var)
             assert np.allclose(
-                vals, 1 - sd.cell_centers[0] / setup.domain.bounding_box["xmax"],
-                rtol=1e-4
+                vals,
+                1 - sd.cell_centers[0] / setup.domain.bounding_box["xmax"],
+                rtol=1e-4,
             )
     else:
         # Advection dominated case.
