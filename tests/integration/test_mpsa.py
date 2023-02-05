@@ -1232,7 +1232,8 @@ class RobinBoundTest(unittest.TestCase):
 
     def test_unstruct_tetrahedron(self):
         box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        network = pp.FractureNetwork3d([], domain=box)
+        domain = pp.Domain(box)
+        network = pp.FractureNetwork3d([], domain=domain)
         mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
         mdg = network.mesh(mesh_args)
         sd = mdg.subdomains(dim=3)[0]

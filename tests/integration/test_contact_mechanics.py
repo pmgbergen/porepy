@@ -215,7 +215,7 @@ class Model(pp.ContactMechanics):
             )
             if rotate_fracture:
                 pts[1] = [0.2, 0.2, 0.8, 0.8]
-            network = pp.FractureNetwork3d([pp.PlaneFracture(pts)], domain=self.domain.bounding_box)
+            network = pp.FractureNetwork3d([pp.PlaneFracture(pts)], domain=self.domain)
 
         # Generate the mixed-dimensional mesh
         mdg = network.mesh(self.params["mesh_args"])
