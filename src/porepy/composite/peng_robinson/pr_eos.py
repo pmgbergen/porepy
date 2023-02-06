@@ -148,7 +148,7 @@ class PR_EoS:
 
         """
 
-        self._gaslike: bool = bool(gaslike)
+        self.gaslike: bool = bool(gaslike)
         """Flag passed at instantiation denoting the state of matter, liquid or gas."""
 
         assert mixingrule in ["VdW"], f"Unknown mixing rule {mixingrule}."
@@ -446,16 +446,16 @@ class PR_EoS:
 
         # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
+
         double_root_region = np.logical_and(degenerate_region, np.abs(r.val) > self.eps)
         triple_root_region = np.logical_and(
             degenerate_region, np.isclose(r.val, 0.0, atol=self.eps)
         )
 
-        # physically covered cases
-        one_root_region = delta.val > self.eps  # can only happen if p is positive
-        three_root_region = delta.val < -self.eps  # can only happen if p is negative
+        one_root_region = delta.val > self.eps
+        three_root_region = delta.val < -self.eps
 
-        # sanity check that every cell/case covered (with above exclusions)
+        # sanity check that every cell/case covered
         assert np.all(
             np.logical_or.reduce(
                 [
@@ -559,7 +559,7 @@ class PR_EoS:
             Z_G_jac[one_root_region] = Z_G_jac_1
 
             # save information about where it is extended
-            if self._gaslike:
+            if self.gaslike:
                 if np.any(liquid_region):
                     self.is_extended = liquid_region
             else:
@@ -576,7 +576,7 @@ class PR_EoS:
             z_triple = -c2_triple / 3
 
             # store root where it belongs
-            if self._gaslike:
+            if self.gaslike:
                 Z_G_val[triple_root_region] = z_triple.val
                 Z_G_jac[triple_root_region] = z_triple.jac
             else:
@@ -669,12 +669,12 @@ class PR_EoS:
             Z_G_val[three_root_region] = Z_G_3.val
             Z_G_jac[three_root_region] = Z_G_3.jac
 
-        if self._gaslike:
+        if self.gaslike:
             Z = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
         else:
             Z = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
 
-        # region = np.array(
+        # regions = np.array(
         #     [
         #         one_root_region[0],
         #         triple_root_region[0],
@@ -684,7 +684,7 @@ class PR_EoS:
         #     dtype=bool,
         # )
 
-        return Z  # , region  # region is for plotting purpose
+        return Z  # , regions  # region is for plotting purpose
 
     def get_rho(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Computes the molar density from scratch.

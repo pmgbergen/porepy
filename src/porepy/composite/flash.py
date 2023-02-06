@@ -935,18 +935,18 @@ class Flash:
             )
         elif initial_guess == "rachford_rice":
 
-            pressure = self._C.p.evaluate(ad_system).val
-            temperature = self._C.T.evaluate(ad_system).val
-            z_c = [comp.fraction.evaluate(ad_system).val for comp in self._C.components]
+            pressure = self._C.p.evaluate(ad_system)
+            temperature = self._C.T.evaluate(ad_system)
+            z_c = [comp.fraction.evaluate(ad_system) for comp in self._C.components]
 
             # Collects initial K values from Wilson's correlation
             K = [
                 comp.critical_pressure()
-                / pressure
+                / pressure.val
                 * pp.ad.exp(
                     5.37
                     * (1 + comp.acentric_factor)
-                    * (1 - comp.critical_temperature() / temperature)
+                    * (1 - comp.critical_temperature() / temperature.val)
                 )
                 + 1.0e-12
                 for comp in self._C.components
@@ -955,7 +955,7 @@ class Flash:
             def ResidualRR(Y, z_c, K):
                 res = np.zeros_like(Y)
                 for z_i, K_i in zip(z_c, K):
-                    res = res + (z_i * (K_i - 1)) / (1 + Y * (K_i - 1))
+                    res = res + (z_i.val * (K_i - 1)) / (1 + Y * (K_i - 1))
                 return res
 
             def FindPhaseFraction(a, b, z_c, K):
@@ -985,11 +985,11 @@ class Flash:
                 for phase in phases:
                     composition[phase] = dict()
                     for i, comp in enumerate(self._C.components):
-                        if phase.name == "L":
-                            x_ce = z_c[i] / (1 + Y * (K[i] - 1))
-                            composition[phase].update({comp: x_ce})
-                        if phase.name == "G":
+                        if phase.eos.gaslike:
                             x_ce = z_c[i] * K[i] / (1 + Y * (K[i] - 1))
+                            composition[phase].update({comp: x_ce})
+                        else:
+                            x_ce = z_c[i] / (1 + Y * (K[i] - 1))
                             composition[phase].update({comp: x_ce})
 
                 for phase in phases:
@@ -1004,19 +1004,19 @@ class Flash:
                 for phase in phases:
                     x_phase = [composition[phase][comp] for comp in self._C.components]
                     phase.eos.compute(pressure, temperature, *x_phase)
-                    if phase.name == "L":
-                        phi_L = list(phase.eos.phi.values())
-                    if phase.name == "G":
+                    if phase.eos.gaslike:
                         phi_G = list(phase.eos.phi.values())
+                    else:
+                        phi_L = list(phase.eos.phi.values())
 
                 for i, pair in enumerate(zip(phi_L, phi_G)):
-                    K[i] = pair[0] / (pair[1] + 1.0e-12)
+                    K[i] = (pair[0] / (pair[1] + 1.0e-12)).val
 
             # set values.
             for phase in phases:
                 for comp in self._C.components:
                     # set values
-                    x_ce = composition[phase][comp]
+                    x_ce = composition[phase][comp].val
                     ad_system.set_variable_values(
                         x_ce,
                         variables=[phase.fraction_of_component_name(comp)],
