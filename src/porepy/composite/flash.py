@@ -935,6 +935,10 @@ class Flash:
             )
         elif initial_guess == "rachford_rice":
 
+            assert (
+                self._C.num_phases == 2
+            ), "Rachford-Rice initial guess only supported for liquid-gas-equilibrium."
+
             pressure = self._C.p.evaluate(ad_system)
             temperature = self._C.T.evaluate(ad_system)
             z_c = [comp.fraction.evaluate(ad_system) for comp in self._C.components]
