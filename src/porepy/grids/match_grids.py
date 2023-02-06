@@ -532,26 +532,20 @@ def mdg_refinement(
 
     """
 
-    # Check that both mdg's have the same dimension
-    dim_mdg = mdg.dim_max()
-    dim_mdg_ref = mdg_ref.dim_max()
-    assert dim_mdg_ref == dim_mdg
-
-    # Check that both mdg's have the same number of subdomains
     subdomains = mdg.subdomains()
     subdomains_ref = mdg_ref.subdomains()
-    assert len(subdomains) == len(subdomains_ref)
 
-    # Check that both mdg's have the same bounding box
-    bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
-    bmin_ref, bmax_ref = pp.domain.mdg_minmax_coordinates(mdg_ref)
-    np.testing.assert_almost_equal(bmin, bmin_ref, decimal=8)
-    np.testing.assert_almost_equal(bmax, bmax_ref, decimal=8)
+    assert len(subdomains) == len(
+        subdomains_ref
+    ), "Weakly check that MixedDimensionalGrids refer to same domains"
+    assert np.allclose(
+        np.append(*pp.bounding_box.from_md_grid(mdg)),
+        np.append(*pp.bounding_box.from_md_grid(mdg_ref)),
+    ), "Weakly check that MixedDimensionalGrids refer to same domains"
 
-    # Strongly check that grids refer to same domain
     for i in np.arange(len(subdomains)):
         sd, sd_ref = subdomains[i], subdomains_ref[i]
-        assert sd.id == sd_ref
+        assert sd.id == sd_ref, "Strongly check that grids refer to same domain."
 
         # Compute the mapping for this subdomain-pair, and assign the result to the node
         # of the coarse mdg

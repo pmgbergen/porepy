@@ -7,9 +7,8 @@ Contents:
     
 
 """
-import numpy as np
-
 import porepy as pp
+import numpy as np
 
 
 def setup():

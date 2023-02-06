@@ -781,7 +781,7 @@ class BoundaryConditionsMomentumBalance:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.

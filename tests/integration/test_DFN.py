@@ -464,7 +464,7 @@ class TestDFN(unittest.TestCase):
 
 
 def setup_data(mdg, key="flow"):
-    """Setup the data."""
+    """Setup the data"""
     for sd, data in mdg.subdomains(return_data=True):
         param = {}
         kxx = np.ones(sd.num_cells)
@@ -544,12 +544,16 @@ def setup_discr_tpfa(mdg, key="flow"):
 
 
 def create_dfn(mdg, dim):
-    """Remove the higher-dimensional subdomain and fix the internal mapping."""
-    # Remove the +1 and -2 dimensional grids with respect to the
-    # considered dfn, and re-write the node number.
+    """given a MixedDimensionalGrid remove the higher dimensional node and
+    fix the internal mapping."""
+    # remove the +1 and -2 dimensional grids with respect to the
+    # considered dfn, and re-write the node number
     subdomains = [sd for sd in mdg.subdomains(dim=dim + 1)] + [
         sd for sd in mdg.subdomains(dim=dim - 2)
     ]
 
     for sd in subdomains:
         mdg.remove_subdomain(sd)
+
+if __name__ == "__main__":
+    unittest.main()

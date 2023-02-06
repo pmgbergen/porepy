@@ -1,5 +1,5 @@
-import glob
 import os
+import glob
 from typing import Optional
 
 

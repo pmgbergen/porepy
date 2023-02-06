@@ -4,9 +4,7 @@ FIXME: Purge unused functions.
 """
 
 import warnings
-
 import numpy as np
-
 import porepy as pp
 
 

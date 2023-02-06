@@ -303,9 +303,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]),
             check_convexity=False,
         )
-        self.domain = pp.Domain(
-            {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        )
+        self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
 
     def _a_in_b(self, a, b, tol=1e-5):
         for i in range(a.shape[1]):
