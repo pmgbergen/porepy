@@ -157,18 +157,13 @@ class TensorGrid(Grid):
 
         # Face nodes
         node_array = np.arange(0, num_nodes).reshape(num_y + 1, num_x + 1)
-
-        # The vertical faces are oriented from low to high node nr
-        # so that the normal is [1, 0]
         fn1 = node_array[:-1, ::].ravel(order="C")
         fn2 = node_array[1:, ::].ravel(order="C")
         face_nodes_x = np.vstack((fn1, fn2)).ravel(order="F")
 
-        # The horizontal faces are oriented from high to low node nr
-        # so that the normal is [0, 1]
         fn1 = node_array[::, :-1].ravel(order="C")
         fn2 = node_array[::, 1:].ravel(order="C")
-        face_nodes_y = np.vstack((fn2, fn1)).ravel(order="F")
+        face_nodes_y = np.vstack((fn1, fn2)).ravel(order="F")
 
         num_nodes_per_face = 2
         indptr = np.append(

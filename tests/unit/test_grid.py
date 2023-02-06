@@ -100,11 +100,12 @@ class TestBoundaries(unittest.TestCase):
         self.assertTrue(int_nodes.size == 0)
 
     def test_bounding_box(self):
-        sd = pp.CartGrid(np.array([1, 1]))
-        sd.nodes = np.random.random((sd.dim, sd.num_nodes))
-        bmin, bmax = pp.domain.grid_minmax_coordinates(sd)
-        self.assertTrue(np.allclose(bmin, sd.nodes.min(axis=1)))
-        self.assertTrue(np.allclose(bmax, sd.nodes.max(axis=1)))
+        g = pp.CartGrid(np.array([1, 1]))
+        g.nodes = np.random.random((g.dim, g.num_nodes))
+
+        bmin, bmax = pp.bounding_box.from_grid(g)
+        self.assertTrue(np.allclose(bmin, g.nodes.min(axis=1)))
+        self.assertTrue(np.allclose(bmax, g.nodes.max(axis=1)))
 
 
 class TestComputeGeometry(unittest.TestCase):
@@ -137,94 +138,6 @@ class TestComputeGeometry(unittest.TestCase):
         self.assertTrue(np.allclose(g.face_normals, known_normals))
         self.assertTrue(np.allclose(g.face_centers, known_f_centr))
         self.assertTrue(np.allclose(g.cell_centers, known_c_centr))
-
-    def test_inconsistent_orientation_2d(self):
-        # Test to trigger is_oriented = False such that compute_geometry falls
-        # back on the implementation based on convex cells.
-
-        nodes = np.array([[0, 1, 0, 1], [0, 0, 1, 1], np.zeros(4)])
-        indices = np.array([0, 1, 2, 3, 0, 2, 1, 3])
-        face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
-        cell_faces = sps.csc_matrix(np.ones((4, 1)))
-
-        sd = pp.Grid(2, nodes, face_nodes, cell_faces, "inconsistent")
-        sd.compute_geometry()
-
-        self.assertTrue(np.isclose(sd.cell_volumes[0], 1))
-        self.assertTrue(np.allclose(sd.cell_centers, np.array([[0.5], [0.5], [0]])))
-        known_face_normals = np.array(
-            [[0.0, -0.0, -1.0, 1.0], [-1.0, 1.0, -0.0, 0.0], [0.0, -0.0, -0.0, 0.0]]
-        )
-        self.assertTrue(np.allclose(sd.face_normals, known_face_normals))
-
-    def test_concave_quad(self):
-        # Known quadrilateral for which the convexity assumption fails.
-
-        nodes = np.array([[0, 0.5, 1, 0.5], [0, 0.5, 0, 1], np.zeros(4)])
-        indices = np.array([0, 1, 1, 2, 2, 3, 3, 0])
-        face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
-        cell_faces = sps.csc_matrix(np.ones((4, 1)))
-
-        sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
-        sd.compute_geometry()
-
-        self.assertTrue(np.isclose(sd.cell_volumes[0], 0.25))
-        self.assertTrue(np.allclose(sd.cell_centers, np.array([[0.5], [0.5], [0]])))
-        known_face_normals = np.array(
-            [[0.5, -0.5, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]
-        )
-        self.assertTrue(np.allclose(sd.face_normals, known_face_normals))
-
-    def test_exterior_cell_center(self):
-        # Known quadrilateral for which the convexity assumption fails
-        # and the centroid is external.
-
-        nodes = np.array([[0, 0.5, 1, 0.5], [0, 0.75, 0, 1], np.zeros(4)])
-        indices = np.array([0, 1, 1, 2, 2, 3, 3, 0])
-        face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
-        cell_faces = sps.csc_matrix(np.ones((4, 1)))
-
-        sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
-        sd.compute_geometry()
-
-        self.assertTrue(np.isclose(sd.cell_volumes[0], 0.125))
-        self.assertTrue(
-            np.allclose(sd.cell_centers, np.array([[0.5], [1.75 / 3], [0]]))
-        )
-        known_face_normals = np.array(
-            [[0.75, -0.75, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]
-        )
-        self.assertTrue(np.allclose(sd.face_normals, known_face_normals))
-
-    def test_multiple_concave_quads(self):
-        # Small mesh consisting of two concave and one convex cell.
-
-        nodes = np.array(
-            [[0, 0.5, 1, 0.5, 0.5, 0.5], [0, 0.5, 0, 1, -0.5, -1], np.zeros(6)]
-        )
-        indices = np.array([0, 1, 1, 2, 2, 3, 3, 0, 0, 5, 5, 2, 2, 4, 4, 0])
-        face_nodes = sps.csc_matrix((np.ones(16), indices, np.arange(0, 17, 2)))
-        cell_faces_j = np.repeat(np.arange(3), 4)
-        cell_faces_i = np.array([0, 1, 2, 3, 7, 6, 1, 0, 4, 5, 6, 7])
-        cell_faces_v = np.array([1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1])
-        cell_faces = sps.csc_matrix((cell_faces_v, (cell_faces_i, cell_faces_j)))
-
-        sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
-        sd.compute_geometry()
-
-        self.assertTrue(np.allclose(sd.cell_volumes, [0.25, 0.5, 0.25]))
-        known_cell_centers = np.array(
-            [[0.5, 0.5, 0.5], [0.5, 0.0, -0.5], [0.0, 0.0, 0.0]]
-        )
-        self.assertTrue(np.allclose(sd.cell_centers, known_cell_centers))
-        known_face_normals = np.array(
-            [
-                [0.5, -0.5, 1.0, -1.0, -1.0, 1.0, -0.5, 0.5],
-                [-0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5],
-                [0.0, 0.0, -0.0, 0.0, 0.0, 0.0, 0.0, -0.0],
-            ]
-        )
-        self.assertTrue(np.allclose(sd.face_normals, known_face_normals))
 
 
 class TestCartGrideGeometry2DUnpert(unittest.TestCase):
@@ -514,7 +427,7 @@ class TestStructuredTriangleGridGeometry(unittest.TestCase):
         self.assertTrue(np.allclose(self.g.face_areas, fa))
 
     def test_face_normals(self):
-        fn = np.array([[0, 1, 1, 1, 0], [-1, 0, -1, 0, -1], [0, 0, 0, 0, 0]])
+        fn = np.array([[0, -1, -1, 1, 0], [-1, 0, 1, 0, 1], [0, 0, 0, 0, 0]])
         self.assertTrue(np.allclose(self.g.face_normals, fn))
 
 

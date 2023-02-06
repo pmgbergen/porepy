@@ -286,7 +286,7 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
             "ymax": physdims[1],
             "zmax": physdims[2],
         }
-    network.impose_external_boundary(pp.Domain(box))
+    network.impose_external_boundary(box)
 
     # Find intersections and split them.
     network.find_intersections()

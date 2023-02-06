@@ -177,7 +177,7 @@ def two_intersecting(
         mdg = pp.meshing.cart_grid(
             [fracture0, fracture1],
             _n_cells(mesh_args),
-            physdims=[domain.bounding_box["xmax"], domain.bounding_box["ymax"]],
+            physdims=[domain["xmax"], domain["ymax"]],
         )
         mdg.compute_geometry()
     return mdg, domain
@@ -216,7 +216,7 @@ def seven_fractures_one_L_intersection(mesh_args: dict):
         ]
     ).T
     edges = np.array([[0, 1], [1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12]]).T
-    domain = pp.Domain(bounding_box={"xmin": 0, "ymin": 0, "xmax": 2, "ymax": 1})
+    domain = {"xmin": 0, "ymin": 0, "xmax": 2, "ymax": 1}
     mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
     return mdg, domain
 

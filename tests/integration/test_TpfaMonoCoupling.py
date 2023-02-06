@@ -1,11 +1,11 @@
 import unittest
+from tests import test_utils
 
 import numpy as np
 import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 
 import porepy as pp
-from tests import test_utils
 
 
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
@@ -369,6 +369,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
                     if np.sum(face_faces) == 0:
                         continue
+
 
                     if gi.id < gj.id:
                         # gj is left

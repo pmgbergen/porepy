@@ -103,8 +103,8 @@ class SolutionStrategy(abc.ABC):
         :class:`~porepy.models.geometry.ModelGeometry`.
 
         """
-        self.domain: pp.Domain
-        """Box-shaped domain. Will normally be set by a mixin instance of
+        self.domain_bounds: dict
+        """Bounding box of the domain. Will normally be set by a mixin instance of
         :class:`~porepy.models.geometry.ModelGeometry`.
 
         """
@@ -475,14 +475,6 @@ class SolutionStrategy(abc.ABC):
         Returns:
             bool: True if the problem is nonlinear, False otherwise.
 
-        """
-        return True
-
-    def _is_time_dependent(self) -> bool:
-        """Specifies whether the Model problem is time-dependent.
-
-        Returns:
-            bool: True if the problem is time-dependent, False otherwise.
         """
         return True
 
