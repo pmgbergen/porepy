@@ -1485,7 +1485,9 @@ class EquationSystem:
         # grid-related column blocks by using the transposed projection to respective
         # subspace.
         # Multiply rhs by -1 to move to the rhs.
+        
         column_projection = self.projection_to(variables).transpose()
+        
         return A * column_projection, -rhs_cat
     
     def assemble_rhs(
@@ -1493,12 +1495,12 @@ class EquationSystem:
         state: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Assemble residual vector of the whole system.
+        
+        It is identical to :meth: `assemble`, but can be more convenient for
+        certain aspects of non-linear solvers
+        
+        See :meth: `assemble` for the in-depth documentation
 
-        This is a shallow wrapper of :meth:`assemble_subsystem`. Here, the subsystem is
-        the complete set of equations, variables and grids.
-        
-        See also :meth: `assemble`
-        
         Parameters:
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
 
@@ -1514,25 +1516,14 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray]:
+    ) -> np.ndarray:
         """Assemble residual vector using a specified subset of
         equations, variables and grids.
         
-        The method is intended for use in splitting algorithms. 
+        It is identical to :meth: `assemble_subsystem`, but can be more 
+        convenient for certain aspects of non-linear solvers
         
-        See also :meth: `assemble_subssystem`
-        
-        Note:
-            The ordering of columns in the returned system are defined by the global
-            DOF order. The row blocks are in the same order as equations were added to
-            this system. If an equation is defined on multiple grids, the respective
-            row-block is internally ordered as given by the mixed-dimensional grid
-            (for sd in subdomains, for intf in interfaces).
-
-            The columns of the subsystem are assumed to be properly defined by
-            ``variables``, otherwise a matrix of shape ``(M,)`` is returned. This
-            happens if grid variables are passed which are unknown to this
-            :class:`EquationSystem`.
+        See :meth: `assemble_subssystem` for the in-depth documentation
 
         Parameters:
             equations (optional): a subset of equations to which the subsystem should be
@@ -1549,11 +1540,7 @@ class EquationSystem:
                 ``pp.ITERATE`` or ``pp.STATE`` are used, in that order.
 
         Returns:
-            Tuple with two elements
-
-                spmatrix: (Part of the) Jacobian matrix corresponding to the targeted
-                variable state, for the specified equations and variables.
-                ndarray: Residual vector corresponding to the targeted variable state,
+            np.ndarray: Residual vector corresponding to the targeted variable state,
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
