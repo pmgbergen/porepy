@@ -87,8 +87,8 @@ class Domain:
 
         self.is_boxed: bool
         """Whether the domain is a box or not.
-         
-        If ``polytope`` is used to instantiate the class, we assume that 
+
+        If ``polytope`` is used to instantiate the class, we assume that
         ``is_boxed=False`` (irrespective of whether the polytope is a box or not).
 
         """
