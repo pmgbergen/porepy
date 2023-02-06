@@ -1,9 +1,9 @@
 """ Various tests of MixedDimensionalGrid functionality. Covers getters and setters, topological
 information on the bucket, and pickling and unpickling of buckets.
 """
-import os
 import pickle
 import unittest
+import os
 
 import numpy as np
 import scipy.sparse as sps
@@ -212,7 +212,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         self.assertTrue(intf_list[2] == intf_31)
 
     def test_sort_lists(self):
-        """Test sorting of lists of subdomains and interfaces.
+        """ Test sorting of lists of subdomains and interfaces.
         Includes random lists, noncomplete lists, and lists with duplicates.
         """
         intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4 = self.mdg_dims_3211()
@@ -243,7 +243,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         self.assertTrue(sorted_duplicates[3] == sd_1)
 
     def mdg_dims_3211(self):
-        """Create a mixed dimensional grid with 4 subdomains and 3 interfaces."""
+        """ Create a mixed dimensional grid with 4 subdomains and 3 interfaces."""
         mdg = pp.MixedDimensionalGrid()
         sd_1 = MockGrid(1)
         sd_2 = MockGrid(1)
@@ -265,7 +265,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         return intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4
 
     def test_interface_to_subdomain_pair(self):
-        """Test the method interface_to_subdomain_pair.
+        """ Test the method interface_to_subdomain_pair.
         Check that the returned subdomain pair is sorted according to grid dimension and id.
         """
         intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4 = self.mdg_dims_3211()
@@ -357,11 +357,20 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         sd_2.nodes = 1 + np.random.random((sd_2.dim, sd_2.num_nodes))
 
         mdg.add_subdomains([sd_1, sd_2])
-        bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
+
+        bmin, bmax = pp.bounding_box.from_md_grid(mdg)
 
         # Since g2 is shifted, minimum should be at g1, maximum in g2
         self.assertTrue(np.allclose(bmin, sd_1.nodes.min(axis=1)))
         self.assertTrue(np.allclose(bmax, sd_2.nodes.max(axis=1)))
+
+        d = pp.bounding_box.from_md_grid(mdg, as_dict=True)
+        self.assertTrue(d["xmin"] == np.min(sd_1.nodes[0]))
+        self.assertTrue(d["ymin"] == np.min(sd_1.nodes[1]))
+        self.assertTrue(d["zmin"] == np.min(sd_1.nodes[2]))
+        self.assertTrue(d["xmax"] == np.max(sd_2.nodes[0]))
+        self.assertTrue(d["ymax"] == np.max(sd_2.nodes[1]))
+        self.assertTrue(d["zmax"] == np.max(sd_2.nodes[2]))
 
     def test_num_cells(self):
 

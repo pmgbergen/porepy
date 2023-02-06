@@ -70,8 +70,8 @@ def test_2d_single_fracture(solid_vals, north_displacement):
             # through what happens around the symmetry line of x=0.5 when pulling or
             # pushing the top (north) boundary.
             tol = 1e-10
-            left = sd.cell_centers[0] < setup.domain.bounding_box["xmax"] / 2 - tol
-            right = sd.cell_centers[0] > setup.domain.bounding_box["xmax"] / 2 + tol
+            left = sd.cell_centers[0] < setup.domain_bounds["xmax"] / 2 - tol
+            right = sd.cell_centers[0] > setup.domain_bounds["xmax"] / 2 + tol
             assert np.all(
                 np.sign(vals[:: setup.nd][left]) == np.sign(north_displacement)
             )

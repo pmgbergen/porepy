@@ -15,7 +15,7 @@ import porepy as pp
 def plot_fractures(
     pts: np.ndarray,
     edges: np.ndarray,
-    domain: Optional[pp.Domain] = None,
+    domain: Optional[dict] = None,
     colortag: Optional[np.ndarray] = None,
     ax: mpl.axis.Axis = None,
     **kwargs
@@ -29,8 +29,8 @@ def plot_fractures(
         pts (np.ndarray, dims 2 x npt): Coordinates of the fracture endpoints.
         edges (np.ndarray, dims 2 x n_edges): Indices of fracture start and
             endpoints.
-        domain (pp.Domain): Description of the domain. If not given, the domain is
-            inferred from the bounding box associated with the fracture set.
+        domain (dictionary, optional): Domain size. Should contain fields xmin, xmax, ymin,
+            ymax. If not given a bounding box is computed
         colortag (np.ndarray, dim n_edges, optional): Colorcoding for fractures
             (e.g. by fracture family). If provided, different colors will be
             asign to the different families. Defaults to all fractures being
@@ -58,7 +58,7 @@ def plot_fractures(
     """
     # If not provided, determine the domain as bounding box
     if domain is None:
-        domain = pp.Domain(pp.domain.bounding_box_of_point_cloud(pts))
+        domain = pp.bounding_box.from_points(pts)
 
     # If no axis is provided, construct one
     if ax is None:
@@ -122,18 +122,18 @@ def plot_fractures(
     # Plot the domain
     ax.plot(
         [
-            domain.bounding_box["xmin"],
-            domain.bounding_box["xmax"],
-            domain.bounding_box["xmax"],
-            domain.bounding_box["xmin"],
-            domain.bounding_box["xmin"],
+            domain["xmin"],
+            domain["xmax"],
+            domain["xmax"],
+            domain["xmin"],
+            domain["xmin"],
         ],
         [
-            domain.bounding_box["ymin"],
-            domain.bounding_box["ymin"],
-            domain.bounding_box["ymax"],
-            domain.bounding_box["ymax"],
-            domain.bounding_box["ymin"],
+            domain["ymin"],
+            domain["ymin"],
+            domain["ymax"],
+            domain["ymax"],
+            domain["ymin"],
         ],
         "-",
         color=domain_color,
@@ -163,15 +163,7 @@ def plot_fractures(
         ax.set_aspect("equal", adjustable="box")
 
     if kwargs.get("axis", "on") == "on":
-        ax.axis(
-            [
-                domain.bounding_box["xmin"],
-                domain.bounding_box["xmax"],
-                domain.bounding_box["ymin"],
-                domain.bounding_box["ymax"],
-            ]
-        )
-
+        ax.axis([domain["xmin"], domain["xmax"], domain["ymin"], domain["ymax"]])
     else:
         ax.axis("off")
 
@@ -185,15 +177,15 @@ def plot_fractures(
     return ax
 
 
-def plot_wells(
-    d: pp.Domain, w: np.ndarray, colortag: Optional[np.ndarray] = None, **kwargs
-):
-    """Plot 2d wells as points in a domain.
+def plot_wells(d: dict, w: np.ndarray, colortag: Optional[np.ndarray] = None, **kwargs):
+    """
+    Plot 2d wells as points in a domain.
 
     The function is primarily intended for data exploration.
 
     Args:
-        d (pp.Domain): Two-dimensional domain specification.
+        d (dict): Domain size. Should contain fields xmin, xmax, ymin,
+            ymax.
         w (np.ndarray, dims 2 x npt): Coordinates of the wells.
         colortag (np.ndarray, dim n_w, optional): Colorcoding for wells.
             If provided, different colors will be asign to the different wells.
@@ -225,29 +217,10 @@ def plot_wells(
 
     # Setup figure and plot the domain
     plt.figure(kwargs.get("fig_id", 1))
-    plt.axis(
-        [
-            d.bounding_box["xmin"],
-            d.bounding_box["xmax"],
-            d.bounding_box["ymin"],
-            d.bounding_box["ymax"],
-        ]
-    )
+    plt.axis([d["xmin"], d["xmax"], d["ymin"], d["ymax"]])
     plt.plot(
-        [
-            d.bounding_box["xmin"],
-            d.bounding_box["xmax"],
-            d.bounding_box["xmax"],
-            d.bounding_box["xmin"],
-            d.bounding_box["xmin"],
-        ],
-        [
-            d.bounding_box["ymin"],
-            d.bounding_box["ymin"],
-            d.bounding_box["ymax"],
-            d.bounding_box["ymax"],
-            d.bounding_box["ymin"],
-        ],
+        [d["xmin"], d["xmax"], d["xmax"], d["xmin"], d["xmin"]],
+        [d["ymin"], d["ymin"], d["ymax"], d["ymax"], d["ymin"]],
         "-",
         color="red",
     )

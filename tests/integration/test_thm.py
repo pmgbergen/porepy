@@ -6,12 +6,12 @@ conditions in the non-intersecting fracture. For the contact mechanical part of 
 test, please refer to test_contact_mechanics.
 """
 import unittest
+from tests.common.contact_mechanics_examples import ProblemDataTime
 
 import numpy as np
 
 import porepy as pp
 import porepy.models.thm_model as model
-from tests.common.contact_mechanics_examples import ProblemDataTime
 
 
 class TestTHM(unittest.TestCase):

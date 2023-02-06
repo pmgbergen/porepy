@@ -294,7 +294,7 @@ class BoundaryConditionsSinglePhaseFlow:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        pp.domain.DomainSides,
+        pp.bounding_box.DomainSides,
     ]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.

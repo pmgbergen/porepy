@@ -149,7 +149,7 @@ class WellNetwork3d:
     def __init__(
         self,
         wells: Optional[list[Well]] = None,
-        domain: Optional[pp.Domain] = None,
+        domain: Optional[dict[str, float]] = None,
         tol: float = 1e-8,
         parameters: Optional[dict] = None,
     ) -> None:
@@ -164,7 +164,7 @@ class WellNetwork3d:
         Parameters:
             wells (list of Well, optional): Wells that make up the network.
                 Defaults to None, which will create a domain empty of wells.
-            domain (pp.Domain): Domain specification.
+            domain (dictionary): Domain specification.
             tol (double, optional): Tolerance used in geometric computations. Defaults
                 to 1e-8.
             parameters (dictionary, optional): E.g. mesh parameters.
@@ -184,9 +184,9 @@ class WellNetwork3d:
         else:
             self.parameters = parameters
 
-        if domain is not None:
-            self.domain: pp.Domain = domain
-
+        if domain is None:
+            domain = dict()
+        self.domain: dict = domain
         self.tol = tol
 
         # Assign an empty tag dictionary
@@ -358,7 +358,9 @@ class WellNetwork3d:
                     _add_well_2_intersection_interface(sd_w, previous_g_isec, mdg)
 
                 # Finally, update tags for the well's faces (boundary, tip, fracture).
-                bounding_planes = self.domain.polytope_from_bounding_box()
+                bounding_planes = (
+                    pp.geometry.bounding_box.make_bounding_planes_from_box(self.domain)
+                )
                 boundary = np.zeros(2, dtype=bool)
                 endp_inds = [0, -1]
                 endpts = sd_w.face_centers[:, endp_inds]

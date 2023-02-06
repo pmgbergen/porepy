@@ -13,7 +13,6 @@ import scipy.sparse as sps
 from porepy.fracs import meshing
 from porepy.grids import refinement
 from porepy.grids.structured import TensorGrid
-from porepy.grids.simplex import TriangleGrid
 from tests import test_utils
 
 
@@ -60,21 +59,45 @@ class TestGridRefinement1d(unittest.TestCase):
 
 
 class TestGridRefinement2dSimplex(unittest.TestCase):
-    class OneCellGrid(TriangleGrid):
+    class OneCellGrid:
         def __init__(self):
-            pts = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]])
-            tri = np.array([[0], [1], [2]])
-
-            super().__init__(pts, tri, "GridWithOneCell")
+            self.nodes = np.array([[0, 1, 0], [0, 0, 1]])
+            self.cell_faces = sps.csc_matrix(np.array([[1], [1], [1]]))
+            self.face_nodes = sps.csc_matrix(
+                np.array([[1, 0, 1], [0, 1, 1], [1, 1, 0]])
+            )
+            self.face_centers = np.array([[0.5, 0.5, 0], [0, 0.5, 0.5]])
+            self.num_faces = 3
+            self.num_cells = 1
+            self.num_nodes = 3
+            self.dim = 2
             self.history = ["OneGrid"]
+            self.name = "GridWithOneCell"
 
-    class TwoCellsGrid(TriangleGrid):
+    class TwoCellsGrid:
         def __init__(self):
-            pts = np.array([[0, 1, 0, 1], [0, 0, 1, 1], [0, 0, 0, 0]])
-            tri = np.array([[0, 1], [1, 3], [2, 2]])
-
-            super().__init__(pts, tri, "GridWithTwoCells")
+            self.nodes = np.array([[0, 1, 1, 0], [0, 0, 1, 1]])
+            self.cell_faces = sps.csc_matrix(
+                np.array([[1, 0, 0, 1, 1], [0, 1, 1, 0, 1]]).T
+            )
+            self.face_nodes = sps.csc_matrix(
+                np.array(
+                    [
+                        [1, 1, 0, 0],
+                        [0, 1, 1, 0],
+                        [0, 0, 1, 1],
+                        [1, 0, 0, 1],
+                        [0, 1, 0, 1],
+                    ]
+                ).T
+            )
+            self.face_centers = np.array([[0.5, 1, 0.5, 0, 0.5], [0, 0.5, 1, 0.5, 0.5]])
+            self.num_faces = 5
+            self.num_cells = 2
+            self.num_nodes = 4
+            self.dim = 2
             self.history = ["TwoGrid"]
+            self.name = "GridWithTwoCells"
 
     def test_refinement_single_cell(self):
         g = self.OneCellGrid()

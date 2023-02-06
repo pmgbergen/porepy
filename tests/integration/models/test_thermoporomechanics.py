@@ -131,9 +131,9 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
         # Check that x displacement is negative for left half and positive for right
         # half. Tolerance excludes cells at the centerline, where the displacement is
         # zero.
-        left = sd.cell_centers[0] < setup.domain.bounding_box["xmax"] / 2 - tol
+        left = sd.cell_centers[0] < setup.domain_bounds["xmax"] / 2 - tol
         assert np.all(u_vals[0, left] < 0)
-        right = sd.cell_centers[0] > setup.domain.bounding_box["xmax"] / 2 + tol
+        right = sd.cell_centers[0] > setup.domain_bounds["xmax"] / 2 + tol
         assert np.all(u_vals[0, right] > 0)
         # Compression implies pressure and temperature increase
         assert np.all(p_vals > 0 - tol)
