@@ -74,7 +74,7 @@ class Fracture(abc.ABC):
         else:
             self.tags = np.asarray(tags, dtype=np.int8)
         """Tags of the fracture.
-        
+
         In the standard form, the first tag identifies the type of the fracture,
         referring to the numbering system in GmshInterfaceTags. The second tag keeps
         track of the numbering of the fracture (referring to the original order of the
