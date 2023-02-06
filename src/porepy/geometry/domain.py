@@ -1,4 +1,4 @@
-"""Module containing classes and functions for definining and manupilating a domain."""
+"""Module containing classes and functions for defining and manipulating a domain."""
 
 from __future__ import annotations
 
@@ -18,10 +18,50 @@ class Domain:
     - (1) By passing the bounding box as a dictionary (we assume therefore that the
       domain is a box) or,
 
-    - (2) By passing a polytope (polygon in 2d and poyhedron in 3d), which are lists of
+    - (2) By passing a polytope (polygon in 2d and polyhedron in 3d), which are lists of
       numpy arrays defining a general domain (this also includes non-convex domains).
 
-    See the class constructor documentation for more details.
+    Examples:
+
+        .. code:: python3
+
+            # Create a domain from a bounding box
+            domain_from_box = pp.Domain(
+                bounding_box={"xmin": 0, "xmax": 1, "ymin": 0, "ymin": 1}
+            )
+
+            # Create a domain from a 2d-polytope
+            line_1 = np.array([[0, 0], [0, 1]])
+            line_2 = np.array([[0, 0.5], [1, 1.5]])
+            line_3 = np.array([[0.5, 1], [1.5, 1]])
+            line_4 = np.array([[1, 1], [1, 0]])
+            line_5 = np.array([[1, 0], [0, 0]])
+            irregular_pentagon = [line_1, line_2, line_3, line_4, line_5]
+            domain_from_polytope = pp.Domain(polytope=irregular_pentagon)
+
+    Raises:
+        - ``ValueError`` if both ``bounding_box`` AND ``polytope`` are given.
+        - ``ValueError`` if no arguments are given.
+
+    Parameters:
+        bounding_box: Dictionary containing the minimum and maximum coordinates
+            defining the bounding box of the domain.
+
+            Expected keywords are ``xmin``, ``xmax``, ``ymin``, ``ymax``, and if 3d,
+            ``zmin`` and ``zmax``.
+        polytope: Either a 2d or a 3d-polytope representing a non-boxed domain.
+
+            A 2d-polytope (e.g., a polygon) is defined as a list of arrays of
+            ``shape = (2, 2)``. Every array corresponds to one side of the polygon.
+            The rows of each array contain the coordinates of the vertices defining
+            the line, i.e., first row the x-coordinates and second row the
+            y-coordinates.
+
+            A 3d-polytope (e.g., a polyhedron) is a list of arrays of ``shape = (3,
+            num_vertex)``. Every array represents a polygon with ``num_vertex``
+            vertices. The rows of each array contain the coordinates of the vertices
+            defining the polygon, i.e., first row the x-coordinates, second row the
+            y-coordinates, and third row the z-coordinates.
 
     """
 
@@ -30,66 +70,26 @@ class Domain:
         bounding_box: Optional[dict[str, pp.number]] = None,
         polytope: Optional[list[np.ndarray]] = None,
     ) -> None:
-        """Class constructor.
 
-        Parameters:
-            bounding_box: Dictionary containing the minimum and maximum coordinates
-                defining the bounding box of the domain.
-
-                Expected keywords are ``xmin``, ``xmax``, ``ymin``, ``ymax``, and if 3d,
-                ``zmin`` and ``zmax``.
-            polytope: Either a 2d or a 3d-polytope representing a non-boxed domain.
-
-                A 2d-polytope (e.g., a polygon) is defined as a list of arrays of
-                ``shape = (2, 2)``. Every array corresponds to one side of the
-                polygon. The rows of each array contain the coordinates of the
-                vertices defining the line, i.e., first row the x-coordinates and
-                second row the y-coordinates.
-
-                A 3d-polytope (e.g., a polyhedron) is a list of arrays of
-                ``shape = (3, num_vertex)``. Every array represents a polygon with
-                ``num_vertex`` vertices. The rows of each array contain the
-                coordinates of the vertices defining the polygon, i.e., first row the
-                x-coordinates, second row the y-coordinates, and third row the
-                z-coordinates.
-
-        Examples:
-
-            .. code:: python3
-
-                # Create a domain from a bounding box
-                domain_from_box = pp.Domain(
-                    bounding_box={"xmin": 0, "xmax": 1, "ymin": 0, "ymin": 1}
-                )
-
-                # Create a domain from a 2d-polytope
-                line_1 = np.array([[0, 0], [0, 1]])
-                line_2 = np.array([[0, 0.5], [1, 1.5]])
-                line_3 = np.array([[0.5, 1], [1.5, 1]])
-                line_4 = np.array([[1, 1], [1, 0]])
-                line_5 = np.array([[1, 0], [0, 0]])
-                irregular_pentagon = [line_1, line_2, line_3, line_4, line_5]
-                domain_from_polytope = pp.Domain(polytope=irregular_pentagon)
-
-        """
-        # Santity check
+        # Sanity check
         if bounding_box is not None and polytope is not None:
             raise ValueError("Too many arguments. Expected box OR polytope.")
 
         # Attributes declaration
         self.bounding_box: dict[str, pp.number]
-        """Bounding box of the domain. See __init__ documenation for details."""
+        """Bounding box of the domain. See class documentation for details."""
 
         self.polytope: list[np.ndarray]
-        """Polytope defining the domain. See __init__ documentation for details."""
+        """Polytope defining the domain. See class documentation for details."""
 
         self.dim: int
         """Dimension of the domain. Inferred from the bounding box or the polytope."""
 
         self.is_boxed: bool
-        """Whether the domain is a box or not. If ``polytope`` is used to instantiate
-        the class, we assume that ``is_boxed=False`` (irrespective of whether the
-        polytope is a box or not).
+        """Whether the domain is a box or not.
+         
+        If ``polytope`` is used to instantiate the class, we assume that 
+        ``is_boxed=False`` (irrespective of whether the polytope is a box or not).
 
         """
 
@@ -161,7 +161,7 @@ class Domain:
 
         Returns:
             List of arrays representing the polytope. Shape of array will depend
-            on the dimesion of the bounding box. See __init__ documentation for a
+            on the dimension of the bounding box. See __init__ documentation for a
             detailed explanation.
 
         """
