@@ -498,10 +498,15 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
         height = self.params.get("height", 1.0)  # [m]
         num_cells = self.params.get("num_cells", 20)
         ls = 1 / self.units.m
-        phys_dims = np.array([height, height]) * ls
+        phys_dims = np.array([height, height]) * ls  # scaled [m]
         n_cells = np.array([1, num_cells])
-        self.domain_bounds = pp.geometry.bounding_box.from_points(
-            np.array([[0, 0], phys_dims]).T
+        self.domain = pp.Domain(
+            {
+                "xmin": 0,
+                "xmax": phys_dims[0],
+                "ymin": 0,
+                "ymax": phys_dims[1],
+            }
         )
         sd: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         sd.compute_geometry()
@@ -515,7 +520,7 @@ class TerzaghiBoundaryConditionsMechanicsTimeDependent(
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Named tuple containing the boundary sides indices."""
 
     stress_keyword: str
@@ -585,7 +590,7 @@ class TerzaghiBoundaryConditionsSinglePhaseFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility function containing the indices of the domain boundary sides."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:

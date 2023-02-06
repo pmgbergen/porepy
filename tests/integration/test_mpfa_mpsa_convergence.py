@@ -17,7 +17,6 @@ from __future__ import division
 
 import unittest
 from math import pi
-from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 import numpy as np
 import scipy.sparse.linalg
@@ -28,6 +27,7 @@ from porepy.grids import simplex, structured
 from porepy.numerics.fv import fvutils, mpfa, mpsa
 from porepy.params import bc, tensor
 from porepy.utils.mcolon import mcolon
+from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 class TestMpfaConvergenceVaryingPerm(unittest.TestCase):

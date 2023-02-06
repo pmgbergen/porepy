@@ -1,6 +1,6 @@
 """
-This file contains utility functions for setting up the problems related to a 2d benhcmark
-as described by Flemisch et al (2018).
+This file contains utility functions for setting up the problems related to a 2d
+benhcmark as described by Flemisch et al (2018).
 """
 
 import numpy as np
@@ -8,14 +8,14 @@ import numpy as np
 import porepy as pp
 
 
-def add_data(mdg: pp.MixedDimensionalGrid, domain: dict, kf: float) -> None:
+def add_data(mdg: pp.MixedDimensionalGrid, domain: pp.Domain, kf: float) -> None:
     """
     Define the permeability, apertures, boundary conditions and update
     data of the corresponding mixed-dimensional grid.
 
     Parameters:
         mdg: mixed-dimensional grid.
-        domain: Dictionary containing "xmin", "xmax" to identify boundaries.
+        domain: Domain object.
         kf: scalar permeability value.
 
     """
@@ -42,8 +42,8 @@ def add_data(mdg: pp.MixedDimensionalGrid, domain: dict, kf: float) -> None:
         if bound_faces.size != 0:
             bound_face_centers = sd.face_centers[:, bound_faces]
 
-            left = bound_face_centers[0, :] < domain["xmin"] + tol
-            right = bound_face_centers[0, :] > domain["xmax"] - tol
+            left = bound_face_centers[0, :] < domain.bounding_box["xmin"] + tol
+            right = bound_face_centers[0, :] > domain.bounding_box["xmax"] - tol
 
             bc_val = np.zeros(sd.num_faces)
             bc_val[bound_faces[left]] = -a_dim * sd.face_areas[bound_faces[left]]

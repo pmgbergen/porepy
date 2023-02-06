@@ -5,7 +5,7 @@ import numpy as np
 import porepy as pp
 
 
-def unit_domain(dimension: int):
+def unit_domain(dimension: int) -> pp.Domain:
     """Return a domain of unitary size extending from 0 to 1 in all dimensions.
 
     Parameters:
@@ -16,12 +16,12 @@ def unit_domain(dimension: int):
 
     """
     assert dimension in np.arange(1, 4)
-    domain = {"xmin": 0, "xmax": 1}
+    bbox: dict[str, pp.number] = {"xmin": 0, "xmax": 1}
     if dimension > 1:
-        domain.update({"ymin": 0, "ymax": 1})
+        bbox.update({"ymin": 0, "ymax": 1})
     if dimension > 2:
-        domain.update({"zmin": 0, "zmax": 1})
-    return domain
+        bbox.update({"zmin": 0, "zmax": 1})
+    return pp.Domain(bbox)
 
 
 def set_mesh_sizes(mesh_args: dict):
@@ -39,7 +39,7 @@ def set_mesh_sizes(mesh_args: dict):
 
 
 def make_mdg_2d_simplex(
-    mesh_args: dict, points: np.ndarray, fractures: np.ndarray, domain: dict
+    mesh_args: dict, points: np.ndarray, fractures: np.ndarray, domain: pp.Domain
 ):
     """Construct a mixed-dimensional simplex grid in the 2d domain.
 
@@ -50,7 +50,7 @@ def make_mdg_2d_simplex(
         points: Fracture endpoints.
         fractures: Connectivity list of the fractures, pointing to the provided
             endpoint list.
-        domain: Defines the size of the rectangular domain.
+        domain: Domain object.
 
     Returns:
         Mixed-dimensional grid with geometry computation and node ordering performed.
@@ -64,7 +64,7 @@ def make_mdg_2d_simplex(
 
 
 def make_mdg_2d_cartesian(
-    n_cells: np.ndarray, fractures: list[np.ndarray], domain: dict
+    n_cells: np.ndarray, fractures: list[np.ndarray], domain: pp.Domain
 ):
     """
     Construct a Cartesian mixed-dimensional grid in the 2d domain.
@@ -72,13 +72,15 @@ def make_mdg_2d_cartesian(
     Parameters:
         n_cells: Contains number of cells in x and y direction.
         fractures: Each element is an np.array([[x0, x1],[y0,y1]])
-        domain: Defines the size of the rectangular domain.
+        domain: Domain object.
 
     Returns:
         Mixed-dimensional grid with geometry computation and node ordering performed.
 
     """
     mdg: pp.MixedDimensionalGrid = pp.meshing.cart_grid(
-        fractures, n_cells, physdims=[domain["xmax"], domain["ymax"]]
+        fractures,
+        n_cells,
+        physdims=[domain.bounding_box["xmax"], domain.bounding_box["ymax"]],
     )
     return mdg

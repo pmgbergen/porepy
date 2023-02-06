@@ -85,9 +85,11 @@ def create_grid(model):
         "ymin": xn[1].min(),
         "ymax": xn[0].max(),
     }
+    domain = pp.Domain(box)
     if model.mdg.dim_max() == 3:
         box.update({"zmin": xn[2].min(), "zmax": xn[2].max()})
-    model.box = box
+        domain = pp.Domain(box)
+    model.domain = domain
 
 
 class BiotContactModel(pp.ContactMechanicsBiot):
