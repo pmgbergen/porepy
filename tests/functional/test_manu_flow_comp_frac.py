@@ -24,7 +24,7 @@ For this functional test, we are comparing errors for the pressure (for the matr
 the fracture) and fluxes (for the matrix, the fracture, and on the interface). The
 errors are measured in a discrete relative L2-error norm (such as the ones defined
 in [2]). The desired errors were obtained by running the
-:class:`ManufacturedCompressibleFlow2d` simulation setup with the parameters given in
+:class:`ManuCompFlowSetup` simulation setup with the parameters given in
 the `Examples` section of the class docstring. We test the errors for three different
 times, namely: 0.2 [s], 0.6 [s], and 1.0 [s].
 
@@ -51,27 +51,32 @@ import pytest
 
 import porepy as pp
 from porepy.applications.verification_setups.manu_flow_comp_frac import (
-    ManufacturedCompressibleFlow2d,
+    ManuCompFlowSetup,
+    ManuCompSaveData,
     manu_comp_fluid,
     manu_comp_solid,
 )
 
-# Run verification setup and retrieve results for the scheduled times
-material_constants = {
-    "solid": pp.SolidConstants(manu_comp_solid),
-    "fluid": pp.FluidConstants(manu_comp_fluid),
-}
-mesh_arguments = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05}
-time_manager = pp.TimeManager([0, 0.2, 0.8, 1.0], 0.2, True)
-params = {
-    "material_constants": material_constants,
-    "mesh_arguments": mesh_arguments,
-    "time_manager": time_manager,
-}
-setup = ManufacturedCompressibleFlow2d(params)
-pp.run_time_dependent_model(setup, params)
 
-# Desired errors
+@pytest.fixture(scope="module")
+def results() -> list[ManuCompSaveData]:
+    # Run verification setup and retrieve results for the scheduled times
+    material_constants = {
+        "solid": pp.SolidConstants(manu_comp_solid),
+        "fluid": pp.FluidConstants(manu_comp_fluid),
+    }
+    mesh_arguments = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05}
+    time_manager = pp.TimeManager([0, 0.2, 0.8, 1.0], 0.2, True)
+    params = {
+        "material_constants": material_constants,
+        "mesh_arguments": mesh_arguments,
+        "time_manager": time_manager,
+    }
+    setup = ManuCompFlowSetup(params)
+    pp.run_time_dependent_model(setup, params)
+    return setup.results
+
+
 DesiredError = namedtuple(
     "DesiredError",
     "error_matrix_pressure, "
@@ -80,6 +85,7 @@ DesiredError = namedtuple(
     "error_frac_flux, "
     "error_intf_flux",
 )
+
 
 desired_errors: list[DesiredError] = [
     # t = 0.2 [s]
@@ -110,12 +116,15 @@ desired_errors: list[DesiredError] = [
 
 
 # Now, we write the actual test
-@pytest.mark.parametrize(
-    "desired, actual",
-    [(desired, actual) for (desired, actual) in zip(desired_errors, setup.results)],
-)
-def test_manufactured_flow_compressible_fractured_2d(desired, actual):
-    """Check errors for pressure and flux solutions."""
+@pytest.mark.parametrize("time_index", [0, 1, 2])
+def test_manufactured_flow_compressible_fractured_2d(time_index, results):
+    """Check errors for pressure and flux solutions.
+
+    Nest test functions to avoid computing the solution multiple times.
+
+    """
+    actual = results[time_index]
+    desired = desired_errors[time_index]
 
     np.testing.assert_allclose(
         actual.error_matrix_pressure,
@@ -129,7 +138,10 @@ def test_manufactured_flow_compressible_fractured_2d(desired, actual):
     )
 
     np.testing.assert_allclose(
-        actual.error_frac_pressure, desired.error_frac_pressure, atol=1e-5, rtol=1e-3
+        actual.error_frac_pressure,
+        desired.error_frac_pressure,
+        atol=1e-5,
+        rtol=1e-3,
     )
 
     np.testing.assert_allclose(
