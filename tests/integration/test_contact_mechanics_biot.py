@@ -5,13 +5,13 @@ We have the full Biot equations in the matrix, and mass conservation and contact
 conditions in the fracture. For the contact mechanical part of this
 test, please refer to test_contact_mechanics.
 """
+import tests.common.contact_mechanics_examples
 import unittest
 
 import numpy as np
 
 import porepy as pp
 import porepy.models.contact_mechanics_biot_model as model
-import tests.common.contact_mechanics_examples
 
 
 def test_contact_mechanics_model_no_modification():

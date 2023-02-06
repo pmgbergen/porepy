@@ -26,10 +26,10 @@ class TestImport2dCsv(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(known_pts, network.pts))
         known_edges = np.array([[0], [1]])
         self.assertTrue(test_utils.compare_arrays(known_edges, network.edges))
-        self.assertTrue(network.domain.bounding_box["xmin"] == 0)
-        self.assertTrue(network.domain.bounding_box["ymin"] == 0)
-        self.assertTrue(network.domain.bounding_box["xmax"] == 1)
-        self.assertTrue(network.domain.bounding_box["ymax"] == 1)
+        self.assertTrue(network.domain["xmin"] == 0)
+        self.assertTrue(network.domain["ymin"] == 0)
+        self.assertTrue(network.domain["xmax"] == 1)
+        self.assertTrue(network.domain["ymax"] == 1)
 
         test_utils.delete_file(file_name)
 
@@ -116,10 +116,10 @@ class TestImport2dCsv(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(known_pts, network.pts))
         known_edges = np.array([[0], [1]])
         self.assertTrue(test_utils.compare_arrays(known_edges, network.edges))
-        self.assertTrue(network.domain.bounding_box["xmin"] == 0)
-        self.assertTrue(network.domain.bounding_box["ymin"] == 0)
-        self.assertTrue(network.domain.bounding_box["xmax"] == 1)
-        self.assertTrue(network.domain.bounding_box["ymax"] == 1)
+        self.assertTrue(network.domain["xmin"] == 0)
+        self.assertTrue(network.domain["ymin"] == 0)
+        self.assertTrue(network.domain["xmax"] == 1)
+        self.assertTrue(network.domain["ymax"] == 1)
 
         self.assertTrue(fid.size == 1)
         self.assertTrue(fid[0] == frac_id)
@@ -184,12 +184,12 @@ class TestImport3dCsv(unittest.TestCase):
 
         network = pp.fracture_importer.network_3d_from_csv(file_name)
         self.assertTrue(len(network._fractures) == 0)
-        self.assertTrue(network.domain.bounding_box["xmin"] == 0)
-        self.assertTrue(network.domain.bounding_box["ymin"] == 1)
-        self.assertTrue(network.domain.bounding_box["zmin"] == 2)
-        self.assertTrue(network.domain.bounding_box["xmax"] == 3)
-        self.assertTrue(network.domain.bounding_box["ymax"] == 4)
-        self.assertTrue(network.domain.bounding_box["zmax"] == 5)
+        self.assertTrue(network.domain["xmin"] == 0)
+        self.assertTrue(network.domain["ymin"] == 1)
+        self.assertTrue(network.domain["zmin"] == 2)
+        self.assertTrue(network.domain["xmax"] == 3)
+        self.assertTrue(network.domain["ymax"] == 4)
+        self.assertTrue(network.domain["zmax"] == 5)
 
     def test_single_fracture(self):
         p = np.atleast_2d(np.array([0, 0, 0, 1, 1, 1, 1, 0, 1]))
@@ -224,12 +224,12 @@ class TestImport3dElliptic(unittest.TestCase):
 
         network = pp.fracture_importer.network_3d_from_csv(file_name)
         self.assertTrue(len(network._fractures) == 0)
-        self.assertTrue(network.domain.bounding_box["xmin"] == 0)
-        self.assertTrue(network.domain.bounding_box["ymin"] == 1)
-        self.assertTrue(network.domain.bounding_box["zmin"] == 2)
-        self.assertTrue(network.domain.bounding_box["xmax"] == 3)
-        self.assertTrue(network.domain.bounding_box["ymax"] == 4)
-        self.assertTrue(network.domain.bounding_box["zmax"] == 5)
+        self.assertTrue(network.domain["xmin"] == 0)
+        self.assertTrue(network.domain["ymin"] == 1)
+        self.assertTrue(network.domain["zmin"] == 2)
+        self.assertTrue(network.domain["xmax"] == 3)
+        self.assertTrue(network.domain["ymax"] == 4)
+        self.assertTrue(network.domain["zmax"] == 5)
 
     def test_create_fracture(self):
         p = np.atleast_2d([0, 0, 0, 2, 1, 0, 0, 0, 16])
@@ -264,7 +264,7 @@ class TestImportDFN1d(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         mdg = network.mesh(mesh_args, dfn=True)
 
-        bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
+        bmin, bmax = pp.bounding_box.from_md_grid(mdg)
         self.assertTrue(np.allclose(bmin, [0, 0, 0]))
         self.assertTrue(np.allclose(bmax, [1, 1, 0]))
 
@@ -279,14 +279,14 @@ class TestImportDFN1d(unittest.TestCase):
         file_name = "frac.csv"
         np.savetxt(file_name, f, delimiter=",")
 
-        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1.1})
+        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1.1}
         network = pp.fracture_importer.network_2d_from_csv(
             file_name, domain=domain, skip_header=0
         )
         mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
         mdg = network.mesh(mesh_args, dfn=True)
 
-        bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
+        bmin, bmax = pp.bounding_box.from_md_grid(mdg)
         self.assertTrue(np.allclose(bmin, [0, 0, 0]))
         self.assertTrue(np.allclose(bmax, [1, 1, 0]))
 
@@ -296,7 +296,7 @@ class TestImportDFN1d(unittest.TestCase):
         self.assertTrue(mdg.num_interfaces() == 0)
 
         for sd in mdg.subdomains():
-            _, bmax = pp.domain.grid_minmax_coordinates(sd)
+            _, bmax = pp.bounding_box.from_grid(sd)
             self.assertTrue(
                 np.allclose(bmax, [1, 0.45, 0]) ^ np.allclose(bmax, [1, 1, 0])
             )
@@ -317,7 +317,7 @@ class TestImportDFN1d(unittest.TestCase):
         self.assertTrue(mdg.num_interfaces() == 2)
 
         for sd in mdg.subdomains():
-            _, bmax = pp.domain.grid_minmax_coordinates(sd)
+            _, bmax = pp.bounding_box.from_grid(sd)
             if sd.dim == 1:
                 self.assertTrue(
                     np.allclose(bmax, [1, 0.5, 0]) ^ np.allclose(bmax, [1, 1, 0])

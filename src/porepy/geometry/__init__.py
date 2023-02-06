@@ -22,17 +22,16 @@ Note:
 
 The content of this package is organized as follows:
 
+    :mod:`~porepy.geometry.bounding_box` contains functions for computing bounding boxes
+    from point clouds, as well as :class:`~porepy.grids.grid.Grid` and
+    :class:`~porepy.grids.md_grid.MixedDimensionalGrid` objects.
+
     :mod:`~porepy.geometry.constrain_geometry` contains functions that can be used to
     impose constraints on geometric objects, including truncation of line segments to a
     polygon and of polygons to a polyhedron.
 
     :mod:`~porepy.geometry.distances` contains functions for computing distances between
     points, line segments and polygons.
-
-    :mod:`~porepy.geometry.domain` contains the class
-    :class:`~porepy.geometry.domain.Domain` for defining domains from bounding boxes
-    and general polytopes in 2d and 3d. It also contains several functions that are
-    used for manipulation and conversion between bounding boxes and polytopes.
 
     :mod:`~porepy.geometry.geometry_property_checks` contains functions for inquiries on
     geometric properties, e.g., whether a point is inside a polygon.

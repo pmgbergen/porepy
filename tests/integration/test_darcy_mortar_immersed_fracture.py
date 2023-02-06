@@ -6,12 +6,12 @@ The non-immersed case is kind of tested in the module
 
 """
 import unittest
+from tests import test_grids, test_utils
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from tests import test_grids, test_utils
 
 
 class TestImmersedFracture(unittest.TestCase):

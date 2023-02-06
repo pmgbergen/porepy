@@ -3,7 +3,6 @@
 """ This module contains completed setups for simple contact mechanics problems,
 with and without poroelastic effects in the deformation of the Nd domain.
 """
-import copy
 import logging
 
 import numpy as np
@@ -42,7 +41,7 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
 
         """
         x_endpoints = np.array([0.2, 0.8])
-        self.mdg, self.domain = pp.md_grids_2d.single_horizontal(
+        self.mdg, self.box = mdg, self.box = pp.md_grids_2d.single_horizontal(
             self.mesh_args,
             x_endpoints,
         )
@@ -58,7 +57,7 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
         boundaries.
         """
         tol = 1e-10
-        box = copy.deepcopy(self.domain.bounding_box)
+        box = self.box
         east = g.face_centers[0] > box["xmax"] - tol
         west = g.face_centers[0] < box["xmin"] + tol
         north = g.face_centers[1] > box["ymax"] - tol
@@ -103,14 +102,14 @@ class ProblemDataTime:
         with_fracture = getattr(self, "with_fracture", True)
         simplex = getattr(self, "simplex", True)
         if with_fracture:
-            mdg, self.domain = pp.md_grids_2d.single_horizontal(
+            mdg, self.box = pp.md_grids_2d.single_horizontal(
                 self.mesh_args, simplex=simplex
             )
             pp.contact_conditions.set_projections(mdg)
         else:
             nx = getattr(self, "nx", [3, 3])
             mdg = pp.meshing.cart_grid([], nx, physdims=[1, 1])
-            self.domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+            self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
         self.mdg = mdg
         self.nd = mdg.dim_max()
 
