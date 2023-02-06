@@ -161,7 +161,7 @@ def pts_edges_to_linefractures(
     fractures: list[pp.LineFracture] = []
     for start_index, end_index, *tags in edges.T:
         fractures.append(
-            LineFracture(
+            pp.LineFracture(
                 np.array([pts[:, start_index], pts[:, end_index]]).T, tags=tags
             )
         )
