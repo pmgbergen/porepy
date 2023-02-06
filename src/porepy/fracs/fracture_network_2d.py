@@ -93,7 +93,6 @@ class FractureNetwork2d:
 
         self._fractures = [] if fractures is None else fractures
         """List of fractures.
-        
         Internally transformed to points and edges.
         """
 
