@@ -145,8 +145,7 @@ class Grid:
         self.num_cells: int = cell_faces.shape[1]
         """Number of cells in the grid."""
 
-        # NOTE: Variables that are only relevant for some grids.
-        # Use with caution.
+        # NOTE: Variables that are only relevant for some grids. Use with caution.
         self.frac_num: int = -1
         """Index of the fracture the grid corresponds to. Take
         value ``(0, 1, ...)`` if the grid corresponds to a fracture, -1 if not.
@@ -433,17 +432,18 @@ class Grid:
         # of the tangent.
 
         # Define an oriented face to nodes mapping, the orientation is determined by the
-        # ordering in self.face_nodes.indices. The start node gets a -1 and the end node a +1.
+        # ordering in self.face_nodes.indices. The start node gets a -1 and the end node
+        # a +1.
         fn_orient = sps.csc_matrix(self.face_nodes, dtype=int, copy=True)
         fn_orient.data = -np.power(-1, np.arange(fn_orient.data.size))
 
-        # Consistency check: For each cell, the nodes should occur twice in the face-node relation:
-        # Once as a start node and once as an end node. Summed over all faces of the cell, the
-        # result should be zero.
+        # Consistency check: For each cell, the nodes should occur twice in the
+        # face-node relation: Once as a start node and once as an end node. Summed over
+        # all faces of the cell, the result should be zero.
         is_oriented = (fn_orient * self.cell_faces).nnz == 0
         if not is_oriented:
-           # The assumptions underlying the computation for general cells is broken. 
-           # Fall back to a legacy implementation which is only valid for convex cells.
+            # The assumptions underlying the computation for general cells is broken.
+            # Fall back to a legacy implementation which is only valid for convex cells.
             warnings.warn(
                 "Orientations in face_nodes and cell_faces are inconsistent. "
                 "Fall back on an implementation that assumes all cells are convex."
@@ -461,10 +461,11 @@ class Grid:
         cz = np.bincount(cellno, weights=self.face_centers[2, faceno])
         temp_cell_centers = np.vstack((cx, cy, cz)) / np.bincount(cellno)
 
-        # Create sub-simplexes based on (face, cell center) pairs.
-        # Compute the vectors that are normal to the sub-simplex and whose length is the
-        # area.
+        # Create sub-simplexes based on triplets, each consisting of a cell center and
+        # the start and end of a face. Compute the vectors that are normal to the
+        # sub-simplex and whose length is the area.
         subsimplex_heights = self.face_centers[:, faceno] - temp_cell_centers[:, cellno]
+        # Use a cross product to get the area of the sub-simplex.
         subsimplex_normals = 0.5 * np.cross(
             subsimplex_heights, cf_orient * tangent[:, faceno], axis=0
         )
@@ -480,23 +481,28 @@ class Grid:
         # of the plane
         self.face_normals = np.cross(tangent, plane_normal, axis=0)
 
-        # Compute the signed volumes of sub-simplexes.
-        # If the nodes are counter clock-wise these are positive values.
+        # Compute the signed volumes of sub-simplexes. Positive values indicate that
+        # cell_faces and face_nodes are consistently oriented; in practice, this means
+        # that nodes that are oriented counter clock-wise give positive values.
         subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
 
-        # In case of inconsistent orientation,
-        # the sub-simplex volumes and normals need to be corrected
+        # In case of inconsistent orientation, the sub-simplex volumes and normals need
+        # to be corrected.
         if not is_oriented:
             # The volume is still correct, but it may be negative. Fix this.
             subsimplex_volumes = np.abs(subsimplex_volumes)
 
-            # We flip the normal if the inner product between
-            # the height (face_center - cell_center)
-            # and the face normal is negative
+            # We flip the normal if the inner product between the height (face_center -
+            # cell_center) and the face normal is different from what is expected from
+            # the cell-face relation (as contained in cf_orient).
             flip = (
                 cf_orient
                 * np.sum(subsimplex_heights * self.face_normals[:, faceno], axis=0)
             ) < 0
+            # Gather the information of whether to flip for the two sides of each face.
+            # Under the assumption that the grid is convex, the two sides should yield
+            # the same decision. For a non-convex cell, the two sides may (will?) not
+            # agree on whether to flip, and the decision is essentially arbitrary.
             flip = np.bincount(faceno, weights=flip).astype(bool)
             self.face_normals[:, flip] *= -1
 
@@ -533,7 +539,7 @@ class Grid:
 
         # Face-node relationships. Note that the elements here will also serve as a
         # representation of an edge along the face (face_nodes[i] represents the edge
-        #  running from face_nodes[i] to face_nodes[i+1]).
+        # running from face_nodes[i] to face_nodes[i+1]).
         face_nodes = self.face_nodes.indices
         # For each node, index of its parent face
         face_node_ind = pp.matrix_operations.rldecode(
