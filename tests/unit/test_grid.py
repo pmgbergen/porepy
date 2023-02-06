@@ -100,12 +100,11 @@ class TestBoundaries(unittest.TestCase):
         self.assertTrue(int_nodes.size == 0)
 
     def test_bounding_box(self):
-        g = pp.CartGrid(np.array([1, 1]))
-        g.nodes = np.random.random((g.dim, g.num_nodes))
-
-        bmin, bmax = pp.bounding_box.from_grid(g)
-        self.assertTrue(np.allclose(bmin, g.nodes.min(axis=1)))
-        self.assertTrue(np.allclose(bmax, g.nodes.max(axis=1)))
+        sd = pp.CartGrid(np.array([1, 1]))
+        sd.nodes = np.random.random((sd.dim, sd.num_nodes))
+        bmin, bmax = pp.domain.grid_minmax_coordinates(sd)
+        self.assertTrue(np.allclose(bmin, sd.nodes.min(axis=1)))
+        self.assertTrue(np.allclose(bmax, sd.nodes.max(axis=1)))
 
 
 class TestComputeGeometry(unittest.TestCase):
