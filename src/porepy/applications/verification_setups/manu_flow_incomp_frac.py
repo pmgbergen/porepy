@@ -798,7 +798,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
 
 # -----> Mixer
-class ManufacturedIncompressibleFlow2d(  # type: ignore[misc]
+class ManuIncompFlowSetup(  # type: ignore[misc]
     SingleEmbeddedVerticalFracture,
     ManuIncompBalanceEquation,
     ManuIncompBoundaryConditions,
