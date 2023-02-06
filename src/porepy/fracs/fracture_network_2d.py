@@ -82,7 +82,6 @@ class FractureNetwork2d:
 
         """
 
-        # TODO: Is it possible to always set pp.Domain as attribute?
         self.domain: pp.Domain | None = domain
         """The domain for this fracture network."""
 
@@ -748,22 +747,6 @@ class FractureNetwork2d:
                 [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
             )
             dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
-
-        # if isinstance(domain, dict):
-        #     # First create lines that define the domain
-        #     x_min = domain["xmin"]
-        #     x_max = domain["xmax"]
-        #     y_min = domain["ymin"]
-        #     y_max = domain["ymax"]
-        #     dom_p: np.ndarray = np.array(
-        #         [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
-        #     )
-        #     dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
-        # else:
-        #     assert isinstance(domain, np.ndarray)
-        #     dom_p = domain
-        #     tmp = np.arange(dom_p.shape[1])
-        #     dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
 
         # Constrain the edges to the domain
         p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(
