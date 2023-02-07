@@ -7,6 +7,8 @@ import numpy as np
 
 import porepy as pp
 
+from porepy.fracs.utils import pts_edges_to_linefractures
+
 
 def test_contact_mechanics_model_no_modification():
     """Test that the raw contact mechanics model with no modifications can be run with
@@ -205,9 +207,8 @@ class Model(pp.ContactMechanics):
             else:
                 self.frac_pts = np.array([[0.3, 0.7], [0.5, 0.5]])
             frac_edges = np.array([[0], [1]])
-            network = pp.FractureNetwork2d(
-                self.frac_pts, frac_edges, domain=self.domain
-            )
+            fractures = pts_edges_to_linefractures(self.frac_pts, frac_edges)
+            network = pp.FractureNetwork2d(fractures=fractures, domain=self.domain)
         else:
             self.domain = pp.Domain(
                 {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
