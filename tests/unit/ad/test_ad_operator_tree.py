@@ -12,10 +12,12 @@ The main checks performed are:
 
 """
 import copy
-import porepy as pp
+
+import numpy as np
 import pytest
 import scipy.sparse as sps
-import numpy as np
+
+import porepy as pp
 
 _operations = pp.ad.operators.Operator.Operations
 

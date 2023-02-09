@@ -1,12 +1,12 @@
 """
 Various integration tests for contact mechanics.
 """
-import tests.common.contact_mechanics_examples
 import unittest
 
 import numpy as np
 
 import porepy as pp
+import tests.common.contact_mechanics_examples
 
 
 class TestDilation(unittest.TestCase):
@@ -222,11 +222,11 @@ class SetupContactMechanics(
             rotate_fracture = getattr(self, "rotate_fracture", False)
             endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
             if rotate_fracture:
-                self.mdg, self.box = pp.md_grids_2d.single_vertical(
+                self.mdg, self.domain = pp.md_grids_2d.single_vertical(
                     self.mesh_args, endpoints
                 )
             else:
-                self.mdg, self.box = pp.md_grids_2d.single_horizontal(
+                self.mdg, self.domain = pp.md_grids_2d.single_horizontal(
                     self.mesh_args, endpoints
                 )
 

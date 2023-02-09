@@ -2,11 +2,11 @@
 
 """
 from __future__ import annotations
-import pytest
+
 import numpy as np
+import pytest
 
 import porepy as pp
-
 
 coord_1 = [
     [[np.array([1])], np.array([42])],
@@ -44,9 +44,12 @@ coord_3 = [
     ],
 ]
 # An array with 2d values.
-coord_2d_values = [[[np.array([0]), np.array([1]), np.array([0])], np.array([[42, 2, 3], [4, 43, 7]])]]
+coord_2d_values = [
+    [[np.array([0]), np.array([1]), np.array([0])], np.array([[42, 2, 3], [4, 43, 7]])]
+]
 
 coordinates = coord_1 + coord_2 + coord_3 + coord_2d_values
+
 
 @pytest.mark.parametrize("coords_values", coordinates)
 def test_sparse_nd_array(coords_values: list[np.ndarray]):
@@ -68,13 +71,13 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     # Split the data and values, infer dimension from the coordinates.
     coords, values = coords_values
     dim = coords[0].size
-    
+
     # Force all values to be 2d (this will be done inside the array as data is added,
     # doing it here simplifies comparison and indexing).
     values = np.atleast_2d(values)
-    # Dimension of the values to be represented    
+    # Dimension of the values to be represented
     value_dim = values.shape[0]
-    
+
     all_coords = np.vstack(coords).T
 
     _, all_2_unique, unique_2_all = np.unique(
@@ -121,15 +124,21 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     assert np.allclose(retrieved_values_overwrite, expected_values_overwrite)
 
     # Additive, add one by one
-    arr_additive_incremental = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
+    arr_additive_incremental = pp.array_operations.SparseNdArray(
+        dim, value_dim=value_dim
+    )
     for ind, coord in enumerate(coords):
-        arr_additive_incremental.add([coord], values[:, ind].reshape((-1, 1)), additive=True)
+        arr_additive_incremental.add(
+            [coord], values[:, ind].reshape((-1, 1)), additive=True
+        )
     retrieved_values_additive_incremental = arr_additive_incremental.get(coords)
     # The expeted value is the same as when all coordinates are added at the same time
     assert np.allclose(retrieved_values_additive_incremental, expected_values_additive)
 
     # Overwrite, one at a time
-    arr_overwrite_incremental = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
+    arr_overwrite_incremental = pp.array_operations.SparseNdArray(
+        dim, value_dim=value_dim
+    )
     for ind, coord in enumerate(coords):
         arr_overwrite_incremental.add(
             [coord], values[:, ind].reshape((-1, 1)), additive=False

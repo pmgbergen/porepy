@@ -1456,6 +1456,35 @@ def map_subgrid_to_grid(
     return face_map, cell_map
 
 
+def diagonal_scaling_matrix(mat: sps.spmatrix) -> sps.spmatrix:
+    """Helper function to form a diagonal matrix that scales the rows of a matrix.
+
+    Parameters:
+        mat: Matrix to be scaled.
+
+    Returns:
+        Diagonal matrix with the diagonal elements equal to the row-wise sum of the
+        absolute values of the input matrix.
+
+    """
+
+    # Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,
+    # since we want to manipulate the matrix elements.
+    tmp = mat.copy()
+    # Use an absolute value here. For some of the matrices the row sum will be zero
+    # on interior faces.
+    tmp.data = np.abs(tmp.data)
+    # Take a sum here. Intuitively, an average would be better, but calling tmp.mean()
+    # would take the average over all elements, most of which are zero (this turned out
+    # not to be optimal). We could also find the number of non-zero elements and divide
+    # the sum by this, but a sum seems to be good enough.
+    scalings = tmp.sum(axis=1).A.ravel()
+    # Diagonal scaling matrix
+    full_scaling = sps.dia_matrix((1.0 / scalings, 0), shape=mat.shape)
+
+    return full_scaling
+
+
 def compute_darcy_flux(
     mdg,
     keyword="flow",
