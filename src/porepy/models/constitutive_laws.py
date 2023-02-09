@@ -2219,6 +2219,12 @@ class FrictionBound:
     This class is intended for use with fracture deformation models.
     """
 
+    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the displacement jump on fracture grids. Normally defined in a
+    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    
+    """
+
     normal_component: Callable[[list[pp.Grid]], pp.ad.Matrix]
     """Operator giving the normal component of vectors. Normally defined in a mixin
     instance of :class:`~porepy.models.models.ModelGeometry`.
@@ -2235,6 +2241,18 @@ class FrictionBound:
 
     """
 
+    gap: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Gap of a fracture. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FracturedSolid`.
+
+    """
+
+    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
+    """Numerical constant for contact mechanics. Normally provided by a mixin instance
+    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
+
+    """
+
     def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction bound [m].
 
@@ -2245,10 +2263,16 @@ class FrictionBound:
             Cell-wise friction bound operator [Pa].
 
         """
+        u_n: pp.ad.Operator = self.normal_component(subdomains) * \
+                              self.displacement_jump(subdomains)
+
         t_n: pp.ad.Operator = self.normal_component(subdomains) * self.contact_traction(
             subdomains
         )
-        bound: pp.ad.Operator = (-1) * self.friction_coefficient(subdomains) * t_n
+
+        bound: pp.ad.Operator = (-1) * self.friction_coefficient(subdomains) * (t_n
+                                + self.contact_mechanics_numerical_constant(subdomains)
+                                * (u_n - self.gap(subdomains)))
         bound.set_name("friction_bound")
         return bound
 
