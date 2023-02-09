@@ -12,26 +12,6 @@ import porepy as pp
 import porepy.grids.standard_grids.utils as utils
 from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
 
-
-def __simplex_2d_grid(
-    fracture_network: pp.FractureNetwork2d, mesh_arguments: dict[str], **kwargs
-) -> pp.MixedDimensionalGrid:
-    utils.set_mesh_sizes(mesh_arguments)
-    mdg = fracture_network.mesh(mesh_arguments)
-    mdg.compute_geometry()
-
-    return mdg
-
-
-def __simplex_3d_grid(
-    fracture_network: pp.FractureNetwork3d, mesh_arguments: dict[str], **kwargs
-) -> pp.MixedDimensionalGrid:
-    utils.set_mesh_sizes(mesh_arguments)
-    mdg = fracture_network.mesh(mesh_arguments)
-    mdg.compute_geometry()
-    return mdg
-
-
 def __coord_cart_2d(self, phys_dims, dev, pos):
     xmax = phys_dims[0]
     ymax = phys_dims[1]
@@ -119,14 +99,18 @@ def create_mdg(
     # 2d cases
     if isinstance(fracture_network, pp.FractureNetwork2d):
         if grid_type == "simplex":
-            mdg = __simplex_2d_grid(fracture_network, mesh_arguments, **kwargs)
+            utils.set_mesh_sizes(mesh_arguments)
+            mdg = fracture_network.mesh(mesh_arguments)
+            mdg.compute_geometry()
         elif grid_type == "cartesian":
             mdg = __cartersian_2d(fracture_network, mesh_arguments, **kwargs)
 
     # 3d cases
     if isinstance(fracture_network, pp.FractureNetwork3d):
         if grid_type == "simplex":
-            mdg = __simplex_3d_grid(fracture_network, mesh_arguments, **kwargs)
+            utils.set_mesh_sizes(mesh_arguments)
+            mdg = fracture_network.mesh(mesh_arguments)
+            mdg.compute_geometry()
         elif grid_type == "cartesian":
             mdg = cartersian_3d()
 
