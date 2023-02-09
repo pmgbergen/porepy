@@ -627,7 +627,7 @@ class MandelExactSolution:
 class MandelUtilities(VerificationUtils):
     """Mixin class that provides useful utility methods for the verification setup."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Named tuple containing the boundary sides indices."""
 
     exact_sol: MandelExactSolution
@@ -1290,7 +1290,7 @@ class MandelGeometry(pp.ModelGeometry):
         """Set fracture network. Unit square with no fractures."""
         ls = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
-        domain = {"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls}
+        domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
         self.fracture_network = pp.FractureNetwork2d(None, None, domain)
 
     def mesh_arguments(self) -> dict:
@@ -1306,18 +1306,8 @@ class MandelGeometry(pp.ModelGeometry):
         """Set mixed-dimensional grid."""
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
         domain = self.fracture_network.domain
-        # TODO: Purge after domain object type unification
-        if isinstance(domain, np.ndarray):
-            assert domain.shape == (2, 2)
-            self.domain_bounds: dict[str, float] = {
-                "xmin": domain[0, 0],
-                "xmax": domain[1, 0],
-                "ymin": domain[0, 1],
-                "ymax": domain[1, 1],
-            }
-        else:
-            assert isinstance(domain, dict)
-            self.domain_bounds = domain
+        if domain is not None and domain.is_boxed:
+            self.domain: pp.Domain = domain
 
 
 # -----> Boundary conditions
@@ -1325,7 +1315,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility method to access the indices of the sides of the domain."""
 
     exact_sol: MandelExactSolution
@@ -1422,7 +1412,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
 class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility method to access the indices of the sides of the domain."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:

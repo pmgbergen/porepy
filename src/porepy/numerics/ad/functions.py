@@ -335,6 +335,7 @@ def maximum(
     """
     # If neither var_0 or var_1 are Ad_arrays, return the numpy maximum function.
     if not isinstance(var_0, Ad_array) and not isinstance(var_1, Ad_array):
+        # FIXME: According to the type hints, this should not be possible.
         return np.maximum(var_0, var_1)
 
     # Make a fall-back zero Jacobian for constant arguments.
@@ -363,17 +364,23 @@ def maximum(
     # If both are scalar, return same. If one is scalar, broadcast explicitly
     if isinstance(vals[0], (float, int)):
         if isinstance(vals[1], (float, int)):
+            # Both var_0 and var_1 are scalars. Treat vals as a numpy array to return
+            # the maximum. The Jacobian of a scalar is 0.
             val = np.max(vals)
             return pp.ad.Ad_array(val, 0)
-    else:
-        # Broadcast to shape of var_1
-        vals[0] = np.ones_like(vals[1]) * vals[0]
+        else:
+            # var_0 is a scalar, but var_1 is not. Broadcast to shape of var_1.
+            vals[0] = np.ones_like(vals[1]) * vals[0]
     if isinstance(vals[1], (float, int)):
-        # Broadcast to shape of var_0
+        # var_1 is a scalar, but var_0 is not (or else we would have hit the return
+        # statement in the above double-if). Broadcast var_1 to shape of var_0.
         vals[1] = np.ones_like(vals[0]) * vals[1]
 
+    # By now, we know that both vals are numpy arrays. Try to convince mypy that this is
+    # the case.
+    assert isinstance(vals[0], np.ndarray) and isinstance(vals[1], np.ndarray)
     # Maximum of the two arrays
-    inds = vals[1] >= vals[0]
+    inds = (vals[1] >= vals[0]).nonzero()[0]
 
     max_val = vals[0].copy()
     max_val[inds] = vals[1][inds]
@@ -388,9 +395,9 @@ def maximum(
     max_jac = jacs[0].copy()
 
     if isinstance(max_jac, sps.spmatrix):
+        # Enforce csr format, unless the matrix is csc, in which case we keep it.
         if not max_jac.getformat() == "csc":
             max_jac = max_jac.tocsr()
-        inds = inds.nonzero()[0]
         lines = pp.matrix_operations.slice_mat(jacs[1].tocsr(), inds)
         pp.matrix_operations.merge_matrices(max_jac, lines, inds, max_jac.getformat())
     else:
@@ -406,7 +413,8 @@ def characteristic_function(tol: float, var: pp.ad.Ad_array):
     The derivative is set to zero independent of ``var.val``.
 
     Note:
-        See module level documentation on how to wrap functions like this in ``ad.Function``.
+        See module level documentation on how to wrap functions like this in
+        ``ad.Function``.
 
     Parameters:
         tol: Absolute tolerance for comparison with 0 using np.isclose.

@@ -3,6 +3,7 @@ Various checks of the FractureNetwork2d and 3d class
 
 Also test unitily function for generation of defalut domains.
 """
+from __future__ import annotations
 
 import unittest
 
@@ -13,7 +14,8 @@ from tests import test_utils
 
 
 class TestFractureNetwork2d(unittest.TestCase):
-    def compare_dictionaries(self, a, b):
+
+    def compare_dictionaries(self, a: dict[str, pp.number], b: dict[str, pp.number]):
         ka = list(a.keys())
         kb = list(b.keys())
 
@@ -31,8 +33,8 @@ class TestFractureNetwork2d(unittest.TestCase):
     def setUp(self):
         self.pts = np.array([[0, 2, 1, 1], [0, 0, 0, 1]])
         self.e = np.array([[0, 2], [1, 3]])
-        self.domain = {"xmin": 0, "xmax": 5, "ymin": -1, "ymax": 5}
-        self.small_domain = {"xmin": -1, "xmax": 1.5, "ymin": -1, "ymax": 5}
+        self.domain = pp.Domain({"xmin": 0, "xmax": 5, "ymin": -1, "ymax": 5})
+        self.small_domain = pp.Domain({"xmin": -1, "xmax": 1.5, "ymin": -1, "ymax": 5})
 
     def test_snap_fractures(self):
 
@@ -134,23 +136,32 @@ class TestFractureNetwork2d(unittest.TestCase):
 
         # Add first to second, check domain
         together = network_1.add_network(network_2)
-        self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
+        self.assertTrue(self.compare_dictionaries(
+            self.domain.bounding_box, together.domain.bounding_box)
+        )
 
         # Add second to first, check domain
         together = network_2.add_network(network_1)
-        self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
+        self.assertTrue(self.compare_dictionaries(
+            self.domain.bounding_box, together.domain.bounding_box)
+        )
 
         # Assign domain, then add
         network_2.domain = self.domain
         together = network_1.add_network(network_2)
-        self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
+        self.assertTrue(self.compare_dictionaries(
+            self.domain.bounding_box, together.domain.bounding_box)
+        )
 
         # Assign different domain, check that the sum has a combination of the
         # domain dicts
         network_2.domain = self.small_domain
         together = network_1.add_network(network_2)
-        combined_domain = {"xmin": -1, "xmax": 5.0, "ymin": -1, "ymax": 5}
-        self.assertTrue(self.compare_dictionaries(combined_domain, together.domain))
+        combined_domain = pp.Domain({"xmin": -1, "xmax": 5.0, "ymin": -1, "ymax": 5})
+        self.assertTrue(
+            self.compare_dictionaries(
+                combined_domain.bounding_box, together.domain.bounding_box)
+        )
 
     def test_add_networks_preserve_tags(self):
         network_1 = pp.FractureNetwork2d(self.pts, self.e)
@@ -298,7 +309,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
             "zmin": -1,
             "zmax": 2,
         }
-        network.impose_external_boundary(domain=external_boundary)
+        network.impose_external_boundary(domain=pp.Domain(external_boundary))
         d = network.bounding_box()
 
         self.assertTrue(d["xmin"] == external_boundary["xmin"])

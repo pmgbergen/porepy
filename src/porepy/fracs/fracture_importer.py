@@ -49,7 +49,7 @@ def network_3d_from_csv(
                     continue
                 else:
                     data = np.asarray(line, dtype=float)
-                    domain = {
+                    bbox = {
                         "xmin": data[0],
                         "xmax": data[3],
                         "ymin": data[1],
@@ -57,6 +57,7 @@ def network_3d_from_csv(
                         "zmin": data[2],
                         "zmax": data[5],
                     }
+                    domain = pp.Domain(bbox)
                     read_domain = True
 
         for row in spam_reader:
@@ -295,7 +296,8 @@ def network_2d_from_csv(
 
     if domain is None:
         overlap = kwargs.get("domain_overlap", 0)
-        domain = pp.bounding_box.from_points(pts, overlap)
+        bbox = pp.domain.bounding_box_of_point_cloud(pts, overlap)
+        domain = pp.Domain(bbox)
 
     pts, _, old_2_new = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
 
@@ -391,9 +393,10 @@ def dfm_3d_from_fab(
 
     network = network_3d_from_fab(file_name, return_all=False, tol=tol)
 
-    # Define the domain as bounding-box if not defined
+    # Compute the domain if not given
+    # TODO: Retrieve from as an attribute
     if domain is None:
-        domain = network.bounding_box()
+        domain = pp.Domain(network.bounding_box())
 
     network.domain = domain
     mdg = network.mesh(mesh_kwargs)
