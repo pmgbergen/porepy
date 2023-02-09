@@ -27,11 +27,23 @@ class Fracture(abc.ABC):
     PorePy currently only supports planar and convex fractures fully. As a work-around,
     the fracture can be split into convex parts.
 
+    Parameters:
+        points: ``(shape=(nd, num_points))``
+            Array containing the start- and end point/the corner
+            points for line/plane fractures.
+        tags: ``(shape=(num_tags)`, dtype=np.int8)``
+            All the tags of the fracture. A tag value of ``-1`` equals to the tag not
+            existing at all.
+        index:
+        sort_points:
+
     """
 
     def __init__(
         self,
         points: ArrayLike,
+        # TODO: Should there be tests for different ``ArrayLike`` objects?
+        tags: Optional[ArrayLike] = None,
         index: Optional[int] = None,
         sort_points: bool = True,
     ):
@@ -54,9 +66,27 @@ class Fracture(abc.ABC):
         self.orig_pts: np.ndarray = self.pts.copy()
         """Original fracture vertices `(shape=(nd, num_points))`.
 
-         The original points are kept in case the fracture geometry is modified.
+        The original points are kept in case the fracture geometry is modified.
 
-         """
+        """
+        if tags is None:
+            self.tags: np.ndarray = np.full((0,), -1, dtype=np.int8)
+        else:
+            self.tags = np.asarray(tags, dtype=np.int8)
+        """Tags of the fracture.
+        
+        In the standard form, the first tag identifies the type of the fracture,
+        referring to the numbering system in GmshInterfaceTags. The second tag keeps
+        track of the numbering of the fracture (referring to the original order of the
+        fractures) in geometry processing like intersection removal. Additional tags can
+        be assigned by the user.
+
+        A tag value of -1 means that the fracture does not have the specified tag. This
+        enables e.g. the functionality for a fracture to have the second tag, but no the
+        first one. In a more extreme case, ``fracture.tags==[-1, -1, -1, -1, -1]`` is
+        equal to the fracture not having any tags at all.
+
+        """
 
         self.index: Optional[int] = index
         """Index of fracture.

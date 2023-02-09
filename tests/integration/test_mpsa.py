@@ -11,12 +11,12 @@
 
 """
 import unittest
-from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 def setup_stiffness(g, mu=1, l=1):
@@ -1232,7 +1232,8 @@ class RobinBoundTest(unittest.TestCase):
 
     def test_unstruct_tetrahedron(self):
         box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        network = pp.FractureNetwork3d([], domain=box)
+        domain = pp.Domain(box)
+        network = pp.FractureNetwork3d([], domain=domain)
         mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
         mdg = network.mesh(mesh_args)
         sd = mdg.subdomains(dim=3)[0]
@@ -1363,28 +1364,28 @@ class TestAsymmetricNeumann(unittest.TestCase):
         indices = np.array(
             [
                 0,
-                8,
-                2,
+                9,
+                3,
                 4,
                 0,
-                8,
-                10,
-                3,
-                6,
-                6,
                 9,
                 10,
+                2,
+                6,
+                6,
+                8,
+                10,
                 1,
-                14,
-                12,
-                5,
-                12,
-                14,
-                11,
+                15,
                 13,
-                7,
+                5,
                 13,
                 15,
+                11,
+                12,
+                7,
+                12,
+                14,
             ]
         )
         indptr = np.array([0, 2, 3, 4, 6, 7, 9, 10, 12, 14, 15, 17, 18, 19, 20, 22, 23])
