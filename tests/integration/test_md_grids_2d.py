@@ -51,9 +51,9 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         self.assertTrue(len(self.mdg.subdomains(dim=0)) == n_intersections)
 
     def check_domain(self, x_length, y_length):
-        d = self.domain
-        self.assertAlmostEqual(x_length, d["xmax"] - d["xmin"])
-        self.assertAlmostEqual(y_length, d["ymax"] - d["ymin"])
+        bbox = self.domain.bounding_box
+        self.assertAlmostEqual(x_length, bbox["xmax"] - bbox["xmin"])
+        self.assertAlmostEqual(y_length, bbox["ymax"] - bbox["ymin"])
 
     def test_single_horizontal_default_values(self):
         """
