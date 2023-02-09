@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 
 import porepy as pp
+from porepy.fracs.utils import pts_edges_to_linefractures
 
 
 class TestSimpleMeshing(unittest.TestCase):
@@ -22,10 +23,12 @@ class TestSimpleMeshing(unittest.TestCase):
         }
 
         network_2d = pp.FractureNetwork2d(
-            domain={"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+            domain=pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
         )
         network_3d = pp.FractureNetwork2d(
-            domain={"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+            domain=pp.Domain(
+                {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+            )
         )
         for network in [network_2d, network_3d]:
             factory = pp.refinement.GridSequenceFactory(network, params)
@@ -57,8 +60,9 @@ class TestSimpleMeshing(unittest.TestCase):
         # Add a single fracture to the network
         pts = np.array([[0.3, 0.7], [0.5, 0.5]])
         edges = np.array([[0], [1]])
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        network = pp.FractureNetwork2d(pts, edges, domain)
+        fractures = pts_edges_to_linefractures(pts, edges)
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+        network = pp.FractureNetwork2d(fractures, domain)
 
         factory = pp.refinement.GridSequenceFactory(network, params)
 
@@ -74,8 +78,9 @@ class TestSimpleMeshing(unittest.TestCase):
         # Add a single fracture to the network
         pts = np.array([[0.3, 0.7], [0.5, 0.5]])
         edges = np.array([[0], [1]])
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        network = pp.FractureNetwork2d(pts, edges, domain)
+        fractures = pts_edges_to_linefractures(pts, edges)
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+        network = pp.FractureNetwork2d(fractures, domain)
 
         params = {
             "mode": "nested",

@@ -4,11 +4,10 @@ Partial coverage so far; will be improved when the notion of discretization upda
 cleaned up in Mpfa, Mpsa and Biot.
 
 """
+import numpy as np
 import pytest
 
-import numpy as np
 import porepy as pp
-
 
 #################
 ## Below follows methods to test the partial update of FV discretization schemes under

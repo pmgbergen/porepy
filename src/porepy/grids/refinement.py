@@ -184,7 +184,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
     offset = g.num_nodes
 
     # Combinations of faces per cell
-    binom = ((0, 1), (1, 2), (2, 0))
+    binom = ((1, 0), (2, 1), (0, 2))
 
     # Holder for new tesselation.
     new_tri = np.empty(shape=(nd + 1, g.num_cells, nd + 2), dtype=int)
