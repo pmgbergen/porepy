@@ -62,7 +62,8 @@ class FractureNetwork2d:
 
         Parameters:
             fractures: Fractures that make up the network. Defaults to None, which will
-                create a domain empty of fractures.
+                create a domain wihtout fractures. An empty list will be interpreted
+                as None.
             domain: Domain specification. See ``self.impose_external_boundary()`` for
                 details.
             tol: Tolerance used in geometric computations. Defaults to 1e-8.
@@ -91,7 +92,7 @@ class FractureNetwork2d:
         
         Internally transformed to points and edges.
         """
-        if fractures is not None:
+        if fractures is not None and len(fractures) > 0:
             self.pts, self.edges = linefractures_to_pts_edges(self._fractures, self.tol)
         else:
             self.pts = np.zeros((2, 0))
@@ -1010,7 +1011,11 @@ class FractureNetwork2d:
             self.snapped_copy(), self.copy_with_split_intersections()
 
         """
-        fractures_new = copy.deepcopy(self._fractures)
+        if len(self._fractures) == 0:
+            fractures_new = None
+        else:
+            fractures_new = copy.deepcopy(self._fractures)
+
         domain = self.domain
         if domain is not None:
             if domain.is_boxed:
@@ -1019,6 +1024,7 @@ class FractureNetwork2d:
             else:
                 polytope = domain.polytope.copy()
                 domain = pp.Domain(polytope=polytope)
+
         fn = FractureNetwork2d(fractures_new, domain, self.tol)
         fn.tags = self.tags.copy()
 
