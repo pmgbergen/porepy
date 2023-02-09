@@ -453,7 +453,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         alpha_2d=None,
     ):
 
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
         if num_fracs == 0:
             p = np.zeros((2, 0))
@@ -693,7 +693,8 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 class TestMortar3D(unittest.TestCase):
     def setup(self, num_fracs=1, remove_tags=False):
 
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+        bbox = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+        domain = pp.Domain(bbox)
 
         if num_fracs == 0:
             fl = []
