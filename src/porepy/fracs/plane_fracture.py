@@ -28,7 +28,7 @@ class PlaneFracture(Fracture):
         check_convexity: bool = False,
         sort_points: bool = True,
     ):
-        super().__init__(points, index, sort_points)
+        super().__init__(points=points, index=index, sort_points=sort_points)
 
         assert self.is_planar(), "Points define non-planar fracture"
         if check_convexity:
