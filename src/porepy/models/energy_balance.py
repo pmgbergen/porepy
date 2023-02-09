@@ -493,7 +493,7 @@ class BoundaryConditionsEnergyBalance:
 
     domain_boundary_sides: Callable[
         [pp.Grid],
-        pp.bounding_box.DomainSides,
+        pp.domain.DomainSides,
     ]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.

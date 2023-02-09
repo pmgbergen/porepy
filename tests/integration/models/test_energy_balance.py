@@ -22,7 +22,7 @@ from .test_mass_balance import BoundaryConditionLinearPressure
 class BoundaryCondition(BoundaryConditionLinearPressure):
     domain_boundary_sides: Callable[
         [pp.Grid],
-        pp.bounding_box.DomainSides,
+        pp.domain.DomainSides,
     ]
     """Utility function to access the domain boundary sides."""
     fluid: pp.FluidConstants
@@ -164,7 +164,9 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
             var = setup.equation_system.get_variables(["temperature"], [sd])
             vals = setup.equation_system.get_variable_values(var)
             assert np.allclose(
-                vals, 1 - sd.cell_centers[0] / setup.domain_bounds["xmax"], rtol=1e-4
+                vals,
+                1 - sd.cell_centers[0] / setup.domain.bounding_box["xmax"],
+                rtol=1e-4,
             )
     else:
         # Advection dominated case.
@@ -175,7 +177,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
             # Account for specific volume, default value of .01 in fractures.
             normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
             k = setup.solid.permeability() / setup.fluid.viscosity()
-            grad = 1 / setup.domain_bounds["xmax"]
+            grad = 1 / setup.domain.bounding_box["xmax"]
             enth = setup.fluid.specific_heat_capacity() * normals * grad * k
             assert np.all(np.abs(val) < np.abs(enth) + 1e-10)
 

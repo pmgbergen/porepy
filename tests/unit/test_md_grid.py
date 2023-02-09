@@ -1,9 +1,9 @@
 """ Various tests of MixedDimensionalGrid functionality. Covers getters and setters, topological
 information on the bucket, and pickling and unpickling of buckets.
 """
+import os
 import pickle
 import unittest
-import os
 
 import numpy as np
 import scipy.sparse as sps
@@ -357,20 +357,11 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         sd_2.nodes = 1 + np.random.random((sd_2.dim, sd_2.num_nodes))
 
         mdg.add_subdomains([sd_1, sd_2])
-
-        bmin, bmax = pp.bounding_box.from_md_grid(mdg)
+        bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
 
         # Since g2 is shifted, minimum should be at g1, maximum in g2
         self.assertTrue(np.allclose(bmin, sd_1.nodes.min(axis=1)))
         self.assertTrue(np.allclose(bmax, sd_2.nodes.max(axis=1)))
-
-        d = pp.bounding_box.from_md_grid(mdg, as_dict=True)
-        self.assertTrue(d["xmin"] == np.min(sd_1.nodes[0]))
-        self.assertTrue(d["ymin"] == np.min(sd_1.nodes[1]))
-        self.assertTrue(d["zmin"] == np.min(sd_1.nodes[2]))
-        self.assertTrue(d["xmax"] == np.max(sd_2.nodes[0]))
-        self.assertTrue(d["ymax"] == np.max(sd_2.nodes[1]))
-        self.assertTrue(d["zmax"] == np.max(sd_2.nodes[2]))
 
     def test_num_cells(self):
 

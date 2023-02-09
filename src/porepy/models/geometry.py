@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+import copy
 from typing import Optional, Sequence, Union
 
 import numpy as np
@@ -22,7 +23,7 @@ class ModelGeometry:
     """Well network."""
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
-    domain_bounds: dict[str, float]
+    domain: pp.Domain
     """Box-shaped domain. Set by the method :meth:`set_md_grid`."""
     nd: int
     """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
@@ -73,19 +74,21 @@ class ModelGeometry:
             # Mono-dimensional grid by default
             phys_dims = np.array([1, 1]) * ls
             n_cells = np.array([2, 2])
-            self.domain_bounds = pp.geometry.bounding_box.from_points(
-                np.array([[0, 0], phys_dims]).T
-            )
+            bounding_box = {
+                "xmin": 0,
+                "xmax": phys_dims[0] * ls,
+                "ymin": 0,
+                "ymax": phys_dims[1] * ls,
+            }
+            self.domain = pp.Domain(bounding_box)
             g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
             g.compute_geometry()
             self.mdg = pp.meshing.subdomains_to_mdg([[g]])
         else:
             self.mdg = self.fracture_network.mesh(self.mesh_arguments())
             domain = self.fracture_network.domain
-            if isinstance(domain, dict):
-                self.domain_bounds = domain
-            elif isinstance(domain, np.ndarray):
-                self.domain_bounds = pp.geometry.bounding_box.from_points(domain)
+            if domain is not None and domain.is_boxed:
+                self.domain = domain
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
@@ -437,7 +440,7 @@ class ModelGeometry:
 
     def domain_boundary_sides(
         self, sd: pp.Grid, tol: Optional[float] = 1e-10
-    ) -> pp.bounding_box.DomainSides:
+    ) -> pp.domain.DomainSides:
         """Obtain indices of the faces lying on the sides of the domain boundaries.
 
         The method is primarily intended for box-shaped domains. However, it can also be
@@ -474,7 +477,7 @@ class ModelGeometry:
 
         """
         # Get domain boundary sides
-        box = self.domain_bounds
+        box = copy.deepcopy(self.domain.bounding_box)
         east = np.abs(box["xmax"] - sd.face_centers[0]) <= tol
         west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
         if self.mdg.dim_max() == 1:
@@ -492,7 +495,7 @@ class ModelGeometry:
         all_bf = sd.get_boundary_faces()
 
         # Create a namedtuple to store the arrays
-        domain_sides = pp.bounding_box.DomainSides(
+        domain_sides = pp.domain.DomainSides(
             all_bf, east, west, north, south, top, bottom
         )
 
