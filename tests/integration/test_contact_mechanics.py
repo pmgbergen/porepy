@@ -7,6 +7,8 @@ import numpy as np
 
 import porepy as pp
 
+from porepy.fracs.utils import pts_edges_to_linefractures
+
 
 def test_contact_mechanics_model_no_modification():
     """Test that the raw contact mechanics model with no modifications can be run with
@@ -198,22 +200,25 @@ class Model(pp.ContactMechanics):
         mortar grid.
         """
         rotate_fracture = getattr(self, "rotate_fracture", False)
-        self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
         if self.nd == 2:
+            self.domain = pp.Domain({"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1})
             if rotate_fracture:
                 self.frac_pts = np.array([[0.7, 0.3], [0.3, 0.7]])
             else:
                 self.frac_pts = np.array([[0.3, 0.7], [0.5, 0.5]])
             frac_edges = np.array([[0], [1]])
-            network = pp.FractureNetwork2d(self.frac_pts, frac_edges, domain=self.box)
+            fractures = pts_edges_to_linefractures(self.frac_pts, frac_edges)
+            network = pp.FractureNetwork2d(fractures=fractures, domain=self.domain)
         else:
-            self.box.update({"zmin": 0, "zmax": 1})
+            self.domain = pp.Domain(
+                {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+            )
             pts = np.array(
                 [[0.2, 0.2, 0.8, 0.8], [0.5, 0.5, 0.5, 0.5], [0.2, 0.8, 0.8, 0.2]]
             )
             if rotate_fracture:
                 pts[1] = [0.2, 0.2, 0.8, 0.8]
-            network = pp.FractureNetwork3d([pp.PlaneFracture(pts)], domain=self.box)
+            network = pp.FractureNetwork3d([pp.PlaneFracture(pts)], domain=self.domain)
 
         # Generate the mixed-dimensional mesh
         mdg = network.mesh(self.params["mesh_args"])
