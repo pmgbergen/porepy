@@ -44,8 +44,7 @@ InterfaceData = Dict[Tuple[pp.MortarGrid, str], np.ndarray]
 
 
 class Exporter:
-    """
-    Class for exporting and importing data and grid to and from vtu format.
+    """Class for exporting and importing data and grid to and from vtu format.
 
     The Exporter allows for various ways to express which state variables,
     on which grids, and which extra data should be exported. A thorough
@@ -64,6 +63,28 @@ class Exporter:
     and should not be used otherwise (otherwise data is overwritten):
     grid_dim, is_mortar, mortar_side, cell_id, subdomain_id,
     interface_id.
+
+    Parameters:
+        grid: Subdomain or mixed-dimensional grid containing all mesh information
+            (and data in the latter case) to be exported.
+        file_name: Basis for file names used for storing the output.
+        folder_name: Name of the folder in which files are stored.
+        kwargs: Optional keywords arguments:
+            fixed_grid (boolean): to control whether the grid may be redefined later
+                (default True).
+            binary (boolean): controlling whether data is stored in binary format
+                (default True).
+            export_constants_separately (boolean): controlling whether
+                constant data is exported in separate files, which may be of
+                interest when exporting large data sets (in particular of constant
+                data) for many time steps (default True); note, however, that the
+                mesh is exported to each vtu file, which may also require
+                significant amount of storage.
+
+    Raises:
+        TypeError: If grid has other type than :class:`~pp.grids.grid.Grid` or
+            :class:`~pp.grids.md_grid.MixedDimensionalGrid`.
+        TypeError: If kwargs contains unexpected keyword arguments.
 
     Examples:
         # Here, merely a brief demonstration of the use of Exporter is presented.
@@ -93,32 +114,7 @@ class Exporter:
         folder_name: Optional[str] = None,
         **kwargs,
     ) -> None:
-        """
-        Parameters:
-            grid: Subdomain or mixed-dimensional grid containing all mesh information
-                (and data in the latter case) to be exported.
-            file_name: Basis for file names used for storing the output.
-            folder_name: Name of the folder in which files are stored.
-            kwargs: Optional keywords arguments:
-                fixed_grid (boolean): to control whether the grid may be redefined later
-                    (default True).
-                binary (boolean): controlling whether data is stored in binary format
-                    (default True).
-                export_constants_separately (boolean): controlling whether
-                    constant data is exported in separate files, which may be of
-                    interest when exporting large data sets (in particular of constant
-                    data) for many time steps (default True); note, however, that the
-                    mesh is exported to each vtu file, which may also require
-                    significant amount of storage.
-
-        Raises:
-            TypeError: If grid has other type than :class:`~pp.grids.grid.Grid` or
-                :class:`~pp.grids.md_grid.MixedDimensionalGrid`.
-            TypeError: If kwargs contains unexpected keyword arguments.
-
-        """
-        # Exporter is operating on mixed-dimensional grids. Convert to mixed-dimensional
-        # grids if subdomain grid is provided.
+        # Exporter is operating on mixed-dimensional grids. Convert to such.
         if isinstance(grid, pp.Grid):
             self._mdg: pp.MixedDimensionalGrid = pp.MixedDimensionalGrid()
             """Mixed-dimensional grid representation of the input grid."""
@@ -244,8 +240,7 @@ class Exporter:
         def _from_vector_format(
             value: np.ndarray, grid: Union[pp.Grid, pp.MortarGrid]
         ) -> np.ndarray:
-            """
-            Check whether the value array has the right dimension corresponding
+            """Check whether the value array has the right dimension corresponding
             to the grid size. If possible, translate the value to a scalar-ranged
             object.
 
@@ -334,10 +329,11 @@ class Exporter:
                         else are_subdomain_data
                     )
 
-            # 2nd step: Make sure that the vtu file and the current grid are identical.
-            # For this, check whether the meshio geometry is the same as in the vtu
-            # file. NOTE: Meshes could be compatible via some transformation. However,
-            # here we require identical grids.
+            # 2nd step: Make sure that the vtu file and the current grid are compatible,
+            # by comparing coordinates of nodes, connectivity of cells, and thereby
+            # number of grid entities. They are identified as identical if they
+            # generate the same meshio representation. NOTE: Meshes could be compatible
+            # via some transformation. However, here we require identical grids.
 
             meshio_geometry = (
                 self.meshio_geom[dim] if is_subdomain_data else self.m_meshio_geom[dim]
@@ -400,8 +396,7 @@ class Exporter:
     def add_constant_data(
         self, data: Optional[Union[DataInput, list[DataInput]]] = None
     ) -> None:
-        """
-        Collect user-defined constant-in-time data, associated with grids,
+        """Collect user-defined constant-in-time data, associated with grids,
         and to be exported to separate files instead of the main files.
 
         In principle, constant data is not different from standard output
@@ -445,8 +440,7 @@ class Exporter:
         time_step: Optional[int] = None,
         grid: Optional[Union[pp.Grid, pp.MixedDimensionalGrid]] = None,
     ) -> None:
-        """
-        Interface function to export the grid and additional data with meshio.
+        """Interface function to export the grid and additional data with meshio.
 
         In 1d the cells are represented as lines, 2d the cells as polygon or
         triangle/quad, while in 3d as polyhedra/tetrahedra/hexahedra.
@@ -574,8 +568,7 @@ class Exporter:
         times: Optional[np.ndarray] = None,
         file_extension: Optional[Union[np.ndarray, list[int]]] = None,
     ) -> None:
-        """
-        Interface function to export in PVD file the time loop information.
+        """Interface function to export in PVD file the time loop information.
         The user should open only this file in ParaView.
 
         We assume that the VTU associated files have the same name, and that.
@@ -741,8 +734,7 @@ class Exporter:
         def _to_vector_format(
             value: np.ndarray, grid: Union[pp.Grid, pp.MortarGrid]
         ) -> np.ndarray:
-            """
-            Check whether the value array has the right dimension corresponding
+            """Check whether the value array has the right dimension corresponding
             to the grid size. If possible, translate the value to a vectorial
             object, but do nothing if the data naturally can be interpreted as
             scalar data.
@@ -753,6 +745,7 @@ class Exporter:
 
             Raises:
                 ValueError: if the value array is not compatible with the grid.
+
             """
             # Make some checks
             if not value.size % grid.num_cells == 0:
@@ -771,10 +764,9 @@ class Exporter:
         def add_data_from_str(
             data_pt: str, subdomain_data: dict, interface_data: dict
         ) -> tuple[dict, dict, bool]:
-            """
-            Check whether data is provided by a key of a field - could be both subdomain
-            and interface data. If so, collect all data corresponding to subdomains and
-            interfaces identified by the key.
+            """Check whether data is provided by a key of a field - could be both
+            subdomain and interface data. If so, collect all data corresponding to
+            subdomains and interfaces identified by the key.
 
             Parameters:
                 data_pt: data identifier via the associated key used in pp.STATE.
@@ -847,8 +839,7 @@ class Exporter:
             subdomain_data: dict,
             interface_data: dict,
         ) -> tuple[dict, dict, bool]:
-            """
-            Check whether data is provided as tuple (subdomains, key),
+            """Check whether data is provided as tuple (subdomains, key),
             where subdomains is a list of subdomains, and key is a string.
             This routine explicitly checks only for subdomain data.
 
@@ -912,8 +903,7 @@ class Exporter:
             subdomain_data: dict,
             interface_data: dict,
         ) -> tuple[dict, dict, bool]:
-            """
-            Check whether data is provided as tuple (interfaces, key),
+            """Check whether data is provided as tuple (interfaces, key),
             where interfaces is a list of interfaces, and key is a string.
             This routine explicitly checks only for interface data.
 
@@ -932,6 +922,7 @@ class Exporter:
             Raises:
                 ValueError: if there exists no state in the interface data with given
                     key.
+
             """
 
             # Implementation of isinstance(t, tuple[list[pp.MortarGrid], str]).
@@ -978,8 +969,7 @@ class Exporter:
             subdomain_data: dict,
             interface_data: dict,
         ) -> tuple[dict, dict, bool]:
-            """
-            Check whether data is provided as tuple (sd, key, data),
+            """Check whether data is provided as tuple (sd, key, data),
             where sd is a single subdomain, key is a string, and data is a user-defined
             data array. This routine explicitly checks only for subdomain data.
 
@@ -1028,8 +1018,7 @@ class Exporter:
             subdomain_data: dict,
             interface_data: dict,
         ) -> tuple[dict, dict, bool]:
-            """
-            Check whether data is provided as tuple (g, key, data),
+            """Check whether data is provided as tuple (g, key, data),
             where e is a single interface, key is a string, and data is a user-defined
             data array. This routine explicitly checks only for interface data.
 
@@ -1079,8 +1068,7 @@ class Exporter:
             subdomain_data: dict,
             interface_data: dict,
         ) -> tuple[dict, dict, bool]:
-            """
-            Check whether data is provided by a tuple (key, data),
+            """Check whether data is provided by a tuple (key, data),
             where key is a string, and data is a user-defined data array.
 
             This only works when the mixed-dimensional grid contains a single subdomain.
@@ -1188,8 +1176,7 @@ class Exporter:
         return subdomain_data, interface_data
 
     def _update_constant_mesh_data(self) -> None:
-        """
-        Construct/update subdomain and interface data related with geometry and
+        """Construct/update subdomain and interface data related with geometry and
         topology.
 
         The data is identified as constant data. The final containers, stored as
@@ -1292,8 +1279,7 @@ class Exporter:
         time_step: Optional[int],
         **kwargs,
     ) -> None:
-        """
-        Collect data associated to a single grid dimension
+        """Collect data associated to a single grid dimension
         and passing further to the final writing routine.
 
         For each fixed dimension, all subdomains of that dimension and the data
@@ -1383,13 +1369,13 @@ class Exporter:
                 self._write(fields, file_name, meshio_geom)
 
     def _export_mdg_pvd(self, file_name: str, time_step: Optional[int]) -> None:
-        """
-        Routine to export to pvd format and collect all data scattered over
+        """Routine to export to pvd format and collect all data scattered over
         several files for distinct grid dimensions.
 
         Parameters:
             file_name: storage path for pvd file.
             time_step: used as appendix for the file name.
+
         """
         # Open the file
         o_file = open(file_name, "w")
@@ -1458,8 +1444,7 @@ class Exporter:
         o_file.close()
 
     def _update_meshio_geom(self) -> None:
-        """
-        Manager for storing the grid information in meshio format.
+        """Manager for storing the grid information in meshio format.
 
         The internal variables meshio_geom and m_meshio_geom, storing all
         essential (mortar) grid information as points, connectivity and cell
@@ -1487,8 +1472,7 @@ class Exporter:
     def _export_grid(
         self, grids: Iterable[pp.Grid], dim: int
     ) -> Union[None, Meshio_Geom]:
-        """
-        Wrapper function to export grids of dimension dim. Calls the
+        """Wrapper function to export grids of dimension dim. Calls the
         appropriate dimension specific export function.
 
         Parameters:
@@ -1515,8 +1499,7 @@ class Exporter:
             raise ValueError(f"Unknown dimension {dim}")
 
     def _export_grid_1d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
-        """
-        Export the geometrical data (point coordinates) and connectivity
+        """Export the geometrical data (point coordinates) and connectivity
         information from the 1d PorePy grids to meshio.
 
         Parameters:
@@ -2017,8 +2000,7 @@ class Exporter:
         # Just in time compilation
         @numba.njit("b1(f8[:,:], i4[:,:])", cache=True, parallel=True)
         def _function_to_compile(nodes, cn_indices):
-            """
-            Test whether the node numbering for each cell complies
+            """Test whether the node numbering for each cell complies
             with the hardcoded numbering used by meshio, cf. documentation
             of meshio.
 
