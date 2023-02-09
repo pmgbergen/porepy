@@ -7,13 +7,12 @@ on any problems if ran as a main method.
 """
 import unittest
 from collections import namedtuple
+from tests import test_utils
 
 import numpy as np
 
 import porepy as pp
 from porepy.fracs import structured
-from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
-from tests import test_utils
 
 # Named tuple used to identify intersections of fractures by their parent fractures
 # and their coordinates
@@ -27,7 +26,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
     def check_mdg(
         self,
         mdg,
-        domain: pp.Domain,
+        domain,
         fractures=None,
         isect_line=None,
         isect_pt=None,
@@ -48,9 +47,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
                     return False
             return True
 
-        bb = pp.domain.bounding_box_of_point_cloud(mdg.subdomains(dim=3)[0].nodes)
+        bb = pp.bounding_box.from_points(mdg.subdomains(dim=3)[0].nodes)
 
-        self.assertTrue(compare_bounding_boxes(bb, domain.bounding_box))
+        self.assertTrue(compare_bounding_boxes(bb, domain))
 
         self.assertTrue(len(fractures) == len(mdg.subdomains(dim=2)))
         self.assertTrue(expected_num_1d_grids == len(mdg.subdomains(dim=1)))
@@ -63,8 +62,8 @@ class TestDFMMeshGeneration(unittest.TestCase):
                 if g.frac_num == fi:
                     self.assertTrue(
                         compare_bounding_boxes(
-                            pp.domain.bounding_box_of_point_cloud(f.pts),
-                            pp.domain.bounding_box_of_point_cloud(g.nodes),
+                            pp.bounding_box.from_points(f.pts),
+                            pp.bounding_box.from_points(g.nodes),
                         )
                     )
 
@@ -107,7 +106,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
         for g in mdg.subdomains(dim=1):
             n = mdg.neighboring_subdomains(g, only_higher=True)
-            box = pp.domain.bounding_box_of_point_cloud(g.nodes)
+            box = pp.bounding_box.from_points(g.nodes)
 
             if len(n) == 2:
                 f_0, f_1 = sorted([n[0].frac_num, n[1].frac_num])
@@ -121,9 +120,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             coord = val["coord"]
             isect = val["isect"]
             self.assertTrue(
-                compare_bounding_boxes(
-                    coord, pp.domain.bounding_box_of_point_cloud(isect.coord)
-                )
+                compare_bounding_boxes(coord, pp.bounding_box.from_points(isect.coord))
             )
 
         for g in mdg.subdomains(dim=0):
@@ -143,8 +140,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             self.assertTrue(found)
 
     def test_no_fracture(self):
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         network = pp.FractureNetwork3d(domain=domain)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         mdg = network.mesh(mesh_args)
@@ -156,8 +152,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         A single fracture completely immersed in a boundary grid.
         """
         f_1 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         network = pp.FractureNetwork3d([f_1], domain=domain)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         mdg = network.mesh(mesh_args)
@@ -177,8 +172,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         f_2 = pp.PlaneFracture(
             np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
         )
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
 
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -209,8 +203,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         f_3 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]]))
 
         # Add some parameters for grid size
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
 
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -249,8 +242,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         f_3 = pp.PlaneFracture(f_2.pts + np.array([0.5, 0, 0]).reshape((-1, 1)))
 
         # Add some parameters for grid size
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -274,8 +266,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         f_1 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
         f_2 = pp.PlaneFracture(np.array([[-1, -1, 1, 1], [-1, 1, 1, -1], [0, 0, 0, 0]]))
         f_3 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -310,8 +301,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]])
         )
         f_3 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -341,8 +331,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         )
         f_3 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
 
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -381,8 +370,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         """
         f_1 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
         f_2 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]]))
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -409,8 +397,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         f_2 = pp.PlaneFracture(
             np.array([[0, 0, 0, 0], [0.3, 0.7, 0.7, 0.3], [0, 0, 1, 1]])
         )
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -436,8 +423,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         f_2 = pp.PlaneFracture(
             np.array([[0, 0, 0, 0], [0.5, 1.5, 1.5, 0.5], [0, 0, 1, 1]])
         )
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -461,8 +447,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 0.9, 0.0]]).T
         )
 
-        bbox = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         # This test, when used with certain versions of gmsh (<2.15?) gives
         # a mismatch between 2d cells and 3d faces on fracture surfaces. The bug
         # can be located in the .msh-file. To function as a test, we disband the
@@ -490,8 +475,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 1.9, 0.0]]).T
         )
 
-        bbox = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -515,8 +499,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             np.array([[0.5, 0.5, 1], [0.5, -0.5, 0], [0.5, 1.9, 0.0]]).T
         )
 
-        bbox = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -540,8 +523,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             np.array([[0.0, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
         )
 
-        bbox = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -565,8 +547,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             np.array([[-0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
         )
 
-        bbox = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -590,8 +571,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             np.array([[0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
         )
 
-        bbox = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -610,8 +590,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         )
 
     def test_issue_54(self):
-        bbox = {"xmin": -1, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -1, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
         f_1 = pp.PlaneFracture(
             np.array([[0.5, 0.5, 0.5, 0.5], [0.4, 0.5, 0.5, 0.4], [0.2, 0.2, 0.8, 0.8]])
         )
@@ -624,8 +603,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         network.mesh(mesh_args)
 
     def test_issue_58_1(self):
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         f_1 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
         f_2 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0.5, 0.5, 0], [0, 0, 1, 1]]))
@@ -634,8 +612,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         network.mesh(mesh_args)
 
     def test_issue_58_2(self):
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {
             "mesh_size_frac": 0.4,
             "mesh_size_bound": 1,
@@ -652,8 +629,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         network.mesh(mesh_args)
 
     def test_issue_58_3(self):
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {
             "mesh_size_frac": 0.5,
             "mesh_size_bound": 1,
@@ -687,8 +663,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
                 [[0.75, 0.5, 0.5], [0.75, 1.0, 0.5], [0.75, 1.0, 1.0], [0.75, 0.5, 1.0]]
             ).T
         )
-        bbox = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
         mesh_args = {
             "mesh_size_frac": 0.4,
             "mesh_size_bound": 1,
@@ -718,8 +693,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         A single fracture completely immersed in a boundary grid.
         """
         f_1 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         network = pp.FractureNetwork3d([f_1], domain=domain)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         mdg = network.mesh(mesh_args, constraints=np.array([0]))
@@ -739,8 +713,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         f_2 = pp.PlaneFracture(
             np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
         )
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
 
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -761,8 +734,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         f_3 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]]))
 
         # Add some parameters for grid size
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
 
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -795,8 +767,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
             np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]])
         )
         f_3 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -824,8 +795,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
             np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]])
         )
         f_3 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -845,8 +815,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         """
         f_1 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
         f_2 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]]))
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -864,8 +833,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         # a fracture, to be constraint, that intersects in the same line
         f_3 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, 1, 1, -1]]))
 
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -893,8 +861,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         # a fracture, to be constraint, that intersects in the same line
         f_3 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, 1, 1, -1]]))
 
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
@@ -915,8 +882,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
 
 class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
     def kwarguments_and_domain(self):
-        bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        domain = pp.Domain(bbox)
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 1, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         return mesh_args, domain
@@ -1074,8 +1040,7 @@ class TestDFMNonConvexDomain(unittest.TestCase):
             np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.3, 0.3]])
         )
 
-        domain = pp.Domain(polytope=self.non_convex_polyhedron)
-        network = pp.FractureNetwork3d([f_1], domain=domain)
+        network = pp.FractureNetwork3d([f_1], domain=self.non_convex_polyhedron)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         mdg = network.mesh(mesh_args)
         self.assertTrue(len(mdg.subdomains(dim=2)) == 2)
@@ -1086,8 +1051,7 @@ class TestDFMNonConvexDomain(unittest.TestCase):
             np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.7, 0.7]])
         )
 
-        domain = pp.Domain(polytope=self.non_convex_polyhedron)
-        network = pp.FractureNetwork3d([f_1], domain=domain)
+        network = pp.FractureNetwork3d([f_1], domain=self.non_convex_polyhedron)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         mdg = network.mesh(mesh_args)
         # The fracture should be split into subfractures because of the non-convexity.
@@ -1099,7 +1063,7 @@ class TestDFMNonConvexDomain(unittest.TestCase):
 
 class Test2dDomain(unittest.TestCase):
     def setUp(self):
-        self.domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+        self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
         self.mesh_args = {
             "mesh_size_bound": 1,
             "mesh_size_frac": 1,
@@ -1121,8 +1085,7 @@ class Test2dDomain(unittest.TestCase):
 
     def test_one_fracture(self):
         self.setUp()
-        line_fractures = pts_edges_to_linefractures(self.p1, self.e1)
-        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
+        network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
         mdg = network.mesh(self.mesh_args)
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 1)
@@ -1130,8 +1093,7 @@ class Test2dDomain(unittest.TestCase):
 
     def test_two_fractures(self):
         self.setUp()
-        line_fractures = pts_edges_to_linefractures(self.p2, self.e2)
-        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
         mdg = network.mesh(self.mesh_args)
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 2)
@@ -1139,8 +1101,7 @@ class Test2dDomain(unittest.TestCase):
 
     def test_one_constraint(self):
         self.setUp()
-        line_fractures = pts_edges_to_linefractures(self.p1, self.e1)
-        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
+        network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.array([0]))
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
@@ -1148,8 +1109,7 @@ class Test2dDomain(unittest.TestCase):
 
     def test_two_constraints(self):
         self.setUp()
-        line_fractures = pts_edges_to_linefractures(self.p2, self.e2)
-        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.arange(2))
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
@@ -1157,8 +1117,7 @@ class Test2dDomain(unittest.TestCase):
 
     def test_one_fracture_one_constraint(self):
         self.setUp()
-        line_fractures = pts_edges_to_linefractures(self.p2, self.e2)
-        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.array(1))
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 1)
