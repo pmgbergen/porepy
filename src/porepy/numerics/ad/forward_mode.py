@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+from typing import Union
 import numpy as np
 import scipy.sparse as sps
+
+AdType = Union[float, np.ndarray, sps.spmatrix, "Ad_array"]
 
 __all__ = ["initAdArrays", "Ad_array"]
 
@@ -26,23 +31,48 @@ def initAdArrays(variables):
 
 
 class Ad_array:
-    def __init__(self, val=1.0, jac=0.0):
-        self.val = val
-        self.jac = jac
+    def __init__(self, val: np.ndarray, jac: sps.spmatrix):
+
+        self._sz = val.size
+
+        # Enforce float format of all data to limit the number of cases we need to
+        # handle and test.
+        self.val = val.astype(float)
+        self.jac = jac.astype(float)
 
     def __repr__(self) -> str:
         s = f"Ad array of size {self.val.size}\n"
         s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size} elements"
         return s
 
-    def __add__(self, other):
-        b = _cast(other)
-        c = Ad_array()
-        c.val = self.val + b.val
-        c.jac = self.jac + b.jac
-        return c
+    def __add__(self, other: AdType) -> Ad_array:
+
+        match other:
+            # Use class patterns for identfying the right case, see
+            # https://stackoverflow.com/questions/67524641/convert-multiple-isinstance-checks-to-structural-pattern-matching
+            # and https://peps.python.org/pep-0634/#class-patterns
+            case float():
+                return Ad_array(self.val + other, self.jac)
+            case np.ndarray():
+                if other.ndim != 1:
+                    raise ValueError("Only 1d numpy arrays can be added to Ad_arrays")
+                return Ad_array(self.val + other, self.jac)
+            case sps.spmatrix():
+                raise ValueError("Sparse matrices cannot be added to Ad_arrays")
+            case Ad_array():
+                if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+                    raise ValueError("Incompatible sizes for Ad_array addition")
+                return Ad_array(self.val + other.val, self.jac + other.jac)
+            case int():
+                raise ValueError(
+                    """Scalars should be converted to floats before parsing
+                         in the Ad framework"""
+                )
+            case _:
+                raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
     def __radd__(self, other):
+
         return self.__add__(other)
 
     def __sub__(self, other):
