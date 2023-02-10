@@ -135,6 +135,18 @@ class Domain:
 
         return s
 
+    def __eq__(self, other: pp.Domain):
+
+        # Two domains are equal if they have the same polytope. Note that this assumes
+        # that the arrays of the polytope list are stored in the exact same order.
+        # TODO: The condition for equality is too strict, we might want to consider
+        #  the possibility that polytopes may be defined in different orders
+        check = []
+        for item_self, item_other in zip(self.polytope, other.polytope):
+            check.append(np.all(item_self == item_other))
+        return all(check)
+
+
     def bounding_box_from_polytope(self) -> dict[str, pp.number]:
         """Obtain the bounding box of a polytope.
 
