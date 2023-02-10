@@ -1,16 +1,15 @@
 """
-Module containing a wrapper method to generate fracture networks in 2d and 3d.
+Module containing a wrapper function to generate fracture networks in 2d and 3d.
 """
 
 import warnings
+from typing import Optional, Union
 
 import porepy as pp
-from porepy.fracs.line_fracture import LineFracture
-from porepy.fracs.plane_fracture import PlaneFracture
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-
-from typing import Optional, Union
+from porepy.fracs.line_fracture import LineFracture
+from porepy.fracs.plane_fracture import PlaneFracture
 
 # Custom typings
 Fracture = Union[LineFracture, PlaneFracture]
@@ -18,10 +17,10 @@ FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
 def create_fracture_network(
-        fractures: Optional[list[Fracture]] = None,
-        domain: Optional[pp.Domain] = None,
-        tol: float = 1e-8,
-        run_checks: bool = False
+    fractures: Optional[list[Fracture]] = None,
+    domain: Optional[pp.Domain] = None,
+    tol: float = 1e-8,
+    run_checks: bool = False,
 ) -> FractureNetwork:
     """Create a fracture network.
 
@@ -30,6 +29,7 @@ def create_fracture_network(
         .. code: python3
 
             import porepy as pp
+            import numpy as np
 
             # Set a domain
             domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
@@ -78,42 +78,51 @@ def create_fracture_network(
 
     # Check that all items are of the same type if the fracture list is non-empty.
     if fracs is not None:
-        if not (
-            all(isinstance(frac, LineFracture) for frac in fracs)
-        ) or not (
-            all(isinstance(frac, PlaneFracture) for frac in fracs)
-        ):
+        is_homo_2d = all([isinstance(frac, pp.LineFracture) for frac in fracs])
+        is_homo_3d = all([isinstance(frac, pp.PlaneFracture) for frac in fracs])
+        if not (is_homo_2d or is_homo_3d):
             raise TypeError("All fracture objects must be of the same type.")
 
     # At this point, we can infer the dimension of the fracture network
-    if fracs is None and domain is not None:  # domain given, no fractures
+    if fracs is None and domain is not None:  # CASE 1: domain given, no fractures
         dim = domain.dim
-    elif fracs is not None and domain is not None:  # both are given
+    elif fracs is not None and domain is not None:  # CASE2 2: both are given
+        # Infer dimension form the list of fractures
+        if isinstance(fracs[0], LineFracture):
+            dim_from_fracs = 2
+        else:
+            dim_from_fracs = 3
+        # Infer the dimension from the dimension
         dim_from_domain = domain.dim
-        dim_from_fracs = 2 if isinstance(fracs[0], LineFracture) else 3
-        assert dim_from_domain == dim_from_fracs  # make sure both dimensions match
+        # Make sure both dimension match
+        assert dim_from_domain == dim_from_fracs
         dim = dim_from_domain
-    else:  # fractures are given, no domain
-        dim = 2 if isinstance(fracs[0], LineFracture) else 3
+    elif fracs is not None and domain is None:  # CASE 3: fractures given, no domain
+        if isinstance(fracs[0], LineFracture):
+            dim = 2
+        else:
+            dim = 3
+    # The correct thing to do above would've been to use an `else` statement, but mypy
+    # complains if there are no explicit checks ensuring that fracs is not None and
+    # domain is None
 
     # Warn if run_checks = True is given when dimension is different from 3
     if run_checks and dim != 3:
         warnings.warn("'run_checks=True' has no effect if dimension != 3.")
 
-    # Now, we create the fracture network
+    # Finally, create and return according to dimensionality
+    # mypy complains fervently since fracs can be either 2d or 3d. Since we created a
+    # robust dimensionality check above, it is safe to ignore the argument type
     if dim == 2:
-        fracture_network = pp.FractureNetwork2d(
-            fractures=fracs,
-            domain=domain,
-            tol=tol
+        fracture_network_2d = pp.FractureNetwork2d(
+            fractures=fracs, domain=domain, tol=tol  # type: ignore[arg-type]
         )
+        return fracture_network_2d
     else:
-        fracture_network = pp.FractureNetwork3d(
-            fractures=fracs,
+        fracture_network_3d = pp.FractureNetwork3d(
+            fractures=fracs,  # type: ignore[arg-type]
             domain=domain,
             tol=tol,
-            run_checks=run_checks
+            run_checks=run_checks,
         )
-
-    return fracture_network
-
+        return fracture_network_3d
