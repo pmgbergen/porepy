@@ -8,8 +8,8 @@ from itertools import product
 from typing import Literal, Optional
 
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt
-from matplotlib.colors import LogNorm
 from scipy.sparse import csr_matrix, spmatrix
 from scipy.sparse.linalg import svds
 
@@ -294,7 +294,7 @@ def _plot_condition_number(
             block_condition_numbers,
             mask=block_condition_numbers == 0,
             square=False,
-            norm=LogNorm(vmin=1, vmax=1e3),
+            norm=matplotlib.colors.LogNorm(vmin=1, vmax=1e3),
             annot=True,
             fmt=".1e",
             xticklabels=variable_names,
@@ -334,7 +334,7 @@ def _plot_max(block_data, variable_names, equation_names) -> None:
             block_max,
             mask=empty,
             square=False,
-            norm=LogNorm(),
+            norm=matplotlib.colors.LogNorm(),
             annot=True,
             fmt=".1e",
             xticklabels=variable_names,
