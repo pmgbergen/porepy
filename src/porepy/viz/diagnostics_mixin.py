@@ -30,12 +30,13 @@ class DiagnosticsMixin:
     """This is a mixin class for a PorePy model that allows running the model
     diagnostics.
 
-    Currently supports dividing the matrix into blocks based on different equations and 
+    Currently supports dividing the matrix into blocks based on different equations and
     subdomains/interfaces. Can plot:
     - condition number of each block
     - absolute maximum value of each block
-    Supports gathering data about one equation/variable block from all subdomains.  
-    For detailed information, see the tutorial. (TODO: How to add reference to .ipynb ?)
+    Supports gathering data about one equation/variable block from all subdomains.
+    For detailed information, see the `tutorial <https://github.com/pmgbergen/porepy/blo
+    b/feat-diagnostics/tutorials/diagnostics.ipynb>`__.
 
     Example:
         Basic usage:
