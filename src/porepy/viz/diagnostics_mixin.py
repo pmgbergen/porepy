@@ -1,4 +1,4 @@
-"""This module provides DiagnosticsMixin class for PorePy models."""
+"""Module for diagnostics of PorePy’s models built on seaborn."""
 
 import logging
 from collections import defaultdict
@@ -27,23 +27,25 @@ logger = logging.getLogger(__name__)
 
 
 class DiagnosticsMixin:
-    """This is an auxilary mixin class for the PorePy model that allows to study
-    the block structure of the Jacobian matrix.
+    """This is a mixin class for a PorePy model that allows running the model
+    diagnostics.
 
-    Currently supports plotting the condition numbers and/or
-    the absolute maximum value of the matrix subblocks.
-    For detailed information, see the [tutorial](../../tutorials/diagnostics.ipynb).
+    Currently supports dividing the matrix into blocks based on different equations and 
+    subdomains/interfaces. Can plot:
+    - condition number of each block
+    - absolute maximum value of each block
+    Supports gathering data about one equation/variable block from all subdomains.  
+    For detailed information, see the tutorial. (TODO: How to add reference to .ipynb ?)
 
     Example:
         Basic usage:
 
         >>> from porepy.applications.verification_setups.mandel_biot import MandelSetup
-
+        >>>
         >>> class MandelDiagnostics(DiagnosticsMixin, MandelSetup):
-                pass
-
+        >>>     pass
         >>> setup = MandelDiagnostics(params={})
-        >>> pp.run_time_dependent_model(setup, params={})
+        >>> porepy.run_time_dependent_model(setup, params={})
         >>> setup.show_diagnostics()
 
     """
@@ -64,20 +66,20 @@ class DiagnosticsMixin:
         is_plotting_condition_number: bool = False,
         is_plotting_max: bool = True,
     ) -> None:
-        """Collects and plots diagnostics from the Jacobian matrix laying in
-        `self.linear_system`.
+        """Collects and plots diagnostics from the last assembled Jacobian matrix stored
+        in :attr:`~self.linear_system`.
 
         It is assumed that the full Jacobian matrix is stored in `self.linear_system`,
         and full information about the matrix indices is stored in
         `self.equation_system._equation_image_space_composition`.
 
         Note:
-            It is assumed that variables with the same name on different grids
-            are one variable.
+            It is assumed that variables with the same name defined on different grids
+            are semantically the same variable.
 
         Args:
             grouping (optional): Either "subdomains" or None. If "subdomains",
-                gathers the data related to one equation / variables from all subdomains
+                gathers the data related to one equation / variable from all subdomains
                 or interfaces into one cell.
                 If None, treats equations / variables in different subdomains or
                 interfaces separately.
@@ -350,7 +352,7 @@ def _format_variable_name_with_grid(variable: Variable) -> str:
     """Formats variable name for printing.
 
     Returns:
-        str: Name to be printed.
+        Name to be printed.
     """
     grid: GridLike
     try:
@@ -370,7 +372,7 @@ def _format_ticks(name: str, dim: int, grid_id: int, is_interface: bool) -> str:
     Adds grid id and says if the grid is an interface.
 
     Returns:
-        str: Name to be printed.
+        Name to be printed.
     """
 
     if is_interface:
