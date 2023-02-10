@@ -6,12 +6,115 @@ Also test unitily function for generation of defalut domains.
 from __future__ import annotations
 
 import unittest
+import pytest
 
 import numpy as np
 
 import porepy as pp
 from tests import test_utils
-from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
+from porepy.fracs.utils import pts_edges_to_linefractures
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
+
+
+# Fracture network generation
+class TestCreateFractureNetwork:
+
+    # Convert parameters to fixtures
+    unit_square = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+
+    unit_cube = pp.Domain(
+        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    )
+
+    line_frac = pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]))
+
+    plane_frac = pp.PlaneFracture(
+        np.array([[0, 2, 2, 0], [0, 2, 2, 0], [-1, -1, 1, 1]])
+    )
+
+    @pytest.mark.parametrize("fractures", [[], None])
+    def test_error_raised_if_fractures_and_domain_are_none(self, fractures):
+        """Check that an error is raised when both fractures and domain are given as
+        None/ empty"""
+        with pytest.raises(ValueError) as excinfo:
+            msg = "'fractures' and 'domain' cannot both be empty/None."
+            pp.create_fracture_network(fractures, None)
+        assert msg in str(excinfo.value)
+
+    @pytest.mark.parametrize(
+        "fractures",
+        [
+            [1],
+            [line_frac, "just_another_fracture"],
+            [line_frac, plane_frac],
+            [plane_frac, line_frac],
+        ]
+    )
+    def test_error_if_fractures_has_heterogeneous_types(self, fractures):
+        """Check that a type error is raised if the list of fractures contain
+        non-homogeneous types, e.g., it should be all PlaneFractures or
+        LineFractures."""
+        with pytest.raises(TypeError) as excinfo:
+            msg = "All fracture objects must be of the same type."
+            pp.create_fracture_network(
+                fractures,
+                None
+            )
+        assert msg in str(excinfo.value)
+
+    @pytest.mark.parametrize("domain", [unit_square, unit_cube])
+    def test_empty_list_and_none_create_the_same_network(self, domain, request):
+        """Check that is the same giving fractures as an empty list or None."""
+        # First in 2d
+        fn_none = pp.create_fracture_network(
+            None,
+            domain
+        )
+        fn_empty_list = pp.create_fracture_network(
+            [],
+            domain
+        )
+        assert fn_none.num_frac() == fn_empty_list.num_frac()
+        assert fn_none.domain == fn_empty_list.domain
+
+    def test_warning_raised_if_run_checks_true_for_dim_not_3(self):
+        """Checks if the warning is properly raised when ``run_checks=True`` for a
+        fracture network with a dimensionality different from 3."""
+        warn_msg = "'run_checks=True' has no effect if dimension != 3."
+        with pytest.warns() as record:
+            domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+            pp.create_fracture_network(None, domain=domain, run_checks=True)
+        assert str(record[0].message) == warn_msg
+
+    @pytest.mark.parametrize(
+        "fractures, domain, FractureNetwork",
+        [
+            ([], unit_square, FractureNetwork2d),
+            ([], unit_cube, FractureNetwork3d),
+            ([line_frac], unit_square, FractureNetwork2d),
+            ([plane_frac], unit_cube, FractureNetwork3d),
+        ],
+    )
+    def test_create_fracture_networks(
+            self,
+            fractures,
+            domain,
+            FractureNetwork,
+            request,
+    ):
+        """Checks if the same fracture networks are created by using the
+        ``create_fracture_network()`` function, and the FractureNetwork classes."""
+        fn_with_create = pp.create_fracture_network(
+            fractures,
+            domain,
+        )
+        fn_with_class = FractureNetwork(
+            fractures,
+            domain,
+        )
+        assert fn_with_create.num_frac() == fn_with_class.num_frac()
+        assert fn_with_create.domain == fn_with_class.domain
 
 
 class TestFractureNetwork2d(unittest.TestCase):
