@@ -4,7 +4,6 @@
 import unittest
 from unittest.mock import patch
 
-import porepy as pp
 from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 from tests.integration.test_contact_mechanics_biot import SetupContactMechanicsBiot
 
@@ -28,7 +27,13 @@ def test_diagnostics_mixin(_) -> None:
     setup = BiotWithDiagnostics()
     setup.with_fracture = True  # type: ignore
     setup.ux_north = 0.01
-    pp.run_time_dependent_model(setup, {})
+
+    # Common preprocessing is done to assemble the linear system.
+    setup.prepare_simulation()
+    setup.before_newton_loop()
+    setup.before_newton_iteration()
+    setup.assemble_linear_system()
+
     setup.show_diagnostics(
         is_plotting_condition_number=True, is_plotting_max=True, grouping=None
     )
