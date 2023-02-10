@@ -1,5 +1,7 @@
 """Module for diagnostics of PorePy’s models built on seaborn."""
 
+from __future__ import annotations
+
 import logging
 from collections import defaultdict
 from itertools import product
