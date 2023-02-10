@@ -1256,7 +1256,10 @@ class FractureNetwork3d(object):
         return p_2d, edges_2d, p_loc_c, rot
 
     def __repr__(self) -> str:
-        s = "Fracture set with " + str(len(self._fractures)) + " planes\n"
+        s = (
+            f"Three-dimensional fracture network with "
+            f"{str(len(self._fractures))} plane fractures.\n"
+        )
         if "boundary" in self.tags:
             bnd = "boundary"
             s += f"{sum(self.tags[bnd])} of the fractures are domain boundaries"
