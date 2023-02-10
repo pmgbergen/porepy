@@ -89,7 +89,7 @@ class FractureNetwork2d:
 
         self._fractures = [] if fractures is None else fractures
         """List of fractures.
-        
+
         Internally transformed to points and edges.
         """
         if fractures is not None and len(fractures) > 0:
@@ -1456,14 +1456,13 @@ class FractureNetwork2d:
         meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
     def __str__(self):
-        s = "Fracture set consisting of " + str(self.num_frac()) + " fractures"
-        if self.pts is not None:
-            s += ", consisting of " + str(self.pts.shape[1]) + " points.\n"
-        else:
-            s += ".\n"
+        s = (
+            f"Two-dimensional fracture network with {str(self.num_frac())} line "
+            f"fractures.\n"
+        )
         if self.domain is not None:
-            s += "Domain: "
-            s += str(self.domain)
+            s += "The domain is a "
+            s += (str(self.domain)).lower()
         return s
 
     def __repr__(self):

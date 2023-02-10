@@ -106,6 +106,35 @@ class Domain:
         else:
             raise ValueError("Not enough arguments. Expected box OR polytope.")
 
+    def __repr__(self):
+        if self.is_boxed:
+            s = f"pp.Domain(bounding_box={self.bounding_box})"
+        else:
+            # TODO: Create a function that prints a polytope prettily
+            s = f"pp.Domain(polytope=\n {self.polytope} \n )"
+        return s
+
+    def __str__(self):
+
+        if self.is_boxed:
+            if self.dim == 2:
+                s = f"Rectangle with bounding box: {self.bounding_box}."
+            else:
+                s = f"Cuboid with bounding box: {self.bounding_box}."
+        else:
+            if self.dim == 2:
+                s = (
+                    f"Polygon with {len(self.polytope)} sides and bounding box: "
+                    f"{self.bounding_box}."
+                )
+            else:
+                s = (
+                    f"Polyhedron with {len(self.polytope)} bounding planes and "
+                    f"bounding box: {self.bounding_box}."
+                )
+
+        return s
+
     def bounding_box_from_polytope(self) -> dict[str, pp.number]:
         """Obtain the bounding box of a polytope.
 
@@ -219,7 +248,6 @@ class Domain:
         bound_planes = [west, east, south, north, bottom, top]
 
         return bound_planes
-
 
 class DomainSides(NamedTuple):
     """Type for domain sides."""
