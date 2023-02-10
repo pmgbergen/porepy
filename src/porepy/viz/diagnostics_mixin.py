@@ -7,8 +7,8 @@ from collections import defaultdict
 from itertools import product
 from typing import Literal, Optional
 
-import numpy as np
 import matplotlib
+import numpy as np
 from matplotlib import pyplot as plt
 from scipy.sparse import csr_matrix, spmatrix
 from scipy.sparse.linalg import svds
