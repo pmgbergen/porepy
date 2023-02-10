@@ -1260,11 +1260,9 @@ class FractureNetwork3d(object):
             f"Three-dimensional fracture network with "
             f"{str(len(self._fractures))} plane fractures.\n"
         )
-        if "boundary" in self.tags:
-            bnd = "boundary"
-            s += f"{sum(self.tags[bnd])} of the fractures are domain boundaries"
-        else:
-            s += "No boundary information is given"
+        if self.domain is not None:
+            s += f"The domain is a {(str(self.domain)).lower()}"
+
         return s
 
     def _reindex_fractures(self):

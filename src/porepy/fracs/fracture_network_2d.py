@@ -1461,9 +1461,11 @@ class FractureNetwork2d:
             f"fractures.\n"
         )
         if self.domain is not None:
-            s += "The domain is a "
-            s += (str(self.domain)).lower()
+            s += f"The domain is a {(str(self.domain)).lower()}"
         return s
 
     def __repr__(self):
         return self.__str__()
+
+
+
