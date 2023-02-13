@@ -58,7 +58,7 @@ __all__ = [
 def exp(var):
     if isinstance(var, Ad_array):
         val = np.exp(var.val)
-        der = var.diagvec_mul_jac(np.exp(var.val))
+        der = var._diagvec_mul_jac(np.exp(var.val))
         return Ad_array(val, der)
     else:
         return np.exp(var)
@@ -67,7 +67,7 @@ def exp(var):
 def log(var):
     if isinstance(var, Ad_array):
         val = np.log(var.val)
-        der = var.diagvec_mul_jac(1 / var.val)
+        der = var._diagvec_mul_jac(1 / var.val)
         return Ad_array(val, der)
     else:
         return np.log(var)
@@ -84,7 +84,7 @@ def sign(var):
 def abs(var):
     if isinstance(var, Ad_array):
         val = np.abs(var.val)
-        jac = var.diagvec_mul_jac(sign(var))
+        jac = var._diagvec_mul_jac(sign(var))
         return Ad_array(val, jac)
     else:
         return np.abs(var)
@@ -145,7 +145,7 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
 def sin(var):
     if isinstance(var, Ad_array):
         val = np.sin(var.val)
-        jac = var.diagvec_mul_jac(np.cos(var.val))
+        jac = var._diagvec_mul_jac(np.cos(var.val))
         return Ad_array(val, jac)
     else:
         return np.sin(var)
@@ -154,7 +154,7 @@ def sin(var):
 def cos(var):
     if isinstance(var, Ad_array):
         val = np.cos(var.val)
-        jac = var.diagvec_mul_jac(-np.sin(var.val))
+        jac = var._diagvec_mul_jac(-np.sin(var.val))
         return Ad_array(val, jac)
     else:
         return np.cos(var)
@@ -163,7 +163,7 @@ def cos(var):
 def tan(var):
     if isinstance(var, Ad_array):
         val = np.tan(var.val)
-        jac = var.diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
+        jac = var._diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
         return Ad_array(val, jac)
     else:
         return np.tan(var)
@@ -172,7 +172,7 @@ def tan(var):
 def arcsin(var):
     if isinstance(var, Ad_array):
         val = np.arcsin(var.val)
-        jac = var.diagvec_mul_jac((1 - var.val**2) ** (-0.5))
+        jac = var._diagvec_mul_jac((1 - var.val**2) ** (-0.5))
         return Ad_array(val, jac)
     else:
         return np.arcsin(var)
@@ -181,7 +181,7 @@ def arcsin(var):
 def arccos(var):
     if isinstance(var, Ad_array):
         val = np.arccos(var.val)
-        jac = var.diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
+        jac = var._diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
         return Ad_array(val, jac)
     else:
         return np.arccos(var)
@@ -190,7 +190,7 @@ def arccos(var):
 def arctan(var):
     if isinstance(var, Ad_array):
         val = np.arctan(var.val)
-        jac = var.diagvec_mul_jac((var.val**2 + 1) ** (-1))
+        jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-1))
         return Ad_array(val, jac)
     else:
         return np.arctan(var)
@@ -200,7 +200,7 @@ def arctan(var):
 def sinh(var):
     if isinstance(var, Ad_array):
         val = np.sinh(var.val)
-        jac = var.diagvec_mul_jac(np.cosh(var.val))
+        jac = var._diagvec_mul_jac(np.cosh(var.val))
         return Ad_array(val, jac)
     else:
         return np.sinh(var)
@@ -209,7 +209,7 @@ def sinh(var):
 def cosh(var):
     if isinstance(var, Ad_array):
         val = np.cosh(var.val)
-        jac = var.diagvec_mul_jac(np.sinh(var.val))
+        jac = var._diagvec_mul_jac(np.sinh(var.val))
         return Ad_array(val, jac)
     else:
         return np.cosh(var)
@@ -218,7 +218,7 @@ def cosh(var):
 def tanh(var):
     if isinstance(var, Ad_array):
         val = np.tanh(var.val)
-        jac = var.diagvec_mul_jac(np.cosh(var.val) ** (-2))
+        jac = var._diagvec_mul_jac(np.cosh(var.val) ** (-2))
         return Ad_array(val, jac)
     else:
         return np.tanh(var)
@@ -227,7 +227,7 @@ def tanh(var):
 def arcsinh(var):
     if isinstance(var, Ad_array):
         val = np.arcsinh(var.val)
-        jac = var.diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
+        jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
         return Ad_array(val, jac)
     else:
         return np.arcsinh(var)
@@ -238,7 +238,7 @@ def arccosh(var):
         val = np.arccosh(var.val)
         den1 = (var.val - 1) ** (-0.5)
         den2 = (var.val + 1) ** (-0.5)
-        jac = var.diagvec_mul_jac(den1 * den2)
+        jac = var._diagvec_mul_jac(den1 * den2)
         return Ad_array(val, jac)
     else:
         return np.arccosh(var)
@@ -247,7 +247,7 @@ def arccosh(var):
 def arctanh(var):
     if isinstance(var, Ad_array):
         val = np.arctanh(var.val)
-        jac = var.diagvec_mul_jac((1 - var.val**2) ** (-1))
+        jac = var._diagvec_mul_jac((1 - var.val**2) ** (-1))
         return Ad_array(val, jac)
     else:
         return np.arctanh(var)
@@ -284,7 +284,7 @@ def heaviside_smooth(var, eps: float = 1e-3):
     """
     if isinstance(var, Ad_array):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
-        jac = var.diagvec_mul_jac(
+        jac = var._diagvec_mul_jac(
             np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1)
         )
         return Ad_array(val, jac)
