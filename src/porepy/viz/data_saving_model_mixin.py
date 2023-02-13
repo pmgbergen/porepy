@@ -26,8 +26,6 @@ class DataSavingMixin:
     """Equation system manager."""
     params: dict[str, Any]
     """Dictionary of parameters. May contain data saving parameters."""
-    time_manager: pp.TimeManager
-    """Time manager for the simulation."""
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the simulation."""
 
