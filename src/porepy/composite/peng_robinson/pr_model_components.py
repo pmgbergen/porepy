@@ -36,12 +36,14 @@ class H2O_ps(PseudoComponent):
     @staticmethod
     def critical_pressure():
         """`Source <https://doi.org/10.1016/j.gca.2006.01.033>`_."""
-        return 22.06
+        # return 22.06
+        return 22.04832
 
     @staticmethod
     def critical_temperature():
         """`Source <https://doi.org/10.1016/j.gca.2006.01.033>`_."""
-        return 647.096
+        # return 647.096
+        return 647.14
 
     @staticmethod
     def triple_point_pressure():
@@ -94,7 +96,8 @@ class CO2_ps(PseudoComponent):
     @staticmethod
     def critical_pressure():
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
-        return 7.38
+        # return 7.38
+        return 7.376460
 
     @staticmethod
     def critical_temperature():
@@ -161,7 +164,8 @@ class H2O(PR_Component, H2O_ps):
     @property
     def acentric_factor(self) -> float:
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
-        return 0.3434
+        # return 0.3434
+        return 0.344
 
     def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
@@ -195,7 +199,8 @@ class CO2(PR_Component, CO2_ps):
     @property
     def acentric_factor(self) -> float:
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
-        return 0.2273
+        # return 0.2273
+        return 0.2252
 
     def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
