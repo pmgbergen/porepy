@@ -818,7 +818,7 @@ class DarcysLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr: pp.ad.MpfaAd = self.darcy_flux_discretization(subdomains)
+        discr: pp.ad.Discretization = self.darcy_flux_discretization(subdomains)
         p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
         pressure_trace = (
             discr.bound_pressure_cell * p
@@ -847,7 +847,7 @@ class DarcysLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr: pp.ad.MpfaAd = self.darcy_flux_discretization(subdomains)
+        discr: pp.ad.Discretization = self.darcy_flux_discretization(subdomains)
         flux: pp.ad.Operator = (
             discr.flux * self.pressure(subdomains)
             + discr.bound_flux
@@ -1220,7 +1220,7 @@ class FouriersLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr = self.fourier_flux_discretization(subdomains)
+        discr: pp.ad.Discretization = self.fourier_flux_discretization(subdomains)
         t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
         temperature_trace = (
             discr.bound_pressure_cell * t  # "pressure" is a legacy misnomer
@@ -1250,7 +1250,7 @@ class FouriersLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr = self.fourier_flux_discretization(subdomains)
+        discr: pp.ad.Discretization = self.fourier_flux_discretization(subdomains)
 
         # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
         # included here.
