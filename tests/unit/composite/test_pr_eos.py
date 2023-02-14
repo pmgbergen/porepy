@@ -133,8 +133,8 @@ class TestPREoS(unittest.TestCase):
         all_A = np.linspace(0, pp.composite.A_CRIT, self.Z_refinement + 2)[1:-1]
         all_B = np.linspace(0, pp.composite.B_CRIT, self.Z_refinement + 2)[1:-1]
 
-        GAS = pp.composite.PR_EoS(True)  # flag does not change results
-        LIQ = pp.composite.PR_EoS(False)  # flag does not change results
+        GAS = pp.composite.PR_EoS(True)
+        LIQ = pp.composite.PR_EoS(False)
 
         liquid_residuals = list()
         gas_residuals = list()
