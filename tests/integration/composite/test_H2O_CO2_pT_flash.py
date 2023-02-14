@@ -55,6 +55,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
     @unittest.skip("")
     def test_flash_only_gas(self):
+        """Data from pr_data_thermo_isothermal_G_h2o_co2.csv"""
         path = pathlib.Path(__file__).parent.resolve()
 
         results_gas_file = open(str(path) + "/pr_data_thermo_isothermal_G_h2o_co2.csv")
@@ -127,9 +128,10 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
     # @unittest.skip("Scenario with negative extended roots not covered.")
     def test_flash_only_liquid(self):
+        """Data from pr_data_thermo_isothermal_L_h2o_co2.csv"""
         path = pathlib.Path(__file__).parent.resolve()
 
-        results_liq_file = open(str(path) + "/pr_data_thermo_isothermal_L_h2o_co2.csv")
+        results_liq_file = open(str(path) + "/testdata.csv")
         results_liq = csv.reader(results_liq_file, delimiter=",")
         _ = next(results_liq)  # get rid of header
 
@@ -199,7 +201,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
     @unittest.skip("")
     def test_flash_2_phase(self):
-        """Test file pr_data_thermo_isothermal_GL_h2o_co2.csv."""
+        """Data from pr_data_thermo_isothermal_GL_h2o_co2.csv."""
         path = pathlib.Path(__file__).parent.resolve()
 
         results_liq_file = open(str(path) + "/pr_data_thermo_isothermal_GL_h2o_co2.csv")

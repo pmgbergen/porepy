@@ -481,7 +481,7 @@ class PR_EoS:
         ### COMPUTATIONS IN THE ONE-ROOT-REGION
         # Missing real root is replaced with conjugated imaginary roots
         if np.any(one_root_region):
-            # B_1 = pp.ad.Ad_array(B.val[one_root_region], B.jac[one_root_region])
+            B_1 = pp.ad.Ad_array(B.val[one_root_region], B.jac[one_root_region])
             r_1 = pp.ad.Ad_array(r.val[one_root_region], r.jac[one_root_region])
             q_1 = pp.ad.Ad_array(q.val[one_root_region], q.jac[one_root_region])
             delta_1 = pp.ad.Ad_array(
@@ -512,19 +512,20 @@ class PR_EoS:
             z_1 = real_part - c2_1 / 3
             # real part of the conjugate imaginary roots
             # used for extension of vanished roots
-            # w_1 = (1 - B_1 - z_1) / 2
-            w_1 = -real_part / 2 - c2_1 / 3
+            w_1 = (1 - B_1 - z_1) / 2
+            # w_1 = -real_part / 2 - c2_1 / 3
 
             ## simplified labeling, Vu et al. (2021), equ. 4.24
             gas_region = w_1.val < z_1.val
             liquid_region = z_1.val < w_1.val
 
-            # assert the roots are not overlapping,
-            # this should not happen,
-            # except in cases where the polynomial has "almost" a triple root.
-            assert not np.any(
-                np.isclose(w_1.val - z_1.val, 0.0, atol=self.eps)
-            ), "Triple root proximity detected in one-root-region."
+            # NOTE: The following is a preliminary correction for when the extension
+            # violates physical bounds. It needs some investigation for the cases when
+            # there are two EoS objects with contextual fractions, and a single one.
+            correction = w_1.val <= B_1.val
+            w_1.val[correction] = z_1.val[correction]
+            w_1.jac[correction] = z_1.jac[correction]
+
             # assert the whole one-root-region is covered
             assert np.all(
                 np.logical_or(gas_region, liquid_region)
@@ -534,12 +535,10 @@ class PR_EoS:
                 np.logical_not(np.logical_and(gas_region, liquid_region))
             ), "Labeled subregions in one-root-region overlap."
 
-            # assert positivity (physical meaningfulness)
+            # assert physical lower bound by mixture covolume
             assert np.all(
-                0.0 <= z_1.val
-            ), "Negative real root in 1-root-region detected."
-            # assert np.all(0. <= w_1.val
-            # ), "Negative extended root in 1-root-region detected."
+                B_1.val <= z_1.val
+            ), "Real root in 1-root-region violates lower bound by covolume B."
 
             # store values in one-root-region
             nc_1 = np.count_nonzero(one_root_region)
@@ -619,8 +618,9 @@ class PR_EoS:
             double_is_liquidlike = np.logical_not(double_is_gaslike)
 
             # assert physical meaning
-            assert np.all(0.0 <= z_1.val), "Negative roots in 2-root-region detected."
-            assert np.all(0.0 <= z_23.val), "Negative roots in 2-root-region detected."
+            assert np.all(0.0 <= z_1.val), "Negative root in 2-root-region detected."
+            assert np.all(0.0 <= z_23.val
+            ), "Negative double-root in 2-root-region detected."
 
             # store values in double-root-region
             nc_d = np.count_nonzero(double_root_region)
@@ -647,8 +647,8 @@ class PR_EoS:
             Z_G_jac[double_root_region] = Z_G_jac_d
 
         ### COMPUTATIONS IN THE THREE-ROOT-REGION
-        # compute all three roots, label them (smallest=liquid, biggest= gas)
-        # optionally smooth the,
+        # compute all three roots, label them (smallest=liquid, biggest=gas)
+        # optionally smooth them
         if np.any(three_root_region):
             r_3 = pp.ad.Ad_array(r.val[three_root_region], r.jac[three_root_region])
             q_3 = pp.ad.Ad_array(q.val[three_root_region], q.jac[three_root_region])

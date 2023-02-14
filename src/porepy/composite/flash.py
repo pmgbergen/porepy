@@ -1,6 +1,7 @@
 """This module contains functionality to solve the equilibrium problem numerically
 (flash)."""
 from __future__ import annotations
+import time
 
 from typing import Any, Callable, Literal, Optional
 
@@ -1363,6 +1364,7 @@ class Flash:
         success: bool = False
         iter_final: int = 0
 
+        self.iter_times=list()
         # assemble linear system of eq
         A, b = F()
 
@@ -1385,7 +1387,7 @@ class Flash:
             prolongation = self._C.ad_system.projection_to(var_names).transpose()
 
             for i in range(1, self.max_iter_flash + 1):
-
+                start = time.time()
                 if do_logging:
                     if self.use_armijo:
                         print("", end="\n")
@@ -1414,7 +1416,8 @@ class Flash:
                 )
 
                 A, b = F()
-
+                stop = time.time()
+                self.iter_times.append(stop - start)
                 # in case of convergence
                 if np.linalg.norm(b) <= self.flash_tolerance:
                     # counting necessary number of iterations

@@ -16,8 +16,10 @@ GAS = pp.composite.PR_Phase(adsys, True, name="G")
 M.add_components([h2o, co2])
 M.add_phases([LIQ, GAS])
 
-temperature = 477.777777777777
-pressure = 8685113.73751352 * 1e-6
+temperature = 388.888888888888
+# temperature = 433.333333333333
+pressure = 100000000 * 1e-6
+# pressure = 47148663.6345739 * 1e-6
 co2_fraction = 0.01
 # n2_fraction = 0.0
 h2o_fraction = 0.99
