@@ -93,7 +93,8 @@ class PR_Composition(Composition):
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Before the system is linearized by a super call to the parent method,
-        the PR mixture computes the EoS Roots in each phase for (iterative) updates.
+        the PR mixture computes the EoS Roots in each phase for (iterative) updates,
+        including the smoothing procedure by default.
 
         Note:
             This is for performance reasons, since the roots can be evaluated only
@@ -105,7 +106,7 @@ class PR_Composition(Composition):
 
         # compute roots and thermodynamic properties ONCE, since they depend on
         # fractions, pressure and temperature.
-        self.compute_roots(state=state)
+        self.compute_roots(state=state, apply_smoother=True)
         return super().linearize_subsystem(flash_type, other_vars, other_eqns, state)
 
     ### root computation ---------------------------------------------------------------

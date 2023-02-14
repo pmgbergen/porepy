@@ -58,7 +58,7 @@ def bip_H2O_CO2(T: NumericType, h2o: H2O, co2: CO2) -> NumericType:
     - CO2: 124-38-9
 
     Returns:
-        An AD Operator representing the constant scalar BIP.
+        Constant scalar BIP.
 
     """
     return 0.0952
@@ -75,7 +75,7 @@ def bip_H2O_H2S(T: NumericType, h20: H2O, h2s: H2S) -> NumericType:
     - H2S: 7783-06-4
 
     Returns:
-        An AD Operator representing the constant scalar BIP.
+        Constant scalar BIP.
 
     """
     return 0.0394
@@ -97,7 +97,7 @@ def bip_H2O_N2(T: NumericType, h2o: H2O, n2: N2) -> NumericType:
         but it was also designed for another EoS (SRK), with a value 0.385438.
 
     Returns:
-        An AD Operator representing the constant scalar BIP.
+        Constant scalar BIP.
 
     """
     # return 0.9909 - 379.9691 / T
@@ -121,7 +121,7 @@ def bip_CO2_H2S(T: NumericType, co2: CO2, h2s: H2S) -> NumericType:
     - H2S: 7783-06-4
 
     Returns:
-        An AD Operator representing the constant scalar BIP.
+        Constant scalar BIP.
 
     """
     return 0.0967
@@ -138,7 +138,7 @@ def bip_CO2_N2(T: NumericType, co2: CO2, n2: N2) -> NumericType:
     - N2: 7727-37-9
 
     Returns:
-        An AD Operator representing the constant scalar BIP.
+        Constant scalar BIP.
 
     """
     return -0.0122
@@ -155,7 +155,7 @@ def bip_N2_H2S(T: NumericType, n2: N2, h2s: H2S) -> NumericType:
     - N2: 7727-37-9
 
     Returns:
-        An AD Operator representing the constant scalar BIP.
+        Constant scalar BIP.
 
     """
     return 0.1652
@@ -169,7 +169,7 @@ def bip_NaClBrine_H2S(T: NumericType, naclbrine: NaClBrine, h2s: H2S) -> Numeric
     `Soereide (1992), equation 15 <https://doi.org/10.1016/0378-3812(92)85105-H>`_.
 
     Returns:
-        An AD Operator representing the BIP.
+        Temperature-dependent BIP.
 
     """
     T_r = T / h2s.critical_temperature()
@@ -188,7 +188,7 @@ def bip_NaClBrine_CO2(T: NumericType, naclbrine: NaClBrine, co2: CO2) -> Numeric
     `Soereide (1992), equation 14 <https://doi.org/10.1016/0378-3812(92)85105-H>`_.
 
     Returns:
-        An AD Operator representing the BIP.
+        Temperature- and salt-molality-dependent the BIP.
 
     """
     T_r = T / co2.critical_temperature()
@@ -220,7 +220,7 @@ def bip_NaClBrine_N2(T: NumericType, naclbrine: NaClBrine, n2: N2) -> NumericTyp
     `Soereide (1992), equation 13 <https://doi.org/10.1016/0378-3812(92)85105-H>`_.
 
     Returns:
-        An AD Operator representing the BIP.
+        Temperature- and salt-molality-dependent the BIP.
 
     """
     T_r = T / n2.critical_temperature()

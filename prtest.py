@@ -16,11 +16,11 @@ GAS = pp.composite.PR_Phase(adsys, True, name="G")
 M.add_components([h2o, co2])
 M.add_phases([LIQ, GAS])
 
-temperature = 300
-pressure = 0.01
-co2_fraction = 0.6
-n2_fraction = 0.0
-h2o_fraction = 1 - co2_fraction - n2_fraction
+temperature = 477.777777777777
+pressure = 8685113.73751352 * 1e-6
+co2_fraction = 0.01
+# n2_fraction = 0.0
+h2o_fraction = 0.99
 
 adsys.set_variable_values(
     h2o_fraction * vec, variables=[h2o.fraction_name], to_iterate=True, to_state=True
@@ -44,10 +44,12 @@ M.initialize()
 
 FLASH = pp.composite.Flash(M, auxiliary_npipm=False)
 FLASH.use_armijo = True
-FLASH.armijo_parameters["rho"] = 0.9
-FLASH.armijo_parameters["j_max"] = 150
+FLASH.armijo_parameters["rho"] = 0.99
+FLASH.armijo_parameters["j_max"] = 50
+FLASH.armijo_parameters["return_max"] = True
 FLASH.newton_update_chop = 1.0
 FLASH.flash_tolerance = 1e-7
+FLASH.max_iter_flash = 50
 
 FLASH.flash("isothermal", "npipm", "rachford_rice", True, True)
 # evaluate enthalpy after pT flash

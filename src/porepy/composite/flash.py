@@ -145,6 +145,7 @@ class Flash:
             "kappa": 0.4,
             "rho": 0.99,
             "j_max": 150,
+            "return_max": False,
         }
         """A dictionary containing per parameter name (str, key) the respective
         parameter for the Armijo line-search.
@@ -1226,6 +1227,7 @@ class Flash:
         kappa = self.armijo_parameters["kappa"]
         rho = self.armijo_parameters["rho"]
         j_max = self.armijo_parameters["j_max"]
+        return_max = self.armijo_parameters["return_max"]
 
         # get starting point from current ITERATE state at iteration k
         _, b_k = F()
@@ -1234,17 +1236,18 @@ class Flash:
 
         _, b_j = F(X_k + rho * DX)
         pot_j = self._Armijo_potential(b_j)
+        rho_j = rho
 
         if do_logging:
             print(f"Armijo line search initial potential: {b_k_pot}")
             print(f"Armijo line search j=1; potential {pot_j}", end="", flush=True)
 
         # start with first step size. If sufficient, return rho
-        if pot_j <= (1 - 2 * kappa * rho) * b_k_pot:
+        if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
             if do_logging:
                 _del_log()
                 print("Armijo line search j=1: success", end="", flush=True)
-            return rho
+            return rho_j
         else:
             # if maximal line-search interval defined, use for-loop
             if j_max:
@@ -1272,17 +1275,19 @@ class Flash:
                             print(f"Armijo line search j={j}: success", flush=True)
                         return rho_j
 
-                # if for-loop did not yield any results, raise error
-                raise RuntimeError(
-                    f"Armijo line-search did not yield results after {j_max} steps."
-                )
+                # if for-loop did not yield any results, raise error if requested
+                if return_max:
+                    return rho_j
+                else:
+                    raise RuntimeError(
+                        f"Armijo line-search did not yield results after {j_max} steps."
+                    )
             # if no j_max is defined, use while loop
             # NOTE: If system is bad in some sense,
-            # this might not finish in feasable time.
+            # this might not finish in feasible time.
             else:
                 # prepare for while loop
                 j = 1
-                rho_j = rho
 
                 # while potential not decreasing, compute next step-size
                 while pot_j > (1 - 2 * kappa * rho_j) * b_k_pot:

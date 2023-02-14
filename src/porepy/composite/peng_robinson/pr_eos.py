@@ -92,7 +92,7 @@ class PR_EoS:
         mixingrule: ``default='VdW'``
 
             Name of the mixing rule to be applied.
-        transition_smoothing: ``default=0.1``
+        transition_smoothing: ``default=1e-4``
 
             A small number to determine proximity between 3-root and double-root case.
 
@@ -110,7 +110,7 @@ class PR_EoS:
         self,
         gaslike: bool,
         mixingrule: Literal["VdW"] = "VdW",
-        smoothing_factor: float = 0.1,
+        smoothing_factor: float = 1e-4,
         eps: float = 1e-16,
     ) -> None:
 
@@ -521,7 +521,7 @@ class PR_EoS:
 
             # assert the roots are not overlapping,
             # this should not happen,
-            # except in cases where the polynomial has "almost" a triple root
+            # except in cases where the polynomial has "almost" a triple root.
             assert not np.any(
                 np.isclose(w_1.val - z_1.val, 0.0, atol=self.eps)
             ), "Triple root proximity detected in one-root-region."
@@ -533,6 +533,13 @@ class PR_EoS:
             assert np.all(
                 np.logical_not(np.logical_and(gas_region, liquid_region))
             ), "Labeled subregions in one-root-region overlap."
+
+            # assert positivity (physical meaningfulness)
+            assert np.all(
+                0.0 <= z_1.val
+            ), "Negative real root in 1-root-region detected."
+            # assert np.all(0. <= w_1.val
+            # ), "Negative extended root in 1-root-region detected."
 
             # store values in one-root-region
             nc_1 = np.count_nonzero(one_root_region)
@@ -575,6 +582,10 @@ class PR_EoS:
 
             z_triple = -c2_triple / 3
 
+            assert np.all(
+                0.0 <= z_triple.val
+            ), "Negative root in triple-root-region detected."
+
             # store root where it belongs
             if self.gaslike:
                 Z_G_val[triple_root_region] = z_triple.val
@@ -606,6 +617,10 @@ class PR_EoS:
             # the three root case
             double_is_gaslike = z_23.val >= z_1.val
             double_is_liquidlike = np.logical_not(double_is_gaslike)
+
+            # assert physical meaning
+            assert np.all(0.0 <= z_1.val), "Negative roots in 2-root-region detected."
+            assert np.all(0.0 <= z_23.val), "Negative roots in 2-root-region detected."
 
             # store values in double-root-region
             nc_d = np.count_nonzero(double_root_region)
@@ -652,6 +667,8 @@ class PR_EoS:
             assert np.all(z1_3.val <= z2_3.val) and np.all(
                 z2_3.val <= z3_3.val
             ), "Roots in three-root-region improperly ordered."
+            # assert positivity (only then  physically meaningful)
+            assert np.all(0.0 <= z1_3.val), "Negative roots in 3-root-region detected."
 
             ## Smoothing of roots close to double-real-root case
             # this happens when the phase changes, at the phase border the polynomial
@@ -866,14 +883,11 @@ class PR_EoS:
         # smoothing values with convex combination
         Z_G_val = (1 - v_G) * Z_G.val + v_G * W_G.val
         Z_L_val = (1 - v_L) * Z_L.val + v_L * W_L.val
+
         # smoothing jacobian with component-wise product
         # betweem matrix row and vector component
-        Z_G_jac = Z_G.jac.multiply((1 - v_G)[:, np.newaxis]) + W_G.jac.multiply(
-            v_G[:, np.newaxis]
-        )
-        Z_L_jac = Z_L.jac.multiply((1 - v_L)[:, np.newaxis]) + W_L.jac.multiply(
-            v_L[:, np.newaxis]
-        )
+        Z_G_jac = Z_G.diagvec_mul_jac((1 - v_G)) + W_G.diagvec_mul_jac(v_G)
+        Z_L_jac = Z_L.diagvec_mul_jac((1 - v_L)) + W_L.diagvec_mul_jac(v_L)
 
         # store in AD array format and return
         smooth_Z_L = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
@@ -890,10 +904,12 @@ class PR_EoS:
         upper_bound = proximity < 1 - self.smoothing_factor
         lower_bound = (1 - 2 * self.smoothing_factor) < proximity
         bound = np.logical_and(upper_bound, lower_bound)
+
         bound_smoother = (
             proximity[bound] - (1 - 2 * self.smoothing_factor)
         ) / self.smoothing_factor
         bound_smoother = bound_smoother**2 * (3 - 2 * bound_smoother)
+
         smoother[bound] = bound_smoother
         # where proximity is close to one, set value of one
         smoother[proximity >= 1 - self.smoothing_factor] = 1.0
@@ -909,10 +925,12 @@ class PR_EoS:
         upper_bound = proximity < 2 * self.smoothing_factor
         lower_bound = self.smoothing_factor < proximity
         bound = np.logical_and(upper_bound, lower_bound)
+
         bound_smoother = (
-            proximity[bound] + (1 - 2 * self.smoothing_factor)
+            proximity[bound] - self.smoothing_factor
         ) / self.smoothing_factor
         bound_smoother = (-1) * bound_smoother**2 * (3 - 2 * bound_smoother) + 1
+
         smoother[bound] = bound_smoother
         # where proximity is close to zero, set value of one
         smoother[proximity <= self.smoothing_factor] = 1.0
