@@ -234,7 +234,6 @@ from porepy.models.thm_model import THM
 from porepy.models.incompressible_flow_model import IncompressibleFlow
 from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
 
-
 # Visualization
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
@@ -242,6 +241,11 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 from porepy.utils import error
 
+# Applications
+from porepy.applications.building_blocks.models_glossary import (
+    Glossary,
+    print_glossary_entry,
+)
 
 # Modules
 from porepy.fracs import utils as frac_utils
