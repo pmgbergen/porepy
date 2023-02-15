@@ -126,7 +126,7 @@ class PR_EoS:
 
         """
 
-        self.is_super_critical: np.ndarray = np.array([], dtype=bool)
+        self.is_supercritical: np.ndarray = np.array([], dtype=bool)
         """A boolean array flagging if the mixture became super-critical.
 
         In vectorized computations, the results are stored component-wise.
@@ -442,7 +442,8 @@ class PR_EoS:
         ### CLASSIFYING REGIONS
         # identify super-critical region and store information
         # limited physical insight into what this means with this EoS
-        self.is_super_critical = B.val > B_CRIT / A_CRIT * A.val
+        self.is_supercritical = B.val > B_CRIT / A_CRIT * A.val
+        subcritical_square = np.logical_and(A.val <= A_CRIT, B.val <= B_CRIT)
 
         # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
@@ -522,7 +523,11 @@ class PR_EoS:
             # NOTE: The following is a preliminary correction for when the extension
             # violates physical bounds. It needs some investigation for the cases when
             # there are two EoS objects with contextual fractions, and a single one.
-            correction = w_1.val <= B_1.val
+            correction = np.logical_or(
+                # self.is_supercritical[one_root_region], w_1.val <=0
+                np.logical_not(subcritical_square[one_root_region]),
+                w_1.val <= 0,
+            )
             w_1.val[correction] = z_1.val[correction]
             w_1.jac[correction] = z_1.jac[correction]
 
@@ -619,7 +624,8 @@ class PR_EoS:
 
             # assert physical meaning
             assert np.all(0.0 <= z_1.val), "Negative root in 2-root-region detected."
-            assert np.all(0.0 <= z_23.val
+            assert np.all(
+                0.0 <= z_23.val
             ), "Negative double-root in 2-root-region detected."
 
             # store values in double-root-region
