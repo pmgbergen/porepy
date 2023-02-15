@@ -197,13 +197,13 @@ class TerzaghiExactSolution:
     def __init__(self, setup):
         """Constructor of the class"""
 
-        self.setup: TerzaghiSetup = setup
+        self.setup = setup
         """Instance of Terzaghi Setup."""
 
         self.uls: int = self.setup.params.get("upper_limit_summation", 1000)
-        """Upper limit summation. Used to truncate the infinite series needed for 
+        """Upper limit summation. Used to truncate the infinite series needed for
         computing the exact solutions. Defaults to 1000 terms.
-        
+
         """
 
     def pressure(self, y: np.ndarray, t: number) -> np.ndarray:
@@ -267,9 +267,9 @@ class TerzaghiUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
     applied_load: Callable[[], pp.number]
-    """Method that set the applied load in scaled [Pa]. Normally provided by an 
+    """Method that set the applied load in scaled [Pa]. Normally provided by an
     instance of :class:`TerzaghiBoundaryConditionsMechanics`.
-    
+
     """
 
     params: dict
@@ -284,7 +284,7 @@ class TerzaghiUtils(VerificationUtils):
     height: Callable[[], pp.number]
     """Method that set the height of the domain in scaled [m]. Normally provided by an
      instance of :class:`PseudoOneDimensionalColumn`.
-    
+
     """
 
     solid: pp.SolidConstants
@@ -310,7 +310,7 @@ class TerzaghiUtils(VerificationUtils):
         """Gravity acceleration in scaled [m * s^-2]."""
         ls = 1 / self.units.m
         ts = 1 / self.units.s
-        scaling_factor = ls / ts ** 2
+        scaling_factor = ls / ts**2
         return pp.GRAVITY_ACCELERATION * scaling_factor  # scaled [m * s^-2]
 
     def confined_compressibility(self) -> number:
@@ -520,7 +520,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
     params: dict
     """Simulation model parameters."""
 
-    def height(self):
+    def height(self) -> pp.number:
         """Retrieve height of the domain, in scaled [m]."""
         ls = 1 / self.units.m  # length scaling
         height = self.params.get("height", 1.0)  # [m]
@@ -570,7 +570,7 @@ class TerzaghiBoundaryConditionsMechanics(
     solid: pp.SolidConstants
     """Solid constants object."""
 
-    def applied_load(self):
+    def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
         applied_load = self.params.get("vertical_load", 6e8)  # [Pa]
         return self.solid.convert_units(applied_load, "Pa")  # scaled [Pa]
@@ -671,7 +671,7 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy class for Terzaghi's setup."""
 
     applied_load: Callable[[], pp.number]
-    """Method that set the applied load in scaled [Pa]. Normally provided by an 
+    """Method that set the applied load in scaled [Pa]. Normally provided by an
     instance of :class:`~TerzaghiBoundaryConditionsMechanics`.
 
     """
@@ -679,7 +679,7 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     exact_sol: TerzaghiExactSolution
     """Exact solution object."""
 
-    plot_results: Callable
+    plot_results: Callable[[], None]
     """Method that plots the pressure and degree of consolidation."""
 
     results: list[TerzaghiSaveData]
