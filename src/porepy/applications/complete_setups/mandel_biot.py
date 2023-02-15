@@ -486,7 +486,7 @@ class MandelExactSolution:
         mu_f = self.setup.fluid.viscosity()  # scaled [Pa * s]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
         c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
-        a = self.setup.domain.bounding_box("xmax")  # scaled [m]
+        a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -633,9 +633,9 @@ class MandelUtilities(VerificationUtils):
     """Mixin class that provides useful utility methods for the verification setup."""
 
     domain: pp.Domain
-    """Domain specification. Normally set by an instance of 
+    """Domain specification. Normally set by an instance of
     :class:`~MandelGeometry``.
-    
+
     """
 
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
@@ -755,7 +755,7 @@ class MandelUtilities(VerificationUtils):
         return c_f
 
     # -----> Non-dimensionalization methods
-    def nondim_time(self, t: Union[float, int, np.ndarray]) -> float:
+    def nondim_time(self, t: Union[number, np.ndarray]) -> Union[number, np.ndarray]:
         """Non-dimensionalize time.
 
         Parameters:
@@ -944,7 +944,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
+                label=rf"$\tau=${np.round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
         ax.set_ylabel(r"Non-dimensional pressure, $p ~ a ~ F^{-1}$", fontsize=13)
@@ -991,7 +991,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
+                label=rf"$\tau=${np.round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
         ax.set_ylabel(
@@ -1040,7 +1040,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
+                label=rf"$\tau=${np.round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(r"Non-dimensional vertical distance, $y ~ b^{-1}$", fontsize=13)
         ax.set_ylabel(
@@ -1097,7 +1097,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
+                label=rf"$\tau=${np.round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(r"Non-dimensional horizontal distance, $x ~ a^{-1}$", fontsize=13)
         ax.set_ylabel(
@@ -1153,7 +1153,7 @@ class MandelUtilities(VerificationUtils):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${round(self.nondim_time(result.time), 5)}",
+                label=rf"$\tau=${np.round(self.nondim_time(result.time), 5)}",
             )
         ax.set_xlabel(
             r"Non-dimensional horizontal distance, $ x ~ a^{-1}$", fontsize=13
