@@ -1,7 +1,6 @@
 """This module contains functionality to solve the equilibrium problem numerically
 (flash)."""
 from __future__ import annotations
-import time
 
 from typing import Any, Callable, Literal, Optional
 
@@ -12,6 +11,9 @@ import porepy as pp
 
 from .composition import Composition
 from .phase import Phase
+
+# import time
+
 
 __all__ = ["Flash"]
 
@@ -612,8 +614,10 @@ class Flash:
 
         if flash_type == "isothermal":
             var_names = self._C.pT_subsystem["primary_vars"]
+            equations = self._C.pT_subsystem["equations"]
         elif flash_type == "isenthalpic":
             var_names = self._C.ph_subsystem["primary_vars"]
+            equations = self._C.ph_subsystem["equations"]
         else:
             raise ValueError(f"Unknown flash type {flash_type}.")
 
@@ -628,11 +632,15 @@ class Flash:
 
         if method == "newton-min":
             if do_logging:
+                print(f"Variables: {var_names}")
+                print(f"Equations: {equations}")
                 print("+++", flush=True)
             success = self._Newton_min(flash_type, do_logging)
         elif method == "npipm":
             if do_logging:
                 print("Setting initial NPIPM variables.")
+                print(f"Variables: {var_names + self.npipm_variables}")
+                print(f"Equations: {equations + self.npipm_equations}")
                 print("+++", flush=True)
             self._set_NPIPM_initial_guess()
             success = self._NPIPM(flash_type, do_logging)
@@ -1029,6 +1037,8 @@ class Flash:
                         to_iterate=True,
                     )
             # set phase fraction
+            # Y += 1e-18
+            # Y[Y > 1] = 1.0
             for phase in phases:
                 ad_system.set_variable_values(
                     np.copy(Y), variables=[phase.fraction_name], to_iterate=True
@@ -1364,9 +1374,15 @@ class Flash:
         success: bool = False
         iter_final: int = 0
 
-        self.iter_times=list()
+        # # NOTE: structure for  time measurement
+        # self.iter_times=list()
+        # self.assembly_times=list()
+        # self.solver_times=list()
         # assemble linear system of eq
+        # start_assembly = time.time()
         A, b = F()
+        # stop_assembly = time.time()
+        # self.assembly_times.append(stop_assembly - start_assembly)
 
         if do_logging:
             print("Starting Newton iterations with variables:", flush=True)
@@ -1387,7 +1403,8 @@ class Flash:
             prolongation = self._C.ad_system.projection_to(var_names).transpose()
 
             for i in range(1, self.max_iter_flash + 1):
-                start = time.time()
+                # start_iter = time.time()
+
                 if do_logging:
                     if self.use_armijo:
                         print("", end="\n")
@@ -1401,7 +1418,12 @@ class Flash:
                 # solve iteration and add to ITERATE state additively
                 if matrix_pre_processor:
                     A = matrix_pre_processor(A)
+
+                # start_solve = time.time()
                 dx = sps.linalg.spsolve(A, b)
+                # stop_solve = time.time()
+                # self.solver_times.append(stop_solve - start_solve)
+
                 DX = self.newton_update_chop * prolongation * dx
 
                 if self.use_armijo:
@@ -1415,9 +1437,13 @@ class Flash:
                     additive=True,
                 )
 
+                # start_assembly = time.time()
                 A, b = F()
-                stop = time.time()
-                self.iter_times.append(stop - start)
+                # stop_assembly = time.time()
+                # self.assembly_times.append(stop_assembly - start_assembly)
+                # stop_iter = time.time()
+                # self.iter_times.append(stop_iter - start_iter)
+
                 # in case of convergence
                 if np.linalg.norm(b) <= self.flash_tolerance:
                     # counting necessary number of iterations

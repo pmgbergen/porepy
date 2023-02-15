@@ -16,46 +16,38 @@ import porepy as pp
 
 class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
-    l2_error_tolerance = 5e-3  # 0.5 %
-    """Tolerance for L2-norm of residual between target and resulting values for each
-    computed property."""
-    abs_error_tolerance = 1e-2  # 1 %
-    """Absolute error tolerance for local tests between single target and resulting
-    values."""
-
     co2_fraction = 0.01
     h2o_fraction = 0.99
 
-    def _sub_test_abs_error(self, result, target, property_name, msg=""):
+    def _sub_test_abs_error(self, result, target, property_name, tol, msg=""):
 
-        with self.subTest(
-            f"Abs. Error subtest: {property_name}\nTolerance: {self.abs_error_tolerance}"
-        ):
+        with self.subTest(f"Abs. Error subtest: {property_name}\nTolerance: {tol}"):
             residual = np.abs(result - target)
             self.assertTrue(
-                np.all(residual <= self.abs_error_tolerance),
+                np.all(residual <= tol),
                 f"Tolerance for <{property_name}> "
-                + f"exceeded by {residual - self.abs_error_tolerance}."
+                + f"exceeded by {residual - tol}."
                 + f"\n{msg}",
             )
 
-    def _sub_test_l2_error(self, result, target, property_name, msg=""):
+    def _sub_test_l2_error(self, result, target, property_name, tol, msg=""):
 
-        with self.subTest(
-            f"L2-error subtest: <{property_name}>\nTolerance: {self.l2_error_tolerance}"
-        ):
+        with self.subTest(f"L2-error subtest: <{property_name}>\nTolerance: {tol}"):
             res = result - target
             error = np.sqrt(np.dot(res, res))
             self.assertTrue(
-                error <= self.l2_error_tolerance,
+                error <= tol,
                 f"Tolerance for <{property_name}> "
-                + f"exceeded by {error - self.l2_error_tolerance}."
+                + f"exceeded by {error - tol}."
                 + f"\n{msg}",
             )
 
     @unittest.skip("")
     def test_flash_only_gas(self):
         """Data from pr_data_thermo_isothermal_G_h2o_co2.csv"""
+
+        l2_tol = 1e-14
+        abs_tol = 1e-12
         path = pathlib.Path(__file__).parent.resolve()
 
         results_gas_file = open(str(path) + "/pr_data_thermo_isothermal_G_h2o_co2.csv")
@@ -124,11 +116,16 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             test_gas=True,
             test_liquid=False,
             vectorize=True,
+            l2_tol=l2_tol,
+            abs_tol=abs_tol,
         )
 
-    # @unittest.skip("Scenario with negative extended roots not covered.")
+    # @unittest.skip("")
     def test_flash_only_liquid(self):
         """Data from pr_data_thermo_isothermal_L_h2o_co2.csv"""
+
+        l2_tol = 1e-4
+        abs_tol = 1e-3
         path = pathlib.Path(__file__).parent.resolve()
 
         results_liq_file = open(str(path) + "/testdata.csv")
@@ -197,11 +194,16 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             test_gas=False,
             test_liquid=True,
             vectorize=False,
+            l2_tol=l2_tol,
+            abs_tol=abs_tol,
         )
 
     @unittest.skip("")
     def test_flash_2_phase(self):
         """Data from pr_data_thermo_isothermal_GL_h2o_co2.csv."""
+
+        l2_tol = 1e-4
+        abs_tol = 5e-4
         path = pathlib.Path(__file__).parent.resolve()
 
         results_liq_file = open(str(path) + "/pr_data_thermo_isothermal_GL_h2o_co2.csv")
@@ -290,6 +292,8 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             test_gas=True,
             test_liquid=True,
             vectorize=False,
+            l2_tol=l2_tol,
+            abs_tol=abs_tol,
         )
 
     def _flash(
@@ -311,12 +315,13 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         test_gas,
         test_liquid,
         vectorize,
+        l2_tol,
+        abs_tol,
     ):
         # Flag to vectorize the flash by stacking the values in the files row-wise.
         # This might cause some issues if single data rows cause trouble
         # for the whole flash, since the vectorized flash indicates convergence only if
         # every single row-wise flash converged.
-
         nc = len(p)
         if vectorize:
             nc_test = nc
@@ -371,8 +376,8 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         flash.armijo_parameters["j_max"] = 50
         flash.armijo_parameters["return_max"] = True
         flash.newton_update_chop = 1.0
-        flash.flash_tolerance = 1e-7
-        flash.max_iter_flash = 50
+        flash.flash_tolerance = 5e-6
+        flash.max_iter_flash = 70
 
         if vectorize:
             success = flash.flash("isothermal", "npipm", "rachford_rice", False, False)
@@ -439,27 +444,45 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                     phi_co2_G_result[i] = phase_G.eos.phi[co2].val
 
         # global L2 error tests
-        self._sub_test_l2_error(y_result, y, "Gas Fraction")
+        self._sub_test_l2_error(y_result, y, "Gas Fraction", l2_tol)
 
         if test_liquid:
-            self._sub_test_l2_error(Z_L_result, Z_L, "Liquid Compressibility Factor")
-            self._sub_test_l2_error(x_h2o_L_result, x_h2o_L, "Fraction H2O in Liquid")
-            self._sub_test_l2_error(x_co2_L_result, x_co2_L, "Fraction CO2 in Liquid")
             self._sub_test_l2_error(
-                phi_h2o_L_result, phi_h2o_L, "Fugacity Coefficient H2O in Liquid"
+                Z_L_result, Z_L, "Liquid Compressibility Factor", l2_tol
             )
             self._sub_test_l2_error(
-                phi_co2_L_result, phi_co2_L, "Fugacity Coefficient CO2 in Liquid"
+                x_h2o_L_result, x_h2o_L, "Fraction H2O in Liquid", l2_tol
+            )
+            self._sub_test_l2_error(
+                x_co2_L_result, x_co2_L, "Fraction CO2 in Liquid", l2_tol
+            )
+            self._sub_test_l2_error(
+                phi_h2o_L_result,
+                phi_h2o_L,
+                "Fugacity Coefficient H2O in Liquid",
+                l2_tol,
+            )
+            self._sub_test_l2_error(
+                phi_co2_L_result,
+                phi_co2_L,
+                "Fugacity Coefficient CO2 in Liquid",
+                l2_tol,
             )
         if test_gas:
-            self._sub_test_l2_error(Z_G_result, Z_G, "Gas Compressibility Factor")
-            self._sub_test_l2_error(x_h2o_G_result, x_h2o_G, "Fraction H2O in Gas")
-            self._sub_test_l2_error(x_co2_G_result, x_co2_G, "Fraction CO2 in Gas")
             self._sub_test_l2_error(
-                phi_h2o_G_result, phi_h2o_G, "Fugacity Coefficient H2O in Gas"
+                Z_G_result, Z_G, "Gas Compressibility Factor", l2_tol
             )
             self._sub_test_l2_error(
-                phi_co2_G_result, phi_co2_G, "Fugacity Coefficient CO2 in Gas"
+                x_h2o_G_result, x_h2o_G, "Fraction H2O in Gas", l2_tol
+            )
+            self._sub_test_l2_error(
+                x_co2_G_result, x_co2_G, "Fraction CO2 in Gas", l2_tol
+            )
+            self._sub_test_l2_error(
+                phi_h2o_G_result, phi_h2o_G, "Fugacity Coefficient H2O in Gas", l2_tol
+            )
+            self._sub_test_l2_error(
+                phi_co2_G_result, phi_co2_G, "Fugacity Coefficient CO2 in Gas", l2_tol
             )
 
         # component-wise abs error tests
@@ -469,7 +492,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             p_i = p[i]
             T_i = T[i]
             self._sub_test_abs_error(
-                y_i_r, y_i, "Gas Fraction", f"\nRow ID: {i}\np={p_i} ; T={T_i}"
+                y_i_r, y_i, "Gas Fraction", abs_tol, f"\nRow ID: {i}\np={p_i} ; T={T_i}"
             )
 
         for i in row_ids:
@@ -481,18 +504,22 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                 Z_i = Z_L[i]
                 Z_i_r = Z_L_result[i]
                 self._sub_test_abs_error(
-                    Z_i_r, Z_i, "Liquid Compressibility Factor", subtest_message
+                    Z_i_r,
+                    Z_i,
+                    "Liquid Compressibility Factor",
+                    abs_tol,
+                    subtest_message,
                 )
 
                 x_i = x_h2o_L[i]
                 x_i_r = x_h2o_L_result[i]
                 self._sub_test_abs_error(
-                    x_i_r, x_i, "Fraction H2O in Liquid", subtest_message
+                    x_i_r, x_i, "Fraction H2O in Liquid", abs_tol, subtest_message
                 )
                 x_i = x_co2_L[i]
                 x_i_r = x_co2_L_result[i]
                 self._sub_test_abs_error(
-                    x_i_r, x_i, "Fraction CO2 in Liquid", subtest_message
+                    x_i_r, x_i, "Fraction CO2 in Liquid", abs_tol, subtest_message
                 )
 
                 phi_i = phi_h2o_L[i]
@@ -501,6 +528,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                     phi_i_r,
                     phi_i,
                     "Fugacity coefficient H2O in Liquid",
+                    abs_tol,
                     subtest_message,
                 )
                 phi_i = phi_co2_L[i]
@@ -509,6 +537,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                     phi_i_r,
                     phi_i,
                     "Fugacity coefficient CO2 in Liquid",
+                    abs_tol,
                     subtest_message,
                 )
 
@@ -516,29 +545,37 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                 Z_i = Z_G[i]
                 Z_i_r = Z_G_result[i]
                 self._sub_test_abs_error(
-                    Z_i_r, Z_i, "Gas Compressibility Factor", subtest_message
+                    Z_i_r, Z_i, "Gas Compressibility Factor", abs_tol, subtest_message
                 )
 
                 x_i = x_h2o_G[i]
                 x_i_r = x_h2o_G_result[i]
                 self._sub_test_abs_error(
-                    x_i_r, x_i, "Fraction H2O in Gas", subtest_message
+                    x_i_r, x_i, "Fraction H2O in Gas", abs_tol, subtest_message
                 )
                 x_i = x_co2_G[i]
                 x_i_r = x_co2_G_result[i]
                 self._sub_test_abs_error(
-                    x_i_r, x_i, "Fraction CO2 in Gas", subtest_message
+                    x_i_r, x_i, "Fraction CO2 in Gas", abs_tol, subtest_message
                 )
 
                 phi_i = phi_h2o_G[i]
                 phi_i_r = phi_h2o_G_result[i]
                 self._sub_test_abs_error(
-                    phi_i_r, phi_i, "Fugacity coefficient H2O in Gas", subtest_message
+                    phi_i_r,
+                    phi_i,
+                    "Fugacity coefficient H2O in Gas",
+                    abs_tol,
+                    subtest_message,
                 )
                 phi_i = phi_co2_G[i]
                 phi_i_r = phi_co2_G_result[i]
                 self._sub_test_abs_error(
-                    phi_i_r, phi_i, "Fugacity coefficient CO2 in Gas", subtest_message
+                    phi_i_r,
+                    phi_i,
+                    "Fugacity coefficient CO2 in Gas",
+                    abs_tol,
+                    subtest_message,
                 )
 
 
