@@ -7,7 +7,7 @@ from __future__ import annotations
 import numpy as np
 
 import porepy as pp
-from porepy.applications.verification_setups.manu_flow_incomp_frac import (
+from tests.functional.setups.manu_flow_incomp_frac import (
     ManuIncompFlowSetup,
     manu_incomp_fluid,
     manu_incomp_solid,

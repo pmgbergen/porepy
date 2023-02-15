@@ -34,11 +34,8 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.derived_models.biot import BiotPoromechanics
-from porepy.applications.verification_setups.manu_poromech_nofrac import (
-    ManuPoroMechSaveData,
-)
-from porepy.applications.verification_setups.verification_utils import (
+from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
+from porepy.applications.complete_setups.setup_utils import (
     VerificationDataSaving,
     VerificationUtils,
 )
@@ -64,20 +61,59 @@ mandel_fluid_constants: dict[str, number] = {
 
 # -----> Data-saving
 @dataclass
-class MandelSaveData(ManuPoroMechSaveData):
+class MandelSaveData:
     """Class to store relevant data from the verification setup."""
 
     approx_consolidation_degree: tuple[number, number]
     """Numerical degrees of consolidation in the horizontal and vertical directions."""
 
-    exact_consolidation_degree: number
-    """Exact degree of consolidation."""
+    approx_displacement: np.ndarray
+    """Numerical displacement."""
+
+    approx_flux: np.ndarray
+    """Numerical Darcy flux."""
+
+    approx_force: np.ndarray
+    """Numerical poroelastic force."""
+
+    approx_pressure: np.ndarray
+    """Numerical pressure."""
 
     error_consolidation_degree: tuple[number, number]
     """Absolute error for the degrees of consolidation in the horizontal and vertical
     directions.
 
     """
+
+    error_displacement: number
+    """L2-discrete relative error for the displacement."""
+
+    error_flux: number
+    """L2-discrete relative error for the Darcy flux."""
+
+    error_force: number
+    """L2-discrete relative error for the poroelastic force."""
+
+    error_pressure: number
+    """L2-discrete relative error for the pressure."""
+
+    exact_consolidation_degree: number
+    """Exact degree of consolidation."""
+
+    exact_displacement: np.ndarray
+    """Exact displacement."""
+
+    exact_flux: np.ndarray
+    """Exact Darcy flux."""
+
+    exact_force: np.ndarray
+    """Exact poroelastic force."""
+
+    exact_pressure: np.ndarray
+    """Exact pressure."""
+
+    time: number
+    """Current simulation time."""
 
 
 class MandelDataSaving(VerificationDataSaving):

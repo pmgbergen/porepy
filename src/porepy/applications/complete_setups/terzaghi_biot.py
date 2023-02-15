@@ -45,8 +45,8 @@ import numpy as np
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.derived_models.biot import BiotPoromechanics
-from porepy.applications.verification_setups.verification_utils import (
+from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
+from porepy.applications.complete_setups.setup_utils import (
     VerificationDataSaving,
     VerificationUtils,
 )
