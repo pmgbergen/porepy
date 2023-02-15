@@ -148,9 +148,8 @@ class TerzaghiDataSaving(VerificationDataSaving):
             TerzaghiSaveData object containing the results of the verification.
 
         """
-
         sd = self.mdg.subdomains()[0]
-        t = self.time_manager.time
+        t = self.time_manager.time  # scaled [s]
 
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
@@ -197,31 +196,36 @@ class TerzaghiExactSolution:
 
     def __init__(self, setup):
         """Constructor of the class"""
-        self.setup = setup
+
+        self.setup: TerzaghiSetup = setup
+        """Instance of Terzaghi Setup."""
+
+        self.uls: int = self.setup.params.get("upper_limit_summation", 1000)
+        """Upper limit summation. Used to truncate the infinite series needed for 
+        computing the exact solutions. Defaults to 1000 terms.
+        
+        """
 
     def pressure(self, y: np.ndarray, t: number) -> np.ndarray:
         """Compute exact pressure.
 
         Parameters:
-            y: vertical coordinates [m].
-            t: Time [s].
+            y: vertical coordinates in scaled [m].
+            t: Time in scaled [s].
 
         Returns:
             Exact pressure profile for the given time ``t``.
 
         """
-
-        F = self.setup.params.get("vertical_load", 6e8)
-        nondim_y = self.setup.nondim_length(y)
-        nondim_t = self.setup.nondim_time(t)
-
-        n = self.setup.params.get("upper_limit_summation", 1000)
+        F = self.setup.applied_load()  # scaled [Pa]
+        nondim_y = self.setup.nondim_length(y)  # [-]
+        nondim_t = self.setup.nondim_time(t)  # [-]
 
         if t == 0:  # initially, the pressure equals the vertical load
             p = F * np.ones_like(y)
         else:
             sum_series = np.zeros_like(y)
-            for i in range(1, n + 1):
+            for i in range(1, self.uls + 1):
                 sum_series += (
                     (((-1) ** (i - 1)) / (2 * i - 1))
                     * np.cos((2 * i - 1) * (np.pi / 2) * nondim_y)
@@ -235,20 +239,19 @@ class TerzaghiExactSolution:
         """Compute exact degree of consolidation.
 
         Parameters:
-            t: Time [s].
+            t: Time in scaled [s].
 
         Returns:
-            Degree of consolidation for the given time `t`.
+            Degree of consolidation [-] for the given time ``t``.
 
         """
-        t_nondim = self.setup.nondim_time(t)
-        n = self.setup.params.get("upper_limit_summation", 1000)
+        t_nondim = self.setup.nondim_time(t)  # [-]
 
         if t == 0:  # initially, the soil is unconsolidated
             deg_cons = 0.0
         else:
             sum_series = 0
-            for i in range(1, n + 1):
+            for i in range(1, self.uls + 1):
                 sum_series += (
                     1
                     / ((2 * i - 1) ** 2)
@@ -263,6 +266,12 @@ class TerzaghiExactSolution:
 class TerzaghiUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
+    applied_load: Callable[[], pp.number]
+    """Method that set the applied load in scaled [Pa]. Normally provided by an 
+    instance of :class:`TerzaghiBoundaryConditionsMechanics`.
+    
+    """
+
     params: dict
     """Setup parameters dictionary."""
 
@@ -271,6 +280,12 @@ class TerzaghiUtils(VerificationUtils):
 
     bc_values_mechanics_key: str
     """Key for accessing mechanical boundary values."""
+
+    height: Callable[[], pp.number]
+    """Method that set the height of the domain in scaled [m]. Normally provided by an
+     instance of :class:`PseudoOneDimensionalColumn`.
+    
+    """
 
     solid: pp.SolidConstants
     """Solid constant object."""
@@ -287,34 +302,45 @@ class TerzaghiUtils(VerificationUtils):
 
     """
 
+    units: pp.Units
+    """Units object."""
+
     # ---> Derived physical quantities
+    def gravity_acceleration(self) -> number:
+        """Gravity acceleration in scaled [m * s^-2]."""
+        ls = 1 / self.units.m
+        ts = 1 / self.units.s
+        scaling_factor = ls / ts ** 2
+        return pp.GRAVITY_ACCELERATION * scaling_factor  # scaled [m * s^-2]
+
     def confined_compressibility(self) -> number:
-        """Compute confined compressibility [Pa^-1].
+        """Compute confined compressibility in scaled [Pa^-1].
 
         Returns:
             Confined compressibility.
 
         """
-        mu_s = self.solid.shear_modulus()
-        lambda_s = self.solid.lame_lambda()
-        m_v = 1 / (2 * mu_s + lambda_s)
+        mu_s = self.solid.shear_modulus()  # scaled [Pa]
+        lambda_s = self.solid.lame_lambda()  # scaled [Pa]
+        m_v = 1 / (2 * mu_s + lambda_s)  # scaled [Pa^-1]
         return m_v
 
     def consolidation_coefficient(self) -> number:
-        """Compute consolidation coefficient [m^2 * s^-1].
+        """Compute consolidation coefficient in scaled [m^2 * s^-1].
 
         Returns:
             Coefficient of consolidation.
 
         """
-        k = self.solid.permeability()  # [m^2]
-        mu_f = self.fluid.viscosity()  # [Pa * s]
-        rho = self.fluid.density()  # [kg * m^-3]
-        gamma_f = rho * pp.GRAVITY_ACCELERATION  # specific weight [Pa * m^-1]
-        hydraulic_conductivity = (k * gamma_f) / mu_f  # [m * s^-1]
-        storage = self.solid.specific_storage()  # [Pa^-1]
-        alpha_biot = self.solid.biot_coefficient()  # [-]
-        m_v = self.confined_compressibility()  # [Pa^-1]
+        k = self.solid.permeability()  # scaled [m^2]
+        mu_f = self.fluid.viscosity()  # scaled [Pa * s]
+        rho = self.fluid.density()  # scaled [kg * m^-3]
+        g = self.gravity_acceleration()  # scaled [m * s^-2]
+        gamma_f = rho * g  # specific weight in scaled [Pa * m^-1]
+        hydraulic_conductivity = (k * gamma_f) / mu_f  # scaled [m * s^-1]
+        storage = self.solid.specific_storage()  # scaled [Pa^-1]
+        alpha_biot = self.solid.biot_coefficient()  # scaled [-]
+        m_v = self.confined_compressibility()  # scaled [Pa^-1]
         c_v = hydraulic_conductivity / (gamma_f * (storage + alpha_biot**2 * m_v))
 
         return c_v
@@ -324,40 +350,41 @@ class TerzaghiUtils(VerificationUtils):
         """Non-dimensional time.
 
         Parameters:
-            t: Time in seconds.
+            t: Time in scaled [s].
 
         Returns:
             Dimensionless time.
 
         """
-        h = self.params.get("height", 1.0)  # [m]
-        c_v = self.consolidation_coefficient()  # [m * s^2]
-
+        h = self.height()  # scaled [m]
+        c_v = self.consolidation_coefficient()  # scaled [m * s^-2]
         return (t * c_v) / (h**2)
 
     def nondim_length(self, length: np.ndarray) -> np.ndarray:
         """Non-dimensional length.
 
         Parameters:
-            length: Length in meters.
+            length: Length in scaled [m].
 
         Returns:
             Non-dimensionalized length.
 
         """
-        return length / self.params.get("height", 1.0)
+        height = self.height()  # scaled [m]
+        return length / height
 
     def nondim_pressure(self, pressure: np.ndarray) -> np.ndarray:
         """Nondimensional pressure.
 
         Parameters:
-            pressure: Fluid pressure in Pa.
+            pressure: Fluid pressure in scaled [Pa].
 
         Returns:
             Non-dimensional pressure.
 
         """
-        return pressure / np.abs(self.params.get("vertical_load", 6e8))
+        F = self.applied_load()  # scaled [Pa]
+        return pressure / np.abs(F)
 
     # ---> Postprocessing methods
     def numerical_consolidation_degree(
@@ -374,10 +401,10 @@ class TerzaghiUtils(VerificationUtils):
 
         """
         sd = self.mdg.subdomains()[0]
-        h = self.params.get("height", 1.0)
-        m_v = self.confined_compressibility()
-        vertical_load = self.params.get("vertical_load", 6e8)
-        t = self.time_manager.time
+        h = self.height()  # scaled [m]
+        m_v = self.confined_compressibility()  # scaled [m * s^-2]
+        vertical_load = self.applied_load()  # scaled [Pa]
+        t = self.time_manager.time  # scaled [s]
 
         if t == 0:  # initially, the soil is unconsolidated
             consol_deg = 0.0
@@ -406,11 +433,11 @@ class TerzaghiUtils(VerificationUtils):
         """
 
         sd = self.mdg.subdomains()[0]
-        nondim_vertical_coo = self.nondim_length(sd.cell_centers[1])
+        nondim_vertical_coo = self.nondim_length(sd.cell_centers[1])  # [-]
 
         fig, ax = plt.subplots(figsize=(9, 8))
         y_ex = np.linspace(0, self.params.get("height", 1.0), 400)
-        t = self.time_manager.time
+        t = self.time_manager.time  # scaled [s]
         for idx, result in enumerate(self.results):
             ax.plot(
                 self.nondim_pressure(self.exact_sol.pressure(y=y_ex, t=t)),
@@ -453,18 +480,18 @@ class TerzaghiUtils(VerificationUtils):
         # Retrieve data
         t_ex = np.linspace(
             self.time_manager.time_init, self.time_manager.time_final, 400
-        )
-        nondim_t_ex = np.asarray([self.nondim_time(t) for t in t_ex])
+        )  # scaled [s]
+        nondim_t_ex = np.asarray([self.nondim_time(t) for t in t_ex])  # [-]
         exact_consolidation = np.asarray(
             [self.exact_sol.consolidation_degree(t) for t in t_ex]
-        )
+        )  # [-]
 
         nondim_t = np.asarray(
             [self.nondim_time(t) for t in self.time_manager.schedule[1:]]
-        )
+        )  # scaled [s]
         numerical_consolidation = np.asarray(
             [result.approx_consolidation_degree for result in self.results]
-        )
+        )  # [-]
 
         fig, ax = plt.subplots(figsize=(9, 8))
         ax.semilogx(
@@ -480,7 +507,7 @@ class TerzaghiUtils(VerificationUtils):
             label="Numerical",
         )
         ax.set_xlabel(r"Non-dimensional time, $t\,c_f\,h^{-2}$", fontsize=15)
-        ax.set_ylabel(r"Degree of consolidtaion, $U(t)$", fontsize=15)
+        ax.set_ylabel(r"Degree of consolidation, $U(t)$", fontsize=15)
         ax.legend(fontsize=14)
         ax.grid()
         plt.show()
@@ -493,28 +520,36 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
     params: dict
     """Simulation model parameters."""
 
+    def height(self):
+        """Retrieve height of the domain, in scaled [m]."""
+        ls = 1 / self.units.m  # length scaling
+        height = self.params.get("height", 1.0)  # [m]
+        return height * ls
+
     def set_md_grid(self) -> None:
         """Create the mixed-dimensional grid based on two-dimensional Cartesian grid."""
-        height = self.params.get("height", 1.0)  # [m]
+        height = self.height()  # scaled [m]
+        phys_dims = np.array([height, height])  # scaled [m]
+
         num_cells = self.params.get("num_cells", 20)
-        ls = 1 / self.units.m
-        phys_dims = np.array([height, height]) * ls  # scaled [m]
         n_cells = np.array([1, num_cells])
-        self.domain = pp.Domain(
-            {
-                "xmin": 0,
-                "xmax": phys_dims[0],
-                "ymin": 0,
-                "ymax": phys_dims[1],
-            }
-        )
+
         sd: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         sd.compute_geometry()
+
+        self.domain = pp.Domain(
+            {
+                "xmin": 0,  # scaled [m]
+                "xmax": phys_dims[0],  # scaled [m]
+                "ymin": 0,  # scaled [m]
+                "ymax": phys_dims[1],  # scaled [m]
+            }
+        )
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
 
 
 # -----> Boundary conditions
-class TerzaghiBoundaryConditionsMechanicsTimeDependent(
+class TerzaghiBoundaryConditionsMechanics(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
     mdg: pp.MixedDimensionalGrid
@@ -531,6 +566,14 @@ class TerzaghiBoundaryConditionsMechanicsTimeDependent(
 
     params: dict
     """Parameter dictionary of the verification setup."""
+
+    solid: pp.SolidConstants
+    """Solid constants object."""
+
+    def applied_load(self):
+        """Obtain vertical load in scaled [Pa]."""
+        applied_load = self.params.get("vertical_load", 6e8)  # [Pa]
+        return self.solid.convert_units(applied_load, "Pa")  # scaled [Pa]
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
@@ -579,14 +622,13 @@ class TerzaghiBoundaryConditionsMechanicsTimeDependent(
 
         """
         sd = subdomains[0]
-        vertical_load = self.params.get("vertical_load", 6e8)
         _, _, _, north, *_ = self.domain_boundary_sides(sd)
         bc_values = np.array([np.zeros(sd.num_faces), np.zeros(sd.num_faces)])
-        bc_values[1, north] = -vertical_load * sd.face_areas[north]
+        bc_values[1, north] = -self.applied_load() * sd.face_areas[north]
         return bc_values.ravel("F")
 
 
-class TerzaghiBoundaryConditionsSinglePhaseFlow(
+class TerzaghiBoundaryConditionsFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
 
@@ -618,8 +660,8 @@ class TerzaghiBoundaryConditionsSinglePhaseFlow(
 
 
 class TerzaghiPoromechanicsBoundaryConditions(
-    TerzaghiBoundaryConditionsSinglePhaseFlow,
-    TerzaghiBoundaryConditionsMechanicsTimeDependent,
+    TerzaghiBoundaryConditionsFlow,
+    TerzaghiBoundaryConditionsMechanics,
 ):
     """Mixer class for poromechanics boundary conditions."""
 
@@ -627,6 +669,12 @@ class TerzaghiPoromechanicsBoundaryConditions(
 # -----> Solution strategy
 class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy class for Terzaghi's setup."""
+
+    applied_load: Callable[[], pp.number]
+    """Method that set the applied load in scaled [Pa]. Normally provided by an 
+    instance of :class:`~TerzaghiBoundaryConditionsMechanics`.
+
+    """
 
     exact_sol: TerzaghiExactSolution
     """Exact solution object."""
@@ -681,7 +729,7 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         # modify the initial conditions for the flow subproblem.
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
-        vertical_load = self.params.get("vertical_load", 6e8)
+        vertical_load = self.applied_load()  # scaled [Pa]
         initial_p = vertical_load * np.ones(sd.num_cells)
         data[pp.STATE][self.pressure_variable] = initial_p
         data[pp.STATE][pp.ITERATE][self.pressure_variable] = initial_p
@@ -704,4 +752,37 @@ class TerzaghiSetup(  # type: ignore[misc]
     TerzaghiDataSaving,
     BiotPoromechanics,
 ):
-    """Mixer class for Terzaghi's consolidation problem."""
+    """Mixer class for Terzaghi's consolidation problem.
+
+    Model parameters of special relevance for this class:
+
+        - vertical_load (pp.number): Applied vertical stress in [Pa]. Default is 6e8.
+        - height (pp.number): Height of the domain in [m]. Default is 1.
+        - upper_limit_summation (int): Number of terms to include for computing the
+          infinite series associated to the exact solutions. Default is 1000.
+        - material_constants (dict): Dictionary containing the solid and fluid
+          constants. For suggested parameters, see ``terzaghi_solid_constants`` and
+          ``terzaghi_fluid_constants`` at the top of file. Unitary/zero values are
+          assigned by default. See below for the relevant material constants accessed
+          by this verification.
+        - time_manager (pp.TimeManager): Time manager object.
+        - plot_results (bool): Whether to plot the results in non-dimensional form.
+        - num_cells (bool): Number of cells used for meshing the pseudo one-dimensional
+          vertical column. Default is 20.
+        - units (pp.Units): Object containing scaling of base magnitudes. No scaling
+          applied by default.
+
+        Accessed material constants:
+
+        - solid:
+            - biot_coefficient (Required value = 1)
+            - lame_lambda
+            - permeability
+            - shear_modulus
+            - specific_storage (Required value = 0)
+
+        - fluid:
+            - density
+            - viscosity
+
+    """
