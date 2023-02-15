@@ -18,7 +18,7 @@ We consider two functional tests:
 import numpy as np
 
 import porepy as pp
-from porepy.applications.verification_setups.terzaghi_biot import (
+from porepy.applications.complete_setups.terzaghi_biot import (
     PseudoOneDimensionalColumn,
     TerzaghiDataSaving,
     TerzaghiPoromechanicsBoundaryConditions,

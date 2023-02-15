@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.verification_setups.mandel_biot import (
+from porepy.applications.complete_setups.mandel_biot import (
     MandelSaveData,
     MandelSetup,
     mandel_fluid_constants,
