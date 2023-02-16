@@ -35,10 +35,8 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
-from porepy.applications.complete_setups.setup_utils import (
-    VerificationDataSaving,
-    VerificationUtils,
-)
+from porepy.applications.complete_setups.setup_utils import VerificationUtils
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number

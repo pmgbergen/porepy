@@ -38,7 +38,7 @@ from tests.functional.setups.manu_flow_incomp_frac import (
     ManuIncompUtils,
     SingleEmbeddedVerticalFracture,
 )
-from porepy.applications.complete_setups.setup_utils import VerificationDataSaving
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number

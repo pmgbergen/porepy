@@ -73,8 +73,8 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from porepy.applications.complete_setups.setup_utils import (
-    VerificationDataSaving,
     VerificationUtils,
 )
 

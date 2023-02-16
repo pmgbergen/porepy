@@ -46,10 +46,8 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
-from porepy.applications.complete_setups.setup_utils import (
-    VerificationDataSaving,
-    VerificationUtils,
-)
+from porepy.applications.complete_setups.setup_utils import VerificationUtils
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -83,7 +81,7 @@ class TerzaghiSaveData:
     exact_pressure: np.ndarray
     """Exact pressure."""
 
-    error_pressure: np.ndarray
+    error_pressure: number
     """L2-discrete relative error for the pressure."""
 
     approx_consolidation_degree: number
