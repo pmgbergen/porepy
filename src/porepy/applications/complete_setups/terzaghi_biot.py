@@ -46,7 +46,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
-from porepy.applications.complete_setups.setup_utils import VerificationUtils
+# from porepy.applications.complete_setups.setup_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
@@ -261,7 +261,7 @@ class TerzaghiExactSolution:
 
 
 # -----> Utilities
-class TerzaghiUtils(VerificationUtils):
+class TerzaghiUtils:
     """Mixin class containing useful utility methods for the setup."""
 
     applied_load: Callable[[], pp.number]
@@ -279,6 +279,12 @@ class TerzaghiUtils(VerificationUtils):
     bc_values_mechanics_key: str
     """Key for accessing mechanical boundary values."""
 
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
+    
+    """
+
     height: Callable[[], pp.number]
     """Method that sets the height of the domain in scaled [m]. Normally provided by an
      instance of :class:`PseudoOneDimensionalColumn`.
@@ -293,6 +299,19 @@ class TerzaghiUtils(VerificationUtils):
 
     exact_sol: TerzaghiExactSolution
     """Exact solution object."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    
+    """
+
+    poromechanical_displacement_trace: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Ad operator that computes the trace of the displacement for a poromechanical 
+    system. Normally provided by an instance of 
+    :class:`~porepy.models.constitutive_laws.PressureStress`.
+    
+    """
 
     results: list[TerzaghiSaveData]
     """List of :class:`TerzaghiSaveData` objects containing the results of the
@@ -407,7 +426,8 @@ class TerzaghiUtils(VerificationUtils):
         if t == 0:  # initially, the soil is unconsolidated
             consol_deg = 0.0
         else:
-            trace_u = self.displacement_trace(displacement, pressure)
+            trace_u_ad = self.poromechanical_displacement_trace([sd])
+            trace_u = trace_u_ad.evaluate(self.equation_system).val
             u_inf = m_v * h * vertical_load
             u_0 = 0
             u = np.max(np.abs(trace_u[1 :: sd.dim]))
