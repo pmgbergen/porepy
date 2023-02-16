@@ -520,7 +520,7 @@ class SemiSmoothNegative(AbstractFunction):
         # consider only first operator
         op = args[0]
 
-        eliminate = op.val >= 0.0
+        eliminate = op.val > 0.0
 
         vals = op.val.copy()
         vals[eliminate] = 0.0
@@ -530,7 +530,9 @@ class SemiSmoothNegative(AbstractFunction):
     def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
         # consider only first operator
         op = args[0]
-        eliminate = op.val >= 0.0
+        # strict inequality is important to not eliminate the derivative
+        # for valid values at zero
+        eliminate = op.val > 0.0
 
         jac = op.jac.tolil().copy()
         jac[eliminate] = 0.0
@@ -556,7 +558,7 @@ class SemiSmoothPositive(AbstractFunction):
         # consider only first operator
         op = args[0]
 
-        eliminate = op.val <= 0.0
+        eliminate = op.val < 0.0
 
         vals = op.val.copy()
         vals[eliminate] = 0.0
@@ -566,7 +568,9 @@ class SemiSmoothPositive(AbstractFunction):
     def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
         # consider only first operator
         op = args[0]
-        eliminate = op.val <= 0.0
+        # strict inequality is important to not eliminate the derivative
+        # for valid values at zero
+        eliminate = op.val < 0.0
 
         jac = op.jac.tolil().copy()
         jac[eliminate] = 0.0
