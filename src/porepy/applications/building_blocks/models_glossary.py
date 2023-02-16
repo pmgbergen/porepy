@@ -16,13 +16,20 @@ in an iPython session or similar) and copy-paste the suggested docstring into a 
 
 Notes:
     Depending on the usage, entries might NOT be completely accurate. It is therefore
-    the responsibility of the user/developer to make sure that the docstrings are correct.
+    the responsibility of the user/developer to make sure that the docstrings are
+    correct.
 
 Examples:
+
     .. code: python3
 
         import porepy as pp
+
+        # Print a single entry
         pp.print_glossary_entry(pp.Glossary.mdg)
+
+        # Print all entries currently stored in the glossary
+        pp.Glossary().print_all_entries()
 
 """
 from __future__ import annotations
@@ -38,6 +45,7 @@ class Entry(NamedTuple):
     type: str
     """Name of the class associated with the entry. For variables, the actual class. For
     functions and methods, a variant of ``Callable[[arg_type], return_type]``.
+    
     """
 
     docstring: str
@@ -183,8 +191,8 @@ class Glossary:
 
     contact_mechanics_numerical_constant: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Scalar]",
-        docstring="Numerical constant for contact mechanics. Normally provided by a"
-        " mixin instance of"
+        docstring="Numerical constant for contact mechanics. Normally provided by an"
+        " instance of"
         " :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.",
         name="contact_mechanics_numerical_constant",
     )
@@ -199,7 +207,7 @@ class Glossary:
     contact_traction_variable: Entry = Entry(
         type="str",
         docstring="Name of the primary variable representing the contact traction on a"
-        " fracture subdomain. Normally defined in a mixin of instance"
+        " fracture subdomain. Normally defined by an instance of"
         " :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.",
         name="contact_traction_variable",
     )
@@ -207,7 +215,7 @@ class Glossary:
     darcy_keyword: Entry = Entry(
         type="str",
         docstring="Keyword used to identify the Darcy flux discretization. Normally"
-        " set by a mixin instance of"
+        " set by an instance of"
         " :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.",
         name="darcy_keyword",
     )
@@ -230,7 +238,7 @@ class Glossary:
     displacement_variable: Entry = Entry(
         type="str",
         docstring="Name of the primary variable representing the displacement in"
-        " subdomains. Normally defined in a mixin of instance"
+        " subdomains. Normally defined by an instance of"
         " :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.",
         name="displacement_variable",
     )
@@ -245,7 +253,7 @@ class Glossary:
     enthalpy_keyword: Entry = Entry(
         type="str",
         docstring="Keyword used to identify the enthalpy flux discretization. Normally"
-        " set by a mixin instance of"
+        " set by an instance of"
         " :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.",
         name="enthalpy_keyword",
     )
@@ -273,8 +281,9 @@ class Glossary:
 
     fluid: Entry = Entry(
         type="pp.FluidConstants",
-        docstring="Fluid constant object that takes care of scaling of fluid-related"
-        " quantities. Normally, this is set by a mixin of instance"
+        docstring="Fluid constant object that takes care of storing and scaling"
+        " numerical values representing fluid-related quantities. Normally, this is"
+        " set by an instance of"
         " :class:`~porepy.models.solution_strategy.SolutionStrategy`.",
         name="fluid",
     )
@@ -282,7 +291,8 @@ class Glossary:
     fluid_density: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Fluid density. Normally defined in a mixin class with a suitable"
-        " constitutive relation.",
+        " constitutive relation, e.g.,"
+        " :class:`~porepy.models.constitutive_laws.FluidDensityFromPressure`.",
         name="fluid_density",
     )
 
@@ -293,6 +303,7 @@ class Glossary:
         name="fluid_enthalpy",
     )
 
+    # TODO: I could not find an usage of fluid_internal_energy in models
     fluid_internal_energy: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Fluid internal energy. Normally defined in a mixin class with a"
@@ -310,7 +321,7 @@ class Glossary:
     fourier_keyword: Entry = Entry(
         type="str",
         docstring="Keyword used to identify the Fourier flux discretization. Normally"
-        " set by a mixin instance of"
+        " set by an instance of"
         " :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.",
         name="fourier_keyword",
     )
@@ -393,7 +404,7 @@ class Glossary:
     interface_darcy_flux_variable: Entry = Entry(
         type="str",
         docstring="Name of the primary variable representing the Darcy flux across an"
-        " interface. Normally defined in a mixin of instance"
+        " interface. Normally defined by an instance of"
         " :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.",
         name="interface_darcy_flux_variable",
     )
@@ -409,7 +420,7 @@ class Glossary:
     interface_displacement_variable: Entry = Entry(
         type="str",
         docstring="Name of the primary variable representing the displacement on an"
-        " interface.Normally defined in a mixin of instance"
+        " interface.Normally defined by an instance of"
         " :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.",
         name="interface_displacement_variable",
     )
@@ -424,7 +435,7 @@ class Glossary:
     interface_enthalpy_flux_variable: Entry = Entry(
         type="str",
         docstring="Name of the primary variable representing the enthalpy flux across"
-        " an interface. Normally defined in a mixin of instance"
+        " an interface. Normally defined by an instance of"
         " :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.",
         name="interface_enthalpy_flux_variable",
     )
@@ -439,7 +450,7 @@ class Glossary:
     interface_fourier_flux_variable: Entry = Entry(
         type="str",
         docstring="Name of the primary variable representing the Fourier flux across"
-        " an interface. Normally defined in a mixin of instance"
+        " an interface. Normally defined by an instance of"
         ":class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.",
         name="interface_fourier_flux_variable",
     )
@@ -535,7 +546,7 @@ class Glossary:
     pressure_variable: Entry = Entry(
         type="str",
         docstring="Name of the primary variable representing the pressure. Normally"
-        " defined in a mixin of instance "
+        " defined by an instance of"
         " :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.",
         name="pressure_variable",
     )
@@ -563,7 +574,8 @@ class Glossary:
 
     save_data_time_step: Entry = Entry(
         type="Callable[[], None]",
-        docstring="Save data at the end of a time step. Normally provided by a mixin instance of"
+        docstring="Save data at the end of a time step. Normally provided by a mixin"
+        " instance of"
         " :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.",
         name="save_data_time_step",
     )
@@ -584,8 +596,9 @@ class Glossary:
 
     solid: Entry = Entry(
         type="pp.SolidConstants",
-        docstring="Solid constant object that takes care of scaling of solid-related"
-        " quantities. Normally, this is set by a mixin of instance"
+        docstring="Solid constant object that takes care of storing and scaling"
+        " numerical values representing solid-related"
+        " quantities. Normally, this is set by an instance of"
         " :class:`~porepy.models.solution_strategy.SolutionStrategy`.",
         name="solid",
     )
@@ -593,7 +606,8 @@ class Glossary:
     solid_density: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Solid density. Defined in a mixin class with a suitable"
-        " constitutive relation.",
+        " constitutive relation,"
+        " e.g., :class:`~porepy.models.constitutive_laws.ConstantSolidDensity`.",
         name="solid_density",
     )
 
@@ -630,14 +644,15 @@ class Glossary:
     stress: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Stress on the grid faces. Provided by a suitable mixin class that"
-        " specifies the physical laws governing the stress.",
+        " specifies the physical laws governing the stress, e.g.,"
+        " :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress.`",
         name="stress",
     )
 
     stress_keyword: Entry = Entry(
         type="str",
         docstring="Keyword used to identify the stress discretization. Normally set by"
-        " a mixin instance of"
+        " an instance of"
         " :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.",
         name="stress_keyword",
     )
@@ -661,13 +676,13 @@ class Glossary:
     thermal_expansion: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Thermal expansion coefficient. Normally defined in a mixin class"
-        " with a suitable constitutive relation.",
+        " with a suitable thermal expansion definition.",
         name="thermal_expansion",
     )
 
     time_manager: Entry = Entry(
         type="pp.TimeManager",
-        docstring="Time manager. Normally set by a mixin instance of a subclass of"
+        docstring="Time manager. Normally set by an instance of a subclass of"
         " :class:`porepy.models.solution_strategy.SolutionStrategy`.",
         name="time_manager",
     )
