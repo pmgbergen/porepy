@@ -23,9 +23,6 @@ import sympy as sym
 
 import porepy as pp
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
-from porepy.applications.complete_setups.setup_utils import (
-    VerificationUtils,
-)
 
 # PorePy typings
 number = pp.number
@@ -533,7 +530,7 @@ class ManuIncompExactSolution:
 
 
 # -----> Utilities
-class ManuIncompUtils(VerificationUtils):
+class ManuIncompUtils:
     """Mixin class containing useful utility methods for the setup."""
 
     mdg: pp.MixedDimensionalGrid
