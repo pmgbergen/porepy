@@ -293,10 +293,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ].copy()
         hf_cell_old = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ].copy()
         hf_bound_old = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ].copy()
 
         # Update should not change anything
@@ -310,10 +310,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         self.assertTrue(np.allclose((stress - stress_old).data, 0))
@@ -343,10 +343,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell_full = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound_full = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         # Update should not change anything
@@ -360,10 +360,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         self.assertTrue(np.allclose((stress - stress_full).data, 0))
@@ -410,10 +410,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell_dir = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound_dir = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         # Go back to the old data dictionary, update a single face
@@ -426,10 +426,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         self.assertTrue(np.allclose((stress - stress_dir).data, 0))
@@ -479,10 +479,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         # Go back to the old data dictionary, update a single face
@@ -495,10 +495,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         self.assertTrue(np.allclose((stress - stress_rob).data, 0))
@@ -549,10 +549,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         discr.discretize(g, data)
@@ -561,10 +561,10 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
             discr.bound_stress_matrix_key
         ]
         hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_cell_matrix_key
+            discr.bound_displacement_cell_matrix_key
         ]
         hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.bound_displacment_face_matrix_key
+            discr.bound_displacement_face_matrix_key
         ]
 
         self.assertTrue(np.allclose((stress - stress_rob).data, 0))
@@ -603,8 +603,8 @@ class MpsaReconstructBoundaryDisplacement(unittest.TestCase):
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
 
-        grad_cell = matrix_dictionary[discr.bound_displacment_cell_matrix_key]
-        grad_bound = matrix_dictionary[discr.bound_displacment_face_matrix_key]
+        grad_cell = matrix_dictionary[discr.bound_displacement_cell_matrix_key]
+        grad_bound = matrix_dictionary[discr.bound_displacement_face_matrix_key]
 
         hf2f = pp.fvutils.map_hf_2_f(sd=g)
         num_subfaces = hf2f.sum(axis=1).A.ravel()
@@ -703,8 +703,8 @@ class MpsaReconstructBoundaryDisplacement(unittest.TestCase):
         U = sps.linalg.spsolve(A, b)
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
 
-        grad_cell = matrix_dictionary[discr.bound_displacment_cell_matrix_key]
-        grad_bound = matrix_dictionary[discr.bound_displacment_face_matrix_key]
+        grad_cell = matrix_dictionary[discr.bound_displacement_cell_matrix_key]
+        grad_bound = matrix_dictionary[discr.bound_displacement_face_matrix_key]
 
         U_f = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape(
             (g.dim, -1), order="F"
@@ -761,8 +761,8 @@ class MpsaReconstructBoundaryDisplacement(unittest.TestCase):
         U = sps.linalg.spsolve(A, b)
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
 
-        grad_cell = matrix_dictionary[discr.bound_displacment_cell_matrix_key]
-        grad_bound = matrix_dictionary[discr.bound_displacment_face_matrix_key]
+        grad_cell = matrix_dictionary[discr.bound_displacement_cell_matrix_key]
+        grad_bound = matrix_dictionary[discr.bound_displacement_face_matrix_key]
 
         U_f = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape(
             (g.dim, -1), order="F"
