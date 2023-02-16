@@ -35,7 +35,6 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
-from porepy.applications.complete_setups.setup_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
@@ -627,7 +626,7 @@ class MandelExactSolution:
 
 
 # -----> Utilities
-class MandelUtilities(VerificationUtils):
+class MandelUtilities:
     """Mixin class that provides useful utility methods for the verification setup."""
 
     domain: pp.Domain
@@ -639,6 +638,12 @@ class MandelUtilities(VerificationUtils):
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Named tuple containing the boundary sides indices."""
 
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
+    
+    """
+
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
@@ -648,8 +653,21 @@ class MandelUtilities(VerificationUtils):
     fluid: pp.FluidConstants
     """Fluid constant object."""
 
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    
+    """
+
     params: dict
     """Model parameters dictionary."""
+
+    poromechanical_displacement_trace: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Ad operator that computes the trace of the displacement for a poromechanical
+    system. Normally provided by an instance of
+    :class:`~porepy.models.constitutive_laws.PressureStress`.
+    
+    """
 
     results: list[MandelSaveData]
     """List of :class:`MandelSaveData` objects containing the results of the
@@ -873,7 +891,8 @@ class MandelUtilities(VerificationUtils):
             consol_deg_x, consol_deg_y = 0, 0
         else:
             # Retrieve displacement trace
-            trace_u = self.displacement_trace(displacement, pressure)
+            trace_u_ad = self.poromechanical_displacement_trace([sd])
+            trace_u = trace_u_ad.evaluate(self.equation_system).val
             trace_ux = trace_u[::2]
             trace_uy = trace_u[1::2]
 
