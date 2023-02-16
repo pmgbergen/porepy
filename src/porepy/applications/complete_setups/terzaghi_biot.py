@@ -267,7 +267,7 @@ class TerzaghiUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
     applied_load: Callable[[], pp.number]
-    """Method that set the applied load in scaled [Pa]. Normally provided by an
+    """Method that sets the applied load in scaled [Pa]. Normally provided by an
     instance of :class:`TerzaghiBoundaryConditionsMechanics`.
 
     """
@@ -282,7 +282,7 @@ class TerzaghiUtils(VerificationUtils):
     """Key for accessing mechanical boundary values."""
 
     height: Callable[[], pp.number]
-    """Method that set the height of the domain in scaled [m]. Normally provided by an
+    """Method that sets the height of the domain in scaled [m]. Normally provided by an
      instance of :class:`PseudoOneDimensionalColumn`.
 
     """
@@ -671,7 +671,7 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy class for Terzaghi's setup."""
 
     applied_load: Callable[[], pp.number]
-    """Method that set the applied load in scaled [Pa]. Normally provided by an
+    """Method that sets the applied load in scaled [Pa]. Normally provided by an
     instance of :class:`~TerzaghiBoundaryConditionsMechanics`.
 
     """
