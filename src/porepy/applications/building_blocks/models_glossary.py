@@ -16,7 +16,7 @@ in an iPython session or similar) and copy-paste the suggested docstring into a 
 
 Notes:
     Depending on the usage, entries might NOT be completely accurate. It is therefore
-    responsibility of the user/developer to make sure that the docstrings are correct.
+    the responsibility of the user/developer to make sure that the docstrings are correct.
 
 Examples:
     .. code: python3
@@ -77,7 +77,7 @@ class Glossary:
         type="Callable[[list[pp.Grid], pp.ad.Operator, pp.ad.Operator, pp.ad.Operator,"
         " int], pp.ad.Operator]",
         docstring="Make a balance equation on subdomains. Normally defined in a mixin"
-        " instance of :class:`~porepy.models.abstract_equations.BalanceEquations`.",
+        " instance of :class:`~porepy.models.abstract_equations.BalanceEquation`.",
         name="balance_equation",
     )
 
@@ -462,7 +462,7 @@ class Glossary:
 
     mdg: Entry = Entry(
         type="pp.MixedDimensionalGrid",
-        docstring="Mixed dimensional grid for the current model. Normally defined in"
+        docstring="Mixed-dimensional grid for the current model. Normally defined in"
         " a mixin instance of :class:`~porepy.models.geometry.ModelGeometry`.",
         name="mdg",
     )
@@ -563,7 +563,7 @@ class Glossary:
 
     save_data_time_step: Entry = Entry(
         type="Callable[[], None]",
-        docstring="Save data at a time step. Normally provided by a mixin instance of"
+        docstring="Save data at the end of a time step. Normally provided by a mixin instance of"
         " :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.",
         name="save_data_time_step",
     )
@@ -667,7 +667,7 @@ class Glossary:
 
     time_manager: Entry = Entry(
         type="pp.TimeManager",
-        docstring="Time manager. Normally set by a mixin instance of"
+        docstring="Time manager. Normally set by a mixin instance of a subclass of"
         " :class:`porepy.models.solution_strategy.SolutionStrategy`.",
         name="time_manager",
     )
@@ -677,7 +677,7 @@ class Glossary:
         " pp.ad.Operator, int], pp.ad.Operator]",
         docstring="Operator giving the tangential component of vectors. Normally"
         " defined in a mixin instance of"
-        " :class:`~porepy.models.abstract_equations.BalanceEquations`.",
+        " :class:`~porepy.models.abstract_equations.BalanceEquation`.",
         name="volume_integral",
     )
 
