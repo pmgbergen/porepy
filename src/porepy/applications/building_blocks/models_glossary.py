@@ -45,7 +45,7 @@ class Entry(NamedTuple):
     type: str
     """Name of the class associated with the entry. For variables, the actual class. For
     functions and methods, a variant of ``Callable[[arg_type], return_type]``.
-    
+
     """
 
     docstring: str
