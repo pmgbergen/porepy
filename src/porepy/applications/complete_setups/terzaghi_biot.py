@@ -539,10 +539,10 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
         self.domain = pp.Domain(
             {
-                "xmin": 0,  # scaled [m]
-                "xmax": phys_dims[0],  # scaled [m]
-                "ymin": 0,  # scaled [m]
-                "ymax": phys_dims[1],  # scaled [m]
+                "xmin": 0,
+                "xmax": phys_dims[0],
+                "ymin": 0,
+                "ymax": phys_dims[1],
             }
         )
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
