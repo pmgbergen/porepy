@@ -56,7 +56,7 @@ class DiagnosticsMixin:
     submatrices: dict[tuple[int, int], spmatrix]
     """The submatrices are stored here as they are computed.
 
-    Index represents the pair (row, column) of the block.
+    The key represents the pair (row, column) of the block.
     """
 
     # The mixin expects the model to have these properties defined.
@@ -88,11 +88,12 @@ class DiagnosticsMixin:
                 interfaces separately.
                 Defaults to None.
             is_plotting_condition_number (optional): Whether to plot
-                the condition number. Causion - this might take time if the matrix
+                the condition number. Caution - this might take time if the matrix
                 is big. Defaults to False.
             is_plotting_max (optional): Whether to plot the absolute maximum.
                 This option is cheap even for big matrices.
                 Defaults to True.
+
         """
 
         def get_eig(mat, which) -> float:
@@ -176,6 +177,7 @@ class DiagnosticsMixin:
         Returns:
             A dictionary with keys - printed names of the equations, values - indices of
             this equation in the global Jacobian matrix.
+   
         """
         equation_indices = {}
         assert grouping in (None, "subdomains"), f"Unknown grouping: {grouping}"
