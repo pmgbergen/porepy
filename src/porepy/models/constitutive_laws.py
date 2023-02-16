@@ -1644,7 +1644,7 @@ class LinearElasticMechanicalStress:
     time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
     """Time dependent boundary conditions. Normally defined by a mixin instance of
     :class:`~porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent`.
-    
+
     """
     displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
@@ -1685,7 +1685,7 @@ class LinearElasticMechanicalStress:
     """
 
     def mechanical_displacement_trace(
-            self, subdomains: list[pp.Grid]
+        self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Trace of the displacement for a purely elastic problem.
 
@@ -1713,9 +1713,8 @@ class LinearElasticMechanicalStress:
         # as time-dependent. To obtain this information, we need check if the class has
         # the `time_dependent_bc_values_mechanics`` method as a member of the class.
         # Credits: https://stackoverflow.com/questions/7580532
-        if (
-                hasattr(self.__class__, "time_dependent_bc_values_mechanics") and
-                callable(getattr(self.__class__, "time_dependent_bc_values_mechanics"))
+        if hasattr(self.__class__, "time_dependent_bc_values_mechanics") and callable(
+            getattr(self.__class__, "time_dependent_bc_values_mechanics")
         ):
             bc = pp.wrap_as_ad_array(
                 self.time_dependent_bc_values_mechanics(subdomains)
@@ -1897,8 +1896,8 @@ class PressureStress(LinearElasticMechanicalStress):
     """
 
     def poromechanical_displacement_trace(
-            self,
-            subdomains: list[pp.Grid],
+        self,
+        subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
         """Trace of the displacement for a poromechanical problem.
 
@@ -1925,15 +1924,11 @@ class PressureStress(LinearElasticMechanicalStress):
 
         # Add the contribution of the perturbed fluid pressure
         poromechanical_displacement_trace = (
-            mech_trace_u
-            + discr.bound_pressure * p
-            - discr.bound_pressure * p_ref
+            mech_trace_u + discr.bound_pressure * p - discr.bound_pressure * p_ref
         )
 
         # Set name
-        poromechanical_displacement_trace.set_name(
-            "Poromechanical displacement trace"
-        )
+        poromechanical_displacement_trace.set_name("Poromechanical displacement trace")
 
         return poromechanical_displacement_trace
 

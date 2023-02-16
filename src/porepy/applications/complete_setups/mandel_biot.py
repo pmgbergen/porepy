@@ -641,7 +641,7 @@ class MandelUtilities:
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
-    
+
     """
 
     exact_sol: MandelExactSolution
@@ -656,7 +656,7 @@ class MandelUtilities:
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid for the current model. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-    
+
     """
 
     params: dict
@@ -666,7 +666,7 @@ class MandelUtilities:
     """Ad operator that computes the trace of the displacement for a poromechanical
     system. Normally provided by an instance of
     :class:`~porepy.models.constitutive_laws.PressureStress`.
-    
+
     """
 
     results: list[MandelSaveData]

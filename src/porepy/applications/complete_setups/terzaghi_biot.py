@@ -46,6 +46,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
+
 # from porepy.applications.complete_setups.setup_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -282,7 +283,7 @@ class TerzaghiUtils:
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
-    
+
     """
 
     height: Callable[[], pp.number]
@@ -303,14 +304,14 @@ class TerzaghiUtils:
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid for the current model. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
-    
+
     """
 
     poromechanical_displacement_trace: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Ad operator that computes the trace of the displacement for a poromechanical 
-    system. Normally provided by an instance of 
+    """Ad operator that computes the trace of the displacement for a poromechanical
+    system. Normally provided by an instance of
     :class:`~porepy.models.constitutive_laws.PressureStress`.
-    
+
     """
 
     results: list[TerzaghiSaveData]
