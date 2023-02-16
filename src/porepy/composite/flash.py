@@ -2,7 +2,7 @@
 (flash)."""
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -65,10 +65,22 @@ class Flash:
 
             This feature is left here to reflect the original algorithm
             introduced by Vu.
+        npipm_param_as_var: ``default=True``
+
+            An optional flag to introduce the NPIPM parameter ``nu`` as a variable
+            and its update as an equation.
+
+            If False, the update for ``nu`` is performed after each iteration and
+            contributes to the right-hand side of the NPIPM system.
 
     """
 
-    def __init__(self, composition: Composition, auxiliary_npipm: bool = False) -> None:
+    def __init__(
+        self,
+        composition: Composition,
+        auxiliary_npipm: bool = False,
+        npipm_param_as_var: bool = True,
+    ) -> None:
 
         self._C: Composition = composition
         """The composition class passed at instantiation"""
@@ -97,10 +109,8 @@ class Flash:
         self._W_of_phase: dict[Phase, pp.ad.MixedDimensionalVariable] = dict()
         """A dictionary containing the NPIPM extension variable ``W`` for each phase."""
 
-        self._nu: pp.ad.MixedDimensionalVariable = self._C.ad_system.create_variables(
-            self._nu_name, subdomains=self._C.ad_system.mdg.subdomains()
-        )
-        """Variable ``nu`` representing the IPM parameter."""
+        self._nu: Union[pp.ad.MixedDimensionalVariable, np.ndarray]
+        """Slack variable ``nu`` representing the NPIPM parameter."""
 
         ### PUBLIC
 
@@ -124,6 +134,10 @@ class Flash:
         self.use_auxiliary_npipm_vars: bool = auxiliary_npipm
         """A bool indicating if the auxiliary variables ``V`` and ``W`` should
         be used in the NPIPM algorithm of Vu et al.. Passed at instantiation."""
+
+        self.npipm_param_as_var: bool = npipm_param_as_var
+        """A bool indicating if ``nu`` in the NPIPM is introduced as a variable.
+        Passed at instantiation."""
 
         self.newton_update_chop: float = 1.0
         """A number in ``[0, 1]`` to scale the Newton update ``dx`` resulting from
@@ -158,13 +172,11 @@ class Flash:
         """
 
         ### setting if flash equations
-        cc_eqn = self._set_complementary_conditions()
-        npipm_eqn, npipm_vars = self._set_npipm_eqn_vars()
-
-        self.complementary_equations: list[str] = cc_eqn
+        self.complementary_equations: list[str] = self._set_complementary_conditions()
         """A list of strings representing names of complementary conditions (KKT)
         for the unified flash problem."""
 
+        npipm_eqn, npipm_vars = self._set_npipm_eqn_vars()
         self.npipm_variables: list[str] = npipm_vars
         """A list containing algorithmic variables in for the NPIPM, which are
         neither physical nor must they be used in extended problems e.g., flow.
@@ -241,19 +253,25 @@ class Flash:
             introduced here.
 
         """
-        npipm_eqn: list[str] = []
-        npipm_vars: list[str] = [self._nu_name]
         nc = self._C.ad_system.mdg.num_subdomain_cells()
+        npipm_vars: list[str] = []
+        npipm_eqn: list[str] = []
 
-        # set initial values of zero for all npipm vars
-        self._C.ad_system.set_variable_values(
-            np.zeros(nc), variables=[self._nu_name], to_iterate=True, to_state=True
-        )
+        # set initial values of zero for parameter nu
+        if self.npipm_param_as_var:
+            self._nu = self._C.ad_system.create_variables(
+                self._nu_name, subdomains=self._C.ad_system.mdg.subdomains()
+            )
+            npipm_vars.append(self._nu_name)
+            self._C.ad_system.set_variable_values(
+                np.zeros(nc), variables=[self._nu_name], to_iterate=True, to_state=True
+            )
+        else:
+            self._nu = np.zeros(nc)
 
-        ### NPIPM variables and equations
+        # Defining and setting V per phase
         for phase in self._C.phases:
-
-            # instantiating additional NPIPM vars if requested
+            # Instantiating V as a variable, if requested
             if self.use_auxiliary_npipm_vars:
                 # create V_e
                 name = f"{self._V_name}_{phase.name}"
@@ -265,7 +283,18 @@ class Flash:
                     np.zeros(nc), variables=[name], to_iterate=True, to_state=True
                 )
                 self._V_of_phase[phase] = V_e
+            # else we eliminate them by their respective definition
+            else:
 
+                if phase == self._C.reference_phase:
+                    self._V_of_phase[phase] = self._y_R
+                else:
+                    self._V_of_phase[phase] = phase.fraction
+
+        # Defining and setting W per phase
+        for phase in self._C.phases:
+            # Instantiating W as a variable, if requested
+            if self.use_auxiliary_npipm_vars:
                 # create W_e
                 name = f"{self._W_name}_{phase.name}"
                 W_e = self._C.ad_system.create_variables(
@@ -278,17 +307,13 @@ class Flash:
                 self._W_of_phase[phase] = W_e
             # else we eliminate them by their respective definition
             else:
-
-                if phase == self._C.reference_phase:
-                    self._V_of_phase[phase] = self._y_R
-                else:
-                    self._V_of_phase[phase] = phase.fraction
-
                 self._W_of_phase[phase] = self._C.get_composition_unity_for(phase)
 
-            # if requested, we introduce the additional equations for vars V and W
-            if self.use_auxiliary_npipm_vars:
-                # V_e extension equation, create and store
+        # If V and W are requested as separate variables,
+        # introduce the extension equations
+        if self.use_auxiliary_npipm_vars:
+            # V_e extension equations, create and store
+            for phase in self._C.phases:
                 if phase == self._C.reference_phase:
                     v_extension = self._y_R - V_e
                 else:
@@ -302,7 +327,8 @@ class Flash:
                 )
                 npipm_eqn.append(name)
 
-                # W_e extension equation, create and store
+            # W_e extension equations, create and store
+            for phase in self._C.phases:
                 w_extension = self._C.get_composition_unity_for(phase) - W_e
                 name = f"NPIPM_W_{phase.name}"
                 w_extension.set_name(f"NPIPM_W_{phase.name}")
@@ -313,8 +339,25 @@ class Flash:
                 )
                 npipm_eqn.append(name)
 
-            # V-W-nu coupling for this phase
-            coupling = self._V_of_phase[phase] * self._W_of_phase[phase] - self._nu
+        # Equations coupling the KKT with the slack variable
+        # NOTE: If nu is not a variable and V and W are not used,
+        # this is reduced to the KKT conditions itself.
+        # I.e. they are the same equations as for the Newton-min.
+
+        def smoother(X):
+            return X / (X + 1)
+
+        for phase in self._C.phases:
+            if self.npipm_param_as_var:
+                assert isinstance(self._nu, pp.ad.MixedDimensionalVariable)
+                coupling = self._V_of_phase[phase] * self._W_of_phase[phase] - self._nu
+                # coupling = self._nu * (
+                #     smoother(self._V_of_phase[phase] / self._nu)
+                #     + smoother(self._W_of_phase[phase] / self._nu)
+                #     - pp.ad.Scalar(1) / self._nu
+                # )
+            else:
+                coupling = self._V_of_phase[phase] * self._W_of_phase[phase]
             name = f"NPIPM_coupling_{phase.name}"
             coupling.set_name(name)
             self._C.ad_system.set_equation(
@@ -325,33 +368,34 @@ class Flash:
             npipm_eqn.append(name)
 
         # NPIPM parameter equation
-        eta = pp.ad.Scalar(self.npipm_parameters["eta"])
-        coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self._C.num_phases**2)
-        neg = pp.ad.SemiSmoothNegative()
-        pos = pp.ad.SemiSmoothPositive()
+        if self.npipm_param_as_var:
+            eta = pp.ad.Scalar(self.npipm_parameters["eta"])
+            coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self._C.num_phases**2)
+            neg = pp.ad.SemiSmoothNegative()
+            pos = pp.ad.SemiSmoothPositive()
 
-        norm_parts = list()
-        dot_parts = list()
-        for phase in self._C.phases:
-            v_e = self._V_of_phase[phase]
-            w_e = self._W_of_phase[phase]
+            norm_parts = list()
+            dot_parts = list()
+            for phase in self._C.phases:
+                v_e = self._V_of_phase[phase]
+                w_e = self._W_of_phase[phase]
 
-            norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
-            dot_parts.append(v_e * w_e)
+                norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
+                dot_parts.append(v_e * w_e)
 
-        dot_part = pos(sum(dot_parts))
-        dot_part *= dot_part * coeff
+            dot_part = pos(sum(dot_parts))
+            dot_part *= dot_part * coeff
 
-        equation = (
-            eta * self._nu + self._nu * self._nu + (sum(norm_parts) + dot_part) / 2
-        )
-        equation.set_name("NPIPM_param")
-        self._C.ad_system.set_equation(
-            equation,
-            grids=self._C.ad_system.mdg.subdomains(),
-            equations_per_grid_entity={"cells": 1},
-        )
-        npipm_eqn.append("NPIPM_param")
+            equation = (
+                eta * self._nu + self._nu * self._nu + (sum(norm_parts) + dot_part) / 2
+            )
+            equation.set_name("NPIPM_param")
+            self._C.ad_system.set_equation(
+                equation,
+                grids=self._C.ad_system.mdg.subdomains(),
+                equations_per_grid_entity={"cells": 1},
+            )
+            npipm_eqn.append("NPIPM_param")
 
         return npipm_eqn, npipm_vars
 
@@ -810,10 +854,10 @@ class Flash:
                 v_name = f"{self._V_name}_{phase.name}"
                 w_name = f"{self._W_name}_{phase.name}"
                 ad_system.set_variable_values(
-                    val_v, variables=[v_name], to_iterate=True
+                    val_v, variables=[v_name], to_iterate=True, to_state=True
                 )
                 ad_system.set_variable_values(
-                    val_w, variables=[w_name], to_iterate=True
+                    val_w, variables=[w_name], to_iterate=True, to_state=True
                 )
 
             # store value for initial guess for nu
@@ -831,7 +875,12 @@ class Flash:
         nu = nu / self._C.num_phases
         nu[nu < 0] = 0
 
-        ad_system.set_variable_values(nu, variables=[self._nu_name], to_iterate=True)
+        if self.npipm_param_as_var:
+            ad_system.set_variable_values(
+                nu, variables=[self._nu_name], to_iterate=True, to_state=True
+            )
+        else:
+            self._nu = nu
 
     def _set_initial_guess(self, initial_guess: str) -> None:
         """Auxillary function to set the initial values for phase fractions,
@@ -983,7 +1032,7 @@ class Flash:
 
             Y = np.zeros(nc)
             composition: dict[Any, dict] = dict()
-            phases = [p for p in self._C.phases]
+            # phases = [p for p in self._C.phases]
 
             for i in range(3):
 
@@ -996,7 +1045,7 @@ class Flash:
                 invalid = np.logical_and(0.0 > Y, Y > 1.0)
                 assert not np.any(invalid)
 
-                for phase in phases:
+                for phase in self._C.phases:
                     composition[phase] = dict()
                     for i, comp in enumerate(self._C.components):
                         if phase.eos.gaslike:
@@ -1006,7 +1055,7 @@ class Flash:
                             x_ce = z_c[i] / (1 + Y * (K[i] - 1))
                             composition[phase].update({comp: x_ce})
 
-                for phase in phases:
+                for phase in self._C.phases:
                     total = sum(composition[phase].values())
                     for comp in self._C.components:
                         x_ce = composition[phase][comp] / total
@@ -1015,7 +1064,7 @@ class Flash:
                 # update K values from EoS
                 phi_L = None
                 phi_G = None
-                for phase in phases:
+                for phase in self._C.phases:
                     x_phase = [composition[phase][comp] for comp in self._C.components]
                     phase.eos.compute(pressure, temperature, *x_phase)
                     if phase.eos.gaslike:
@@ -1027,7 +1076,7 @@ class Flash:
                     K[i] = (pair[0] / (pair[1] + 1.0e-12)).val
 
             # set values.
-            for phase in phases:
+            for phase in self._C.phases:
                 for comp in self._C.components:
                     # set values
                     x_ce = composition[phase][comp].val
@@ -1039,7 +1088,7 @@ class Flash:
             # set phase fraction
             # Y += 1e-18
             # Y[Y > 1] = 1.0
-            for phase in phases:
+            for phase in self._C.phases:
                 ad_system.set_variable_values(
                     np.copy(Y), variables=[phase.fraction_name], to_iterate=True
                 )
@@ -1147,7 +1196,7 @@ class Flash:
             F,
             var_names + self.npipm_variables,
             do_logging,
-            matrix_pre_processor=self._npipm_pre_processor,
+            pre_processor=self._npipm_pre_processor,
         )
 
         # append history entry
@@ -1160,54 +1209,104 @@ class Flash:
 
         return success
 
-    def _npipm_pre_processor(self, A: sps.spmatrix) -> None:
+    def _npipm_pre_processor(
+        self, A: sps.spmatrix, b: np.ndarray
+    ) -> tuple[sps.spmatrix, np.ndarray]:
         """Modifying some parts of the NPIPM matrix according to
-        Vu et al. (2021), proposition 3.1."""
-        u = self.npipm_parameters["u"]
-        m = self._C.num_phases**2
-        A = A.tolil()
+        Vu et al. (2021), proposition 3.1.
+
+        Also, if ``nu`` is not a variable, modifies the the rhs."""
 
         nc = self._C.ad_system.mdg.num_subdomain_cells()
+        u = self.npipm_parameters["u"]
+        eta = self.npipm_parameters["eta"]
+        m = self._C.num_phases
 
-        ## First modification: Eliminate derivatives w.r.t. V and W in the slack equ.
-        # According to the set-up, the very last num_cells equations represent
-        # the slack equation involving nu -> last num_cells rows [-nc:]
-        # The column indices are given by the last num_phases * 2 * num_cells,
-
-        # If the auxiliary vars V and W are not used, we know that the bottom right
-        # block belongs to the slack variable nu
-        if self.use_auxiliary_npipm_vars:
-            A[-nc:, -self._C.num_phases * 2 * nc :] = 0
-        else:
-            A[-nc:, :-nc] = 0
-
-        ## Second modification: Augment the derivative of the slack equ w.r.t. nu
-        # by adding the term u * <V,W> / m
-        # the columns of the nu derivative are given by the num_cells block before the
-        # above blocks
-        augmentation = (
-            sum(
-                [
-                    self._V_of_phase[phase].evaluate(self._C.ad_system).val
-                    * self._W_of_phase[phase].evaluate(self._C.ad_system).val
-                    for phase in self._C.phases
-                ]
-            )
-            * u
-            / m
+        dot_V_W = sum(
+            [
+                self._V_of_phase[phase].evaluate(self._C.ad_system).val
+                * self._W_of_phase[phase].evaluate(self._C.ad_system).val
+                for phase in self._C.phases
+            ]
         )
-        # augment the block in the last equation belonging to nu
-        if self.use_auxiliary_npipm_vars:
-            A[
-                -nc:, -(nc + self._C.num_phases * 2 * nc) : -self._C.num_phases * 2 * nc
-            ] += augmentation
-        else:
-            A[-nc:, -nc:] += augmentation
 
-        # back to csr and eliminate zeros
-        A = A.tocsr()
-        A.eliminate_zeros()
-        return A
+        # If nu is a variable and the slack equation is part of the system.
+        # the pre-conditioning consists of multiplying the coupling equation (per phase)
+        # with dot_V_W**+ * u / m**2 and subtracting them from the slack equation for nu
+        # Essentially a Gaussian elimination step as a pre-conditioning.
+        if self.npipm_param_as_var:
+            A = A.tolil()  # for performance reasons
+
+            # TODO: Augmentation performed under assumption that the order of the
+            # equations is as constructed and added to the AD system
+            # (hence the direct accessing of indices)
+            # This should be done more generically with, in case the system changes
+            # when coupled with something else or modified.
+
+            for p, phase in enumerate(self._C.phases):
+                factor = (
+                    u
+                    / m**2
+                    * self._V_of_phase[phase].evaluate(self._C.ad_system).val
+                    * self._W_of_phase[phase].evaluate(self._C.ad_system).val
+                )
+                # positive part
+                factor[factor < 0] = 0.0
+                # last nc rows belong to slack equation
+                # chose the the nc-long block rows above per phase for multiplication
+                # sps.diags assures that factor (vector) is multiplied with each column
+                # of the block-row
+                A[-nc:] -= sps.diags(factor) * A[-(p + 2) * nc : -(p + 1) * nc]
+
+            # ## First modification: Eliminate derivatives w.r.t. V and W in the slack equ.
+            # # According to the set-up, the very last num_cells equations represent
+            # # the slack equation involving nu -> last num_cells rows [-nc:]
+            # # The column indices are given by the last num_phases * 2 * num_cells,
+
+            # # If the auxiliary vars V and W are not used, we know that the bottom right
+            # # block belongs to the slack variable nu
+            # if self.use_auxiliary_npipm_vars:
+            #     A[-nc:, -m * 2 * nc :] = 0
+            # else:
+            #     A[-nc:, :-nc] = 0
+
+            # ## Second modification: Augment the derivative of the slack equ w.r.t. nu
+            # # by adding the term u * <V,W> / m
+            # # the columns of the nu derivative are given by the num_cells block before the
+            # # above blocks
+            # augmentation = dot_V_W * u / m**2
+
+            # # augment the block in the last equation belonging to nu
+            # if self.use_auxiliary_npipm_vars:
+            #     A[
+            #         -nc:,
+            #         -(nc + m * 2 * nc) : -m * 2 * nc,
+            #     ] += augmentation
+            # else:
+            #     A[-nc:, -nc:] += augmentation
+
+            # back to csr and eliminate zeros
+            A = A.tocsr()
+            A.eliminate_zeros()
+
+        else:
+            # If nu is not a variable, the slack equation is not present.
+            # In this case we subtract the value of the slack variable from the rhs for
+            # each KKT condition (per phase)
+            b[-nc:] -= self._nu
+            for p in range(1, m):
+                b[-(p + 1) * nc : -(p) * nc] -= self._nu
+
+            # Perform an update to nu, based on current values of fractions for the next
+            # iteration
+            dnu = (
+                eta * self._nu
+                + self._nu**2
+                - u * (dot_V_W / (2 * m) - self._nu) * dot_V_W / m
+            ) / (eta + 2 * self._nu + u * dot_V_W / m)
+            self._nu -= dnu
+
+        return A, b
 
     def _Armijo_line_search(
         self,
@@ -1340,7 +1439,9 @@ class Flash:
         F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
         var_names: list[str],
         do_logging: bool,
-        matrix_pre_processor: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
+        pre_processor: Optional[
+            Callable[[sps.spmatrix, np.ndarray], tuple[sps.spmatrix, np.ndarray]]
+        ] = None,
     ) -> tuple[bool, int]:
         """Performs standard Newton iterations using the matrix and rhs-vector returned
         by ``F``, until (possibly) the L2-norm of the rhs-vector reaches the convergence
@@ -1361,10 +1462,12 @@ class Flash:
                 This list is used to construct a prolongation matrix and to update
                 respective components of the global solution vector.
             do_logging: Flag to print status logs in the console.
-            matrix_pre_processor: ``default=None``
+            pre_processor: ``default=None``
 
-                An optional callable to pre-process the matrix of the linearized
-                system returned by ``F``.
+                An optional callable to pre-process the matrix and right-hand side
+                of the linearized system returned by ``F``.
+
+                This is called directly before each solve-command for the linear system
 
         Returns:
             A 2-tuple containing a bool and an integer, representing the success-
@@ -1373,6 +1476,10 @@ class Flash:
         """
         success: bool = False
         iter_final: int = 0
+        if self.use_armijo:
+            logging_end = "\n"
+        else:
+            logging_end = ""
 
         # # NOTE: structure for  time measurement
         # self.iter_times=list()
@@ -1383,15 +1490,6 @@ class Flash:
         A, b = F()
         # stop_assembly = time.time()
         # self.assembly_times.append(stop_assembly - start_assembly)
-
-        if do_logging:
-            print("Starting Newton iterations with variables:", flush=True)
-            self.print_ordered_vars(var_names)
-
-        if self.use_armijo:
-            logging_end = "\n"
-        else:
-            logging_end = ""
 
         # if residual is already small enough
         if np.linalg.norm(b) <= self.flash_tolerance:
@@ -1415,9 +1513,8 @@ class Flash:
                         flush=True,
                     )
 
-                # solve iteration and add to ITERATE state additively
-                if matrix_pre_processor:
-                    A = matrix_pre_processor(A)
+                if pre_processor:
+                    A, b = pre_processor(A, b)
 
                 # start_solve = time.time()
                 dx = sps.linalg.spsolve(A, b)

@@ -42,7 +42,7 @@ adsys.set_variable_values(0 * vec, variables=[M.h_name], to_iterate=True, to_sta
 
 M.initialize()
 
-FLASH = pp.composite.Flash(M, auxiliary_npipm=True)
+FLASH = pp.composite.Flash(M, auxiliary_npipm=False, npipm_param_as_var=True)
 FLASH.use_armijo = True
 FLASH.armijo_parameters["rho"] = 0.99
 FLASH.armijo_parameters["j_max"] = 50

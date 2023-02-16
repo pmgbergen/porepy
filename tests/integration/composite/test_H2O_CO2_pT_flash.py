@@ -370,13 +370,15 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
         composition.initialize()
 
-        flash = pp.composite.Flash(composition, auxiliary_npipm=False)
+        flash = pp.composite.Flash(
+            composition, auxiliary_npipm=False, npipm_param_as_var=True
+        )
         flash.use_armijo = True
         flash.armijo_parameters["rho"] = 0.99
         flash.armijo_parameters["j_max"] = 50
         flash.armijo_parameters["return_max"] = True
         flash.newton_update_chop = 1.0
-        flash.flash_tolerance = 5e-6
+        flash.flash_tolerance = 1e-8
         flash.max_iter_flash = 70
 
         if vectorize:
