@@ -10,7 +10,7 @@ import unittest
 import numpy as np
 
 import porepy as pp
-import porepy.models.thm_model as model
+import porepy.models.old_models.thm_model as model
 from tests.common.contact_mechanics_examples import ProblemDataTime
 
 

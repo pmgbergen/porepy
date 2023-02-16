@@ -19,7 +19,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import mortar_grid
-from porepy.models.contact_mechanics_model import ContactMechanics
+from porepy.models.old_models.contact_mechanics_model import ContactMechanics
 
 
 class ContactConditionColoumb2d(unittest.TestCase):

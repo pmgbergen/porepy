@@ -19,7 +19,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.models.abstract_model import AbstractModel
+from porepy.models.old_models.abstract_model import AbstractModel
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
