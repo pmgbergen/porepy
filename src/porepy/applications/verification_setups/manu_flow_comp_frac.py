@@ -616,7 +616,7 @@ class ManuCompExactSolution:
 class ManuCompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility function to access the domain boundary sides."""
 
     mdg: pp.MixedDimensionalGrid
@@ -777,7 +777,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
 
 # -----> Mixer
-class ManufacturedCompressibleFlow2d(  # type: ignore[misc]
+class ManuCompFlowSetup(  # type: ignore[misc]
     SingleEmbeddedVerticalFracture,
     ManuCompBalanceEquation,
     ManuCompBoundaryConditions,
