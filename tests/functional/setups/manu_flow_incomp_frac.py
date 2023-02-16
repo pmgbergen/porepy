@@ -22,8 +22,8 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from porepy.applications.complete_setups.setup_utils import (
-    VerificationDataSaving,
     VerificationUtils,
 )
 
