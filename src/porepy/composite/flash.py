@@ -376,11 +376,13 @@ class Flash:
 
             norm_parts = list()
             dot_parts = list()
+            test_parts = list()
             for phase in self._C.phases:
                 v_e = self._V_of_phase[phase]
                 w_e = self._W_of_phase[phase]
 
                 norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
+                test_parts.append(smoother(neg(v_e)) + smoother(neg(w_e)))
                 dot_parts.append(v_e * w_e)
 
             dot_part = pos(sum(dot_parts))
@@ -388,6 +390,7 @@ class Flash:
 
             equation = (
                 eta * self._nu + self._nu * self._nu + (sum(norm_parts) + dot_part) / 2
+                + sum(test_parts)
             )
             equation.set_name("NPIPM_param")
             self._C.ad_system.set_equation(
@@ -1344,82 +1347,88 @@ class Flash:
         b_k_pot = self._Armijo_potential(b_k)
         X_k = self._C.ad_system.get_variable_values(from_iterate=True)
 
-        _, b_j = F(X_k + rho * DX)
-        pot_j = self._Armijo_potential(b_j)
-        rho_j = rho
-
         if do_logging:
             print(f"Armijo line search initial potential: {b_k_pot}")
-            print(f"Armijo line search j=1; potential {pot_j}", end="", flush=True)
 
-        # start with first step size. If sufficient, return rho
-        if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
-            if do_logging:
-                _del_log()
-                print("Armijo line search j=1: success", end="", flush=True)
-            return rho_j
-        else:
-            # if maximal line-search interval defined, use for-loop
-            if j_max:
-                for j in range(2, j_max + 1):
-                    # new step-size
-                    rho_j = rho**j
+        # if maximal line-search interval defined, use for-loop
+        if j_max:
+            for j in range(1, j_max + 1):
+                # new step-size
+                rho_j = rho**j
 
-                    # compute system state at preliminary step-size
+                # compute system state at preliminary step-size
+                try:
                     _, b_j = F(X_k + rho_j * DX)
-
-                    pot_j = self._Armijo_potential(b_j)
-
+                except:
                     if do_logging:
                         _del_log()
                         print(
-                            f"Armijo line search j={j}; potential: {pot_j}",
+                            f"Armijo line search j={j}; evaluation failed.",
                             end="",
                             flush=True,
                         )
+                    continue
 
-                    # check potential and return if reduced.
-                    if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
-                        if do_logging:
-                            _del_log()
-                            print(f"Armijo line search j={j}: success", flush=True)
-                        return rho_j
+                pot_j = self._Armijo_potential(b_j)
 
-                # if for-loop did not yield any results, raise error if requested
-                if return_max:
-                    return rho_j
-                else:
-                    raise RuntimeError(
-                        f"Armijo line-search did not yield results after {j_max} steps."
+                if do_logging:
+                    _del_log()
+                    print(
+                        f"Armijo line search j={j}; potential: {pot_j}",
+                        end="",
+                        flush=True,
                     )
-            # if no j_max is defined, use while loop
-            # NOTE: If system is bad in some sense,
-            # this might not finish in feasible time.
-            else:
-                # prepare for while loop
-                j = 1
 
-                # while potential not decreasing, compute next step-size
-                while pot_j > (1 - 2 * kappa * rho_j) * b_k_pot:
-                    # next power of step-size
-                    rho_j *= rho
-                    _, b_j = F(X_k + rho_j * DX)
-                    j += 1
-                    pot_j = self._Armijo_potential(b_j)
-
-                    if do_logging:
-                        _del_log()
-                        print(
-                            f"Armijo line search j={j}; potential: {pot_j}",
-                            end="",
-                            flush=True,
-                        )
-                # if potential decreases, return step-size
-                else:
+                # check potential and return if reduced.
+                if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
                     if do_logging:
                         _del_log()
                         print(f"Armijo line search j={j}: success", flush=True)
                     return rho_j
+
+            # if for-loop did not yield any results, raise error if requested
+            if return_max:
+                return rho_j
+            else:
+                raise RuntimeError(
+                    f"Armijo line-search did not yield results after {j_max} steps."
+                )
+        # if no j_max is defined, use while loop
+        # NOTE: If system is bad in some sense,
+        # this might not finish in feasible time.
+        else:
+            # prepare for while loop
+            j = 1
+            # while potential not decreasing, compute next step-size
+            while pot_j > (1 - 2 * kappa * rho_j) * b_k_pot:
+                # next power of step-size
+                rho_j *= rho
+                try:
+                    _, b_j = F(X_k + rho_j * DX)
+                except:
+                    if do_logging:
+                        _del_log()
+                        print(
+                            f"Armijo line search j={j}; evaluation failed.",
+                            flush=True,
+                        )
+                    j += 1
+                    continue
+                j += 1
+                pot_j = self._Armijo_potential(b_j)
+
+                if do_logging:
+                    _del_log()
+                    print(
+                        f"Armijo line search j={j}; potential: {pot_j}",
+                        flush=True,
+                    )
+            # if potential decreases, return step-size
+            else:
+                if do_logging:
+                    _del_log()
+                    print(f"Armijo line search j={j}: success", flush=True)
+                return rho_j
 
     def _Armijo_potential(self, vec: np.ndarray) -> float:
         """Auxiliary method implementing the potential function which is to be

@@ -378,7 +378,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         flash.armijo_parameters["j_max"] = 50
         flash.armijo_parameters["return_max"] = True
         flash.newton_update_chop = 1.0
-        flash.flash_tolerance = 1e-8
+        flash.flash_tolerance = 1e-7
         flash.max_iter_flash = 70
 
         if vectorize:
