@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from porepy.models.abstract_model import AbstractModel
+from porepy.models.old_models.abstract_model import AbstractModel
 
 
 class LinearSolver:

@@ -10,7 +10,7 @@ import unittest
 import numpy as np
 
 import porepy as pp
-import porepy.models.contact_mechanics_biot_model as model
+import porepy.models.old_models.contact_mechanics_biot_model as model
 import tests.common.contact_mechanics_examples
 
 

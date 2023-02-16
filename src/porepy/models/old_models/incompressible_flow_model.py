@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 
 import porepy as pp
+from porepy.models.old_models.abstract_model import AbstractModel
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class _AdVariables:
     subdomains: List[pp.Grid]
 
 
-class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
+class IncompressibleFlow(AbstractModel):
     """This is a shell class for single-phase incompressible flow problems.
 
     This class is intended to provide a standardized setup, with all discretizations
