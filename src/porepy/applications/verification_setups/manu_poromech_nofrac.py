@@ -665,7 +665,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
         # External sources are retrieved from STATE and wrapped as an AdArray
-        external_sources = pp.ad.TimeDependentArray(
+        external_sources = pp.ad.TimeDependentDenseArray(
             name="source_flow",
             subdomains=self.mdg.subdomains(),
             previous_timestep=True,
@@ -703,7 +703,7 @@ class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Body force."""
 
-        external_sources = pp.ad.TimeDependentArray(
+        external_sources = pp.ad.TimeDependentDenseArray(
             name="source_mechanics",
             subdomains=self.mdg.subdomains(),
             previous_timestep=True,

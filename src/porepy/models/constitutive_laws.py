@@ -746,7 +746,7 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    bc_values_darcy: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_darcy: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Darcy flux boundary conditions. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
@@ -1174,7 +1174,7 @@ class FouriersLaw:
    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    bc_values_fourier: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_fourier: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Fourier flux boundary conditions. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
@@ -1642,7 +1642,7 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
-    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Mechanics boundary conditions. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
 
@@ -2397,7 +2397,7 @@ class PoroMechanicsPorosity:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Mechanics boundary conditions. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
 

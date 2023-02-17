@@ -66,7 +66,7 @@ def test_copy_operator_tree():
     a = pp.ad.Scalar(a_val)
 
     b_arr = np.arange(3)
-    b = pp.ad.Array(b_arr)
+    b = pp.ad.DenseArray(b_arr)
 
     # The combined operator, and two copies
     c = a + b
@@ -127,7 +127,7 @@ def test_copy_operator_tree():
 ## Test of pp.ad.Matrix, pp.ad.Array, pp.ad.Scalar
 fields = [
     (pp.ad.SparseArray, sps.csr_matrix(np.random.rand(3, 2))),
-    (pp.ad.Array, np.random.rand(3)),
+    (pp.ad.DenseArray, np.random.rand(3)),
     (pp.ad.Scalar, 42),
 ]
 
@@ -212,11 +212,11 @@ def test_time_dependent_array():
 
     # We make three arrays: One defined on a single subdomain, one on all subdomains of mdg
     # and one on an interface.
-    sd_array_top = pp.ad.TimeDependentArray(
+    sd_array_top = pp.ad.TimeDependentDenseArray(
         "foo", subdomains=mdg.subdomains(dim=mdg.dim_max())
     )
-    sd_array = pp.ad.TimeDependentArray("foo", subdomains=mdg.subdomains())
-    intf_array = pp.ad.TimeDependentArray("bar", interfaces=mdg.interfaces())
+    sd_array = pp.ad.TimeDependentDenseArray("foo", subdomains=mdg.subdomains())
+    intf_array = pp.ad.TimeDependentDenseArray("bar", interfaces=mdg.interfaces())
 
     # Evaluate each of the Ad objects, verify that they have the expected values.
     sd_array_top_eval = sd_array_top.parse(mdg)
@@ -245,7 +245,7 @@ def test_time_dependent_array():
 
     # Create and evaluate a time-dependent array that is a function of neither
     # subdomains nor interfaces.
-    empty_array = pp.ad.TimeDependentArray("none", subdomains=[], interfaces=[])
+    empty_array = pp.ad.TimeDependentDenseArray("none", subdomains=[], interfaces=[])
     # In this case evaluation should return an empty array.
     empty_eval = empty_array.parse(mdg)
     assert empty_eval.size == 0
@@ -256,7 +256,7 @@ def test_time_dependent_array():
     with pytest.raises(ValueError):
         # If we try to define an array on both subdomain and interface, we should get an
         # error.
-        pp.ad.TimeDependentArray(
+        pp.ad.TimeDependentDenseArray(
             "foobar", subdomains=mdg.subdomains(), interfaces=mdg.interfaces()
         )
 
@@ -673,7 +673,7 @@ def test_time_differentiation():
     assert np.allclose(diff_var_1.evaluate(eq_system).val, 2 * ts)
 
     # Differentiate the time dependent array residing on the subdomain
-    array = pp.ad.TimeDependentArray(name="bar", subdomains=[sd])
+    array = pp.ad.TimeDependentDenseArray(name="bar", subdomains=[sd])
     dt_array = pp.ad.dt(array, time_step)
     assert np.allclose(dt_array.evaluate(eq_system), -0.5)
 

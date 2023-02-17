@@ -79,7 +79,7 @@ class MassBalanceEquations(pp.BalanceEquation):
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
-    bc_values_mobrho: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_mobrho: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Mobility times density boundary conditions. Normally defined in a mixin instance
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
@@ -337,7 +337,7 @@ class BoundaryConditionsSinglePhaseFlow:
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for the Darcy flux.
 
         Parameters:
@@ -352,7 +352,7 @@ class BoundaryConditionsSinglePhaseFlow:
         # Array.
         return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for the mobility times density.
 
         Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
@@ -390,7 +390,7 @@ class BoundaryConditionsSinglePhaseFlow:
         # Concatenate to single array and wrap as ad.Array
         # We have forced the type of bc_values_array to be an ad.Array, but mypy does
         # not recognize this. We therefore ignore the typing error.
-        bc_values_array: pp.ad.Array = pp.wrap_as_ad_array(  # type: ignore
+        bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(  # type: ignore
             np.hstack(bc_values), name="bc_values_mobility"
         )
         return bc_values_array

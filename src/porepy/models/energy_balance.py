@@ -106,7 +106,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
-    bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Boundary condition for enthalpy flux. Normally defined in a mixin instance
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
@@ -530,7 +530,7 @@ class BoundaryConditionsEnergyBalance:
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the Fourier flux.
 
         Parameters:
@@ -543,7 +543,7 @@ class BoundaryConditionsEnergyBalance:
         num_faces = sum([sd.num_faces for sd in subdomains])
         return pp.wrap_as_ad_array(0, num_faces, "bc_values_fourier")
 
-    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the enthalpy.
 
         SI units for Dirichlet: [J/m^3]
