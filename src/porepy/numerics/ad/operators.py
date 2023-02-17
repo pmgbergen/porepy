@@ -63,7 +63,17 @@ class Operator:
 
     Operations: EnumMeta = Enum(
         "Operations",
-        ["void", "add", "sub", "mul", "div", "evaluate", "approximate", "pow"],
+        [
+            "void",
+            "add",
+            "sub",
+            "mul",
+            "matmul",
+            "div",
+            "evaluate",
+            "approximate",
+            "pow",
+        ],
     )
     """Object representing all supported operations by the operator class.
 
@@ -317,7 +327,7 @@ class Operator:
 
             # Convert any vectors that mascarade as a n x 1 (1 x n) scipy matrix to a
             # numpy array.
-            self._ravel_scipy_matrix(results)
+            # self._ravel_scipy_matrix(results)
 
             if isinstance(results[0], np.ndarray):
                 # With the implementation of Ad arrays, addition does not
@@ -336,16 +346,16 @@ class Operator:
 
             # Convert any vectors that mascarade as a n x 1 (1 x n) scipy matrix to a
             # numpy array.
-            self._ravel_scipy_matrix(results)
+            # self._ravel_scipy_matrix(results)
 
-            factor = 1
+            factor = 1.0
 
             if isinstance(results[0], np.ndarray):
                 # With the implementation of Ad arrays, subtraction does not
                 # commute for combinations with numpy arrays. Switch the order
-                # of results, and everything works.
+                # of results, and everything works. This is permissible since
                 results = results[::-1]
-                factor = -1
+                factor = -1.0
 
             try:
                 return factor * (results[0] - results[1])
@@ -363,8 +373,10 @@ class Operator:
                 # In the implementation of multiplication between an Ad_array and a
                 # numpy array (in the forward mode Ad), a * b and b * a do not
                 # commute. Flip the order of the results to get the expected behavior.
+                # This is permissible, since the elementwise product commutes.
                 results = results[::-1]
             try:
+                # An error here
                 return results[0] * results[1]
             except ValueError as exc:
                 if isinstance(
@@ -397,62 +409,57 @@ class Operator:
         elif tree.op == Operator.Operations.div:
             # Some care is needed here, to account for cases where item in the results
             # array is a numpy array
-            if isinstance(results[0], pp.ad.Ad_array):
-                # If the first item is an Ad array, the implementation of the forward
-                # mode should take care of everything.
-                return results[0] / results[1]
-            elif isinstance(results[0], (np.ndarray, sps.spmatrix)):
-                # if the first array is a numpy array or sparse matrix,
-                # then numpy's implementation of division will be invoked.
-                if isinstance(results[1], (np.ndarray, numbers.Real)):
-                    # Both items are numpy arrays or scalars, everything is fine.
-                    return results[0] / results[1]
-                elif isinstance(results[1], pp.ad.Ad_array):
-                    # Numpy cannot deal with division with an Ad_array. Instead, multiply
-                    # with the inverse of results[1] (this is equivalent, and makes
-                    # numpy happy). The return from numpy will be a new array (data type
-                    # object) with the actual Ad_array as the first item. Exactly why
-                    # numpy functions in this way is not clear to EK.
-                    return (results[0] * results[1] ** -1)[0]
+            try:
+                if isinstance(results[0], np.ndarray) and isinstance(
+                    results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                ):
+                    # In the implementation of multiplication between an Ad_array and a
+                    # numpy array (in the forward mode Ad), a * b and b * a do not
+                    # commute. Flip the order of the results to get the expected behavior.
+                    # This is permissible, since the elementwise product commutes.
+                    return results[1].__rtruediv__(results[0])
                 else:
-                    # Not sure what this will cover. We have to wait for it to happen.
-                    raise NotImplementedError(
-                        "Encountered a case not covered when dividing Ad objects"
-                    )
-            elif isinstance(results[0], numbers.Real):
-                # if the dividend is a number, the divisor has to be an Ad_array,
-                # otherwise the overloaded division wouldn't have been invoked
-                # We use the same strategy as in above case where the divisor is an Ad_array
-                if isinstance(results[1], pp.ad.Ad_array):
-                    # See remarks by EK in case ndarray / Ad_array
-                    return (results[0] * results[1] ** -1)[0]
-                elif isinstance(results[1], numbers.Real):
-                    # Both items are scalars, everything is fine.
                     return results[0] / results[1]
-                else:
-                    # In case above argument, that the divisor can only be an Ad_array,
-                    # is wrong
-                    raise NotImplementedError(
-                        "Encountered a case not covered when dividing Ad objects"
-                    )
-            else:
-                # This case could include results[0] being a float, or different numbers,
-                # which again should be easy to cover.
-                raise NotImplementedError(
-                    "Encountered a case not covered when dividing Ad objects"
-                )
+            except:
+                msg = self._get_error_message("multiplying", tree, results)
+                raise ValueError(msg)
 
         elif tree.op == Operator.Operations.pow:
-            # To raise to a power we need two objects
-            assert len(results) == 2
-            # The second argument must be a scalar
-            assert isinstance(results[1], numbers.Real)
+            try:
+                if isinstance(results[0], np.ndarray) and isinstance(
+                    results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                ):
+                    # In the implementation of multiplication between an Ad_array and a
+                    # numpy array (in the forward mode Ad), a * b and b * a do not
+                    # commute. Flip the order of the results to get the expected behavior.
+                    # This is permissible, since the elementwise product commutes.
+                    return results[1].__rpow__(results[0])
+                else:
+                    return results[0] ** results[1]
+            except:
+                msg = self._get_error_message("multiplying", tree, results)
+                raise ValueError(msg)
 
             try:
                 return results[0] ** results[1]
             except ValueError as exc:
                 msg = self._get_error_message("raising to a power", tree, results)
                 raise ValueError(msg) from exc
+        elif tree.op == Operator.Operations.matmul:
+            try:
+                if isinstance(results[0], np.ndarray) and isinstance(
+                    results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                ):
+                    # In the implementation of multiplication between an Ad_array and a
+                    # numpy array (in the forward mode Ad), a * b and b * a do not
+                    # commute. Flip the order of the results to get the expected behavior.
+                    # This is permissible, since the elementwise product commutes.
+                    return results[1].__rmatmul__(results[0])
+                else:
+                    return results[0] @ results[1]
+            except:
+                msg = self._get_error_message("multiplying", tree, results)
+                raise ValueError(msg)
 
         elif tree.op == Operator.Operations.evaluate:
             # This is a function, which should have at least one argument
@@ -494,11 +501,21 @@ class Operator:
             + msg_1
             + nl
         )
+        if isinstance(results[0], sps.spmatrix):
+            msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
+        elif isinstance(results[0], pp.ad.Ad_array):
+            msg += (
+                "First argument is an Ad_array with Jacobian of size "
+                f"{results[0].jac.shape} \n"
+            )
+        if isinstance(results[1], sps.spmatrix):
+            msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
+        elif isinstance(results[1], pp.ad.Ad_array):
+            msg += (
+                "Second argument is an Ad_array with Jacobian of size "
+                f"{results[1].jac.shape}"
+            )
 
-        msg += (
-            f"Matrix sizes are {_get_shape(results[0])} and "
-            f"{_get_shape(results[1])}"
-        )
         return msg
 
     def _parse_readable(self) -> str:
@@ -556,7 +573,8 @@ class Operator:
         else:
             return f"({child_str[0]} {operator_str} {child_str[1]})"
 
-    def _ravel_scipy_matrix(self, results):
+    def _uravel_scipy_matrix(self, results):
+        # EK: Deactivate this for now, it should be possible to purge it soon.
         # In some cases, parsing may leave what is essentially an array, but with the
         # format of a scipy matrix. This must be converted to a numpy array before
         # moving on.
@@ -740,7 +758,7 @@ class Operator:
             R = sps.coo_matrix(
                 (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
             ).tocsr()
-            self._ad[var_id] = R * ad_vars
+            self._ad[var_id] = R @ ad_vars
 
         # Also make mappings from the previous iteration.
         # This is simpler, since it is only a matter of getting the residual vector
@@ -914,7 +932,16 @@ class Operator:
         return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
 
     def __rmul__(self, other):
-        return self.__mul__(other)
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operator.Operations.rmul, children), name="reverse * operator"
+        )
+
+    def __rtruediv__(self, other):
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operator.Operations.rdiv, children), name="/ operator"
+        )
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -927,9 +954,48 @@ class Operator:
         return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
 
     def __pow__(self, other):
+        if isinstance(self, pp.ad.Matrix) and isinstance(other, pp.ad.Scalar):
+            # Special case: Scipy sparse matrices only accepts integers as exponents,
+            # but we cannot know if the exponent is an integer or not, so we need to
+            # disallow this case. Implementation detail: It turns out that if the scalar
+            # can be represented as an integer (say, it is 2.0), Scipy may or may not do
+            # the cast and go on with the calculation. It semes the behavior depends on
+            # the Python and Scipy installation (potentially on which operating system
+            # is used). Thus in this case, we cannot rely on the external library
+            # (SciPy) to give a consistent treatment of this operation, and instead
+            # raise an error here. This breaks with the general philosophy of ad
+            # Operators, that when combining two externally provided objects (Scalars,
+            # DenseArray, SparseArray), the external library should be responsible for
+            # the calculation, but this seems like the least bad option.
+            raise ValueError("Cannot take SparseArray to the power of a Scalar.")
+        elif isinstance(self, pp.ad.Matrix) and isinstance(other, pp.ad.Array):
+            # When parsing this case, one of the operators (likely the numpy array) will
+            # apply broadcasting, to produce a list of sparse matrices containing the
+            # matrix raised to the power of of the array elements (provided these are
+            # integers, the same problem as above applies). We explicitly disallow this.
+            raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
+
         children = self._parse_other(other)
         return Operator(
             tree=Tree(Operator.Operations.pow, children), name="** operator"
+        )
+
+    def __rpow__(self, other):
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operator.Operations.rpow, children), name="reverse ** operator"
+        )
+
+    def __matmul__(self, other):
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operator.Operations.matmul, children), name="** operator"
+        )
+
+    def __rmatmul__(self, other):
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operator.Operations.rmatmul, children), name="reverse ** operator"
         )
 
     def _parse_other(self, other):
