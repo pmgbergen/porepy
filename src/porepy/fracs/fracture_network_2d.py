@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class FractureNetwork2d:
-    """Class representation of a set of fractures in a 2D domain.
+    """Representation of a set of line fracture in a two-dimensional domain.
 
     The fractures are represented by line fracture objects (see
     :class:`~porepy.fracs.line_fracture.LineFracture`. Poly-line fractures are
@@ -34,10 +34,11 @@ class FractureNetwork2d:
     domain by the function constrain_to_domain().The domain can be a general
     non-convex polygon (see e.g., :class:`~porepy.geometry.domain.Domain`).
 
-    IMPLEMENTATION NOTE: The class is mainly intended for representation and meshing of
-    a fracture network, however, it also contains some utility functions. The balance
-    between these components may change in the future, specifically, utility functions
-    may be removed.
+    Note:
+        The class is mainly intended for representation and meshing of a fracture
+        network, however, it also contains some utility functions. The balance
+        between these components may change in the future, specifically, utility
+        functions may be removed.
 
     Parameters:
         fractures: Fractures that make up the network. Defaults to None, which will
@@ -48,7 +49,6 @@ class FractureNetwork2d:
         tol: Tolerance used in geometric computations.
 
     """
-
     def __init__(
         self,
         fractures: Optional[list[LineFracture]] = None,
