@@ -27,12 +27,12 @@ logger = logging.getLogger(__name__)
 class FractureNetwork2d:
     """Class representation of a set of fractures in a 2D domain.
 
-    The fractures are represented by their endpoints. Poly-line fractures are
-    currently not supported. There is no requirement or guarantee that the
-    fractures are contained within the specified domain. The fractures can be
-    cut to a given domain by the function constrain_to_domain().
-
-    The domain can be a general non-convex polygon.
+    The fractures are represented by line fracture objects (see
+    :class:`~porepy.fracs.line_fracture.LineFracture`. Poly-line fractures are
+    currently not supported. There is no requirement or guarantee that the fractures
+    are contained within the specified domain. The fractures can be cut to a given
+    domain by the function constrain_to_domain().The domain can be a general
+    non-convex polygon (see e.g., :class:`~porepy.geometry.domain.Domain`).
 
     IMPLEMENTATION NOTE: The class is mainly intended for representation and meshing of
     a fracture network, however, it also contains some utility functions. The balance
@@ -40,12 +40,9 @@ class FractureNetwork2d:
     may be removed.
 
     Parameters:
-        pts: ``(shape=(2, num_pts))`` Start and endpoints of the fractures. Points
-            can be shared by fractures.
-        edges: ``(shape=(2 + num_tags, num_fracs), dtype=np.int8)``
-            Fractures, defined as connections between the points.
-            When accessing and changing the edges, ensure that ``dtype`` always remains
-            an integer type.
+        fractures: Fractures that make up the network. Defaults to None, which will
+            create a domain wihtout fractures. An empty list can also be passed,
+            but it will effectively treated as None.
         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
             the domain. Can be box-shaped or a general (non-convex) polygon.
         tol: Tolerance used in geometric computations.
@@ -58,18 +55,6 @@ class FractureNetwork2d:
         domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
     ) -> None:
-        """Define the fracture set.
-
-        Parameters:
-            fractures: Fractures that make up the network. Defaults to None, which will
-                create a domain wihtout fractures. An empty list will be interpreted
-                as None.
-            domain: Domain specification. See ``self.impose_external_boundary()`` for
-                details.
-            tol: Tolerance used in geometric computations. Defaults to 1e-8.
-
-        """
-
         self.pts: np.ndarray
         """Start and endpoints of the fractures. Points can be shared by fractures."""
 
