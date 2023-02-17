@@ -9,7 +9,7 @@ arrays are always left added (and subtracted, multiplied) with Ad_arrays, but th
 should be covered in tests to be written.
 
 """
-
+from __future__ import annotations
 import pytest
 import scipy.sparse as sps
 import numpy as np
@@ -449,17 +449,17 @@ def test_all(var_1, var_2, op, wrapped):
         return
 
     def _var_from_string(v, do_wrap: bool):
-        match v:
-            case "scalar":
-                return _get_scalar(do_wrap)
-            case "dense":
-                return get_dense_array(do_wrap)
-            case "sparse":
-                return get_sparse_array(do_wrap)
-            case "ad":
-                return get_ad_array(do_wrap)
-            case _:
-                raise ValueError("Unknown variable type")
+
+        if v == "scalar":
+            return _get_scalar(do_wrap)
+        elif v == "dense":
+            return get_dense_array(do_wrap)
+        elif v == "sparse":
+            return get_sparse_array(do_wrap)
+        elif v == "ad":
+            return get_ad_array(do_wrap)
+        else:
+            raise ValueError("Unknown variable type")
 
     v1 = _var_from_string(var_1, wrapped)
     v2 = _var_from_string(var_2, wrapped)
