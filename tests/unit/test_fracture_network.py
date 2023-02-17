@@ -155,7 +155,7 @@ class TestFractureNetwork2d(unittest.TestCase):
 
         split_network = network.copy_with_split_intersections()
         self.assertTrue(test_utils.compare_arrays(split_network._pts, self.pts))
-        self.assertTrue(split_network.edges.shape[1] == 3)
+        self.assertTrue(split_network._edges.shape[1] == 3)
 
     def test_constrain_to_domain(self):
         network = pp.FractureNetwork2d(self.fracs, self.domain)
@@ -228,7 +228,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         # The known edges has 2 rows, thus by testing for equality, we implicitly
         # verify there are no tags in the joint network
         e_known = np.array([[0, 2, 4, 6], [1, 3, 5, 7]])
-        self.assertTrue(test_utils.compare_arrays(together.edges, e_known))
+        self.assertTrue(test_utils.compare_arrays(together._edges, e_known))
 
     def test_add_networks_domains(self):
         network_1 = pp.FractureNetwork2d(self.fracs, self.domain)
@@ -278,19 +278,19 @@ class TestFractureNetwork2d(unittest.TestCase):
 
         # Add networks, check tags
         together = network_1.add_network(network_2)
-        self.assertTrue(np.all(together.edges[2, 2:4] == tag2))
+        self.assertTrue(np.all(together._edges[2, 2:4] == tag2))
 
         # Add networks reverse order
         together = network_2.add_network(network_1)
-        self.assertTrue(np.all(together.edges[2, :2] == tag2))
+        self.assertTrue(np.all(together._edges[2, :2] == tag2))
 
         # Assign tags to network1
         tag1 = 2
         # Had to change this to ensure that edges still has ``dtype np.int8``
-        network_1.edges = np.vstack((network_1.edges, tag1 * np.ones(2, dtype=np.int8)))
+        network_1._edges = np.vstack((network_1._edges, tag1 * np.ones(2, dtype=np.int8)))
         together = network_1.add_network(network_2)
         known_tags = np.array([tag1, tag1, tag2, tag2])
-        self.assertTrue(np.all(together.edges[2] == known_tags))
+        self.assertTrue(np.all(together._edges[2] == known_tags))
 
     def test_copy(self):
         network_1 = pp.FractureNetwork2d(self.fracs)
