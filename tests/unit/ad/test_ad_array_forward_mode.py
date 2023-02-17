@@ -1,5 +1,6 @@
 """Test suite for operations with Ad_arrays.
 
+
 NOTE: For combinations of numpy arrays and Ad_arrays, we do not test the reverse order
 operations for addition, subtraction, multiplication, and division, since this will not
 work properly with numpy arrays, see https://stackoverflow.com/a/58120561 for more
@@ -16,455 +17,500 @@ import numpy as np
 from porepy.numerics.ad.forward_mode import Ad_array, initAdArrays
 from porepy.numerics.ad import functions as af
 
+from typing import Literal, Union
 
-def test_add():
-    # Create an Ad_array, add it to the various Ad types (float, numpy arrays, scipy
-    # matrices and other Ad_arrays). The tests verifies that the results are as
-    # expected, or that an error is raised for operations that are not supported.
+import porepy as pp
 
-    val = np.array([1, 2, 3])
+AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.Ad_array]
+
+
+def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
+    scalar = 2.0
+    if wrapped:
+        return pp.ad.Scalar(scalar)
+    else:
+        return scalar
+
+
+def get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.Array:
+    array = np.array([1, 2, 3])
+    if wrapped:
+        return pp.ad.Array(array)
+    else:
+        return array
+
+
+def get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.Matrix:
+    mat = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    if wrapped:
+        return pp.ad.Matrix(mat)
+    else:
+        return mat
+
+
+def get_ad_array(
+    wrapped: bool,
+) -> pp.ad.Ad_array | tuple[pp.ad.Ad_array, pp.ad.EquationSystem]:
+    """Get an Ad_array object which can be used in the tests."""
+
+    # The construction between the wrapped and unwrapped case differs significantly: For
+    # the latter we can simply create an Ad_array with any value and Jacobian matrix.
+    # The former must be processed through the operator parsing framework, and thus puts
+    # stronger conditions on permissible states. The below code defines a variable
+    # (variable_val), a matrix (jac), and constructs an expression as jac @ variable.
+    # This expression is represented in the returned Ad_array, either directly or (if
+    # wrapped=True) on abstract form.
+    #
+    #  If this is confusing, it may be helpful to recall that an Ad_array can represent
+    #  any state, not only primary variables (e.g., a pp.ad.Variable). The main
+    #  motivation for using a more complex value is that the Jacbian matrix of primary
+    #  variables are identity matrices, thus compound expressions give higher chances of
+    #  uncovering errors.
+
+    # This is the value of the variable
+    variable_val = np.ones(3)
+    # This is the Jacobian matrix of the returned expression.
     jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-    ad_arr = Ad_array(val, jac)
 
-    # Test that a float can be added to an Ad_array
-    ad_add_float = ad_arr + 1.0
-    assert np.allclose(ad_add_float.val, np.array([2, 3, 4]))
-    assert np.allclose(
-        ad_add_float.jac.toarray(), np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    )
-    # Also test reversed order
-    float_add_ad = 1.0 + ad_arr
-    assert np.allclose(float_add_ad.val, np.array([2, 3, 4]))
-    assert np.allclose(
-        float_add_ad.jac.toarray(), np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    )
+    # This is the expression to be used in the tests. The numerical values of val will
+    # be np.array([6, 15, 24]), and its Jacobian matrix is jac.
+    expression_val = jac @ variable_val
 
-    # Test that a 1d numpy array with the same size as the Ad_array can be added
-    numpy_array = np.arange(ad_arr.val.size)
-    ad_add_numpy = ad_arr + numpy_array
-    assert np.allclose(ad_add_numpy.val, np.array([1, 3, 5]))
-    assert np.allclose(
-        ad_add_numpy.jac.toarray(), np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    )
-    # See module-level comment regarding reverse mode.
+    if wrapped:
+        g = pp.CartGrid([3, 1])
+        mdg = pp.MixedDimensionalGrid()
+        mdg.add_subdomains([g])
 
-    # Test that a 1d numpy array with a different size than the Ad_array raises an error
-    other = np.arange(ad_arr.val.size + 1)
-    with pytest.raises(ValueError):
-        ad_arr + other
+        eq_system = pp.ad.EquationSystem(mdg)
+        eq_system.create_variables("foo", subdomains=[g])
+        var = eq_system.variables[0]
+        d = mdg.subdomain_data(g)
+        d[pp.STATE]["foo"] = variable_val
+        d[pp.STATE][pp.ITERATE]["foo"] = variable_val
+        mat = pp.ad.Matrix(jac)
 
-    # Test that a 2d numpy array raises an error
-    other = np.arange(ad_arr.val.size).reshape((ad_arr.val.size, 1))
-    with pytest.raises(ValueError):
-        ad_arr + other
+        return mat @ var, eq_system
 
-    # Test that a sparse matrix raises an error
-    other = sps.csr_matrix(ad_arr.jac)
-    with pytest.raises(ValueError):
-        ad_arr + other
-    # We should get an error also in reverse mode
-    with pytest.raises(ValueError):
-        other + ad_arr
-
-    # Test that an Ad_array with the same size as the Ad_array can be added
-    ad_add_ad = ad_arr + ad_arr
-    assert np.allclose(ad_add_ad.val, np.array([2, 4, 6]))
-    assert np.allclose(
-        ad_add_ad.jac.toarray(), np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]])
-    )
-
-    # Test that adding an Ad_array of different size than the Ad_array raises an error
-    sz = ad_arr.val.size + 1
-    other = Ad_array(np.arange(sz), sps.csr_matrix((np.zeros((sz, sz)))))
-    with pytest.raises(ValueError):
-        ad_arr + other
-
-    # No need to test reversed order, since the other operand is an Ad_array
+    else:
+        ad_arr = pp.ad.Ad_array(expression_val, jac)
+        return ad_arr
 
 
-def test_subtract():
-    # Create an Ad_array, subtract it from the various Ad types (float, numpy arrays,
-    # scipy matrices and other Ad_arrays). The tests verifies that the results are as
-    # expected, or that an error is raised for operations that are not supported.
+def _expected_value(
+    var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
+) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.Ad_array:
+    """For a combination of two Ad objects and an operation return either the expected
+    value, or False if the operation is not supported.
 
-    val = np.array([1, 2, 3])
-    jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-    ad_arr = Ad_array(val, jac)
+    The function considers all combinations of types for var_1 and var_2 (as a long list
+    of if-else statements that checks isinstance), and returns the expected value of the
+    given operation. The calculation of the expected value is done in one of two ways:
+        i) None of the variables are AdArrays. In this case, the operation is evaluated
+           using eval (in practice, this means that the evaluation is left to the
+           Python, numpy and/or scipy).
+        ii) One or both of the variables are AdArrays. In this case, the expected values
+            are either hard-coded (this is typically the case where it is easy to do the
+            calculation by hand, e.g., for addition), or computed using rules for
+            derivation (product rule etc.) by hand, but using matrix-vector products and
+            similar to compute the actual values.
 
-    # Test that a float can be added to an Ad_array
-    ad_subtract_float = ad_arr - 1.0
-    assert np.allclose(ad_subtract_float.val, np.array([0, 1, 2]))
-    assert np.allclose(
-        ad_subtract_float.jac.toarray(), np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    )
-    # Also test reversed order
-    float_subtract_ad = 1.0 - ad_arr
-    assert np.allclose(float_subtract_ad.val, np.array([0, -1, -2]))
-    assert np.allclose(
-        float_subtract_ad.jac.toarray(), -np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    )
+    """
+    # General comment regarding implementation for cases that do not include the
+    # AdArray: We always (except in a few cases which are documented explicitly) use
+    # eval to evaluate the expression. To catch cases that are not supported by numpy
+    # or/else scipy, the evalutaion is surrounded by a try-except block. The except
+    # typically checks that the operation is one that was expected to fail; example:
+    # scalar @ scalar is not supported, but scalar + scalar is, so if the latter fails,
+    # something is wrong. For a few combinations of operators, the combination will fail
+    # in almost all cases, and the assertion is for simplicity put inside the try
+    # instead of the except block.
 
-    # Test that a 1d numpy array with the same size as the Ad_array can be subtracted
-    numpy_array = np.arange(ad_arr.val.size)
-    ad_subtract_numpy = ad_arr - numpy_array
-    assert np.allclose(ad_subtract_numpy.val, np.array([1, 1, 1]))
-    assert np.allclose(
-        ad_subtract_numpy.jac.toarray(), np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    )
-    # See module-level comment regarding reverse mode.
+    ### First do all combinations that do not involve AdArrays
+    if isinstance(var_1, float) and isinstance(var_2, float):
+        try:
+            return eval(f"var_1 {op} var_2")
+        except TypeError:
+            assert op in ["@"]
+            return False
+    elif isinstance(var_1, float) and isinstance(var_2, np.ndarray):
+        try:
+            return eval(f"var_1 {op} var_2")
+        except ValueError:
+            assert op in ["@"]
+            return False
+    elif isinstance(var_1, float) and isinstance(var_2, sps.spmatrix):
+        try:
+            # This should fail for all operations expect from multiplication.
+            val = eval(f"var_1 {op} var_2")
+            assert op == "*"
+            return val
+        except (ValueError, NotImplementedError, TypeError):
+            return False
+    elif isinstance(var_1, np.ndarray) and isinstance(var_2, float):
+        try:
+            return eval(f"var_1 {op} var_2")
+        except ValueError:
+            assert op in ["@"]
+            return False
+    elif isinstance(var_1, np.ndarray) and isinstance(var_2, np.ndarray):
+        return eval(f"var_1 {op} var_2")
+    elif isinstance(var_1, np.ndarray) and isinstance(var_2, sps.spmatrix):
+        try:
+            return eval(f"var_1 {op} var_2")
+        except TypeError:
+            assert op in ["/", "**"]
+            return False
+    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, float):
+        if op == "**":
+            # SciPy has implemented a limited version matrix powers to scalars, but not
+            # with a satisfactory flexibility. If we try to evaluate the expression, it
+            # may or may not work (see comments in the __pow__ method is Operators), but
+            # the operation is anyhow explicitly disallowed. Thus, we return False.
+            return False
 
-    # Test that a 1d numpy array with a different size than the Ad_array raises an error
-    other = np.arange(ad_arr.val.size + 1)
-    with pytest.raises(ValueError):
-        ad_arr - other
+        try:
+            # This should fail for all operations expect from multiplication.
+            val = eval(f"var_1 {op} var_2")
+            assert op in ["*", "/"]
+            return val
+        except (ValueError, NotImplementedError):
+            return False
+    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, np.ndarray):
+        if op == "**":
+            # SciPy has implemented a limited version matrix powers to numpy arrays, but
+            # not with a satisfactory flexibility. If we try to evaluate the expression,
+            # it may or may not work (see comments in the __pow__ method is Operators),
+            # but the operation is anyhow explicitly disallowed. Thus, we return False.
+            return False
+        try:
+            return eval(f"var_1 {op} var_2")
+        except TypeError:
+            assert op in ["**"]
+            return False
 
-    # Test that a 2d numpy array raises an error
-    other = np.arange(ad_arr.val.size).reshape((ad_arr.val.size, 1))
-    with pytest.raises(ValueError):
-        ad_arr - other
+    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, sps.spmatrix):
+        try:
+            return eval(f"var_1 {op} var_2")
+        except (ValueError, TypeError):
+            assert op in ["**"]
+            return False
 
-    # Test that a sparse matrix raises an error
-    other = sps.csr_matrix(ad_arr.jac)
-    with pytest.raises(ValueError):
-        ad_arr - other
-    # We should get an error also in reverse mode
-    with pytest.raises(ValueError):
-        other - ad_arr
-
-    # Test that an Ad_array with the same size as the Ad_array can be subtracted
-    ad_subtract_ad = ad_arr - ad_arr
-    assert np.allclose(ad_subtract_ad.val, np.array([0, 0, 0]))
-    assert np.allclose(ad_subtract_ad.jac.toarray(), np.zeros((3, 3)))
-
-    # Test that subtracting an Ad_array from a different size than the Ad_array raises
-    # an error
-    sz = ad_arr.val.size + 1
-    other = Ad_array(np.arange(sz), sps.csr_matrix((np.zeros((sz, sz)))))
-    with pytest.raises(ValueError):
-        ad_arr - other
-
-    # No need to test reversed order, since the other operand is an Ad_array
-
-
-def test_mul():
-    # Create an Ad_array, multiply it from the various Ad types (float, numpy arrays,
-    # scipy matrices and other Ad_arrays). The tests verifies that the results are as
-    # expected, or that an error is raised for operations that are not supported.
-
-    val = np.array([1, 2, 3])
-    jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-    ad_arr = Ad_array(val, jac)
-
-    # Test that a float can be added to an Ad_array
-    ad_mul_float = ad_arr * 2.0
-    assert np.allclose(ad_mul_float.val, np.array([2, 4, 6]))
-    assert np.allclose(
-        ad_mul_float.jac.toarray(), 2 * np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    )
-    # Also test reversed order
-    float_mul_ad = 2.0 * ad_arr
-    assert np.allclose(float_mul_ad.val, np.array([2, 4, 6]))
-    assert np.allclose(
-        float_mul_ad.jac.toarray(), 2 * np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    )
-
-    # Test that a 1d numpy array with the same size as the Ad_array can be multiplied
-    numpy_array = np.arange(ad_arr.val.size)
-    ad_mul_numpy = ad_arr * numpy_array
-    assert np.allclose(ad_mul_numpy.val, np.array([0, 2, 6]))
-    assert np.allclose(
-        ad_mul_numpy.jac.toarray(), np.array([[0, 0, 0], [4, 5, 6], [14, 16, 18]])
-    )
-    # See module-level comment regarding reverse mode.
-
-    # Test that a 1d numpy array with a different size than the Ad_array raises an error
-    other = np.arange(ad_arr.val.size + 1)
-    with pytest.raises(ValueError):
-        ad_arr * other
-
-    # Test that a 2d numpy array raises an error
-    other = np.arange(ad_arr.val.size).reshape((ad_arr.val.size, 1))
-    with pytest.raises(ValueError):
-        ad_arr * other
-
-    # Test that a sparse matrix raises an error
-    other = sps.csr_matrix(ad_arr.jac)
-    with pytest.raises(ValueError):
-        ad_arr * other
-    # We should get an error also in reverse mode
-    with pytest.raises(ValueError):
-        other * ad_arr
-
-    # Test that an Ad_array with the same size as the Ad_array can be multiplied
-    ad_mul_ad = ad_arr * ad_arr
-    # Hardcoded values of val * val
-    assert np.allclose(ad_mul_ad.val, np.array([1, 4, 9]))
-
-    # The derivative of x**2 = 2 * x * x'
-    known_jac = 2 * np.vstack((val[0] * jac[0].A, val[1] * jac[1].A, val[2] * jac[2].A))
-    assert np.allclose(ad_mul_ad.jac.toarray(), known_jac)
-
-    # Test that multiplying an Ad_array with a different size than the Ad_array raises
-    # an error
-    sz = ad_arr.val.size + 1
-    other = Ad_array(np.arange(sz), sps.csr_matrix((np.zeros((sz, sz)))))
-    with pytest.raises(ValueError):
-        ad_arr * other
-
-
-def test_div():
-    # Create an Ad_array, take its power with the various Ad types (float, numpy arrays,
-    # scipy matrices and other Ad_arrays). The tests verifies that the results are as
-    # expected, or that an error is raised for operations that are not supported.
-
-    val = np.array([1, 2, 3])
-    jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-    ad_arr = Ad_array(val, jac)
-
-    # Test that a float can be added to an Ad_array
-    ad_div_float = ad_arr / 2.0
-    # Hardcoded values for val**2.0
-    assert np.allclose(ad_div_float.val, np.array([0.5, 1, 1.5]))
-    # Hardcoded values for 2 * diag(val) @ jac
-    assert np.allclose(ad_div_float.jac.toarray(), jac.A / 2.0)
-
-    # Also test reversed order
-    float_div_ad = 2.0 / ad_arr
-    # Hardcoded values for 2.0**val
-    assert np.allclose(float_div_ad.val, np.array([2, 2 / 2, 2 / 3]))
-    # The derivative of 2.0 / val is -2.0 / val**2 * val'
-    assert np.allclose(
-        float_div_ad.jac.toarray(),
-        np.vstack(
-            (
-                -2 / val[0] ** 2 * jac[0].A,
-                -2 / val[1] ** 2 * jac[1].A,
-                -2 / val[2] ** 2 * jac[2].A,
+    ### From here on, we have at least one AdArray
+    elif isinstance(var_1, pp.ad.Ad_array) and isinstance(var_2, float):
+        if op == "+":
+            # Array + 2.0
+            val = np.array([8, 17, 26])
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "-":
+            # Array - 2.0
+            val = np.array([4, 13, 22])
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "*":
+            # Array * 2.0
+            val = np.array([12, 30, 48])
+            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "/":
+            # Array / 2.0
+            val = np.array([6 / 2, 15 / 2, 24 / 2])
+            jac = sps.csr_matrix(
+                np.array(
+                    [
+                        [1 / 2, 2 / 2, 3 / 2],
+                        [4 / 2, 5 / 2, 6 / 2],
+                        [7 / 2, 8 / 2, 9 / 2],
+                    ]
+                )
             )
-        ),
-    )
-
-    # Test that an Ad_array can be divided by a 1d numpy array with the same size.
-    numpy_array = np.arange(ad_arr.val.size) + 1
-    ad_div_numpy = ad_arr / numpy_array
-    # Hardcoded values of val**numpy_array
-    assert np.allclose(ad_div_numpy.val, np.array([1, 1, 1]))
-
-    # Hardcoded values of the derivative
-    known_jac = np.vstack(
-        (
-            jac[0].A / numpy_array[0],
-            jac[1].A / numpy_array[1],
-            jac[2].A / numpy_array[2],
-        )
-    )
-
-    assert np.allclose(ad_div_numpy.jac.toarray(), known_jac)
-
-    # See module-level comment regarding reverse mode.
-
-    # Test that a 1d numpy array with a different size than the Ad_array raises an error
-    other = np.arange(ad_arr.val.size + 1)
-    with pytest.raises(ValueError):
-        ad_arr / other
-
-    # Test that a 2d numpy array raises an error
-    other = np.arange(ad_arr.val.size).reshape((ad_arr.val.size, 1))
-    with pytest.raises(ValueError):
-        ad_arr / other
-
-    # Test that a sparse matrix raises an error
-    other = sps.csr_matrix(ad_arr.jac)
-    with pytest.raises(ValueError):
-        ad_arr / other
-    # We should get an error also in reverse mode
-    with pytest.raises(ValueError):
-        other / ad_arr
-
-    # Test that an Ad_array can be raised to the power of an Ad_array with the same
-    # size.
-    ad_arr_2 = ad_arr + ad_arr**2.0
-    # Make sure that the values of ad_arr_2 are correct before we start testing the
-    # derivative.
-    assert np.allclose(ad_arr_2.val, np.array([2, 6, 12]))
-    ad_div_ad = ad_arr / ad_arr_2
-    assert np.allclose(ad_div_ad.val, np.array([1 / 2, 2 / 6, 3 / 12]))
-    # The derivative of arr / arr_2 is (arr_2 * arr' - arr * arr_2') / arr_2**2
-    known_jac = np.vstack(
-        (
-            (ad_arr_2.val[0] * ad_arr.jac[0].A - ad_arr.val[0] * ad_arr_2.jac[0].A)
-            / ad_arr_2.val[0] ** 2,
-            (ad_arr_2.val[1] * ad_arr.jac[1].A - ad_arr.val[1] * ad_arr_2.jac[1].A)
-            / ad_arr_2.val[1] ** 2,
-            (ad_arr_2.val[2] * ad_arr.jac[2].A - ad_arr.val[2] * ad_arr_2.jac[2].A)
-            / ad_arr_2.val[2] ** 2,
-        )
-    )
-    assert np.allclose(ad_div_ad.jac.toarray(), known_jac)
-
-    # Test that multiplying an Ad_array with a different size than the Ad_array raises
-    # an error
-    sz = ad_arr.val.size + 1
-    other = Ad_array(np.arange(sz), sps.csr_matrix((np.zeros((sz, sz)))))
-    with pytest.raises(ValueError):
-        ad_arr / other
-
-    # No need to test reversed order, since the other operand is an Ad_array
-
-
-def test_pow():
-    # Create an Ad_array, take its power with the various Ad types (float, numpy arrays,
-    # scipy matrices and other Ad_arrays). The tests verifies that the results are as
-    # expected, or that an error is raised for operations that are not supported.
-
-    val = np.array([1, 2, 3])
-    jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-    ad_arr = Ad_array(val, jac)
-
-    # Test that a float can be added to an Ad_array
-    ad_pow_float = ad_arr**2.0
-    # Hardcoded values for val**2.0
-    assert np.allclose(ad_pow_float.val, np.array([1, 4, 9]))
-    # Hardcoded values for 2 * diag(val) @ jac
-    assert np.allclose(
-        ad_pow_float.jac.toarray(),
-        2 * np.vstack((val[0] * jac[0].A, val[1] * jac[1].A, val[2] * jac[2].A)),
-    )
-    # Also test reversed order
-    float_pow_ad = 2.0**ad_arr
-    # Hardcoded values for 2.0**val
-    assert np.allclose(float_pow_ad.val, np.array([2, 4, 8]))
-    # The derivative of 2.0**val is 2.0**val * log(2.0), then we need to multiply by the
-    # Jacobian following the chain rule.
-    assert np.allclose(
-        float_pow_ad.jac.toarray(),
-        np.vstack(
-            (
-                np.log(2.0) * (2 ** val[0]) * jac[0].A,
-                np.log(2.0) * (2 ** val[1]) * jac[1].A,
-                np.log(2.0) * (2 ** val[2]) * jac[2].A,
+            return pp.ad.Ad_array(val, jac)
+        elif op == "**":
+            # Array ** 2.0
+            val = np.array([6**2, 15**2, 24**2])
+            jac = sps.csr_matrix(
+                2
+                * np.vstack(
+                    (
+                        var_1.val[0] * var_1.jac[0].A,
+                        var_1.val[1] * var_1.jac[1].A,
+                        var_1.val[2] * var_1.jac[2].A,
+                    )
+                ),
             )
-        ),
+            return pp.ad.Ad_array(val, jac)
+        elif op == "@":
+            # Array @ 2.0, which in pratice is Array * 2.0
+            val = np.array([12, 30, 48])
+            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+            return pp.ad.Ad_array(val, jac)
+
+    elif isinstance(var_1, float) and isinstance(var_2, pp.ad.Ad_array):
+        if op == "+":
+            # 2.0 + Array
+            val = np.array([8, 17, 26])
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "-":
+            # 2.0 - Array
+            val = np.array([-4, -13, -22])
+            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "*":
+            # 2.0 * Array
+            val = np.array([12, 30, 48])
+            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "/":
+            # This is 2 / Array
+            # The derivative is -2 / Array**2 * dArray
+            val = np.array([2 / 6, 2 / 15, 2 / 24])
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        -2 / var_2.val[0] ** 2 * var_2.jac[0].A,
+                        -2 / var_2.val[1] ** 2 * var_2.jac[1].A,
+                        -2 / var_2.val[2] ** 2 * var_2.jac[2].A,
+                    )
+                ),
+            )
+            return pp.ad.Ad_array(val, jac)
+        elif op == "**":
+            # 2.0 ** Array
+            # The derivative is 2**Array * log(2) * dArray
+            val = np.array([2**6, 2**15, 2**24])
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].A,
+                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].A,
+                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].A,
+                    )
+                ),
+            )
+            return pp.ad.Ad_array(val, jac)
+        elif op == "@":
+            # 2.0 @ Array, which in pratice is 2.0 * Array
+            val = np.array([12, 30, 48])
+            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+            return pp.ad.Ad_array(val, jac)
+
+    elif isinstance(var_1, pp.ad.Ad_array) and isinstance(var_2, np.ndarray):
+        # Recall that the numpy array has values np.array([1, 2, 3])
+        if op == "+":
+            # Array + np.array([1, 2, 3])
+            val = np.array([7, 17, 27])
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "-":
+            # Array - np.array([1, 2, 3])
+            val = np.array([5, 13, 21])
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "*":
+            # Array * np.array([1, 2, 3])
+            val = np.array([6, 30, 72])
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "/":
+            # Array / np.array([1, 2, 3])
+            val = np.array([6 / 1, 15 / 2, 24 / 3])
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_1.jac[0].A / var_2[0],
+                        var_1.jac[1].A / var_2[1],
+                        var_1.jac[2].A / var_2[2],
+                    )
+                )
+            )
+            return pp.ad.Ad_array(val, jac)
+        elif op == "**":
+            # Array ** np.array([1, 2, 3])
+            # The derivative is
+            #    Array**(np.array([1, 2, 3]) - 1) * np.array([1, 2, 3]) * dArray
+            val = np.array([6, 15**2, 24**3])
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_2[0] * (var_1.val[0] ** (var_2[0] - 1.0)) * var_1.jac[0].A,
+                        var_2[1] * (var_1.val[1] ** (var_2[1] - 1.0)) * var_1.jac[1].A,
+                        var_2[2] * (var_1.val[2] ** (var_2[2] - 1.0)) * var_1.jac[2].A,
+                    )
+                )
+            )
+            return pp.ad.Ad_array(val, jac)
+        elif op == "@":
+            # The operation is not allowed
+            return False
+    elif isinstance(var_1, np.ndarray) and isinstance(var_2, pp.ad.Ad_array):
+        raise NotImplementedError("Not implemented")
+
+    elif isinstance(var_1, pp.ad.Ad_array) and isinstance(var_2, sps.spmatrix):
+        return False
+    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.Ad_array):
+        # This combination is only allowed for matrix-vector products (op = "@")
+        if op == "@":
+            val = var_1 * var_2.val
+            jac = var_1 * var_2.jac
+            return pp.ad.Ad_array(val, jac)
+        else:
+            return False
+
+    elif isinstance(var_1, pp.ad.Ad_array) and isinstance(var_2, pp.ad.Ad_array):
+        # For this case, var_2 was modified manually to be twice var_1, see comments in
+        # the main test function. Mirror this here to be consistent.
+        var_2 = var_1 + var_1
+        if op == "+":
+            # This evaluates to 3 * Array (since var_2 = 2 * var_1)
+            val = np.array([18, 45, 72])
+            jac = sps.csr_matrix(np.array([[3, 6, 9], [12, 15, 18], [21, 24, 27]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "-":
+            # This evaluates to -Array (since var_2 = 2 * var_1)
+            val = np.array([-6, -15, -24])
+            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+            return pp.ad.Ad_array(val, jac)
+        elif op == "*":
+            # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
+            val = np.array([6 * 12, 15 * 30, 24 * 48])
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_1.jac[0].A * var_2.val[0] + var_1.val[0] * var_2.jac[0].A,
+                        var_1.jac[1].A * var_2.val[1] + var_1.val[1] * var_2.jac[1].A,
+                        var_1.jac[2].A * var_2.val[2] + var_1.val[2] * var_2.jac[2].A,
+                    )
+                )
+            )
+            return pp.ad.Ad_array(val, jac)
+        elif op == "/":
+            # This evaluates to Array / (2 * Array)
+            # The derivative is computed from the product and chain rules
+            val = np.array([1 / 2, 1 / 2, 1 / 2])
+            jac = sps.csr_matrix(
+                np.vstack(  # NBNB
+                    (
+                        var_1.jac[0].A / var_2.val[0]
+                        - var_1.val[0] * var_2.jac[0].A / var_2.val[0] ** 2,
+                        var_1.jac[1].A / var_2.val[1]
+                        - var_1.val[1] * var_2.jac[1].A / var_2.val[1] ** 2,
+                        var_1.jac[2].A / var_2.val[2]
+                        - var_1.val[2] * var_2.jac[2].A / var_2.val[2] ** 2,
+                    )
+                )
+            )
+            return pp.ad.Ad_array(val, jac)
+        elif op == "**":
+            # This is Array ** (2 * Array)
+            # The derivative is
+            #    Array**(2 * Array - 1) * (2 * Array) * dArray
+            #  + Array**(2 * Array) * log(Array) * dArray
+            val = np.array([6**12, 15**30, 24**48])
+            jac = sps.csr_matrix(
+                np.vstack(  #
+                    (
+                        var_2.val[0]
+                        * var_1.val[0] ** (var_2.val[0] - 1.0)
+                        * var_1.jac[0].A
+                        + np.log(var_1.val[0])
+                        * (var_1.val[0] ** var_2.val[0])
+                        * var_2.jac[0].A,
+                        var_2.val[1]
+                        * var_1.val[1] ** (var_2.val[1] - 1.0)
+                        * var_1.jac[1].A
+                        + np.log(var_1.val[1])
+                        * (var_1.val[1] ** var_2.val[1])
+                        * var_2.jac[1].A,
+                        var_2.val[2]
+                        * var_1.val[2] ** (var_2.val[2] - 1.0)
+                        * var_1.jac[2].A
+                        + np.log(var_1.val[2])
+                        * (var_1.val[2] ** var_2.val[2])
+                        * var_2.jac[2].A,
+                    )
+                )
+            )
+            return pp.ad.Ad_array(val, jac)
+        elif op == "@":
+            return False
+
+
+@pytest.mark.parametrize("var_1", ["scalar", "dense", "sparse", "ad"])
+@pytest.mark.parametrize("var_2", ["scalar", "dense", "sparse", "ad"])
+@pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
+@pytest.mark.parametrize("wrapped", [True, False])
+def test_all(var_1, var_2, op, wrapped):
+
+    if not wrapped and var_1 != "ad" and var_2 != "ad":
+        # If not wrapped in the abstract layer, these cases should be covered by the
+        # tests for the external packages. For the wrapped case, we need to test that
+        # the parsing is okay.
+        return
+
+    def _var_from_string(v, do_wrap: bool):
+        match v:
+            case "scalar":
+                return _get_scalar(do_wrap)
+            case "dense":
+                return get_dense_array(do_wrap)
+            case "sparse":
+                return get_sparse_array(do_wrap)
+            case "ad":
+                return get_ad_array(do_wrap)
+            case _:
+                raise ValueError("Unknown variable type")
+
+    v1 = _var_from_string(var_1, wrapped)
+    v2 = _var_from_string(var_2, wrapped)
+
+    if wrapped:
+        if var_1 == "ad":
+            v1, eq_system = v1
+        elif var_2 == "ad":
+            v2, eq_system = v2
+        else:
+            mdg = pp.MixedDimensionalGrid()
+            eq_system = pp.ad.EquationSystem(mdg)
+    if var_1 == "ad" and var_2 == "ad":
+        # For the case of two ad variables, they should be associated with the
+        # same EquationSystem, or else parsing will fail. We could have set v1 =
+        # v2, but this is less likely to catch errors in the parsing. Instead,
+        # we reassign v2 = v1 + v1. This also requires some adaptations in the
+        # code to get the expected values, see that function.
+        v2 = v1 + v1
+
+    expected = _expected_value(
+        _var_from_string(var_1, False), _var_from_string(var_2, False), op
     )
 
-    # Test that a 1d numpy array with the same size as the Ad_array can be multiplied
-    numpy_array = np.arange(ad_arr.val.size)
-    ad_pow_numpy = ad_arr**numpy_array
-    # Hardcoded values of val**numpy_array
-    assert np.allclose(ad_pow_numpy.val, np.array([1, 2, 9]))
+    def _compare(v1, v2):
+        assert type(v1) == type(v2)
+        if isinstance(v1, float):
+            assert np.isclose(v1, v2)
+        elif isinstance(v1, np.ndarray):
+            assert np.allclose(v1, v2)
+        elif isinstance(v1, sps.spmatrix):
+            assert np.allclose(v1.toarray(), v2.toarray())
+        elif isinstance(v1, pp.ad.Ad_array):
+            assert np.allclose(v1.val, v2.val)
+            assert np.allclose(v1.jac.toarray(), v2.jac.toarray())
 
-    # The derivative of x^numpy_array is numpy_array * x**(numpy_array - 1) * x'
-    known_jac = np.vstack(
-        (
-            numpy_array[0] * (val[0] ** (numpy_array[0] - 1.0)) * jac[0].A,
-            numpy_array[1] * (val[1] ** (numpy_array[1] - 1.0)) * jac[1].A,
-            numpy_array[2] * (val[2] ** (numpy_array[2] - 1.0)) * jac[2].A,
-        )
-    )
+    if wrapped:
+        try:
+            expression = eval(f"v1 {op} v2")
+            val = expression.evaluate(eq_system)
+        except (TypeError, ValueError, NotImplementedError):
+            assert not expected
+            return
+    else:
+        try:
+            val = eval(f"v1 {op} v2")
+        except (TypeError, ValueError, NotImplementedError):
+            assert not expected
+            return
 
-    assert np.allclose(ad_pow_numpy.jac.toarray(), known_jac)
-    # See module level docstring for a comment on the reverse order.
-
-    # Test that a 1d numpy array with a different size than the Ad_array raises an error
-    other = np.arange(ad_arr.val.size + 1)
-    with pytest.raises(ValueError):
-        ad_arr**other
-
-    # Test that a 2d numpy array raises an error
-    other = np.arange(ad_arr.val.size).reshape((ad_arr.val.size, 1))
-    with pytest.raises(ValueError):
-        ad_arr**other
-
-    # Test that a sparse matrix raises an error
-    other = sps.csr_matrix(ad_arr.jac)
-    with pytest.raises(ValueError):
-        ad_arr**other
-    # We should get an error also in reverse mode
-    with pytest.raises(ValueError):
-        other**ad_arr
-
-    # Test that an Ad_array can be raised to the power of an Ad_array with the same
-    # size.
-    # Make a new Ad_array with the same size as ad_arr.
-    ad_arr_2 = ad_arr + ad_arr
-    ad_pow_ad = ad_arr**ad_arr_2
-    assert np.allclose(ad_pow_ad.val, np.array([1**1, 2**4, 3**6]))
-    # The derivative of val**val is val**val * log(val), then we need to multiply by the
-    # Jacobian following the chain rule.
-    known_jac = np.vstack(
-        (
-            ad_arr_2.val[0] * ad_arr.val[0] ** (ad_arr_2.val[0] - 1.0) * ad_arr.jac[0].A
-            + np.log(ad_arr.val[0])
-            * (ad_arr.val[0] ** ad_arr_2.val[0])
-            * ad_arr_2.jac[0].A,
-            ad_arr_2.val[1] * ad_arr.val[1] ** (ad_arr_2.val[1] - 1.0) * ad_arr.jac[1].A
-            + np.log(ad_arr.val[1])
-            * (ad_arr.val[1] ** ad_arr_2.val[1])
-            * ad_arr_2.jac[1].A,
-            ad_arr_2.val[2] * ad_arr.val[2] ** (ad_arr_2.val[2] - 1.0) * ad_arr.jac[2].A
-            + np.log(ad_arr.val[2])
-            * (ad_arr.val[2] ** ad_arr_2.val[2])
-            * ad_arr_2.jac[2].A,
-        )
-    )
-    assert np.allclose(ad_pow_ad.jac.toarray(), known_jac)
-
-    # Test that multiplying an Ad_array with a different size than the Ad_array raises
-    # an error
-    sz = ad_arr.val.size + 1
-    other = Ad_array(np.arange(sz), sps.csr_matrix((np.zeros((sz, sz)))))
-    with pytest.raises(ValueError):
-        ad_arr**other
-
-    # No need to test reversed order, since the other operand is an Ad_array
-
-
-def test_matmul():
-    # Create an Ad_array, use matmul (@) with the various Ad types (float, numpy arrays,
-    # scipy matrices and other Ad_arrays). This should mostly raise errors, so verify
-    # that, and also check that the correct numbers are returned when it works.
-
-    val = np.array([1, 2, 3])
-    jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-    ad_arr = Ad_array(val, jac)
-
-    # Right and left multiplication with a float should work. First test the right
-    ad_matmul_float = ad_arr @ 2.0
-    assert np.allclose(ad_matmul_float.val, np.array([2, 4, 6]))
-    # The derivative of val * 2.0 is 2.0 * val'
-    assert np.allclose(ad_matmul_float.jac.toarray(), 2.0 * jac.toarray())
-    # Test the left multiplication
-    ad_matmul_float = 2.0 @ ad_arr
-    assert np.allclose(ad_matmul_float.val, np.array([2, 4, 6]))
-    assert np.allclose(ad_matmul_float.jac.toarray(), 2.0 * jac.toarray())
-
-    # Multiplication with a numpy array should raise an error
-    other = np.arange(ad_arr.val.size)
-    with pytest.raises(ValueError):
-        ad_arr @ other
-    # We should get an error also in reverse mode
-    with pytest.raises(ValueError):
-        other @ ad_arr
-
-    # Left multiplication with a scipy matrix should work
-    other = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-    spmatrix_matmul_other = other @ ad_arr
-    assert np.allclose(spmatrix_matmul_other.val, np.array([14, 32, 50]))
-    # The derivative of other @ val is other @ val'
-    known_jac = np.array([[30, 36, 42], [66, 81, 96], [102, 126, 150]])
-    assert np.allclose(spmatrix_matmul_other.jac.toarray(), known_jac)
-
-    # Right multiplication with a scipy matrix should raise an error
-    with pytest.raises(ValueError):
-        ad_arr @ other
-
-    # Both left and right multiplication with an Ad_array should raise an error
-    other = Ad_array(np.arange(ad_arr.val.size), sps.csr_matrix((np.zeros((3, 3)))))
-    with pytest.raises(ValueError):
-        ad_arr @ other
-    # We should get an error also in reverse mode
-    with pytest.raises(ValueError):
-        other @ ad_arr
+    _compare(val, expected)
 
 
 """ Below follows legacy (though updated) tests for the Ad_array class. These tests
