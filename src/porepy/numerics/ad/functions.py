@@ -26,7 +26,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import Ad_array
+from porepy.numerics.ad.forward_mode import AdArray
 
 __all__ = [
     "exp",
@@ -56,41 +56,41 @@ __all__ = [
 
 # %% Exponential and logarithmic functions
 def exp(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.exp(var.val)
         der = var._diagvec_mul_jac(np.exp(var.val))
-        return Ad_array(val, der)
+        return AdArray(val, der)
     else:
         return np.exp(var)
 
 
 def log(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.log(var.val)
         der = var._diagvec_mul_jac(1 / var.val)
-        return Ad_array(val, der)
+        return AdArray(val, der)
     else:
         return np.log(var)
 
 
 # %% Sign and absolute value functions and l2_norm
 def sign(var):
-    if not isinstance(var, Ad_array):
+    if not isinstance(var, AdArray):
         return np.sign(var)
     else:
         return np.sign(var.val)
 
 
 def abs(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.abs(var.val)
         jac = var._diagvec_mul_jac(sign(var))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.abs(var)
 
 
-def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
+def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     """L2 norm of a vector variable.
 
     For the example of dim=3 components and n vectors, the ordering is assumed
@@ -138,124 +138,124 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
         shape=(size, dim_size),
     )
     jac = norm_jac * var.jac
-    return pp.ad.Ad_array(vals, jac)
+    return pp.ad.AdArray(vals, jac)
 
 
 # %% Trigonometric functions
 def sin(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.sin(var.val)
         jac = var._diagvec_mul_jac(np.cos(var.val))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.sin(var)
 
 
 def cos(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.cos(var.val)
         jac = var._diagvec_mul_jac(-np.sin(var.val))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.cos(var)
 
 
 def tan(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.tan(var.val)
         jac = var._diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.tan(var)
 
 
 def arcsin(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.arcsin(var.val)
         jac = var._diagvec_mul_jac((1 - var.val**2) ** (-0.5))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.arcsin(var)
 
 
 def arccos(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.arccos(var.val)
         jac = var._diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.arccos(var)
 
 
 def arctan(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.arctan(var.val)
         jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-1))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.arctan(var)
 
 
 # %% Hyperbolic functions
 def sinh(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.sinh(var.val)
         jac = var._diagvec_mul_jac(np.cosh(var.val))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.sinh(var)
 
 
 def cosh(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.cosh(var.val)
         jac = var._diagvec_mul_jac(np.sinh(var.val))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.cosh(var)
 
 
 def tanh(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.tanh(var.val)
         jac = var._diagvec_mul_jac(np.cosh(var.val) ** (-2))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.tanh(var)
 
 
 def arcsinh(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.arcsinh(var.val)
         jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.arcsinh(var)
 
 
 def arccosh(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.arccosh(var.val)
         den1 = (var.val - 1) ** (-0.5)
         den2 = (var.val + 1) ** (-0.5)
         jac = var._diagvec_mul_jac(den1 * den2)
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.arccosh(var)
 
 
 def arctanh(var):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = np.arctanh(var.val)
         jac = var._diagvec_mul_jac((1 - var.val**2) ** (-1))
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return np.arctanh(var)
 
 
 # %% Step and Heaviside functions
 def heaviside(var, zerovalue: float = 0.5):
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         return np.heaviside(var.val, zerovalue)
     else:
         return np.heaviside(var, zerovalue)
@@ -282,12 +282,12 @@ def heaviside_smooth(var, eps: float = 1e-3):
         Ad_array or ndarray (depending on the input).
 
     """
-    if isinstance(var, Ad_array):
+    if isinstance(var, AdArray):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
         jac = var._diagvec_mul_jac(
             np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1)
         )
-        return Ad_array(val, jac)
+        return AdArray(val, jac)
     else:
         return 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var * eps ** (-1)))
 
@@ -297,18 +297,16 @@ class RegularizedHeaviside:
         self._regularization = regularization
 
     def __call__(self, var, zerovalue: float = 0.5):
-        if isinstance(var, Ad_array):
+        if isinstance(var, AdArray):
             val = np.heaviside(var.val, 0.0)
             regularization = self._regularization(var)
             jac = regularization.jac
-            return Ad_array(val, jac)
+            return AdArray(val, jac)
         else:
             return np.heaviside(var)  # type: ignore
 
 
-def maximum(
-    var_0: pp.ad.Ad_array, var_1: pp.ad.Ad_array | np.ndarray
-) -> pp.ad.Ad_array:
+def maximum(var_0: pp.ad.AdArray, var_1: pp.ad.AdArray | np.ndarray) -> pp.ad.AdArray:
     """Ad maximum function represented as an Ad_array.
 
     The arguments can be either Ad_arrays or ndarrays, this duality is needed to allow
@@ -334,7 +332,7 @@ def maximum(
 
     """
     # If neither var_0 or var_1 are Ad_arrays, return the numpy maximum function.
-    if not isinstance(var_0, Ad_array) and not isinstance(var_1, Ad_array):
+    if not isinstance(var_0, AdArray) and not isinstance(var_1, AdArray):
         # FIXME: According to the type hints, this should not be possible.
         return np.maximum(var_0, var_1)
 
@@ -343,16 +341,16 @@ def maximum(
     # above parsing of numpy arrays. Keep it for now, but we should revisit once we
     # know clearer how the Ad-machinery should be used.
     zero_jac = 0
-    if isinstance(var_0, Ad_array):
+    if isinstance(var_0, AdArray):
         zero_jac = sps.csr_matrix(var_0.jac.shape)
-    elif isinstance(var_1, Ad_array):
+    elif isinstance(var_1, AdArray):
         zero_jac = sps.csr_matrix(var_1.jac.shape)
 
     # Collect values and Jacobians.
     vals = []
     jacs = []
     for var in [var_0, var_1]:
-        if isinstance(var, Ad_array):
+        if isinstance(var, AdArray):
             v = var.val
             j = var.jac
         else:
@@ -367,7 +365,7 @@ def maximum(
             # Both var_0 and var_1 are scalars. Treat vals as a numpy array to return
             # the maximum. The Jacobian of a scalar is 0.
             val = np.max(vals)
-            return pp.ad.Ad_array(val, 0)
+            return pp.ad.AdArray(val, 0)
         else:
             # var_0 is a scalar, but var_1 is not. Broadcast to shape of var_1.
             vals[0] = np.ones_like(vals[1]) * vals[0]
@@ -389,7 +387,7 @@ def maximum(
     if isinstance(jacs[0], (float, int)):
         assert np.isclose(jacs[0], 0)
         assert np.isclose(jacs[1], 0)
-        return pp.ad.Ad_array(max_val, 0)
+        return pp.ad.AdArray(max_val, 0)
 
     # Start from var_0, then change entries corresponding to inds.
     max_jac = jacs[0].copy()
@@ -403,10 +401,10 @@ def maximum(
     else:
         max_jac[inds] = jacs[1][inds]
 
-    return pp.ad.Ad_array(max_val, max_jac)
+    return pp.ad.AdArray(max_val, max_jac)
 
 
-def characteristic_function(tol: float, var: pp.ad.Ad_array):
+def characteristic_function(tol: float, var: pp.ad.AdArray):
     """Characteristic function of an ad variable.
 
     Returns 1 if ``var.val`` is within absolute tolerance = ``tol`` of zero.
@@ -428,4 +426,4 @@ def characteristic_function(tol: float, var: pp.ad.Ad_array):
     zero_inds = np.isclose(var.val, 0, atol=tol)
     vals[zero_inds] = 1
     jac = sps.csr_matrix(var.jac.shape)
-    return pp.ad.Ad_array(vals, jac)
+    return pp.ad.AdArray(vals, jac)

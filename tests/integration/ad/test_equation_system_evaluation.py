@@ -53,7 +53,7 @@ def test_evaluate_variables():
 
         # First evaluate the variable. This should give the iterate value.
         val = var.evaluate(eq_system)
-        assert isinstance(val, pp.ad.Ad_array)
+        assert isinstance(val, pp.ad.AdArray)
         assert np.allclose(val.val, 2)
 
         # Now create the variable at the previous iterate. This should also give the
@@ -75,5 +75,5 @@ def test_evaluate_variables():
         # obtained by subtracting the evaluated variables.
         var_increment = pp.ad.time_increment(var)
         val_increment = var_increment.evaluate(eq_system)
-        assert isinstance(val_increment, pp.ad.Ad_array)
+        assert isinstance(val_increment, pp.ad.AdArray)
         assert np.allclose(val_increment.val, val.val - val_prev_timestep)

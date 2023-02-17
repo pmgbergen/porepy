@@ -1,11 +1,11 @@
-"""Test suite for operations with Ad_arrays.
+"""Test suite for operations with AdArrays.
 
 
-NOTE: For combinations of numpy arrays and Ad_arrays, we do not test the reverse order
+NOTE: For combinations of numpy arrays and AdArrays, we do not test the reverse order
 operations for addition, subtraction, multiplication, and division, since this will not
 work properly with numpy arrays, see https://stackoverflow.com/a/58120561 for more
 information. To circumwent this problem, parsing of Ad expressions ensures that numpy
-arrays are always left added (and subtracted, multiplied) with Ad_arrays, but this
+arrays are always left added (and subtracted, multiplied) with AdArrays, but this
 should be covered in tests to be written.
 
 """
@@ -14,14 +14,14 @@ import pytest
 import scipy.sparse as sps
 import numpy as np
 
-from porepy.numerics.ad.forward_mode import Ad_array, initAdArrays
+from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 from porepy.numerics.ad import functions as af
 
 from typing import Literal, Union
 
 import porepy as pp
 
-AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.Ad_array]
+AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
 
 
 def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
@@ -50,18 +50,18 @@ def get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.Matrix:
 
 def get_ad_array(
     wrapped: bool,
-) -> pp.ad.Ad_array | tuple[pp.ad.Ad_array, pp.ad.EquationSystem]:
-    """Get an Ad_array object which can be used in the tests."""
+) -> pp.ad.AdArray | tuple[pp.ad.AdArray, pp.ad.EquationSystem]:
+    """Get an AdArray object which can be used in the tests."""
 
     # The construction between the wrapped and unwrapped case differs significantly: For
-    # the latter we can simply create an Ad_array with any value and Jacobian matrix.
+    # the latter we can simply create an AdArray with any value and Jacobian matrix.
     # The former must be processed through the operator parsing framework, and thus puts
     # stronger conditions on permissible states. The below code defines a variable
     # (variable_val), a matrix (jac), and constructs an expression as jac @ variable.
-    # This expression is represented in the returned Ad_array, either directly or (if
+    # This expression is represented in the returned AdArray, either directly or (if
     # wrapped=True) on abstract form.
     #
-    #  If this is confusing, it may be helpful to recall that an Ad_array can represent
+    #  If this is confusing, it may be helpful to recall that an AdArray can represent
     #  any state, not only primary variables (e.g., a pp.ad.Variable). The main
     #  motivation for using a more complex value is that the Jacbian matrix of primary
     #  variables are identity matrices, thus compound expressions give higher chances of
@@ -92,13 +92,13 @@ def get_ad_array(
         return mat @ var, eq_system
 
     else:
-        ad_arr = pp.ad.Ad_array(expression_val, jac)
+        ad_arr = pp.ad.AdArray(expression_val, jac)
         return ad_arr
 
 
 def _expected_value(
     var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
-) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.Ad_array:
+) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
     """For a combination of two Ad objects and an operation return either the expected
     value, or False if the operation is not supported.
 
@@ -196,22 +196,22 @@ def _expected_value(
             return False
 
     ### From here on, we have at least one AdArray
-    elif isinstance(var_1, pp.ad.Ad_array) and isinstance(var_2, float):
+    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, float):
         if op == "+":
             # Array + 2.0
             val = np.array([8, 17, 26])
             jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "-":
             # Array - 2.0
             val = np.array([4, 13, 22])
             jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "*":
             # Array * 2.0
             val = np.array([12, 30, 48])
             jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # Array / 2.0
             val = np.array([6 / 2, 15 / 2, 24 / 2])
@@ -224,7 +224,7 @@ def _expected_value(
                     ]
                 )
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # Array ** 2.0
             val = np.array([6**2, 15**2, 24**2])
@@ -238,29 +238,29 @@ def _expected_value(
                     )
                 ),
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "@":
             # Array @ 2.0, which in pratice is Array * 2.0
             val = np.array([12, 30, 48])
             jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
 
-    elif isinstance(var_1, float) and isinstance(var_2, pp.ad.Ad_array):
+    elif isinstance(var_1, float) and isinstance(var_2, pp.ad.AdArray):
         if op == "+":
             # 2.0 + Array
             val = np.array([8, 17, 26])
             jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "-":
             # 2.0 - Array
             val = np.array([-4, -13, -22])
             jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "*":
             # 2.0 * Array
             val = np.array([12, 30, 48])
             jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # This is 2 / Array
             # The derivative is -2 / Array**2 * dArray
@@ -274,7 +274,7 @@ def _expected_value(
                     )
                 ),
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # 2.0 ** Array
             # The derivative is 2**Array * log(2) * dArray
@@ -288,30 +288,30 @@ def _expected_value(
                     )
                 ),
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "@":
             # 2.0 @ Array, which in pratice is 2.0 * Array
             val = np.array([12, 30, 48])
             jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
 
-    elif isinstance(var_1, pp.ad.Ad_array) and isinstance(var_2, np.ndarray):
+    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, np.ndarray):
         # Recall that the numpy array has values np.array([1, 2, 3])
         if op == "+":
             # Array + np.array([1, 2, 3])
             val = np.array([7, 17, 27])
             jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "-":
             # Array - np.array([1, 2, 3])
             val = np.array([5, 13, 21])
             jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "*":
             # Array * np.array([1, 2, 3])
             val = np.array([6, 30, 72])
             jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # Array / np.array([1, 2, 3])
             val = np.array([6 / 1, 15 / 2, 24 / 3])
@@ -324,7 +324,7 @@ def _expected_value(
                     )
                 )
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # Array ** np.array([1, 2, 3])
             # The derivative is
@@ -339,25 +339,25 @@ def _expected_value(
                     )
                 )
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "@":
             # The operation is not allowed
             return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, pp.ad.Ad_array):
+    elif isinstance(var_1, np.ndarray) and isinstance(var_2, pp.ad.AdArray):
         raise NotImplementedError("Not implemented")
 
-    elif isinstance(var_1, pp.ad.Ad_array) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, sps.spmatrix):
         return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.Ad_array):
+    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.AdArray):
         # This combination is only allowed for matrix-vector products (op = "@")
         if op == "@":
             val = var_1 * var_2.val
             jac = var_1 * var_2.jac
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         else:
             return False
 
-    elif isinstance(var_1, pp.ad.Ad_array) and isinstance(var_2, pp.ad.Ad_array):
+    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, pp.ad.AdArray):
         # For this case, var_2 was modified manually to be twice var_1, see comments in
         # the main test function. Mirror this here to be consistent.
         var_2 = var_1 + var_1
@@ -365,12 +365,12 @@ def _expected_value(
             # This evaluates to 3 * Array (since var_2 = 2 * var_1)
             val = np.array([18, 45, 72])
             jac = sps.csr_matrix(np.array([[3, 6, 9], [12, 15, 18], [21, 24, 27]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "-":
             # This evaluates to -Array (since var_2 = 2 * var_1)
             val = np.array([-6, -15, -24])
             jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "*":
             # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
             val = np.array([6 * 12, 15 * 30, 24 * 48])
@@ -383,7 +383,7 @@ def _expected_value(
                     )
                 )
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # This evaluates to Array / (2 * Array)
             # The derivative is computed from the product and chain rules
@@ -400,7 +400,7 @@ def _expected_value(
                     )
                 )
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # This is Array ** (2 * Array)
             # The derivative is
@@ -431,7 +431,7 @@ def _expected_value(
                     )
                 )
             )
-            return pp.ad.Ad_array(val, jac)
+            return pp.ad.AdArray(val, jac)
         elif op == "@":
             return False
 
@@ -492,7 +492,7 @@ def test_all(var_1, var_2, op, wrapped):
             assert np.allclose(v1, v2)
         elif isinstance(v1, sps.spmatrix):
             assert np.allclose(v1.toarray(), v2.toarray())
-        elif isinstance(v1, pp.ad.Ad_array):
+        elif isinstance(v1, pp.ad.AdArray):
             assert np.allclose(v1.val, v2.val)
             assert np.allclose(v1.jac.toarray(), v2.jac.toarray())
 
@@ -514,9 +514,9 @@ def test_all(var_1, var_2, op, wrapped):
 
 
 """ Below follows legacy (though updated) tests for the Ad_array class. These tests
-    cover initiation of Ad_array (joint initiation of multiple dependent
+    cover initiation of AdArray (joint initiation of multiple dependent
 variables). The test also partly cover the arithmetic operations implemented for
-Ad_arrays, e.g., __add__, __sub__, etc., but these are also tested in different tests.
+AdArrays, e.g., __add__, __sub__, etc., but these are also tested in different tests.
 """
 
 
@@ -604,7 +604,7 @@ def test_exp_scalar_times_ad_var():
 
 
 def test_advar_mul_vec():
-    x = Ad_array(np.array([1, 2, 3]), sps.diags([3, 2, 1]))
+    x = AdArray(np.array([1, 2, 3]), sps.diags([3, 2, 1]))
     A = np.array([1, 3, 10])
     f = x * A
     sol = np.array([1, 6, 30])
@@ -615,7 +615,7 @@ def test_advar_mul_vec():
 
 
 def test_advar_m_mul_vec_n():
-    x = Ad_array(np.array([1, 2, 3]), sps.diags([3, 2, 1]))
+    x = AdArray(np.array([1, 2, 3]), sps.diags([3, 2, 1]))
     vec = np.array([1, 2])
     R = sps.csc_matrix(np.array([[1, 0, 1], [0, 1, 0]]))
     y = R @ x
@@ -630,7 +630,7 @@ def test_advar_m_mul_vec_n():
 
 def test_mul_sps_advar():
     J = sps.csc_matrix(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))
-    x = Ad_array(np.array([1, 2, 3]), J)
+    x = AdArray(np.array([1, 2, 3]), J)
     A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     f = A @ x
 
@@ -641,8 +641,8 @@ def test_mul_sps_advar():
 def test_mul_advar_vectors():
     Ja = sps.csc_matrix(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))
     Jb = sps.csc_matrix(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
-    a = Ad_array(np.array([1, 2, 3]), Ja)
-    b = Ad_array(np.array([1, 1, 1]), Jb)
+    a = AdArray(np.array([1, 2, 3]), Ja)
+    b = AdArray(np.array([1, 1, 1]), Jb)
     A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
     f = A @ a + b
@@ -658,7 +658,7 @@ def test_mul_advar_vectors():
 
 
 def test_copy_scalar():
-    a = Ad_array(np.array([1]), sps.csr_matrix([[0]]))
+    a = AdArray(np.array([1]), sps.csr_matrix([[0]]))
     b = a.copy()
     assert a.val == b.val
     assert a.jac == b.jac
@@ -669,7 +669,7 @@ def test_copy_scalar():
 
 
 def test_copy_vector():
-    a = Ad_array(np.ones(3), sps.csr_matrix(np.diag(np.ones((3)))))
+    a = AdArray(np.ones(3), sps.csr_matrix(np.diag(np.ones((3)))))
     b = a.copy()
     assert np.allclose(a.val, b.val)
     assert np.allclose(a.jac.A, b.jac.A)

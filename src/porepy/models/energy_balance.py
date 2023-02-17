@@ -684,7 +684,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         conductivity = conductivity_ad.evaluate(self.equation_system)
         # The result may be an Ad_array, in which case we need to extract the
         # underlying array.
-        if isinstance(conductivity, pp.ad.Ad_array):
+        if isinstance(conductivity, pp.ad.AdArray):
             conductivity = conductivity.val
         return pp.SecondOrderTensor(conductivity)
 

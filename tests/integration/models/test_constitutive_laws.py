@@ -268,7 +268,7 @@ def test_evaluated_values(model, method_name, expected):
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
     val = op.evaluate(setup.equation_system)
-    if isinstance(val, pp.ad.Ad_array):
+    if isinstance(val, pp.ad.AdArray):
         val = val.val
     # Strict tolerance. We know analytical expected values, and some of the
     # perturbations are small relative to
@@ -339,11 +339,11 @@ def test_dimension_reduction_values(
     subdomains = setup.mdg.subdomains(dim=domain_dimension)
     # Check aperture and specific volume values
     aperture = setup.aperture(subdomains).evaluate(setup.equation_system)
-    if isinstance(aperture, pp.ad.Ad_array):
+    if isinstance(aperture, pp.ad.AdArray):
         aperture = aperture.val
     assert np.allclose(aperture, expected[0])
 
     specific_volume = setup.specific_volume(subdomains).evaluate(setup.equation_system)
-    if isinstance(specific_volume, pp.ad.Ad_array):
+    if isinstance(specific_volume, pp.ad.AdArray):
         specific_volume = specific_volume.val
     assert np.allclose(specific_volume, expected[1])

@@ -648,7 +648,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
         # The result may be an Ad_array, in which case we need to extract the
         # underlying array.
-        if isinstance(permeability, pp.ad.Ad_array):
+        if isinstance(permeability, pp.ad.AdArray):
             permeability = permeability.val
         # TODO: Safeguard against negative permeability?
         return pp.SecondOrderTensor(permeability)

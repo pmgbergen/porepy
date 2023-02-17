@@ -7,12 +7,12 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
-AdType = Union[float, np.ndarray, sps.spmatrix, "Ad_array"]
+AdType = Union[float, np.ndarray, sps.spmatrix, "AdArray"]
 
-__all__ = ["initAdArrays", "Ad_array"]
+__all__ = ["initAdArrays", "AdArray"]
 
 
-def initAdArrays(variables: list[np.ndarray]) -> list[Ad_array]:
+def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
     """Initialize a set of Ad_arrays.
 
     The variables' gradients will be taken with respect all variables jointly.
@@ -28,7 +28,7 @@ def initAdArrays(variables: list[np.ndarray]) -> list[Ad_array]:
     """
 
     num_val_per_variable = [v.size for v in variables]
-    ad_arrays: list[Ad_array] = []
+    ad_arrays: list[AdArray] = []
 
     for i, val in enumerate(variables):
         # initiate zero jacobian
@@ -38,12 +38,12 @@ def initAdArrays(variables: list[np.ndarray]) -> list[Ad_array]:
         jac[i] = sps.diags(np.ones(num_val_per_variable[i])).tocsr()
         # initiate Ad_array
         jac = sps.bmat([jac])
-        ad_arrays.append(Ad_array(val, jac))
+        ad_arrays.append(AdArray(val, jac))
 
     return ad_arrays
 
 
-class Ad_array:
+class AdArray:
     """A class for representing differentiable quantities in a forward Ad mode.
 
     The class implements methods for arithmetic operations with floats, numpy arrays,
@@ -104,7 +104,7 @@ class Ad_array:
         s += " elements"
         return s
 
-    def __add__(self, other: AdType) -> Ad_array:
+    def __add__(self, other: AdType) -> AdArray:
         """Add the Ad_array to another object.
 
         Parameters:
@@ -123,25 +123,25 @@ class Ad_array:
         if isinstance(other, (int, float)):
             # Strictly speaking, we require scalars to be floats, but add casting of
             # ints to floats for convenience.
-            return Ad_array(self.val + float(other), self.jac)
+            return AdArray(self.val + float(other), self.jac)
 
         elif isinstance(other, np.ndarray):
             if other.ndim != 1:
                 raise ValueError("Only 1d numpy arrays can be added to Ad_arrays")
-            return Ad_array(self.val + other, self.jac)
+            return AdArray(self.val + other, self.jac)
 
         elif isinstance(other, sps.spmatrix):
             raise ValueError("Sparse matrices cannot be added to Ad_arrays")
 
-        elif isinstance(other, pp.ad.Ad_array):
+        elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for Ad_array addition")
-            return Ad_array(self.val + other.val, self.jac + other.jac)
+            return AdArray(self.val + other.val, self.jac + other.jac)
 
         else:
             raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
-    def __radd__(self, other: AdType) -> Ad_array:
+    def __radd__(self, other: AdType) -> AdArray:
         """Add the Ad_array to another object.
 
         Parameters:
@@ -157,7 +157,7 @@ class Ad_array:
         """
         return self.__add__(other)
 
-    def __sub__(self, other: AdType) -> Ad_array:
+    def __sub__(self, other: AdType) -> AdArray:
         """Subtract another object from this Ad_array.
 
         Parameters:
@@ -173,7 +173,7 @@ class Ad_array:
         """
         return self.__add__(-other)
 
-    def __rsub__(self, other: AdType) -> Ad_array:
+    def __rsub__(self, other: AdType) -> AdArray:
         """Subtract this Ad_array from another object.
 
         Parameters:
@@ -208,7 +208,7 @@ class Ad_array:
     # def __eq__(self, other):
     #    return self.val == _cast(other).val
 
-    def __mul__(self, other: AdType) -> Ad_array:
+    def __mul__(self, other: AdType) -> AdArray:
         """Elementwise product between two objects.
 
         Parameters:
@@ -226,7 +226,7 @@ class Ad_array:
         if isinstance(other, (int, float)):
             # Strictly speaking, we require scalars to be floats, but add casting of
             # ints to floats for convenience.
-            return Ad_array(self.val * other, self.jac * other)
+            return AdArray(self.val * other, self.jac * other)
 
         elif isinstance(other, np.ndarray):
             if other.ndim != 1:
@@ -237,7 +237,7 @@ class Ad_array:
             # Achieve this by left-multiplying with other, represented as a diagonal
             # matrix.
             new_jac = self._diagvec_mul_jac(other)
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         elif isinstance(other, sps.spmatrix):
             raise ValueError(
@@ -246,7 +246,7 @@ class Ad_array:
                 """
             )
 
-        elif isinstance(other, pp.ad.Ad_array):
+        elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for Ad_array addition")
 
@@ -259,12 +259,12 @@ class Ad_array:
             new_jac = self._diagvec_mul_jac(other.val) + other._diagvec_mul_jac(
                 self.val
             )
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         else:
             raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
-    def __rmul__(self, other: AdType) -> Ad_array:
+    def __rmul__(self, other: AdType) -> AdArray:
         """Elementwise product between two objects.
 
         Parameters:
@@ -284,7 +284,7 @@ class Ad_array:
             # multiplication, so we simply invoke the standard __mul__ function.
             return self.__mul__(other)
 
-        elif isinstance(other, pp.ad.Ad_array):
+        elif isinstance(other, pp.ad.AdArray):
             # The only way we can end up here is if other.__mul__(self) returns
             # NotImplemented, which makes no sense. Raise an error; if we ever end
             # up here, something is really wrong.
@@ -292,7 +292,7 @@ class Ad_array:
         else:
             raise ValueError(f"Unknown type {type(other)} for Ad_array multiplication")
 
-    def __pow__(self, other: AdType) -> Ad_array:
+    def __pow__(self, other: AdType) -> AdArray:
         """Raise this Ad_array to the power of another object.
 
         Parameters:
@@ -312,7 +312,7 @@ class Ad_array:
             # polynomial, this will give the desired column-wise scaling of the
             # gradients.
             new_jac = self._diagvec_mul_jac(float(other) * self.val ** float(other - 1))
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
             if other.ndim != 1:
@@ -326,12 +326,12 @@ class Ad_array:
             # again in array-form. Achieve this by left-multiplying with other,
             # represented as a diagonal matrix.
             new_jac = self._diagvec_mul_jac(other * (self.val ** (other - 1)))
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         elif isinstance(other, sps.spmatrix):
             raise ValueError("Cannot raise Ad_arrays to power of sparse matrices")
 
-        elif isinstance(other, pp.ad.Ad_array):
+        elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for Ad_array addition")
 
@@ -349,12 +349,12 @@ class Ad_array:
                 self.val ** other.val.astype(float) * np.log(self.val)
             )
 
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         else:
             raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
-    def __rpow__(self, other: AdType) -> Ad_array:
+    def __rpow__(self, other: AdType) -> AdArray:
         """Raise another object to the power of this Ad_array.
 
         Parameters:
@@ -375,7 +375,7 @@ class Ad_array:
             new_jac = self._diagvec_mul_jac(
                 (float(other) ** self.val) * np.log(float(other))
             )
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
             if other.ndim != 1:
@@ -389,12 +389,12 @@ class Ad_array:
             # again in array-form. Achieve this by left-multiplying with other,
             # represented as a diagonal matrix.
             new_jac = self._diagvec_mul_jac((other**self.val) ** np.log(self.val))
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         elif isinstance(other, sps.spmatrix):
             raise ValueError("Cannot raise sparse matrices to the power of Ad arrays")
 
-        elif isinstance(other, pp.ad.Ad_array):
+        elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for Ad_array addition")
 
@@ -403,7 +403,7 @@ class Ad_array:
         else:
             raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
-    def __truediv__(self, other: AdType) -> Ad_array:
+    def __truediv__(self, other: AdType) -> AdArray:
         """Divide this Ad_array by another object.
 
         Parameters:
@@ -420,7 +420,7 @@ class Ad_array:
             # Division by float, or int cast to float is straightforward, elementwise.
             new_val = self.val / float(other)
             new_jac = self.jac / float(other)
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
             if other.ndim != 1:
@@ -434,12 +434,12 @@ class Ad_array:
             # again in array-form. Achieve this by left-multiplying with other,
             # represented as a diagonal matrix.
             new_jac = self._diagvec_mul_jac(other.astype(float) ** (-1.0))
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         elif isinstance(other, sps.spmatrix):
             raise ValueError("Cannot raise sparse matrices to the power of Ad arrays")
 
-        elif isinstance(other, pp.ad.Ad_array):
+        elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for Ad_array addition")
 
@@ -448,7 +448,7 @@ class Ad_array:
         else:
             raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
-    def __rtruediv__(self, other: AdType) -> Ad_array:
+    def __rtruediv__(self, other: AdType) -> AdArray:
         """Divide another object by this Ad_array.
 
         Parameters:
@@ -468,7 +468,7 @@ class Ad_array:
             # arrays and sparse matrices.
             return other * self.__pow__(-1.0)
 
-        elif isinstance(other, pp.ad.Ad_array):
+        elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for Ad_array addition")
 
@@ -477,7 +477,7 @@ class Ad_array:
         else:
             raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
-    def __matmul__(self, other: AdType) -> Ad_array:
+    def __matmul__(self, other: AdType) -> AdArray:
         """Do a matrix multiplication between this Ad_array and another object.
 
         Parameters:
@@ -493,7 +493,7 @@ class Ad_array:
         if isinstance(other, (int, float)):
             return self.__mul__(float(other))
 
-        elif isinstance(other, (np.ndarray, pp.ad.Ad_array, int)):
+        elif isinstance(other, (np.ndarray, pp.ad.AdArray, int)):
             raise ValueError(
                 """Cannot perform matrix multiplication between an Ad_array and a"""
                 f""" {type(other)}"""
@@ -525,7 +525,7 @@ class Ad_array:
         if isinstance(other, (int, float)):
             return self.__mul__(float(other))
 
-        if isinstance(other, (np.ndarray, Ad_array, int)):
+        if isinstance(other, (np.ndarray, AdArray, int)):
             raise ValueError(
                 """Cannot perform matrix multiplication between an Ad_array and a"""
                 f""" {type(other)}"""
@@ -539,7 +539,7 @@ class Ad_array:
                 )
             new_val = other @ self.val
             new_jac = other @ self.jac
-            return Ad_array(new_val, new_jac)
+            return AdArray(new_val, new_jac)
 
         else:
             raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
@@ -550,14 +550,14 @@ class Ad_array:
         b.jac = -b.jac
         return b
 
-    def copy(self) -> Ad_array:
+    def copy(self) -> AdArray:
         """Return a copy of this Ad_array.
 
         Returns:
             A deep copy of this Ad_array.
 
         """
-        b = Ad_array(self.val.copy(), self.jac.copy())
+        b = AdArray(self.val.copy(), self.jac.copy())
         return b
 
     def _diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:

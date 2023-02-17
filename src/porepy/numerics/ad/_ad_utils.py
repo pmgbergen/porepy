@@ -25,10 +25,10 @@ import scipy.sparse as sps
 import porepy as pp
 
 from . import operators
-from .forward_mode import Ad_array
+from .forward_mode import AdArray
 
 
-def concatenate_ad_arrays(ad_arrays: list[Ad_array], axis=0):
+def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified axis."""
     vals = [var.val for var in ad_arrays]
     jacs = np.array([var.jac for var in ad_arrays])
@@ -36,7 +36,7 @@ def concatenate_ad_arrays(ad_arrays: list[Ad_array], axis=0):
     vals_stacked = np.concatenate(vals, axis=axis)
     jacs_stacked = sps.vstack(jacs)
 
-    return Ad_array(vals_stacked, jacs_stacked)
+    return AdArray(vals_stacked, jacs_stacked)
 
 
 def wrap_discretization(

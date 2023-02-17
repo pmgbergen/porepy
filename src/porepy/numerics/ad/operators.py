@@ -16,7 +16,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 from . import _ad_utils
-from .forward_mode import Ad_array, initAdArrays
+from .forward_mode import AdArray, initAdArrays
 
 __all__ = [
     "Operator",
@@ -33,7 +33,7 @@ GridLike = Union[pp.Grid, pp.MortarGrid]
 
 def _get_shape(mat):
     """Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
-    if isinstance(mat, Ad_array):
+    if isinstance(mat, AdArray):
         return mat.jac.shape
     else:
         return mat.shape
@@ -307,7 +307,7 @@ class Operator:
                     return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
-        elif isinstance(op, pp.ad.Ad_array):
+        elif isinstance(op, pp.ad.AdArray):
             # When using nested operator functions, op can be an already evaluated term.
             # Just return it.
             return op
@@ -368,7 +368,7 @@ class Operator:
             assert len(results) == 2
 
             if isinstance(results[0], np.ndarray) and isinstance(
-                results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
             ):
                 # In the implementation of multiplication between an Ad_array and a
                 # numpy array (in the forward mode Ad), a * b and b * a do not
@@ -380,7 +380,7 @@ class Operator:
                 return results[0] * results[1]
             except ValueError as exc:
                 if isinstance(
-                    results[0], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                    results[0], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ) and isinstance(results[1], np.ndarray):
                     # Special error message here, since the information provided by
                     # the standard method looks like a contradiction.
@@ -411,7 +411,7 @@ class Operator:
             # array is a numpy array
             try:
                 if isinstance(results[0], np.ndarray) and isinstance(
-                    results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                    results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
                     # In the implementation of multiplication between an Ad_array and a
                     # numpy array (in the forward mode Ad), a * b and b * a do not
@@ -427,7 +427,7 @@ class Operator:
         elif tree.op == Operator.Operations.pow:
             try:
                 if isinstance(results[0], np.ndarray) and isinstance(
-                    results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                    results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
                     # In the implementation of multiplication between an Ad_array and a
                     # numpy array (in the forward mode Ad), a * b and b * a do not
@@ -448,7 +448,7 @@ class Operator:
         elif tree.op == Operator.Operations.matmul:
             try:
                 if isinstance(results[0], np.ndarray) and isinstance(
-                    results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                    results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
                     # In the implementation of multiplication between an Ad_array and a
                     # numpy array (in the forward mode Ad), a * b and b * a do not
@@ -479,7 +479,7 @@ class Operator:
                     msg = "Ad parsing: Error evaluating operator function:\n"
                     msg += func_op._parse_readable()
                     raise ValueError(msg) from exc
-                return Ad_array(val, jac)
+                return AdArray(val, jac)
 
         else:
             raise ValueError("Should not happen")
@@ -503,14 +503,14 @@ class Operator:
         )
         if isinstance(results[0], sps.spmatrix):
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
-        elif isinstance(results[0], pp.ad.Ad_array):
+        elif isinstance(results[0], pp.ad.AdArray):
             msg += (
                 "First argument is an Ad_array with Jacobian of size "
                 f"{results[0].jac.shape} \n"
             )
         if isinstance(results[1], sps.spmatrix):
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
-        elif isinstance(results[1], pp.ad.Ad_array):
+        elif isinstance(results[1], pp.ad.AdArray):
             msg += (
                 "Second argument is an Ad_array with Jacobian of size "
                 f"{results[1].jac.shape}"
@@ -746,7 +746,7 @@ class Operator:
         # in the derivatives).
 
         # Dictionary which maps from Ad variable ids to Ad_array.
-        self._ad: dict[int, Ad_array] = {}
+        self._ad: dict[int, AdArray] = {}
 
         # Loop over all variables, restrict to an Ad array corresponding to
         # this variable.
@@ -1007,7 +1007,7 @@ class Operator:
             return [self, Matrix(other)]
         elif isinstance(other, Operator):
             return [self, other]
-        elif isinstance(other, Ad_array):
+        elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
             return [self, other]
         else:
@@ -1642,17 +1642,17 @@ class Tree:
     def __init__(
         self,
         operation: Operator.Operations,
-        children: Optional[Sequence[Union[Operator, Ad_array]]] = None,
+        children: Optional[Sequence[Union[Operator, AdArray]]] = None,
     ):
 
         self.op = operation
 
-        self.children: list[Union[Operator, Ad_array]] = []
+        self.children: list[Union[Operator, AdArray]] = []
         if children is not None:
             for child in children:
                 self.add_child(child)
 
-    def add_child(self, node: Union[Operator, Ad_array]) -> None:
+    def add_child(self, node: Union[Operator, AdArray]) -> None:
         """Adds a child to this instance."""
         self.children.append(node)
 

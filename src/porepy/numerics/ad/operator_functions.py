@@ -14,7 +14,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import Ad_array
+from porepy.numerics.ad.forward_mode import AdArray
 
 from .operators import Operator, Tree
 
@@ -90,7 +90,7 @@ class AbstractFunction(Operator):
 
         self._set_tree()
 
-    def __call__(self, *args: pp.ad.Operator | Ad_array) -> pp.ad.Operator:
+    def __call__(self, *args: pp.ad.Operator | AdArray) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Parameters:
@@ -153,7 +153,7 @@ class AbstractFunction(Operator):
         return self
 
     @abc.abstractmethod
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         """Abstract method for evaluating the callable passed at instantiation.
 
         This method will be called during the operator parsing.
@@ -174,7 +174,7 @@ class AbstractFunction(Operator):
         pass
 
     @abc.abstractmethod
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         """
         Abstract method for evaluating the Jacobian of the callable passed at instantiation.
 
@@ -208,7 +208,7 @@ class AbstractJacobianFunction(AbstractFunction):
 
     """
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         """
         Returns:
             The direct evaluation of the callable using ``val`` of passed AD arrays.
@@ -259,11 +259,11 @@ class Function(AbstractFunction):
         self._operation = Operator.Operations.evaluate
         self.ad_compatible = True
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         result = self.func(*args)
         return result.val
 
-    def get_jacobian(self, *args: Ad_array) -> np.ndarray:
+    def get_jacobian(self, *args: AdArray) -> np.ndarray:
         result = self.func(*args)
         return result.jac
 
@@ -287,7 +287,7 @@ class ConstantFunction(AbstractFunction):
         super().__init__(func, name)
         self._values = values
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         """
         Returns:
             The values passed at instantiation.
@@ -295,7 +295,7 @@ class ConstantFunction(AbstractFunction):
         """
         return self._values
 
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         """
         Note:
             The return value is not a sparse matrix as imposed by the parent method signature,
@@ -336,7 +336,7 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
         else:
             self._multipliers = [float(multipliers)]
 
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         """The approximate Jacobian consists of identity blocks times scalar multiplier
         per every function dependency.
 
@@ -415,12 +415,12 @@ class InterpolatedFunction(AbstractFunction):
                 f"Interpolation of order {self.order} not implemented."
             )
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         # stacking argument values vertically for interpolation
         X = np.vstack([x.val for x in args])
         return self._table.interpolate(X)
 
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         # get points at which to evaluate the differentiation
         X = np.vstack([x.val for x in args])
         # allocate zero matrix for Jacobian with correct dimensions and in CSR format

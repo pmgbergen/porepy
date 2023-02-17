@@ -491,8 +491,8 @@ class DifferentiableFVAd:
 
     def _flux_function(
         self,
-        potential: pp.ad.Ad_array,
-    ) -> pp.ad.Ad_array:
+        potential: pp.ad.AdArray,
+    ) -> pp.ad.AdArray:
         """Flux from potential, BCs and vector sources.
 
         Parameters:
@@ -614,13 +614,13 @@ class DifferentiableFVAd:
         # The value of the flux is the standard mpfa/tpfa expression.
         block_val = base_flux * potential.val
 
-        flux = pp.ad.Ad_array(block_val, flux_jac)
+        flux = pp.ad.AdArray(block_val, flux_jac)
         return flux
 
     def _bound_pressure_face_function(
         self,
-        perm_argument: pp.ad.Ad_array,
-    ) -> pp.ad.Ad_array:
+        perm_argument: pp.ad.AdArray,
+    ) -> pp.ad.AdArray:
         """The actual implementation of the bound_pressure_face function.
 
         Returns:
@@ -682,7 +682,7 @@ class DifferentiableFVAd:
             )
             bound_pressure_face_jac += face_prolongation * jac_bound_pressure_face
 
-        bound_pressure = pp.ad.Ad_array(
+        bound_pressure = pp.ad.AdArray(
             base_bound_pressure_face, bound_pressure_face_jac
         )
         return bound_pressure
@@ -708,7 +708,7 @@ class DifferentiableFVAd:
         return fi, ci, sgn, fc_cc
 
     def _transmissibility(
-        self, g: pp.Grid, global_permeability: pp.ad.Ad_array
+        self, g: pp.Grid, global_permeability: pp.ad.AdArray
     ) -> Union[sps.csr_matrix, np.ndarray]:
         """Compute Jacobian of a variable transmissibility.
 
