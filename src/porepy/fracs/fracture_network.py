@@ -1,6 +1,7 @@
 """
 Module containing a wrapper function to generate fracture networks in 2d and 3d.
 """
+from __future__ import annotations
 
 import warnings
 from typing import Optional, Union
