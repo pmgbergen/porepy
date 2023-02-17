@@ -29,44 +29,21 @@ logger = logging.getLogger(__name__)
 
 
 class FractureNetwork3d(object):
-    """
-    Collection of Fractures with geometrical information. Facilitates
-    computation of intersections of the fracture. Also incorporates the
-    bounding box of the domain. To ensure that all fractures lie within the box,
+    """Representation of a set of plane fractures in a three-dimensional domain.
+
+    Collection of Fractures with geometrical information. Facilitates computation of
+    intersections of the fracture. Also incorporates the bounding box of the domain.
+    To ensure that all fractures lie within the box,
     call :meth:`impose_external_boundary()` _after_ all fractures have been specified.
 
-    Attributes:
-        fractures (list of Fracture): All fractures forming the network.
-        intersections (list of Intersection): All known intersections in the
-            network.
-        has_checked_intersections (boolean): If True, the intersection finder
-            method has been run. Useful in meshing algorithms to avoid
-            recomputing known information.
-        tol (double): Geometric tolerance used in computations.
-        domain (pp.Domain): Domain specification. See
-            :class:`~porepy.geometry.domain.Domain`.
-        tags (dictionary): Tags used on Fractures and subdomain boundaries.
-        mesh_size_min (double): Mesh size parameter, minimum mesh size to be
-            sent to gmsh. Set by insert_auxiliary_points().
-        mesh_size_frac (double): Mesh size parameter. Ideal mesh size, fed to
-            gmsh. Set by insert_auxiliary_points().
-        mesh_size_bound (double): Mesh size parameter. Boundary mesh size, fed to
-            gmsh. Set by insert_auxiliary_points().
-        auxiliary_points_added (boolean): Mesh size parameter. If True,
-            extra points have been added to Fracture geometry to facilitate
-            mesh size tuning.
-        decomposition (dictionary): Splitting of network, accounting for
-            fracture intersections etc. Necessary pre-processing before
-            meshing. Added by split_intersections().
-
     Parameters:
-            fractures (list of Fracture, optional): Fractures that make up the network.
-                Defaults to None, which will create a domain empty of fractures.
-            domain (pp.Domain): Domain specification.
-            tol (double, optional): Tolerance used in geometric computations. Defaults
-                to 1e-8.
-            run_checks (boolean, optional): Run consistency checks during the network
-                processing. Can be considered a limited debug mode. Defaults to False.
+        fractures (list of Fracture, optional): Fractures that make up the network.
+            Defaults to None, which will create a domain empty of fractures.
+        domain (pp.Domain): Domain specification.
+        tol (double, optional): Tolerance used in geometric computations. Defaults
+            to 1e-8.
+        run_checks (boolean, optional): Run consistency checks during the network
+            processing. Can be considered a limited debug mode. Defaults to False.
 
     """
 
@@ -80,6 +57,7 @@ class FractureNetwork3d(object):
 
         # Initialize fractures as an empy list
         self.fractures = []
+        """All fractures forming the network."""
 
         if fractures is not None:
             for f in fractures:
@@ -101,26 +79,63 @@ class FractureNetwork3d(object):
             "bound_first": np.array([], dtype=bool),
             "bound_second": np.array([], dtype=bool),
         }
+        """All known intersections in the network."""
 
         self.has_checked_intersections = False
+        """If True, the intersection finder method has been run. Useful in meshing 
+        algorithms to avoid recomputing known information.
+        
+        """
+
         self.tol = tol
+        """Geometric tolerance used in computations."""
+
         self.run_checks = run_checks
+        """Wheter to run consistency checks during the network processing."""
 
         # Initialize with an empty domain unless given explicitly. Can be modified
         # later by a call to 'impose_external_boundary()'
         self.domain: pp.Domain | None = domain
+        """Domain specification. See class:`~porepy.geometry.domain.Domain`."""
 
         # Initialize mesh size parameters as empty
         self.mesh_size_min = None
+        """Mesh size parameter, minimum mesh size to be sent to gmsh. Set by 
+        insert_auxiliary_points().
+        
+        """
+
         self.mesh_size_frac = None
+        """Mesh size parameter. Ideal mesh size, fed to gmsh. Set by 
+        insert_auxiliary_points().
+        
+        """
+
         self.mesh_size_bound = None
+        """Mesh size parameter. Boundary mesh size, fed to gmsh. Set by 
+        insert_auxiliary_points().
+        
+        """
+
         # Assign an empty tag dictionary
         self.tags: dict[str, list[bool]] = {}
+        """Tags used on Fractures and subdomain boundaries."""
 
         # No auxiliary points have been added
         self.auxiliary_points_added = False
+        """Mesh size parameter. If True, extra points have been added to PlaneFracture 
+        geometry to facilitate mesh size tuning.
+        
+        """
 
         self.bounding_box_imposed = False
+        """Whether a bounding box have been imposed to the set of fractures."""
+
+        self.decomposition: dict
+        """Splitting of network, accounting for fracture intersections etc. Necessary
+        pre-processing before meshing. Added by :meth:`~split_intersections()`.
+        
+        """
 
     def add(self, f):
         """Add a fracture to the network.
