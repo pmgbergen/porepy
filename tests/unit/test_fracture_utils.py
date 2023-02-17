@@ -134,10 +134,11 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
         frac3 = pp.LineFracture([[0, 4], [1, 5]])
         pts = np.array([[0, 2, 4], [1, 3, 5]])
         edges = np.array([[0, 1, 0], [1, 2, 2]], dtype=int)
-        converted_pts, converted_edges = linefractures_to_pts_edges([frac1, frac2, frac3])
+        converted_pts, converted_edges = linefractures_to_pts_edges(
+            [frac1, frac2, frac3]
+        )
         assert np.allclose(converted_pts, pts)
         assert np.allclose(converted_edges, edges)
-        # TODO: Add a test to check that the tolerance works correctly.
 
     def test_linefractures_to_pts_edges_with_tags(self):
         frac1 = pp.LineFracture([[0, 2], [1, 3]], tags=[-1, -1, 2])
@@ -148,7 +149,9 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
         edges = np.array(
             [[0, 1, 0], [1, 2, 2], [-1, -1, 1], [-1, -1, 1], [2, -1, -1]], dtype=int
         )
-        converted_pts, converted_edges = linefractures_to_pts_edges([frac1, frac2, frac3])
+        converted_pts, converted_edges = linefractures_to_pts_edges(
+            [frac1, frac2, frac3]
+        )
         assert np.allclose(converted_pts, pts)
         assert np.allclose(converted_edges, edges)
 
@@ -187,6 +190,51 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
             assert np.allclose(converted_pt, pt)
         for converted_tag, tag in zip(converted_fracs[2].tags, frac3.tags):
             assert np.all(converted_tag == tag)
+
+    def test_linefractures_to_pts_edges_tolerance(self):
+        """Test that points within the tolerance are reduced to a single point."""
+        # Default tolerance (1e-8).
+        frac1 = pp.LineFracture([[0, 1], [0, 3]])
+        frac2 = pp.LineFracture([[1, 1], [1, 3 + 1e-9]])
+        frac3 = pp.LineFracture([[2, 1], [2, 3 + 1e-10]])
+        pts = np.array([[0, 1, 1, 2], [0, 3, 1, 2]])
+        converted_pts, _ = linefractures_to_pts_edges([frac1, frac2, frac3])
+        assert converted_pts.shape[1] == 4
+        # ``np.all`` cannot be used, as converted_pts does not have ``dtype==int``.
+        # Instead, we use a very tight tolerance.
+        assert np.allclose(converted_pts, pts, atol=1e-20)
+        # Default tolerance, not within tolerance.
+        frac1 = pp.LineFracture([[0, 1], [1, 3]])
+        frac2 = pp.LineFracture([[2, 3], [1, 3 + 1e-5]])
+        frac3 = pp.LineFracture([[4, 5], [1, 3 + 1e-5]])
+        converted_pts, _ = linefractures_to_pts_edges([frac1, frac2, frac3])
+        assert converted_pts.shape[1] == 6
+        # Custom tolerance.
+        frac1 = pp.LineFracture([[0, 1], [0, 3]])
+        frac2 = pp.LineFracture([[1, 1], [1, 3 + 1e-6]])
+        frac3 = pp.LineFracture([[2, 1], [2, 3 + 1e-7]])
+        converted_pts, _ = linefractures_to_pts_edges([frac1, frac2, frac3], tol=1e-5)
+        assert converted_pts.shape[1] == 4
+        assert np.allclose(converted_pts, pts, atol=1e-20)
+
+    def test_empty_linefractures_to_pts_edges(self):
+        """Test that an empty ``linefracture`` list results in empty ``edges`` and
+        ``pts`` arrays.
+
+        """
+        converted_pts, converted_edges = linefractures_to_pts_edges([])
+        assert converted_edges.shape == (2, 0)
+        assert converted_pts.shape == (2, 0)
+
+    def test_pts_empty_edges_to_linefractures(self):
+        """Test that an empty ``edges`` array results in an empty ``linefracture``
+        list.
+
+        """
+        pts = np.array([[0, 2, 4], [1, 3, 5]])
+        edges = np.zeros([2, 0], dtype=int)
+        converted_fracs = pts_edges_to_linefractures(pts, edges)
+        assert converted_fracs == []
 
 
 if __name__ == "__main__":

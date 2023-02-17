@@ -77,7 +77,7 @@ def linefractures_to_pts_edges(
     Parameters:
         fractures: List of fractures.
         tol: Absolute tolerance to decide if start-/endpoints of two different fractures
-            are equal. Defaults to 1e-8.
+            are equal. The comparison is done element-wise. Defaults to 1e-8.
 
     Returns:
         pts: ``(shape=(2, num_points))``
@@ -116,7 +116,11 @@ def linefractures_to_pts_edges(
         assert len(pt_indices) == 2
         # Combine with tags of the fracture and store the full edge in a list.
         edges_list.append(np.concatenate([np.array(pt_indices), frac.tags]))
-    pts = np.stack(pts_list, axis=-1)
+    if pts_list:
+        # ``np.stack`` requires a nonempty list.
+        pts = np.stack(pts_list, axis=-1)
+    else:
+        pts = np.zeros([2, 0])
     # Determine the maximum number of tags. -> This determines the shape of the
     # ``edges`` array.
     max_edge_dim = max((np.shape(edge)[0] for edge in edges_list), default=2)
