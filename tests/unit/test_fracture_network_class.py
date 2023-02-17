@@ -1,7 +1,7 @@
 """
-Various checks of the FractureNetwork2d and 3d class
+Various checks for FractureNetwork2d, FractureNetwork3d, and create_fracture_newtork().
 
-Also test unitily function for generation of defalut domains.
+Also tests for utility functions for generation of default domains.
 """
 from __future__ import annotations
 
@@ -42,6 +42,7 @@ class TestCreateFractureNetwork:
             pp.create_fracture_network(fractures, None)
         assert msg in str(excinfo.value)
 
+    # -----> Test #2
     @pytest.fixture(scope="function")
     def fractures_lists(self, line_fracture, plane_fracture):
         fractures_1 = [1]
@@ -50,7 +51,6 @@ class TestCreateFractureNetwork:
         fractures_4 = [plane_fracture, line_fracture]
         return [fractures_1, fractures_2, fractures_3, fractures_4]
 
-    # -----> Test #2
     def test_error_if_fractures_has_heterogeneous_types(self, fractures_lists):
         """Check that a type error is raised if the list of fractures contain
         non-homogeneous types, e.g., it should be all PlaneFractures or
@@ -65,7 +65,6 @@ class TestCreateFractureNetwork:
     @pytest.mark.parametrize("domain", [unit_domain(2), unit_domain(3)])
     def test_empty_list_and_none_create_the_same_network(self, domain):
         """Check that is the same giving fractures as an empty list or None."""
-        # First in 2d
         fn_none = pp.create_fracture_network(None, domain)
         fn_empty_list = pp.create_fracture_network([], domain)
         assert fn_none.num_frac() == fn_empty_list.num_frac()
