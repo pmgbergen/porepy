@@ -20,7 +20,7 @@ from .forward_mode import AdArray, initAdArrays
 
 __all__ = [
     "Operator",
-    "Matrix",
+    "SparseArray",
     "Array",
     "TimeDependentArray",
     "Scalar",
@@ -954,7 +954,7 @@ class Operator:
         return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
 
     def __pow__(self, other):
-        if isinstance(self, pp.ad.Matrix) and isinstance(other, pp.ad.Scalar):
+        if isinstance(self, pp.ad.SparseArray) and isinstance(other, pp.ad.Scalar):
             # Special case: Scipy sparse matrices only accepts integers as exponents,
             # but we cannot know if the exponent is an integer or not, so we need to
             # disallow this case. Implementation detail: It turns out that if the scalar
@@ -968,7 +968,7 @@ class Operator:
             # DenseArray, SparseArray), the external library should be responsible for
             # the calculation, but this seems like the least bad option.
             raise ValueError("Cannot take SparseArray to the power of a Scalar.")
-        elif isinstance(self, pp.ad.Matrix) and isinstance(other, pp.ad.Array):
+        elif isinstance(self, pp.ad.SparseArray) and isinstance(other, pp.ad.Array):
             # When parsing this case, one of the operators (likely the numpy array) will
             # apply broadcasting, to produce a list of sparse matrices containing the
             # matrix raised to the power of of the array elements (provided these are
@@ -1004,7 +1004,7 @@ class Operator:
         elif isinstance(other, np.ndarray):
             return [self, Array(other)]
         elif isinstance(other, sps.spmatrix):
-            return [self, Matrix(other)]
+            return [self, SparseArray(other)]
         elif isinstance(other, Operator):
             return [self, other]
         elif isinstance(other, AdArray):
@@ -1014,7 +1014,7 @@ class Operator:
             raise ValueError(f"Cannot parse {other} as an AD operator")
 
 
-class Matrix(Operator):
+class SparseArray(Operator):
     """Ad representation of a sparse matrix.
 
     For dense matrices, use :class:`Array` instead.
@@ -1052,12 +1052,12 @@ class Matrix(Operator):
         """
         return self._mat
 
-    def transpose(self) -> "Matrix":
+    def transpose(self) -> "SparseArray":
         """Returns an AD operator representing the transposed matrix."""
-        return Matrix(self._mat.transpose())
+        return SparseArray(self._mat.transpose())
 
     @property
-    def T(self) -> "Matrix":
+    def T(self) -> "SparseArray":
         """Shorthand for transpose."""
         return self.transpose()
 
@@ -1663,7 +1663,7 @@ def _ad_wrapper(
     as_array: Literal[False],
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> Matrix:
+) -> SparseArray:
     # See md_grid for explanation of overloading and type hints.
     ...
 
@@ -1683,7 +1683,7 @@ def _ad_wrapper(
     as_array: bool,
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> Array | pp.ad.Matrix:
+) -> Array | pp.ad.SparseArray:
     """Create ad array or diagonal matrix.
 
     Utility method.
@@ -1710,7 +1710,7 @@ def _ad_wrapper(
         if size is None:
             size = value_array.size
         matrix = sps.diags(vals, shape=(size, size))
-        return pp.ad.Matrix(matrix, name)
+        return pp.ad.SparseArray(matrix, name)
 
 
 def wrap_as_ad_array(
@@ -1736,7 +1736,7 @@ def wrap_as_ad_matrix(
     vals: Union[pp.number, np.ndarray],
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> Matrix:
+) -> SparseArray:
     """Wrap a number or array as ad matrix.
 
     Parameters:

@@ -28,7 +28,9 @@ class BalanceEquation:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
+    wrap_grid_attribute: Callable[
+        [Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray
+    ]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -38,7 +40,7 @@ class BalanceEquation:
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Matrix]]
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -146,7 +148,7 @@ class BalanceEquation:
         else:
             # For vector problems, we need to expand the integrand to a vector. Do this
             # by left and right multiplication with e_i and e_i.T
-            basis: list[pp.ad.Matrix] = self.basis(
+            basis: list[pp.ad.SparseArray] = self.basis(
                 grids, dim=dim  # type: ignore[call-arg]
             )
             volumes_nd = sum([e * volumes * e.T for e in basis])

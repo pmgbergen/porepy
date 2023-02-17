@@ -152,7 +152,7 @@ class DisplacementJumpAperture(DimensionReduction):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    normal_component: Callable[[list[pp.Grid]], pp.ad.Matrix]
+    normal_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
     """Operator giving the normal component of vectors. Normally defined in a mixin
     instance of :class:`~porepy.models.models.ModelGeometry`.
 
@@ -773,16 +773,20 @@ class DarcysLaw:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Matrix]]
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    internal_boundary_normal_to_outwards: Callable[[list[pp.Grid], int], pp.ad.Matrix]
+    internal_boundary_normal_to_outwards: Callable[
+        [list[pp.Grid], int], pp.ad.SparseArray
+    ]
     """Switch interface normal vectors to point outwards from the subdomain. Normally
     set by a mixin instance of :class:`porepy.models.geometry.ModelGeometry`.
     """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
+    wrap_grid_attribute: Callable[
+        [Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray
+    ]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -1186,7 +1190,9 @@ class FouriersLaw:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
+    wrap_grid_attribute: Callable[
+        [Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray
+    ]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -1668,7 +1674,7 @@ class LinearElasticMechanicalStress:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    local_coordinates: Callable[[list[pp.Grid]], pp.ad.Matrix]
+    local_coordinates: Callable[[list[pp.Grid]], pp.ad.SparseArray]
     """Mapping to local coordinates. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -1818,7 +1824,7 @@ class PressureStress(LinearElasticMechanicalStress):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Matrix]]
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -2219,7 +2225,7 @@ class FrictionBound:
     This class is intended for use with fracture deformation models.
     """
 
-    normal_component: Callable[[list[pp.Grid]], pp.ad.Matrix]
+    normal_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
     """Operator giving the normal component of vectors. Normally defined in a mixin
     instance of :class:`~porepy.models.models.ModelGeometry`.
 
@@ -2418,7 +2424,9 @@ class PoroMechanicsPorosity:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
+    wrap_grid_attribute: Callable[
+        [Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray
+    ]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 

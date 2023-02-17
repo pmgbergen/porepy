@@ -142,7 +142,7 @@ class ModelGeometry:
         *,
         dim: int,
         inverse: bool = False,
-    ) -> pp.ad.Matrix:
+    ) -> pp.ad.SparseArray:
         """Wrap a grid attribute as an ad matrix.
 
         Parameters:
@@ -216,11 +216,11 @@ class ModelGeometry:
             # For an empty list of grids, return an empty matrix
             mat = sps.csr_matrix((0, 0))
 
-        ad_matrix = pp.ad.Matrix(mat)
+        ad_matrix = pp.ad.SparseArray(mat)
         ad_matrix.set_name(f"Matrix wrapping attribute {attr} on {len(grids)} grids")
         return ad_matrix
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Matrix]:
+    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
         """Return a cell-wise basis for all subdomains.
 
         The basis is represented as a list of matrices, each of which represents a
@@ -254,13 +254,15 @@ class ModelGeometry:
 
         assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         # Collect the basis functions for each dimension
-        basis: list[pp.ad.Matrix] = []
+        basis: list[pp.ad.SparseArray] = []
         for i in range(dim):
             basis.append(self.e_i(grids, i=i, dim=dim))
         # Stack the basis functions horizontally
         return basis
 
-    def e_i(self, grids: Sequence[pp.GridLike], *, i: int, dim: int) -> pp.ad.Matrix:
+    def e_i(
+        self, grids: Sequence[pp.GridLike], *, i: int, dim: int
+    ) -> pp.ad.SparseArray:
         """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
@@ -320,7 +322,7 @@ class ModelGeometry:
         num_cells = sum([g.num_cells for g in grids])
         # Expand to a matrix.
         mat = sps.kron(sps.eye(num_cells), e_i)
-        return pp.ad.Matrix(mat)
+        return pp.ad.SparseArray(mat)
 
     # Local basis related methods
     def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -354,7 +356,7 @@ class ModelGeometry:
         op.set_name("tangential_component")
         return op
 
-    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
         """Compute the normal component of a vector field.
 
         The normal space is defined according to the local coordinates of the
@@ -382,7 +384,7 @@ class ModelGeometry:
         e_n.set_name("normal_component")
         return e_n.T
 
-    def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+    def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
         """Ad wrapper around tangential_normal_projections for fractures.
 
         Parameters:
@@ -411,7 +413,7 @@ class ModelGeometry:
         else:
             # Also treat no subdomains
             local_coord_proj = sps.csr_matrix((0, 0))
-        return pp.ad.Matrix(local_coord_proj)
+        return pp.ad.SparseArray(local_coord_proj)
 
     def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
@@ -530,7 +532,7 @@ class ModelGeometry:
         """
         if len(subdomains) == 0:
             # Special case if no interfaces.
-            sign_flipper = pp.ad.Matrix(sps.csr_matrix((0, 0)))
+            sign_flipper = pp.ad.SparseArray(sps.csr_matrix((0, 0)))
         else:
             # There is already a method to construct a switcher matrix in grid_utils,
             # so we use that. Loop over all subdomains, construct a local switcher
@@ -550,7 +552,7 @@ class ModelGeometry:
                 matrices.append(switcher_int)
 
             # Construct the block diagonal matrix.
-            sign_flipper = pp.ad.Matrix(sps.block_diag(matrices).tocsr())
+            sign_flipper = pp.ad.SparseArray(sps.block_diag(matrices).tocsr())
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
@@ -578,7 +580,7 @@ class ModelGeometry:
         if len(interfaces) == 0:
             # Special case if no interfaces.
             mat = sps.csr_matrix((0, 0))
-            return pp.ad.Matrix(mat)
+            return pp.ad.SparseArray(mat)
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
