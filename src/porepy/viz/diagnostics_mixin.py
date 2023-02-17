@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from collections.abc import Iterable
 from itertools import product
-from typing import Literal, Optional
+from typing import Any, Callable, Literal, Optional
 
 import matplotlib
 import numpy as np
@@ -14,18 +15,41 @@ from scipy.sparse import csr_matrix, spmatrix
 from scipy.sparse.linalg import svds
 
 from porepy import GridLike
+from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.operators import Variable
 
+# Seaborn is a visualization library based on Matplotlib. It allows for building nice
+# figures. Seaborn library is not one of the dependencies of PorePy. Thus, it might not
+# be present on the user's device. In this case, Python raises ImportError exception.
 try:
+    # PyLint is not happy with Seaborn since it's not typed. We silence this warning.
     import seaborn as sns  # type: ignore[import]
 except ImportError:
-    _IS_SEABORN_AVAILABLE = False
+    _IS_SEABORN_AVAILABLE: bool = False
 else:
     _IS_SEABORN_AVAILABLE = True
 
 logger = logging.getLogger(__name__)
+
+
+# Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
+GridGroupingType = list[list[GridLike]]
+"""A type representing the structuring of grouping the diagnostics among the grids.
+
+"""
+SubmatrixHandlerType = Callable[[spmatrix, str, str], float]
+"""A type representing the diagnostics handler function to be applied to the submatrix.
+
+"""
+DiagnosticsData = dict[tuple[int, int], dict[str, Any]]
+"""A type representing the diagnostics data for each submatrix in the Jacobian.
+
+The key represents the pair (row, column) of the block. The value is a dictionary of all
+diagnostical values collected for this submatrix -- names and values.
+
+"""
 
 
 class DiagnosticsMixin:
@@ -53,22 +77,20 @@ class DiagnosticsMixin:
 
     """
 
-    submatrices: dict[tuple[int, int], spmatrix]
-    """The submatrices are stored here as they are computed.
-
-    The key represents the pair (row, column) of the block.
-    """
-
     # The mixin expects the model to have these properties defined.
     linear_system: tuple[csr_matrix, np.ndarray]
     equation_system: EquationSystem
+    mdg: MixedDimensionalGrid
 
-    def show_diagnostics(
+    def run_diagnostics(
         self,
-        grouping: Optional[Literal["subdomains"]] = None,
+        grouping: GridGroupingType
+        | Literal["dense", "subdomains", "interfaces"]
+        | None = None,
         is_plotting_condition_number: bool = False,
         is_plotting_max: bool = True,
-    ) -> None:
+        additional_handlers: Optional[dict[str, SubmatrixHandlerType]] = None,
+    ) -> DiagnosticsData:
         """Collects and plots diagnostics from the last assembled Jacobian matrix stored
         in :attr:`~self.linear_system`.
 
@@ -81,32 +103,83 @@ class DiagnosticsMixin:
             are semantically the same variable.
 
         Args:
-            grouping (optional): Either "subdomains" or None. If "subdomains",
-                gathers the data related to one equation / variable from all subdomains
-                or interfaces into one cell.
-                If None, treats equations / variables in different subdomains or
-                interfaces separately.
-                Defaults to None.
+            grouping (optional): Supports gathering the data related to one equation /
+                variable from grids of interest. For this, pass a list of grid blocks.
+                Each grid block must be a list of grids. Pass `None` to treat all grids
+                separately. Pass `'dense'` to group all grids -- useful to look at the
+                equation in general, when you are not interested in specific grids. Pass
+                `'subdomains'` or `'interfaces'` to investigate only subdomains or
+                interfaces respectively.
             is_plotting_condition_number (optional): Whether to plot
                 the condition number. Caution - this might take time if the matrix
                 is big. Defaults to False.
             is_plotting_max (optional): Whether to plot the absolute maximum.
-                This option is cheap even for big matrices.
-                Defaults to True.
+                This option is computationally cheap even for big matrices.
+            additional_handlers (optional): A dictionary of additional functions to be
+                applied to the submatrices. The keys represent the name of the handler.
+                The values are the functions with the arguments: the matrix, the
+                equation name and the variable name. The equation and the variable names
+                are passed to allow the user for calculating the handler value only in a
+                subset of equations and variables of interest.
+        Returns:
+            A dictionary with keys corresponding to block index and values of
+            diagnostics data collected for this block.
 
         """
 
-        def get_eig(mat, which) -> float:
+        def get_singular_val(mat: spmatrix, which: Literal["LM", "SM"]) -> float:
+            # Helper function to get the largest or the smallest singular values.
             return svds(mat, k=1, return_singular_vectors=False, which=which).item()
 
-        def get_condition_number(mat) -> float:
-            largest_eig = get_eig(mat, which="LM")
-            # Smallest eigenvalue might be zero.
-            smallest_eig = get_eig(mat, which="SM")
+        def get_condition_number(
+            mat: spmatrix, equation_name: str, variable_name: str
+        ) -> float:
+            largest_sing = get_singular_val(mat, which="LM")
+            # Smallest singular value might be zero.
+            smallest_sing = get_singular_val(mat, which="SM")
             if mat.data.size == 0:
                 return 0.0
             else:
-                return float(largest_eig / (smallest_eig + 1e-15))
+                if smallest_sing < 1e-9:
+                    return float("inf")
+                return float(largest_sing / smallest_sing)
+
+        def get_max(mat: spmatrix, equation_name: str, variable_name: str) -> float:
+            return abs(mat.data).max()
+
+        if additional_handlers is None:
+            additional_handlers = {}
+
+        add_grid_info = True
+        if grouping is None:
+            # We want all the grids to be treated separately.
+            grouping = [
+                [grid] for grid in self.mdg.subdomains() + self.mdg.interfaces()
+            ]
+        elif grouping == "dense":
+            # We don't care about grids.
+            add_grid_info = False
+            grouping = [
+                [grid for grid in self.mdg.subdomains() + self.mdg.interfaces()]
+            ]
+        elif grouping == "subdomains":
+            grouping = [[grid] for grid in self.mdg.subdomains()]
+        elif grouping == "interfaces":
+            grouping = [[grid] for grid in self.mdg.interfaces()]
+        if not isinstance(grouping, Iterable):
+            raise ValueError(
+                f"grouping must be a list of lists of GridLike, got "
+                f"{grouping=} instead."
+            )
+        # The type is checked one line earlier.
+        grouping_: GridGroupingType = grouping  # type: ignore
+
+        # Listing all the handlers to be applied to the submatrices.
+        active_handlers: dict[str, SubmatrixHandlerType] = additional_handlers.copy()
+        if is_plotting_condition_number:
+            active_handlers["Block condition number"] = get_condition_number
+        if is_plotting_max:
+            active_handlers["Absolute maximum value"] = get_max
 
         full_matrix: csr_matrix = self.linear_system[0]
         if not _IS_SEABORN_AVAILABLE:
@@ -123,263 +196,288 @@ class DiagnosticsMixin:
             )
 
         # Determining the block indices and collecting the submatrices.
-        equation_indices = self._equations_indices(grouping=grouping)
-        variable_indices = self._variable_indices(grouping=grouping)
+        equation_data = self._equations_data(
+            grouping=grouping_, add_grid_info=add_grid_info
+        )
+        variable_data = self._variable_data(
+            grouping=grouping_, add_grid_info=add_grid_info
+        )
 
-        if grouping is None and max(len(equation_indices), len(variable_indices)) > 10:
-            logger.warning(
-                "Treating all the subdomains separately might not be "
-                "informative if there are many of them. It is recommended to set"
-                "\"grouping='subdomains'\""
-            )
-
-        self._collect_submatrices(
+        submatrices = self._collect_submatrices(
             mat=full_matrix,
-            equation_indices=equation_indices,
-            variable_indices=variable_indices,
+            equation_indices=[equ["block_dofs"] for equ in equation_data],
+            variable_indices=[var["block_dofs"] for var in variable_data],
         )
 
         # Computing the required features of each block.
-        block_matrix_shape = len(equation_indices), len(variable_indices)
-        block_data: dict[tuple[int, int], dict] = defaultdict(dict)
+        block_matrix_shape = len(equation_data), len(variable_data)
+        block_data: DiagnosticsData = defaultdict(dict)
         for i, j in product(range(block_matrix_shape[0]), range(block_matrix_shape[1])):
-            submat = self.submatrices[i, j]
+            submat = submatrices[i, j]
             is_empty_block = submat.data[submat.data != 0].size == 0
+            equation_name = equation_data[i]["equation_name"]
+            variable_name = variable_data[j]["variable_name"]
+
+            # Adding information about each block. Might be helpful for external use.
             block_data[i, j]["is_empty_block"] = is_empty_block
+            block_data[i, j]["variable_name"] = variable_name
+            block_data[i, j]["equation_name"] = equation_name
+            block_data[i, j]["equation_printed_name"] = equation_data[i]["printed_name"]
+            block_data[i, j]["variable_printed_name"] = variable_data[j]["printed_name"]
+            block_data[i, j]["block_dofs_row"] = equation_data[i]["block_dofs"]
+            block_data[i, j]["block_dofs_col"] = variable_data[j]["block_dofs"]
+
             if not is_empty_block:
-                if is_plotting_condition_number:
-                    block_data[i, j]["condition_number"] = get_condition_number(submat)
-                if is_plotting_max:
-                    block_data[i, j]["max"] = abs(submat.data).max()
+                for handler_name, handler in active_handlers.items():
+                    block_data[i, j][handler_name] = handler(
+                        submat, equation_name, variable_name
+                    )
 
         # Plotting the figures.
         if is_plotting_condition_number:
-            _plot_condition_number(
+            self.plot_diagnostics(
                 block_data,
-                variable_names=tuple(variable_indices.keys()),
-                equation_names=tuple(equation_indices.keys()),
+                key="Block condition number",
+                norm=matplotlib.colors.LogNorm(vmin=1, vmax=1e3),
             )
             plt.show()
-
         if is_plotting_max:
-            _plot_max(
+            self.plot_diagnostics(
                 block_data,
-                variable_names=variable_indices.keys(),
-                equation_names=equation_indices.keys(),
+                key="Absolute maximum value",
             )
             plt.show()
 
-    def _equations_indices(
-        self, grouping: Optional[Literal["subdomains"]] = None
-    ) -> dict[str, np.ndarray]:
+        return block_data
+
+    def plot_diagnostics(
+        self, diagnostics_data: DiagnosticsData, key: str, **kwargs
+    ) -> None:
+        """Plots the heatmap of diagnostics data for the block matrix.
+
+        Plotting the image requires seaborn. If not available, falls back to text
+        printing. **kwargs are passed to Seaborn to modify image style.
+
+        Args:
+            diagnostics_data: The return value of :meth:`~self.run_diagnostics`.
+            key: The key of diagnostics entry to be plotted.
+            **kwargs: Passed to Seaborn.
+
+        """
+        row_names: list[str] = []
+        col_names: list[str] = []
+
+        # Collecting unique row and column names.
+        i_prev, j_prev = -1, -1
+        for (i, j), data in diagnostics_data.items():
+            if i > i_prev:
+                row_names.append(data["equation_printed_name"])
+                i_prev = i
+            if j > j_prev:
+                col_names.append(data["variable_printed_name"])
+                j_prev = j
+
+        # Collecting values to be plotted.
+        block_data = np.zeros((len(row_names), len(col_names)))
+        mask = np.zeros((len(row_names), len(col_names)), dtype=bool)
+        for (i, j), data in diagnostics_data.items():
+            mask[i, j] = (is_empty := data["is_empty_block"])
+            if not is_empty:
+                # We expect this to be a number, as handlers must return float.
+                block_data[i, j] = data[key]  # Type: ignore
+
+        if _IS_SEABORN_AVAILABLE:
+            # These are the default plotting argumenst.
+            plot_kwargs = (
+                dict(
+                    mask=mask,
+                    square=False,
+                    annot=True,
+                    norm=matplotlib.colors.LogNorm(),
+                    fmt=".1e",
+                    xticklabels=col_names,
+                    yticklabels=row_names,
+                    linewidths=0.01,
+                    linecolor="grey",
+                    cbar=False,
+                    cmap=sns.color_palette("coolwarm", as_cmap=True),
+                )
+                | kwargs
+            )  # Updating them with custom plotting arguments provided by user.
+            ax = sns.heatmap(block_data, **plot_kwargs)
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+            ax.set_title(key)
+        else:
+            print(np.array_str(block_data, precision=2))
+
+    def _equations_data(
+        self, grouping: GridGroupingType, add_grid_info: bool
+    ) -> tuple[dict[str, Any], ...]:
         """Collects the indices of equations presented in the Jacobian matrix as rows.
 
         Returns:
-            A dictionary with keys - printed names of the equations, values - indices of
-            this equation in the global Jacobian matrix.
-   
+            A tuple with dictionaries -- data of each row in the block matrix. The keys
+            are: "block_dofs", "grids", "printed_name", "equation_name".
+
         """
-        equation_indices = {}
-        assert grouping in (None, "subdomains"), f"Unknown grouping: {grouping}"
+        equation_indices = []
 
         assembled_equation_indices = self.equation_system.assembled_equation_indices
 
-        if grouping is None:
-            block_indices = 0
-            for eq_name, dof_indices in assembled_equation_indices.items():
-                equation_image_space = (
-                    self.equation_system._equation_image_space_composition[eq_name]
-                )
+        # `_equation_image_space_composition` has dof indices starting from zero for
+        # each equation. We need to count the offset to get the global dof indices.
+        block_indices = 0
+
+        for eq_name, eq_dof_indices in assembled_equation_indices.items():
+            equation_image_space = (
+                self.equation_system._equation_image_space_composition[eq_name]
+            )
+            # Forming a block from required grids.
+            for block_of_grids in grouping:
+                block_dofs = []
                 for grid, grid_dof_indices in equation_image_space.items():
-                    grid_dof_indices = (
-                        grid_dof_indices + block_indices
-                    )  # Making a copy not to modify _equation_image_space_composition
-                    assert np.all(np.isin(grid_dof_indices, dof_indices))
-                    is_interface = isinstance(grid, MortarGrid)
-                    grid_equation_name = _format_ticks(
-                        name=eq_name,
-                        dim=grid.dim,
-                        grid_id=grid.id,
-                        is_interface=is_interface,
-                    )
-                    equation_indices[grid_equation_name] = grid_dof_indices
-                block_indices += dof_indices.size
 
-        elif grouping == "subdomains":
-            for eq_name, dof_indices in assembled_equation_indices.items():
-                equation_indices[eq_name] = dof_indices
+                    if grid not in block_of_grids:
+                        continue
+                    block_dofs.extend(grid_dof_indices.tolist())
 
-        return equation_indices
+                if len(block_dofs) == 0:
+                    # This equation is not present on the grids of interest.
+                    continue
 
-    def _variable_indices(
-        self, grouping: Optional[Literal["subdomains"]] = None
-    ) -> dict[str, np.ndarray]:
+                printed_name = _format_ticks(
+                    name=eq_name,
+                    block_of_grids=block_of_grids,
+                    add_grid_info=add_grid_info,
+                )
+                # Adding the offset to form the global dofs of this block.
+                block_dofs_array = np.array(block_dofs).flatten() + block_indices
+                # Sanity check - we're still within the dofs of this equation.
+                assert np.all(np.isin(block_dofs_array, eq_dof_indices))
+
+                equation_indices.append(
+                    {
+                        "block_dofs": block_dofs_array,
+                        "printed_name": printed_name,
+                        "equation_name": eq_name,
+                        "grids": block_of_grids,
+                    }
+                )
+
+            block_indices += eq_dof_indices.size
+
+        return tuple(equation_indices)
+
+    def _variable_data(
+        self, grouping: GridGroupingType, add_grid_info: bool
+    ) -> tuple[dict[str, Any], ...]:
         """Collects the indices of variables presented in the Jacobian matrix as
         columns.
 
         Returns:
-            A dictionary with keys - printed names of the variables, values - indices of
-            this variables in the global Jacobian matrix.
+            A tuple with dictionaries -- data of each column in the block matrix. The
+            keys are: "block_dofs", "grids", "printed_name", "variable_name".
+
         """
-        variable_indices = {}
-        assert grouping in (None, "subdomains"), f"Unknown grouping: {grouping}"
+        variable_indices = []
 
-        if grouping is None:
-            for variable in self.equation_system.variables:
-                grid_variable_name = _format_variable_name_with_grid(variable)
-                dofs = self.equation_system.dofs_of([variable])
-                variable_indices[grid_variable_name] = dofs
+        # First, we group variables by names. We assume that variables with the same
+        # name are one variable on multiple grids.
+        names_to_variables: dict[str, list[Variable]] = defaultdict(list)
+        for variable in self.equation_system.variables:
+            names_to_variables[variable.name].append(variable)
+        names_to_variables = dict(names_to_variables)
 
-        elif grouping == "subdomains":
-            previous_variable_name = None
-            for variable in self.equation_system.variables:
-                if previous_variable_name != variable.name:
-                    dofs = self.equation_system.dofs_of(
-                        [self.equation_system.md_variable(variable.name)]
+        for variable_name, variable_on_grids in names_to_variables.items():
+            for block_of_grids in grouping:
+                variables_of_interest = []
+                # We add the variable to the list only on the grids of this block.
+                for variable_on_grid in variable_on_grids:
+                    grids: list[GridLike] = (
+                        variable_on_grid.subdomains + variable_on_grid.interfaces
                     )
-                    variable_indices[variable.name] = dofs
-                    previous_variable_name = variable.name
+                    assert len(grids) == 1, (
+                        "Something changed in how we store variables in the equation"
+                        "system."
+                    )
+                    if grids[0] in block_of_grids:
+                        variables_of_interest.append(variable_on_grid)
 
-        return variable_indices
+                dofs = self.equation_system.dofs_of(variables_of_interest)
+                if len(dofs) == 0:
+                    # This variable is not present on the grids of interest.
+                    continue
+                printed_name = _format_ticks(
+                    name=variable_name,
+                    block_of_grids=block_of_grids,
+                    add_grid_info=add_grid_info,
+                )
+                # variable_indices[printed_name] = dofs
+                variable_indices.append(
+                    {
+                        "block_dofs": dofs,
+                        "printed_name": printed_name,
+                        "variable_name": variable_name,
+                        "grids": block_of_grids,
+                    }
+                )
+        return tuple(variable_indices)
 
     def _collect_submatrices(
         self,
         mat: spmatrix,
-        equation_indices: dict[str, np.ndarray],
-        variable_indices: dict[str, np.ndarray],
-    ) -> None:
+        equation_indices: list[np.ndarray],
+        variable_indices: list[np.ndarray],
+    ) -> dict[tuple[int, int], spmatrix]:
         """Slices the Jacobian matrix into block based on provided equations and
         variables.
 
         Args:
             mat: The full Jacobian matrix.
-            equation_indices: The dictionary with keys - written names of equations and
+            equation_indices: The dictionary with keys - printed names of equations and
                 values - indices of these equations in the Jacobian. (Rows index).
-            variable_indices: The dictionary with keys - written names of variables and
+            variable_indices: The dictionary with keys - printed names of variables and
                 values - indices of these variables in the Jacobian (Columns index).
+        Returns:
+            The dictionary with submatrices.
+
         """
         submatrices = {}
 
-        for i, ind_row in enumerate(equation_indices.values()):
-            for j, ind_col in enumerate(variable_indices.values()):
+        for i, ind_row in enumerate(equation_indices):
+            for j, ind_col in enumerate(variable_indices):
                 submatrix_indices = np.meshgrid(
                     ind_row, ind_col, sparse=True, indexing="ij"
                 )
                 submatrices[i, j] = mat[tuple(submatrix_indices)]
 
-        self.submatrices = submatrices
+        return submatrices
 
 
-def _plot_condition_number(
-    block_data: dict[tuple[int, int], dict],
-    variable_names: tuple[str, ...],
-    equation_names: tuple[str, ...],
-) -> None:
-    """Utility function to plot the condition numbers of the matrix blocks.
-
-    Plotting the image requires seaborn. If not available, falls back to text printing.
-
-    Args:
-        block_data: Dictionary with key - 2D index of the block, value - the data
-            dictionary about selected block.
-        variable_names: Sequence of variable names to be printed.
-        equation_names: Sequence of equation names to be printed.
-    """
-    block_condition_numbers = np.zeros((len(equation_names), len(variable_names)))
-    for (i, j), data in block_data.items():
-        if not data["is_empty_block"]:
-            block_condition_numbers[i, j] = data["condition_number"]
-
-    if _IS_SEABORN_AVAILABLE:
-        cmap = sns.color_palette("coolwarm", as_cmap=True)
-        ax = sns.heatmap(
-            block_condition_numbers,
-            mask=block_condition_numbers == 0,
-            square=False,
-            norm=matplotlib.colors.LogNorm(vmin=1, vmax=1e3),
-            annot=True,
-            fmt=".1e",
-            xticklabels=variable_names,
-            yticklabels=equation_names,
-            linewidths=0.01,
-            linecolor="grey",
-            cbar=False,
-            cmap=cmap,
-        )
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-        ax.set_title("Block condition numbers")
-    else:
-        print(np.array_str(block_condition_numbers, precision=2))
-
-
-def _plot_max(block_data, variable_names, equation_names) -> None:
-    """Utility function to plot the max numbers of the matrix blocks.
-
-    Plotting the image requires seaborn. If not available, falls back to text printing.
-
-    Args:
-        block_data: Dictionary with key - 2D index of the block, value - the data
-            dictionary about selected block.
-        variable_names: Sequence of variable names to be printed.
-        equation_names: Sequence of equation names to be printed.
-    """
-
-    block_max = np.zeros((len(equation_names), len(variable_names)))
-    empty = block_max.copy().astype(bool)
-    for (i, j), data in block_data.items():
-        empty[i, j] = data["is_empty_block"]
-        if not empty[i, j]:
-            block_max[i, j] = data["max"]
-    if _IS_SEABORN_AVAILABLE:
-        cmap = sns.color_palette("coolwarm", as_cmap=True)
-        ax = sns.heatmap(
-            block_max,
-            mask=empty,
-            square=False,
-            norm=matplotlib.colors.LogNorm(),
-            annot=True,
-            fmt=".1e",
-            xticklabels=variable_names,
-            yticklabels=equation_names,
-            linewidths=0.01,
-            linecolor="grey",
-            cbar=False,
-            cmap=cmap,
-            robust=True,
-        )
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-        ax.set_title("Absolute maximum value")
-    else:
-        print(np.array_str(block_max, precision=2))
-
-
-def _format_variable_name_with_grid(variable: Variable) -> str:
-    """Formats variable name for printing.
-
-    Returns:
-        Name to be printed.
-    """
-    grid: GridLike
-    try:
-        grid = variable.subdomains[0]
-        is_interface = False
-    except IndexError:
-        grid = variable.interfaces[0]
-        is_interface = True
-    return _format_ticks(
-        name=str(variable), dim=grid.dim, grid_id=grid.id, is_interface=is_interface
-    )
-
-
-def _format_ticks(name: str, dim: int, grid_id: int, is_interface: bool) -> str:
+def _format_ticks(
+    name: str, block_of_grids: list[GridLike], add_grid_info: bool
+) -> str:
     """Formats variable or equation name for printing.
 
-    Adds grid id and says if the grid is an interface.
-
     Returns:
         Name to be printed.
-    """
 
-    if is_interface:
-        return f"{name} ({dim}D, intf. id={grid_id})"
-    return f"{name} ({dim}D, id={grid_id})"
+    """
+    if add_grid_info:
+        if len(block_of_grids) == 1:
+            grid = block_of_grids[0]
+            if isinstance(grid, MortarGrid):
+                grid_name = f"{grid.dim}D, intf. id={grid.id}"
+            else:
+                grid_name = f"{grid.dim}D, id={grid.id}"
+        elif len(block_of_grids) > 1:
+            data = []
+            for grid in block_of_grids:
+                if isinstance(grid, MortarGrid):
+                    data.append(f"intf. {grid.id}")
+                else:
+                    data.append(str(grid.id))
+            grid_name = "grids: [" + ",".join(data) + "]"
+
+        name = f"{name} {grid_name}"
+    return name
