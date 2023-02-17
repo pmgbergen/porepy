@@ -274,7 +274,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Maximum function
         num_cells: int = sum([sd.num_cells for sd in subdomains])
         max_function = pp.ad.Function(pp.ad.maximum, "max_function")
-        zeros_frac = pp.ad.Array(np.zeros(num_cells), "zeros_frac")
+        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells), "zeros_frac")
 
         # The complimentarity condition
         equation: pp.ad.Operator = t_n + max_function(
@@ -354,8 +354,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Vectors needed to express the governing equations
-        ones_frac = pp.ad.Array(np.ones(num_cells * (self.nd - 1)))
-        zeros_frac = pp.ad.Array(np.zeros(num_cells))
+        ones_frac = pp.ad.DenseArray(np.ones(num_cells * (self.nd - 1)))
+        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
 
         # Functions EK: Should we try to agree on a name convention for ad functions?
         # EK: Yes. Suggestions?
@@ -429,7 +429,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         """
         num_cells = sum([sd.num_cells for sd in subdomains])
         vals = np.zeros(num_cells * self.nd)
-        source = pp.ad.Array(vals, "body_force")
+        source = pp.ad.DenseArray(vals, "body_force")
         return source
 
 
@@ -806,7 +806,7 @@ class BoundaryConditionsMomentumBalance:
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the momentum balance.
 
         Parameters:

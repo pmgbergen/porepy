@@ -21,8 +21,8 @@ from .forward_mode import AdArray, initAdArrays
 __all__ = [
     "Operator",
     "SparseArray",
-    "Array",
-    "TimeDependentArray",
+    "DenseArray",
+    "TimeDependentDenseArray",
     "Scalar",
     "Variable",
     "MixedDimensionalVariable",
@@ -193,7 +193,7 @@ class Operator:
                 # set it to be evaluated at the previous time step. If not, leave the
                 # operator as it is.
                 if isinstance(
-                    op, (Variable, MixedDimensionalVariable, TimeDependentArray)
+                    op, (Variable, MixedDimensionalVariable, TimeDependentDenseArray)
                 ):
                     # Use the previous_timestep() method of the operator to get the
                     # operator evaluated at the previous time step. This in effect
@@ -968,7 +968,9 @@ class Operator:
             # DenseArray, SparseArray), the external library should be responsible for
             # the calculation, but this seems like the least bad option.
             raise ValueError("Cannot take SparseArray to the power of a Scalar.")
-        elif isinstance(self, pp.ad.SparseArray) and isinstance(other, pp.ad.Array):
+        elif isinstance(self, pp.ad.SparseArray) and isinstance(
+            other, pp.ad.DenseArray
+        ):
             # When parsing this case, one of the operators (likely the numpy array) will
             # apply broadcasting, to produce a list of sparse matrices containing the
             # matrix raised to the power of of the array elements (provided these are
@@ -1002,7 +1004,7 @@ class Operator:
         if isinstance(other, float) or isinstance(other, int):
             return [self, Scalar(other)]
         elif isinstance(other, np.ndarray):
-            return [self, Array(other)]
+            return [self, DenseArray(other)]
         elif isinstance(other, sps.spmatrix):
             return [self, SparseArray(other)]
         elif isinstance(other, Operator):
@@ -1062,7 +1064,7 @@ class SparseArray(Operator):
         return self.transpose()
 
 
-class Array(Operator):
+class DenseArray(Operator):
     """AD representation of a constant numpy array.
 
     For sparse matrices, use :class:`Matrix` instead.
@@ -1105,7 +1107,7 @@ class Array(Operator):
         return self._values
 
 
-class TimeDependentArray(Array):
+class TimeDependentDenseArray(DenseArray):
     """An Ad-wrapper around a time-dependent numpy array.
 
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
@@ -1187,18 +1189,18 @@ class TimeDependentArray(Array):
 
         self._set_tree()
 
-    def previous_timestep(self) -> TimeDependentArray:
+    def previous_timestep(self) -> TimeDependentDenseArray:
         """
         Returns:
             This array represented at the previous time step.
 
         """
         if self._is_interface_array:
-            return TimeDependentArray(
+            return TimeDependentDenseArray(
                 self._name, interfaces=self.interfaces, previous_timestep=True
             )
         else:
-            return TimeDependentArray(
+            return TimeDependentDenseArray(
                 self._name, subdomains=self.subdomains, previous_timestep=True
             )
 
@@ -1674,7 +1676,7 @@ def _ad_wrapper(
     as_array: Literal[True],
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> Array:
+) -> DenseArray:
     ...
 
 
@@ -1683,7 +1685,7 @@ def _ad_wrapper(
     as_array: bool,
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> Array | pp.ad.SparseArray:
+) -> DenseArray | pp.ad.SparseArray:
     """Create ad array or diagonal matrix.
 
     Utility method.
@@ -1705,7 +1707,7 @@ def _ad_wrapper(
         value_array = vals
 
     if as_array:
-        return pp.ad.Array(value_array, name)
+        return pp.ad.DenseArray(value_array, name)
     else:
         if size is None:
             size = value_array.size
@@ -1717,7 +1719,7 @@ def wrap_as_ad_array(
     vals: pp.number | np.ndarray,
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> Array:
+) -> DenseArray:
     """Wrap a number or array as ad array.
 
     Parameters:

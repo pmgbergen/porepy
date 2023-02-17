@@ -32,10 +32,10 @@ def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
         return scalar
 
 
-def get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.Array:
+def get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
     array = np.array([1, 2, 3])
     if wrapped:
-        return pp.ad.Array(array)
+        return pp.ad.DenseArray(array)
     else:
         return array
 

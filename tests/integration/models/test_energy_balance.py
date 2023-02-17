@@ -28,7 +28,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
     fluid: pp.FluidConstants
     """Fluid object."""
 
-    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """
 
         Parameters:
@@ -67,7 +67,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
         # Define Dirichlet conditions on the left and right boundaries
         return pp.BoundaryCondition(sd, east + west, "dir")
 
-    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the enthalpy.
 
         Parameters:
