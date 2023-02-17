@@ -145,26 +145,26 @@ class TestFractureNetwork2d(unittest.TestCase):
         snapped = network.snapped_copy(tol=1e-2)
 
         known_points = np.array([[0, 2, 1, 1], [0, 0, 0, 1]])
-        self.assertTrue(test_utils.compare_arrays(known_points, snapped.pts))
+        self.assertTrue(test_utils.compare_arrays(known_points, snapped._pts))
 
         snapped_2 = network.snapped_copy(tol=1e-4)
-        self.assertTrue(test_utils.compare_arrays(p, snapped_2.pts))
+        self.assertTrue(test_utils.compare_arrays(p, snapped_2._pts))
 
     def test_split_intersections(self):
         network = pp.FractureNetwork2d(self.fracs)
 
         split_network = network.copy_with_split_intersections()
-        self.assertTrue(test_utils.compare_arrays(split_network.pts, self.pts))
+        self.assertTrue(test_utils.compare_arrays(split_network._pts, self.pts))
         self.assertTrue(split_network.edges.shape[1] == 3)
 
     def test_constrain_to_domain(self):
         network = pp.FractureNetwork2d(self.fracs, self.domain)
         new_network = network.constrain_to_domain()
-        self.assertTrue(test_utils.compare_arrays(self.pts, new_network.pts))
+        self.assertTrue(test_utils.compare_arrays(self.pts, new_network._pts))
 
         small_network = network.constrain_to_domain(self.small_domain)
         known_points = np.array([[0, 1.5, 1, 1], [0, 0, 0, 1]])
-        self.assertTrue(test_utils.compare_arrays(known_points, small_network.pts))
+        self.assertTrue(test_utils.compare_arrays(known_points, small_network._pts))
 
     def test_get_points(self):
         p = self.pts
@@ -224,7 +224,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         together = network_1.add_network(network_2)
 
         p_known = np.hstack((self.pts, p2))
-        self.assertTrue(test_utils.compare_arrays(p_known, together.pts))
+        self.assertTrue(test_utils.compare_arrays(p_known, together._pts))
         # The known edges has 2 rows, thus by testing for equality, we implicitly
         # verify there are no tags in the joint network
         e_known = np.array([[0, 2, 4, 6], [1, 3, 5, 7]])
@@ -298,8 +298,8 @@ class TestFractureNetwork2d(unittest.TestCase):
         copy = network_1.copy()
         num_p = self.pts.shape[1]
 
-        network_1.pts = np.random.rand(2, num_p)
-        self.assertTrue(np.allclose(copy.pts, self.pts))
+        network_1._pts = np.random.rand(2, num_p)
+        self.assertTrue(np.allclose(copy._pts, self.pts))
 
     def test_no_snapping(self):
         p = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])

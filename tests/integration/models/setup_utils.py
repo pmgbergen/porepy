@@ -57,7 +57,7 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         # Translate fracture network to cart_grid format
         fracs = []
         for f in self.fracture_network.edges.T:
-            fracs.append(self.fracture_network.pts[:, f])
+            fracs.append(self.fracture_network._pts[:, f])
         self.mdg = pp.fracs.meshing.cart_grid(fracs, n_cells, physdims=phys_dims)
 
 
