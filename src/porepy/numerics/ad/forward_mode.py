@@ -121,8 +121,10 @@ class Ad_array:
         # https://stackoverflow.com/questions/67524641/convert-multiple-isinstance-checks-to-structural-pattern-matching
         # and https://peps.python.org/pep-0634/#class-patterns
         match other:
-            case float():
-                return Ad_array(self.val + other, self.jac)
+            case float() | int():
+                # Strictly speaking, we require scalars to be floats, but add casting of
+                # ints to floats for convenience.
+                return Ad_array(self.val + float(other), self.jac)
 
             case np.ndarray():
                 if other.ndim != 1:
@@ -136,14 +138,6 @@ class Ad_array:
                 if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                     raise ValueError("Incompatible sizes for Ad_array addition")
                 return Ad_array(self.val + other.val, self.jac + other.jac)
-
-            case int():
-                # Explicitly catch this case, since it will likely happen occasionally.
-                # This can be circumvented by converting the int to a float.
-                raise ValueError(
-                    """Scalars should be converted to floats before parsing
-                         in the Ad framework"""
-                )
 
             case _:
                 raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
@@ -231,7 +225,9 @@ class Ad_array:
         """
 
         match other:
-            case float():
+            case float() | int():
+                # Strictly speaking, we require scalars to be floats, but add casting of
+                # ints to floats for convenience.
                 return Ad_array(self.val * other, self.jac * other)
 
             case np.ndarray():
@@ -267,12 +263,6 @@ class Ad_array:
                 )
                 return Ad_array(new_val, new_jac)
 
-            case int():
-                # This can be circumvented by converting the int to a float.
-                raise ValueError(
-                    """Scalars should be converted to floats before parsing
-                         in the Ad framework"""
-                )
             case _:
                 raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
@@ -321,13 +311,13 @@ class Ad_array:
         """
 
         match other:
-            case float():
+            case float() | int():
                 # This is a polynomial, use standard rules for differentiation.
                 new_val = self.val**other
                 # Left-multiply jac with a diagonal-matrix version of the differentiated
                 # polynomial, this will give the desired column-wise scaling of the
                 # gradients.
-                new_jac = self._diagvec_mul_jac(other * self.val ** (other - 1))
+                new_jac = self._diagvec_mul_jac(float(other) * self.val ** float(other - 1))
                 return Ad_array(new_val, new_jac)
 
             case np.ndarray():
@@ -367,12 +357,6 @@ class Ad_array:
 
                 return Ad_array(new_val, new_jac)
 
-            case int():
-                # This can be circumvented by converting the int to a float.
-                raise ValueError(
-                    """Scalars should be converted to floats before parsing
-                         in the Ad framework"""
-                )
             case _:
                 raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
@@ -390,13 +374,13 @@ class Ad_array:
         """
 
         match other:
-            case float():
+            case float() | int():
                 # This is an exponent of type number ** x
-                new_val = other**self.val
+                new_val = float(other)**self.val
                 # Left-multiply jac with a diagonal-matrix version of the differentiated
                 # polynomial, this will give the desired column-wise scaling of the
                 # gradients.
-                new_jac = self._diagvec_mul_jac((other**self.val) * np.log(other))
+                new_jac = self._diagvec_mul_jac((float(other)**self.val) * np.log(float(other)))
                 return Ad_array(new_val, new_jac)
 
             case np.ndarray():
@@ -424,12 +408,6 @@ class Ad_array:
 
                 return other.__pow__(self)
 
-            case int():
-                # This can be circumvented by converting the int to a float.
-                raise ValueError(
-                    """Scalars should be converted to floats before parsing
-                         in the Ad framework"""
-                )
             case _:
                 raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
@@ -447,10 +425,10 @@ class Ad_array:
         """
 
         match other:
-            case float():
-                # Division by float is straightforward, elementwise.
-                new_val = self.val / other
-                new_jac = self.jac / other
+            case float() | int():
+                # Division by float, or int cast to float is straightforward, elementwise.
+                new_val = self.val / float(other)
+                new_jac = self.jac / float(other)
                 return Ad_array(new_val, new_jac)
 
             case np.ndarray():
@@ -478,12 +456,6 @@ class Ad_array:
 
                 return self.__mul__(other.__pow__(-1.0))
 
-            case int():
-                # This can be circumvented by converting the int to a float.
-                raise ValueError(
-                    """Scalars should be converted to floats before parsing
-                         in the Ad framework"""
-                )
             case _:
                 raise ValueError(f"Unknown type {type(other)} for Ad_array addition")
 
@@ -537,8 +509,8 @@ class Ad_array:
         """
 
         match other:
-            case float():
-                return self.__mul__(other)
+            case float() | int():
+                return self.__mul__(float(other))
 
             case np.ndarray() | Ad_array() | int():
                 raise ValueError(
@@ -570,8 +542,8 @@ class Ad_array:
 
         """
         match other:
-            case float():
-                return self.__mul__(other)
+            case float() | int():
+                return self.__mul__(float(other))
 
             case np.ndarray() | Ad_array() | int():
                 raise ValueError(
