@@ -40,10 +40,10 @@ def get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.Array:
         return array
 
 
-def get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.Matrix:
+def get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.SparseArray:
     mat = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     if wrapped:
-        return pp.ad.Matrix(mat)
+        return pp.ad.SparseArray(mat)
     else:
         return mat
 
@@ -87,7 +87,7 @@ def get_ad_array(
         d = mdg.subdomain_data(g)
         d[pp.STATE]["foo"] = variable_val
         d[pp.STATE][pp.ITERATE]["foo"] = variable_val
-        mat = pp.ad.Matrix(jac)
+        mat = pp.ad.SparseArray(jac)
 
         return mat @ var, eq_system
 

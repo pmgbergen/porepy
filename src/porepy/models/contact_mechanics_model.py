@@ -37,13 +37,13 @@ class ContactMechanicsAdObjects:
 
     contact_traction: pp.ad.Operator
 
-    local_fracture_coord_transformation: pp.ad.Matrix
-    local_fracture_coord_transformation_normal: pp.ad.Matrix
+    local_fracture_coord_transformation: pp.ad.SparseArray
+    local_fracture_coord_transformation_normal: pp.ad.SparseArray
     subdomain_projections_vector: pp.ad.SubdomainProjections
-    tangential_component_frac: pp.ad.Matrix
-    normal_component_frac: pp.ad.Matrix
-    normal_to_tangential_frac: pp.ad.Matrix
-    internal_boundary_vector_to_outwards: pp.ad.Matrix
+    tangential_component_frac: pp.ad.SparseArray
+    normal_component_frac: pp.ad.SparseArray
+    normal_to_tangential_frac: pp.ad.SparseArray
+    internal_boundary_vector_to_outwards: pp.ad.SparseArray
     mortar_projections_vector: pp.ad.MortarProjections
 
 
@@ -925,7 +925,7 @@ class ContactMechanics(AbstractModel):
                 "internal_boundary_vector_to_outwards",
             ]
             for attribute_name in matrix_attributes:
-                setattr(ad, attribute_name, pp.ad.Matrix(sps.csr_matrix((0, 0))))
+                setattr(ad, attribute_name, pp.ad.SparseArray(sps.csr_matrix((0, 0))))
             setattr(
                 ad,
                 "internal_boundary_vector_to_outwards",
@@ -944,7 +944,7 @@ class ContactMechanics(AbstractModel):
                 ].project_tangential_normal(sd.num_cells)
                 for sd in fracture_subdomains
             ]
-            ad.local_fracture_coord_transformation = pp.ad.Matrix(
+            ad.local_fracture_coord_transformation = pp.ad.SparseArray(
                 sps.block_diag(local_coord_proj_list)
             )
             # Matrices for extracting normal and tangential components on the fractures
@@ -960,13 +960,13 @@ class ContactMechanics(AbstractModel):
             tangential_rows: np.ndarray = np.arange(n_frac_c_t)
             tangential_data: np.ndarray = np.ones(n_frac_c_t)
 
-            ad.normal_component_frac = pp.ad.Matrix(
+            ad.normal_component_frac = pp.ad.SparseArray(
                 sps.csr_matrix(
                     (normal_data, (normal_rows, normal_cols)),
                     shape=(self._num_frac_cells, n_frac_c_dim),
                 )
             )
-            ad.tangential_component_frac = pp.ad.Matrix(
+            ad.tangential_component_frac = pp.ad.SparseArray(
                 sps.csr_matrix(
                     (tangential_data, (tangential_rows, tangential_cols)),
                     shape=(n_frac_c_t, n_frac_c_dim),
@@ -987,7 +987,7 @@ class ContactMechanics(AbstractModel):
                 (np.ones(n_frac_c_t), (local_inds_t, np.int32(local_inds_n))),
                 shape=(n_frac_c_t, self._num_frac_cells),
             )
-            ad.normal_to_tangential_frac = pp.ad.Matrix(n2t_matrix)
+            ad.normal_to_tangential_frac = pp.ad.SparseArray(n2t_matrix)
 
             # Sign switcher accounting for normal direction of faces on internal boundaries of
             # matrix grid (corresponding to matrix-fracture interfaces).
@@ -1002,7 +1002,7 @@ class ContactMechanics(AbstractModel):
                 else:
                     outwards_mat += switcher_int
 
-            ad.internal_boundary_vector_to_outwards = pp.ad.Matrix(outwards_mat)
+            ad.internal_boundary_vector_to_outwards = pp.ad.SparseArray(outwards_mat)
 
         # Projections between interfaces and subdomains
         ad.mortar_projections_vector = pp.ad.MortarProjections(

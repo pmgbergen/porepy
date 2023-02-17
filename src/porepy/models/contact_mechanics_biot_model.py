@@ -706,10 +706,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             for sd in fracture_subdomains:
                 proj = self.mdg.subdomain_data(sd)["tangential_normal_projection"]
                 normal_proj_list.append(proj.project_normal(sd.num_cells))
-            normal_proj = pp.ad.Matrix(sps.block_diag(normal_proj_list))
+            normal_proj = pp.ad.SparseArray(sps.block_diag(normal_proj_list))
         else:
             # In the case of no fractures, empty matrices are needed.
-            normal_proj = pp.ad.Matrix(sps.csr_matrix((0, 0)))
+            normal_proj = pp.ad.SparseArray(sps.csr_matrix((0, 0)))
 
         ad.local_fracture_coord_transformation_normal = normal_proj
         # Facilitate updates of dt. self.time_step_ad.time_step._value must be updated
@@ -798,7 +798,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             mat = [sps.csr_matrix((0, 0))]
 
         # Block matrix version covering all interfaces.
-        normal_matrix = pp.ad.Matrix(sps.block_diag(mat))
+        normal_matrix = pp.ad.SparseArray(sps.block_diag(mat))
 
         # Ad variable representing pressure on all fracture subdomains.
         p_frac = (

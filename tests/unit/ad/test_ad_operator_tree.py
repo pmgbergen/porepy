@@ -126,7 +126,7 @@ def test_copy_operator_tree():
 
 ## Test of pp.ad.Matrix, pp.ad.Array, pp.ad.Scalar
 fields = [
-    (pp.ad.Matrix, sps.csr_matrix(np.random.rand(3, 2))),
+    (pp.ad.SparseArray, sps.csr_matrix(np.random.rand(3, 2))),
     (pp.ad.Array, np.random.rand(3)),
     (pp.ad.Scalar, 42),
 ]
@@ -607,7 +607,9 @@ def test_variable_combinations(grids, variables):
                 ind = mv_grids.index(var._g)
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
-                P = pp.ad.Matrix(sps.coo_matrix((data, (rows, cols)), shape=(nr, nc)))
+                P = pp.ad.SparseArray(
+                    sps.coo_matrix((data, (rows, cols)), shape=(nr, nc))
+                )
 
                 eq = eq = mv + P * var
                 expr = eq.evaluate(eq_system)
