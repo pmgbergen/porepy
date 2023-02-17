@@ -49,6 +49,7 @@ class FractureNetwork2d:
         tol: Tolerance used in geometric computations.
 
     """
+
     def __init__(
         self,
         fractures: Optional[list[LineFracture]] = None,
@@ -78,7 +79,9 @@ class FractureNetwork2d:
         Internally transformed to points and edges.
         """
         if fractures is not None and len(fractures) > 0:
-            self._pts, self._edges = linefractures_to_pts_edges(self.fractures, self.tol)
+            self._pts, self._edges = linefractures_to_pts_edges(
+                self.fractures, self.tol
+            )
         else:
             self._pts = np.zeros((2, 0))
             self._edges = np.zeros((2, 0), dtype=int)
@@ -960,7 +963,9 @@ class FractureNetwork2d:
 
         p_domain = self._bounding_box_to_points(domain.bounding_box)
 
-        p, e, _ = pp.constrain_geometry.lines_by_polygon(p_domain, self._pts, self._edges)
+        p, e, _ = pp.constrain_geometry.lines_by_polygon(
+            p_domain, self._pts, self._edges
+        )
         fracs = pts_edges_to_linefractures(p, e)
 
         return FractureNetwork2d(fracs, domain, self.tol)

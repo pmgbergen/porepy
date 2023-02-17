@@ -82,9 +82,9 @@ class FractureNetwork3d(object):
         """All known intersections in the network."""
 
         self.has_checked_intersections = False
-        """If True, the intersection finder method has been run. Useful in meshing 
+        """If True, the intersection finder method has been run. Useful in meshing
         algorithms to avoid recomputing known information.
-        
+
         """
 
         self.tol = tol
@@ -100,21 +100,21 @@ class FractureNetwork3d(object):
 
         # Initialize mesh size parameters as empty
         self.mesh_size_min = None
-        """Mesh size parameter, minimum mesh size to be sent to gmsh. Set by 
+        """Mesh size parameter, minimum mesh size to be sent to gmsh. Set by
         insert_auxiliary_points().
-        
+
         """
 
         self.mesh_size_frac = None
-        """Mesh size parameter. Ideal mesh size, fed to gmsh. Set by 
+        """Mesh size parameter. Ideal mesh size, fed to gmsh. Set by
         insert_auxiliary_points().
-        
+
         """
 
         self.mesh_size_bound = None
-        """Mesh size parameter. Boundary mesh size, fed to gmsh. Set by 
+        """Mesh size parameter. Boundary mesh size, fed to gmsh. Set by
         insert_auxiliary_points().
-        
+
         """
 
         # Assign an empty tag dictionary
@@ -123,9 +123,9 @@ class FractureNetwork3d(object):
 
         # No auxiliary points have been added
         self.auxiliary_points_added = False
-        """Mesh size parameter. If True, extra points have been added to PlaneFracture 
+        """Mesh size parameter. If True, extra points have been added to PlaneFracture
         geometry to facilitate mesh size tuning.
-        
+
         """
 
         self.bounding_box_imposed = False
@@ -134,7 +134,7 @@ class FractureNetwork3d(object):
         self.decomposition: dict
         """Splitting of network, accounting for fracture intersections etc. Necessary
         pre-processing before meshing. Added by :meth:`~split_intersections()`.
-        
+
         """
 
     def add(self, f):
