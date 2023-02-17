@@ -72,13 +72,13 @@ class FractureNetwork2d:
         self.tol = tol
         """Tolerance used in geometric computations."""
 
-        self._fractures = [] if fractures is None else fractures
+        self.fractures = [] if fractures is None else fractures
         """List of fractures.
 
         Internally transformed to points and edges.
         """
         if fractures is not None and len(fractures) > 0:
-            self._pts, self._edges = linefractures_to_pts_edges(self._fractures, self.tol)
+            self._pts, self._edges = linefractures_to_pts_edges(self.fractures, self.tol)
         else:
             self._pts = np.zeros((2, 0))
             self._edges = np.zeros((2, 0), dtype=int)
@@ -96,15 +96,14 @@ class FractureNetwork2d:
         self.bounding_box_imposed: bool = False
         """Flag indicating whether the bounding box has been imposed."""
 
-        ## PRIVATE
-
         self._decomposition: dict = dict()
         """Dictionary of geometric information obtained from the meshing process.
 
         This will include intersection points identified.
         """
 
-        if not self._fractures:
+        # -----> Logging
+        if not self.fractures:
             logger.info("Generated empty fracture set")
         elif self._pts is not None and self._edges is not None:
             logger.info(f"Generated a fracture set with {self.num_frac()} fractures")
@@ -996,10 +995,10 @@ class FractureNetwork2d:
             self.snapped_copy(), self.copy_with_split_intersections()
 
         """
-        if len(self._fractures) == 0:
+        if len(self.fractures) == 0:
             fractures_new = None
         else:
-            fractures_new = copy.deepcopy(self._fractures)
+            fractures_new = copy.deepcopy(self.fractures)
 
         domain = self.domain
         if domain is not None:
