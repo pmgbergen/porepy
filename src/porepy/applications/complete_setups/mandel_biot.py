@@ -35,6 +35,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
+from porepy.applications.building_blocks.verification_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
@@ -132,16 +133,25 @@ class MandelDataSaving(VerificationDataSaving):
     """Exact solution object."""
 
     fluid: pp.FluidConstants
-    """Fluid constants object."""
+    """Fluid constant object that takes care of storing and scaling numerical values
+    representing fluid-related quantities. Normally, this is set by an instance of
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
-    numerical_consolidation_degree: Callable[
-        [np.ndarray, np.ndarray], tuple[number, number]
-    ]
+    """
+
+    numerical_consolidation_degree: Callable[[], tuple[number, number]]
     """Numerical degree of consolidation in the horizontal and vertical directions."""
 
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    relative_l2_error: Callable
+    """Method for computing the discrete relative L2-error. Normally provided by a
+    mixin instance of :class:`~porepy.applications.building_blocks.
+    verification_utils.VerificationUtils`.
 
     """
 
@@ -213,9 +223,7 @@ class MandelDataSaving(VerificationDataSaving):
         )
 
         exact_consolidation_degree = self.exact_sol.degree_of_consolidation(t)
-        approx_consolidation_degree = self.numerical_consolidation_degree(
-            approx_displacement, approx_pressure
-        )
+        approx_consolidation_degree = self.numerical_consolidation_degree()
         error_consolidation_degree_x = np.abs(
             approx_consolidation_degree[0] - exact_consolidation_degree
         )
@@ -626,46 +634,27 @@ class MandelExactSolution:
 
 
 # -----> Utilities
-class MandelUtilities:
+class MandelUtils(VerificationUtils):
     """Mixin class that provides useful utility methods for the verification setup."""
 
     domain: pp.Domain
-    """Domain specification. Normally set by an instance of
-    :class:`~MandelGeometry``.
-
-    """
+    """Domain specification. Set by an instance of :class:`~MandelGeometry`."""
 
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Named tuple containing the boundary sides indices."""
-
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
+    """Boundary sides of the domain. Defined by a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
 
     exact_sol: MandelExactSolution
-    """Exact solution object."""
-
-    fracture_network: pp.FractureNetwork2d
-    """Two-dimensional fracture network object."""
-
-    fluid: pp.FluidConstants
-    """Fluid constant object."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    """Exact solution object. Normally set by an instance of
+    :class:`~MandelExactSolution`.
 
     """
 
-    params: dict
-    """Model parameters dictionary."""
-
-    poromechanical_displacement_trace: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Ad operator that computes the trace of the displacement for a poromechanical
-    system. Normally provided by an instance of
-    :class:`~porepy.models.constitutive_laws.PressureStress`.
+    fracture_network: pp.FractureNetwork2d
+    """Two-dimensional fracture network object. Set by a mixin instance of
+    :class:`~MandelGeometry`.
 
     """
 
@@ -674,15 +663,6 @@ class MandelUtilities:
     verification.
 
     """
-
-    solid: pp.SolidConstants
-    """Solid constant object."""
-
-    time_manager: pp.TimeManager
-    """Time-stepping object."""
-
-    units: pp.Units
-    """Units object, containing the scaling of base magnitudes."""
 
     vertical_load: Callable
     """Method that retrieves the applied vertical load from the model parameters and
@@ -861,15 +841,8 @@ class MandelUtilities:
         east_idx = np.where(sides.east)[0]
         return sd.signs_and_cells_of_boundary_faces(east_idx)[1]
 
-    def numerical_consolidation_degree(
-        self, displacement: np.ndarray, pressure: np.ndarray
-    ) -> tuple[number, number]:
+    def numerical_consolidation_degree(self) -> tuple[number, number]:
         """Numerical consolidation degree [-].
-
-        Parameters:
-            displacement: Displacement in scaled [m] solution of shape
-                (sd.dim * sd.num_cells).
-            pressure: Pressure in scaled [Pa] solution of shape (sd.num_cells, ).
 
         Returns:
             Numerical degree of consolidation in the horizontal and vertical directions.
@@ -887,23 +860,20 @@ class MandelUtilities:
 
         t = self.time_manager.time  # scaled [s]
 
+        # Retrieve face displacement
+        u_faces = self.face_displacement(sd)
+
         if t == 0:  # soil is initially unconsolidated
             consol_deg_x, consol_deg_y = 0, 0
         else:
-            # Retrieve displacement trace
-            trace_u_ad = self.poromechanical_displacement_trace([sd])
-            trace_u = trace_u_ad.evaluate(self.equation_system).val
-            trace_ux = trace_u[::2]
-            trace_uy = trace_u[1::2]
-
             # Consolidation degree in the horizontal direction
-            ux_a_t = np.max(trace_ux[sides.east])
+            ux_a_t = np.max(u_faces[::2][sides.east])
             ux_a_0 = (F * nu_u) / (2 * mu_s)
             ux_a_inf = (F * nu_s) / (2 * mu_s)
             consol_deg_x = (ux_a_t - ux_a_0) / (ux_a_inf - ux_a_0)
 
             # Consolidation degree in the vertical direction
-            uy_b_t = np.max(trace_uy[sides.north])
+            uy_b_t = np.max(u_faces[1::2][sides.north])
             uy_b_0 = (-F * b * (1 - nu_u)) / (2 * mu_s * a)
             uy_b_inf = (-F * b * (1 - nu_s)) / (2 * mu_s * a)
             consol_deg_y = (uy_b_t - uy_b_0) / (uy_b_inf - uy_b_0)
@@ -1275,7 +1245,10 @@ class MandelGeometry(pp.ModelGeometry):
     """Simulation model parameters."""
 
     fracture_network: pp.FractureNetwork2d
-    """Fracture network. Empty in this case."""
+    """Two-dimensional fracture network object. Set by a mixin instance of
+    :class:`~MandelGeometry`.
+
+    """
 
     def set_fracture_network(self) -> None:
         """Set fracture network. Unit square with no fractures."""
@@ -1305,24 +1278,32 @@ class MandelGeometry(pp.ModelGeometry):
 class MandelBoundaryConditionsMechanicsTimeDependent(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
-
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Utility method to access the indices of the sides of the domain."""
+    """Boundary sides of the domain. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
     mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
+    """Mixed-dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     params: dict
     """Parameter dictionary of the verification setup."""
 
     stress_keyword: str
-    """Keyword for the mechanical subproblem."""
+    """Keyword for accesssing the parameters of the mechanical subproblem."""
 
     time_manager: pp.TimeManager
-    """Time-stepping object."""
+    """Time manager. Normally set by an instance of a subclass of
+    :class:`porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
 
     units: pp.Units
     """Units object, containing the scaling of base magnitudes."""
@@ -1404,7 +1385,10 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
 
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Utility method to access the indices of the sides of the domain."""
+    """Boundary sides of the domain. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the flow subproblem.
@@ -1435,7 +1419,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
-    plot_results: Callable
+    plot_results: Callable[[], None]
     """Method that plots pressure, displacement, flux, force, and degree of
     consolidation in non-dimensional forms.
 
@@ -1509,7 +1493,7 @@ class MandelSetup(  # type: ignore[misc]
     MandelGeometry,
     MandelPoromechanicsBoundaryConditions,
     MandelSolutionStrategy,
-    MandelUtilities,
+    MandelUtils,
     MandelDataSaving,
     BiotPoromechanics,
 ):

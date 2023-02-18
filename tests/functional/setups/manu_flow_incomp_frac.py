@@ -22,6 +22,7 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
+from porepy.applications.building_blocks.verification_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
@@ -117,6 +118,13 @@ class ManuIncompDataSaving(VerificationDataSaving):
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    relative_l2_error: Callable
+    """Method for computing the discrete relative L2-error. Normally provided by a
+    mixin instance of :class:`~porepy.applications.building_blocks.
+    verification_utils.VerificationUtils`.
 
     """
 
@@ -530,7 +538,7 @@ class ManuIncompExactSolution:
 
 
 # -----> Utilities
-class ManuIncompUtils:
+class ManuIncompUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
     mdg: pp.MixedDimensionalGrid
