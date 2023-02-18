@@ -1,4 +1,6 @@
-"""Module for diagnostics of PorePy’s models built on seaborn."""
+"""Module for diagnostics of PorePy's models built on seaborn.
+
+"""
 
 from __future__ import annotations
 
@@ -57,23 +59,23 @@ class DiagnosticsMixin:
     diagnostics.
 
     Currently supports dividing the matrix into blocks based on different equations and
-    subdomains/interfaces. Can plot:
-    - condition number of each block
-    - absolute maximum value of each block
-    Supports gathering data about one equation/variable block from all subdomains.
-    For detailed information, see the `tutorial <https://github.com/pmgbergen/porepy/blo
-    b/feat-diagnostics/tutorials/diagnostics.ipynb>`__.
+    subdomains/interfaces. Can plot condition number of each block and absolute maximum
+    value of each block. Supports grouping grids arbitrarily. For detailed information, 
+    see the `tutorial <https://github.com/pmgbergen/porepy/blob/feat-diagnostics/tutoria
+    ls/diagnostics.ipynb>`__.
 
     Example:
         Basic usage:
 
+        >>> import porepy
         >>> from porepy.applications.verification_setups.mandel_biot import MandelSetup
+        >>> from porepy.viz.diagnostics_mixin import DiagnosticsMixin
         >>>
         >>> class MandelDiagnostics(DiagnosticsMixin, MandelSetup):
         >>>     pass
         >>> setup = MandelDiagnostics(params={})
         >>> porepy.run_time_dependent_model(setup, params={})
-        >>> setup.show_diagnostics()
+        >>> setup.run_diagnostics()
 
     """
 
