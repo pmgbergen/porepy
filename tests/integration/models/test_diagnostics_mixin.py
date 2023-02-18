@@ -1,6 +1,8 @@
 """ Tests of functionality of :class:`~porepy.viz.diagnostics_mixin.DiagnosticsMixin`.
 
 """
+from __future__ import annotations
+
 from unittest.mock import patch
 
 import pytest
