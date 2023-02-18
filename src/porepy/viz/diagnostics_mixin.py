@@ -60,7 +60,7 @@ class DiagnosticsMixin:
 
     Currently supports dividing the matrix into blocks based on different equations and
     subdomains/interfaces. Can plot condition number of each block and absolute maximum
-    value of each block. Supports grouping grids arbitrarily. For detailed information, 
+    value of each block. Supports grouping grids arbitrarily. For detailed information,
     see the `tutorial <https://github.com/pmgbergen/porepy/blob/feat-diagnostics/tutoria
     ls/diagnostics.ipynb>`__.
 
