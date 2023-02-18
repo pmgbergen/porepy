@@ -46,6 +46,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
+from porepy.applications.building_blocks.verification_utils import VerificationUtils
 
 # from porepy.applications.complete_setups.setup_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
@@ -134,9 +135,16 @@ class TerzaghiDataSaving(VerificationDataSaving):
 
     """
 
-    numerical_consolidation_degree: Callable[[np.ndarray, np.ndarray], number]
+    numerical_consolidation_degree: Callable[[], number]
     """Method that computes the numerical degree of consolidation. The method is
     provided by the mixin class :class:`TerzaghiUtils`.
+
+    """
+
+    relative_l2_error: Callable
+    """Method for computing the discrete relative L2-error. Normally provided by a
+    mixin instance of :class:`~porepy.applications.building_blocks.
+    verification_utils.VerificationUtils`.
 
     """
 
@@ -165,10 +173,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         displacement_ad = self.displacement([sd])
         approx_displacement = displacement_ad.evaluate(self.equation_system).val
 
-        approx_consolidation_degree = self.numerical_consolidation_degree(
-            approx_displacement,
-            approx_pressure,
-        )
+        approx_consolidation_degree = self.numerical_consolidation_degree()
         exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
         error_consolidation_degree = np.abs(
             approx_consolidation_degree - exact_consolidation_degree
@@ -262,7 +267,7 @@ class TerzaghiExactSolution:
 
 
 # -----> Utilities
-class TerzaghiUtils:
+class TerzaghiUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
     applied_load: Callable[[], pp.number]
@@ -271,18 +276,12 @@ class TerzaghiUtils:
 
     """
 
-    params: dict
-    """Setup parameters dictionary."""
-
-    time_manager: pp.TimeManager
-    """Time-stepping object."""
-
     bc_values_mechanics_key: str
     """Key for accessing mechanical boundary values."""
 
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
+    exact_sol: TerzaghiExactSolution
+    """Exact solution object. Normally defined in a instance of
+    :class:`~porepy.models.TerzaghiExactSolution`.
 
     """
 
@@ -292,36 +291,11 @@ class TerzaghiUtils:
 
     """
 
-    solid: pp.SolidConstants
-    """Solid constant object."""
-
-    fluid: pp.FluidConstants
-    """Fluid constant object."""
-
-    exact_sol: TerzaghiExactSolution
-    """Exact solution object."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    poromechanical_displacement_trace: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Ad operator that computes the trace of the displacement for a poromechanical
-    system. Normally provided by an instance of
-    :class:`~porepy.models.constitutive_laws.PressureStress`.
-
-    """
-
     results: list[TerzaghiSaveData]
     """List of :class:`TerzaghiSaveData` objects containing the results of the
     verification.
 
     """
-
-    units: pp.Units
-    """Units object."""
 
     # ---> Derived physical quantities
     def gravity_acceleration(self) -> number:
@@ -405,14 +379,8 @@ class TerzaghiUtils:
         return pressure / np.abs(F)
 
     # ---> Postprocessing methods
-    def numerical_consolidation_degree(
-        self, displacement: np.ndarray, pressure: np.ndarray
-    ) -> number:
+    def numerical_consolidation_degree(self) -> number:
         """Numerical consolidation degree.
-
-        Parameters:
-            displacement: Displacement solution of shape (sd.dim * sd.num_cells, ).
-            pressure: Pressure solution of shape (sd.num_cells, ).
 
         Returns:
             Numerical degree of consolidation.
@@ -423,16 +391,14 @@ class TerzaghiUtils:
         m_v = self.confined_compressibility()  # scaled [m * s^-2]
         vertical_load = self.applied_load()  # scaled [Pa]
         t = self.time_manager.time  # scaled [s]
+        u_faces = self.face_displacement(sd)
 
         if t == 0:  # initially, the soil is unconsolidated
             consol_deg = 0.0
         else:
-            trace_u_ad = self.poromechanical_displacement_trace([sd])
-            trace_u = trace_u_ad.evaluate(self.equation_system).val
             u_inf = m_v * h * vertical_load
             u_0 = 0
-            u = np.max(np.abs(trace_u[1 :: sd.dim]))
-            consol_deg = (u - u_0) / (u_inf - u_0)
+            consol_deg = (np.max(np.abs(u_faces[1::2])) - u_0) / (u_inf - u_0)
 
         return consol_deg
 
@@ -571,23 +537,34 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 class TerzaghiBoundaryConditionsMechanics(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
-
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Named tuple containing the boundary sides indices."""
-
-    stress_keyword: str
-    """Keyword for the mechanical subproblem."""
 
     bc_values_mechanics_key: str
     """Keyword for accessing the boundary values for the mechanical subproblem."""
+
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    """Boundary sides of the domain. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     params: dict
     """Parameter dictionary of the verification setup."""
 
     solid: pp.SolidConstants
-    """Solid constants object."""
+    """Solid constant object that takes care of storing and scaling numerical values
+    representing solid-related quantities. Normally, this is set by an instance of
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
+    stress_keyword: str
+    """Keyword for accessing the parameters of the mechanical subproblem."""
 
     def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
@@ -650,9 +627,11 @@ class TerzaghiBoundaryConditionsMechanics(
 class TerzaghiBoundaryConditionsFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
-
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Utility function containing the indices of the domain boundary sides."""
+    """Boundary sides of the domain. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the flow subproblem.
