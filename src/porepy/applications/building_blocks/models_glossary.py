@@ -471,14 +471,6 @@ class Glossary:
         name="internal_boundary_normal_to_outwards",
     )
 
-    mechanical_displacement_trace: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Operator]",
-        docstring="Ad operator that computes the trace of the displacement for a"
-        " mechanical system. Normally provided by an instance of"
-        " :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.",
-        name="mechanical_displacement_trace",
-    )
-
     mdg: Entry = Entry(
         type="pp.MixedDimensionalGrid",
         docstring="Mixed-dimensional grid for the current model. Normally defined in"
@@ -534,14 +526,6 @@ class Glossary:
         docstring="Function that returns a perturbation from reference state. Normally"
         " provided by a mixin of instance :class:`~porepy.models.VariableMixin`.",
         name="perturbation_from_reference",
-    )
-
-    poromechanical_displacement_trace: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Operator]",
-        docstring="Ad operator that computes the trace of the displacement for a"
-        " poromechanical system. Normally provided by an instance of"
-        " :class:`~porepy.models.constitutive_laws.PressureStress`.",
-        name="poromechanical_displacement_trace",
     )
 
     porosity: Entry = Entry(
