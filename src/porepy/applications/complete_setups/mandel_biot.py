@@ -652,12 +652,6 @@ class MandelUtils(VerificationUtils):
 
     """
 
-    fracture_network: pp.FractureNetwork2d
-    """Two-dimensional fracture network object. Set by a mixin instance of
-    :class:`~MandelGeometry`.
-
-    """
-
     results: list[MandelSaveData]
     """List of :class:`MandelSaveData` objects containing the results of the
     verification.
@@ -667,7 +661,7 @@ class MandelUtils(VerificationUtils):
     vertical_load: Callable
     """Method that retrieves the applied vertical load from the model parameters and
     applies the proper scaling. Provided by an instance of
-    :class:~`MandelBoundaryConditionsMechanicsTimeDependent`
+    :class:~`MandelBoundaryConditionsMechanicsTimeDependent`.
 
     """
 
@@ -1297,7 +1291,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
     """Parameter dictionary of the verification setup."""
 
     stress_keyword: str
-    """Keyword for accesssing the parameters of the mechanical subproblem."""
+    """Keyword for accessing the parameters of the mechanical subproblem."""
 
     time_manager: pp.TimeManager
     """Time manager. Normally set by an instance of a subclass of
