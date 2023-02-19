@@ -303,7 +303,6 @@ class Glossary:
         name="fluid_enthalpy",
     )
 
-    # TODO: I could not find an usage of fluid_internal_energy in models
     fluid_internal_energy: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Fluid internal energy. Normally defined in a mixin class with a"
