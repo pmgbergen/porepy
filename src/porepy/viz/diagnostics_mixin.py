@@ -27,7 +27,7 @@ from porepy.numerics.ad.operators import Variable
 # figures. Seaborn library is not one of the dependencies of PorePy. Thus, it might not
 # be present on the user's device. In this case, Python raises ImportError exception.
 try:
-    # PyLint is not happy with Seaborn since it's not typed. We silence this warning.
+    # MyPy is not happy with Seaborn since it's not typed. We silence this warning.
     import seaborn as sns  # type: ignore[import]
 except ImportError:
     _IS_SEABORN_AVAILABLE: bool = False
@@ -124,6 +124,7 @@ class DiagnosticsMixin:
                 equation name and the variable name. The equation and the variable names
                 are passed to allow the user for calculating the handler value only in a
                 subset of equations and variables of interest.
+
         Returns:
             A dictionary with keys corresponding to block index and values of
             diagnostics data collected for this block.
