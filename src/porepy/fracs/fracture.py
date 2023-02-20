@@ -139,7 +139,7 @@ class Fracture(abc.ABC):
         """Generator over the vertices of the fracture.
 
         Yields:
-            Fracture vertex `(shape=(nd, ))`.
+            Fracture vertex `(shape=(nd, 1))`.
 
         """
         for i in range(self.pts.shape[1]):
