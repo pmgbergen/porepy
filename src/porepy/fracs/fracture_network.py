@@ -101,7 +101,7 @@ def create_fracture_network(
             msg = "The dimensions inferred from 'fractures' and 'domain' do not match."
             raise ValueError(msg)
         dim = dim_from_domain
-    else: # CASE 3: fractures given, no domain
+    else:  # CASE 3: fractures given, no domain
         assert fracs is not None and domain is None  # needed to please mypy
         if isinstance(fracs[0], LineFracture):
             dim = 2
