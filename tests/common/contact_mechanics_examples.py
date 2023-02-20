@@ -10,7 +10,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 
 import porepy as pp
-from porepy.models import contact_mechanics_model
+from porepy.models.old_models import contact_mechanics_model
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

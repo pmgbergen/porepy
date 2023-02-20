@@ -17,15 +17,14 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.models.old_models.contact_mechanics_model import ContactMechanicsAdObjects
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
-class ContactMechanicsBiotAdObjects(
-    pp.models.contact_mechanics_model.ContactMechanicsAdObjects
-):
+class ContactMechanicsBiotAdObjects(ContactMechanicsAdObjects):
     """Storage class for ad related objects.
 
     Stored objects include variables, compound ad operators and projections.
