@@ -228,12 +228,6 @@ from porepy.models import (
     thermoporomechanics,
 )
 
-from porepy.models.contact_mechanics_model import ContactMechanics
-from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
-from porepy.models.thm_model import THM
-from porepy.models.incompressible_flow_model import IncompressibleFlow
-from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
-
 
 # Visualization
 from porepy.viz.exporter import Exporter
