@@ -8,13 +8,14 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import product
-from typing import Any, Callable, Literal, Optional, TypeAlias
+from typing import Any, Callable, Literal, Optional
 
 import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.sparse import csr_matrix, spmatrix
 from scipy.sparse.linalg import svds
+from typing_extensions import TypeAlias
 
 from porepy import GridLike
 from porepy.grids.md_grid import MixedDimensionalGrid
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 # Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
-GridGroupingType: TypeAlias = list[list[GridLike]]
+GridGroupingType: TypeAlias = "list[list[GridLike]]"
 """A type representing the structuring of grouping the diagnostics among the grids.
 
 """
@@ -45,7 +46,7 @@ SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
 """A type representing the diagnostics handler function to be applied to the submatrix.
 
 """
-DiagnosticsData: TypeAlias = dict[tuple[int, int], dict[str, Any]]
+DiagnosticsData: TypeAlias = "dict[tuple[int, int], dict[str, Any]]"
 """A type representing the diagnostics data for each submatrix in the Jacobian.
 
 The key represents the pair (row, column) of the block. The value is a dictionary of all
