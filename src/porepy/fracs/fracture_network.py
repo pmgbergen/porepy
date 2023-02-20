@@ -27,7 +27,7 @@ def create_fracture_network(
 
     Examples:
 
-        .. code: python3
+        .. code:: python3
 
             import porepy as pp
             import numpy as np
@@ -45,6 +45,7 @@ def create_fracture_network(
 
     Raises:
         - ValueError: If ``domain = None`` and ``fractures = None`` (or an empty list).
+        - ValueError: If the dimensions from ``domain`` and ``fractures`` do not match.
         - TypeError: If not all items of ``fractures`` are of the same type.
         - Warning: If ``run_checks = True`` when dimension is different from 3.
 
@@ -96,7 +97,9 @@ def create_fracture_network(
         # Infer the dimension from the dimension
         dim_from_domain = domain.dim
         # Make sure both dimension match
-        assert dim_from_domain == dim_from_fracs
+        if not dim_from_domain == dim_from_fracs:
+            msg = "The dimensions inferred from 'fractures' and 'domain' do not match."
+            raise ValueError(msg)
         dim = dim_from_domain
     elif fracs is not None and domain is None:  # CASE 3: fractures given, no domain
         if isinstance(fracs[0], LineFracture):
