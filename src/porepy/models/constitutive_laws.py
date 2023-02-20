@@ -1440,12 +1440,12 @@ class AdvectiveFlux:
         # we may need to change the below definition.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
             discr.upwind_primary
-            * mortar_projection.primary_to_mortar_avg
-            * trace.trace
-            * advected_entity
+            @ mortar_projection.primary_to_mortar_avg
+            @ trace.trace
+            @ advected_entity
             + discr.upwind_secondary
-            * mortar_projection.secondary_to_mortar_avg
-            * advected_entity
+            @ mortar_projection.secondary_to_mortar_avg
+            @ advected_entity
         )
         return interface_flux
 

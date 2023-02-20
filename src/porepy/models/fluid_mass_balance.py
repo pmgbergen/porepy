@@ -255,7 +255,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        source = projection.mortar_to_secondary_int * self.interface_fluid_flux(
+        source = projection.mortar_to_secondary_int @ self.interface_fluid_flux(
             interfaces
         )
         source.set_name("interface_fluid_flux_source")
