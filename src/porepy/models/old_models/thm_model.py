@@ -36,7 +36,7 @@ from porepy.utils.derived_discretizations import implicit_euler as IE_discretiza
 
 
 class THMAdObjects(
-    pp.models.contact_mechanics_biot_model.ContactMechanicsBiotAdObjects
+    pp.models.old_models.contact_mechanics_biot_model.ContactMechanicsBiotAdObjects
 ):
     """Storage class for ad related objects.
 

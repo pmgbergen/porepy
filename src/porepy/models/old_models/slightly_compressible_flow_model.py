@@ -14,11 +14,13 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class _AdVariables(pp.models.incompressible_flow_model._AdVariables):
+class _AdVariables(pp.models.old_models.incompressible_flow_model._AdVariables):
     time_step: pp.ad.Scalar
 
 
-class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleFlow):
+class SlightlyCompressibleFlow(
+    pp.models.old_models.incompressible_flow_model.IncompressibleFlow
+):
     """This class extends the Incompressible flow model by including a
     cumulative term expressed through pressure and a constant compressibility
     coefficient. For a full documentation refer to the parent class.
