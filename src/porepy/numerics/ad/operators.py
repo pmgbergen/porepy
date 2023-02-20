@@ -572,8 +572,13 @@ class Operator:
             operator_str = "-"
         elif tree.op == Operator.Operations.mul:
             operator_str = "*"
+        elif tree.op == Operator.Operations.matmul:
+            operator_str = "@"
         elif tree.op == Operator.Operations.div:
             operator_str = "/"
+        elif tree.op == Operator.Operations.pow:
+            operator_str = "**"
+
         # function evaluations have their own readable representation
         elif tree.op == Operator.Operations.evaluate:
             is_func = True
@@ -936,45 +941,138 @@ class Operator:
         s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
         return s
 
-    def __mul__(self, other):
-        children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.mul, children), name="* operator")
+    def __add__(self, other: Operator) -> Operator:
+        """Add two operators.
 
-    def __truediv__(self, other):
-        children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.div, children), name="/ operator")
+        Parameters:
+            other: The operator to add to self.
 
-    def __add__(self, other):
+        Returns:
+            The sum of self and other.
+
+        """
         children = self._parse_other(other)
         return Operator(tree=Tree(Operator.Operations.add, children), name="+ operator")
 
-    def __sub__(self, other):
+    def __radd__(self, other: Operator) -> Operator:
+        """Add two operators.
+
+        This is the reverse addition operator, i.e., it is called when self is on the
+        right hand side of the addition operator.
+
+        Parameters:
+            other: The operator to add to self.
+
+        Returns:
+            The sum of self and other.
+
+        """
+        return self.__add__(other)
+
+    def __sub__(self, other: Operator) -> Operator:
+        """Subtract two operators.
+
+        Parameters:
+            other: The operator to subtract from self.
+
+        Returns:
+            The difference of self and other.
+
+        """
         children = self._parse_other(other)
         return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
 
-    def __rmul__(self, other):
-        children = self._parse_other(other)
-        return Operator(
-            tree=Tree(Operator.Operations.rmul, children), name="reverse * operator"
-        )
+    def __rsub__(self, other: Operator) -> Operator:
+        """Subtract two operators.
 
-    def __rtruediv__(self, other):
-        children = self._parse_other(other)
-        return Operator(
-            tree=Tree(Operator.Operations.rdiv, children), name="/ operator"
-        )
+        Parameters:
+            other: An operator which should be subtracted by self.
 
-    def __radd__(self, other):
-        return self.__add__(other)
+        Returns:
+            The difference of other and self.
 
-    def __rsub__(self, other):
+        """
         # consider the expression a-b. right-subtraction means self == b
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
         return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
 
-    def __pow__(self, other):
+    def __mul__(self, other: Operator) -> Operator:
+        """Elementwise multiplication of two operators.
+
+        Parameters:
+            other: The operator to multiply with self.
+
+        Returns:
+            The elementwise product of self and other.
+
+        """
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operator.Operations.mul, children), name="* operator")
+
+    def __rmul__(self, other: Operator) -> Operator:
+        """Elementwise multiplication of two operators.
+
+        This is the reverse multiplication operator, i.e., it is called when self is on
+        the right hand side of the multiplication operator.
+
+        Parameters:
+            other: The operator to multiply with self.
+
+        Returns:
+            The elementwise product of self and other.
+
+        """
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operator.Operations.rmul, children), name="right * operator"
+        )
+
+    def __truediv__(self, other: Operator) -> Operator:
+        """Elementwise division of two operators.
+
+        Parameters:
+            other: The operator to divide self with.
+
+        Returns:
+            The elementwise division of self and other.
+
+        """
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operator.Operations.div, children), name="/ operator")
+
+    def __rtruediv__(self, other: Operator) -> Operator:
+        """Elementwise division of two operators.
+
+        This is the reverse division operator, i.e., it is called when self is on
+        the right hand side of the division operator.
+
+        Parameters:
+            other: The operator to be divided by self.
+
+        Returns:
+            The elementwise division of other and self.
+
+        """
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operator.Operations.rdiv, children), name="right / operator"
+        )
+
+    def __pow__(self, other: Operator) -> Operator:
+        """Elementwise exponentiation of two operators.
+
+        Parameters:
+            other: The operator to exponentiate self with.
+
+        Raises:
+            ValueError: If self is a SparseArray and other is a Scalar or a DenseArray.
+
+        Returns:
+            The elementwise exponentiation of self and other.
+
+        """
         if isinstance(self, pp.ad.SparseArray) and isinstance(other, pp.ad.Scalar):
             # Special case: Scipy sparse matrices only accepts integers as exponents,
             # but we cannot know if the exponent is an integer or not, so we need to
@@ -1003,22 +1101,55 @@ class Operator:
             tree=Tree(Operator.Operations.pow, children), name="** operator"
         )
 
-    def __rpow__(self, other):
+    def __rpow__(self, other: Operator) -> Operator:
+        """Elementwise exponentiation of two operators.
+
+        This is the reverse exponentiation operator, i.e., it is called when self is on
+        the right hand side of the exponentiation operator.
+
+        Parameters:
+            other: The operator that should be raised to the power of self.
+
+        Returns:
+            The elementwise exponentiation of other and self.
+
+        """
         children = self._parse_other(other)
         return Operator(
             tree=Tree(Operator.Operations.rpow, children), name="reverse ** operator"
         )
 
-    def __matmul__(self, other):
+    def __matmul__(self, other: Operator) -> Operator:
+        """Matrix multiplication of two operators.
+
+        Parameters:
+            other: The operator to right-multiply with self.
+
+        Returns:
+            The matrix product of self and other.
+
+        """
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.matmul, children), name="** operator"
+            tree=Tree(Operator.Operations.matmul, children), name="@ operator"
         )
 
     def __rmatmul__(self, other):
+        """Matrix multiplication of two operators.
+
+        This is the reverse matrix multiplication operator, i.e., it is called when self
+        is on the right hand side of the matrix multiplication operator.
+
+        Parameters:
+            other: The operator to left-multiply with self.
+
+        Returns:
+            The matrix product of other and self.
+
+        """
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.rmatmul, children), name="reverse ** operator"
+            tree=Tree(Operator.Operations.rmatmul, children), name="reverse @ operator"
         )
 
     def _parse_other(self, other):
@@ -1057,7 +1188,7 @@ class SparseArray(Operator):
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._mat.data = self._mat.data.astype(float)
-        self.shape = mat.shape
+        self._shape = mat.shape
         """Shape of the wrapped matrix."""
 
     def __repr__(self) -> str:
@@ -1086,6 +1217,11 @@ class SparseArray(Operator):
     def T(self) -> "SparseArray":
         """Shorthand for transpose."""
         return self.transpose()
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Shape of the wrapped matrix."""
+        return self._shape
 
 
 class DenseArray(Operator):
@@ -1123,6 +1259,11 @@ class DenseArray(Operator):
         if self._name is not None:
             s += f"({self._name})"
         return s
+
+    @property
+    def size(self) -> int:
+        """Number of elements in the wrapped array."""
+        return self._values.size
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         """See :meth:`Operator.parse`.
@@ -1405,6 +1546,7 @@ class Variable(Operator):
         """A dictionary of tags associated with this variable."""
         return self._tags
 
+    @property
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
         if isinstance(self.domain, pp.MortarGrid):
