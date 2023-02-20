@@ -611,7 +611,7 @@ def test_variable_combinations(grids, variables):
                     sps.coo_matrix((data, (rows, cols)), shape=(nr, nc))
                 )
 
-                eq = eq = mv + P * var
+                eq = eq = mv + P @ var
                 expr = eq.evaluate(eq_system)
                 # Jacobian matrix size is set according to the dof manager,
                 assert expr.jac.shape[1] == eq_system.num_dofs()
