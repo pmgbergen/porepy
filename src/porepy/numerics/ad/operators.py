@@ -1033,6 +1033,9 @@ class SparseArray(Operator):
     def __init__(self, mat: sps.spmatrix, name: Optional[str] = None) -> None:
         super().__init__(name=name)
         self._mat = mat
+        # Force the data to be float, so that we limit the number of combinations of
+        # data types that we need to consider in parsing.
+        self._mat.data = self._mat.data.astype(float)
         self.shape = mat.shape
         """Shape of the wrapped matrix."""
 
@@ -1087,6 +1090,9 @@ class DenseArray(Operator):
         """
         super().__init__(name=name)
         self._values = values
+        # Force the data to be float, so that we limit the number of combinations of
+        # data types that we need to consider in parsing.
+        self._values = self._values.astype(float)
 
     def __repr__(self) -> str:
         return f"Wrapped numpy array of size {self._values.size}"
@@ -1269,7 +1275,9 @@ class Scalar(Operator):
 
     def __init__(self, value: float, name: Optional[str] = None) -> None:
         super().__init__(name=name)
-        self._value = value
+        # Force the data to be float, so that we limit the number of combinations of
+        # data types that we need to consider in parsing.
+        self._value = float(value)
 
     def __repr__(self) -> str:
         return f"Wrapped scalar with value {self._value}"
