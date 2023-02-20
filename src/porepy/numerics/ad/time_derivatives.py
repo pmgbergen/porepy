@@ -24,9 +24,9 @@ def dt(op: pp.ad.Operator, time_step: pp.ad.Scalar) -> pp.ad.Operator:
     If the time-dependent quantity q is already evaluated at the previous time step, its
     derivative will be defined as (q(time=n-1) - q(time=n-1)) / dt = 0.
 
-    Args:
+    Parameters:
         op: Operator tree to be differentiated.
-        dt: Size of time step.
+        time_step: Size of time step.
 
     Returns:
         A first-order approximation of the time derivative of op.
@@ -39,7 +39,7 @@ def dt(op: pp.ad.Operator, time_step: pp.ad.Scalar) -> pp.ad.Operator:
 def time_increment(op: pp.ad.Operator) -> pp.ad.Operator:
     """Find the time increment of an operator tree.
 
-    Args:
+    Parameters:
         op: Operator tree for which we need the time increment.
 
     Returns:
