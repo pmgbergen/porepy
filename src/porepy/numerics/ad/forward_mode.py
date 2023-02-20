@@ -493,7 +493,7 @@ class AdArray:
         if isinstance(other, (int, float)):
             return self.__mul__(float(other))
 
-        elif isinstance(other, (np.ndarray, pp.ad.AdArray, int)):
+        elif isinstance(other, (np.ndarray, pp.ad.AdArray)):
             raise ValueError(
                 """Cannot perform matrix multiplication between an Ad_array and a"""
                 f""" {type(other)}"""
@@ -525,7 +525,7 @@ class AdArray:
         if isinstance(other, (int, float)):
             return self.__mul__(float(other))
 
-        if isinstance(other, (np.ndarray, AdArray, int)):
+        if isinstance(other, (np.ndarray, AdArray)):
             raise ValueError(
                 """Cannot perform matrix multiplication between an Ad_array and a"""
                 f""" {type(other)}"""
