@@ -8,7 +8,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import product
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional, TypeAlias
 
 import matplotlib
 import numpy as np
@@ -37,15 +37,15 @@ logger = logging.getLogger(__name__)
 
 
 # Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
-GridGroupingType = list[list[GridLike]]
+GridGroupingType: TypeAlias = list[list[GridLike]]
 """A type representing the structuring of grouping the diagnostics among the grids.
 
 """
-SubmatrixHandlerType = Callable[[spmatrix, str, str], float]
+SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
 """A type representing the diagnostics handler function to be applied to the submatrix.
 
 """
-DiagnosticsData = dict[tuple[int, int], dict[str, Any]]
+DiagnosticsData: TypeAlias = dict[tuple[int, int], dict[str, Any]]
 """A type representing the diagnostics data for each submatrix in the Jacobian.
 
 The key represents the pair (row, column) of the block. The value is a dictionary of all
