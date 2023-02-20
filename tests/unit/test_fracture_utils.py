@@ -129,6 +129,7 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
     """
 
     def test_linefractures_to_pts_edges(self):
+        """Test conversion of line fractures into points and edges."""
         frac1 = pp.LineFracture([[0, 2], [1, 3]])
         frac2 = pp.LineFracture([[2, 4], [3, 5]])
         frac3 = pp.LineFracture([[0, 4], [1, 5]])
@@ -141,21 +142,39 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
         assert np.allclose(converted_edges, edges)
 
     def test_linefractures_to_pts_edges_with_tags(self):
+        """Test conversion of line fractures with tags into pts and edges.
+
+        The tags are converted into additional rows in the ``edges`` array.
+        """
+        # Create line fractures with different tag structures. Empty tags first, then
+        # nonempty tag/no tags/only nonempty tags/nonempty tags at the end.
         frac1 = pp.LineFracture([[0, 2], [1, 3]], tags=[-1, -1, 2])
         frac2 = pp.LineFracture([[2, 4], [3, 5]])
         frac3 = pp.LineFracture([[0, 4], [1, 5]], tags=[1, 1])
+        frac4 = pp.LineFracture([[0, 4], [1, 5]], tags=[2, 2, 2, -1])
         pts = np.array([[0, 2, 4], [1, 3, 5]])
-        # All edges will have the maximal number of tags (3 in this example).
+        # All edges will have the maximal number of tags (4 in this example). The last
+        # row consists of only empty tags. This is wanted behavior, as the conversion
+        # does not check the tag values.
         edges = np.array(
-            [[0, 1, 0], [1, 2, 2], [-1, -1, 1], [-1, -1, 1], [2, -1, -1]], dtype=int
+            [
+                [0, 1, 0, 0],
+                [1, 2, 2, 2],
+                [-1, -1, 1, 2],
+                [-1, -1, 1, 2],
+                [2, -1, -1, 2],
+                [-1, -1, -1, -1],
+            ],
+            dtype=int,
         )
         converted_pts, converted_edges = linefractures_to_pts_edges(
-            [frac1, frac2, frac3]
+            [frac1, frac2, frac3, frac4]
         )
         assert np.allclose(converted_pts, pts)
         assert np.allclose(converted_edges, edges)
 
     def test_pts_edges_to_linefractures(self):
+        """Test conversion of points and edges into line fractures."""
         frac1 = pp.LineFracture([[0, 2], [1, 3]])
         frac2 = pp.LineFracture([[2, 4], [3, 5]])
         frac3 = pp.LineFracture([[0, 4], [1, 5]])
@@ -170,6 +189,10 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
             assert np.allclose(converted_pt, pt)
 
     def test_pts_edges_to_linefractures_with_tags(self):
+        """Test conversion of points and edges with tags into line fractures.
+
+        The tags are converted into attributes of the line fractures.
+        """
         frac1 = pp.LineFracture([[0, 2], [1, 3]], tags=[-1, 2, -1])
         frac2 = pp.LineFracture([[2, 4], [3, 5]], tags=[1])
         frac3 = pp.LineFracture([[0, 4], [1, 5]])
@@ -218,8 +241,8 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
         assert np.allclose(converted_pts, pts, atol=1e-20)
 
     def test_empty_linefractures_to_pts_edges(self):
-        """Test that an empty ``linefracture`` list results in empty ``edges`` and
-        ``pts`` arrays.
+        """Test that an empty ``linefracture`` list results in ``edges`` and
+        ``pts`` arrays with zero length.
 
         """
         converted_pts, converted_edges = linefractures_to_pts_edges([])
@@ -227,8 +250,8 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
         assert converted_pts.shape == (2, 0)
 
     def test_pts_empty_edges_to_linefractures(self):
-        """Test that an empty ``edges`` array results in an empty ``linefracture``
-        list.
+        """Test that an ``edges`` array with zero entries results in an empty
+        ``linefracture`` list.
 
         """
         pts = np.array([[0, 2, 4], [1, 3, 5]])
