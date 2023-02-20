@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Unittest Results</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-xs-12">
+                <h2 class="text-capitalize">Unittest Results</h2>
+                <p class='attribute'><strong>Start Time: </strong>2023-02-20 10:40:09</p>
+                <p class='attribute'><strong>Duration: </strong>385.21 s</p>
+                <p class='attribute'><strong>Summary: </strong>Total: 6, Pass: 0, Fail: 1, Skip: 5</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12 col-sm-10 col-md-10">
+                <table class='table table-hover table-responsive'>
+                    <thead>
+                        <tr>
+                            <th>__main__.Test_CO2_H2O_pT_flash</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class='info'>
+                            <td class="col-xs-10">test_flash_2_phase_easy</td>
+                            <td class="col-xs-1">
+                                <span class="label label-info" style="display:block;width:40px;">Skip</span>
+                            </td>
+                            <td class="col-xs-1">
+                            </td>
+                        </tr>
+                        <tr class='info'>
+                            <td class="col-xs-10">test_flash_2_phase_hard</td>
+                            <td class="col-xs-1">
+                                <span class="label label-info" style="display:block;width:40px;">Skip</span>
+                            </td>
+                            <td class="col-xs-1">
+                                <button class="btn btn-default btn-xs">View</button>
+                            </td>
+                        </tr>
+                        <tr style="display:none;">
+                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">Long runtime.</p>
+                            </td>
+                        </tr>
+                        <tr class='info'>
+                            <td class="col-xs-10">test_flash_only_gas_easy</td>
+                            <td class="col-xs-1">
+                                <span class="label label-info" style="display:block;width:40px;">Skip</span>
+                            </td>
+                            <td class="col-xs-1">
+                            </td>
+                        </tr>
+                        <tr class='info'>
+                            <td class="col-xs-10">test_flash_only_gas_hard</td>
+                            <td class="col-xs-1">
+                                <span class="label label-info" style="display:block;width:40px;">Skip</span>
+                            </td>
+                            <td class="col-xs-1">
+                            </td>
+                        </tr>
+                        <tr class='danger'>
+                            <td class="col-xs-10">test_flash_only_liquid_easy</td>
+                            <td class="col-xs-1">
+                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                            </td>
+                            <td class="col-xs-1">
+                                <button class="btn btn-default btn-xs">View</button>
+                            </td>
+                        </tr>
+                        <tr style="display:none;">
+                            <td colspan="3">
+
+                                <table class='table table-hover table-responsive'>
+                                    <tbody>
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : Flash did not succeed. Row ID: 5</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 681, in _flash
+    self.assertTrue(success, msg=f"Flash did not succeed. Row ID: {i}")
+AssertionError: False is not true : Flash did not succeed. Row ID: 5
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : Flash did not succeed. Row ID: 13</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 681, in _flash
+    self.assertTrue(success, msg=f"Flash did not succeed. Row ID: {i}")
+AssertionError: False is not true : Flash did not succeed. Row ID: 13
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: Uncovered cells/rows detected in PR root computation.</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 678, in _flash
+    success = flash.flash(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 703, in flash
+    success = self._NPIPM(flash_type, do_logging)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1210, in _NPIPM
+    success, iter_final = self._newton_iterations(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1579, in _newton_iterations
+    A, b = F()
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/flash.py", line 1202, in F
+    return self._C.linearize_subsystem(
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 109, in linearize_subsystem
+    self.compute_roots(state=state, apply_smoother=True)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_composition.py", line 153, in compute_roots
+    phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 253, in compute
+    self.Z = self._Z(self.A, self.B, apply_smoother)
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/composite/peng_robinson/pr_eos.py", line 460, in _Z
+    assert np.all(
+AssertionError: Uncovered cells/rows detected in PR root computation.
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">test_flash_only_liquid_easy [L2-error subtest (tol=1e-07): <Gas Fraction>]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : L2-Tolerance for <Gas Fraction> exceeded by 0.26469264264649495.
+Error: 0.26469274264649495
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 45, in _sub_test_l2_error
+    self.assertTrue(
+AssertionError: False is not true : L2-Tolerance for <Gas Fraction> exceeded by 0.26469264264649495.
+Error: 0.26469274264649495
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">test_flash_only_liquid_easy [L2-error subtest (tol=1e-07): <Liquid Compressibility Factor>]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : L2-Tolerance for <Liquid Compressibility Factor> exceeded by 0.4790941689572037.
+Error: 0.4790942689572037
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 45, in _sub_test_l2_error
+    self.assertTrue(
+AssertionError: False is not true : L2-Tolerance for <Liquid Compressibility Factor> exceeded by 0.4790941689572037.
+Error: 0.4790942689572037
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">test_flash_only_liquid_easy [L2-error subtest (tol=1e-07): <Fraction H2O in Liquid>]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : L2-Tolerance for <Fraction H2O in Liquid> exceeded by 3.2836774400534314.
+Error: 3.2836775400534313
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 45, in _sub_test_l2_error
+    self.assertTrue(
+AssertionError: False is not true : L2-Tolerance for <Fraction H2O in Liquid> exceeded by 3.2836774400534314.
+Error: 3.2836775400534313
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">test_flash_only_liquid_easy [L2-error subtest (tol=1e-07): <Fraction CO2 in Liquid>]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : L2-Tolerance for <Fraction CO2 in Liquid> exceeded by 0.055216492169133206.
+Error: 0.05521659216913321
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 45, in _sub_test_l2_error
+    self.assertTrue(
+AssertionError: False is not true : L2-Tolerance for <Fraction CO2 in Liquid> exceeded by 0.055216492169133206.
+Error: 0.05521659216913321
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">0): <Fugacity Coefficient H2O in Liquid>]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">0): <Fugacity Coefficient CO2 in Liquid>]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : L2-Tolerance for <Fugacity Coefficient CO2 in Liquid> exceeded by 127.44484944005828.
+Error: 137.44484944005828
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 45, in _sub_test_l2_error
+    self.assertTrue(
+AssertionError: False is not true : L2-Tolerance for <Fugacity Coefficient CO2 in Liquid> exceeded by 127.44484944005828.
+Error: 137.44484944005828
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10"> Error subtest (tol=1e-07): Gas Fraction]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : Absolute tolerance for <Gas Fraction> exceeded at row:
+[ 0  2  6 11 12 20 21 25 28 30 31 33 36]
+by
+[1.86752521e-01 1.87574009e-01 1.61810133e-04 1.27775902e-03
+ 1.77583419e-04 1.57483715e-04 3.45953896e-07 1.19197677e-04
+ 7.20784768e-05 4.90593591e-07 1.96872401e-05 3.17082615e-06
+ 1.36659078e-05]
+Max. Error: 0.18757400912742234 ; Min. Error: 0.0
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 31, in _sub_test_abs_error
+    self.assertTrue(
+AssertionError: False is not true : Absolute tolerance for <Gas Fraction> exceeded at row:
+[ 0  2  6 11 12 20 21 25 28 30 31 33 36]
+by
+[1.86752521e-01 1.87574009e-01 1.61810133e-04 1.27775902e-03
+ 1.77583419e-04 1.57483715e-04 3.45953896e-07 1.19197677e-04
+ 7.20784768e-05 4.90593591e-07 1.96872401e-05 3.17082615e-06
+ 1.36659078e-05]
+Max. Error: 0.18757400912742234 ; Min. Error: 0.0
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10"> Error subtest (tol=1e-07): Liquid Compressibility Factor]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : Absolute tolerance for <Liquid Compressibility Factor> exceeded at row:
+[ 0  2  3  5  7  8  9 10 13 16 17 18 19]
+by
+[0.00347389 0.00484909 0.22273217 0.07874026 0.11002546 0.1299996
+ 0.15354484 0.18128196 0.06650143 0.10939741 0.12901487 0.15206308
+ 0.17911776]
+Max. Error: 0.2227321749995587 ; Min. Error: 6.938893903907228e-17
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 31, in _sub_test_abs_error
+    self.assertTrue(
+AssertionError: False is not true : Absolute tolerance for <Liquid Compressibility Factor> exceeded at row:
+[ 0  2  3  5  7  8  9 10 13 16 17 18 19]
+by
+[0.00347389 0.00484909 0.22273217 0.07874026 0.11002546 0.1299996
+ 0.15354484 0.18128196 0.06650143 0.10939741 0.12901487 0.15206308
+ 0.17911776]
+Max. Error: 0.2227321749995587 ; Min. Error: 6.938893903907228e-17
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10"> Error subtest (tol=1e-07): Fraction H2O in Liquid]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : Absolute tolerance for <Fraction H2O in Liquid> exceeded at row:
+[ 0  2  3  5  7  8  9 10 13 16 17 18 19]
+by
+[0.02650667 0.02712164 0.99       0.99       0.99       0.99
+ 0.99       0.99       0.99       0.99       0.99       0.99
+ 0.99      ]
+Max. Error: 0.99 ; Min. Error: 0.0
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 31, in _sub_test_abs_error
+    self.assertTrue(
+AssertionError: False is not true : Absolute tolerance for <Fraction H2O in Liquid> exceeded at row:
+[ 0  2  3  5  7  8  9 10 13 16 17 18 19]
+by
+[0.02650667 0.02712164 0.99       0.99       0.99       0.99
+ 0.99       0.99       0.99       0.99       0.99       0.99
+ 0.99      ]
+Max. Error: 0.99 ; Min. Error: 0.0
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10"> Error subtest (tol=1e-07): Fraction CO2 in Liquid]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : Absolute tolerance for <Fraction CO2 in Liquid> exceeded at row:
+[ 0  2  3  5  7  8  9 10 13 16 17 18 19]
+by
+[0.03088856 0.03153996 0.01       0.01       0.01       0.01
+ 0.01       0.01       0.01       0.01       0.01       0.01
+ 0.01      ]
+Max. Error: 0.0315399605945745 ; Min. Error: 0.0
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 31, in _sub_test_abs_error
+    self.assertTrue(
+AssertionError: False is not true : Absolute tolerance for <Fraction CO2 in Liquid> exceeded at row:
+[ 0  2  3  5  7  8  9 10 13 16 17 18 19]
+by
+[0.03088856 0.03153996 0.01       0.01       0.01       0.01
+ 0.01       0.01       0.01       0.01       0.01       0.01
+ 0.01      ]
+Max. Error: 0.0315399605945745 ; Min. Error: 0.0
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='success'>
+                                            <td class="col-xs-10">0): Fugacity coefficient H2O in Liquid]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-success" style="display:block;width:40px;">Pass</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class='danger'>
+                                            <td class="col-xs-10">0): Fugacity coefficient CO2 in Liquid]</td>
+                                            <td class="col-xs-1">
+                                                <span class="label label-danger" style="display:block;width:40px;">Fail</span>
+                                            </td>
+                                            <td class="col-xs-1">
+                                                <button class="btn btn-default btn-xs">View</button>
+                                            </td>
+                                        </tr>
+                                        <tr style="display:none;">
+                                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">AssertionError: False is not true : Absolute tolerance for <Fugacity coefficient CO2 in Liquid> exceeded at row:
+[ 0  2  3  5  7  8  9 10 13 16 17 18 19]
+by
+[19.36397946 15.38729671 45.73965006 64.26997457 48.8072485  42.89566714
+ 37.96231548 33.86814363 47.91852755 31.90676118 28.19183557 25.0944711
+ 22.52766609]
+Max. Error: 64.26997457483722 ; Min. Error: 0.0
+</p><p style="color:maroon;">Traceback (most recent call last):
+  File "/mnt/c/Users/vl-work/Desktop/github/porepy/tests/integration/composite/test_H2O_CO2_pT_flash.py", line 31, in _sub_test_abs_error
+    self.assertTrue(
+AssertionError: False is not true : Absolute tolerance for <Fugacity coefficient CO2 in Liquid> exceeded at row:
+[ 0  2  3  5  7  8  9 10 13 16 17 18 19]
+by
+[19.36397946 15.38729671 45.73965006 64.26997457 48.8072485  42.89566714
+ 37.96231548 33.86814363 47.91852755 31.90676118 28.19183557 25.0944711
+ 22.52766609]
+Max. Error: 64.26997457483722 ; Min. Error: 0.0
+
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:173: RuntimeWarning: divide by zero encountered in reciprocal
+  return self * (other**-1)
+/mnt/c/Users/vl-work/Desktop/github/porepy/src/porepy/numerics/ad/forward_mode.py:74: RuntimeWarning: invalid value encountered in multiply
+  val = self.val * other
+</p>
+                                            </td>
+                                        </tr>
+                                        
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr class='info'>
+                            <td class="col-xs-10">test_flash_only_liquid_hard</td>
+                            <td class="col-xs-1">
+                                <span class="label label-info" style="display:block;width:40px;">Skip</span>
+                            </td>
+                            <td class="col-xs-1">
+                                <button class="btn btn-default btn-xs">View</button>
+                            </td>
+                        </tr>
+                        <tr style="display:none;">
+                            <td class="col-xs-9" colspan="3"><p style="color:maroon;">Some supercritical regions cause problems.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="3">
+                                Total: 6, Pass: 0, Fail: 1, Skip: 5 -- Duration: 385.21 s
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $('td').on('click', '.btn', function(e){
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                var $this = $(this);
+                var $nextRow = $this.closest('tr').next('tr');
+                $nextRow.slideToggle("fast");
+                $this.text(function(i, text){
+                    if (text === 'View') {
+                        return 'Hide';
+                    } else {
+                        return 'View';
+                    };
+                });
+            });
+        });
+    </script>
+</body>
+</html
