@@ -228,13 +228,6 @@ from porepy.models import (
     thermoporomechanics,
 )
 
-from porepy.models.old_models.contact_mechanics_model import ContactMechanics
-from porepy.models.old_models.contact_mechanics_biot_model import ContactMechanicsBiot
-from porepy.models.old_models.thm_model import THM
-from porepy.models.old_models.incompressible_flow_model import IncompressibleFlow
-from porepy.models.old_models.slightly_compressible_flow_model import (
-    SlightlyCompressibleFlow,
-)
 
 # Visualization
 from porepy.viz.exporter import Exporter
@@ -243,17 +236,11 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 from porepy.utils import error
 
-# Applications
-from porepy.applications.building_blocks.models_glossary import (
-    Glossary,
-    print_glossary_entry,
-)
 
 # Modules
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
 from porepy.grids import coarsening, partition, refinement
-import porepy.utils.derived_discretizations
 from porepy.numerics import displacement_correlation
 from porepy.utils.default_domains import (
     CubeDomain,

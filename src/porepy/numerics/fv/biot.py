@@ -17,8 +17,9 @@ not be used directly.
 
 Because of the number of variables and equations, and their somewhat difficult relation,
 the most convenient way to set up a discretization for poro-elasticity is to use
-pp.BiotContactMechanicsModel (designed for fractures and contact mechanics, but will
-turn into a standard poro-elasticity equation for non-fractured domains).
+:class:`~porepy.models.poromechanics.Poromechanics` (designed for fractures and contact
+mechanics, but will turn into a standard poro-elasticity equation for non-fractured
+domains).
 
 """
 from __future__ import annotations
@@ -130,12 +131,12 @@ class Biot(pp.Mpsa):
         Raises:
             NotImplementedError: If invoked. The method is included to be compatible
                 with the wider discretization class, but assembly should be handled
-                by the ContactMechanicsBiot class.
+                by :class:`~porepy.models.poromechanics.Poromechanics`.
 
         """
         raise NotImplementedError(
             """This class cannot be used for assembly.
-    Use the ContactMechanicsBiot class instead."""
+    Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
         )
 
     def assemble_rhs(self, sd: pp.Grid, sd_data: dict) -> np.ndarray:
@@ -152,12 +153,12 @@ class Biot(pp.Mpsa):
         Raises:
             NotImplementedError: If invoked. The method is included to be compatible
                 with the wider discretization class, but assembly should be handled
-                by the ContactMechanicsBiot class.
+                by :class:`~porepy.models.poromechanics.Poromechanics`.
 
         """
         raise NotImplementedError(
             """This class cannot be used for assembly.
-    Use the ContactMechanicsBiot class instead."""
+    Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
         )
 
     def assemble_matrix(self, sd: pp.Grid, sd_data: dict) -> sps.spmatrix:
@@ -177,12 +178,12 @@ class Biot(pp.Mpsa):
         Raises:
             NotImplementedError: If invoked. The method is included to be compatible
                 with the wider discretization class, but assembly should be handled
-                by the ContactMechanicsBiot class.
+                by :class:`~porepy.models.poromechanics.Poromechanics`.
 
         """
         raise NotImplementedError(
             """This class cannot be used for assembly.
-    Use the ContactMechanicsBiot class instead."""
+                Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
         )
 
     def update_discretization(self, sd: pp.Grid, sd_data: dict):
