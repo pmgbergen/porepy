@@ -33,7 +33,7 @@ def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
 
 
 def get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
-    array = np.array([1, 2, 3])
+    array = np.array([1, 2, 3]).astype(float)
     if wrapped:
         return pp.ad.DenseArray(array)
     else:
@@ -41,7 +41,7 @@ def get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
 
 
 def get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.SparseArray:
-    mat = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    mat = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).astype(float)
     if wrapped:
         return pp.ad.SparseArray(mat)
     else:
