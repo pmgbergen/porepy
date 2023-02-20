@@ -490,32 +490,53 @@ class Operator:
         msg_1 = tree.children[1]._parse_readable()
 
         nl = "\n"
-        msg = (
-            f"Ad parsing: Error when {operation}\n"
-            + "  "
-            + msg_0
-            + nl
-            + "with"
-            + nl
-            + "  "
-            + msg_1
-            + nl
-        )
+        msg = f"Ad parsing: Error when {operation}\n\n"
+        # First give name information. If the expression under evaluation is c = a + b,
+        # the below code refers to c as the intended result, and a and b as the first
+        # and second argument, respectively.
+        msg += "Information on names given to the operators involved: \n"
+        if len(self.name) > 0:
+            msg += f"Name of the intended result: {self.name}\n"
+        else:
+            msg += "The intended result is not named\n"
+        if len(tree.children[0].name) > 0:
+            msg += f"Name of the first argument: {tree.children[0].name}\n"
+        else:
+            msg += "The first argument is not named\n"
+        if len(tree.children[1].name) > 0:
+            msg += f"Name of the second argument: {tree.children[1].name}\n"
+        else:
+            msg += "The second argument is not named\n"
+        msg += nl
+
+        # Information on how the terms a and b are defined
+        msg += "The first argument represents the expression:\n " + msg_0 + nl + nl
+        msg += "The second argument represents the expression:\n " + msg_1 + nl
+
+        # Finally some information on sizes
         if isinstance(results[0], sps.spmatrix):
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
         elif isinstance(results[0], pp.ad.AdArray):
             msg += (
-                "First argument is an Ad_array with Jacobian of size "
-                f"{results[0].jac.shape} \n"
+                "First argument is an Ad_array of size {results[0].size()} "
+                f" and Jacobian of shape  {results[0].jac.shape} \n"
             )
+        elif isinstance(results[0], np.ndarray):
+            msg += f"First argument is a numpy array of size {results[0].size}\n"
+
         if isinstance(results[1], sps.spmatrix):
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
         elif isinstance(results[1], pp.ad.AdArray):
             msg += (
-                "Second argument is an Ad_array with Jacobian of size "
-                f"{results[1].jac.shape}"
+                "Second argument is an Ad_array of size {results[1].size()} "
+                f" and Jacobian of shape  {results[1].jac.shape} \n"
             )
+        elif isinstance(results[1], np.ndarray):
+            msg += f"Second argument is a numpy array of size {results[1].size}\n"
 
+        msg += nl
+        msg += "Note that a size mismatch may be caused by an error in the definition\n"
+        msg += "of the intended result, or in the definition of one of the arguments."
         return msg
 
     def _parse_readable(self) -> str:
