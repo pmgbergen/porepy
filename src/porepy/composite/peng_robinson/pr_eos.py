@@ -456,6 +456,16 @@ class PR_EoS:
         one_root_region = delta.val > self.eps
         three_root_region = delta.val < -self.eps
 
+        def check_for_nan(A_, B_):
+
+            A_nan_vals = np.any(np.isnan(A_.val))
+            B_nan_vals = np.any(np.isnan(B_.val))
+
+            if A_nan_vals or B_nan_vals:
+                return f"Discovered NANs in A ({A_nan_vals}) or B ({B_nan_vals})."
+            else:
+                return "Uncovered cells/rows detected in PR root computation."
+
         # sanity check that every cell/case covered
         assert np.all(
             np.logical_or.reduce(
@@ -466,7 +476,7 @@ class PR_EoS:
                     three_root_region,
                 ]
             )
-        ), "Uncovered cells/rows detected in PR root computation."
+        ), check_for_nan(A, B)
 
         # sanity check that the regions are mutually exclusive
         # this array must have 1 in every entry for the test to pass
@@ -697,6 +707,7 @@ class PR_EoS:
         else:
             Z = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
 
+        # # region is for plotting purpose
         # regions = np.array(
         #     [
         #         one_root_region[0],
@@ -707,7 +718,7 @@ class PR_EoS:
         #     dtype=bool,
         # )
 
-        return Z  # , regions  # region is for plotting purpose
+        return Z  # , regions
 
     def get_rho(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Computes the molar density from scratch.

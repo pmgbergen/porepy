@@ -16,8 +16,8 @@ GAS = pp.composite.PR_Phase(adsys, True, name="G")
 M.add_components([h2o, co2])
 M.add_phases([LIQ, GAS])
 
-temperature = 433.333333333333
-pressure = 1e8 * 1e-6
+temperature = 566.666666666666
+pressure = 17086498.0450148 * 1e-6
 co2_fraction = 0.01
 # n2_fraction = 0.0
 h2o_fraction = 0.99
@@ -48,7 +48,7 @@ FLASH.armijo_parameters["rho"] = 0.99
 FLASH.armijo_parameters["j_max"] = 50
 FLASH.armijo_parameters["return_max"] = True
 FLASH.newton_update_chop = 1.0
-FLASH.flash_tolerance = 1e-7
+FLASH.flash_tolerance = 1e-8
 FLASH.max_iter_flash = 70
 
 FLASH.flash("isothermal", "npipm", "rachford_rice", True, True)
@@ -57,16 +57,21 @@ FLASH.evaluate_specific_enthalpy()
 FLASH.evaluate_saturations()
 # print thermodynamic state stored as STATE in AD
 FLASH.print_state()
+print("Z LIQ: ", M._phases[0].eos.Z.val)
+print("Z GAS: ", M._phases[1].eos.Z.val)
+print("---")
+print("PHI LIQ: ", [phi.val for phi in M._phases[0].eos.phi.values()])
+print("PHI GAS: ", [phi.val for phi in M._phases[1].eos.phi.values()])
 
-# modifying enthalpy for isenthalpic flash
-h = adsys.get_variable_values(variables=[M.h_name]) * 1.25
-adsys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=False)
+# # modifying enthalpy for isenthalpic flash
+# h = adsys.get_variable_values(variables=[M.h_name]) * 1.25
+# adsys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=False)
 
-# isenthalpic procedure, storing only as ITERATE
-FLASH.use_armijo = False
-FLASH.flash("isenthalpic", "npipm", "iterate", False, True)
-FLASH.evaluate_saturations(False)
-# print thermodynamic state stored as ITERATE in ad
-FLASH.print_state(True)
+# # isenthalpic procedure, storing only as ITERATE
+# FLASH.use_armijo = False
+# FLASH.flash("isenthalpic", "npipm", "iterate", False, True)
+# FLASH.evaluate_saturations(False)
+# # print thermodynamic state stored as ITERATE in ad
+# FLASH.print_state(True)
 
 print("DONE")

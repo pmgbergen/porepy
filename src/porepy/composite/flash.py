@@ -10,6 +10,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 from .composition import Composition
+from .peng_robinson.pr_utils import Leaf
 from .phase import Phase
 
 # import time
@@ -146,6 +147,7 @@ class Flash:
         self.npipm_parameters: dict[str, float] = {
             "eta": 0.5,
             "u": 1,
+            "kappa": 1.0,
         }
         """A dictionary containing per parameter name (str, key) the respective
         parameter for the NPIPM.
@@ -176,6 +178,7 @@ class Flash:
         """A list of strings representing names of complementary conditions (KKT)
         for the unified flash problem."""
 
+        self._nu2 = Leaf("npipm reg")
         npipm_eqn, npipm_vars = self._set_npipm_eqn_vars()
         self.npipm_variables: list[str] = npipm_vars
         """A list containing algorithmic variables in for the NPIPM, which are
@@ -370,9 +373,11 @@ class Flash:
         # NPIPM parameter equation
         if self.npipm_param_as_var:
             eta = pp.ad.Scalar(self.npipm_parameters["eta"])
+            kappa = pp.ad.Scalar(self.npipm_parameters["kappa"])
             coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self._C.num_phases**2)
             neg = pp.ad.SemiSmoothNegative()
             pos = pp.ad.SemiSmoothPositive()
+            one = pp.ad.Scalar(1.0)
 
             norm_parts = list()
             dot_parts = list()
@@ -381,16 +386,22 @@ class Flash:
                 v_e = self._V_of_phase[phase]
                 w_e = self._W_of_phase[phase]
 
-                norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
-                test_parts.append(smoother(neg(v_e)) + smoother(neg(w_e)))
                 dot_parts.append(v_e * w_e)
+                norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
+
+                test_parts.append(
+                    smoother(neg(w_e) / (self._nu2 + one))
+                    + smoother(neg(v_e) / (self._nu + one))
+                )
 
             dot_part = pos(sum(dot_parts))
             dot_part *= dot_part * coeff
 
             equation = (
-                eta * self._nu + self._nu * self._nu + (sum(norm_parts) + dot_part) / 2
-                + sum(test_parts)
+                eta * self._nu
+                + self._nu * self._nu
+                + (sum(norm_parts) + dot_part) / 2
+                + sum(test_parts) * kappa * self._nu2
             )
             equation.set_name("NPIPM_param")
             self._C.ad_system.set_equation(
@@ -878,6 +889,8 @@ class Flash:
         nu = nu / self._C.num_phases
         nu[nu < 0] = 0
 
+        self._nu2.value = 0.9 * np.ones(len(nu))
+
         if self.npipm_param_as_var:
             ad_system.set_variable_values(
                 nu, variables=[self._nu_name], to_iterate=True, to_state=True
@@ -1089,8 +1102,6 @@ class Flash:
                         to_iterate=True,
                     )
             # set phase fraction
-            # Y += 1e-18
-            # Y[Y > 1] = 1.0
             for phase in self._C.phases:
                 ad_system.set_variable_values(
                     np.copy(Y), variables=[phase.fraction_name], to_iterate=True
@@ -1260,6 +1271,7 @@ class Flash:
                 # sps.diags assures that factor (vector) is multiplied with each column
                 # of the block-row
                 A[-nc:] -= sps.diags(factor) * A[-(p + 2) * nc : -(p + 1) * nc]
+                b[-nc:] -= factor * b[-(p + 2) * nc : -(p + 1) * nc]
 
             # ## First modification: Eliminate derivatives w.r.t. V and W in the slack equ.
             # # According to the set-up, the very last num_cells equations represent
@@ -1443,6 +1455,25 @@ class Flash:
         """
         return float(np.dot(vec, vec) / 2)
 
+    def _update_nu2(self):
+
+        VW = list()
+
+        for phase in self._C.phases:
+            VW.append(
+                self._V_of_phase[phase].evaluate(self._C.ad_system).val
+                * self._W_of_phase[phase].evaluate(self._C.ad_system).val
+            )
+
+        VW = sum(VW) / self._C.num_phases
+
+        nu_k = self._nu2.value
+        nu_geo = 0.5 * nu_k
+        nu_pow = nu_k**2
+
+        # Use stack not hstack, to avoid arrays with shape (n,) (second axis must exist)
+        self._nu2.value = np.min(np.stack([nu_geo, nu_pow], axis=1), axis=1)
+
     def _newton_iterations(
         self,
         F: Callable[[Optional[np.ndarray]], tuple[sps.spmatrix, np.ndarray]],
@@ -1544,6 +1575,7 @@ class Flash:
                 )
 
                 # start_assembly = time.time()
+                self._update_nu2()
                 A, b = F()
                 # stop_assembly = time.time()
                 # self.assembly_times.append(stop_assembly - start_assembly)
