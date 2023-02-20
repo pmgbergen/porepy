@@ -388,7 +388,7 @@ class AdArray:
             # The Jacobian will have its columns scaled with the values in other,
             # again in array-form. Achieve this by left-multiplying with other,
             # represented as a diagonal matrix.
-            new_jac = self._diagvec_mul_jac((other**self.val) ** np.log(self.val))
+            new_jac = self._diagvec_mul_jac((other**self.val) * np.log(other))
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, sps.spmatrix):
@@ -466,7 +466,7 @@ class AdArray:
             # the power of -1 and multiplying by the float. The multiplication will
             # end upcalling self.__mul__, which will do the right checks for numpy
             # arrays and sparse matrices.
-            return other * self.__pow__(-1.0)
+            return self.__pow__(-1.0) * other
 
         elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
