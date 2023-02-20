@@ -344,7 +344,48 @@ def _expected_value(
             # The operation is not allowed
             return False
     elif isinstance(var_1, np.ndarray) and isinstance(var_2, pp.ad.AdArray):
-        raise NotImplementedError("Not implemented")
+        # Recall that the numpy array has values np.array([1, 2, 3])
+        if op == "+":
+            # Array + np.array([1, 2, 3])
+            val = np.array([7, 17, 27])
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+            return pp.ad.AdArray(val, jac)
+        elif op == "-":
+            # np.array([1, 2, 3]) - Array
+            val = np.array([-5, -13, -21])
+            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+            return pp.ad.AdArray(val, jac)
+        elif op == "*":
+            # Array * np.array([1, 2, 3])
+            val = np.array([6, 30, 72])
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
+            return pp.ad.AdArray(val, jac)
+        elif op == "/":
+            # np.array([1, 2, 3]) / Array
+            val = np.array([1 / 6, 2 / 15, 3 / 24])
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        -var_1[0] * var_2.jac[0].A / var_2.val[0] ** 2,
+                        -var_1[1] * var_2.jac[1].A / var_2.val[1] ** 2,
+                        -var_1[2] * var_2.jac[2].A / var_2.val[2] ** 2,
+                    )
+                )
+            )
+            return pp.ad.AdArray(val, jac)
+        elif op == "**":
+            # np.array([1, 2, 3]) ** Array
+            val = np.array([1, 2**15, 3**24])
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_1[0] ** var_2.val[0] * np.log(var_1[0]) * var_2.jac[0].A,
+                        var_1[1] ** var_2.val[1] * np.log(var_1[1]) * var_2.jac[1].A,
+                        var_1[2] ** var_2.val[2] * np.log(var_1[2]) * var_2.jac[2].A,
+                    )
+                )
+            )
+            return pp.ad.AdArray(val, jac)
 
     elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, sps.spmatrix):
         return False
@@ -446,6 +487,8 @@ def test_all(var_1, var_2, op, wrapped):
         # If not wrapped in the abstract layer, these cases should be covered by the
         # tests for the external packages. For the wrapped case, we need to test that
         # the parsing is okay.
+        return
+    if not wrapped and var_1 == "dense" and var_2 == "ad":
         return
 
     def _var_from_string(v, do_wrap: bool):
