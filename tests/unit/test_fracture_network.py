@@ -71,6 +71,15 @@ class TestCreateFractureNetwork:
         assert fn_none.domain == fn_empty_list.domain
 
     # -----> Test #4
+    def test_error_raised_if_different_dimensions(self, line_fracture):
+        """Checks that an error is raised if the dimensions inferred from the set of
+        fractures and the domain are different."""
+        with pytest.raises(ValueError) as excinfo:
+            msg = "The dimensions inferred from 'fractures' and 'domain' do not match."
+            pp.create_fracture_network([line_fracture], unit_domain(3))
+        assert msg in str(excinfo.value)
+
+    # -----> Test #5
     def test_warning_raised_if_run_checks_true_for_dim_not_3(self):
         """Checks if the warning is properly raised when ``run_checks=True`` for a
         fracture network with a dimensionality different from 3."""
@@ -79,7 +88,7 @@ class TestCreateFractureNetwork:
             pp.create_fracture_network(None, domain=unit_domain(2), run_checks=True)
         assert str(record[0].message) == warn_msg
 
-    # -----> Test #5
+    # -----> Test #6
     @pytest.fixture(scope="function")
     def fractures_list_2d(self, line_fracture):
         list_1 = []
@@ -95,7 +104,7 @@ class TestCreateFractureNetwork:
             assert fn_with_function.num_frac() == fn_with_class.num_frac()
             assert fn_with_function.domain == fn_with_class.domain
 
-    # -----> Test #6
+    # -----> Test #7
     @pytest.fixture(scope="function")
     def fractures_list_3d(self, plane_fracture):
         list_1 = []
