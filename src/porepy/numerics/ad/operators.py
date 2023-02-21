@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import numbers
 from enum import Enum, EnumMeta
 from itertools import count
 from typing import Any, Literal, Optional, Sequence, Union, overload
