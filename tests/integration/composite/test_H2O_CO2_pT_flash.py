@@ -23,37 +23,44 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
     fugacity_tolerance = 10.0
     """Due to numerical issues with the exponential function in the formula."""
 
-    def _sub_test_abs_error(self, result, target, property_name, tol, msg=""):
+    def _sub_test_abs_error(self, result, target, property_name, tol, msg="", idx=None):
 
-        with self.subTest(f"Abs. Error subtest (tol={tol}): {property_name}"):
+        with self.subTest(f"Abs. Error subtest (tol={str(tol)}): {str(property_name)}"):
             residual = np.abs(result - target)
             exceeded = residual > tol
+            if idx is not None:
+                exceeded = np.logical_and(exceeded, idx)
+                residual_ = residual[idx]
+            else:
+                residual_ = residual
             self.assertTrue(
                 np.all(np.logical_not(exceeded)),
-                f"Absolute tolerance for <{property_name}> "
-                + f"exceeded at row:\n{np.where(exceeded)[0]}"
-                + f"\nby\n{residual[exceeded]}"
-                + f"\nError:\nMax: {np.max(residual)} ; Min: {np.min(residual)} ; "
-                + f"Mean: {np.mean(residual)}"
-                + f"\nExceeding Values:\n{result[exceeded]}"
-                + f"\n{msg}",
+                f"Absolute tolerance for <{str(property_name)}> "
+                + f"exceeded at row:\n{str(np.where(exceeded)[0])}"
+                + f"\nby\n{str(residual[exceeded])}"
+                + f"\nError:\nMax: {str(np.max(residual_))} ; Min: {str(np.min(residual_))} ; "
+                + f"Mean: {str(np.mean(residual_))}"
+                + f"\nExceeding Values:\n{str(result[exceeded])}"
+                + f"\n{str(msg)}",
             )
 
-    def _sub_test_l2_error(self, result, target, property_name, tol, msg=""):
+    def _sub_test_l2_error(self, result, target, property_name, tol, msg="", idx=None):
 
-        with self.subTest(f"L2-error subtest (tol={tol}): <{property_name}>"):
+        with self.subTest(f"L2-error subtest (tol={str(tol)}): {str(property_name)}"):
             res = result - target
+            if idx is not None:
+                res = res[idx]
             error = np.sqrt(np.dot(res, res))
             self.assertTrue(
                 error <= tol,
-                f"L2-Tolerance for <{property_name}> "
-                + f"exceeded by {error - tol}."
-                + f"\nError: {error}"
-                + f"\n{msg}",
+                f"L2-Tolerance for <{str(property_name)}> "
+                + f"exceeded by {str(error - tol)}."
+                + f"\nError: {str(error)}"
+                + f"\n{str(msg)}",
             )
 
-    @unittest.skip("")
-    def test_flash_only_gas_hard(self):
+    # @unittest.skip("")
+    def test_gas_hard(self):
         """Data from pr_data_thermo_isothermal_G_hard.csv"""
 
         l2_tol = 1e-7
@@ -125,17 +132,17 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             phi_co2_G=phi_co2_G,
             test_gas=True,
             test_liquid=False,
-            vectorize=True,
+            vectorize=False,
             l2_tol=l2_tol,
             abs_tol=abs_tol,
         )
 
-    @unittest.skip("Some supercritical regions cause problems.")
-    def test_flash_only_liquid_hard(self):
+    # @unittest.skip("")
+    def test_liquid_hard(self):
         """Data from pr_data_thermo_isothermal_L_hard.csv"""
 
-        l2_tol = 1e-4
-        abs_tol = 1e-3
+        l2_tol = 1e-7
+        abs_tol = 1e-7
         path = pathlib.Path(__file__).parent.resolve()
 
         results_liq_file = open(str(path) + "/pr_data_thermo_isothermal_L_hard.csv")
@@ -208,12 +215,12 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             abs_tol=abs_tol,
         )
 
-    @unittest.skip("Long runtime.")
-    def test_flash_2_phase_hard(self):
+    # @unittest.skip("")
+    def test_2_phase_hard(self):
         """Data from pr_data_thermo_isothermal_GL_hard.csv."""
 
-        l2_tol = 1e-2
-        abs_tol = 1e-2
+        l2_tol = 1e-5
+        abs_tol = 1e-5
         path = pathlib.Path(__file__).parent.resolve()
 
         results_liq_file = open(str(path) + "/pr_data_thermo_isothermal_GL_hard.csv")
@@ -306,8 +313,8 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             abs_tol=abs_tol,
         )
 
-    @unittest.skip("")
-    def test_flash_only_gas_easy(self):
+    # @unittest.skip("")
+    def test_gas_easy(self):
         """Data from pr_data_thermo_isothermal_G_easy.csv"""
 
         l2_tol = 1e-7
@@ -385,7 +392,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         )
 
     # @unittest.skip("")
-    def test_flash_only_liquid_easy(self):
+    def test_liquid_easy(self):
         """Data from pr_data_thermo_isothermal_L_easy.csv"""
 
         l2_tol = 1e-7
@@ -462,12 +469,12 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             abs_tol=abs_tol,
         )
 
-    @unittest.skip("")
-    def test_flash_2_phase_easy(self):
+    # @unittest.skip("")
+    def test_2_phase_easy(self):
         """Data from pr_data_thermo_isothermal_GL_easy.csv."""
 
-        l2_tol = 1e-2
-        abs_tol = 1e-2
+        l2_tol = 1e-5
+        abs_tol = 1e-5
         path = pathlib.Path(__file__).parent.resolve()
 
         results_liq_file = open(str(path) + "/pr_data_thermo_isothermal_GL_easy.csv")
@@ -592,6 +599,8 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         else:
             nc_test = 1
 
+        success_result = np.zeros(nc, dtype=bool)
+
         y_result = np.zeros(nc)
         Z_L_result = np.zeros(nc)
         Z_G_result = np.zeros(nc)
@@ -631,9 +640,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
         composition.initialize()
 
-        flash = pp.composite.Flash(
-            composition, auxiliary_npipm=False, npipm_param_as_var=True
-        )
+        flash = pp.composite.Flash(composition, auxiliary_npipm=False)
         flash.use_armijo = True
         flash.armijo_parameters["rho"] = 0.99
         flash.armijo_parameters["j_max"] = 50
@@ -642,12 +649,17 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         flash.flash_tolerance = 1e-8
         flash.max_iter_flash = 70
 
+        flash_erro_msg = dict()
+
         if vectorize:
             adsys.set_variable_values(p, [composition.p_name], True, True, False)
             adsys.set_variable_values(T, [composition.T_name], True, True, False)
 
-            success = flash.flash("isothermal", "npipm", "rachford_rice", False, False)
-            self.assertTrue(success, msg=f"Vectorized Flash did not succeed.")
+            with self.subTest("Vectorized Flash convergence sub test."):
+                success = flash.flash(
+                    "isothermal", "npipm", "rachford_rice", False, False
+                )
+                self.assertTrue(success, msg=f"Vectorized Flash did not succeed.")
 
             # compute values with obtained fractions
             composition.compute_roots()
@@ -667,100 +679,137 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
         else:
             for i in row_ids:
-                with self.subTest(f"Flash test row ID: {i}."):
-                    p_ = np.array([p[i]])
-                    T_ = np.array([T[i]])
-                    adsys.set_variable_values(
-                        p_, [composition.p_name], True, True, False
-                    )
-                    adsys.set_variable_values(
-                        T_, [composition.T_name], True, True, False
-                    )
+                # with self.subTest(f"Flash test row ID: {str(i)}:"):
+                p_ = np.array([p[i]])
+                T_ = np.array([T[i]])
+                adsys.set_variable_values(p_, [composition.p_name], True, True, False)
+                adsys.set_variable_values(T_, [composition.T_name], True, True, False)
 
+                try:
                     success = flash.flash(
                         "isothermal", "npipm", "rachford_rice", False, False
                     )
-                    self.assertTrue(success, msg=f"Flash did not succeed. Row ID: {i}")
+                except Exception as err:
+                    flash_erro_msg.update({i: str(err)})
+                    success_result[i] = False
+                    continue
+                else:
+                    success_result[i] = success
 
-                    # compute values with obtained fractions
-                    composition.compute_roots()
+                # compute values with obtained fractions
+                composition.compute_roots()
 
-                    y_result[i] = phase_G.fraction.evaluate(adsys).val
+                y_result[i] = phase_G.fraction.evaluate(adsys).val
 
-                    Z_L_result[i] = phase_L.eos.Z.val
-                    x_h2o_L_result[i] = (
-                        phase_L.fraction_of_component(h2o).evaluate(adsys).val
-                    )
-                    x_co2_L_result[i] = (
-                        phase_L.fraction_of_component(co2).evaluate(adsys).val
-                    )
-                    phi_h2o_L_result[i] = phase_L.eos.phi[h2o].val
-                    phi_co2_L_result[i] = phase_L.eos.phi[co2].val
+                Z_L_result[i] = phase_L.eos.Z.val
+                x_h2o_L_result[i] = (
+                    phase_L.fraction_of_component(h2o).evaluate(adsys).val
+                )
+                x_co2_L_result[i] = (
+                    phase_L.fraction_of_component(co2).evaluate(adsys).val
+                )
+                phi_h2o_L_result[i] = phase_L.eos.phi[h2o].val
+                phi_co2_L_result[i] = phase_L.eos.phi[co2].val
 
-                    Z_G_result[i] = phase_G.eos.Z.val
-                    x_h2o_G_result[i] = (
-                        phase_G.fraction_of_component(h2o).evaluate(adsys).val
-                    )
-                    x_co2_G_result[i] = (
-                        phase_G.fraction_of_component(co2).evaluate(adsys).val
-                    )
-                    phi_h2o_G_result[i] = phase_G.eos.phi[h2o].val
-                    phi_co2_G_result[i] = phase_G.eos.phi[co2].val
+                Z_G_result[i] = phase_G.eos.Z.val
+                x_h2o_G_result[i] = (
+                    phase_G.fraction_of_component(h2o).evaluate(adsys).val
+                )
+                x_co2_G_result[i] = (
+                    phase_G.fraction_of_component(co2).evaluate(adsys).val
+                )
+                phi_h2o_G_result[i] = phase_G.eos.phi[h2o].val
+                phi_co2_G_result[i] = phase_G.eos.phi[co2].val
+
+        # row-wise success test
+        if not vectorize:
+            failed = np.where(np.logical_not(success_result))[0]
+            msg = [f"\nRow {i}:\n{errmsg}" for i, errmsg in flash_erro_msg.items()]
+            with self.subTest("Un-vectorized Flash convergence sub test."):
+                self.assertTrue(
+                    np.all(success_result),
+                    f"Flash failed at rows:\n{str(failed)}" + str(sum(msg)),
+                )
 
         # global L2 error tests
-        self._sub_test_l2_error(y_result, y, "Gas Fraction", l2_tol)
+        self._sub_test_l2_error(y_result, y, "Gas Fraction", l2_tol, idx=success_result)
 
         if test_liquid:
             self._sub_test_l2_error(
-                Z_L_result, Z_L, "Liquid Compressibility Factor", l2_tol
+                Z_L_result,
+                Z_L,
+                "Liquid Compressibility Factor",
+                l2_tol,
+                idx=success_result,
             )
             self._sub_test_l2_error(
-                x_h2o_L_result, x_h2o_L, "Fraction H2O in Liquid", l2_tol
+                x_h2o_L_result,
+                x_h2o_L,
+                "Fraction H2O in Liquid",
+                l2_tol,
+                idx=success_result,
             )
             self._sub_test_l2_error(
-                x_co2_L_result, x_co2_L, "Fraction CO2 in Liquid", l2_tol
+                x_co2_L_result,
+                x_co2_L,
+                "Fraction CO2 in Liquid",
+                l2_tol,
+                idx=success_result,
             )
             self._sub_test_l2_error(
                 phi_h2o_L_result,
                 phi_h2o_L,
                 "Fugacity Coefficient H2O in Liquid",
                 self.fugacity_tolerance,
+                idx=success_result,
             )
             self._sub_test_l2_error(
                 phi_co2_L_result,
                 phi_co2_L,
                 "Fugacity Coefficient CO2 in Liquid",
                 self.fugacity_tolerance,
+                idx=success_result,
             )
         if test_gas:
             self._sub_test_l2_error(
-                Z_G_result, Z_G, "Gas Compressibility Factor", l2_tol
+                Z_G_result,
+                Z_G,
+                "Gas Compressibility Factor",
+                l2_tol,
+                idx=success_result,
             )
             self._sub_test_l2_error(
-                x_h2o_G_result, x_h2o_G, "Fraction H2O in Gas", l2_tol
+                x_h2o_G_result,
+                x_h2o_G,
+                "Fraction H2O in Gas",
+                l2_tol,
+                idx=success_result,
             )
             self._sub_test_l2_error(
-                x_co2_G_result, x_co2_G, "Fraction CO2 in Gas", l2_tol
+                x_co2_G_result,
+                x_co2_G,
+                "Fraction CO2 in Gas",
+                l2_tol,
+                idx=success_result,
             )
             self._sub_test_l2_error(
                 phi_h2o_G_result,
                 phi_h2o_G,
                 "Fugacity Coefficient H2O in Gas",
                 self.fugacity_tolerance,
+                idx=success_result,
             )
             self._sub_test_l2_error(
                 phi_co2_G_result,
                 phi_co2_G,
                 "Fugacity Coefficient CO2 in Gas",
                 self.fugacity_tolerance,
+                idx=success_result,
             )
 
         # component-wise abs error tests
         self._sub_test_abs_error(
-            y_result,
-            y,
-            "Gas Fraction",
-            abs_tol,
+            y_result, y, "Gas Fraction", abs_tol, idx=success_result
         )
 
         if test_liquid:
@@ -769,6 +818,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                 Z_L,
                 "Liquid Compressibility Factor",
                 abs_tol,
+                idx=success_result,
             )
 
             self._sub_test_abs_error(
@@ -776,12 +826,14 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                 x_h2o_L,
                 "Fraction H2O in Liquid",
                 abs_tol,
+                idx=success_result,
             )
             self._sub_test_abs_error(
                 x_co2_L_result,
                 x_co2_L,
                 "Fraction CO2 in Liquid",
                 abs_tol,
+                idx=success_result,
             )
 
             self._sub_test_abs_error(
@@ -789,26 +841,37 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                 phi_h2o_L,
                 "Fugacity coefficient H2O in Liquid",
                 self.fugacity_tolerance,
+                idx=success_result,
             )
             self._sub_test_abs_error(
                 phi_co2_L_result,
                 phi_co2_L,
                 "Fugacity coefficient CO2 in Liquid",
                 self.fugacity_tolerance,
+                idx=success_result,
             )
         if test_gas:
             self._sub_test_abs_error(
-                Z_G_result, Z_G, "Gas Compressibility Factor", abs_tol
+                Z_G_result,
+                Z_G,
+                "Gas Compressibility Factor",
+                abs_tol,
+                idx=success_result,
             )
 
             self._sub_test_abs_error(
-                x_h2o_G_result, x_h2o_G, "Fraction H2O in Gas", abs_tol
+                x_h2o_G_result,
+                x_h2o_G,
+                "Fraction H2O in Gas",
+                abs_tol,
+                idx=success_result,
             )
             self._sub_test_abs_error(
                 x_co2_G_result,
                 x_co2_G,
                 "Fraction CO2 in Gas",
                 abs_tol,
+                idx=success_result,
             )
 
             self._sub_test_abs_error(
@@ -816,12 +879,14 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                 phi_h2o_G,
                 "Fugacity coefficient H2O in Gas",
                 self.fugacity_tolerance,
+                idx=success_result,
             )
             self._sub_test_abs_error(
                 phi_co2_G_result,
                 phi_co2_G,
                 "Fugacity coefficient CO2 in Gas",
                 self.fugacity_tolerance,
+                idx=success_result,
             )
 
 
@@ -829,17 +894,15 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 #     unittest.main()
 
 
-def main(out=sys.stderr, verbosity=2):
-    loader = unittest.TestLoader()
-
-    suite = loader.loadTestsFromModule(sys.modules[__name__])
-    # unittest.TextTestRunner(out, verbosity=verbosity).run(suite)
-    output = str(pathlib.Path(__file__).parent.resolve()) + "/test_results/"
-    HtmlTestRunner.HTMLTestRunner(output=output, verbosity=verbosity).run(suite)
-
-
 if __name__ == "__main__":
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromModule(sys.modules[__name__])
+
+    # # TEXT Runner
     # path = str(pathlib.Path(__file__).parent.resolve()) + "/results.txt"
     # with open(path, "w") as f:
-    #     main(f)
-    main()
+    #     unittest.TextTestRunner(f, verbosity=2).run(suite)
+
+    # # HTML Runner
+    path = str(pathlib.Path(__file__).parent.resolve()) + "/test_results/"
+    HtmlTestRunner.HTMLTestRunner(output=path, verbosity=2).run(suite)
