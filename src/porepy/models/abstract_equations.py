@@ -83,7 +83,7 @@ class BalanceEquation:
         dt_operator = pp.ad.time_derivatives.dt
         dt = pp.ad.Scalar(self.time_manager.dt)
         div = pp.ad.Divergence(subdomains, dim=dim)
-        return dt_operator(accumulation, dt) + div * surface_term - source
+        return dt_operator(accumulation, dt) + div @ surface_term - source
 
     def volume_integral(
         self,
@@ -121,12 +121,13 @@ class BalanceEquation:
         # volumes.
         if len(grids) == 0:
             # No need for a scaling here
-            volumes = cell_volumes
+            volumes: pp.ad.Operator = cell_volumes
         elif all(isinstance(g, pp.Grid) for g in grids):
             # For grids, we can use the specific volume method.
             # make mypy happy
             subdomains: list[pp.Grid] = [g for g in grids if isinstance(g, pp.Grid)]
-            volumes = cell_volumes * self.specific_volume(subdomains)
+            integrand = self.specific_volume(subdomains) * integrand
+            volumes = cell_volumes
         elif not all(isinstance(g, pp.MortarGrid) for g in grids):
             # We cannot deal with a combination of subdomains and interfaces.
             raise ValueError("Grids must be either all subdomains or all interfaces.")
@@ -144,7 +145,7 @@ class BalanceEquation:
 
         if dim == 1:
             # No need to do more for scalar problems
-            return volumes * integrand
+            return volumes @ integrand
         else:
             # For vector problems, we need to expand the integrand to a vector. Do this
             # by left and right multiplication with e_i and e_i.T
@@ -153,7 +154,7 @@ class BalanceEquation:
             )
             volumes_nd = sum([e * volumes * e.T for e in basis])
 
-            return volumes_nd * integrand
+            return volumes_nd @ integrand
 
 
 class VariableMixin:
