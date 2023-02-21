@@ -84,11 +84,6 @@ class AdArray:
             raise ValueError(
                 "The Jacobian matrix should have one row per array degree of freedom"
             )
-        if jac.shape[1] < val.size:
-            raise ValueError(
-                """The Jacobian matrix should at least contain derivatives with respect
-                to the variable itself"""
-            )
 
         # Enforce float format of all data to limit the number of cases we need to
         # handle and test.
