@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from typing import Union
+
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
 AdType = Union[float, np.ndarray, sps.spmatrix, "AdArray"]

@@ -11,7 +11,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .operators import SparseArray, Operator
+from .operators import Operator, SparseArray
 
 __all__ = [
     "MortarProjections",
