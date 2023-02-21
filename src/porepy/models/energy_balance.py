@@ -194,7 +194,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         energy_density = (
             self.solid_density(subdomains)
             * self.solid_enthalpy(subdomains)
-            * (1 - self.porosity(subdomains))
+            * (pp.ad.Scalar(1) - self.porosity(subdomains))
         )
         energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("solid_internal_energy")
@@ -323,7 +323,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux = self.interface_enthalpy_flux(interfaces) + self.interface_fourier_flux(
             interfaces
         )
-        source = projection.mortar_to_secondary_int * flux
+        source = projection.mortar_to_secondary_int @ flux
         source.set_name("interface_energy_source")
         return source
 

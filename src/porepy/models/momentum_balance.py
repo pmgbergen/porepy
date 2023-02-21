@@ -220,11 +220,11 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         #   3) The stress is projected to the mortar grid.
         contact_from_primary_mortar = (
             mortar_projection.primary_to_mortar_int
-            * proj.face_prolongation(matrix_subdomains)
-            * self.internal_boundary_normal_to_outwards(
+            @ proj.face_prolongation(matrix_subdomains)
+            @ self.internal_boundary_normal_to_outwards(
                 matrix_subdomains, dim=self.nd  # type: ignore[call-arg]
             )
-            * self.stress(matrix_subdomains)
+            @ self.stress(matrix_subdomains)
         )
         # Traction from the actual contact force.
         traction_from_secondary = self.fracture_stress(interfaces)
@@ -268,8 +268,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Variables
         nd_vec_to_normal = self.normal_component(subdomains)
         # The normal component of the contact traction and the displacement jump
-        t_n: pp.ad.Operator = nd_vec_to_normal * self.contact_traction(subdomains)
-        u_n: pp.ad.Operator = nd_vec_to_normal * self.displacement_jump(subdomains)
+        t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
+        u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
 
         # Maximum function
         num_cells: int = sum([sd.num_cells for sd in subdomains])
@@ -278,7 +278,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
         # The complimentarity condition
         equation: pp.ad.Operator = t_n + max_function(
-            (-1) * t_n
+            pp.ad.Scalar(-1) * t_n
             # EK: I will take care of typing of this term when we have a better name for
             # the method.
             - self.contact_mechanics_numerical_constant(subdomains)
@@ -348,8 +348,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
-        t_t: pp.ad.Operator = nd_vec_to_tangential * self.contact_traction(subdomains)
-        u_t: pp.ad.Operator = nd_vec_to_tangential * self.displacement_jump(subdomains)
+        t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
+        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
@@ -390,7 +390,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         c_num = sum([e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis])
 
         # Combine the above into expressions that enter the equation
-        tangential_sum = t_t + c_num * u_t_increment
+        tangential_sum = t_t + c_num @ u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
@@ -399,10 +399,10 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         b_p.set_name("bp")
 
         # Remove parentheses to make the equation more readable if possible
-        bp_tang = (scalar_to_tangential * b_p) * tangential_sum
+        bp_tang = (scalar_to_tangential @ b_p) * tangential_sum
 
-        maxbp_abs = scalar_to_tangential * f_max(b_p, norm_tangential_sum)
-        characteristic: pp.ad.Operator = scalar_to_tangential * f_characteristic(b_p)
+        maxbp_abs = scalar_to_tangential @ f_max(b_p, norm_tangential_sum)
+        characteristic: pp.ad.Operator = scalar_to_tangential @ f_characteristic(b_p)
         characteristic.set_name("characteristic_function_of_b_p")
 
         # Compose the equation itself. The last term handles the case bound=0, in which
@@ -631,9 +631,9 @@ class VariablesMomentumBalance:
         # from the interface to the fracture, and finally to the local coordinates.
         rotated_jumps: pp.ad.Operator = (
             self.local_coordinates(subdomains)
-            * mortar_projection.mortar_to_secondary_avg
-            * mortar_projection.sign_of_mortar_sides
-            * self.interface_displacement(interfaces)
+            @ mortar_projection.mortar_to_secondary_avg
+            @ mortar_projection.sign_of_mortar_sides
+            @ self.interface_displacement(interfaces)
         )
         rotated_jumps.set_name("Rotated_displacement_jump")
         return rotated_jumps
