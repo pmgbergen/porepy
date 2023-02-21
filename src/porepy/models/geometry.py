@@ -613,13 +613,13 @@ class ModelGeometry:
         # Flip the normal vectors. Unravelled from the right: Restrict from faces on all
         # subdomains to the primary ones, multiply with the face normals, flip the
         # signs, and project back up to all subdomains.
-        flipped_normals = flip * primary_face_normals
+        flipped_normals = flip @ primary_face_normals
         # Project to mortar grid, as a mapping from mortar to the subdomains and back
         # again.
         outwards_normals = (
             mortar_projection.primary_to_mortar_avg
-            * flipped_normals
-            * mortar_projection.mortar_to_primary_avg
+            @ flipped_normals
+            @ mortar_projection.mortar_to_primary_avg
         )
         outwards_normals.set_name("outwards_internal_boundary_normals")
 
@@ -638,10 +638,10 @@ class ModelGeometry:
             # Kronecker product comes to mind, but this will require an extension of the
             # Ad matrix.
             cell_volumes_inv_nd = sum(
-                [e * cell_volumes_inv * e.T for e in self.basis(interfaces, self.nd)]
+                [e @ cell_volumes_inv @ e.T for e in self.basis(interfaces, self.nd)]
             )
             # Scale normals.
-            outwards_normals = cell_volumes_inv_nd * outwards_normals
+            outwards_normals = cell_volumes_inv_nd @ outwards_normals
             outwards_normals.set_name("unitary_outwards_internal_boundary_normals")
 
         return outwards_normals

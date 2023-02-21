@@ -39,7 +39,7 @@ class DimensionReduction:
         """
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
-            aperture *= self.solid.residual_aperture()
+            aperture = self.solid.residual_aperture() * aperture
         return aperture
 
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -74,7 +74,7 @@ class DimensionReduction:
             # First make the local aperture array.
             a_loc = pp.wrap_as_ad_array(self.grid_aperture(sd))
             # Expand to a global array.
-            a_glob = projection.cell_prolongation([sd]) * a_loc
+            a_glob = projection.cell_prolongation([sd]) @ a_loc
             if i == 0:
                 apertures = a_glob
             else:
@@ -119,7 +119,7 @@ class DimensionReduction:
                 continue
             a_loc = self.aperture(sd_dim)
             v_loc = a_loc ** Scalar(self.nd - dim)
-            v_glob = projection.cell_prolongation(sd_dim) * v_loc
+            v_glob = projection.cell_prolongation(sd_dim) @ v_loc
             if v is None:
                 v = v_glob
             else:
@@ -210,7 +210,7 @@ class DisplacementJumpAperture(DimensionReduction):
         num_cells_nd_subdomains = sum([sd.num_cells for sd in nd_subdomains])
         one = pp.wrap_as_ad_array(1, size=num_cells_nd_subdomains, name="one")
         # Start with nd, where aperture is one.
-        apertures = projection.cell_prolongation(nd_subdomains) * one
+        apertures = projection.cell_prolongation(nd_subdomains) @ one
 
         # NOTE: The loop is reversed, to ensure that the subdomains are processed in the
         # same order as will be returned by an iteration over the subdomains of the
@@ -226,7 +226,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 # Fractures. Get displacement jump
                 normal_jump = self.normal_component(
                     subdomains_of_dim
-                ) * self.displacement_jump(subdomains_of_dim)
+                ) @ self.displacement_jump(subdomains_of_dim)
                 # The jump should be bounded below by gap function. This is not
                 # guaranteed in the non-converged state. As this (especially
                 # non-positive values) may give significant trouble in the aperture.
@@ -239,7 +239,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 apertures_of_dim.set_name("aperture_maximum_function")
                 apertures = (
                     apertures
-                    + projection.cell_prolongation(subdomains_of_dim) * apertures_of_dim
+                    + projection.cell_prolongation(subdomains_of_dim) @ apertures_of_dim
                 )
             else:
                 # Intersection aperture is average of apertures of intersecting
@@ -267,8 +267,8 @@ class DisplacementJumpAperture(DimensionReduction):
                 trace = pp.ad.Trace(parent_subdomains)
                 parent_cells_to_intersection_cells = (
                     mortar_projection.mortar_to_secondary_avg
-                    * mortar_projection.primary_to_mortar_avg
-                    * trace.trace
+                    @ mortar_projection.primary_to_mortar_avg
+                    @ trace.trace
                 )
                 # Average weights are the number of cells in the parent subdomains
                 # contributing to each intersection cells.
@@ -280,12 +280,12 @@ class DisplacementJumpAperture(DimensionReduction):
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
                 # Wrap as diagonal matrix.
-                average_mat = pp.wrap_as_ad_matrix(
+                average_mat = pp.wrap_as_ad_array(
                     average_weights, name="average_weights"
                 )
                 # Average apertures of the parent subdomains.
-                apertures_of_dim = (
-                    average_mat * parent_cells_to_intersection_cells * parent_apertures
+                apertures_of_dim = average_mat * (
+                    parent_cells_to_intersection_cells @ parent_apertures
                 )
                 # Above matrix is defined on intersections and parents. Restrict to
                 # intersections.
@@ -296,11 +296,11 @@ class DisplacementJumpAperture(DimensionReduction):
                     intersection_subdomain_projection.cell_restriction(
                         subdomains_of_dim
                     )
-                    * apertures_of_dim
+                    @ apertures_of_dim
                 )
                 # Add to total aperture.
                 apertures += (
-                    projection.cell_prolongation(subdomains_of_dim) * apertures_of_dim
+                    projection.cell_prolongation(subdomains_of_dim) @ apertures_of_dim
                 )
 
         return apertures
@@ -444,7 +444,7 @@ class FluidDensityFromTemperature:
         # Reference variables are defined in a variables class which is assumed
         # to be available by mixin.
         dtemp = self.perturbation_from_reference("temperature", subdomains)
-        return exp(Scalar(-1) * self.fluid.thermal_expansion() * dtemp)
+        return exp(Scalar(-1) * Scalar(self.fluid.thermal_expansion()) * dtemp)
 
 
 class FluidDensityFromPressureAndTemperature(
@@ -676,11 +676,11 @@ class CubicLawPermeability(ConstantPermeability):
             sd for sd in subdomains if sd.dim < self.nd
         ]
 
-        permeability = projection.cell_prolongation(matrix) * self.matrix_permeability(
+        permeability = projection.cell_prolongation(matrix) @ self.matrix_permeability(
             matrix
         ) + projection.cell_prolongation(
             fractures_and_intersections
-        ) * self.cubic_law_permeability(
+        ) @ self.cubic_law_permeability(
             fractures_and_intersections
         )
         return permeability
@@ -696,7 +696,7 @@ class CubicLawPermeability(ConstantPermeability):
 
         """
         aperture = self.aperture(subdomains)
-        perm = aperture**2 * pp.ad.Scalar(1 / 12)
+        perm = aperture ** Scalar(2) / Scalar(12)
 
         return perm
 
@@ -825,11 +825,11 @@ class DarcysLaw:
         discr: pp.ad.MpfaAd = self.darcy_flux_discretization(subdomains)
         p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
         pressure_trace = (
-            discr.bound_pressure_cell * p
+            discr.bound_pressure_cell @ p
             + discr.bound_pressure_face
-            * (projection.mortar_to_primary_int * self.interface_darcy_flux(interfaces))
-            + discr.bound_pressure_face * self.bc_values_darcy(subdomains)
-            + discr.vector_source * self.vector_source(subdomains, material="fluid")
+            @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
+            + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
+            + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
 
@@ -853,14 +853,14 @@ class DarcysLaw:
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
         discr: pp.ad.MpfaAd = self.darcy_flux_discretization(subdomains)
         flux: pp.ad.Operator = (
-            discr.flux * self.pressure(subdomains)
+            discr.flux @ self.pressure(subdomains)
             + discr.bound_flux
-            * (
+            @ (
                 self.bc_values_darcy(subdomains)
                 + projection.mortar_to_primary_int
-                * self.interface_darcy_flux(interfaces)
+                @ self.interface_darcy_flux(interfaces)
             )
-            + discr.vector_source * self.vector_source(subdomains, material="fluid")
+            + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
         flux.set_name("Darcy_flux")
         return flux
@@ -885,7 +885,6 @@ class DarcysLaw:
         cell_volumes = self.wrap_grid_attribute(
             interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
         )
-        specific_volume = self.specific_volume(subdomains)
         trace = pp.ad.Trace(subdomains, dim=1)
 
         # Gradient operator in the normal direction. The collapsed distance is
@@ -893,8 +892,9 @@ class DarcysLaw:
         # We assume here that :meth:`apeture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
         normal_gradient = pp.ad.Scalar(2) * (
-            projection.secondary_to_mortar_avg * self.aperture(subdomains) ** (-1)
+            projection.secondary_to_mortar_avg @ self.aperture(subdomains) ** Scalar(-1)
         )
+        normal_gradient.set_name("normal_gradient")
 
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity.
@@ -903,17 +903,28 @@ class DarcysLaw:
         # while the volume scaling from reduced dimensions is picked from the
         # specific volumes of the higher dimension (variable `specific_volume`)
         # and projected to the interface via a trace operator.
+        pressure_l = projection.secondary_to_mortar_avg @ self.pressure(subdomains)
+        pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace(subdomains)
+        specific_volume_intf = (
+            projection.primary_to_mortar_avg
+            @ trace.trace
+            @ self.specific_volume(subdomains)
+        )
+        specific_volume_intf.set_name("specific_volume_at_interfaces")
         eq = self.interface_darcy_flux(interfaces) - (
             cell_volumes
-            * normal_gradient
-            * self.normal_permeability(interfaces)
-            * (projection.primary_to_mortar_avg * trace.trace * specific_volume)
-            * (
-                projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
-                - projection.secondary_to_mortar_avg * self.pressure(subdomains)
-                + self.interface_vector_source(interfaces, material="fluid")
+            @ (
+                self.normal_permeability(interfaces)
+                * normal_gradient
+                * specific_volume_intf
+                * (
+                    pressure_h
+                    - pressure_l
+                    + self.interface_vector_source(interfaces, material="fluid")
+                )
             )
         )
+
         eq.set_name("interface_darcy_flux_equation")
         return eq
 
@@ -974,7 +985,7 @@ class DarcysLaw:
             interfaces, unitary=True  # type: ignore[call-arg]
         )
         # Make dot product with vector source in two steps. First element-wise product.
-        element_product = normals * self.vector_source(interfaces, material=material)
+        element_product = normals @ self.vector_source(interfaces, material=material)
         # Then sum over the nd dimensions.
         # We need to surpress mypy complaints on e being a list of integers (error code
         # misc, EK has no idea why mypy thinks this is actually happening) and the
@@ -985,7 +996,7 @@ class DarcysLaw:
                 for e in self.basis(interfaces, dim=self.nd)  # type: ignore[call-arg]
             ]
         )
-        dot_product = nd_to_scalar_sum * element_product
+        dot_product = nd_to_scalar_sum @ element_product
         return dot_product
 
 
@@ -1112,6 +1123,8 @@ class ThermalConductivityLTE:
 
         """
         phi = self.porosity(subdomains)
+        # Since thermal conductivity is used as a discretization parameter, it has to be
+        # evaluated before the discretization matrices are computed.
         try:
             phi.evaluate(self.equation_system)
         except KeyError:
@@ -1229,13 +1242,13 @@ class FouriersLaw:
         discr = self.fourier_flux_discretization(subdomains)
         t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
         temperature_trace = (
-            discr.bound_pressure_cell * t  # "pressure" is a legacy misnomer
+            discr.bound_pressure_cell @ t  # "pressure" is a legacy misnomer
             + discr.bound_pressure_face
-            * (
+            @ (
                 projection.mortar_to_primary_int
-                * self.interface_fourier_flux(interfaces)
+                @ self.interface_fourier_flux(interfaces)
             )
-            + discr.bound_pressure_face * self.bc_values_fourier(subdomains)
+            + discr.bound_pressure_face @ self.bc_values_fourier(subdomains)
         )
         return temperature_trace
 
@@ -1260,11 +1273,11 @@ class FouriersLaw:
 
         # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
         # included here.
-        flux: pp.ad.Operator = discr.flux * self.temperature(
+        flux: pp.ad.Operator = discr.flux @ self.temperature(
             subdomains
-        ) + discr.bound_flux * (
+        ) + discr.bound_flux @ (
             self.bc_values_fourier(subdomains)
-            + projection.mortar_to_primary_int * self.interface_fourier_flux(interfaces)
+            + projection.mortar_to_primary_int @ self.interface_fourier_flux(interfaces)
         )
         flux.set_name("Darcy_flux")
         return flux
@@ -1287,7 +1300,10 @@ class FouriersLaw:
 
         # Ignore mypy complaint about unexpected keyword arguments.
         cell_volumes = self.wrap_grid_attribute(
-            interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
+            interfaces,
+            "cell_volumes",
+            dim=1,
+            inverse=False,  # type: ignore[call-arg]
         )
         specific_volume = self.specific_volume(subdomains)
         trace = pp.ad.Trace(subdomains, dim=1)
@@ -1295,7 +1311,7 @@ class FouriersLaw:
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
         normal_gradient = pp.ad.Scalar(2) * (
-            projection.secondary_to_mortar_avg * self.aperture(subdomains) ** (-1)
+            projection.secondary_to_mortar_avg @ self.aperture(subdomains) ** Scalar(-1)
         )
         normal_gradient.set_name("normal_gradient")
 
@@ -1305,12 +1321,18 @@ class FouriersLaw:
         # the terms in the below equation.
         eq = self.interface_fourier_flux(interfaces) - (
             cell_volumes
-            * normal_gradient
-            * self.normal_thermal_conductivity(interfaces)
-            * (projection.primary_to_mortar_avg * trace.trace * specific_volume)
-            * (
-                projection.primary_to_mortar_avg * self.temperature_trace(subdomains)
-                - projection.secondary_to_mortar_avg * self.temperature(subdomains)
+            @ (
+                self.normal_thermal_conductivity(interfaces)
+                * (
+                    normal_gradient
+                    * (projection.primary_to_mortar_avg @ trace.trace @ specific_volume)
+                    * (
+                        projection.primary_to_mortar_avg
+                        @ self.temperature_trace(subdomains)
+                        - projection.secondary_to_mortar_avg
+                        @ self.temperature(subdomains)
+                    )
+                )
             )
         )
         eq.set_name("interface_fourier_flux_equation")
@@ -1391,16 +1413,16 @@ class AdvectiveFlux:
         )
 
         flux: pp.ad.Operator = (
-            darcy_flux * (discr.upwind * advected_entity)
-            - discr.bound_transport_dir * darcy_flux * bc_values
+            darcy_flux * (discr.upwind @ advected_entity)
+            - discr.bound_transport_dir @ (darcy_flux * bc_values)
             # Advective flux coming from lower-dimensional subdomains
-            - discr.bound_transport_neu * bc_values
+            - discr.bound_transport_neu @ bc_values
         )
         if interface_flux is not None:
             flux -= (
                 discr.bound_transport_neu
-                * mortar_projection.mortar_to_primary_int
-                * interface_flux(interfaces)
+                @ mortar_projection.mortar_to_primary_int
+                @ interface_flux(interfaces)
             )
         else:
             assert len(interfaces) == 0
@@ -1426,6 +1448,7 @@ class AdvectiveFlux:
 
         Returns:
             Operator representing the advective flux on the interfaces.
+
         """
         # If no interfaces are given, make sure to proceed with a non-empty subdomain
         # list if relevant.
@@ -1619,7 +1642,7 @@ class GravityForce:
         # Ignore type error, can't get mypy to understand keyword-only arguments in
         # mixin
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)  # type: ignore[call-arg]
-        source = (-1) * rho * e_n * gravity
+        source = Scalar(-1) * rho @ e_n @ gravity
         source.set_name("gravity_force")
         return source
 
@@ -1720,11 +1743,11 @@ class LinearElasticMechanicalStress:
         # subdomains, and let these act as Dirichlet boundary conditions on the
         # subdomains.
         stress = (
-            discr.stress * self.displacement(subdomains)
-            + discr.bound_stress * bc
+            discr.stress @ self.displacement(subdomains)
+            + discr.bound_stress @ bc
             + discr.bound_stress
-            * proj.mortar_to_primary_avg
-            * self.interface_displacement(interfaces)
+            @ proj.mortar_to_primary_avg
+            @ self.interface_displacement(interfaces)
         )
         stress.set_name("mechanical_stress")
         return stress
@@ -1764,10 +1787,10 @@ class LinearElasticMechanicalStress:
         # sign of the mortar sides.
         traction = (
             mortar_projection.sign_of_mortar_sides
-            * mortar_projection.secondary_to_mortar_int
-            * subdomain_projection.cell_prolongation(fracture_subdomains)
-            * self.local_coordinates(fracture_subdomains).transpose()
-            * self.contact_traction(fracture_subdomains)
+            @ mortar_projection.secondary_to_mortar_int
+            @ subdomain_projection.cell_prolongation(fracture_subdomains)
+            @ self.local_coordinates(fracture_subdomains).transpose()
+            @ self.contact_traction(fracture_subdomains)
         )
         traction.set_name("mechanical_fracture_stress")
         return traction
@@ -1855,10 +1878,10 @@ class PressureStress(LinearElasticMechanicalStress):
         # The stress is simply found by the grad_p operator, multiplied with the
         # pressure perturbation.
         stress: pp.ad.Operator = (
-            discr.grad_p * self.pressure(subdomains)
+            discr.grad_p @ self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no
             # need for a subdomain projection.
-            - discr.grad_p * self.reference_pressure(subdomains)
+            - discr.grad_p @ self.reference_pressure(subdomains)
         )
         stress.set_name("pressure_stress")
         return stress
@@ -1924,9 +1947,9 @@ class PressureStress(LinearElasticMechanicalStress):
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
         stress = (
             outwards_normal
-            * scalar_to_nd
-            * mortar_projection.secondary_to_mortar_avg
-            * self.pressure(subdomains)
+            @ scalar_to_nd
+            @ mortar_projection.secondary_to_mortar_avg
+            @ self.pressure(subdomains)
         )
         stress.set_name("fracture_pressure_stress")
         return stress
@@ -2016,8 +2039,8 @@ class ThermoPressureStress(PressureStress):
             * k
             / alpha
             * (
-                discr.grad_p * self.temperature(subdomains)
-                - discr.grad_p * self.reference_temperature(subdomains)
+                discr.grad_p @ self.temperature(subdomains)
+                - discr.grad_p @ self.reference_temperature(subdomains)
             )
         )
         stress.set_name("thermal_stress")
@@ -2172,7 +2195,7 @@ class FracturedSolid:
         )
         f_tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
-            self.tangential_component(subdomains) * self.displacement_jump(subdomains)
+            self.tangential_component(subdomains) @ self.displacement_jump(subdomains)
         )
 
         gap = self.reference_gap(subdomains) + shear_dilation
@@ -2251,10 +2274,10 @@ class FrictionBound:
             Cell-wise friction bound operator [Pa].
 
         """
-        t_n: pp.ad.Operator = self.normal_component(subdomains) * self.contact_traction(
+        t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
             subdomains
         )
-        bound: pp.ad.Operator = (-1) * self.friction_coefficient(subdomains) * t_n
+        bound: pp.ad.Operator = Scalar(-1) * self.friction_coefficient(subdomains) @ t_n
         bound.set_name("friction_bound")
         return bound
 
@@ -2451,10 +2474,10 @@ class PoroMechanicsPorosity:
         # Constant unitary porosity in fractures and intersections
         size = sum([sd.num_cells for sd in subdomains_lower])
         one = pp.wrap_as_ad_array(1, size=size, name="one")
-        rho_nd = projection.cell_prolongation(subdomains_nd) * self.matrix_porosity(
+        rho_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
             subdomains_nd
         )
-        rho_lower = projection.cell_prolongation(subdomains_lower) * one
+        rho_lower = projection.cell_prolongation(subdomains_lower) @ one
         rho = rho_nd + rho_lower
         rho.set_name("porosity")
         return rho
@@ -2519,7 +2542,7 @@ class PoroMechanicsPorosity:
         dp = self.perturbation_from_reference("pressure", subdomains)
 
         # Compute 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
-        n_inv = (alpha - phi_ref) * (1 - alpha) / bulk_modulus
+        n_inv = (alpha - phi_ref) * (Scalar(1) - alpha) / bulk_modulus
 
         # Pressure change contribution
         pressure_contribution = n_inv * dp
@@ -2580,13 +2603,13 @@ class PoroMechanicsPorosity:
         bc_values = self.bc_values_mechanics(subdomains)
 
         # Compose operator.
-        div_u_integrated = discr.div_u * self.displacement(
+        div_u_integrated = discr.div_u @ self.displacement(
             subdomains
-        ) + discr.bound_div_u * (
+        ) + discr.bound_div_u @ (
             bc_values
             + sd_projection.face_restriction(subdomains)
-            * mortar_projection.mortar_to_primary_avg
-            * self.interface_displacement(interfaces)
+            @ mortar_projection.mortar_to_primary_avg
+            @ self.interface_displacement(interfaces)
         )
         # Divide by cell volumes to counteract integration.
         # The div_u discretization contains a volume integral. Since div u is used here
@@ -2595,7 +2618,7 @@ class PoroMechanicsPorosity:
             self.wrap_grid_attribute(  # type: ignore[call-arg]
                 subdomains, "cell_volumes", dim=1, inverse=True
             )
-            * div_u_integrated
+            @ div_u_integrated
         )
         div_u.set_name("div_u")
         return div_u
@@ -2621,7 +2644,7 @@ class PoroMechanicsPorosity:
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
         dp = self.perturbation_from_reference("pressure", subdomains)
-        stabilization_integrated = discr.stabilization * dp
+        stabilization_integrated = discr.stabilization @ dp
 
         # Divide by cell volumes to counteract integration.
         # The stabilization discretization contains a volume integral. Since the
@@ -2631,7 +2654,7 @@ class PoroMechanicsPorosity:
             self.wrap_grid_attribute(  # type: ignore[call-arg]
                 subdomains, "cell_volumes", dim=1, inverse=True
             )
-            * stabilization_integrated
+            @ stabilization_integrated
         )
 
         stabilization.set_name("biot_stabilization")
@@ -2677,7 +2700,7 @@ class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
         dp = self.perturbation_from_reference("pressure", subdomains)
 
         # Pressure change contribution
-        pressure_contribution = specific_storage * dp
+        pressure_contribution = specific_storage @ dp
         pressure_contribution.set_name("Biot's porosity change from pressure")
 
         return pressure_contribution
@@ -2739,6 +2762,8 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         dtemperature = self.perturbation_from_reference("temperature", subdomains)
         phi_ref = self.reference_porosity(subdomains)
         beta = self.solid_thermal_expansion(subdomains)
+        # TODO: Figure out why * is needed here, but not in
+        # porosity_change_from_pressure.
         phi = Scalar(-1) * (Scalar(1) - phi_ref) * beta * dtemperature
         phi.set_name("Porosity change from temperature")
         return phi
