@@ -556,7 +556,7 @@ def test_all(var_1, var_2, op, wrapped):
     _compare(val, expected)
 
 
-""" Below follows legacy (though updated) tests for the Ad_array class. These tests
+""" Below follows legacy (though updated) tests for the AdArray class. These tests
     cover initiation of AdArray (joint initiation of multiple dependent
 variables). The test also partly cover the arithmetic operations implemented for
 AdArrays, e.g., __add__, __sub__, etc., but these are also tested in different tests.

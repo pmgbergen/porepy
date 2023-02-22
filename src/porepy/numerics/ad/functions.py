@@ -15,7 +15,7 @@ Examples:
     Note that while the argument to ``AdFunction`` is a
     :class:`~porepy.numerics.ad.operators.Operator, the wrapping in
     ``pp.ad.Function`` implies that upon parsing,
-    the argument passed to ``f`` will be an Ad_array.
+    the argument passed to ``f`` will be an AdArray.
 
 """
 from __future__ import annotations
@@ -279,7 +279,7 @@ def heaviside_smooth(var, eps: float = 1e-3):
 
     Returns:
         Regularized heaviside function (and its Jacobian if applicable) in form of a
-        Ad_array or ndarray (depending on the input).
+        AdArray or ndarray (depending on the input).
 
     """
     if isinstance(var, AdArray):
@@ -307,11 +307,11 @@ class RegularizedHeaviside:
 
 
 def maximum(var_0: pp.ad.AdArray, var_1: pp.ad.AdArray | np.ndarray) -> pp.ad.AdArray:
-    """Ad maximum function represented as an Ad_array.
+    """Ad maximum function represented as an AdArray.
 
-    The arguments can be either Ad_arrays or ndarrays, this duality is needed to allow
+    The arguments can be either AdArrays or ndarrays, this duality is needed to allow
     for parsing of operators that can be taken at the current iteration (in which case
-    it will parse as an Ad_array) or at the previous iteration or time step (in which
+    it will parse as an AdArray) or at the previous iteration or time step (in which
     case it will parse as a numpy array).
 
 
@@ -324,14 +324,14 @@ def maximum(var_0: pp.ad.AdArray, var_1: pp.ad.AdArray | np.ndarray) -> pp.ad.Ad
 
     Returns:
         The maximum of the two arguments, taken element-wise in the arrays. The return
-        type is Ad_array if at least one of the arguments is an Ad_array, otherwise it
-        is an ndarray. If an Ad_array is returned, the Jacobian is computed according to
-        the maximum values of the Ad_arrays (so if element ``i`` of the maximum is
+        type is AdArray if at least one of the arguments is an AdArray, otherwise it
+        is an ndarray. If an AdArray is returned, the Jacobian is computed according to
+        the maximum values of the AdArrays (so if element ``i`` of the maximum is
         picked from ``var_0``, row ``i`` of the Jacobian is also picked from the
         Jacobian of ``var_0``). If ``var_0`` is a ndarray, its Jacobian is set to zero.
 
     """
-    # If neither var_0 or var_1 are Ad_arrays, return the numpy maximum function.
+    # If neither var_0 or var_1 are AdArrays, return the numpy maximum function.
     if not isinstance(var_0, AdArray) and not isinstance(var_1, AdArray):
         # FIXME: According to the type hints, this should not be possible.
         return np.maximum(var_0, var_1)

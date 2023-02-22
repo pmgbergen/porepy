@@ -124,7 +124,7 @@ def test_copy_operator_tree():
     assert not np.allclose(c.evaluate(eq_system), c_deepcopy.evaluate(eq_system))
 
 
-## Test of pp.ad.Matrix, pp.ad.Array, pp.ad.Scalar
+## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
 fields = [
     (pp.ad.SparseArray, sps.csr_matrix(np.random.rand(3, 2))),
     (pp.ad.DenseArray, np.random.rand(3)),
