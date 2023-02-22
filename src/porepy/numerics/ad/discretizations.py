@@ -454,7 +454,7 @@ class DifferentiableFVAd:
         self._subdomain_projections = pp.ad.SubdomainProjections(self.subdomains)
         """Subdomain projections used between full set of subdomains and individual ones."""
         self._perm_function = permeability_function
-        """Function returning permeability as an Ad_array given the perm_argument."""
+        """Function returning permeability as an ad.DenseArray given the perm_argument."""
         self._perm_argument: pp.ad.Variable = permeability_argument
         """pp.ad.Variable representing the variable upon which perm_function depends."""
         self._potential: pp.ad.Variable = potential
@@ -498,20 +498,20 @@ class DifferentiableFVAd:
         Parameters:
             perm_function: pp.ad.Function returning permeability given a list of
                 subdomains.
-            perm_argument: Ad_array representing the variable upon which perm_function
+            perm_argument: ad.DenseArray representing the variable upon which perm_function
                 depends.
             potential: Potential for the flux law
                 :math:`flux=-K\nabla(potential - vector_source)`.
 
         Returns:
-            Ad_array representing the flux.
+            ad.DenseArray representing the flux.
 
         """
         # Implementation note:
         # When this function is called, potential should be an Ad operator (say, a
         # MixedDimensionalVariable representation of the pressure). During evaluation,
         # because of the way operator trees are evaluated, potential will be an
-        # Ad_array (it is closer to being an atomic variable, thus it will be
+        # ad.DenseArray (it is closer to being an atomic variable, thus it will be
         # evaluated before this function).
 
         # The product rule applied to q = T(k(u)) * p gives
@@ -631,7 +631,7 @@ class DifferentiableFVAd:
         # Note on parameters: When this function is called, potential should be an Ad
         # operator (say, a MixedDimensionalVariable representation of the pressure).
         # During evaluation, because of the way operator trees are evaluated, potential
-        # will be an Ad_array (it is closer to being an atomic variable, thus it will be
+        # will be an ad.DenseArray (it is closer to being an atomic variable, thus it will be
         # evaluated before this function).
 
         # The product rule applied to q = T(k(u)) * p gives
@@ -766,7 +766,7 @@ class DifferentiableFVAd:
 
         # Evaluate the permeability as a function of the current potential
         # The evaluation means we go from an Ad operator formulation to the forward
-        # mode, working with Ad_arrays. We map the computed permeability to the
+        # mode, working with ad.DenseArrays. We map the computed permeability to the
         # faces (distinguishing between the left and right sides of the face).
         cell_2_one_sided_face = sps.coo_matrix(
             (np.ones(sz), (np.arange(sz), ci)),
@@ -777,7 +777,7 @@ class DifferentiableFVAd:
         #  specific to the grid, the restriction should be applied to the potential
         # rather than the permeability).
         # The evaluation means we go from an Ad operator formulation to the forward
-        # mode, working with Ad_arrays.
+        # mode, working with ad.DenseArrays.
         # Then, map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
         cells_of_grid = self._subdomain_projections.cell_restriction([g]).evaluate(
@@ -786,7 +786,7 @@ class DifferentiableFVAd:
         k_one_sided = cell_2_one_sided_face * cells_of_grid * global_permeability
 
         # Multiply the permeability (and its derivatives with respect to potential,
-        # since k_one_sided is an Ad_array) with area weighted normal vectors
+        # since k_one_sided is an ad.DenseArray) with area weighted normal vectors
         # divided by distance
         normals_over_distance = np.divide(n_dist.sum(axis=0), dist_face_cell)
         t_one_sided = (
