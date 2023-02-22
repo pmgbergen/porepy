@@ -67,11 +67,14 @@ class Operator:
             "add",
             "sub",
             "mul",
+            "rmul",
             "matmul",
             "div",
+            "rdiv",
             "evaluate",
             "approximate",
             "pow",
+            "rpow",
         ],
     )
     """Object representing all supported operations by the operator class.
