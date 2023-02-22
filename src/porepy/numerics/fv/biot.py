@@ -263,12 +263,12 @@ class Biot(pp.Mpsa):
         ]
         vector_cell_right = [
             self.stress_matrix_key,
-            self.bound_displacment_cell_matrix_key,
+            self.bound_displacement_cell_matrix_key,
             self.div_u_matrix_key,
         ]
         vector_face_right = [
             self.bound_stress_matrix_key,
-            self.bound_displacment_face_matrix_key,
+            self.bound_displacement_face_matrix_key,
             self.bound_div_u_matrix_key,
         ]
 
@@ -282,8 +282,8 @@ class Biot(pp.Mpsa):
             self.stress_matrix_key,
             self.grad_p_matrix_key,
             self.bound_stress_matrix_key,
-            self.bound_displacment_cell_matrix_key,
-            self.bound_displacment_face_matrix_key,
+            self.bound_displacement_cell_matrix_key,
+            self.bound_displacement_face_matrix_key,
             self.bound_pressure_matrix_key,
         ]
 
@@ -592,10 +592,10 @@ class Biot(pp.Mpsa):
             matrices_f[self.stabilization_matrix_key][update_cell_ind] = stabilization[
                 update_cell_ind
             ]
-            matrices_m[self.bound_displacment_cell_matrix_key][
+            matrices_m[self.bound_displacement_cell_matrix_key][
                 update_face_ind
             ] = bound_displacement_cell[update_face_ind]
-            matrices_m[self.bound_displacment_face_matrix_key][
+            matrices_m[self.bound_displacement_face_matrix_key][
                 update_face_ind
             ] = bound_displacement_face[update_face_ind]
             matrices_m[self.bound_pressure_matrix_key][
@@ -605,8 +605,12 @@ class Biot(pp.Mpsa):
             matrices_m[self.stress_matrix_key] = stress
             matrices_m[self.bound_stress_matrix_key] = bound_stress
             matrices_m[self.grad_p_matrix_key] = grad_p
-            matrices_m[self.bound_displacment_cell_matrix_key] = bound_displacement_cell
-            matrices_m[self.bound_displacment_face_matrix_key] = bound_displacement_face
+            matrices_m[
+                self.bound_displacement_cell_matrix_key
+            ] = bound_displacement_cell
+            matrices_m[
+                self.bound_displacement_face_matrix_key
+            ] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
 
             matrices_f[self.div_u_matrix_key] = div_u
