@@ -33,14 +33,12 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-from porepy.applications.verification_setups.manu_flow_incomp_frac import (
+from tests.functional.setups.manu_flow_incomp_frac import (
     ManuIncompSaveData,
     ManuIncompUtils,
     SingleEmbeddedVerticalFracture,
 )
-from porepy.applications.verification_setups.verification_utils import (
-    VerificationDataSaving,
-)
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number

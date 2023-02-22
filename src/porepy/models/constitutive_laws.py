@@ -1641,6 +1641,11 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
 
     """
+    time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
+    """Time dependent boundary conditions. Normally defined by a mixin instance of
+    :class:`~porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent`.
+
+    """
     displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
@@ -1678,6 +1683,72 @@ class LinearElasticMechanicalStress:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+
+    def mechanical_displacement_trace(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Trace of the displacement for a purely elastic problem.
+
+        For a poroelastic problem, one must take into account the fluid pressure
+        contribution the trace of the displacement, see e.g.,
+        :class:`~porepy.models.constitutive_laws.PressureStress`.
+
+        Parameters:
+              subdomains: List of subdomains.
+
+        Returns:
+              Ad operator representing the trace of the displacement on grid faces of
+              the subdomains.
+
+        """
+        for sd in subdomains:
+            # The mechanical displacement trace is only defined on subdomains of
+            # co-dimension 0.
+            assert sd.dim == self.nd
+
+        # TODO: Test lacking
+        # Check whether we need to retrieve time-dependent values for the displacement
+        # via ``time_dependent_bc_values_mechanics()``. This is a bit tricky, since we
+        # don't know beforehand if the model defines mechanical boundary conditions
+        # as time-dependent. To obtain this information, we need check if the class has
+        # the `time_dependent_bc_values_mechanics`` method as a member of the class.
+        # Credits: https://stackoverflow.com/questions/7580532
+        if hasattr(self.__class__, "time_dependent_bc_values_mechanics") and callable(
+            getattr(self.__class__, "time_dependent_bc_values_mechanics")
+        ):
+            bc = pp.wrap_as_ad_array(
+                self.time_dependent_bc_values_mechanics(subdomains)
+            )
+        else:
+            bc = self.bc_values_mechanics(subdomains)
+
+        # Discretization given by Mpsa
+        discr = pp.ad.MpsaAd(self.stress_keyword, subdomains)
+
+        # Retrieve interfaces
+        intf = self.subdomains_to_interfaces(subdomains, [1])
+
+        # Retrieve external boundary conditions and projection operators
+
+        proj = pp.ad.MortarProjections(self.mdg, subdomains, intf, dim=self.nd)
+
+        # Retrieve current displacement
+        u = self.displacement(subdomains)
+
+        # The trace of the displacement has three contributions:
+        #   - The displacement of the interior cells   # (C1)
+        #   - The displacement on exterior boundaries  # (C2)
+        #   - The displacement on the lower dimensional interfaces  # (C3)
+        mechanical_displacement_trace = (
+            discr.bound_displacement_cell * u  # (C1)
+            + discr.bound_displacement_face * bc  # (C2)
+            + proj.mortar_to_primary_avg * self.interface_displacement(intf)  # (C3)
+        )
+
+        # Set name
+        mechanical_displacement_trace.set_name("Mechanical displacement trace")
+
+        return mechanical_displacement_trace
 
     def mechanical_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Linear elastic mechanical stress.
@@ -1823,6 +1894,43 @@ class PressureStress(LinearElasticMechanicalStress):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
+
+    def poromechanical_displacement_trace(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Trace of the displacement for a poromechanical problem.
+
+        Parameters:
+            subdomains: list of subdomains.
+
+        Returns:
+            Ad operator representing the trace of the displacement on grid faces of
+              the subdomains.
+
+        """
+        for sd in subdomains:
+            assert sd.dim == self.nd
+
+        # Discretization given by BiotAd
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+
+        # Retrieve current pressure
+        p = self.pressure(subdomains)
+        p_ref = self.reference_pressure(subdomains)
+
+        # Retrieve the trace of the displacement caused by mechanical effects
+        mech_trace_u = self.mechanical_displacement_trace(subdomains)
+
+        # Add the contribution of the perturbed fluid pressure
+        poromechanical_displacement_trace = (
+            mech_trace_u + discr.bound_pressure * p - discr.bound_pressure * p_ref
+        )
+
+        # Set name
+        poromechanical_displacement_trace.set_name("Poromechanical displacement trace")
+
+        return poromechanical_displacement_trace
 
     def pressure_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure contribution to stress tensor.
