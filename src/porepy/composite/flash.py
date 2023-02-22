@@ -12,6 +12,7 @@ import porepy as pp
 
 from .composition import Composition
 from .phase import Phase
+from .peng_robinson.pr_utils import Leaf
 
 # import time
 
@@ -166,7 +167,7 @@ class Flash:
         """A list of strings representing names of complementary conditions (KKT)
         for the unified flash problem."""
 
-        self._regularization_param = np.array([])
+        self._regularization_param = Leaf("reg")
         npipm_eqn, npipm_vars = self._set_npipm_eqn_vars()
         self.npipm_variables: list[str] = npipm_vars
         """A list containing algorithmic variables in for the NPIPM, which are
@@ -349,12 +350,13 @@ class Flash:
         coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self._C.num_phases**2)
         neg = pp.ad.SemiSmoothNegative()
         pos = pp.ad.SemiSmoothPositive()
+        one = pp.ad.Scalar(1.)
 
         norm_parts = list()
         dot_parts = list()
-        # test_parts = list()
-        # def smoother(X):
-        #     return X / (X + 1)
+        test_parts = list()
+        def smoother(X):
+            return X / (X + 1)
         for phase in self._C.phases:
             v_e = self._V_of_phase[phase]
             w_e = self._W_of_phase[phase]
@@ -362,10 +364,10 @@ class Flash:
             dot_parts.append(v_e * w_e)
             norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
 
-            # test_parts.append(
-            #     smoother(neg(w_e) / (self._regularization_param + 1))
-            #     + smoother(neg(v_e) / (self._regularization_param + 1))
-            # )
+            test_parts.append(
+                # smoother(neg(w_e) / (self._regularization_param + 1))
+                smoother(neg(v_e) / (self._nu + one))
+            )
 
         dot_part = pos(sum(dot_parts))
         dot_part *= dot_part * coeff
@@ -374,7 +376,7 @@ class Flash:
             eta * self._nu
             + self._nu * self._nu
             + (sum(norm_parts) + dot_part) / 2
-            # + sum(test_parts) * kappa * self._regularization_param
+            + sum(test_parts) * self._regularization_param
         )
         equation.set_name("NPIPM_param")
         self._C.ad_system.set_equation(
@@ -867,7 +869,7 @@ class Flash:
         )
 
         # some starting value for regularization
-        self._regularization_param = 0.9 * np.ones(len(nu))
+        self._regularization_param.value = 0.9 * np.ones(len(nu))
 
     def _set_initial_guess(self, initial_guess: str) -> None:
         """Auxillary function to set the initial values for phase fractions,
@@ -1194,6 +1196,19 @@ class Flash:
 
         return success
 
+    def _update_reg(self):
+
+        reg_k = self._regularization_param.value
+        reg_geo = 0.5 * reg_k
+        reg_pow = reg_k**2
+
+        # TODO consider third option <V,W>+ / m
+
+        # Use stack not hstack, to avoid arrays with shape (n,) (second axis must exist)
+        self._regularization_param.value = np.min(
+            np.stack([reg_geo, reg_pow], axis=1), axis=1
+        )
+
     def _npipm_pre_processor(
         self, A: sps.spmatrix, b: np.ndarray, prolongation: sps.spmatrix
     ) -> tuple[sps.spmatrix, np.ndarray]:
@@ -1208,16 +1223,17 @@ class Flash:
         def smoother(t):
             return t / (t + 1)
 
-        reg_k = self._regularization_param
-        reg_geo = 0.5 * reg_k
-        reg_pow = reg_k**2
+        # reg_k = self._regularization_param
+        # reg_geo = 0.5 * reg_k
+        # reg_pow = reg_k**2
+        # # TODO consider third option <V,W>+ / m
 
-        # TODO consider third option <V,W>+ / m
+        # # Use stack not hstack, to avoid arrays with shape (n,) (second axis must exist)
+        # self._regularization_param = np.min(
+        #     np.stack([reg_geo, reg_pow], axis=1), axis=1
+        # )
 
-        # Use stack not hstack, to avoid arrays with shape (n,) (second axis must exist)
-        self._regularization_param = np.min(
-            np.stack([reg_geo, reg_pow], axis=1), axis=1
-        )
+        # nu = self._nu.evaluate(self._C.ad_system)
 
         # The pre-conditioning consists of multiplying the coupling equation (per phase)
         # with dot_V_W**+ * u / m**2 and subtracting them from the slack equation for nu
@@ -1252,22 +1268,22 @@ class Flash:
             #     A[-nc:, :-nc] = 0
 
             # regularization of slack equation
-            neg_v = v_phase.val > 0
-            v_phase.val[neg_v] = 0.0
-            v_phase.jac = v_phase.jac.tolil()
-            v_phase.jac[neg_v] = 0.0
-            neg_w = w_phase.val > 0.0
-            w_phase.val[neg_w] = 0.0
-            w_phase.jac = w_phase.jac.tolil()
-            w_phase.jac[neg_w] = 0.0
+            # neg_v = v_phase.val > 0
+            # v_phase.val[neg_v] = 0.0
+            # v_phase.jac = v_phase.jac.tolil()
+            # v_phase.jac[neg_v] = 0.0
+            # neg_w = w_phase.val > 0.0
+            # w_phase.val[neg_w] = 0.0
+            # w_phase.jac = w_phase.jac.tolil()
+            # w_phase.jac[neg_w] = 0.0
 
-            regularization = smoother(
-                w_phase / (self._regularization_param + 1)
-            ) + smoother(v_phase / (self._regularization_param + 1))
-            regularization = regularization * self._regularization_param
+            # regularization = smoother(
+            #     w_phase / (self._regularization_param + 1)
+            # ) + smoother(v_phase / ( nu+ 1))
+            # regularization = regularization * self._regularization_param
 
-            A[-nc:] += regularization.jac.tocsr() * prolongation
-            b[-nc:] += regularization.val
+            # A[-nc:] += regularization.jac * prolongation
+            # b[-nc:] -= regularization.val
 
         # back to csr and eliminate zeros
         A = A.tocsr()
@@ -1295,6 +1311,7 @@ class Flash:
 
         Raises:
             RuntimeError: If line-search in defined interval does not yield any results.
+                (Applies only if `return_max` is set to `False`)
 
         Returns:
             The step-size resulting from the line-search algorithm.
@@ -1500,6 +1517,7 @@ class Flash:
                     additive=True,
                 )
 
+                self._update_reg()
                 A, b = F()
 
                 # in case of convergence
