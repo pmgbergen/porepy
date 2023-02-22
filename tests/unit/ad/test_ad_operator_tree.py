@@ -590,19 +590,19 @@ def test_variable_combinations(grids, variables):
         assert expr.jac.shape[1] == eq_system.num_dofs()
 
     # Finally, check that the size of the Jacobian matrix is correct when combining
-    # variables (this will cover both variables and mixed-dimensional variable with the same name,
-    # and with different name).
+    # variables (this will cover both variables and mixed-dimensional variable with the
+    # same name, and with different name).
     for sd in grids:
         for var in ad_vars:
-            nc = var.size()
+            nc = var.size
             cols = np.arange(nc)
             data = np.ones(nc)
             for mv in merged_vars:
-                nr = mv.size()
+                nr = mv.size
 
                 # The variable must be projected to the full set of grid for addition
                 # to be meaningful. This requires a bit of work.
-                sv_size = np.array([sv.size() for sv in mv.sub_vars])
+                sv_size = np.array([sv.size for sv in mv.sub_vars])
                 mv_grids = [sv._g for sv in mv.sub_vars]
                 ind = mv_grids.index(var._g)
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
