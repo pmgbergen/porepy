@@ -721,14 +721,15 @@ class FractureNetwork2d:
 
         Fractures outside the imposed domain will be deleted.
 
-        The domain will be added to self._pts and self.edges, if add_domain_edges is True.
+        The domain will be added to self._pts and self.edges, if add_domain_edges is
+        True.
         The domain boundary edges can be identified from self.tags['boundary'].
 
         Args:
             domain (dict or np.array, optional): Domain. See __init__ for description.
                 if not provided, self.domain will be used.
-            add_domain_edges(bool, optional): Include or not the boundary edges and _pts in
-                the list of edges. Default value True.
+            add_domain_edges(bool, optional): Include or not the boundary edges and _pts
+            in the list of edges. Default value True.
 
         Returns:
             edges_deleted (np.array): Index of edges that were outside the bounding box

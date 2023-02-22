@@ -75,6 +75,11 @@ def linefractures_to_pts_edges(
     """Convert a list of line fractures into arrays of the corresponding points and
     edges.
 
+    The function loops over the points of the individual fractures and checks if the
+    point is the start/end point (up to the given tolerance) of a previously checked
+    fracture. If yes, the edge index links to the existing point. If no, the point is
+    added to the points array.
+
     Parameters:
         fractures: List of line fractures.
         tol: Absolute tolerance to decide if start-/endpoints of two different fractures
