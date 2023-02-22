@@ -1228,13 +1228,12 @@ class DenseArray(Operator):
 
         """
         super().__init__(name=name)
-        self._values = values
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
-        self._values = self._values.astype(float)
+        self._values = values.astype(float, copy=False)
 
     def __repr__(self) -> str:
-        return f"Wrapped numpy array of size {self._values.size}"
+        return f"Wrapped numpy array of size {self._values.size}."
 
     def __str__(self) -> str:
         s = "Array"
@@ -1707,10 +1706,11 @@ class MixedDimensionalVariable(Variable):
         )
         return domains
 
+    @property
     def size(self) -> int:
         """Returns the total size of the mixed-dimensional variable
         by summing the sizes of sub-variables."""
-        return sum([v.size() for v in self.sub_vars])
+        return sum([v.size for v in self.sub_vars])
 
     def previous_timestep(self) -> MixedDimensionalVariable:
         """Return a representation of this mixed-dimensional variable on the previous
@@ -1770,7 +1770,7 @@ class MixedDimensionalVariable(Variable):
         s += (
             f" variable with name {self.name}, id {self.id}\n"
             f"Composed of {len(self.sub_vars)} variables\n"
-            f"Total size: {self.size()}\n"
+            f"Total size: {self.size}\n"
         )
         if self.prev_iter:
             s += "Evaluated at the previous iteration.\n"
