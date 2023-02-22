@@ -412,14 +412,14 @@ class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
 
 
 class MassBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     ...
 
 
 class MomentumBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.momentum_balance.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
@@ -428,7 +428,7 @@ class MomentumBalance(
 
 
 class MassAndEnergyBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
@@ -437,7 +437,7 @@ class MassAndEnergyBalance(
 
 
 class Poromechanics(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.poromechanics.Poromechanics,
 ):
     """Combine components needed for poromechanics simulation."""
@@ -446,7 +446,7 @@ class Poromechanics(
 
 
 class Thermoporomechanics(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
@@ -467,7 +467,7 @@ def model(
 
     # Identify the geometry class
     if dim == 2:
-        geometry = RectangularDomainOrthogonalFractures2d
+        geometry = RectangularDomainThreeFractures
     elif dim == 3:
         geometry = OrthogonalFractures3d
     else:
