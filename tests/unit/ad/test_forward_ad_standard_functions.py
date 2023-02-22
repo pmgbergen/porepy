@@ -1,9 +1,9 @@
-"""Tests of the forward part of the AD framework, that is Ad_arrays and operations on these.
+"""Tests of the forward part of the AD framework, that is AdArrays and operations on these.
 
 The tests are grouped into three categories (using unittest classes for historical reasons):
     AdInitTests: tests of the initialization of the Ad arrays.
-    AdArrays: Test fundamental operation on Ad_arrays, such as addition, multiplication, etc.
-    AdFunctions: Tests of the functions that are defined on Ad_arrays, such as exp, log, etc.
+    AdArrays: Test fundamental operation on AdArrays, such as addition, multiplication, etc.
+    AdFunctions: Tests of the functions that are defined on AdArrays, such as exp, log, etc.
 
 """
 import unittest
@@ -14,7 +14,6 @@ import scipy.sparse as sps
 
 from porepy.numerics.ad import AdArray
 from porepy.numerics.ad import functions as af
-from porepy.numerics.ad import initAdArrays
 
 warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
 

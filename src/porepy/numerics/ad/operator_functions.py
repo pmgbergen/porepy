@@ -58,7 +58,7 @@ class AbstractFunction(Operator):
             formatted output. If false, the function will be evaluated element-wise
             (scalar input). Defaults to False.
         ad_compatible (Optional): If true, the callable ``func`` will be called using
-            the porepy.ad.Ad_array.
+            the porepy.ad.AdArray.
 
             Note that as of now, this will effectively bypass the abstract methods
             for generating values and the Jacobian, assuming both will be provided
@@ -164,7 +164,7 @@ class AbstractFunction(Operator):
         this instance.
 
         Parameters:
-            *args: Ad_array representation of the operators passed during the call to this
+            *args: AdArray representation of the operators passed during the call to this
                 instance
 
         Returns:
@@ -187,10 +187,10 @@ class AbstractFunction(Operator):
 
         Note:
             The necessary dimensions for the jacobian can be extracted from the dimensions
-            of the Jacobians of passed Ad_array instances.
+            of the Jacobians of passed AdArray instances.
 
         Parameters:
-            *args: Ad_array representation of the operators passed during the call to this
+            *args: AdArray representation of the operators passed during the call to this
                 instance
 
         Returns:
@@ -214,7 +214,7 @@ class AbstractJacobianFunction(AbstractFunction):
             The direct evaluation of the callable using ``val`` of passed AD arrays.
 
         """
-        # get values of argument Ad_arrays.
+        # get values of argument AdArrays.
         vals = (arg.val for arg in args)
 
         # if the callable is flagged as conform for vector operations, feed vectors
@@ -237,12 +237,12 @@ class AbstractJacobianFunction(AbstractFunction):
 
 class Function(AbstractFunction):
     """Ad representation of an analytically given function,
-    where it is expected that passing Ad_arrays directly to ``func`` will
+    where it is expected that passing AdArrays directly to ``func`` will
     return the proper result.
 
     Here the values **and** the Jacobian are obtained exactly by the AD framework.
 
-    The intended use is as a wrapper for operations on pp.ad.Ad_array objects,
+    The intended use is as a wrapper for operations on pp.ad.AdArray objects,
     in forms which are not directly or easily expressed by the rest of the Ad
     framework.
 

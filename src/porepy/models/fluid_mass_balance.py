@@ -387,8 +387,8 @@ class BoundaryConditionsSinglePhaseFlow:
             vals[boundary_faces] = self.fluid.density() / self.fluid.viscosity()
             bc_values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
-        # We have forced the type of bc_values_array to be an ad.Array, but mypy does
+        # Concatenate to single array and wrap as ad.DenseArray
+        # We have forced the type of bc_values_array to be an ad.DenseArray, but mypy does
         # not recognize this. We therefore ignore the typing error.
         bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(  # type: ignore
             np.hstack(bc_values), name="bc_values_mobility"
@@ -646,7 +646,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             # fall back on reference value
             volume = self.specific_volume([sd]).evaluate(self.equation_system)
             permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
-        # The result may be an Ad_array, in which case we need to extract the
+        # The result may be an AdArray, in which case we need to extract the
         # underlying array.
         if isinstance(permeability, pp.ad.AdArray):
             permeability = permeability.val

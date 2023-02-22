@@ -568,7 +568,7 @@ class BoundaryConditionsEnergyBalance:
             # Append to list of boundary values
             bc_values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
+        # Concatenate to single array and wrap as ad.DenseArray
         bc_values_ad = pp.wrap_as_ad_array(
             np.hstack(bc_values), name="bc_values_enthalpy"
         )
@@ -682,7 +682,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """
         conductivity_ad = self.specific_volume([sd]) * self.thermal_conductivity([sd])
         conductivity = conductivity_ad.evaluate(self.equation_system)
-        # The result may be an Ad_array, in which case we need to extract the
+        # The result may be an AdArray, in which case we need to extract the
         # underlying array.
         if isinstance(conductivity, pp.ad.AdArray):
             conductivity = conductivity.val

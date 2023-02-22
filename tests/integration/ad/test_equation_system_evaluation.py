@@ -4,7 +4,7 @@ EquationSystem.
 TODO: We may repurpose this module to a test of parsing of Ad Operators in general.
 
 Contents:
-    
+
 
 """
 import numpy as np
@@ -57,7 +57,7 @@ def test_evaluate_variables():
         assert np.allclose(val.val, 2)
 
         # Now create the variable at the previous iterate. This should also give the
-        # value in pp.ITERATE, but it should not yield an Ad_array.
+        # value in pp.ITERATE, but it should not yield an AdArray.
         var_prev_iter = var.previous_iteration()
         val_prev_iter = var_prev_iter.evaluate(eq_system)
         assert isinstance(val_prev_iter, np.ndarray)
@@ -71,7 +71,7 @@ def test_evaluate_variables():
         assert np.allclose(val_prev_timestep, 1)
 
         # Use the ad machinery to define the difference between the current and
-        # previous time step. This should give an Ad_array with the same value as that
+        # previous time step. This should give an AdArray with the same value as that
         # obtained by subtracting the evaluated variables.
         var_increment = pp.ad.time_increment(var)
         val_increment = var_increment.evaluate(eq_system)

@@ -88,7 +88,7 @@ class SubdomainProjections(Operator):
                 the projection should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represents the
+            pp.ad.SparseArray: Matrix operator (in the Ad sense) that represents the
                 projection.
 
         """
@@ -115,7 +115,7 @@ class SubdomainProjections(Operator):
                 the prolongation should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the
+            pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
                 prolongation.
 
         """
@@ -141,7 +141,7 @@ class SubdomainProjections(Operator):
                 the projection should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the
+            pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
                 projection.
 
         """
@@ -165,7 +165,7 @@ class SubdomainProjections(Operator):
                 the prolongation should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the
+            pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
                 prolongation.
 
         """
@@ -197,28 +197,28 @@ class MortarProjections(Operator):
     """Wrapper class to generate projections to and from MortarGrids.
 
     Attributes:
-        mortar_to_primary_int (pp.ad.Matrix): Matrix of projections from the mortar
+        mortar_to_primary_int (pp.ad.SparseArray): Matrix of projections from the mortar
             grid to the primary grid. Intended for extensive quantities (so fluxes).
             Represented as an Ad Matrix operator.
-        mortar_to_primary_avg (pp.ad.Matrix): Matrix of projections from the mortar
+        mortar_to_primary_avg (pp.ad.SparseArray): Matrix of projections from the mortar
             grid to the primary grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
-        primary_to_mortar_int (pp.ad.Matrix): Matrix of projections from the primary
+        primary_to_mortar_int (pp.ad.SparseArray): Matrix of projections from the primary
             grid to the mortar grid. Intended for extensive quantities (so fluxes).
             Represented as an Ad Matrix operator.
-        primary_to_mortar_avg (pp.ad.Matrix): Matrix of projections from the primary
+        primary_to_mortar_avg (pp.ad.SparseArray): Matrix of projections from the primary
             grid to the mortar grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
-        mortar_to_secondary_int (pp.ad.Matrix): Matrix of projections from the mortar
+        mortar_to_secondary_int (pp.ad.SparseArray): Matrix of projections from the mortar
             grid to the secondary grid. Intended for extensive quantities (so fluxes).
             Represented as an Ad Matrix operator.
-        mortar_to_secondary_avg (pp.ad.Matrix): Matrix of projections from the mortar
+        mortar_to_secondary_avg (pp.ad.SparseArray): Matrix of projections from the mortar
             grid to the secondary grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
-        secondary_to_mortar_int (pp.ad.Matrix): Matrix of projections from the secondary
+        secondary_to_mortar_int (pp.ad.SparseArray): Matrix of projections from the secondary
             grid to the mortar grid. Intended for extensive quantities (so fluxes).
             Represented as an Ad Matrix operator.
-        secondary_to_mortar_avg (pp.ad.Matrix): Matrix of projections from the secondary
+        secondary_to_mortar_avg (pp.ad.SparseArray): Matrix of projections from the secondary
             grid to the mortar grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
         sign_of_mortar_sides (pp.Ad.Matrix): Matrix representation that assigns signs
@@ -447,7 +447,7 @@ class MortarProjections(Operator):
             secondary_to_mortar_avg.append(from_cells)
 
         # Stack mappings from the mortar horizontally.
-        # The projections are wrapped by a pp.ad.Matrix to be compatible with the
+        # The projections are wrapped by a pp.ad.SparseArray to be compatible with the
         # requirements for processing of Ad operators.
         def bmat(matrices, name):
             # Create block matrix, convert it to optimized storage format
@@ -555,8 +555,8 @@ class Trace(Operator):
     of face normal vectors is not accounted for.
 
     Attributes:
-        trace (pp.ad.Matrix): Matrix of trace projections from cells to faces.
-        inv_trace (pp.ad.Matrix): Matrix of trace projections from faces to cells.
+        trace (pp.ad.SparseArray): Matrix of trace projections from cells to faces.
+        inv_trace (pp.ad.SparseArray): Matrix of trace projections from faces to cells.
 
     """
 
@@ -635,8 +635,8 @@ class Geometry(Operator):
     """Wrapper class for Ad representations of grids.
 
     Attributes:
-        cell_volumes (pp.ad.Matrix): Diagonal ad matrix of cell volumes.
-        face_areas (pp.ad.Matrix):  Diagonal ad matrix of face areas.
+        cell_volumes (pp.ad.SparseArray): Diagonal ad matrix of cell volumes.
+        face_areas (pp.ad.SparseArray):  Diagonal ad matrix of face areas.
         nd (int): Ambient/highest dimension of the mixed-dimensional grid.
 
     FIXME: Implement parse??
@@ -718,7 +718,7 @@ class Geometry(Operator):
                 the Geometry.
 
         Returns:
-            Array of dim pp.ad.Matrix, each of which is represents a basis function.
+            Array of dim pp.ad.SparseArray, each of which is represents a basis function.
 
         """
         if dim is None:
@@ -740,7 +740,7 @@ class Geometry(Operator):
             i (int): Index of the basis function. Note: Counts from 0.
 
         Returns:
-            pp.ad.Matrix: Ad representation of a matrix with the basis functions as
+            pp.ad.SparseArray: Ad representation of a matrix with the basis functions as
                 columns.
 
         """

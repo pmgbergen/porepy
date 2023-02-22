@@ -31,7 +31,7 @@ GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 def _get_shape(mat):
-    """Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
+    """Get shape of a numpy.ndarray or the Jacobian of AdArray"""
     if isinstance(mat, AdArray):
         return mat.jac.shape
     else:
@@ -369,7 +369,7 @@ class Operator:
             if isinstance(results[0], np.ndarray) and isinstance(
                 results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
             ):
-                # In the implementation of multiplication between an Ad_array and a
+                # In the implementation of multiplication between an AdArray and a
                 # numpy array (in the forward mode Ad), a * b and b * a do not
                 # commute. Flip the order of the results to get the expected behavior.
                 # This is permissible, since the elementwise product commutes.
@@ -412,7 +412,7 @@ class Operator:
                 if isinstance(results[0], np.ndarray) and isinstance(
                     results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
-                    # In the implementation of multiplication between an Ad_array and a
+                    # In the implementation of multiplication between an AdArray and a
                     # numpy array (in the forward mode Ad), a * b and b * a do not
                     # commute. Flip the order of the results to get the expected behavior.
                     # This is permissible, since the elementwise product commutes.
@@ -428,7 +428,7 @@ class Operator:
                 if isinstance(results[0], np.ndarray) and isinstance(
                     results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
-                    # In the implementation of multiplication between an Ad_array and a
+                    # In the implementation of multiplication between an AdArray and a
                     # numpy array (in the forward mode Ad), a * b and b * a do not
                     # commute. Flip the order of the results to get the expected behavior.
                     # This is permissible, since the elementwise product commutes.
@@ -449,7 +449,7 @@ class Operator:
                 if isinstance(results[0], np.ndarray) and isinstance(
                     results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
-                    # In the implementation of multiplication between an Ad_array and a
+                    # In the implementation of multiplication between an AdArray and a
                     # numpy array (in the forward mode Ad), a * b and b * a do not
                     # commute. Flip the order of the results to get the expected behavior.
                     # This is permissible, since the elementwise product commutes.
@@ -465,7 +465,7 @@ class Operator:
             assert len(results) > 1
             func_op = results[0]
 
-            # if the callable can be fed with Ad_arrays, do it
+            # if the callable can be fed with AdArrays, do it
             if func_op.ad_compatible:
                 return func_op.func(*results[1:])
             else:
@@ -517,7 +517,7 @@ class Operator:
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
         elif isinstance(results[0], pp.ad.AdArray):
             msg += (
-                "First argument is an Ad_array of size {results[0].size()} "
+                "First argument is an AdArray of size {results[0].size()} "
                 f" and Jacobian of shape  {results[0].jac.shape} \n"
             )
         elif isinstance(results[0], np.ndarray):
@@ -527,7 +527,7 @@ class Operator:
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
         elif isinstance(results[1], pp.ad.AdArray):
             msg += (
-                "Second argument is an Ad_array of size {results[1].size()} "
+                "Second argument is an AdArray of size {results[1].size()} "
                 f" and Jacobian of shape  {results[1].jac.shape} \n"
             )
         elif isinstance(results[1], np.ndarray):
@@ -753,7 +753,7 @@ class Operator:
         # the Jacobian columns must stay the same to preserve all cross couplings
         # in the derivatives).
 
-        # Dictionary which maps from Ad variable ids to Ad_array.
+        # Dictionary which maps from Ad variable ids to AdArray.
         self._ad: dict[int, AdArray] = {}
 
         # Loop over all variables, restrict to an Ad array corresponding to
@@ -890,7 +890,7 @@ class Operator:
             # We need to look deeper in the tree.
             # Look for variables among the children
             sub_variables: list[Variable] = []
-            # When using nested pp.ad.Functions, some of the children may be Ad_arrays
+            # When using nested pp.ad.Functions, some of the children may be AdArrays
             # (forward mode), rather than Operators. For the former, don't look for
             # children - they have none.
             for child in self.tree.children:

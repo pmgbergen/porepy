@@ -94,7 +94,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
             # Append to list of boundary values
             values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
+        # Concatenate to single array and wrap as ad.DenseArray
         bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_enthalpy")
         return bc_values
 

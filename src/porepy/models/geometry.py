@@ -245,7 +245,7 @@ class ModelGeometry:
             dim: Dimension of the basis.
 
         Returns:
-            List of pp.ad.Matrix, each of which represents a basis function.
+            List of pp.ad.SparseArrayArray, each of which represents a basis function.
 
         """
         # NOTE: See self.wrap_grid_attribute for comments on typing when this method
@@ -289,8 +289,8 @@ class ModelGeometry:
             i: Index of the basis function. Note: Counts from 0.
 
         Returns:
-            pp.ad.Matrix: Ad representation of a matrix with the basis functions as
-                columns.
+            pp.ad.SparseArray: Ad representation of a matrix with the basis functions as
+            columns.
 
         Raises:
             ValueError: If dim is smaller than the dimension of the mixed-dimensional.
@@ -391,7 +391,7 @@ class ModelGeometry:
             subdomains: List of subdomains for which to compute the local coordinates.
 
         Returns:
-            Local coordinates as a pp.ad.Matrix.
+            Local coordinates as a pp.ad.SparseArray.
 
         """
         # TODO: If we ever implement a mapping to reference space for all subdomains,
