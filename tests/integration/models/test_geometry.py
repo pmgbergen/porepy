@@ -19,7 +19,7 @@ import porepy as pp
 from . import setup_utils
 
 geometry_list = [
-    setup_utils.RectangularDomainOrthogonalFractures2d,
+    setup_utils.RectangularDomainThreeFractures,
     setup_utils.OrthogonalFractures3d,
 ]
 
