@@ -106,9 +106,10 @@ class FractureNetwork2d:
         """
 
         # -----> Logging
-        if not self.fractures:
+        if self.fractures is not None:
             logger.info("Generated empty fracture set")
         elif self._pts is not None and self._edges is not None:
+            # Note: If the list of fracture is empty, we end up here.
             logger.info(f"Generated a fracture set with {self.num_frac()} fractures")
             if self._pts.size > 0:
                 logger.info(
@@ -136,6 +137,7 @@ class FractureNetwork2d:
         WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have
         different set of tags, the necessary rows and columns are filled with the value
         ``-1``, which equals no tag.
+        TODO: This function is not being used. Consider deleting it.
 
         Parameters:
             fs (FractureSet): Another set to be added

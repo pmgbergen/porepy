@@ -33,11 +33,11 @@ class Fracture(abc.ABC):
             points for line/plane fractures.
         tags: ``(shape=(num_tags)`, dtype=np.int8)``
             All the tags of the fracture. A tag value of ``-1`` equals to the tag not
-            existing at all.
-        index: Identify the fracture with an index. Used e.g. to differentiate two,
-        otherwise identical, fractures.
+            existing at all. Default is None.
+        index: Identify the fracture with an index. Two fractures with the same index
+            are assumed to be identical. Default is None.
         sort_points: Sort the points internally. Concrete implementation depends on the
-        subclass.
+            subclass. Default is True.
 
     """
 
