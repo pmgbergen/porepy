@@ -34,15 +34,16 @@ class Fracture(abc.ABC):
         tags: ``(shape=(num_tags)`, dtype=np.int8)``
             All the tags of the fracture. A tag value of ``-1`` equals to the tag not
             existing at all.
-        index:
-        sort_points:
+        index: Identify the fracture with an index. Used e.g. to differentiate two,
+        otherwise identical, fractures.
+        sort_points: Sort the points internally. Concrete implementation depends on the
+        subclass.
 
     """
 
     def __init__(
         self,
         points: ArrayLike,
-        # TODO: Should there be tests for different ``ArrayLike`` objects?
         tags: Optional[ArrayLike] = None,
         index: Optional[int] = None,
         sort_points: bool = True,
