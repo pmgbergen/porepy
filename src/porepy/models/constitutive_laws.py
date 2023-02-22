@@ -2700,7 +2700,7 @@ class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
         dp = self.perturbation_from_reference("pressure", subdomains)
 
         # Pressure change contribution
-        pressure_contribution = specific_storage @ dp
+        pressure_contribution = specific_storage * dp
         pressure_contribution.set_name("Biot's porosity change from pressure")
 
         return pressure_contribution
