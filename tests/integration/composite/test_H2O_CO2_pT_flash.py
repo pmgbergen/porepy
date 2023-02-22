@@ -724,11 +724,14 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         # row-wise success test
         if not vectorize:
             failed = np.where(np.logical_not(success_result))[0]
-            msg = [f"\nRow {i}:\n{errmsg}" for i, errmsg in flash_erro_msg.items()]
+            msg_ = [f"\nRow {i}:\n{errmsg}" for i, errmsg in flash_erro_msg.items()]
+            msg = ""
+            for m in msg_:
+                msg += str(m)
             with self.subTest("Un-vectorized Flash convergence sub test."):
                 self.assertTrue(
                     np.all(success_result),
-                    f"Flash failed at rows:\n{str(failed)}" + str(sum(msg)),
+                    f"Flash failed at rows:\n{str(failed)}" + str(msg),
                 )
 
         # global L2 error tests
