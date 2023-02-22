@@ -9,12 +9,12 @@ import numpy as np
 import porepy as pp
 
 
-class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
-    """A 2d domain with up to two orthogonal fractures.
+class RectangularDomainThreeFractures(pp.ModelGeometry):
+    """A rectangular domain with up to three fractures.
 
-    The fractures have constant x and y coordinates equal to 0.5, respectively, and are
-    situated in a unit square domain. The number of fractures is controlled by the
-    parameter `num_fracs`, which can be 0, 1 or 2.
+    The first two fractures are orthogonal, with `x` and `y` coordinates equal to
+    0.5, respectively. The third fracture is tilted. The number of fractures is
+    controlled by the parameter ``num_fracs``, which can be 0, 1, 2, or 3.
 
     """
 
@@ -26,8 +26,7 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         ls = 1 / self.units.m
 
         num_fracs = self.params.get("num_fracs", 1)
-        box = {"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls}
-        domain = pp.Domain(box)
+        domain = pp.Domain({"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls})
         fractures = [
             pp.LineFracture(np.array([[0, 2], [0.5, 0.5]]) * ls),
             pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
@@ -64,9 +63,9 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
 class OrthogonalFractures3d(pp.ModelGeometry):
     """A 3d domain with up to three orthogonal fractures.
 
-    The fractures have constant x, y and z coordinates equal to 0.5, respectively,
+    The fractures have constant `x`, `y` and `z` coordinates equal to 0.5, respectively,
     and are situated in a unit cube domain. The number of fractures is controlled by
-    the parameter num_fracs, which can be 0, 1, 2 or 3.
+    the parameter ``num_fracs``, which can be 0, 1, 2 or 3.
 
     """
 
@@ -122,10 +121,10 @@ class WellGeometryMixin:
         num_wells = self.params.get("num_wells", 1)
         if self.nd == 2:
             # Comments are the intersection with fractures in
-            # RectangularDomainOrthogonalFractures
+            # RectangularDomainOrthogonalFractures2d
             wells = [
                 pp.Well(np.array([0.5, 0.1])),  # Intersects one fracture
-                pp.Well(np.array([0.5, 0.5])),  # Intersects both fractures
+                pp.Well(np.array([0.5, 0.5])),  # Intersects two fractures
                 pp.Well(np.array([0.25, 0.9])),  # Intersects no fractures
             ]
             self.well_network = pp.WellNetwork2d(wells[:num_wells])
