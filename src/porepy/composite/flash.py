@@ -351,6 +351,7 @@ class Flash:
         neg = pp.ad.SemiSmoothNegative()
         pos = pp.ad.SemiSmoothPositive()
         one = pp.ad.Scalar(1.)
+        abs = pp.ad.Function(pp.ad.abs, "AD-abs")
 
         norm_parts = list()
         dot_parts = list()
