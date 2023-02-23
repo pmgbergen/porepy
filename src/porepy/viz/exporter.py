@@ -211,15 +211,101 @@ class Exporter:
         self._padding = 6
         """Padding of zeros for creating the time step dependent appendix for output."""
 
+    def import_from_pvd(
+        self, keys: Union[str, list[str]], pvd_file: Union[str], **kwargs
+    ) -> None:
+        """Fetch time and vtu files from pvd and populate the corresponding data
+        to the mixed-dimensional grid.
+
+        Parameters:
+            keys: keywords addressing cell data to be transferred; if None,
+                all relevant data is transferred.
+            pvd_file: path to global pvd file.
+            kwargs:
+                is_global: Flag controlling whether the input pvd file is
+                    a pvd file collecting multiple time steps, or just
+                    one local one.
+
+        """
+        pvd_is_global: bool = kwargs.get("is_global", True)
+        if pvd_is_global:
+
+            # Collect all times first
+            times = []
+            tree_simulation = ET.parse(pvd_file)
+            for path in tree_simulation.iter("DataSet"):
+                data = path.attrib
+                times.append(data["timestep"])
+
+            # Pick the last time step.
+            # NOTE: Possibility to extend to timestep-based choice?
+            restart_time = times[-1]
+
+            # Collect all vtu files connected to single time
+            restart_vtu_files = []
+            for path in tree_simulation.iter("DataSet"):
+                data = path.attrib
+                time = data["timestep"]
+                if time == restart_time:
+                    restart_vtu_files.append(data["file"])
+
+        else:
+            # Find all vtu files attached to the specific time step.
+            # Utilize the hardcoded format in self._export_mdg_pvd().
+            restart_vtu_files = []
+            tree_time_step = ET.parse(pvd_file)
+            for path in tree_time_step.iter("DataSet"):
+                data = path.attrib
+                restart_vtu_files.append(Path(data["file"]))
+
+            # Check the simulation pvd file and extract the physical time
+            # for all vtu files detected in pvd_time_step.
+            # Utilize the hardcoded format in self.write_pvd().
+            extract_time = kwargs.get("extract_time", False)
+            if extract_time:
+                times = []
+                tree_simulation = ET.parse(pvd_simulation)
+                for path in tree_simulation.iter("DataSet"):
+                    data = path.attrib
+                    if data["file"] in restart_vtu_files:
+                        times.append(data["timestep"])
+
+                # Make a safety check, whether the times are the same for all
+                # files (should always be true).
+                assert len(set(times)) == 1
+                restart_time = list(times)[0]
+
+        # Separate the vtu files into subdomain and interface data.
+        # NOTE: Make the strict assumption that if the file name contains
+        # the keyword 'mortar' that it is uniquely identified as interface
+        # data. Make paths absolute.
+        subdomain_vtu_files = []
+        interface_vtu_files = []
+        root = Path(pvd_file).parent.resolve()
+        for vtu_file in restart_vtu_files:
+            str_vtu_file = str(vtu_file)
+            if "mortar" in str_vtu_file:
+                interface_vtu_files.append(str(root / Path(vtu_file)))
+            else:
+                subdomain_vtu_files.append(str(root / Path(vtu_file)))
+
+        # Import from vtu
+        self.import_from_vtu(keys, subdomain_vtu_files, are_subdomain_data=True)
+        self.import_from_vtu(keys, interface_vtu_files, are_subdomain_data=False)
+
     def import_from_vtu(
-        self, keys: Union[str, list[str]], file_names: Union[str, list[str]], **kwargs
+        self,
+        keys: Union[str, list[str]],
+        file_names: Union[str, list[str]],
+        **kwargs,
     ) -> None:
         """Import state variables from vtu file. It is assumed that the vtu file was
         created using PorePy, e.g., that the file names follow PorePy conventions,
         the mixed-dimensional grid is split in the usual way etc.
 
         Parameters:
-            keys: keywords addressing cell data to be transferred.
+            keys: keywords addressing cell data to be transferred. If 'None', the
+                mixed-dimensional grid is checked for keywords.
             file_names: list of vtu files to be considered.
             kwargs:
                 automatic: boolean flag controlling whether dimensionality of the grids
@@ -568,6 +654,8 @@ class Exporter:
         self,
         times: Optional[np.ndarray] = None,
         file_extension: Optional[Union[np.ndarray, list[int]]] = None,
+        append: bool = False,
+        from_pvd_file: Optional[str] = None,
     ) -> None:
         """Interface function to export in PVD file the time loop information.
         The user should open only this file in ParaView.
@@ -585,6 +673,10 @@ class Exporter:
                 steps, see self.write_vtu(). If provided, it should have the same
                 length as time. If not provided, the file names will be picked from
                 those used when writing individual time steps.
+            append: Flag whether a existing file used for a restart is continued to
+                be written.
+            from_pvd_file: pvd file to be extended for append = True, the same as
+                the default pvd file, if chosen 'None'.
 
         """
 
@@ -614,21 +706,46 @@ class Exporter:
                 self._exported_timesteps_constants[i] for i in indices
             ]
 
+        # Setup file name and check whether it already exists in storage
+        pvd_file: str = (
+            self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
+        )
+        file_exists: bool = Path(pvd_file).exists()
+
+        # Fix the footer.
+        footer = "</Collection>\n" + "</VTKFile>"
+
         # Perform the same procedure as in _export_mdg_pvd
         # but looping over all designated time steps.
+        if file_exists and append:
+            o_file = open(pvd_file if from_pvd_file is None else from_pvd_file, "r")
+            # NOTE: It is strictly assumed that the considered pvd file is originating
+            # from this very same method, i.e., it finishes with the final two lines:
+            # "</Collection>\n" + "</VTKFile>"
+            # Before appending new data, remove these last two lines from the pvd file.
+            previous_content = o_file.read()
+            o_file.close()
 
-        o_file = open(
-            self._append_folder_name(self._folder_name, self._file_name) + ".pvd", "w"
-        )
-        b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
-        c = ' compressor="vtkZLibDataCompressor"'
-        header = (
-            '<?xml version="1.0"?>\n'
-            + '<VTKFile type="Collection" version="0.1" '
-            + 'byte_order="%s"%s>\n' % (b, c)
-            + "<Collection>\n"
-        )
-        o_file.write(header)
+            # Rewrite the pvd file without the last two lines.
+            o_file = open(pvd_file, "w")
+            new_content = previous_content[: -len(footer) - 1]
+            o_file.write(new_content)
+
+        else:
+            o_file = open(pvd_file, "w")
+
+            # Write header to file
+            b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
+            c = ' compressor="vtkZLibDataCompressor"'
+            header = (
+                '<?xml version="1.0"?>\n'
+                + '<VTKFile type="Collection" version="0.1" '
+                + 'byte_order="%s"%s>\n' % (b, c)
+                + "<Collection>\n"
+            )
+            o_file.write(header)
+
+        # Define main body
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
         # Gather all data, and assign the actual time.
@@ -691,7 +808,8 @@ class Exporter:
                             )
                         )
 
-        o_file.write("</Collection>\n" + "</VTKFile>")
+        # End with footer and close the file
+        o_file.write(footer)
         o_file.close()
 
     def read_time_from_pvd(
