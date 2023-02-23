@@ -829,52 +829,6 @@ class Exporter:
         o_file.write(footer)
         o_file.close()
 
-    def read_time_from_pvd(
-        self, pvd_time_step: Path, pvd_simulation: Path
-    ) -> tuple[Path, float]:
-        """
-        Routine finding the time for ...
-
-        Args:
-            pvd_time_step: Path to pvd file (exported through self._export_mdg_pvd()).
-            pvd_simulation: Path to pvd file (exported through self.write_pvd()).
-
-        Returns:
-            Physical time corresponding to the pvd file.
-
-        """
-
-        # NOTE: This routine utilizes the fact that pvd files are xml
-        # files. Thus, an xml reader can be used. In addition the hardcoded
-        # format in self._export_mdg_pvd and self.write_pvd is used here.
-        # Thus, it is implicitly assumed, that the input pvd files are created
-        # through PorePy and not modified further.
-
-        # Find all vtu files attached to the specific time step.
-        # Utilize the hardcoded format in self._export_mdg_pvd().
-        vtu_files = []
-        tree_time_step = ET.parse(pvd_time_step)
-        for path in tree_time_step.iter("DataSet"):
-            data = path.attrib
-            vtu_files.append(Path(data["file"]))
-
-        # Check the simulation pvd file and extract the physical time
-        # for all vtu files detected in pvd_time_step.
-        # Utilize the hardcoded format in self.write_pvd().
-        times = []
-        tree_simulation = ET.parse(pvd_simulation)
-        for path in tree_simulation.iter("DataSet"):
-            data = path.attrib
-            if data["file"] in vtu_files:
-                times.append(data["timestep"])
-
-        # Make a safety check, whether the times are the same for all
-        # files (should always be true).
-        assert len(set(times)) == 1
-        time = list(times)[0]
-
-        return vtu_files, time
-
     # Some auxiliary routines used in write_vtu()
 
     def _sort_and_unify_data(
