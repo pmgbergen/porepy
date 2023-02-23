@@ -216,7 +216,7 @@ class Exporter:
         pvd_file: Union[str],
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
-    ) -> None:
+    ) -> Optional[float]:
         """Fetch time and vtu files from pvd and populate the corresponding data
         to the mixed-dimensional grid.
 
@@ -228,6 +228,14 @@ class Exporter:
                 is_global: Flag controlling whether the input pvd file is
                     a pvd file collecting multiple time steps, or just
                     one local one.
+                extract_time: Flag controlling whether a physical time
+                    shall be found, in case is_global == False.
+                global_pvd_file: Path to global pvd file, required to
+                    extract time.
+
+        Returns:
+            Physical time corresponding to the restart data, if kwargs
+            chosen accordingly.
 
         """
         pvd_is_global: bool = kwargs.get("is_global", True)
@@ -259,7 +267,7 @@ class Exporter:
             tree_time_step = ET.parse(pvd_file)
             for path in tree_time_step.iter("DataSet"):
                 data = path.attrib
-                restart_vtu_files.append(Path(data["file"]))
+                restart_vtu_files.append(str(data["file"]))
 
             # Check the simulation pvd file and extract the physical time
             # for all vtu files detected in pvd_time_step.
@@ -267,6 +275,7 @@ class Exporter:
             extract_time = kwargs.get("extract_time", False)
             if extract_time:
                 times = []
+                pvd_simulation = kwargs.get("global_pvd_file")
                 tree_simulation = ET.parse(pvd_simulation)
                 for path in tree_simulation.iter("DataSet"):
                     data = path.attrib
@@ -277,6 +286,8 @@ class Exporter:
                 # files (should always be true).
                 assert len(set(times)) == 1
                 restart_time = list(times)[0]
+            else:
+                restart_time = None
 
         # Separate the vtu files into subdomain and interface data.
         # NOTE: Make the strict assumption that if the file name contains
@@ -295,6 +306,8 @@ class Exporter:
         # Import from vtu
         self.import_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
         self.import_from_vtu(interface_vtu_files, keys, are_subdomain_data=False)
+
+        return restart_time
 
     def import_from_vtu(
         self,
