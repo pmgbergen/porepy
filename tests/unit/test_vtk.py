@@ -378,7 +378,8 @@ def test_mdg(setup):
         )
 
 
-def test_restart_mdg(setup):
+@pytest.mark.parametrize("case", np.arange(2))
+def test_restart_mdg(setup, case):
     """Test restarting-related functionality of the Exporter for 2d mixed-dimensional
     grids for a two-fracture domain.
 
@@ -404,16 +405,29 @@ def test_restart_mdg(setup):
     # save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], timestep=1)
     # Yet, then the simulation crashed, now it is restarted from pvd file,
     # picking up the latest available timestep.
-    restart_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
-    save.import_from_pvd(
-        restart_file,
-        ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
-    )
+    global_pvd_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
+    if case == 0:
+        time = save.import_from_pvd(
+            global_pvd_file,
+            ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
+        )
+    else:
+        local_pvd_file = f"{setup.folder_reference}/restart/grid_000001.pvd"
+        time = save.import_from_pvd(
+            local_pvd_file,
+            ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
+            is_global=False,
+            extract_time=True,
+            global_pvd_file=global_pvd_file,
+        )
+
+    # Check whether the right physical time has been extracted
+    assert np.isclose(float(time), 1.0)
 
     # To trick the test, copy the current pvd file to the temporary folder
     # before continuing writing it through appending the next time step.
     Path(f"{setup.folder}").mkdir(parents=True, exist_ok=True)
-    shutil.copy(restart_file, f"{setup.folder}/{setup.file_name}.pvd")
+    shutil.copy(global_pvd_file, f"{setup.folder}/{setup.file_name}.pvd")
 
     # Now, export both the vtu and the pvd (continuing using the previous one).
     # NOTE: Typically, the data would be modified by running the simulation
