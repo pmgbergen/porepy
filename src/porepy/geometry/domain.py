@@ -106,6 +106,50 @@ class Domain:
         else:
             raise ValueError("Not enough arguments. Expected box OR polytope.")
 
+    def __repr__(self) -> str:
+        if self.is_boxed:
+            s = f"pp.Domain(bounding_box={self.bounding_box})"
+        else:
+            # TODO: Create a function that prints a polytope prettily
+            s = f"pp.Domain(polytope=\n {self.polytope} \n )"
+        return s
+
+    def __str__(self) -> str:
+
+        if self.is_boxed:
+            if self.dim == 2:
+                s = f"Rectangle with bounding box: {self.bounding_box}."
+            else:
+                s = f"Cuboid with bounding box: {self.bounding_box}."
+        else:
+            if self.dim == 2:
+                s = (
+                    f"Polygon with {len(self.polytope)} sides and bounding box: "
+                    f"{self.bounding_box}."
+                )
+            else:
+                s = (
+                    f"Polyhedron with {len(self.polytope)} bounding planes and "
+                    f"bounding box: {self.bounding_box}."
+                )
+
+        return s
+
+    def __eq__(self, other: object) -> bool:
+
+        # Two domains are equal if they have the same polytope. Note that this assumes
+        # that the arrays of the polytope list are stored in the exact same order.
+        # TODO: The condition for equality is too strict, we might want to consider
+        #  the possibility that polytopes are defined in different orders
+
+        if not isinstance(other, pp.Domain):
+            return NotImplemented
+        else:
+            check = []
+            for item_self, item_other in zip(self.polytope, other.polytope):
+                check.append(np.all(item_self == item_other))
+            return all(check)
+
     def bounding_box_from_polytope(self) -> dict[str, pp.number]:
         """Obtain the bounding box of a polytope.
 
