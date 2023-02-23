@@ -298,6 +298,63 @@ def test_mdg(setup):
         )
 
 
+def test_restart_mdg(setup):
+    """Test restarting-related functionality of the Exporter for 2d mixed-dimensional
+    grids for a two-fracture domain.
+
+    Exporting of scalar and vectorial data, separately defined on both subdomains and
+    interfaces.
+
+    """
+
+    # Define grid
+    mdg, _ = pp.md_grids_2d.two_intersecting(
+        [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+    )
+
+    # Define exporter
+    save = pp.Exporter(
+        mdg,
+        setup.file_name,
+        setup.folder,
+        export_constants_separately=False,
+    )
+
+    # Assume the following has been run for a previous simulation
+    # save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], timestep=1)
+    # Yet, then the simulation crashed, now it is restarted from pvd file,
+    # picking up the latest available timestep.
+    restart_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
+    save.import_from_pvd(
+        ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], restart_file
+    )
+
+    # To trick the test, copy the current pvd file to the temporary folder
+    # before continuing writing it through appending the next time step.
+    shutil.copy(restart_file, f"{setup.folder}/{setup.file_name}.pvd")
+
+    # Now, export both the vtu and the pvd (continuing using the previous one).
+    # NOTE: Typically, the data would be modified by running the simulation
+    # for one more timestep. This is irrelevant for testing the restarting
+    # capabilities.
+    save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], time_step=2)
+    save.write_pvd(append=True)
+
+    # Check that newly exported vtu files and reference files are the same.
+    for appendix in ["1", "2", "mortar_1"]:
+        assert _compare_vtu_files(
+            f"{setup.folder}/{setup.file_name}_{appendix}_000002.vtu",
+            f"{setup.folder_reference}/restart/grid_{appendix}_000002.vtu",
+        )
+
+    # Check that the newly exported pvd files and reference file are the same.
+    for appendix in ["_000002", ""]:
+        assert _compare_pvd_files(
+            f"{setup.folder}/{setup.file_name}{appendix}.pvd",
+            f"{setup.folder_reference}/restart/grid{appendix}.pvd",
+        )
+
+
 @pytest.mark.parametrize("addendum", ["", "nontrivial_data_"])
 def test_mdg_import(setup, addendum):
     # Test of the import routine of the Exporter for 2d mixed-dimensional grids.
