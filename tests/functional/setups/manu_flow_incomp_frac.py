@@ -629,16 +629,14 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
         # Unit square domain
         domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
-        # Point coordinates
-        point_coordinates = np.array(
-            [[0.50, 0.50, 0.00, 1.00, 0.00, 1.00], [0.25, 0.75, 0.25, 0.25, 0.75, 0.75]]
-        )
-
-        # Point connections
-        point_indices = np.array([[0, 2, 4], [1, 3, 5]])
+        fractures = [
+            pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
+            pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
+            pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
+        ]
 
         # Create fracture network
-        network_2d = pp.FractureNetwork2d(point_coordinates, point_indices, domain)
+        network_2d = pp.FractureNetwork2d(fractures, domain)
         self.fracture_network = network_2d
 
     def mesh_arguments(self) -> dict:

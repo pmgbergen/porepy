@@ -3,11 +3,12 @@ import unittest
 import numpy as np
 
 import porepy as pp
+from porepy.fracs.utils import pts_edges_to_linefractures
 
 """
-In this test we validate the propagation of physical tags from gmsh to porepy.
-We consider the case with only boundary, fractures, auxiliary segments, and a mixed of them.
-
+In this test we validate the propagation of physical tags from gmsh to porepy. We 
+consider the case with only boundary, fractures, auxiliary segments, and a mixed of
+them.
 """
 
 
@@ -19,8 +20,9 @@ class BasicsTest(unittest.TestCase):
         """
         p = np.array([[0, 1, 0.5, 0.5], [0.5, 0.5, 0, 1]])
         e = np.array([[0, 2], [1, 3]])
+        fractures = pts_edges_to_linefractures(p, e)
         domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
-        network = pp.FractureNetwork2d(p, e, domain=domain)
+        network = pp.FractureNetwork2d(fractures, domain=domain)
         mesh_args = {
             "mesh_size_frac": 0.1,
             "mesh_size_bound": 0.1,
@@ -111,8 +113,9 @@ class BasicsTest(unittest.TestCase):
         subdomain_end = np.array([[0.5], [0.5]])
         p = np.hstack((subdomain_start, subdomain_end))
         e = np.array([[0], [1]])
+        fractures = pts_edges_to_linefractures(p, e)
 
-        network = pp.FractureNetwork2d(p, e, domain=domain)
+        network = pp.FractureNetwork2d(fractures, domain=domain)
         mesh_args = {"mesh_size_frac": 1}
 
         mdg = network.mesh(mesh_args, constraints=np.array([0]))
@@ -150,8 +153,9 @@ class BasicsTest(unittest.TestCase):
 
         p = np.hstack((subdomain_start, subdomain_end))
         e = np.array([[0], [1]])
+        fractures = pts_edges_to_linefractures(p, e)
 
-        network = pp.FractureNetwork2d(p, e, domain=domain)
+        network = pp.FractureNetwork2d(fractures, domain=domain)
         mdg = network.mesh(mesh_args, constraints=np.array([0]))
         g = mdg.subdomains(dim=2)[0]
 
@@ -189,8 +193,9 @@ class BasicsTest(unittest.TestCase):
             (constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1)
         )
         e = np.array([[0, 2], [1, 3]])
+        fractures = pts_edges_to_linefractures(p, e)
 
-        network = pp.FractureNetwork2d(p, e, domain=domain)
+        network = pp.FractureNetwork2d(fractures, domain=domain)
         mesh_args = {"mesh_size_frac": 1}
         mdg = network.mesh(mesh_args, constraints=np.arange(2))
         g = mdg.subdomains(dim=2)[0]
@@ -238,8 +243,9 @@ class BasicsTest(unittest.TestCase):
             (constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1)
         )
         e = np.array([[0, 2], [1, 3]])
+        fractures = pts_edges_to_linefractures(p, e)
 
-        network = pp.FractureNetwork2d(p, e, domain=domain)
+        network = pp.FractureNetwork2d(fractures, domain=domain)
         mesh_args = {"mesh_size_frac": 1}
         mdg = network.mesh(mesh_args, constraints=np.array([0, 1]))
         g = mdg.subdomains(dim=2)[0]
@@ -390,7 +396,8 @@ class BasicsTest(unittest.TestCase):
 
         p = np.hstack((frac_start, frac_end, constraint_start, constraint_end))
         e = np.array([[0, 2], [1, 3]])
-        network = pp.FractureNetwork2d(p, e, domain)
+        fractures = pts_edges_to_linefractures(p, e)
+        network = pp.FractureNetwork2d(fractures, domain)
 
         constraints = np.array([1])
 
@@ -441,8 +448,9 @@ class BasicsTest(unittest.TestCase):
             (constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1)
         )
         e = np.array([[0, 2], [1, 3]])
+        fractures = pts_edges_to_linefractures(p, e)
 
-        network = pp.FractureNetwork2d(p, e, domain=domain)
+        network = pp.FractureNetwork2d(fractures, domain=domain)
         mesh_args = {"mesh_size_frac": 1}
         mdg = network.mesh(mesh_args, constraints=np.array([0, 1]))
         g = mdg.subdomains(dim=2)[0]
