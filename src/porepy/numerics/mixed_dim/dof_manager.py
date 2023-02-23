@@ -337,7 +337,7 @@ class DofManager:
 
         # loop over all blocks and process those requested
         # this ensures uniqueness and correct order
-        for grid, name in self.block_dof.items():
+        for grid, name in self.block_dof:
             if isinstance(grid, pp.Grid):
                 data: dict = self.mdg.subdomain_data(grid)
             elif isinstance(grid, pp.MortarGrid):
