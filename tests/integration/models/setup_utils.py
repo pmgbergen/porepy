@@ -9,12 +9,12 @@ import numpy as np
 import porepy as pp
 
 
-class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
-    """A 2d domain with up to two orthogonal fractures.
+class RectangularDomainThreeFractures(pp.ModelGeometry):
+    """A rectangular domain with up to three fractures.
 
-    The fractures have constant x and y coordinates equal to 0.5, respectively, and are
-    situated in a unit square domain. The number of fractures is controlled by the
-    parameter `num_fracs`, which can be 0, 1 or 2.
+    The first two fractures are orthogonal, with `x` and `y` coordinates equal to
+    0.5, respectively. The third fracture is tilted. The number of fractures is
+    controlled by the parameter ``num_fracs``, which can be 0, 1, 2, or 3.
 
     """
 
@@ -26,30 +26,18 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         ls = 1 / self.units.m
 
         num_fracs = self.params.get("num_fracs", 1)
-        box = {"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls}
-        domain = pp.Domain(box)
-        if num_fracs == 0:
-            p = np.zeros((2, 0), dtype=float) * ls
-            e = np.zeros((2, 0), dtype=int)
-        elif num_fracs == 1:
-            p = np.array([[0, 2], [0.5, 0.5]]) * ls
-            e = np.array([[0], [1]])
-        elif num_fracs == 2:
-            p = np.array([[0, 2, 0.5, 0.5], [0.5, 0.5, 0, 1]]) * ls
-            e = np.array([[0, 2], [1, 3]])
-        elif num_fracs == 3:
-            if self.params.get("cartesian", False):
-                raise ValueError("Only up to 2 fractures supported in Cartesian mode.")
-            p = np.array([[0, 2, 0.5, 0.5, 0.3, 0.7], [0.5, 0.5, 0, 1, 0.3, 0.7]]) * ls
-            e = np.array([[0, 2, 4], [1, 3, 5]])
-        else:
-            raise ValueError("Only up to 3 fractures supported.")
-        self.fracture_network = pp.FractureNetwork2d(p, e, domain)
+        domain = pp.Domain({"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls})
+        fractures = [
+            pp.LineFracture(np.array([[0, 2], [0.5, 0.5]]) * ls),
+            pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
+            pp.LineFracture(np.array([[0.3, 0.7], [0.3, 0.7]]) * ls),
+        ]
+        self.fracture_network = pp.FractureNetwork2d(fractures[:num_fracs], domain)
 
     def mesh_arguments(self) -> dict:
-        # Length scale:
-        ls = 1 / self.units.m
-        return {"mesh_size_frac": 0.5 * ls, "mesh_size_bound": 0.5 * ls}
+        # Divide by length scale:
+        h = 0.5 / self.units.m
+        return {"mesh_size_frac": h, "mesh_size_bound": h}
 
     def set_md_grid(self) -> None:
         if not self.params.get("cartesian", False):
@@ -67,17 +55,17 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         self.domain = pp.Domain(box)
         # Translate fracture network to cart_grid format
         fracs = []
-        for f in self.fracture_network.edges.T:
-            fracs.append(self.fracture_network.pts[:, f])
+        for f in self.fracture_network._edges.T:
+            fracs.append(self.fracture_network._pts[:, f])
         self.mdg = pp.fracs.meshing.cart_grid(fracs, n_cells, physdims=phys_dims)
 
 
 class OrthogonalFractures3d(pp.ModelGeometry):
     """A 3d domain with up to three orthogonal fractures.
 
-    The fractures have constant x, y and z coordinates equal to 0.5, respectively,
+    The fractures have constant `x`, `y` and `z` coordinates equal to 0.5, respectively,
     and are situated in a unit cube domain. The number of fractures is controlled by
-    the parameter num_fracs, which can be 0, 1, 2 or 3.
+    the parameter ``num_fracs``, which can be 0, 1, 2 or 3.
 
     """
 
@@ -118,6 +106,40 @@ class OrthogonalFractures3d(pp.ModelGeometry):
             "mesh_size_min": 0.2 * ls,
         }
         return mesh_sizes
+
+
+class WellGeometryMixin:
+    """Mixin class for models with wells."""
+
+    nd: int
+    """Number of dimensions."""
+    params: dict
+    """Model parameters."""
+
+    def set_well_network(self) -> None:
+        """Assign well network class."""
+        num_wells = self.params.get("num_wells", 1)
+        if self.nd == 2:
+            # Comments are the intersection with fractures in
+            # RectangularDomainThreeFractures
+            wells = [
+                pp.Well(np.array([0.5], [0.1], [0])),  # Intersects one fracture
+                pp.Well(np.array([0.5], [0.5], [0])),  # Intersects two fractures
+                pp.Well(np.array([0.25], [0.9], [0])),  # Intersects no fractures
+            ]
+            self.well_network = pp.WellNetwork2d(wells[:num_wells])
+        else:
+            wells = [
+                # Intersects one (horizontal) fracture of OrthogonalFractures3d and
+                # extends to the top of the domain
+                pp.Well(np.array([[0.2, 0.2], [0.1, 0.1], [0.2, 1]])),
+                # Intersects two (horizontal and vertical) fractures of
+                # OrthogonalFractures3d. Extends between two domain boundaries.
+                pp.Well(np.array([[0.0, 0.6], [0.5, 0.5], [0.4, 1]])),
+                # Intersects no fractures. Internal well.
+                pp.Well(np.array([[0.3, 0.3], [0.3, 0.3], [0.3, 0.4]])),
+            ]
+            self.well_network = pp.WellNetwork3d(wells[:num_wells])
 
 
 class BoundaryConditionsMassAndEnergyDirNorthSouth(
@@ -390,14 +412,14 @@ class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
 
 
 class MassBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     ...
 
 
 class MomentumBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.momentum_balance.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
@@ -406,7 +428,7 @@ class MomentumBalance(
 
 
 class MassAndEnergyBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
@@ -415,7 +437,7 @@ class MassAndEnergyBalance(
 
 
 class Poromechanics(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.poromechanics.Poromechanics,
 ):
     """Combine components needed for poromechanics simulation."""
@@ -424,7 +446,7 @@ class Poromechanics(
 
 
 class Thermoporomechanics(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
@@ -445,7 +467,7 @@ def model(
 
     # Identify the geometry class
     if dim == 2:
-        geometry = RectangularDomainOrthogonalFractures2d
+        geometry = RectangularDomainThreeFractures
     elif dim == 3:
         geometry = OrthogonalFractures3d
     else:

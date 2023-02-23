@@ -638,7 +638,7 @@ class VariablesMomentumBalance:
 
 
 class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
-    """This is whatever is left of pp.ContactMechanics.
+    """Solution strategy for the momentum balance.
 
     At some point, this will be refined to be a more sophisticated (modularised)
     solution strategy class. More refactoring may be beneficial.
