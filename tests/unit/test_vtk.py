@@ -310,8 +310,8 @@ def test_single_subdomains_import(setup, subdomain):
 
     # Import data
     save.import_from_vtu(
-        keys=keys,
         file_names=f"{subdomain.ref_vtu_file}",
+        keys=keys,
         automatic=False,
         dims=sd.dim,
     )
@@ -405,7 +405,8 @@ def test_restart_mdg(setup):
     # picking up the latest available timestep.
     restart_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
     save.import_from_pvd(
-        ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], restart_file
+        restart_file,
+        ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
     )
 
     # To trick the test, copy the current pvd file to the temporary folder
@@ -458,12 +459,12 @@ def test_mdg_import(setup, addendum):
 
     # Import data
     save.import_from_vtu(
-        keys=keys,
         file_names=[
             f"{setup.folder_reference}/mdg_{addendum}grid_2.vtu",
             f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu",
             f"{setup.folder_reference}/mdg_{addendum}grid_mortar_1.vtu",
         ],
+        keys=keys,
     )
 
     # Perform comparison on vtu level (seems the easiest as it only involves a

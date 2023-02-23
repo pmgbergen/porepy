@@ -212,15 +212,18 @@ class Exporter:
         """Padding of zeros for creating the time step dependent appendix for output."""
 
     def import_from_pvd(
-        self, keys: Union[str, list[str]], pvd_file: Union[str], **kwargs
+        self,
+        pvd_file: Union[str],
+        keys: Optional[Union[str, list[str]]] = None,
+        **kwargs,
     ) -> None:
         """Fetch time and vtu files from pvd and populate the corresponding data
         to the mixed-dimensional grid.
 
         Parameters:
+            pvd_file: path to global pvd file.
             keys: keywords addressing cell data to be transferred; if None,
                 all relevant data is transferred.
-            pvd_file: path to global pvd file.
             kwargs:
                 is_global: Flag controlling whether the input pvd file is
                     a pvd file collecting multiple time steps, or just
@@ -290,13 +293,13 @@ class Exporter:
                 subdomain_vtu_files.append(str(root / Path(vtu_file)))
 
         # Import from vtu
-        self.import_from_vtu(keys, subdomain_vtu_files, are_subdomain_data=True)
-        self.import_from_vtu(keys, interface_vtu_files, are_subdomain_data=False)
+        self.import_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
+        self.import_from_vtu(interface_vtu_files, keys, are_subdomain_data=False)
 
     def import_from_vtu(
         self,
-        keys: Union[str, list[str]],
         file_names: Union[str, list[str]],
+        keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> None:
         """Import state variables from vtu file. It is assumed that the vtu file was
@@ -304,9 +307,9 @@ class Exporter:
         the mixed-dimensional grid is split in the usual way etc.
 
         Parameters:
+            file_names: list of vtu files to be considered.
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords.
-            file_names: list of vtu files to be considered.
             kwargs:
                 automatic: boolean flag controlling whether dimensionality of the grids
                     and whether it is a subdomain or interface grid is read
@@ -444,7 +447,21 @@ class Exporter:
                     == {}
                 )
 
-            # 3rd step: Transfer data. Consider each key separately.
+            # 3rd step. Fill-in keys.
+            if keys is None:
+                keys = []
+                if is_subdomain_data:
+                    for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
+                        if pp.STATE in sd_data and key in sd_data[pp.STATE]:
+                            keys.append(key)
+                else:
+                    for intf, intf_data in self._mdg.interfaces(
+                        dim=dim, return_data=True
+                    ):
+                        if pp.STATE in intf_data and key in intf_data[pp.STATE]:
+                            keys.append(key)
+
+            # 4th step: Transfer data. Consider each key separately.
             for key in keys:
 
                 # Only continue if the key is present in the data
