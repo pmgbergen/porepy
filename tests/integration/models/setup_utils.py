@@ -121,11 +121,11 @@ class WellGeometryMixin:
         num_wells = self.params.get("num_wells", 1)
         if self.nd == 2:
             # Comments are the intersection with fractures in
-            # RectangularDomainOrthogonalFractures2d
+            # RectangularDomainThreeFractures
             wells = [
-                pp.Well(np.array([0.5, 0.1])),  # Intersects one fracture
-                pp.Well(np.array([0.5, 0.5])),  # Intersects two fractures
-                pp.Well(np.array([0.25, 0.9])),  # Intersects no fractures
+                pp.Well(np.array([0.5], [0.1], [0])),  # Intersects one fracture
+                pp.Well(np.array([0.5], [0.5], [0])),  # Intersects two fractures
+                pp.Well(np.array([0.25], [0.9], [0])),  # Intersects no fractures
             ]
             self.well_network = pp.WellNetwork2d(wells[:num_wells])
         else:
