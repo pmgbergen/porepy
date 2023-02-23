@@ -465,14 +465,14 @@ class Exporter:
                 keys = []
                 if is_subdomain_data:
                     for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
-                        if pp.STATE in sd_data and key in sd_data[pp.STATE]:
-                            keys.append(key)
+                        if pp.STATE in sd_data:
+                            keys += list(sd_data[pp.STATE].keys())
                 else:
                     for intf, intf_data in self._mdg.interfaces(
                         dim=dim, return_data=True
                     ):
-                        if pp.STATE in intf_data and key in intf_data[pp.STATE]:
-                            keys.append(key)
+                        if pp.STATE in intf_data:
+                            keys += list(intf_data[pp.STATE].keys())
 
             # 4th step: Transfer data. Consider each key separately.
             for key in keys:
