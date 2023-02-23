@@ -410,6 +410,7 @@ def test_restart_mdg(setup):
 
     # To trick the test, copy the current pvd file to the temporary folder
     # before continuing writing it through appending the next time step.
+    Path(f"{setup.folder}").mkdir(parents=True, exist_ok=True)
     shutil.copy(restart_file, f"{setup.folder}/{setup.file_name}.pvd")
 
     # Now, export both the vtu and the pvd (continuing using the previous one).
