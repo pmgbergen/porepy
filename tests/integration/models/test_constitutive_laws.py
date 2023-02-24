@@ -309,8 +309,8 @@ def test_permeability_values(constitutive_mixin, domain_dimension, expected):
     [
         (setup_utils.OrthogonalFractures3d, 1, [0.02, 0.02**2]),
         (setup_utils.OrthogonalFractures3d, 0, [0.02, 0.02**3]),
-        (setup_utils.RectangularDomainOrthogonalFractures2d, 0, [0.02, 0.02**2]),
-        (setup_utils.RectangularDomainOrthogonalFractures2d, 2, [1, 1]),
+        (setup_utils.RectangularDomainThreeFractures, 0, [0.02, 0.02**2]),
+        (setup_utils.RectangularDomainThreeFractures, 2, [1, 1]),
     ],
 )
 def test_dimension_reduction_values(
@@ -325,7 +325,7 @@ def test_dimension_reduction_values(
     # Assign non-trivial values to the parameters to avoid masking errors.
     solid = pp.SolidConstants({"residual_aperture": 0.02})
     params = {"material_constants": {"solid": solid}, "num_fracs": 3}
-    if geometry is setup_utils.RectangularDomainOrthogonalFractures2d:
+    if geometry is setup_utils.RectangularDomainThreeFractures:
         params["num_fracs"] = 2
 
     class Model(

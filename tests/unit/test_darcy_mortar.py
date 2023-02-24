@@ -6,6 +6,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.fracs.utils import pts_edges_to_linefractures
 from tests import test_utils
 
 
@@ -457,15 +458,19 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         if num_fracs == 0:
             p = np.zeros((2, 0))
             e = np.zeros((2, 0))
+            fractures = pts_edges_to_linefractures(p, e)
 
         elif num_fracs == 1:
             p = np.array([[0, 1], [0.5, 0.5]])
             e = np.array([[0], [1]])
+            fractures = pts_edges_to_linefractures(p, e)
+
         #            p = [np.array([[0.5, 0.5], [0, 1]])]
         elif num_fracs == 2:
             raise ValueError("Not implemented")
+
         mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
-        network = pp.FractureNetwork2d(p, e, domain)
+        network = pp.FractureNetwork2d(fractures, domain)
         mdg = network.mesh(mesh_size)
 
         gmap = {}

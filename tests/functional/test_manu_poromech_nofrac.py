@@ -46,7 +46,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.verification_setups.manu_poromech_nofrac import (
+from tests.functional.setups.manu_poromech_nofrac import (
     ManuPoroMechSaveData,
     ManuPoroMechSetup,
 )
