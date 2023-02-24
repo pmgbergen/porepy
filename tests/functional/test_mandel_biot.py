@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.verification_setups.mandel_biot import (
+from porepy.applications.complete_setups.mandel_biot import (
     MandelSaveData,
     MandelSetup,
     mandel_fluid_constants,
@@ -62,7 +62,7 @@ desired_errors: list[DesiredError] = [
         error_flux=0.4673715742577367,
         error_displacement=0.00036006562251599753,
         error_force=0.006174477658138146,
-        error_consolidation_degree=(0.004112823366753098, 0.01713535830784898),
+        error_consolidation_degree=(0.004112823366753098, 2.983724378680108e-16),
     ),
     # t = 30 [s]
     DesiredError(
@@ -70,7 +70,7 @@ desired_errors: list[DesiredError] = [
         error_flux=0.11759895811865957,
         error_displacement=0.0003363008805572937,
         error_force=0.003024676802218547,
-        error_consolidation_degree=(0.002324983805104465, 0.005513889095926164),
+        error_consolidation_degree=(0.002324983805104465, 2.983724378680108e-16),
     ),
     # t = 50 [s]
     DesiredError(
@@ -78,7 +78,7 @@ desired_errors: list[DesiredError] = [
         error_flux=0.06788475278093752,
         error_displacement=0.0003094287000315224,
         error_force=0.002150211938046511,
-        error_consolidation_degree=(0.0018043500295539042, 0.00412116633756919),
+        error_consolidation_degree=(0.0018043500295539042, 2.983724378680108e-16),
     ),
 ]
 

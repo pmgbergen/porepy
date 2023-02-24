@@ -54,8 +54,8 @@ class Mpsa(Discretization):
 
         self.stress_matrix_key = "stress"
         self.bound_stress_matrix_key = "bound_stress"
-        self.bound_displacment_cell_matrix_key = "bound_displacement_cell"
-        self.bound_displacment_face_matrix_key = "bound_displacement_face"
+        self.bound_displacement_cell_matrix_key = "bound_displacement_cell"
+        self.bound_displacement_face_matrix_key = "bound_displacement_face"
 
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
@@ -333,20 +333,20 @@ class Mpsa(Discretization):
             matrix_dictionary[self.bound_stress_matrix_key][
                 update_ind
             ] = bound_stress_glob[update_ind]
-            matrix_dictionary[self.bound_displacment_cell_matrix_key][
+            matrix_dictionary[self.bound_displacement_cell_matrix_key][
                 update_ind
             ] = bound_displacement_cell_glob[update_ind]
-            matrix_dictionary[self.bound_displacment_face_matrix_key][
+            matrix_dictionary[self.bound_displacement_face_matrix_key][
                 update_ind
             ] = bound_displacement_face_glob[update_ind]
         else:
             matrix_dictionary[self.stress_matrix_key] = stress_glob
             matrix_dictionary[self.bound_stress_matrix_key] = bound_stress_glob
             matrix_dictionary[
-                self.bound_displacment_cell_matrix_key
+                self.bound_displacement_cell_matrix_key
             ] = bound_displacement_cell_glob
             matrix_dictionary[
-                self.bound_displacment_face_matrix_key
+                self.bound_displacement_face_matrix_key
             ] = bound_displacement_face_glob
 
     def update_discretization(self, sd: pp.Grid, data: dict) -> None:
@@ -393,17 +393,17 @@ class Mpsa(Discretization):
         # Keywords that should be interpreted as vector cell quantities
         vector_cell_right = [
             self.stress_matrix_key,
-            self.bound_displacment_cell_matrix_key,
+            self.bound_displacement_cell_matrix_key,
         ]
         vector_face_right = [
             self.bound_stress_matrix_key,
-            self.bound_displacment_face_matrix_key,
+            self.bound_displacement_face_matrix_key,
         ]
 
         vector_face_left = [
             self.stress_matrix_key,
-            self.bound_displacment_cell_matrix_key,
-            self.bound_displacment_face_matrix_key,
+            self.bound_displacement_cell_matrix_key,
+            self.bound_displacement_face_matrix_key,
             self.bound_stress_matrix_key,
         ]
 

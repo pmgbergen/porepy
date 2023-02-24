@@ -12,6 +12,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.fracs import structured
+from porepy.fracs.utils import pts_edges_to_linefractures
 from tests import test_utils
 
 # Named tuple used to identify intersections of fractures by their parent fractures
@@ -1120,7 +1121,8 @@ class Test2dDomain(unittest.TestCase):
 
     def test_one_fracture(self):
         self.setUp()
-        network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
+        line_fractures = pts_edges_to_linefractures(self.p1, self.e1)
+        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
         mdg = network.mesh(self.mesh_args)
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 1)
@@ -1128,7 +1130,8 @@ class Test2dDomain(unittest.TestCase):
 
     def test_two_fractures(self):
         self.setUp()
-        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        line_fractures = pts_edges_to_linefractures(self.p2, self.e2)
+        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
         mdg = network.mesh(self.mesh_args)
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 2)
@@ -1136,7 +1139,8 @@ class Test2dDomain(unittest.TestCase):
 
     def test_one_constraint(self):
         self.setUp()
-        network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
+        line_fractures = pts_edges_to_linefractures(self.p1, self.e1)
+        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.array([0]))
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
@@ -1144,7 +1148,8 @@ class Test2dDomain(unittest.TestCase):
 
     def test_two_constraints(self):
         self.setUp()
-        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        line_fractures = pts_edges_to_linefractures(self.p2, self.e2)
+        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.arange(2))
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
@@ -1152,7 +1157,8 @@ class Test2dDomain(unittest.TestCase):
 
     def test_one_fracture_one_constraint(self):
         self.setUp()
-        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        line_fractures = pts_edges_to_linefractures(self.p2, self.e2)
+        network = pp.FractureNetwork2d(fractures=line_fractures, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.array(1))
         self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
         self.assertTrue(len(mdg.subdomains(dim=1)) == 1)
