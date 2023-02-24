@@ -327,16 +327,14 @@ class Operator:
             # To add we need two objects
             assert len(results) == 2
 
-            # Convert any vectors that mascarade as a n x 1 (1 x n) scipy matrix to a
-            # numpy array.
-            # self._ravel_scipy_matrix(results)
-
             if isinstance(results[0], np.ndarray):
-                # With the implementation of Ad arrays, addition does not
-                # commute for combinations with numpy arrays. Switch the order
-                # of results, and everything works.
+                # We should not do numpy_array + Ad_array, since numpy will interpret
+                # this in a strange way. Instead switch the order of the operands and
+                # everything will be fine.
                 results = results[::-1]
             try:
+                # An error here would typically be a dimension mismatch between the
+                # involved operators.
                 return results[0] + results[1]
             except ValueError as exc:
                 msg = self._get_error_message("adding", tree, results)
@@ -346,20 +344,17 @@ class Operator:
             # To subtract we need two objects
             assert len(results) == 2
 
-            # Convert any vectors that mascarade as a n x 1 (1 x n) scipy matrix to a
-            # numpy array.
-            # self._ravel_scipy_matrix(results)
-
+            # We need a minor trick to take care of numpy arrays.
             factor = 1.0
-
             if isinstance(results[0], np.ndarray):
-                # With the implementation of Ad arrays, subtraction does not
-                # commute for combinations with numpy arrays. Switch the order
-                # of results, and everything works. This is permissible since
+                # We should not do numpy_array - Ad_array, since numpy will interpret
+                # this in a strange way. Instead switch the order of the operands, and
+                # switch the sign of factor to compensate.
                 results = results[::-1]
                 factor = -1.0
-
             try:
+                # An error here would typically be a dimension mismatch between the
+                # involved operators.
                 return factor * (results[0] - results[1])
             except ValueError as exc:
                 msg = self._get_error_message("subtracting", tree, results)
@@ -378,34 +373,11 @@ class Operator:
                 # This is permissible, since the elementwise product commutes.
                 results = results[::-1]
             try:
-                # An error here
+                # An error here would typically be a dimension mismatch between the
+                # involved operators.
                 return results[0] * results[1]
             except ValueError as exc:
-                if isinstance(
-                    results[0], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-                ) and isinstance(results[1], np.ndarray):
-                    # Special error message here, since the information provided by
-                    # the standard method looks like a contradiction.
-                    # Move this to a helper method if similar cases arise for other
-                    # Operator.Operations.
-                    msg_0 = tree.children[0]._parse_readable()
-                    msg_1 = tree.children[1]._parse_readable()
-                    nl = "\n"
-                    msg = (
-                        "Error when right multiplying \n"
-                        + f"  {msg_0}"
-                        + nl
-                        + "with"
-                        + nl
-                        + f"  numpy array {msg_1}"
-                        + nl
-                        + f"Size of arrays: {results[0].val.size} and {results[1].size}"
-                        + nl
-                        + "Did you forget some parentheses?"
-                    )
-
-                else:
-                    msg = self._get_error_message("multiplying", tree, results)
+                msg = self._get_error_message("multiplying", tree, results)
                 raise ValueError(msg) from exc
 
         elif tree.op == Operator.Operations.div:
@@ -415,52 +387,43 @@ class Operator:
                 if isinstance(results[0], np.ndarray) and isinstance(
                     results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
-                    # In the implementation of multiplication between an AdArray and a
-                    # numpy array (in the forward mode Ad), a * b and b * a do not
-                    # commute. Flip the order of the results to get the expected behavior.
-                    # This is permissible, since the elementwise product commutes.
+                    # If numpy's __truediv__ method is called here, the result will be
+                    # strange because of how numpy works. Instead we directly invoke the
+                    # right-truedivide method in the AdArary.
                     return results[1].__rtruediv__(results[0])
                 else:
                     return results[0] / results[1]
-            except:
-                msg = self._get_error_message("multiplying", tree, results)
-                raise ValueError(msg)
+            except ValueError as exc:
+                msg = self._get_error_message("dividing", tree, results)
+                raise ValueError(msg) from exc
 
         elif tree.op == Operator.Operations.pow:
             try:
                 if isinstance(results[0], np.ndarray) and isinstance(
                     results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
-                    # In the implementation of multiplication between an AdArray and a
-                    # numpy array (in the forward mode Ad), a * b and b * a do not
-                    # commute. Flip the order of the results to get the expected behavior.
-                    # This is permissible, since the elementwise product commutes.
+                    # If numpy's __pow__ method is called here, the result will be
+                    # strange because of how numpy works. Instead we directly invoke the
+                    # right-power method in the AdArary.
                     return results[1].__rpow__(results[0])
                 else:
                     return results[0] ** results[1]
-            except:
-                msg = self._get_error_message("multiplying", tree, results)
-                raise ValueError(msg)
-
-            try:
-                return results[0] ** results[1]
             except ValueError as exc:
                 msg = self._get_error_message("raising to a power", tree, results)
                 raise ValueError(msg) from exc
+
         elif tree.op == Operator.Operations.matmul:
             try:
                 if isinstance(results[0], np.ndarray) and isinstance(
                     results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
-                    # In the implementation of multiplication between an AdArray and a
-                    # numpy array (in the forward mode Ad), a * b and b * a do not
-                    # commute. Flip the order of the results to get the expected behavior.
-                    # This is permissible, since the elementwise product commutes.
+                    # Again, we do not want to call numpy's matmul method, but instead
+                    # directly invoke AdArarray's right matmul.
                     return results[1].__rmatmul__(results[0])
                 else:
                     return results[0] @ results[1]
             except:
-                msg = self._get_error_message("multiplying", tree, results)
+                msg = self._get_error_message("matrix multiplying", tree, results)
                 raise ValueError(msg)
 
         elif tree.op == Operator.Operations.evaluate:
@@ -484,7 +447,7 @@ class Operator:
                 return AdArray(val, jac)
 
         else:
-            raise ValueError("Should not happen")
+            raise ValueError(f"Encountered unknown operator {tree.op}")
 
     def _get_error_message(self, operation: str, tree, results: list) -> str:
         # Helper function to format error message
@@ -761,7 +724,7 @@ class Operator:
 
         # Loop over all variables, restrict to an Ad array corresponding to
         # this variable.
-        for (var_id, dof) in zip(self._variable_ids, self._variable_dofs):
+        for var_id, dof in zip(self._variable_ids, self._variable_dofs):
             ncol = state.size
             nrow = np.unique(dof).size
             # Restriction matrix from full state (in Forward Ad) to the specific
@@ -828,7 +791,6 @@ class Operator:
                 # Is this equivalent to the test in previous function?
                 # Loop over all subvariables for the mixed-dimensional variable
                 for i, sub_var in enumerate(variable.sub_vars):
-
                     if sub_var.prev_time or sub_var.prev_iter:
                         # If this is a variable representing a previous time step or
                         # iteration, we need to use the original variable to get hold of
@@ -1212,7 +1174,7 @@ class SparseArray(Operator):
 class DenseArray(Operator):
     """AD representation of a constant numpy array.
 
-    For sparse matrices, use :class:`Matrix` instead.
+    For sparse matrices, use :class:`SparseArray` instead.
     For time-dependent arrays see :class:`TimeDependentArray`.
 
     This is a shallow wrapper around the real array; it is needed to combine the array
@@ -1299,7 +1261,6 @@ class TimeDependentDenseArray(DenseArray):
         interfaces: Optional[list[pp.MortarGrid]] = None,
         previous_timestep: bool = False,
     ):
-
         self._name: str = name
 
         if subdomains is None:
@@ -1626,7 +1587,6 @@ class MixedDimensionalVariable(Variable):
     """
 
     def __init__(self, variables: list[Variable]) -> None:
-
         ### PUBLIC
 
         self.sub_vars = variables
@@ -1802,7 +1762,6 @@ class Tree:
         operation: Operator.Operations,
         children: Optional[Sequence[Union[Operator, AdArray]]] = None,
     ):
-
         self.op = operation
 
         self.children: list[Union[Operator, AdArray]] = []
