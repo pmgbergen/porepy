@@ -50,51 +50,53 @@ class NonzeroFractureGapPoromechanics:
 
         """
         super().initial_condition()
-        # Initial pressure equals reference pressure (defaults to zero).
-        self.equation_system.set_variable_values(
-            self.fluid.pressure() * np.ones(self.mdg.num_subdomain_cells()),
-            [self.pressure_variable],
-            to_state=True,
-            to_iterate=True,
-        )
-        sd, sd_data = self.mdg.subdomains(return_data=True)[0]
-        # Initial displacement.
-        if len(self.mdg.subdomains()) > 1:
-
-            top_cells = sd.cell_centers[1] > 0.5
-            vals = np.zeros((self.nd, sd.num_cells))
-            vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
+        vals = self.equation_system.get_variable_values()
+        if self.time_manager.is_init():
+            # Initial pressure equals reference pressure (defaults to zero).
             self.equation_system.set_variable_values(
-                vals.ravel("F"),
-                [self.displacement_variable],
+                self.fluid.pressure() * np.ones(self.mdg.num_subdomain_cells()),
+                [self.pressure_variable],
                 to_state=True,
                 to_iterate=True,
             )
-            # Find mortar cells on the top boundary
-            intf = self.mdg.interfaces()[0]
-            # Identify by normal vector in sd_primary
-            faces_primary = intf.primary_to_mortar_int().tocsr().indices
-            switcher = pp.grid_utils.switch_sign_if_inwards_normal(
-                sd,
-                self.nd,
-                faces_primary,
-            )
+            sd, sd_data = self.mdg.subdomains(return_data=True)[0]
+            # Initial displacement.
+            if len(self.mdg.subdomains()) > 1:
 
-            normals = (switcher * sd.face_normals[: sd.dim].ravel("F")).reshape(
-                sd.dim, -1, order="F"
-            )
-            intf_normals = normals[:, faces_primary]
-            top_cells = intf_normals[1, :] < 0
+                top_cells = sd.cell_centers[1] > 0.5
+                vals = np.zeros((self.nd, sd.num_cells))
+                vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
+                self.equation_system.set_variable_values(
+                    vals.ravel("F"),
+                    [self.displacement_variable],
+                    to_state=True,
+                    to_iterate=True,
+                )
+                # Find mortar cells on the top boundary
+                intf = self.mdg.interfaces()[0]
+                # Identify by normal vector in sd_primary
+                faces_primary = intf.primary_to_mortar_int().tocsr().indices
+                switcher = pp.grid_utils.switch_sign_if_inwards_normal(
+                    sd,
+                    self.nd,
+                    faces_primary,
+                )
 
-            # Set mortar displacement to zero on bottom and 0.042 on top
-            vals = np.zeros((self.nd, intf.num_cells))
-            vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
-            self.equation_system.set_variable_values(
-                vals.ravel("F"),
-                [self.interface_displacement_variable],
-                to_state=True,
-                to_iterate=True,
-            )
+                normals = (switcher * sd.face_normals[: sd.dim].ravel("F")).reshape(
+                    sd.dim, -1, order="F"
+                )
+                intf_normals = normals[:, faces_primary]
+                top_cells = intf_normals[1, :] < 0
+
+                # Set mortar displacement to zero on bottom and 0.042 on top
+                vals = np.zeros((self.nd, intf.num_cells))
+                vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
+                self.equation_system.set_variable_values(
+                    vals.ravel("F"),
+                    [self.interface_displacement_variable],
+                    to_state=True,
+                    to_iterate=True,
+                )
 
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Fracture stress on interfaces.
