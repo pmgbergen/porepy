@@ -1,7 +1,7 @@
 """
 Module containing functional tests for Terzaghi's consolidation problem.
 
-We consider two functional tests:
+We consider three functional tests:
 
     - The first test guarantees that the results obtained with the Biot class
       :class:`porepy.applications.classic_models.Biot` matches `exactly` the results
@@ -13,34 +13,35 @@ We consider two functional tests:
       degree of consolidation obtained from the MPFA/MPSA-FV solutions and the
       exact Terzaghi's solution.
 
+    - The last test checks if we obtain the same results for an unscaled and a scaled
+      setup. The scaled setup employs units of length in millimeters and units of
+      mass in grams.
+
 """
 
 import numpy as np
 
 import porepy as pp
-
-from porepy.models.poromechanics import Poromechanics
-from porepy.models.verification_setups.verifications_utils import VerificationUtils
-from porepy.models.verification_setups.terzaghi_biot import (
-    terzaghi_solid_constants,
-    terzaghi_fluid_constants,
-    TerzaghiSetup,
+from porepy.applications.complete_setups.terzaghi_biot import (
     PseudoOneDimensionalColumn,
-    SetupUtilities,
-    ModifiedPoromechanicsBoundaryConditions,
-    ModifiedSolutionStrategy,
-    ModifiedDataSavingMixin
+    TerzaghiDataSaving,
+    TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiSetup,
+    TerzaghiSolutionStrategy,
+    TerzaghiUtils,
+    terzaghi_fluid_constants,
+    terzaghi_solid_constants,
 )
+from porepy.models.poromechanics import Poromechanics
 
 
 class TerzaghiSetupPoromechanics(
-    ModifiedPoromechanicsBoundaryConditions,
-    ModifiedSolutionStrategy,
     PseudoOneDimensionalColumn,
-    SetupUtilities,
+    TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiSolutionStrategy,
+    TerzaghiUtils,
+    TerzaghiDataSaving,
     Poromechanics,
-    VerificationUtils,
-    ModifiedDataSavingMixin
 ):
     """Terzaghi mixer class based on the full poromechanics class."""
 
@@ -54,25 +55,25 @@ def test_biot_equal_to_incompressible_poromechanics():
             "solid": pp.SolidConstants(terzaghi_solid_constants),
             "fluid": pp.FluidConstants(terzaghi_fluid_constants),
         },
-        "num_cells": 10
+        "num_cells": 10,
     }
     setup_poromech = TerzaghiSetupPoromechanics(params_poromech)
     pp.run_time_dependent_model(setup_poromech, params_poromech)
-    p_poromechanics = setup_poromech.results[0].numerical_pressure
-    U_poromechanics = setup_poromech.results[0].numerical_consolidation_degree
+    p_poromechanics = setup_poromech.results[0].approx_pressure
+    U_poromechanics = setup_poromech.results[0].approx_consolidation_degree
 
     # Run Terzaghi setup with Biot model
     params_biot = {
-          "material_constants": {
-              "solid": pp.SolidConstants(terzaghi_solid_constants),
-              "fluid": pp.FluidConstants(terzaghi_fluid_constants),
-          },
-          "num_cells": 10,
+        "material_constants": {
+            "solid": pp.SolidConstants(terzaghi_solid_constants),
+            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        },
+        "num_cells": 10,
     }
     setup_biot = TerzaghiSetup(params_biot)
     pp.run_time_dependent_model(setup_biot, params_biot)
-    p_biot = setup_biot.results[0].numerical_pressure
-    U_biot = setup_biot.results[0].numerical_consolidation_degree
+    p_biot = setup_biot.results[0].approx_pressure
+    U_biot = setup_biot.results[0].approx_consolidation_degree
 
     np.testing.assert_almost_equal(p_poromechanics, p_biot)
     np.testing.assert_almost_equal(U_poromechanics, U_biot)
@@ -118,23 +119,55 @@ def test_pressure_and_consolidation_degree_errors():
     pp.run_time_dependent_model(setup, params)
 
     # Check pressure error
-    desired_error_p = [
-        0.06884857957987067,
-        0.0455347877406611,
-        0.022391576732172767
-    ]
-    actual_error_p = [result.pressure_error for result in setup.results]
+    desired_error_p = [0.06884857957987067, 0.0455347877406611, 0.022391576732172767]
+    actual_error_p = [result.error_pressure for result in setup.results]
     np.testing.assert_allclose(actual_error_p, desired_error_p, rtol=1e-3, atol=1e-5)
 
     # Check consolidation degree error
     desired_error_consol = [
         0.0270053052913328,
         0.018839104164792175,
-        0.010927390550216687
+        0.010927390550216687,
     ]
     actual_error_consol = [
-        result.consolidation_degree_error for result in setup.results
+        result.error_consolidation_degree for result in setup.results
     ]
     np.testing.assert_allclose(
         actual_error_consol, desired_error_consol, rtol=1e-3, atol=1e-5
+    )
+
+
+def test_scaled_vs_unscaled_systems():
+    """Checks that the same results are obtained for scaled and unscaled systems."""
+
+    # The unscaled problem
+    material_constants_unscaled = {
+        "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        "solid": pp.SolidConstants(terzaghi_solid_constants),
+    }
+    params_unscaled = {"material_constants": material_constants_unscaled}
+    unscaled = TerzaghiSetup(params=params_unscaled)
+    pp.run_time_dependent_model(model=unscaled, params=params_unscaled)
+
+    # The scaled problem
+    material_constants_scaled = {
+        "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        "solid": pp.SolidConstants(terzaghi_solid_constants),
+    }
+    scaling = {"m": 0.001, "kg": 0.001}  # length in millimeters and mass in grams
+    units = pp.Units(**scaling)
+    params_scaled = {"material_constants": material_constants_scaled, "units": units}
+    scaled = TerzaghiSetup(params=params_scaled)
+    pp.run_time_dependent_model(model=scaled, params=params_scaled)
+
+    # Compare results
+    np.testing.assert_almost_equal(
+        unscaled.results[-1].error_pressure,
+        scaled.results[-1].error_pressure,
+        decimal=5,
+    )
+    np.testing.assert_almost_equal(
+        unscaled.results[-1].error_consolidation_degree,
+        unscaled.results[-1].error_consolidation_degree,
+        decimal=5,
     )

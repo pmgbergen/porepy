@@ -38,6 +38,7 @@ class TriangleGrid(Grid):
         tri: ``shape=(3, num_cells), default=None``
 
             Cell-node connections. If None, a Delaunay triangulation will be applied.
+            The ordering of nodes in each cell is assumed to be counter-clockwise.
         name: ``default=None``
 
             Name of the grid. If None, ``'TriangleGrid'`` will be assigned.
@@ -70,8 +71,15 @@ class TriangleGrid(Grid):
 
         assert num_nodes > 2  # Check of transposes of point array
 
-        # Face node relations
+        # Tabulate the nodes in [first, second, third] faces of each triangle in
+        # counterclockwise order
         face_nodes = np.hstack((tri[[0, 1]], tri[[1, 2]], tri[[2, 0]])).transpose()
+
+        # The cell-face orientation is positive if it coincides with the face
+        # orientation from low to high node index
+        cf_data = np.sign(face_nodes[:, 1] - face_nodes[:, 0])
+
+        # Face node relations. Each face is oriented from low to high node index.
         face_nodes.sort(axis=1)
         face_nodes, _, cell_faces = setmembership.unique_rows(face_nodes)
 
@@ -94,17 +102,18 @@ class TriangleGrid(Grid):
         # Cell face relation
         num_faces_per_cell = 3
         cell_faces = cell_faces.reshape(num_faces_per_cell, num_cells).ravel("F")
+        cf_data = cf_data.reshape(num_faces_per_cell, num_cells).ravel("F")
+
         indptr = np.hstack(
             (
                 np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
                 num_faces_per_cell * num_cells,
             )
         )
-        data = -np.ones(cell_faces.shape)
-        _, sgns = np.unique(cell_faces, return_index=True)
-        data[sgns] = 1
         cell_faces = sps.csc_matrix(
-            (data, cell_faces, indptr), shape=(num_faces, num_cells)
+            (cf_data, cell_faces, indptr),
+            shape=(num_faces, num_cells),
+            dtype=float,
         )
 
         super().__init__(2, nodes, face_nodes, cell_faces, name)
@@ -181,8 +190,8 @@ class StructuredTriangleGrid(TriangleGrid):
         tmp_ind = np.arange(0, nx[0])
         ind_1 = tmp_ind  # Lower left node in quad
         ind_2 = tmp_ind + 1  # Lower right node
-        ind_3 = nx[0] + 2 + tmp_ind  # Upper left node
-        ind_4 = nx[0] + 1 + tmp_ind  # Upper right node
+        ind_3 = nx[0] + 2 + tmp_ind  # Upper right node
+        ind_4 = nx[0] + 1 + tmp_ind  # Upper left node
 
         # The first triangle is defined by (i1, i2, i3), the next by (i1, i3, i4). Stack
         # these vertically, and reshape so that the first quad is split into cells 0 and

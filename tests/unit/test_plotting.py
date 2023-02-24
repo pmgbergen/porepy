@@ -2,9 +2,9 @@
 """
 
 import os
-import pytest
 
 import numpy as np
+import pytest
 
 import porepy as pp
 from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
@@ -31,7 +31,9 @@ def mdg(request):
     return mdg_
 
 
-@pytest.mark.parametrize("vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE])
+@pytest.mark.parametrize(
+    "vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
+)
 def test_plot_grid_mdg(mdg, vector_variable):
     """Tests that no error is raised if we plot mdg and provide variable names."""
     pp.plot_grid(
@@ -45,14 +47,18 @@ def test_plot_grid_mdg(mdg, vector_variable):
     plt.close()
 
 
-@pytest.mark.parametrize("vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE])
+@pytest.mark.parametrize(
+    "vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
+)
 def test_plot_grid_simple_grid(mdg, vector_variable):
     """Tests that no error is raised if we plot a single dimension grid and provide variable arrays.
     This use case requires the user to reshape the vector array to the shape (3 x n).
     The redundant dimensions are filled with zeros."""
     grid, data = mdg.subdomains(return_data=True)[0]
     scalar_data = data[pp.STATE][SCALAR_VARIABLE]
-    vector_data = data[pp.STATE][vector_variable].reshape((mdg.dim_max(), -1), order="F")
+    vector_data = data[pp.STATE][vector_variable].reshape(
+        (mdg.dim_max(), -1), order="F"
+    )
     vector_data = np.vstack(
         [vector_data, np.zeros((3 - vector_data.shape[0], vector_data.shape[1]))]
     )
@@ -95,8 +101,12 @@ def _initialize_mdg(mdg_):
         if sd.dim in (mdg_.dim_max(), mdg_.dim_max() - 1):
             data[pp.STATE] = {
                 SCALAR_VARIABLE: np.ones(sd.num_cells),
-                VECTOR_VARIABLE_CELL: np.ones((mdg_.dim_max(), sd.num_cells)).ravel(order="F"),
-                VECTOR_VARIABLE_FACE: np.ones((mdg_.dim_max(), sd.num_faces)).ravel(order="F"),
+                VECTOR_VARIABLE_CELL: np.ones((mdg_.dim_max(), sd.num_cells)).ravel(
+                    order="F"
+                ),
+                VECTOR_VARIABLE_FACE: np.ones((mdg_.dim_max(), sd.num_faces)).ravel(
+                    order="F"
+                ),
             }
         else:
             data[pp.STATE] = {}
