@@ -345,10 +345,12 @@ class ModelGeometry:
         # component of the cell-wise vector v to be transformed. Then we want to express
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
-        # secondly t_i (column vector).
-        op: pp.ad.Operator = sum(
+        # secondly t_i (column vector). Mypy considers the return type to be int (EK has
+        # no idea why), so ignore the error. Also ignore mypy error that the iterable is
+        # not a list of booleans.
+        op: pp.ad.Operator = sum(  # type: ignore[assignment]
             [
-                self.e_i(subdomains, i=i, dim=self.nd - 1)
+                self.e_i(subdomains, i=i, dim=self.nd - 1)  # type: ignore[misc]
                 @ self.e_i(subdomains, i=i, dim=self.nd).T
                 for i in range(self.nd - 1)
             ]
@@ -637,9 +639,13 @@ class ModelGeometry:
             # over all dimensions.
             # EK: It should be possible to do this in a better, less opaque, way. A
             # Kronecker product comes to mind, but this will require an extension of the
-            # Ad matrix.
+            # Ad matrix. Ignore mypy error that the iterable is not a list of booleans,
+            # which mypy insists it should be.
             cell_volumes_inv_nd = sum(
-                [e @ cell_volumes_inv @ e.T for e in self.basis(interfaces, self.nd)]
+                [
+                    e @ cell_volumes_inv @ e.T  # type: ignore[misc]
+                    for e in self.basis(interfaces, self.nd)
+                ]
             )
             # Scale normals.
             outwards_normals = cell_volumes_inv_nd @ outwards_normals

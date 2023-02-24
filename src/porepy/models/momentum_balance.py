@@ -335,16 +335,19 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # each of which represents a cell-wise basis vector which is non-zero in one
         # dimension (and this is known to be in the tangential plane of the subdomains).
         # Ignore mypy complaint on unknown keyword argument
-        tangential_basis = self.basis(
+        tangential_basis: list[pp.ad.SparseArray] = self.basis(
             subdomains, dim=self.nd - 1  # type: ignore[call-arg]
         )
 
-        # To map a scalar to the tangential plane, we need to sum the basis vectors.
-        # The individual basis functions have shape (Nc * (self.nd - 1), Nc), where
-        # Nc is the total number of cells in the subdomain. The sum will have the same
-        # shape, but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell.
-        scalar_to_tangential = sum([e_i for e_i in tangential_basis])
+        # To map a scalar to the tangential plane, we need to sum the basis vectors. The
+        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
+        # the total number of cells in the subdomain. The sum will have the same shape,
+        # but the row corresponding to each cell will be non-zero in all rows
+        # corresponding to the tangential basis vectors of this cell. EK: mypy insists
+        # that the argument to sum should be a list of booleans. Ignore this error.
+        scalar_to_tangential = sum(
+            [e_i for e_i in tangential_basis]  # type: ignore[misc]
+        )
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
@@ -386,8 +389,14 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Spelled out, from the right: Restrict the vector quantity to one dimension in
         # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
         # to the full vector quantity (e_i), and sum over all all directions in the
-        # tangential plane.
-        c_num = sum([e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis])
+        # tangential plane. EK: mypy insists that the argument to sum should be a list
+        # of booleans. Ignore this error.
+        c_num = sum(
+            [
+                e_i * c_num_as_scalar * e_i.T  # type: ignore[misc]
+                for e_i in tangential_basis
+            ]
+        )
 
         # Combine the above into expressions that enter the equation. c_num will
         # effectively be a sum of SparseArrays, thus we use a matrix-vector product @

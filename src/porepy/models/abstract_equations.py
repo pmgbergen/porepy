@@ -152,7 +152,8 @@ class BalanceEquation:
             basis: list[pp.ad.SparseArray] = self.basis(
                 grids, dim=dim  # type: ignore[call-arg]
             )
-            volumes_nd = sum([e * volumes * e.T for e in basis])
+            # Ignore mypy complaints about the summands not being a list of booleans.
+            volumes_nd = sum([e * volumes * e.T for e in basis])  # type: ignore[misc]
 
             return volumes_nd @ integrand
 
