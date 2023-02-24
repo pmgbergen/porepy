@@ -350,15 +350,21 @@ class Flash:
         coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self._C.num_phases**2)
         neg = pp.ad.SemiSmoothNegative()
         pos = pp.ad.SemiSmoothPositive()
-        one = pp.ad.Scalar(1.)
+        one = pp.ad.Scalar(1)
+        two = pp.ad.Scalar(2)
         abs = pp.ad.Function(pp.ad.abs, "AD-abs")
+        pow = pp.ad.Function(pp.ad.power, "AD-pow")
 
         norm_parts = list()
         dot_parts = list()
         test_parts = list()
         def smoother(X):
             return X / (X + 1)
-        for phase in self._C.phases:
+        
+        equi_eqn = [e for name, e in self._C.ad_system.equations.items() if "equilibrium" in name]
+        equi_eqn = equi_eqn[-1::-1]
+
+        for phase, equ in zip(self._C.phases, equi_eqn):
             v_e = self._V_of_phase[phase]
             w_e = self._W_of_phase[phase]
 
@@ -367,17 +373,19 @@ class Flash:
 
             test_parts.append(
                 # smoother(neg(w_e) / (self._regularization_param + 1))
-                smoother(neg(v_e) / (self._nu + one))
+                # smoother(neg(v_e) / (self._nu + one))
+                v_e * equ
             )
 
-        dot_part = pos(sum(dot_parts))
-        dot_part *= dot_part * coeff
+        dot_part = pow(pos(sum(dot_parts)), two) * coeff
+        # dot_part *= dot_part * coeff
 
         equation = (
             eta * self._nu
             + self._nu * self._nu
             + (sum(norm_parts) + dot_part) / 2
-            + sum(test_parts) * self._regularization_param
+            + pow(sum(test_parts), two) * self._nu * coeff / 2
+            # + sum(test_parts) * self._regularization_param
         )
         equation.set_name("NPIPM_param")
         self._C.ad_system.set_equation(

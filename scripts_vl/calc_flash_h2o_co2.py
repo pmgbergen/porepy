@@ -24,8 +24,9 @@ files = [
     # ('data/testdata.csv', 'G')
 ]
 # results stored here
-output_file = 'data/results/pr_result_VL_reg-smoother.csv'  # file with flash data
-identifier_file = 'data/results/pr_result_VL_reg-smoother_ID.csv'  # file to identify thermo data
+version = 'reg-omar'
+output_file = f'data/results/pr_result_VL_{version}.csv'  # file with flash data
+identifier_file = f'data/results/pr_result_VL_{version}_ID.csv'  # file to identify thermo data
 path = pathlib.Path(__file__).parent.resolve()  # path to script for file i/o
 
 # lists containing pressure and Temperature data for test cases
@@ -109,7 +110,9 @@ Z_G: list[float] = list()  # gas compressibility factor
 
 # perform the Flash per pT point
 print("Performing flash ...", flush=True)
-for p, T in zip(p_points, T_points):
+nf = len(p_points)
+for f, pT in enumerate(zip(p_points, T_points)):
+    p, T = pT
     # set thermodynamic state
     # scale from Pa to MPa
     AD.set_variable_values(
@@ -122,6 +125,7 @@ for p, T in zip(p_points, T_points):
 
     # flashing
     try:
+        print(f"\r... flash {f}/{nf}", end='', flush=True)
         success_ = FLASH.flash(
             flash_type='isothermal',
             method='npipm',
@@ -166,7 +170,7 @@ for p, T in zip(p_points, T_points):
     x_co2_G.append(
         GAS.fraction_of_component(CO2).evaluate(AD).val[0]
     )
-
+print('\n... flash done', flush=True)
 
 ### Storing results in files
 

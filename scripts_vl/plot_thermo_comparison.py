@@ -31,8 +31,9 @@ thermo_files = [
     ('data/pr_data_thermo_isothermal_GL_hard.csv', 'GL'),
 ]
 # Files containing results and identification for p T values
-results_file = 'data/results/pr_result_VL_reg-smoother.csv'
-identifier_file = 'data/results/pr_result_VL_reg-smoother_ID.csv'
+version = 'reg-omar'
+results_file = f'data/results/pr_result_VL_{version}.csv'
+identifier_file = f'data/results/pr_result_VL_{version}_ID.csv'
 figure_path = 'data/results/figures/'  # path to where figures should be stored
 path = pathlib.Path(__file__).parent.resolve()  # path to script for file i/o
 
