@@ -95,8 +95,12 @@ class DataSavingMixin:
         if Path(filename).suffix == ".vtu":
             self.exporter.import_from_vtu(filename, **kwargs)
         elif Path(filename).suffix == ".pvd":
-            time, time_index = self.exporter.import_from_pvd(filename, **kwargs)
+            time, dt, time_index = self.exporter.import_from_pvd(filename, **kwargs)
             self.time_manager.time = time
+            reuse_dt = options.get("reuse_dt", True)
+            if reuse_dt:
+                self.time_manager.dt = dt
+            #self.time_manager.time_index = time_index
             self.exporter._time_step_counter = time_index
         else:
             raise ValueError("Only vtu and pvd files supported for import.")

@@ -216,7 +216,7 @@ class Exporter:
         pvd_file: Union[str],
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
-    ) -> Optional[tuple[float, int]]:
+    ) -> Optional[tuple[float, float, int]]:
         """Fetch time and vtu files from pvd and populate the corresponding data
         to the mixed-dimensional grid.
 
@@ -241,12 +241,13 @@ class Exporter:
         pvd_is_global: bool = kwargs.get("is_global", True)
         if pvd_is_global:
 
-            # Collect all times first
+            # Collect all times first, and sort them
             times = []
             tree_simulation = ET.parse(pvd_file)
             for path in tree_simulation.iter("DataSet"):
                 data = path.attrib
                 times.append(data["timestep"])
+            times = np.unique(times)
 
             # Pick the last time step.
             # NOTE: Possibility to extend to timestep-based choice?
@@ -261,6 +262,10 @@ class Exporter:
                     restart_vtu_files.append(data["file"])
 
             # Read the time_index from the end of the file.
+            restart_time = float(restart_time)
+            restart_dt = float(times[-1]) - float(
+                times[-2]
+            )  # NOTE only dt if data exported at each time step. More metadata needed for the general case!
             restart_time_index = int(Path(restart_vtu_files[0]).stem[-self._padding :])
 
         else:
@@ -291,9 +296,11 @@ class Exporter:
                 # Make a safety check, whether the times are the same for all
                 # files (should always be true).
                 assert len(set(times)) == 1
-                restart_time = list(times)[0]
+                restart_time = float(list(times)[0])
+                restart_dt = None  # TODO
             else:
                 restart_time = None
+                restart_dt = None
                 restart_time_index = None
 
         # Cache the number of restart files used
@@ -317,7 +324,7 @@ class Exporter:
         self.import_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
         self.import_from_vtu(interface_vtu_files, keys, are_subdomain_data=False)
 
-        return float(restart_time), int(restart_time_index)
+        return restart_time, restart_dt, restart_time_index
 
     def import_from_vtu(
         self,
