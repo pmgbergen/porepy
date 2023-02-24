@@ -131,12 +131,22 @@ class SolutionStrategy(abc.ABC):
         )
         """Time manager for the simulation."""
 
+        self.restart_options: dict = params.get(
+            "restart_options",
+            {
+                "restart": False,
+                "file": "",
+            },
+        )
+        """Restart options for restart from pvd."""
+
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the geometry of the problem. This is a method that must be implemented
         # in a ModelGeometry class.
         self.set_geometry()
         # Exporter initialization must be done after grid creation.
+        self.initialize_data_saving()
 
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
@@ -148,7 +158,6 @@ class SolutionStrategy(abc.ABC):
         self.set_discretization_parameters()
 
         # Export initial condition
-        self.initialize_data_saving()
         self.save_data_time_step()
 
         self.discretize()
@@ -173,6 +182,14 @@ class SolutionStrategy(abc.ABC):
         """Set the initial condition for the problem."""
         vals = np.zeros(self.equation_system.num_dofs())
         self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
+
+        # Overwrite the initial condition in case of a restart
+        if self.restart_options["restart"]:
+            self.load_data_from_pvd(self.restart_options)
+            vals = self.equation_system.get_variable_values()
+            self.equation_system.set_variable_values(
+                vals, to_iterate=True, to_state=True
+            )
 
     def set_materials(self):
         """Set material parameters.
