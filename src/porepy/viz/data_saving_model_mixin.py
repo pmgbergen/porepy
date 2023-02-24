@@ -8,6 +8,7 @@ data to a database, or to a file format other than vtu.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
@@ -36,15 +37,21 @@ class DataSavingMixin:
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step."""
         if not self.suppress_export:
-            self.exporter.write_vtu(
-                self.data_to_export(),
-                time_dependent=True,
-            )
+            self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
+            if self.restart_options["restart"]:
+                global_pvd_file = self.restart_options.get(
+                    "global_file", self.restart_options["file"]
+                )
+                self.exporter.write_pvd(append=True, from_pvd_file=global_pvd_file)
+            else:
+                self.exporter.write_pvd()
 
     def finalize_data_saving(self) -> None:
         """Export pvd file and finalize export."""
-        if not self.suppress_export:
-            self.exporter.write_pvd()
+        # TODO; not needed anymore.
+        pass
+        # if not self.suppress_export:
+        #    self.exporter.write_pvd()
 
     def data_to_export(self):
         """Return data to be exported.
@@ -74,6 +81,25 @@ class DataSavingMixin:
                 "export_constants_separately", False
             ),
         )
+
+    def load_data_from_pvd(self, options: dict, **kwargs) -> None:
+        """Initialize data in the model by reading from file.
+
+        Parameters:
+            filename: path to vtu or pvd file.
+
+        Raises:
+            ValueError: if incompatible file type provided.
+        """
+        filename = options.get("file")
+        if Path(filename).suffix == ".vtu":
+            self.exporter.import_from_vtu(filename, **kwargs)
+        elif Path(filename).suffix == ".pvd":
+            time, time_index = self.exporter.import_from_pvd(filename, **kwargs)
+            self.time_manager.time = time
+            self.exporter._time_step_counter = time_index
+        else:
+            raise ValueError("Only vtu and pvd files supported for import.")
 
     @property
     def suppress_export(self) -> bool:
