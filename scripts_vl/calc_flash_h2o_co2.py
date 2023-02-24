@@ -24,8 +24,8 @@ files = [
     # ('data/testdata.csv', 'G')
 ]
 # results stored here
-output_file = 'data/results/pr_result_VL_reg-v-smooth.csv'  # file with flash data
-identifier_file = 'data/results/pr_result_VL_reg-v-smooth_ID.csv'  # file to identify thermo data
+output_file = 'data/results/pr_result_VL_reg-smoother.csv'  # file with flash data
+identifier_file = 'data/results/pr_result_VL_reg-smoother_ID.csv'  # file to identify thermo data
 path = pathlib.Path(__file__).parent.resolve()  # path to script for file i/o
 
 # lists containing pressure and Temperature data for test cases
@@ -44,7 +44,7 @@ for filename, mode in files:
         for datarow in file_reader:
 
             row_id = int(datarow[0])
-            p = float(datarow[1]) * 1e-6  # scale from Pa to MPa
+            p = float(datarow[1])
             T = float(datarow[2])
 
             pT = (p, T)
@@ -111,8 +111,10 @@ Z_G: list[float] = list()  # gas compressibility factor
 print("Performing flash ...", flush=True)
 for p, T in zip(p_points, T_points):
     # set thermodynamic state
+    # scale from Pa to MPa
     AD.set_variable_values(
-        p * np.ones(nc), variables=[MIX.p_name], to_iterate=True, to_state=True
+        (1e-6 * p) * np.ones(nc, dtype=np.double), variables=[MIX.p_name],
+        to_iterate=True, to_state=True
     )
     AD.set_variable_values(
         T * np.ones(nc), variables=[MIX.T_name], to_iterate=True, to_state=True
@@ -174,7 +176,7 @@ with open(f"{path}/{output_file}", 'w', newline='') as csvfile:
     result_writer = csv.writer(csvfile, delimiter=',')
     # header labeling column values
     header = [
-        'p [MPa]', 'T [K]', 'success', 'y', 'x_h2o_L', 'x_co2_L', 'x_h2o_G', 'x_co2_G', 'Z_L', 'Z_G'
+        'p [Pa]', 'T [K]', 'success', 'y', 'x_h2o_L', 'x_co2_L', 'x_h2o_G', 'x_co2_G', 'Z_L', 'Z_G'
     ]
     result_writer.writerow(header)
 
@@ -190,7 +192,7 @@ with open(f"{path}/{identifier_file}", 'w', newline='') as csvfile:
     id_writer = csv.writer(csvfile, delimiter=',')
     # header labeling column values
     header = [
-        'p [MPa]', 'T [K]', 'mode', 'file', 'row-id'
+        'p [Pa]', 'T [K]', 'mode', 'file', 'row-id'
     ]
     id_writer.writerow(header)
 
