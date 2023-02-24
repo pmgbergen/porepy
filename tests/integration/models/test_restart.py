@@ -4,6 +4,7 @@ import pytest
 
 import porepy as pp
 
+from ...unit.test_vtk import _compare_pvd_files, _compare_vtu_files
 from .test_poromechanics import TailoredPoromechanics
 
 
@@ -68,6 +69,19 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
 
 
     """
+    # Setup and run model
     setup = create_fractured_setup(solid_vals, {}, north_displacement)
     pp.run_time_dependent_model(setup, {})
-    assert False
+
+    # Compare final solution with reference solution
+    for ending in ["_000002", ""]:
+        assert _compare_pvd_files(
+            f"./visualization/data{ending}.pvd",
+            f"./restart_reference/data{ending}.pvd",
+        )
+
+    for i in ["1", "2"]:
+        assert _compare_vtu_files(
+            f"./visualization/data_{i}_000002.vtu",
+            f"./restart_reference/data_{i}_000002.vtu",
+        )
