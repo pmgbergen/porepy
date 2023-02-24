@@ -472,20 +472,25 @@ class Exporter:
 
             # 3rd step. Fill-in keys.
             if keys is None:
-                keys = []
+                _keys = []
                 if is_subdomain_data:
                     for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
                         if pp.STATE in sd_data:
-                            keys += list(sd_data[pp.STATE].keys())
+                            _keys += list(sd_data[pp.STATE].keys())
+                    for sd, sd_data in self._mdg.subdomains(return_data=True):
+                        if pp.STATE in sd_data:
+                            _keys += list(sd_data[pp.STATE].keys())
                 else:
                     for intf, intf_data in self._mdg.interfaces(
                         dim=dim, return_data=True
                     ):
                         if pp.STATE in intf_data:
-                            keys += list(intf_data[pp.STATE].keys())
+                            _keys += list(intf_data[pp.STATE].keys())
+            else:
+                _keys = keys
 
             # 4th step: Transfer data. Consider each key separately.
-            for key in keys:
+            for key in _keys:
 
                 # Only continue if the key is present in the data
                 # IMPLEMENTATION NOTE: To also consider node data, add an else below.
