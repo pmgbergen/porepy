@@ -458,6 +458,10 @@ class TimeManager:
         """Increase time index counter by one."""
         self.time_index += 1
 
+    def is_init(self) -> bool:
+        """Check whether time is equal to initial simulation time."""
+        return np.isclose(self.time, self.time_init)
+
     def _adaptation_based_on_iterations(self, iterations: Optional[int]) -> None:
         """Provided convergence, adapt time step based on the number of iterations.
 
