@@ -323,6 +323,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux = self.interface_enthalpy_flux(interfaces) + self.interface_fourier_flux(
             interfaces
         )
+        # Matrix-vector product, use @
         source = projection.mortar_to_secondary_int @ flux
         source.set_name("interface_energy_source")
         return source
