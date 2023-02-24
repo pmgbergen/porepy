@@ -284,8 +284,8 @@ if p_scale_log:
 divider = make_axes_locatable(axis)
 cax = divider.append_axes("right", size="5%", pad=0.1)
 cb = fig.colorbar(img, cax=cax, orientation="vertical")
-cb.set_ticks([1, 2, 3])
-cb.set_ticklabels(["liquid", "gas", "2-phase"])
+cb.set_ticks([0, 1, 2, 3])
+cb.set_ticklabels(['no data',"liquid", "gas", "2-phase"])
 
 # plotting success
 axis = fig.add_subplot(gs[0, 1])
