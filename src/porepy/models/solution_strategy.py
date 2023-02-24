@@ -145,7 +145,9 @@ class SolutionStrategy(abc.ABC):
         # Set the geometry of the problem. This is a method that must be implemented
         # in a ModelGeometry class.
         self.set_geometry()
-        # Exporter initialization must be done after grid creation.
+
+        # Exporter initialization must be done after grid creation,
+        # but prior to data initialization.
         self.initialize_data_saving()
 
         # Set variables, constitutive relations, discretizations and equations.
