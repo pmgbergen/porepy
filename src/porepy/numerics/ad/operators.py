@@ -422,9 +422,9 @@ class Operator:
                     return results[1].__rmatmul__(results[0])
                 else:
                     return results[0] @ results[1]
-            except:
+            except ValueError as exc:
                 msg = self._get_error_message("matrix multiplying", tree, results)
-                raise ValueError(msg)
+                raise ValueError(msg) from exc
 
         elif tree.op == Operator.Operations.evaluate:
             # This is a function, which should have at least one argument
