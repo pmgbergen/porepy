@@ -386,13 +386,14 @@ class TimeDependentMechanicalBCsDirNorthSouth:
         else:
             frac_val = 0
         values[1, domain_sides.north] = frac_val
-        if self.time_manager.time > 1e-5:
+        if not(self.time_manager.is_init()):
             values[1, domain_sides.north] += self.solid.convert_units(
                 self.params.get("uy_north", 0), "m"
             )
             values[1, domain_sides.south] += self.solid.convert_units(
                 self.params.get("uy_south", 0), "m"
             )
+
         return values.ravel("F")
 
 
