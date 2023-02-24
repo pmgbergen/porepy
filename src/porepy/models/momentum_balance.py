@@ -389,7 +389,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # tangential plane.
         c_num = sum([e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis])
 
-        # Combine the above into expressions that enter the equation
+        # Combine the above into expressions that enter the equation. c_num will
+        # effectively be a sum of SparseArrays, thus we use a matrix-vector product @
         tangential_sum = t_t + c_num @ u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
@@ -398,9 +399,13 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
 
-        # Remove parentheses to make the equation more readable if possible
+        # Remove parentheses to make the equation more readable if possible. The product
+        # between (the SparseArray) scalar_to_tangential and b_p is of matrix-vector
+        # type (thus @), and the result is then multiplied elementwise with
+        # tangential_sum.
         bp_tang = (scalar_to_tangential @ b_p) * tangential_sum
 
+        # For the use of @, see previous comment.
         maxbp_abs = scalar_to_tangential @ f_max(b_p, norm_tangential_sum)
         characteristic: pp.ad.Operator = scalar_to_tangential @ f_characteristic(b_p)
         characteristic.set_name("characteristic_function_of_b_p")

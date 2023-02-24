@@ -349,7 +349,7 @@ class ModelGeometry:
         op: pp.ad.Operator = sum(
             [
                 self.e_i(subdomains, i=i, dim=self.nd - 1)
-                * self.e_i(subdomains, i=i, dim=self.nd).T
+                @ self.e_i(subdomains, i=i, dim=self.nd).T
                 for i in range(self.nd - 1)
             ]
         )
@@ -569,8 +569,9 @@ class ModelGeometry:
             unitary: If True, return unit vectors, i.e. normalize by face area.
 
         Returns:
-            Operator computing outward normal vectors on internal boundaries. Evaluated
-            shape `(num_intf_cells * dim, num_intf_cells * dim)`.
+            Operator computing outward normal vectors on internal boundaries; in effect,
+            this is a matrix. Evaluated shape `(num_intf_cells * dim,
+            num_intf_cells * dim)`.
 
         """
         # NOTE: See self.wrap_grid_attribute for comments on typing when this method

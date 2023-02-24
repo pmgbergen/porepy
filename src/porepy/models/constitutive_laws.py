@@ -283,7 +283,8 @@ class DisplacementJumpAperture(DimensionReduction):
                 average_mat = pp.wrap_as_ad_array(
                     average_weights, name="average_weights"
                 )
-                # Average apertures of the parent subdomains.
+                # Average apertures of the parent subdomains. The rightmost product is
+                # of matrix-vector type. The result is then elementwise averaged.
                 apertures_of_dim = average_mat * (
                     parent_cells_to_intersection_cells @ parent_apertures
                 )
@@ -696,7 +697,7 @@ class CubicLawPermeability(ConstantPermeability):
 
         """
         aperture = self.aperture(subdomains)
-        perm = aperture ** Scalar(2) / Scalar(12)
+        perm = (aperture ** Scalar(2)) / Scalar(12)
 
         return perm
 
@@ -984,20 +985,27 @@ class DarcysLaw:
         normals = self.outwards_internal_boundary_normals(
             interfaces, unitary=True  # type: ignore[call-arg]
         )
-        # Make dot product with vector source in two steps. First element-wise product.
-        element_product = normals @ self.vector_source(interfaces, material=material)
-        # Then sum over the nd dimensions.
-        # We need to surpress mypy complaints on e being a list of integers (error code
-        # misc, EK has no idea why mypy thinks this is actually happening) and the
-        # standard problem with basis having keyword-only arguments.
+        # Make dot product with vector source in two steps. First multiply the vector
+        # source with a matrix (though the formal mypy type is Operator, the matrix is
+        # composed by summation).
+        normals_time_source = normals @ self.vector_source(
+            interfaces, material=material
+        )
+        # Then sum over the nd dimensions. We need to surpress mypy complaints on e
+        # being a list of integers (error code misc, EK has no idea why mypy thinks this
+        # is actually happening) and the standard problem with basis having keyword-only
+        # arguments. The result will in effect be a matrix.
         nd_to_scalar_sum = sum(
             [
                 e.T  # type: ignore[misc]
                 for e in self.basis(interfaces, dim=self.nd)  # type: ignore[call-arg]
             ]
         )
-        dot_product = nd_to_scalar_sum @ element_product
-        return dot_product
+        # Finally, the dot product between normal vectors and the vector source. This
+        # must be implemented as a matrix-vector product (yes, this is confusing).
+        product = nd_to_scalar_sum @ normals_time_source
+        product.set_name("Interface vector source term")
+        return product
 
 
 class ThermalExpansion:
@@ -1642,6 +1650,7 @@ class GravityForce:
         # Ignore type error, can't get mypy to understand keyword-only arguments in
         # mixin
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)  # type: ignore[call-arg]
+        # e_n is a matrix, thus we need @ for it.
         source = Scalar(-1) * rho @ e_n @ gravity
         source.set_name("gravity_force")
         return source
@@ -2048,7 +2057,6 @@ class ThermoPressureStress(PressureStress):
 
 
 class ConstantSolidDensity:
-
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -2339,7 +2347,6 @@ class SpecificStorage:
 
 
 class ConstantPorosity:
-
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
