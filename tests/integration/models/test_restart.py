@@ -86,4 +86,10 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
                 f"./restart_reference/data_{i}_{ending}.vtu",
             )
 
+    for ending in ["000001", "000002"]:
+        assert _compare_vtu_files(
+            f"./visualization/data_mortar_1_{ending}.vtu",
+            f"./restart_reference/data_mortar_1_{ending}.vtu",
+        )
+
     # TODO rm visualization
