@@ -477,9 +477,6 @@ class Exporter:
                     for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
                         if pp.STATE in sd_data:
                             _keys += list(sd_data[pp.STATE].keys())
-                    for sd, sd_data in self._mdg.subdomains(return_data=True):
-                        if pp.STATE in sd_data:
-                            _keys += list(sd_data[pp.STATE].keys())
                 else:
                     for intf, intf_data in self._mdg.interfaces(
                         dim=dim, return_data=True
@@ -488,6 +485,9 @@ class Exporter:
                             _keys += list(intf_data[pp.STATE].keys())
             else:
                 _keys = keys
+
+            # Make keys unique
+            _keys = list(set(_keys))
 
             # 4th step: Transfer data. Consider each key separately.
             for key in _keys:
@@ -514,6 +514,7 @@ class Exporter:
                                 value[offset : offset + sd.num_cells], sd
                             )
                             offset += sd.num_cells
+
                     else:
                         for intf, intf_data in self._mdg.interfaces(
                             dim=dim, return_data=True
