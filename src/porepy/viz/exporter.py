@@ -755,24 +755,21 @@ class Exporter:
         # Fix the footer.
         footer = "</Collection>\n" + "</VTKFile>"
 
-        # Perform the same procedure as in _export_mdg_pvd
-        # but looping over all designated time steps.
+        # Define the header
         if file_exists and append:
             o_file = open(pvd_file if from_pvd_file is None else from_pvd_file, "r")
             # NOTE: It is strictly assumed that the considered pvd file is originating
             # from this very same method, i.e., it finishes with the final two lines:
             # "</Collection>\n" + "</VTKFile>"
             # Before appending new data, remove these last two lines from the pvd file.
-            previous_content = o_file.read()
+            previous_content = o_file.readlines()
             o_file.close()
 
-            # Rewrite the pvd file without the last two lines.
-            o_file = open(pvd_file, "w")
-            new_content = previous_content[: -len(footer) - 1]
-            o_file.write(new_content)
+            # Rewrite the pvd file without the restart files and the footer
+            header = previous_content[: -2 - len(self._restart_files)]
+            header = "".join(header)
 
         else:
-            o_file = open(pvd_file, "w")
 
             # Write header to file
             b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
@@ -783,11 +780,16 @@ class Exporter:
                 + 'byte_order="%s"%s>\n' % (b, c)
                 + "<Collection>\n"
             )
-            o_file.write(header)
+
+        # Open the file and write the header
+        o_file = open(pvd_file, "w")
+        o_file.write(header)
 
         # Define main body
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
+        # Perform the same procedure as in _export_mdg_pvd
+        # but looping over all designated time steps.
         # Gather all data, and assign the actual time.
         for time, fn in zip(times, file_extension):
             # Go through all possible data types, analogously to
