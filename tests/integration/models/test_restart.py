@@ -35,7 +35,12 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
         "material_constants": {"solid": solid, "fluid": fluid},
         "uy_north": uy_north,
         "max_iterations": 20,
-        "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True),
+        # TODO fix DataSavingMixin.write_pvd and use [0,1] with dt_init=0.5 here.
+        "time_manager": pp.TimeManager(schedule=[0, 2], dt_init=1, constant_dt=True),
+        "restart_options": {
+            "restart": True,
+            "file": "./restart_reference/previous_data.pvd",
+        },
     }
     setup = TailoredPoromechanics(params)
     return setup
