@@ -19,7 +19,7 @@ import porepy as pp
 from . import setup_utils
 
 geometry_list = [
-    setup_utils.RectangularDomainOrthogonalFractures2d,
+    setup_utils.RectangularDomainThreeFractures,
     setup_utils.OrthogonalFractures3d,
 ]
 
@@ -46,7 +46,7 @@ def test_set_geometry(geometry_class):
     geometry.params = {"num_fracs": 1}
     geometry.units = pp.Units()
     geometry.set_geometry()
-    for attr in ["mdg", "domain_bounds", "nd", "fracture_network"]:
+    for attr in ["mdg", "domain", "nd", "fracture_network"]:
         assert hasattr(geometry, attr)
     # For now, the default is not to assign a well network. Assert to remind ourselves
     # to add testing if default is changed.
@@ -62,7 +62,7 @@ def test_boundary_sides(geometry_class, num_fracs):
     geometry.set_geometry()
 
     # Fetch the bounding box for the domain
-    box_min, box_max = pp.bounding_box.from_md_grid(geometry.mdg)
+    box_min, box_max = pp.domain.mdg_minmax_coordinates(geometry.mdg)
 
     for sd in geometry.mdg.subdomains():
         all_bf, east, west, north, south, top, bottom = geometry.domain_boundary_sides(

@@ -16,16 +16,15 @@ The tests follow in part the unittest framework, in part pytest.
 
 """
 import unittest
-import pytest
 
 import numpy as np
-import porepy as pp
+import pytest
 import scipy.sparse as sps
 
-from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
+import porepy as pp
 from tests.integration import setup_mixed_dimensional_grids as setup_mdg
+from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
 from tests.test_utils import compare_arrays
-
 
 ## Below follows tests of the picking of high-dimensional faces to split, when using
 #  the ConformingPropagation strategy.

@@ -1,4 +1,5 @@
 """ This module contains functions to run stationary and time-dependent models."""
+from __future__ import annotations
 
 import logging
 from typing import Union

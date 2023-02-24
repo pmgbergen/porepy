@@ -17,15 +17,16 @@ not be used directly.
 
 Because of the number of variables and equations, and their somewhat difficult relation,
 the most convenient way to set up a discretization for poro-elasticity is to use
-pp.BiotContactMechanicsModel (designed for fractures and contact mechanics, but will
-turn into a standard poro-elasticity equation for non-fractured domains).
+:class:`~porepy.models.poromechanics.Poromechanics` (designed for fractures and contact
+mechanics, but will turn into a standard poro-elasticity equation for non-fractured
+domains).
 
 """
 from __future__ import annotations
 
 import logging
 from time import time
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -130,12 +131,12 @@ class Biot(pp.Mpsa):
         Raises:
             NotImplementedError: If invoked. The method is included to be compatible
                 with the wider discretization class, but assembly should be handled
-                by the ContactMechanicsBiot class.
+                by :class:`~porepy.models.poromechanics.Poromechanics`.
 
         """
         raise NotImplementedError(
             """This class cannot be used for assembly.
-    Use the ContactMechanicsBiot class instead."""
+    Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
         )
 
     def assemble_rhs(self, sd: pp.Grid, sd_data: dict) -> np.ndarray:
@@ -152,12 +153,12 @@ class Biot(pp.Mpsa):
         Raises:
             NotImplementedError: If invoked. The method is included to be compatible
                 with the wider discretization class, but assembly should be handled
-                by the ContactMechanicsBiot class.
+                by :class:`~porepy.models.poromechanics.Poromechanics`.
 
         """
         raise NotImplementedError(
             """This class cannot be used for assembly.
-    Use the ContactMechanicsBiot class instead."""
+    Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
         )
 
     def assemble_matrix(self, sd: pp.Grid, sd_data: dict) -> sps.spmatrix:
@@ -177,12 +178,12 @@ class Biot(pp.Mpsa):
         Raises:
             NotImplementedError: If invoked. The method is included to be compatible
                 with the wider discretization class, but assembly should be handled
-                by the ContactMechanicsBiot class.
+                by :class:`~porepy.models.poromechanics.Poromechanics`.
 
         """
         raise NotImplementedError(
             """This class cannot be used for assembly.
-    Use the ContactMechanicsBiot class instead."""
+                Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
         )
 
     def update_discretization(self, sd: pp.Grid, sd_data: dict):
@@ -262,12 +263,12 @@ class Biot(pp.Mpsa):
         ]
         vector_cell_right = [
             self.stress_matrix_key,
-            self.bound_displacment_cell_matrix_key,
+            self.bound_displacement_cell_matrix_key,
             self.div_u_matrix_key,
         ]
         vector_face_right = [
             self.bound_stress_matrix_key,
-            self.bound_displacment_face_matrix_key,
+            self.bound_displacement_face_matrix_key,
             self.bound_div_u_matrix_key,
         ]
 
@@ -281,8 +282,8 @@ class Biot(pp.Mpsa):
             self.stress_matrix_key,
             self.grad_p_matrix_key,
             self.bound_stress_matrix_key,
-            self.bound_displacment_cell_matrix_key,
-            self.bound_displacment_face_matrix_key,
+            self.bound_displacement_cell_matrix_key,
+            self.bound_displacement_face_matrix_key,
             self.bound_pressure_matrix_key,
         ]
 
@@ -354,7 +355,9 @@ class Biot(pp.Mpsa):
         constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
 
         eta: float = parameter_dictionary.get("mpsa_eta", pp.fvutils.determine_eta(sd))
-        inverter: str = parameter_dictionary.get("inverter", None)
+        inverter: Literal["python", "numba"] = parameter_dictionary.get(
+            "inverter", "numba"
+        )
 
         alpha: float = parameter_dictionary["biot_alpha"]
 
@@ -589,10 +592,10 @@ class Biot(pp.Mpsa):
             matrices_f[self.stabilization_matrix_key][update_cell_ind] = stabilization[
                 update_cell_ind
             ]
-            matrices_m[self.bound_displacment_cell_matrix_key][
+            matrices_m[self.bound_displacement_cell_matrix_key][
                 update_face_ind
             ] = bound_displacement_cell[update_face_ind]
-            matrices_m[self.bound_displacment_face_matrix_key][
+            matrices_m[self.bound_displacement_face_matrix_key][
                 update_face_ind
             ] = bound_displacement_face[update_face_ind]
             matrices_m[self.bound_pressure_matrix_key][
@@ -602,8 +605,12 @@ class Biot(pp.Mpsa):
             matrices_m[self.stress_matrix_key] = stress
             matrices_m[self.bound_stress_matrix_key] = bound_stress
             matrices_m[self.grad_p_matrix_key] = grad_p
-            matrices_m[self.bound_displacment_cell_matrix_key] = bound_displacement_cell
-            matrices_m[self.bound_displacment_face_matrix_key] = bound_displacement_face
+            matrices_m[
+                self.bound_displacement_cell_matrix_key
+            ] = bound_displacement_cell
+            matrices_m[
+                self.bound_displacement_face_matrix_key
+            ] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
 
             matrices_f[self.div_u_matrix_key] = div_u
@@ -617,7 +624,7 @@ class Biot(pp.Mpsa):
         bound_mech: pp.BoundaryConditionVectorial,
         alpha: float,
         eta: float,
-        inverter: str,
+        inverter: Literal["python", "numba"],
         hf_output: bool = False,
     ) -> tuple[
         sps.spmatrix,

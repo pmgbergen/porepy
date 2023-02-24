@@ -638,7 +638,7 @@ class VariablesMomentumBalance:
 
 
 class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
-    """This is whatever is left of pp.ContactMechanics.
+    """Solution strategy for the momentum balance.
 
     At some point, this will be refined to be a more sophisticated (modularised)
     solution strategy class. More refactoring may be beneficial.
@@ -781,7 +781,7 @@ class BoundaryConditionsMomentumBalance:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
