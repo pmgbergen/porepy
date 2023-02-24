@@ -372,7 +372,6 @@ class Flash:
             norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
 
             test_parts.append(
-                # smoother(neg(w_e) / (self._regularization_param + 1))
                 # smoother(neg(v_e) / (self._nu + one))
                 v_e * equ
             )
