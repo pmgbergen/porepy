@@ -407,13 +407,13 @@ def test_restart_mdg(setup, case):
     # picking up the latest available timestep.
     global_pvd_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
     if case == 0:
-        time = save.import_from_pvd(
+        time, time_index = save.import_from_pvd(
             global_pvd_file,
             ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
         )
     else:
         local_pvd_file = f"{setup.folder_reference}/restart/grid_000001.pvd"
-        time = save.import_from_pvd(
+        time, time_index = save.import_from_pvd(
             local_pvd_file,
             ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
             is_global=False,
@@ -422,12 +422,19 @@ def test_restart_mdg(setup, case):
         )
 
     # Check whether the right physical time has been extracted
-    assert np.isclose(float(time), 1.0)
+    assert np.isclose(time, 1.0)
+
+    # Check whether the right time index (wrt previous simulation) has been extracted
+    assert time_index == 1
 
     # To trick the test, copy the current pvd file to the temporary folder
     # before continuing writing it through appending the next time step.
     Path(f"{setup.folder}").mkdir(parents=True, exist_ok=True)
     shutil.copy(global_pvd_file, f"{setup.folder}/{setup.file_name}.pvd")
+
+    # Imitate the initialization of a simulation, i.e., export the initial condition.
+    save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], time_step=1)
+    save.write_pvd(append=True)
 
     # Now, export both the vtu and the pvd (continuing using the previous one).
     # NOTE: Typically, the data would be modified by running the simulation
