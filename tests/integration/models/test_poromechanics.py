@@ -50,7 +50,6 @@ class NonzeroFractureGapPoromechanics:
 
         """
         super().initial_condition()
-        vals = self.equation_system.get_variable_values()
         if self.time_manager.is_init():
             # Initial pressure equals reference pressure (defaults to zero).
             self.equation_system.set_variable_values(
