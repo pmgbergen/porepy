@@ -1019,6 +1019,12 @@ class Flash:
                     res = res + (z_i.val * (K_i - 1)) / (1 + Y * (K_i - 1))
                 return res
 
+            def PotentialRR(Y, z_c, K):
+                potential = np.zeros_like(Y)
+                for z_i, K_i in zip(z_c, K):
+                    potential = potential - z_i.val * np.log(np.abs((1 + Y * (K_i - 1))))
+                return potential
+
             def FindPhaseFraction(a, b, z_c, K):
                 n = 5
                 for i in range(n):
@@ -1035,11 +1041,10 @@ class Flash:
             for i in range(3):
 
                 Y = FindPhaseFraction(np.zeros(nc), np.ones(nc), z_c, K)
-
-                res_L_Q = ResidualRR(np.zeros(nc), z_c, K)
-                res_G_Q = ResidualRR(np.ones(nc), z_c, K)
-                Y = np.where(res_L_Q < 0.0, np.zeros(nc), Y)
-                Y = np.where(res_G_Q > 0.0, np.ones(nc), Y)
+                potential_value = PotentialRR(np.ones(nc), z_c, K)
+                Y = np.where(potential_value > 0.0, np.zeros(nc), Y)
+                invalid = np.logical_and(0.0 > Y, Y > 1.0)
+                Y = np.where((potential_value < 0.0) & (invalid), np.ones(nc), Y)
                 invalid = np.logical_and(0.0 > Y, Y > 1.0)
                 assert not np.any(invalid)
 
