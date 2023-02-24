@@ -216,7 +216,7 @@ class Exporter:
         pvd_file: Union[str],
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
-    ) -> Optional[float]:
+    ) -> Optional[tuple[float, int]]:
         """Fetch time and vtu files from pvd and populate the corresponding data
         to the mixed-dimensional grid.
 
@@ -234,8 +234,8 @@ class Exporter:
                     extract time.
 
         Returns:
-            Physical time corresponding to the restart data, if kwargs
-            chosen accordingly.
+            Physical time corresponding to the restart data, and the corresponding
+            time index, if kwargs chosen accordingly.
 
         """
         pvd_is_global: bool = kwargs.get("is_global", True)
@@ -260,7 +260,13 @@ class Exporter:
                 if time == restart_time:
                     restart_vtu_files.append(data["file"])
 
+            # Read the time_index from the end of the file.
+            restart_time_index = int(Path(restart_vtu_files[0]).stem[-self._padding :])
+
         else:
+            # Read the time_index from the end of the file.
+            restart_time_index = int(Path(pvd_file).stem[-self._padding :])
+
             # Find all vtu files attached to the specific time step.
             # Utilize the hardcoded format in self._export_mdg_pvd().
             restart_vtu_files = []
@@ -288,6 +294,10 @@ class Exporter:
                 restart_time = list(times)[0]
             else:
                 restart_time = None
+                restart_time_index = None
+
+        # Cache the number of restart files used
+        self._restart_files = restart_vtu_files
 
         # Separate the vtu files into subdomain and interface data.
         # NOTE: Make the strict assumption that if the file name contains
@@ -307,7 +317,7 @@ class Exporter:
         self.import_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
         self.import_from_vtu(interface_vtu_files, keys, are_subdomain_data=False)
 
-        return restart_time
+        return float(restart_time), int(restart_time_index)
 
     def import_from_vtu(
         self,
