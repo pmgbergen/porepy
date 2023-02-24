@@ -25,6 +25,8 @@ AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
 
 
 def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
+    """Helper to set a scalar. Expected values in the test are hardcoded with respect to
+    this value. The scalar is either returned as-is, or wrapped as an Ad scalar."""
     scalar = 2.0
     if wrapped:
         return pp.ad.Scalar(scalar)
@@ -32,7 +34,10 @@ def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
         return scalar
 
 
-def get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
+def _get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
+    """Helper to set a dense array (numpy array). Expected values in the test are
+    hardcoded with respect to this value. The array is either returned as-is, or wrapped
+    as an Ad DenseArray."""
     array = np.array([1, 2, 3]).astype(float)
     if wrapped:
         return pp.ad.DenseArray(array)
@@ -40,7 +45,10 @@ def get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
         return array
 
 
-def get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.SparseArray:
+def _get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.SparseArray:
+    """Helper to set a sparse array (scipy sparse array). Expected values in the test
+    are hardcoded with respect to this value. The array is either returned as-is, or
+    wrapped as an Ad SparseArray."""
     mat = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).astype(float)
     if wrapped:
         return pp.ad.SparseArray(mat)
@@ -48,7 +56,7 @@ def get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.SparseArray:
         return mat
 
 
-def get_ad_array(
+def _get_ad_array(
     wrapped: bool,
 ) -> pp.ad.AdArray | tuple[pp.ad.AdArray, pp.ad.EquationSystem]:
     """Get an AdArray object which can be used in the tests."""
@@ -105,9 +113,9 @@ def _expected_value(
     The function considers all combinations of types for var_1 and var_2 (as a long list
     of if-else statements that checks isinstance), and returns the expected value of the
     given operation. The calculation of the expected value is done in one of two ways:
-        i) None of the variables are AdArrays. In this case, the operation is evaluated
-           using eval (in practice, this means that the evaluation is left to the
-           Python, numpy and/or scipy).
+        i)  None of the variables are AdArrays. In this case, the operation is evaluated
+            using eval (in practice, this means that the evaluation is left to the
+            Python, numpy and/or scipy).
         ii) One or both of the variables are AdArrays. In this case, the expected values
             are either hard-coded (this is typically the case where it is easy to do the
             calculation by hand, e.g., for addition), or computed using rules for
@@ -481,36 +489,72 @@ def _expected_value(
 @pytest.mark.parametrize("var_2", ["scalar", "dense", "sparse", "ad"])
 @pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
 @pytest.mark.parametrize("wrapped", [True, False])
-def test_all(var_1, var_2, op, wrapped):
+def test_arithmetic_operations_on_ad_objects(
+    var_1: str, var_2: str, op: str, wrapped: bool
+) -> None:
+    """Test that the fundamental Ad operators can be combined using the standard
+    arithmetic operations.
+
+    All combinations of operators and operations are formed, in two different modes:
+    Wrapped as Ad operators (subclasses of pp.ad.Operator) or primitive values (float,
+    numpy.ndarray, scipy.spmatrix, AdArray). In the wrapped form, all of these
+    combinations are actually tested, while in the primitive form (which is what is
+    applied when doing forward-mode algorithmic differentiation), only combinations that
+    involve at least one AdArray are meaningfully tested, see below if for an
+    explanation (there is an exception to this, involving numpy arrays and AdArrays, see
+    the second if just below for an explanation).
+
+    """
 
     if not wrapped and var_1 != "ad" and var_2 != "ad":
         # If not wrapped in the abstract layer, these cases should be covered by the
-        # tests for the external packages. For the wrapped case, we need to test that
-        # the parsing is okay.
+        # tests for the external packages; PorePy just has to rely on e.g., numpy being
+        # correctly implemented. For the wrapped case, we need to test that the parsing
+        # is okay, thus we do not skip if wrapped is True.
         return
     if not wrapped and var_1 == "dense" and var_2 == "ad":
+        # This is the case where the first operand is a numpy array. This is a
+        # problematic setting, since numpy's operators (__add__ etc.) will be invoked.
+        # Despite numpy not knowing anything about AdArrays, numpy somehow uses
+        # broadcasting to compute and return a value, but the result is not in any sense
+        # what is to be expected. In forward mode there is nothing we can do about this
+        # (see GH issue #819, tagged as won't fix); the user just has to know that this
+        # should not be done. If the arrays are wrapped, we can circumvent the problem
+        # in parsing by rewriting the expression so that the AdArray's right  operators
+        # (e.g., __radd__) are invoked instead of numpy's left operators. Thus, if
+        # wrapped is True, we do not skip the test.
         return
 
     def _var_from_string(v, do_wrap: bool):
-
         if v == "scalar":
             return _get_scalar(do_wrap)
         elif v == "dense":
-            return get_dense_array(do_wrap)
+            return _get_dense_array(do_wrap)
         elif v == "sparse":
-            return get_sparse_array(do_wrap)
+            return _get_sparse_array(do_wrap)
         elif v == "ad":
-            return get_ad_array(do_wrap)
+            return _get_ad_array(do_wrap)
         else:
             raise ValueError("Unknown variable type")
 
+    # Get the actual variables from the input strings.
     v1 = _var_from_string(var_1, wrapped)
     v2 = _var_from_string(var_2, wrapped)
 
+    # Some gymnastics is needed here: In the wrapped form, expressions need an
+    # EquationSystem for evaluation and, if one of the operands is an AdArray, this
+    # should be the EquationSystem used to generate this operand (see method
+    # _get_ad_array). If this is not the case, the EquationSystem will end up having to
+    # evaluate an Ad variable that it does not know about. Therefore, the method
+    # _get_ad_array returns the generated EquationSystem together with variable. If none
+    # of the operands is an Ad array, we will still formally need an EquationSystem to
+    # evaluate the expression, but since this will not actually be used for anything, we
+    # can generate a new one and pass it as a formality.
     if wrapped:
         if var_1 == "ad":
             v1, eq_system = v1
         elif var_2 == "ad":
+            # The case of both v1 and v2 being Ad variables is dealt with below.
             v2, eq_system = v2
         else:
             mdg = pp.MixedDimensionalGrid()
@@ -523,11 +567,16 @@ def test_all(var_1, var_2, op, wrapped):
         # code to get the expected values, see that function.
         v2 = v1 + v1
 
+    # Calculate the expected numerical values for this expression. This inolves
+    # hard-coded values for the different operators and their combinations, see the
+    # function for more information. If the operation is not expected to succeeed, the
+    # function will return False.
     expected = _expected_value(
         _var_from_string(var_1, False), _var_from_string(var_2, False), op
     )
 
     def _compare(v1, v2):
+        # Helper function to compare two evaluated objects.
         assert type(v1) == type(v2)
         if isinstance(v1, float):
             assert np.isclose(v1, v2)
@@ -539,6 +588,9 @@ def test_all(var_1, var_2, op, wrapped):
             assert np.allclose(v1.val, v2.val)
             assert np.allclose(v1.jac.toarray(), v2.jac.toarray())
 
+    # Evaluate the funtion. This is a bit different for the wrapped and forward mode,
+    # but the logic is the same: Try to evaluate. If this breaks, check that this was
+    # not a surprize (variable expected is False).
     if wrapped:
         try:
             expression = eval(f"v1 {op} v2")
@@ -553,6 +605,7 @@ def test_all(var_1, var_2, op, wrapped):
             assert not expected
             return
 
+    # Compare numerical values between evaluated and expected outcomes.
     _compare(val, expected)
 
 
