@@ -274,7 +274,9 @@ if __name__ == '__main__':
         processes=NUM_PHYS_CPU_CORS, initargs=(storage,), initializer=local_storage
     ) as pool:
 
-        pool.map(par_flash, npT, chunksize=NUM_PHYS_CPU_CORS)
+        chunksize  = NUM_PHYS_CPU_CORS
+        # chunksize=int(np.floor(nc / NUM_PHYS_CPU_CORS))
+        pool.imap_unordered(par_flash, npT, chunksize=chunksize)
 
         pool.close()
         pool.join()
