@@ -11,8 +11,8 @@ import scipy.sparse as sps
 import porepy as pp
 
 from .composition import Composition
-from .phase import Phase
 from .peng_robinson.pr_utils import Leaf
+from .phase import Phase
 
 # import time
 
@@ -79,7 +79,7 @@ class Flash:
         self._C: Composition = composition
         """The composition class passed at instantiation"""
 
-        self._max_history: int = 100
+        self._max_history: int = 25
         """Maximal number of flash history entries (FiFo)."""
 
         self._ss_min: pp.ad.Operator = pp.ad.SemiSmoothMin()
@@ -212,7 +212,7 @@ class Flash:
                 _, lagrange = self._C.get_complementary_condition_for(
                     self._C.reference_phase
                 )
-                constraint = self._C.get_reference_phase_fraction_by_unity()
+                constraint = self._y_R
             # for other phases, 'constraint' is the phase fraction
             else:
                 constraint, lagrange = self._C.get_complementary_condition_for(phase)
@@ -350,18 +350,22 @@ class Flash:
         coeff = pp.ad.Scalar(self.npipm_parameters["u"] / self._C.num_phases**2)
         neg = pp.ad.SemiSmoothNegative()
         pos = pp.ad.SemiSmoothPositive()
-        one = pp.ad.Scalar(1)
+        # one = pp.ad.Scalar(1)
         two = pp.ad.Scalar(2)
-        abs = pp.ad.Function(pp.ad.abs, "AD-abs")
         pow = pp.ad.Function(pp.ad.power, "AD-pow")
 
         norm_parts = list()
         dot_parts = list()
         test_parts = list()
+
         def smoother(X):
             return X / (X + 1)
-        
-        equi_eqn = [e for name, e in self._C.ad_system.equations.items() if "equilibrium" in name]
+
+        equi_eqn = [
+            e
+            for name, e in self._C.ad_system.equations.items()
+            if "equilibrium" in name
+        ]
         equi_eqn = equi_eqn[-1::-1]
 
         for phase, equ in zip(self._C.phases, equi_eqn):
@@ -372,19 +376,18 @@ class Flash:
             norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
 
             test_parts.append(
-                smoother(neg(v_e) / (self._nu + one))
+                # smoother(neg(v_e) / (self._nu + one))
                 # v_e * equ
             )
 
         dot_part = pow(pos(sum(dot_parts)), two) * coeff
-        # dot_part *= dot_part * coeff
 
         equation = (
             eta * self._nu
             + self._nu * self._nu
             + (sum(norm_parts) + dot_part) / 2
             # + pow(sum(test_parts), two) * self._nu * coeff / 2
-            + sum(test_parts) * self._regularization_param
+            # + sum(test_parts) * self._regularization_param
         )
         equation.set_name("NPIPM_param")
         self._C.ad_system.set_equation(
@@ -689,19 +692,27 @@ class Flash:
             raise ValueError(f"Unknown method {method}.")
 
         # setting STATE to newly found solution
+        # evaluate reference phase fractions
+        y_R = self._y_R.evaluate(self._C.ad_system).val
         if copy_to_state and success:
             X = self._C.ad_system.get_variable_values(
                 variables=var_names, from_iterate=True
             )
             self._C.ad_system.set_variable_values(X, variables=var_names, to_state=True)
 
-            # evaluate reference phase fractions
-            y_R = self._y_R.evaluate(self._C.ad_system).val
             self._C.ad_system.set_variable_values(
                 y_R,
                 variables=[self._C.reference_phase.fraction_name],
                 to_iterate=True,
                 to_state=True,
+            )
+        # write in any case the current fraction of reference phase
+        else:
+            self._C.ad_system.set_variable_values(
+                y_R,
+                variables=[self._C.reference_phase.fraction_name],
+                to_iterate=True,
+                to_state=False,
             )
 
         return success
@@ -836,44 +847,44 @@ class Flash:
         """Sets the initial guesses for ``V_e``, ``W_e`` and ``nu`` according to
         Vu (2021), section 3.3."""
         # initial guess for nu is constructed from V and W
-        V_mat: list[np.ndarray] = list()
-        W_mat: list[np.ndarray] = list()
+        V: list[np.ndarray] = list()
+        W: list[np.ndarray] = list()
 
-        ad_system = self._C.ad_system
+        ads = self._C.ad_system
 
         for phase in self._C.phases:
-            # initial value for V_e, W_e
-            val_v = phase.fraction.evaluate(ad_system).val
-            val_w = self._C.get_composition_unity_for(phase).evaluate(ad_system).val
-
-            # if requested, set initial guess for auxiliary NPIPM vars
+            # if requested, set initial guess for auxiliary NPIPM vars V and W
             if self.use_auxiliary_npipm_vars:
+                if phase == self._C.reference_phase:
+                    v_e = self._y_R.evaluate(ads).val
+                else:
+                    v_e = phase.fraction.evaluate(ads).val
+                w_e = self._C.get_composition_unity_for(phase).evaluate(ads).val
+
                 v_name = f"{self._V_name}_{phase.name}"
                 w_name = f"{self._W_name}_{phase.name}"
-                ad_system.set_variable_values(
-                    val_v, variables=[v_name], to_iterate=True, to_state=True
+                ads.set_variable_values(
+                    v_e, variables=[v_name], to_iterate=True, to_state=True
                 )
-                ad_system.set_variable_values(
-                    val_w, variables=[w_name], to_iterate=True, to_state=True
+                ads.set_variable_values(
+                    w_e, variables=[w_name], to_iterate=True, to_state=True
                 )
+            # else evaluate respective operators which define V and W
+            else:
+                v_e = self._V_of_phase[phase].evaluate(ads).val
+                w_e = self._W_of_phase[phase].evaluate(ads).val
 
             # store value for initial guess for nu
-            V_mat.append(val_v)
-            W_mat.append(val_w)
+            V.append(v_e)
+            W.append(w_e)
 
         # initial guess for nu is cell-wise scalar product between concatenated V and W
-        # for each phase
-        V = np.vstack(V_mat).T  # num_cells X num_phases
-        W = np.vstack(W_mat)  # num_phases X num_cells
-        # the diagonal of the product of above returns the cell-wise scalar product
-        # TODO can this be optimized using a for loop over diagonal elements of product?
-        nu_mat = np.matmul(V, W)
-        nu = np.diag(nu_mat)
+        nu = sum([v * w for v, w in zip(V, W)])
         nu = nu / self._C.num_phases
-        nu[nu < 0] = 0
+        # nu[nu < 0] = 0
 
-        ad_system.set_variable_values(
-            nu, variables=[self._nu_name], to_iterate=True, to_state=True
+        ads.set_variable_values(
+            nu, variables=[self._nu_name], to_iterate=True, to_state=False
         )
 
         # some starting value for regularization
@@ -1020,14 +1031,17 @@ class Flash:
 
             def FunctionRR(Y, z_c, K):
                 # A New Algorithm for Rachford-Rice for Multiphase Compositional Simulation
-                # R. Okuno, R.T. Johns, and K. Sepehrnoori, SPE, The University of Texas at Austin
+                # R. Okuno, R.T. Johns, and K. Sepehrnoori,
+                # SPE, The University of Texas at Austin
                 # TODO: Generalization to n_phases
                 # Since the RR function becomes the function becomes monotonic
                 # the absence of one phase one can if the integral is strictly positive
                 # value is strictly
                 potential = np.zeros_like(Y)
                 for z_i, K_i in zip(z_c, K):
-                    potential = potential - z_i.val * np.log(np.abs((1 + Y * (K_i - 1))))
+                    potential = potential - z_i.val * np.log(
+                        np.abs((1 + Y * (K_i - 1)))
+                    )
                 return potential
 
             def YPhaseFraction(z_c, K):
@@ -1037,8 +1051,8 @@ class Flash:
 
                 # Since this is still a two-phase the inverse function is available
                 # For the three-phase the inverse is still possible but more complicated
-                d = (-1 + K[0])*(-1 + K[1])
-                n = z_c[0].val - K[0]*z_c[0].val + z_c[1].val  - K[1]*z_c[1].val
+                d = (-1 + K[0]) * (-1 + K[1])
+                n = z_c[0].val - K[0] * z_c[0].val + z_c[1].val - K[1] * z_c[1].val
                 y = n / d
                 return y
 
@@ -1083,8 +1097,10 @@ class Flash:
                 for i, pair in enumerate(zip(phi_L, phi_G)):
                     K[i] = (pair[0] / (pair[1] + 1.0e-12)).val
 
-            # TODO: It seems x_ce is contextual sometimes it is extended and sometimes partial.
-            # Consider the possibility of having separate instances for extended fractions and partial fractions
+            # TODO: It seems x_ce is contextual
+            # sometimes it is extended and sometimes partial.
+            # Consider the possibility of having separate instances
+            # for extended fractions and partial fractions
             for phase in self._C.phases:
                 composition[phase] = dict()
                 for i, comp in enumerate(self._C.components):

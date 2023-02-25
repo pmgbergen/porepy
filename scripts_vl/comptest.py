@@ -3,7 +3,7 @@ from datetime import datetime
 import porepy as pp
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
-file_name = "cf_test" # + timestamp
+file_name = "cf_test"  # + timestamp
 params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/" + file_name + "/",
     "file_name": file_name,
@@ -13,8 +13,8 @@ params = {
     "monolithic": False,
 }
 
-t = 0.
-T = 10.
+t = 0.0
+T = 10.0
 dt = T / 1e2
 max_iter = 200
 tol = 1e-5
@@ -46,10 +46,12 @@ while t < T:
         print(f"Halving timestep to {model.dt}")
         if model.dt < 0.001:
             model.after_simulation()
-            raise RuntimeError("Time step halving due to convergence failure reached critical value.")
+            raise RuntimeError(
+                "Time step halving due to convergence failure reached critical value."
+            )
     else:
         t += model.dt
-    
+
     if t >= T:
         print(f"Reached and of simulation: t={t}")
 
