@@ -12,6 +12,7 @@ import porepy as pp
 # General configuration of this test
 h2o_frac = 0.99
 co2_frac = 0.01
+vectorize = False
 
 # results from which to draw data
 # list of (filename, mode),
@@ -26,7 +27,7 @@ files = [
     # ('data/testdata.csv', 'G')
 ]
 # results stored here
-version = "wo-reg-new"
+version = "test"
 output_file = f"data/results/pr_result_VL_{version}.csv"  # file with flash data
 identifier_file = (
     f"data/results/pr_result_VL_{version}_ID.csv"  # file to identify thermo data
@@ -63,48 +64,59 @@ for filename, mode in files:
 
 ### Modelling the composition and performing the Flash
 
-nc = 1  # single cell domain, one flash calc per pT point
-MIX = pp.composite.PR_Composition(nc=nc)
-AD = MIX.ad_system
+def get_MIX_AD_FLASH(num_cells):
+    MIX = pp.composite.PR_Composition(nc=num_cells)
+    AD = MIX.ad_system
 
-# components
-H2O = pp.composite.H2O(AD)
-CO2 = pp.composite.CO2(AD)
-# phases
-LIQ = pp.composite.PR_Phase(AD, False, name="L")
-GAS = pp.composite.PR_Phase(AD, True, name="G")
+    # components
+    H2O = pp.composite.H2O(AD)
+    CO2 = pp.composite.CO2(AD)
+    # phases
+    LIQ = pp.composite.PR_Phase(AD, False, name="L")
+    GAS = pp.composite.PR_Phase(AD, True, name="G")
 
-MIX.add_components([H2O, CO2])
-MIX.add_phases([LIQ, GAS])
+    MIX.add_components([H2O, CO2])
+    MIX.add_phases([LIQ, GAS])
 
-# setting feed fractions
-AD.set_variable_values(
-    h2o_frac * np.ones(nc),
-    variables=[H2O.fraction_name],
-    to_iterate=True,
-    to_state=True,
-)
-AD.set_variable_values(
-    co2_frac * np.ones(nc),
-    variables=[CO2.fraction_name],
-    to_iterate=True,
-    to_state=True,
-)
-# Setting zero enthalpy to get the AD framework going (h is irrelevant here)
-AD.set_variable_values(
-    0 * np.ones(nc), variables=[MIX.h_name], to_iterate=True, to_state=True
-)
+    # setting feed fractions
+    AD.set_variable_values(
+        h2o_frac * np.ones(num_cells),
+        variables=[H2O.fraction_name],
+        to_iterate=True,
+        to_state=True,
+    )
+    AD.set_variable_values(
+        co2_frac * np.ones(num_cells),
+        variables=[CO2.fraction_name],
+        to_iterate=True,
+        to_state=True,
+    )
+    # Setting zero enthalpy to get the AD framework going (h is irrelevant here)
+    AD.set_variable_values(
+        0 * np.ones(num_cells), variables=[MIX.h_name], to_iterate=True, to_state=True
+    )
 
-MIX.initialize()
+    MIX.initialize()
 
-# instantiating Flasher, without auxiliary variables V and W
-FLASH = pp.composite.Flash(MIX, auxiliary_npipm=False)
-FLASH.use_armijo = True
-FLASH.armijo_parameters["rho"] = 0.99
-FLASH.armijo_parameters["j_max"] = 55  # cap the number of Armijo iterations
-FLASH.armijo_parameters["return_max"] = True  # return max Armijo iter, even if not min
-FLASH.flash_tolerance = 1e-8
-FLASH.max_iter_flash = 140
+    # instantiating Flasher, without auxiliary variables V and W
+    FLASH = pp.composite.Flash(MIX, auxiliary_npipm=False)
+    FLASH.use_armijo = True
+    FLASH.armijo_parameters["rho"] = 0.99
+    FLASH.armijo_parameters["j_max"] = 55  # cap the number of Armijo iterations
+    FLASH.armijo_parameters["return_max"] = True  # return max Armijo iter, even if not min
+    FLASH.flash_tolerance = 1e-8
+    FLASH.max_iter_flash = 140
+
+    return MIX, AD, FLASH
+
+if vectorize:
+    num_cells = len(p_points)
+else:
+    num_cells = 1
+
+MIX, AD, FLASH = get_MIX_AD_FLASH(num_cells)
+LIQ, GAS = [phase for phase in MIX.phases]
+H2O, CO2 = [comp for comp in MIX.components]
 
 # prepare storage of results
 success: list[int] = list()  # flag if flash succeeded
@@ -117,56 +129,98 @@ Z_L: list[float] = list()  # liquid compressibility factor
 Z_G: list[float] = list()  # gas compressibility factor
 
 # perform the Flash per pT point
-print("Performing flash ...", flush=True)
-nf = len(p_points)
-for f, pT in enumerate(zip(p_points, T_points)):
-    p, T = pT
-    # set thermodynamic state
-    # scale from Pa to MPa
-    AD.set_variable_values(
-        (1e-6 * p) * np.ones(nc, dtype=np.double),
-        variables=[MIX.p_name],
-        to_iterate=True,
-        to_state=True,
-    )
-    AD.set_variable_values(
-        T * np.ones(nc), variables=[MIX.T_name], to_iterate=True, to_state=True
-    )
+if vectorize:
+    print("Performing vectorized flash ...", flush=True)
+    p_vec = np.array(p_points, dtype=np.double) * 1e-6
+    T_vec = np.array(T_points)
 
-    # flashing
+    AD.set_variable_values(
+        p_vec, variables=[MIX.p_name], to_iterate=True, to_state=True,
+    )
+    AD.set_variable_values(
+        T_vec, variables=[MIX.T_name], to_iterate=True, to_state=True
+    )
     try:
-        print(f"\r... flash {f}/{nf}", end="", flush=True)
         success_ = FLASH.flash(
             flash_type="isothermal",
             method="npipm",
             initial_guess="rachford_rice",
             copy_to_state=False,  # don't overwrite the state, store as iterate
-            do_logging=False,
+            do_logging=True,
         )
     except Exception:  # if Flasher fails, flag as failed
-        success_ = False
+            success_ = False
 
-    # compute thermodynamic properties from last iterate
+    # for the vectorized flash, there is no easy way to see which cell failed
+    success = [success_ for _ in range(num_cells)]
+
     try:
         MIX.compute_roots()
     except Exception:
         # if the flash failed, the root computation can fail too
         # store nans as compressibility factors
-        Z_L.append(np.nan)
-        Z_G.append(np.nan)
+        Z_L = [np.nan for _ in range(num_cells)]
+        Z_G = [np.nan for _ in range(num_cells)]
     else:
         # if successful, store values
-        Z_L.append(LIQ.eos.Z.val[0])
-        Z_G.append(GAS.eos.Z.val[0])
+        Z_L = list(LIQ.eos.Z.val)
+        Z_G = list(GAS.eos.Z.val)
 
-    # extract and store results from last iterate
-    success.append(int(success_))  # store booleans as 0 and 1
-    y.append(GAS.fraction.evaluate(AD).val[0])
-    x_h2o_L.append(LIQ.fraction_of_component(H2O).evaluate(AD).val[0])
-    x_co2_L.append(LIQ.fraction_of_component(CO2).evaluate(AD).val[0])
-    x_h2o_G.append(GAS.fraction_of_component(H2O).evaluate(AD).val[0])
-    x_co2_G.append(GAS.fraction_of_component(CO2).evaluate(AD).val[0])
-print("\n... flash done", flush=True)
+    y = list(GAS.fraction.evaluate(AD).val)
+    x_h2o_L = list(LIQ.fraction_of_component(H2O).evaluate(AD).val)
+    x_co2_L = list(LIQ.fraction_of_component(CO2).evaluate(AD).val)
+    x_h2o_G = list(GAS.fraction_of_component(H2O).evaluate(AD).val)
+    x_co2_G = list(GAS.fraction_of_component(CO2).evaluate(AD).val)
+else:
+    print("Performing flash ...", flush=True)
+    nf = len(p_points)
+    for f, pT in enumerate(zip(p_points, T_points)):
+        p, T = pT
+        # set thermodynamic state
+        # scale from Pa to MPa
+        AD.set_variable_values(
+            (1e-6 * p) * np.ones(num_cells, dtype=np.double),
+            variables=[MIX.p_name],
+            to_iterate=True,
+            to_state=True,
+        )
+        AD.set_variable_values(
+            T * np.ones(num_cells), variables=[MIX.T_name], to_iterate=True, to_state=True
+        )
+
+        # flashing
+        try:
+            print(f"\r... flash {f}/{nf}", end="", flush=True)
+            success_ = FLASH.flash(
+                flash_type="isothermal",
+                method="npipm",
+                initial_guess="rachford_rice",
+                copy_to_state=False,  # don't overwrite the state, store as iterate
+                do_logging=False,
+            )
+        except Exception:  # if Flasher fails, flag as failed
+            success_ = False
+
+        try:
+            MIX.compute_roots()
+        except Exception:
+            # if the flash failed, the root computation can fail too
+            # store nans as compressibility factors
+            Z_L.append(np.nan)
+            Z_G.append(np.nan)
+        else:
+            # if successful, store values
+            Z_L.append(LIQ.eos.Z.val[0])
+            Z_G.append(GAS.eos.Z.val[0])
+
+        # extract and store results from last iterate
+        success.append(int(success_))  # store booleans as 0 and 1
+        y.append(GAS.fraction.evaluate(AD).val[0])
+        x_h2o_L.append(LIQ.fraction_of_component(H2O).evaluate(AD).val[0])
+        x_co2_L.append(LIQ.fraction_of_component(CO2).evaluate(AD).val[0])
+        x_h2o_G.append(GAS.fraction_of_component(H2O).evaluate(AD).val[0])
+        x_co2_G.append(GAS.fraction_of_component(CO2).evaluate(AD).val[0])
+    print("\n... flash done", flush=True)
 
 ### Storing results in files
 
