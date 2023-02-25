@@ -24,7 +24,7 @@ files = [
     # ('data/testdata.csv', 'G')
 ]
 # results stored here
-version = 'reg-omar-new'
+version = 'reg-veljko-new'
 output_file = f'data/results/pr_result_VL_{version}.csv'  # file with flash data
 identifier_file = f'data/results/pr_result_VL_{version}_ID.csv'  # file to identify thermo data
 path = pathlib.Path(__file__).parent.resolve()  # path to script for file i/o
