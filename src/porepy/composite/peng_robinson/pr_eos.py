@@ -111,7 +111,7 @@ class PR_EoS:
         gaslike: bool,
         mixingrule: Literal["VdW"] = "VdW",
         smoothing_factor: float = 1e-4,
-        eps: float = 1e-16,
+        eps: float = 1e-14,
     ) -> None:
 
         self.components: list[PR_Component] = []
@@ -597,8 +597,8 @@ class PR_EoS:
             z_triple = -c2_triple / 3
 
             assert np.all(
-                0.0 <= z_triple.val
-            ), "Negative root in triple-root-region detected."
+                0.0 < z_triple.val
+            ), "Non-positive root in triple-root-region detected."
 
             # store root where it belongs
             if self.gaslike:
@@ -635,8 +635,10 @@ class PR_EoS:
             # assert physical meaning
             # TODO: review all your checks with <=
             # using <= on floats could lead to instabilities and errors difficult to find
-            assert np.all(0.0 < z_1.val) or np.isclose(z_1.val,0.0,rtol=1.0e-14), "Negative root in 2-root-region detected."
-            assert np.all(0.0 < z_23.val) or np.isclose(z_23.val,0.0,rtol=1.0e-14), "Negative double-root in 2-root-region detected."
+            assert np.all(0 < z_1.val), "Non-positive root in 2-root-region detected."
+            assert np.all(
+                0 < z_23.val
+            ), "Non-positive double-root in 2-root-region detected."
 
             # store values in double-root-region
             nc_d = np.count_nonzero(double_root_region)
@@ -684,7 +686,9 @@ class PR_EoS:
                 z2_3.val <= z3_3.val
             ), "Roots in three-root-region improperly ordered."
             # assert positivity (only then  physically meaningful)
-            assert np.all(0.0 <= z1_3.val), "Negative roots in 3-root-region detected."
+            assert np.all(
+                0.0 < z1_3.val
+            ), "Non-positive roots in 3-root-region detected."
 
             ## Smoothing of roots close to double-real-root case
             # this happens when the phase changes, at the phase border the polynomial

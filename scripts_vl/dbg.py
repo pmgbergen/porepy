@@ -1,11 +1,11 @@
-import numpy as np
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 kappa = 1e-5
 
+
 def Theta(t):
-    return t/ (t + 1)
+    return t / (t + 1)
 
 
 x = np.linspace(0, 1, 100)
