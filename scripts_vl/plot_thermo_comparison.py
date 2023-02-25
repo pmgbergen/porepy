@@ -28,7 +28,7 @@ thermo_files = [
     ("data/pr_data_thermo_isothermal_GL_hard.csv", "GL"),
 ]
 # Files containing results and identification for p T values
-version = "w-o-reg-vectorized"
+version = "w-o-reg-parallelized"
 results_file = f"data/results/pr_result_VL_{version}.csv"
 identifier_file = f"data/results/pr_result_VL_{version}_ID.csv"
 figure_path = "data/results/figures/"  # path to where figures should be stored

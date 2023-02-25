@@ -2,6 +2,7 @@
 """
 import csv
 import pathlib
+import time
 
 import numpy as np
 
@@ -12,7 +13,7 @@ import porepy as pp
 # General configuration of this test
 h2o_frac = 0.99
 co2_frac = 0.01
-vectorize = False
+vectorize = True
 
 # results from which to draw data
 # list of (filename, mode),
@@ -24,10 +25,9 @@ files = [
     ("data/pr_data_thermo_isothermal_L_hard.csv", "L"),
     ("data/pr_data_thermo_isothermal_GL_easy.csv", "GL"),
     ("data/pr_data_thermo_isothermal_GL_hard.csv", "GL"),
-    # ('data/testdata.csv', 'G')
 ]
 # results stored here
-version = "test"
+version = "w-o-reg-vectorized"
 output_file = f"data/results/pr_result_VL_{version}.csv"  # file with flash data
 identifier_file = (
     f"data/results/pr_result_VL_{version}_ID.csv"  # file to identify thermo data
@@ -131,6 +131,7 @@ Z_G: list[float] = list()  # gas compressibility factor
 # perform the Flash per pT point
 if vectorize:
     print("Performing vectorized flash ...", flush=True)
+    start_time = time.time()
     p_vec = np.array(p_points, dtype=np.double) * 1e-6
     T_vec = np.array(T_points)
 
@@ -140,6 +141,7 @@ if vectorize:
     AD.set_variable_values(
         T_vec, variables=[MIX.T_name], to_iterate=True, to_state=True
     )
+    
     try:
         success_ = FLASH.flash(
             flash_type="isothermal",
@@ -150,6 +152,9 @@ if vectorize:
         )
     except Exception:  # if Flasher fails, flag as failed
             success_ = False
+
+    end_time = time.time()
+    print(f"Ended vectorized Flash after {end_time - start_time} seconds.", flush=True)
 
     # for the vectorized flash, there is no easy way to see which cell failed
     success = [success_ for _ in range(num_cells)]
@@ -172,8 +177,9 @@ if vectorize:
     x_h2o_G = list(GAS.fraction_of_component(H2O).evaluate(AD).val)
     x_co2_G = list(GAS.fraction_of_component(CO2).evaluate(AD).val)
 else:
-    print("Performing flash ...", flush=True)
+    print("Performing point-wise flash ...", flush=True)
     nf = len(p_points)
+    start_time = time.time()
     for f, pT in enumerate(zip(p_points, T_points)):
         p, T = pT
         # set thermodynamic state
@@ -220,7 +226,9 @@ else:
         x_co2_L.append(LIQ.fraction_of_component(CO2).evaluate(AD).val[0])
         x_h2o_G.append(GAS.fraction_of_component(H2O).evaluate(AD).val[0])
         x_co2_G.append(GAS.fraction_of_component(CO2).evaluate(AD).val[0])
-    print("\n... flash done", flush=True)
+    
+    end_time = time.time()
+    print(f"Ended point-wise Flash after {end_time - start_time} seconds.", flush=True)
 
 ### Storing results in files
 
