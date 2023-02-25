@@ -1018,34 +1018,40 @@ class Flash:
                     res = res + (z_i.val * (K_i - 1)) / (1 + Y * (K_i - 1))
                 return res
 
-            def PotentialRR(Y, z_c, K):
+            def FunctionRR(Y, z_c, K):
+                # A New Algorithm for Rachford-Rice for Multiphase Compositional Simulation
+                # R. Okuno, R.T. Johns, and K. Sepehrnoori, SPE, The University of Texas at Austin
+                # TODO: Generalization to n_phases
+                # Since the RR function becomes the function becomes monotonic
+                # the absence of one phase one can if the integral is strictly positive
+                # value is strictly
                 potential = np.zeros_like(Y)
                 for z_i, K_i in zip(z_c, K):
                     potential = potential - z_i.val * np.log(np.abs((1 + Y * (K_i - 1))))
                 return potential
 
-            def FindPhaseFraction(a, b, z_c, K):
-                n = 5
-                for i in range(n):
-                    x = (a + b) / 2
-                    prod = ResidualRR(a, z_c, K) * ResidualRR(x, z_c, K)
-                    b = np.where(prod < 0, x, b)
-                    a = np.where(prod > 0, x, a)
-                return x
+            def YPhaseFraction(z_c, K):
+                # TODO: Generalize the case for multidimensional bisection
+                # as an example check Efficient and Robust Three-Phase SplitComputations
+                # Kjetil B. Haugen and Abbas Firoozabad
+
+                # Since this is still a two-phase the inverse function is available
+                # For the three-phase the inverse is still possible but more complicated
+                d = (-1 + K[0])*(-1 + K[1])
+                n = z_c[0].val - K[0]*z_c[0].val + z_c[1].val  - K[1]*z_c[1].val
+                y = n / d
+                return y
 
             Y = np.zeros(nc)
             composition: dict[Any, dict] = dict()
-            # phases = [p for p in self._C.phases]
-
             for i in range(3):
 
-                Y = FindPhaseFraction(np.zeros(nc), np.ones(nc), z_c, K)
-                potential_value = PotentialRR(np.ones(nc), z_c, K)
-                Y = np.where(potential_value > 0.0, np.zeros(nc), Y)
-                invalid = np.logical_and(0.0 > Y, Y > 1.0)
-                Y = np.where((potential_value < 0.0) & (invalid), np.ones(nc), Y)
-                invalid = np.logical_and(0.0 > Y, Y > 1.0)
-                assert not np.any(invalid)
+                Y = YPhaseFraction(z_c, K)
+                invalid_state = np.logical_or(0.0 > Y, Y > 1.0)
+                function_RR_val = FunctionRR(np.ones(nc), z_c, K)
+                Y = np.where((function_RR_val > 0.0) & (invalid_state), np.zeros(nc), Y)
+                Y = np.where((function_RR_val < 0.0) & (invalid_state), np.ones(nc), Y)
+                assert not np.any(np.logical_or(0.0 > Y, Y > 1.0))
 
                 for phase in self._C.phases:
                     composition[phase] = dict()
@@ -1076,6 +1082,18 @@ class Flash:
 
                 for i, pair in enumerate(zip(phi_L, phi_G)):
                     K[i] = (pair[0] / (pair[1] + 1.0e-12)).val
+
+            # TODO: It seems x_ce is contextual sometimes it is extended and sometimes partial.
+            # Consider the possibility of having separate instances for extended fractions and partial fractions
+            for phase in self._C.phases:
+                composition[phase] = dict()
+                for i, comp in enumerate(self._C.components):
+                    if phase.eos.gaslike:
+                        x_ce = z_c[i] * K[i] / (1 + Y * (K[i] - 1))
+                        composition[phase].update({comp: x_ce})
+                    else:
+                        x_ce = z_c[i] / (1 + Y * (K[i] - 1))
+                        composition[phase].update({comp: x_ce})
 
             # set values.
             for phase in self._C.phases:
