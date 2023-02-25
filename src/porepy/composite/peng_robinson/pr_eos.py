@@ -536,7 +536,7 @@ class PR_EoS:
             correction = np.logical_or(
                 # self.is_supercritical[one_root_region], w_1.val <=0
                 np.logical_not(subcritical_square[one_root_region]),
-                w_1.val <= 0,
+                w_1.val <= B_1.val,
             )
             w_1.val[correction] = z_1.val[correction]
             w_1.jac[correction] = z_1.jac[correction]
@@ -633,10 +633,10 @@ class PR_EoS:
             double_is_liquidlike = np.logical_not(double_is_gaslike)
 
             # assert physical meaning
-            assert np.all(0.0 <= z_1.val), "Negative root in 2-root-region detected."
-            assert np.all(
-                0.0 <= z_23.val
-            ), "Negative double-root in 2-root-region detected."
+            # TODO: review all your checks with <=
+            # using <= on floats could lead to instabilities and errors difficult to find
+            assert np.all(0.0 < z_1.val) or np.isclose(z_1.val,0.0,rtol=1.0e-14), "Negative root in 2-root-region detected."
+            assert np.all(0.0 < z_23.val) or np.isclose(z_23.val,0.0,rtol=1.0e-14), "Negative double-root in 2-root-region detected."
 
             # store values in double-root-region
             nc_d = np.count_nonzero(double_root_region)
