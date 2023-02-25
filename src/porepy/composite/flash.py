@@ -1083,6 +1083,8 @@ class Flash:
                 for i, pair in enumerate(zip(phi_L, phi_G)):
                     K[i] = (pair[0] / (pair[1] + 1.0e-12)).val
 
+            # TODO: It seems x_ce is contextual sometimes it is extended and sometimes partial.
+            # Consider the possibility of having separate instances for extended fractions and partial fractions
             for phase in self._C.phases:
                 composition[phase] = dict()
                 for i, comp in enumerate(self._C.components):
@@ -1094,8 +1096,6 @@ class Flash:
                         composition[phase].update({comp: x_ce})
 
             # set values.
-            # TODO: It seems x_ce is contextual sometimes it is extended and sometimes partial.
-            # Consider the possibility of having separate instances for extended fractions and partial fractions
             for phase in self._C.phases:
                 for comp in self._C.components:
                     # set values
