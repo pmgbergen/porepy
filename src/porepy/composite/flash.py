@@ -372,8 +372,8 @@ class Flash:
             norm_parts.append(neg(v_e) * neg(v_e) + neg(w_e) * neg(w_e))
 
             test_parts.append(
-                # smoother(neg(v_e) / (self._nu + one))
-                v_e * equ
+                smoother(neg(v_e) / (self._nu + one))
+                # v_e * equ
             )
 
         dot_part = pow(pos(sum(dot_parts)), two) * coeff
@@ -383,8 +383,8 @@ class Flash:
             eta * self._nu
             + self._nu * self._nu
             + (sum(norm_parts) + dot_part) / 2
-            + pow(sum(test_parts), two) * self._nu * coeff / 2
-            # + sum(test_parts) * self._regularization_param
+            # + pow(sum(test_parts), two) * self._nu * coeff / 2
+            + sum(test_parts) * self._regularization_param
         )
         equation.set_name("NPIPM_param")
         self._C.ad_system.set_equation(
