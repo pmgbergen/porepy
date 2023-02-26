@@ -4,8 +4,116 @@ import pytest
 
 import porepy as pp
 
-from ...unit.test_vtk import _compare_pvd_files, _compare_vtu_files
-from .test_poromechanics import TailoredPoromechanics
+# TODO use _compare_vtu_files from unit.test_vtk after debugging
+import meshio
+from deepdiff import DeepDiff
+from ...unit.test_vtk import _compare_pvd_files
+
+# from ...unit.test_vtk import _compare_pvd_files, _compare_vtu_files
+from .setup_utils import (
+    TimeDependentMechanicalBCsDirNorthSouth,
+    RectangularDomainThreeFractures,
+)
+from .test_poromechanics import (
+    NonzeroFractureGapPoromechanics,
+    BoundaryConditionsMassAndEnergyDirNorthSouth,
+)
+
+
+def _compare_vtu_files(
+    test_file: str, reference_file: str, overwrite: bool = False
+) -> bool:
+    """Determine whether the contents of two vtu files are identical.
+
+    Helper method to determine whether two vtu files, accessed by their
+    paths, are identical. Returns True if both files are identified as the
+    same, False otherwise. This is the main auxiliary routine used to compare
+    down below whether the Exporter produces identical outputs as stored
+    reference files.
+
+    .. note:
+        It is implicitly assumed that Gmsh returns the same grid as
+        for the reference grid; thus, if this test fails, it should be
+        rerun with an older version of Gmsh to test for failure due to
+        external reasons.
+
+    Parameters:
+        test_file: Name of the test file.
+        reference_file: Name of the reference file
+        overwrite: Whether to overwrite the reference file with the test file. This
+            should only ever be done if you are changing the "truth" of the test.
+
+    Returns:
+        Boolean. True iff files are identical.
+
+    """
+    if overwrite:
+        shutil.copy(test_file, reference_file)
+        return True
+
+    # Trust meshio to read the vtu files
+    test_data = meshio.read(test_file)
+    reference_data = meshio.read(reference_file)
+
+    # Determine the difference between the two meshio objects.
+    # Ignore differences in the data type if values are close. To judge whether values
+    # are close, only consider certain number of significant digits and base the
+    # comparison in exponential form.
+    # Also ignore differences in the subdomain_id and interface_id, as these are
+    # very sensitive to the order of grid creation, which may depend on pytest assembly
+    # and number of tests run.
+    excludePaths = [
+        "root['cell_data']['subdomain_id']",
+        "root['cell_data']['interface_id']",
+    ]
+    diff = DeepDiff(
+        reference_data.__dict__,
+        test_data.__dict__,
+        significant_digits=8,
+        number_format_notation="e",
+        ignore_numeric_type_changes=True,
+        exclude_paths=excludePaths,
+    )
+
+    # If the difference is empty, the meshio objects are identified as identical.
+    if diff != {}:
+        print(diff)
+    return diff == {}
+
+
+class DynamicConstitutiveLawsPoromechanics(
+    pp.constitutive_laws.CubicLawPermeability,
+    pp.poromechanics.ConstitutiveLawsPoromechanics,
+):
+    pass
+
+
+class DynamicPoromechanics(
+    pp.poromechanics.EquationsPoromechanics,
+    pp.poromechanics.VariablesPoromechanics,
+    DynamicConstitutiveLawsPoromechanics,
+    pp.poromechanics.BoundaryConditionsPoromechanics,
+    pp.poromechanics.SolutionStrategyPoromechanics,
+    pp.ModelGeometry,
+    pp.DataSavingMixin,
+):
+    pass
+
+
+class RectangularPoromechanics(
+    RectangularDomainThreeFractures,
+    DynamicPoromechanics,
+):
+    pass
+
+
+class TailoredPoromechanics(
+    NonzeroFractureGapPoromechanics,
+    TimeDependentMechanicalBCsDirNorthSouth,
+    BoundaryConditionsMassAndEnergyDirNorthSouth,
+    RectangularPoromechanics,
+):
+    pass
 
 
 def create_fractured_setup(solid_vals, fluid_vals, uy_north):
@@ -40,6 +148,7 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
         "time_manager": pp.TimeManager(schedule=[0, 2], dt_init=1, constant_dt=True),
         "restart_options": {
             "restart": True,
+            "reuse_dt": True,
             "file": "./restart_reference/previous_data.pvd",
         },
     }
@@ -79,17 +188,25 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
             f"./restart_reference/data{ending}.pvd",
         )
 
-    for i in ["1", "2"]:
-        for ending in ["000001", "000002"]:
-            assert _compare_vtu_files(
-                f"./visualization/data_{i}_{ending}.vtu",
-                f"./restart_reference/data_{i}_{ending}.vtu",
+    for ending in ["000001", "000002"]:
+        for i in ["1", "2"]:
+            # TODO make assert again
+            print(
+                i,
+                ending,
+                _compare_vtu_files(
+                    f"./visualization/data_{i}_{ending}.vtu",
+                    f"./restart_reference/data_{i}_{ending}.vtu",
+                ),
             )
 
-    for ending in ["000001", "000002"]:
-        assert _compare_vtu_files(
-            f"./visualization/data_mortar_1_{ending}.vtu",
-            f"./restart_reference/data_mortar_1_{ending}.vtu",
+        print(
+            ending,
+            _compare_vtu_files(
+                f"./visualization/data_mortar_1_{ending}.vtu",
+                f"./restart_reference/data_mortar_1_{ending}.vtu",
+            ),
         )
 
+    assert False
     # TODO rm visualization
