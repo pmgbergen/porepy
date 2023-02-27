@@ -29,15 +29,15 @@ def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
 
     """
 
-    num_val_per_variable = [v.size for v in variables]
+    num_values_per_variable = [v.size for v in variables]
     ad_arrays: list[AdArray] = []
 
     for i, val in enumerate(variables):
         # initiate zero jacobian
-        n = num_val_per_variable[i]
-        jac = [sps.csc_matrix((n, m)) for m in num_val_per_variable]
+        n = num_values_per_variable[i]
+        jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
         # Set jacobian of variable i to I
-        jac[i] = sps.diags(np.ones(num_val_per_variable[i])).tocsr()
+        jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
         # initiate AdArray
         jac = sps.bmat([jac])
         ad_arrays.append(AdArray(val, jac))
@@ -157,8 +157,8 @@ class AdArray:
         """Subtract another object from this AdArray.
 
         Parameters:
-            other: An object to be added to this object. See class documentation for
-                restrictions on admissible types for this function.
+            other: An object to be subtracted from this object. See class
+            documentation for restrictions on admissible types for this function.
 
         Raises:
             ValueError: If this represents an impermissible operation.
@@ -173,8 +173,8 @@ class AdArray:
         """Subtract this AdArray from another object.
 
         Parameters:
-            other: An object to be added to this object. See class documentation for
-                restrictions on admissible types for this function.
+            other: An object to be subtracted from this object. See class
+            documentation for restrictions on admissible types for this function.
 
         Raises:
             ValueError: If this represents an impermissible operation.
