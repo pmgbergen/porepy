@@ -118,7 +118,7 @@ def write_identifier_file(filename, pT_id):
 def write_results(filename, pT_points, results):
 
     p_points, T_points = pT_points
-    success, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G = results
+    success, num_iter, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G, cond_start, cond_end = results
 
     print("Writing results ...", end='', flush=True)
     with open(f"{path()}/{filename}", "w", newline="") as csvfile:
@@ -135,6 +135,9 @@ def write_results(filename, pT_points, results):
             "x_co2_G",
             "Z_L",
             "Z_G",
+            "num_iter",
+            "cond_start",
+            "cond_end",
         ]
         result_writer.writerow(header)
 
@@ -151,6 +154,9 @@ def write_results(filename, pT_points, results):
                 x_co2_G[i],
                 Z_L[i],
                 Z_G[i],
+                num_iter[i],
+                cond_start[i],
+                cond_end[i],
             ]
             result_writer.writerow(row)
         print("\rWriting results ... DONE", flush=True)
@@ -161,7 +167,7 @@ def par_flash(args):
 
     i, p, T = args
     global arrs_loc
-    success, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G = arrs_loc
+    success, num_iter, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G, cond_start, cond_end = arrs_loc
 
     MIX, AD, FLASH = get_MIX_AD_FLASH(num_cells=1)
     LIQ, GAS = [phase for phase in MIX.phases]
@@ -209,6 +215,10 @@ def par_flash(args):
         x_co2_L[i] = LIQ.fraction_of_component(CO2).evaluate(AD).val[0]
         x_h2o_G[i] = GAS.fraction_of_component(H2O).evaluate(AD).val[0]
         x_co2_G[i] = GAS.fraction_of_component(CO2).evaluate(AD).val[0]
+
+        num_iter[i] = FLASH.flash_history[-1]['iterations']
+        cond_start[i] = FLASH.cond_start
+        cond_end[i] = FLASH.cond_end
     else:
         Z_L[i] = 0.
         Z_G[i] = 0.
@@ -219,13 +229,17 @@ def par_flash(args):
         x_h2o_G[i] = 0.
         x_co2_G[i] = 0.
 
+        num_iter[i] = 0
+        cond_start[i] = 0.
+        cond_end[i] = 0.
+
     return f"Flash {i} finished."
 
 def local_storage(storage: list[Array]):
     global arrs_loc
 
-    arrs_loc = [np.frombuffer(vec.get_obj(), dtype=c_uint8) for vec in storage[:1]]
-    arrs_loc += [np.frombuffer(vec.get_obj(), dtype=c_double) for vec in storage[1:]]
+    arrs_loc = [np.frombuffer(vec.get_obj(), dtype=c_uint8) for vec in storage[:2]]
+    arrs_loc += [np.frombuffer(vec.get_obj(), dtype=c_double) for vec in storage[2:]]
 
 if __name__ == '__main__':
     # thermo data files
@@ -238,7 +252,7 @@ if __name__ == '__main__':
         ("data/pr_data_thermo_isothermal_GL_hard.csv", "GL"),
     ]
     # output files
-    version = "w-o-reg-parallelized"
+    version = "reg-omar-par-cond"
     output_file = f"data/results/pr_result_VL_{version}.csv"  # file with flash data
     identifier_file = (
         f"data/results/pr_result_VL_{version}_ID.csv"  # file to identify thermo data
@@ -254,6 +268,9 @@ if __name__ == '__main__':
     # prepare storage of results
     # raw arrays without lock due to the values being not interdependent
     success = Array(typecode_or_type=c_uint8, size_or_initializer=nc)
+    num_iter = Array(typecode_or_type=c_uint8, size_or_initializer=nc)
+    cond_start = Array(typecode_or_type=c_double, size_or_initializer=nc)
+    cond_end = Array(typecode_or_type=c_double, size_or_initializer=nc)
     y = Array(typecode_or_type=c_double, size_or_initializer=nc)
     x_h2o_L = Array(typecode_or_type=c_double, size_or_initializer=nc)
     x_co2_L = Array(typecode_or_type=c_double, size_or_initializer=nc)
@@ -264,7 +281,7 @@ if __name__ == '__main__':
     # iterable input for parallelism
     # i indicates which position in the global result array the respective pT point takes
     npT = [(i, p, T) for i, p, T in zip(np.arange(nc), p_points, T_points)]
-    storage = [success, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G]
+    storage = [success, num_iter, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G, cond_start, cond_end]
     # par_args = itertools.product([storage], npT)
 
     print("Performing parallel flash ... ", flush=True)
@@ -284,7 +301,7 @@ if __name__ == '__main__':
     end_time = time.time()
     print(f"Ended parallel Flash after {end_time - start_time} seconds.", flush=True)
 
-    results = [np.frombuffer(vec.get_obj(), dtype=c_uint8) for vec in storage[:1]]
-    results += [np.frombuffer(vec.get_obj(), dtype=c_double) for vec in storage[1:]]
+    results = [np.frombuffer(vec.get_obj(), dtype=c_uint8) for vec in storage[:2]]
+    results += [np.frombuffer(vec.get_obj(), dtype=c_double) for vec in storage[2:]]
     # writing result file
     write_results(output_file, (p_points, T_points), results)
