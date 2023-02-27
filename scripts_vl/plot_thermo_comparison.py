@@ -28,7 +28,7 @@ thermo_files = [
     ("data/pr_data_thermo_isothermal_GL_hard.csv", "GL"),
 ]
 # Files containing results and identification for p T values
-version = "w-o-reg-parallelized"
+version = "w-o-reg-par-cond"
 results_file = f"data/results/pr_result_VL_{version}.csv"
 identifier_file = f"data/results/pr_result_VL_{version}_ID.csv"
 figure_path = "data/results/figures/"  # path to where figures should be stored
@@ -145,12 +145,15 @@ with open(f"{path}/{results_file}") as file:
     x_h2o_L_idx = header.index("x_h2o_L")
     x_co2_L_idx = header.index("x_co2_L")
     Z_L_idx = header.index("Z_L")
+    num_iter_idx = header.index("num_iter")
+    cond_start_idx = header.index("cond_start")
+    cond_end_idx = header.index("cond_end")
 
     for datarow in file_reader:
         p = float(datarow[p_idx])
         T = float(datarow[T_idx])
-        # success = int(datarow[success_idx])
-        success = 1
+        success = int(datarow[success_idx])
+        # success = 1
         y = float(datarow[y_idx])
         Z_L = float(datarow[Z_L_idx])
         y = float(datarow[y_idx])
@@ -159,6 +162,9 @@ with open(f"{path}/{results_file}") as file:
         x_co2_L = float(datarow[x_co2_L_idx])
         x_h2o_G = float(datarow[x_h2o_G_idx])
         x_co2_G = float(datarow[x_co2_G_idx])
+        num_iter = int(datarow[num_iter_idx])
+        cond_start = float(datarow[cond_start_idx])
+        cond_end = float(datarow[cond_end_idx])
 
         pT = (p, T)
 
@@ -177,6 +183,9 @@ with open(f"{path}/{results_file}") as file:
                 "x_co2_L": x_co2_L,
                 "x_h2o_G": x_h2o_G,
                 "x_co2_G": x_co2_G,
+                "num_iter": num_iter,
+                "cond_start": cond_start,
+                "cond_end": cond_end,
             }
         )
 
@@ -402,6 +411,8 @@ img = axis.pcolormesh(
     vmax=y_err_mesh.max(),
     shading="nearest",
 )
+img_c, leg_c = plot_crit_point(axis)
+axis.legend(img_c, leg_c, loc="upper left")
 axis.set_title("Absolute error: Gas fraction")
 axis.set_xlabel("T")
 axis.set_ylabel(f"p {p_unit}")
@@ -873,4 +884,154 @@ fig.savefig(
 fig.show()
 
 # endregion
+
+# region Plot 6: Condition numbers and numbers of iterations
+cond_start_mesh = np.zeros((nx, ny))
+cond_end_mesh = np.zeros((nx, ny))
+num_iter_mesh = np.zeros((nx, ny))
+
+for i in range(nx):
+    for j in range(ny):
+
+        p = p_mesh[i, j]
+        T = T_mesh[i, j]
+
+        pT = (p, T)
+
+        # If data for point is available
+        if pT in pT_id:
+            results = result_data[pT]
+            identifier = pT_id[pT]
+
+            num_iter = results["num_iter"]
+            cond_start = results["cond_start"]
+            cond_end = results["cond_end"]
+
+            cond_start_mesh[i, j] = cond_start
+            cond_end_mesh[i, j] = cond_end
+            num_iter_mesh[i, j] = num_iter
+
+# i,j = np.unravel_index(cond_start_mesh.argmax(), cond_start_mesh.shape)
+# print(f"COND START MAX AT: p={p_mesh[i,j]} ; T={T_mesh[i,j]}\n\tVal: {np.max(cond_start_mesh)}")
+# i,j = np.unravel_index(cond_end_mesh.argmax(), cond_end_mesh.shape)
+# print(f"COND CONVERGED MAX AT: p={p_mesh[i,j]} ; T={T_mesh[i,j]}\n\tVal: {np.max(cond_end_mesh)}")
+
+figwidth = 15
+fig = plt.figure(figsize=(figwidth, 1080 / 1920 * figwidth))
+gs = fig.add_gridspec(2, 2)
+fig.suptitle(f"Condition and iteration numbers: {version}")
+
+vmin = cond_start_mesh.min()
+vmax = cond_start_mesh.max()
+linthresh = 1e-3
+norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
+# norm = mpl.colors.TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
+axis = fig.add_subplot(gs[0, 0])
+img = axis.pcolormesh(
+    T_mesh,
+    p_mesh_f,
+    cond_start_mesh,
+    cmap="Greys",  norm=norm,
+    # vmin=vmin,
+    # vmax=vmax,
+    shading="nearest",
+)
+# plot over and undershooting
+img_c, leg_c = plot_crit_point(axis)
+axis.legend(img_c, leg_c, loc="upper left")
+axis.set_title("Condition number: Start of iterations")
+axis.set_xlabel("T")
+axis.set_ylabel(f"p {p_unit}")
+if p_scale_log:
+    axis.set_yscale("log")
+divider = make_axes_locatable(axis)
+cax = divider.append_axes("right", size="5%", pad=0.1)
+# ticks = np.linspace(0, 1, 6)
+# ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
+cb = fig.colorbar(
+    img,
+    cax=cax,
+    orientation="vertical",
+    # ticks=ticks,
+)
+cb.set_label(f"Max.: {'{:.4e}'.format(vmax)}\nMean: {'{:.4e}'.format(np.mean(cond_start_mesh))}")
+
+vmin = cond_end_mesh.min()
+vmax = cond_end_mesh.max()
+linthresh = 1e-3
+norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
+axis = fig.add_subplot(gs[0, 1])
+img = axis.pcolormesh(
+    T_mesh,
+    p_mesh_f,
+    cond_end_mesh,
+    cmap="Greys",  norm=norm,
+    # vmin=vmin,
+    # vmax=vmax,
+    shading="nearest",
+)
+# plot over and undershooting
+img_c, leg_c = plot_crit_point(axis)
+axis.legend(img_c, leg_c, loc="upper left")
+axis.set_title("Condition number: At converged state")
+axis.set_xlabel("T")
+axis.set_ylabel(f"p {p_unit}")
+if p_scale_log:
+    axis.set_yscale("log")
+divider = make_axes_locatable(axis)
+cax = divider.append_axes("right", size="5%", pad=0.1)
+# ticks = np.linspace(0, 1, 6)
+# ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
+cb = fig.colorbar(
+    img,
+    cax=cax,
+    orientation="vertical",
+    # ticks=ticks,
+)
+cb.set_label(f"Max.: {'{:.4e}'.format(vmax)}\nMean: {'{:.4e}'.format(np.mean(cond_end_mesh))}")
+
+vmin = num_iter_mesh.min()
+vmax = num_iter_mesh.max()
+linthresh = 1e-3
+# norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
+axis = fig.add_subplot(gs[1, 0])
+img = axis.pcolormesh(
+    T_mesh,
+    p_mesh_f,
+    num_iter_mesh,
+    cmap="Greys",  # norm=norm,
+    vmin=vmin,
+    vmax=vmax,
+    shading="nearest",
+)
+# plot over and undershooting
+img_c, leg_c = plot_crit_point(axis)
+axis.legend(img_c, leg_c, loc="upper left")
+axis.set_title("Number of iterations")
+axis.set_xlabel("T")
+axis.set_ylabel(f"p {p_unit}")
+if p_scale_log:
+    axis.set_yscale("log")
+divider = make_axes_locatable(axis)
+cax = divider.append_axes("right", size="5%", pad=0.1)
+# ticks = np.linspace(0, 1, 6)
+# ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
+cb = fig.colorbar(
+    img,
+    cax=cax,
+    orientation="vertical",
+    # ticks=ticks,
+)
+cb.set_label(f"Max.: {vmax}\nMean: {np.mean(num_iter_mesh)}")
+
+fig.tight_layout()
+fig.savefig(
+    f"{str(path)}/{figure_path}6_cond_iter_nums__{result_fnam_stripped}.png",
+    format="png",
+    dpi=500,
+)
+fig.show()
+
+# endregion
+
 print("Done")

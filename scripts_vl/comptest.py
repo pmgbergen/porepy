@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import porepy as pp
+import numpy as np
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
 file_name = "cf_test"  # + timestamp
@@ -23,10 +24,17 @@ model = pp.CompositionalFlowModel(params=params)
 
 model.dt = dt
 model.prepare_simulation()
+# cond_start = list()
+# cond_end = list()
 
 while t < T:
     print(".. Timestep t=%f , dt=%e" % (t, model.dt))
     model.before_newton_loop()
+
+    # A, b = model.ad_system.assemble_subsystem(
+    #     equations=model._system_equations, variables=model._system_vars
+    # )
+    # cond_start.append(np.linalg.cond(A.todense()))
 
     for i in range(1, max_iter + 1):
         model.before_newton_iteration()
@@ -51,8 +59,18 @@ while t < T:
             )
     else:
         t += model.dt
+        # A, b = model.ad_system.assemble_subsystem(
+        #     equations=model._system_equations, variables=model._system_vars
+        # )
+        # cond_end.append(np.linalg.cond(A.todense()))
 
     if t >= T:
         print(f"Reached and of simulation: t={t}")
-
+# cond_start = np.array(cond_start)
+# cond_end = np.array(cond_end)
+# print("CONDITION NUMBERS: ")
+# print("\tAt beginning of iterations:")
+# print(f"\tMin: {'{:.4e}'.format(np.min(cond_start))}\n\tMax: {'{:.4e}'.format(np.max(cond_start))}\n\tMean: {'{:.4e}'.format(np.mean(cond_start))}")
+# print("\tAt converged state:")
+# print(f"\tMin: {'{:.4e}'.format(np.min(cond_end))}\n\tMax: {'{:.4e}'.format(np.max(cond_end))}\n\tMean: {'{:.4e}'.format(np.mean(cond_end))}")
 model.after_simulation()
