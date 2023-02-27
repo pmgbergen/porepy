@@ -109,4 +109,4 @@ class PR_Phase(Phase):
         return pp.ad.Scalar(1.0)
 
     def thermal_conductivity(self, p, T):  # TODO
-        return pp.ad.Scalar(1.0)
+        return pp.ad.Scalar(10.0)
