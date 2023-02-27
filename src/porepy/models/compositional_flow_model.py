@@ -8,16 +8,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-import matplotlib.pyplot as plot
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
+import pypardiso
 
 import porepy as pp
 from porepy.composite.component import Component
 
 
-class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
+class CompositionalFlowModel:
     """Non-isothermal flow with gas and liquid phase.
 
     The composition class is instantiated during :meth:`prepare_simulation`
@@ -41,8 +41,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
     """
 
     def __init__(self, params: dict) -> None:
-        super().__init__(params)
-
         ### PUBLIC
 
         self.params: dict = params
@@ -60,19 +58,19 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ## Initial Conditions
         self.initial_pressure: float = 1.0
         """Initial pressure in the domain in MPa."""
-        self.initial_temperature: float = 343.15  # 50 dec Celsius
-        """Initial temperature in the domain in MPa."""
-        self.initial_component_fractions: list[float] = [0.7, 0.2, 0.1]
+        self.initial_temperature: float = pp.composite.T_REF + 70  # 70 deg C
+        """Initial temperature in the domain in K."""
+        self.initial_component_fractions: list[float] = [0.99, 0.01]
         """Contains per component in composition the initial feed fraction."""
 
         ## Injection parameters
         self.injection_pressure = 2.0
         """Pressure at injection in MPA."""
-        self.injection_temperature = 303.16
+        self.injection_temperature = pp.composite.T_REF + 30  # 70 deg C
         """Temperature of injected mass for source terms in Kelvin."""
 
         ## TO BE COMPUTED after obtaining the injection equilibrium
-        self.injected_moles: list[float] = [0.0, 0.0, 0.0]
+        self.injected_moles: list[float] = [0., 0.]
         """Contains per component in composition the amount of injected moles.
 
         Always included trace amounts of each components to avoid the
@@ -83,13 +81,13 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         injection point."""
 
         ## Boundary conditions
-        self.outflow_boundary_pressure: float = 1.0
+        self.outflow_boundary_pressure: float = self.initial_pressure
         """Dirichlet boundary pressure for the outflow in MPA for the advective flux."""
-        self.inflow_boundary_pressure: float = 2.0
+        self.inflow_boundary_pressure: float = 3.0
         """Dirichlet boundary pressure for the inflow in MPa for the advective flux."""
-        self.inflow_boundary_temperature: float = 303.16  # 30 deg C
+        self.inflow_boundary_temperature: float = pp.composite.T_REF + 30  # 30 deg C
         """Temperature at the inflow boundary for the advective flux."""
-        self.inflow_boundary_composition: list[float] = [0.98, 0.01, 0.01]
+        self.inflow_boundary_composition: list[float] = [0.99, 0.01]
         """Contains per component in composition the feed fraction at the inflow
         boundary.
 
@@ -97,8 +95,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         effects.
 
         """
-        self.boundary_temperature = 423.15  # 150 Celsius
-        """Dirichlet boundary temperature in Kelvin for the conductive flux."""
+        self.heated_boundary_temperature = 550
+        """Dirichlet boundary temperature in Kelvin for the conductive flux,
+        bottom boundary."""
 
         ## TO BE COMPUTED after obtaining the equilibrium at the boundary.
         self.inflow_boundary_advective_component: dict[str, float]
@@ -164,7 +163,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### COMPOSITION SETUP
         self.composition: pp.composite.Composition
         self.flash: pp.composite.Flash
-        self.reference_component: Component
 
         ### PRIVATE
 
@@ -203,16 +201,39 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        refinement = 5
+        refinement = 7
         phys_dims = [3, 1]
         # n_cells = [4, 2]
         n_cells = [i * refinement for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]], [0, phys_dims[1]]])
-        self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
+        self.box = pp.geometry.domain.bounding_box_of_point_cloud(bounding_box_points)
         sg = pp.CartGrid(n_cells, phys_dims)
         self.mdg = pp.MixedDimensionalGrid()
         self.mdg.add_subdomains(sg)
         self.mdg.compute_geometry()
+
+    def _domain_boundary_sides(
+        self, sd: pp.Grid, tol: Optional[float] = 1e-10
+    ) -> pp.domain.DomainSides:
+        # Get domain boundary sides
+        box = self.box
+        east = np.abs(box["xmax"] - sd.face_centers[0]) <= tol
+        west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
+        if self.mdg.dim_max() == 1:
+            north = np.zeros(sd.num_faces, dtype=bool)
+            south = north.copy()
+        else:
+            north = np.abs(box["ymax"] - sd.face_centers[1]) <= tol
+            south = np.abs(box["ymin"] - sd.face_centers[1]) <= tol
+        if self.mdg.dim_max() < 3:
+            top = np.zeros(sd.num_faces, dtype=bool)
+            bottom = top.copy()
+        else:
+            top = np.abs(box["zmax"] - sd.face_centers[2]) <= tol
+            bottom = np.abs(box["zmin"] - sd.face_centers[2]) <= tol
+        all_bf = sd.get_boundary_faces()
+
+        return all_bf, east, west, north, south, top, bottom
 
     def set_composition(self) -> None:
         """Defines the composition for which the simulation should be run and performs
@@ -230,11 +251,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.composition = pp.composite.PR_Composition(self.ad_system)
         h2o = pp.composite.H2O(self.ad_system)
         co2 = pp.composite.CO2(self.ad_system)
-        n2 = pp.composite.N2(self.ad_system)
-        self.composition.add_components(h2o)
-        self.composition.add_components(co2)
-        self.composition.add_components(n2)
-        self.reference_component = h2o
+        LIQ = pp.composite.PR_Phase(self.ad_system, gas_like=False, name='L')
+        GAS = pp.composite.PR_Phase(self.ad_system, gas_like=True, name='G')
+        self.composition.add_components([h2o, co2])
+        self.composition.add_phases([LIQ, GAS])
 
         ## setting thermodynamic state in terms of p-T-z
         nc = self.mdg.num_subdomain_cells()
@@ -270,12 +290,18 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print("Computing initial, domain-wide equilibrium ...")
         self.composition.initialize()
         self.flash = pp.composite.Flash(self.composition)
-        self.flash.use_armijo = False
-        self.flash.flash("isothermal", "npipm", "feed", True, True)
         self.flash.use_armijo = True
+        self.flash.armijo_parameters["rho"] = 0.99
+        self.flash.armijo_parameters["j_max"] = 50
+        self.flash.armijo_parameters["return_max"] = True
+        self.flash.newton_update_chop = 1.0
+        self.flash.flash_tolerance = 5e-6
+        self.flash.max_iter_flash = 140
+        self.flash.flash("isothermal", "npipm", "rachford_rice", True, False)
         self.flash.post_process_fractions()
         self.flash.evaluate_specific_enthalpy()
         self.flash.evaluate_saturations()
+        self.composition.compute_roots()
 
         ## configuration at boundary and injection points
         self._set_boundary_and_source_properties()
@@ -285,21 +311,17 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         in a separate Composition instance."""
 
         ## INFLOW BOUNDARY
-
-        C = pp.composite.PR_Composition()
+        nc = 1
+        C = pp.composite.PR_Composition(nc=nc)
         adsys = C.ad_system
         h2o = pp.composite.H2O(adsys)
         co2 = pp.composite.CO2(adsys)
-        n2 = pp.composite.N2(adsys)
-        L, G = (phase for phase in C.phases)
-        C.add_components(h2o)
-        C.add_components(co2)
-        C.add_components(n2)
+        LIQ = pp.composite.PR_Phase(adsys, gas_like=False, name='L')
+        GAS = pp.composite.PR_Phase(adsys, gas_like=True, name='G')
+        C.add_components([h2o, co2])
+        C.add_phases([LIQ, GAS])
 
         # setting thermodynamic state at boundary
-
-        nc = adsys.mdg.num_subdomain_cells()
-        assert nc == 1, "Default domain of composition class not as expected."
         vec = np.ones(nc)
 
         for i, comp in enumerate(C.components):
@@ -330,27 +352,31 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print("Computing inflow boundary equilibrium ...")
         C.initialize()
         F = pp.composite.Flash(C)
-        F.flash("isothermal", "npipm", "feed", True, False)
+        F.use_armijo = True
+        F.armijo_parameters["rho"] = 0.99
+        F.armijo_parameters["j_max"] = 50
+        F.armijo_parameters["return_max"] = True
+        F.newton_update_chop = 1.0
+        F.flash_tolerance = 1e-8
+        F.max_iter_flash = 140
+        F.flash("isothermal", "npipm", "rachford_rice", True, False)
         F.post_process_fractions()
         F.evaluate_specific_enthalpy()
         F.evaluate_saturations()
+        C.compute_roots()
 
         # computing mass entering the system through boundary
         self.inflow_boundary_advective_component = dict()
-        for component in self.composition.components:
+        for component in C.components:
 
-            advective_scalar = (
-                (
-                    L.density(C.p, C.T)
-                    * L.saturation
-                    * L.normalized_fraction_of_component(component)
-                    + G.density(C.p, C.T)
-                    * G.saturation
-                    * G.normalized_fraction_of_component(component)
-                )
-                .evaluate(adsys)
-                .val[0]
-            )
+            advective_scalar = sum(
+                [
+                    phase.density(C.p, C.T)
+                    * phase.saturation
+                    * phase.normalized_fraction_of_component(component)
+                    for phase in C.phases
+                ]
+            ).evaluate(adsys).val[0]
 
             self.inflow_boundary_advective_component.update(
                 {component.name: advective_scalar}
@@ -388,7 +414,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         # eliminate the reference component fraction if pressure equation is used
         if self._use_pressure_equation:
-            primary_vars.remove(self.reference_component.fraction_name)
+            primary_vars.remove(self.composition.reference_component.fraction_name)
 
         # saturations are also secondary in the flow
         # we eliminate the saturation of the reference phase by unity, if requested
@@ -411,7 +437,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # complete set of variables for export of results
         export_vars = set(self._system_vars)
         if self._use_pressure_equation:
-            export_vars.add(self.reference_component.fraction_name)
+            export_vars.add(self.composition.reference_component.fraction_name)
         if self._elim_ref_phase:
             export_vars.add(self.composition.reference_phase.fraction_name)
             export_vars.add(self.composition.reference_phase.saturation_name)
@@ -532,7 +558,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             for component in self.composition.components:
                 # skip eliminated reference component in case of global pressure equation
                 if (
-                    component == self.reference_component
+                    component == self.composition.reference_component
                     and self._use_pressure_equation
                 ):
                     continue
@@ -622,7 +648,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # advective upwind per component mass balance
         for component in self.composition.components:
             # skip eliminated reference component in case of global pressure equation
-            if component == self.reference_component and self._use_pressure_equation:
+            if component == self.composition.reference_component and self._use_pressure_equation:
                 continue
             kw = f"{self.flow_upwind_keyword}_{component.name}"
             upwind = pp.ad.UpwindAd(kw, subdomains)
@@ -710,20 +736,26 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
               (same as convective enthalpy flux)
 
         """
-        _, _, _, _, idx_south, *_ = self._domain_boundary_sides(sd)
+        _, _, idx_west, idx_north, idx_south, *_ = self._domain_boundary_sides(sd)
 
         vals = np.zeros(sd.num_faces)
-        vals[idx_south] = self.boundary_temperature
-        bc = pp.BoundaryCondition(sd, idx_south, "dir")
+        vals[idx_south] = self.heated_boundary_temperature
+        vals[idx_north] = self.initial_temperature
+        vals[idx_west] = self.inflow_boundary_temperature
+
+        idx = np.logical_or(idx_west, np.logical_or(idx_south, idx_north))
+        bc = pp.BoundaryCondition(sd, idx, "dir")
 
         return bc, vals
 
     def _bc_conductive_weight(self, sd: pp.Grid) -> np.ndarray:
         """BC values for the scalar part in the conductive flux."""
-        _, _, _, _, idx_south, *_ = self._domain_boundary_sides(sd)
+        _, _, idx_west, idx_north, idx_south, *_ = self._domain_boundary_sides(sd)
 
         vals = np.zeros(sd.num_faces)
-        vals[idx_south] = 1.0
+        vals[idx_south] = 10.0
+        vals[idx_north] = 10.0
+        vals[idx_west] = 10.0
 
         return vals
 
@@ -803,7 +835,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             for component in self.composition.components:
                 # skip the eliminated component mass balance
                 if (
-                    component == self.reference_component
+                    component == self.composition.reference_component
                     and self._use_pressure_equation
                 ):
                     continue
@@ -840,7 +872,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         if not self._monolithic:
             print(f".. .. isenthalpic flash at iteration {self._nonlinear_iteration}.")
-            success = self.flash.flash("isenthalpic", "npipm", "iterate", False, True)
+            success = self.flash.flash("isenthalpic", "npipm", "iterate", False, False)
             if not success:
                 raise RuntimeError("FAILURE: Isenthalpic flash.")
 
@@ -954,14 +986,17 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             b = b_p - A_ps * inv_A_ss * b_s
             self._for_expansion = (inv_A_ss, b_s, A_sp)
 
-        if np.linalg.norm(b) < tol:
+        res = np.linalg.norm(b)
+        print(f".. .. flow residual norm: {res}")
+        if res < tol:
             self.converged = True
             x = self.ad_system.get_variable_values(
                 variables=self._system_vars, from_iterate=True
             )
             return x
 
-        dx = spla.spsolve(A, b)
+        # dx = spla.spsolve(A, b)
+        dx = pypardiso.spsolve(A, b)
 
         return dx
 
@@ -1002,79 +1037,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         z_R[z_R > 1.0] = 1.0
         self.ad_system.set_variable_values(
             z_R,
-            variables=[self.reference_component.fraction_name],
+            variables=[self.composition.reference_component.fraction_name],
             to_iterate=True,
             to_state=copy_to_state,
         )
-
-    def print_matrix(self, print_dense: bool = False):
-        print("PRIMARY BLOCK:")
-        print("Primary variables:")
-        self.flash.print_ordered_vars(self.flow_subsystem["primary_vars"])
-        for equ in self.flow_subsystem["primary_equations"]:
-            A, b = self.ad_system.assemble_subsystem(
-                equ, self.flow_subsystem["primary_vars"]
-            )
-            print("---")
-            print(equ)
-            self.flash.print_system(A, b, print_dense)
-        print("---")
-        print("SECONDARY BLOCK:")
-        print("Secondary variables:")
-        self.flash.print_ordered_vars(self.flow_subsystem["secondary_vars"])
-        for equ in self.flow_subsystem["secondary_equations"]:
-            A, b = self.ad_system.assemble_subsystem(
-                equ, self.flow_subsystem["secondary_vars"]
-            )
-            print("---")
-            print(equ)
-            self.flash.print_system(A, b, print_dense)
-        print("---")
-
-    def print_matrix2(self, print_dense: bool = False):
-        print("Variables:")
-        self.flash.print_ordered_vars(self._system_vars)
-        print("PRIMARY BLOCK:")
-        for equ in self.flow_subsystem["primary_equations"]:
-            A, b = self.ad_system.assemble_subsystem(equ, self._system_vars)
-            print("---")
-            print(equ)
-            self.flash.print_system(A, b, print_dense)
-            self.matrix_plot(A)
-        print("---")
-        print("SECONDARY BLOCK:")
-        for equ in self.flow_subsystem["secondary_equations"]:
-            A, b = self.ad_system.assemble_subsystem(equ, self._system_vars)
-            print("---")
-            print(equ)
-            self.flash.print_system(A, b, print_dense)
-        print("---")
-
-    def matrix_plot(self, A):
-        # plot.figure()
-        # plot.matshow(A.todense())
-        # plot.colorbar(orientation="vertical")
-        # plot.set_cmap("terrain")
-        # plot.show()
-        A = A.todense()
-        ax = plot.axes()
-        ax.matshow(A, cmap=plot.cm.Blues)
-
-        # for j in range(A.shape[1]):
-        #     for i in range(A.shape[0]):
-        #         c = A[i,j]
-        #         if c == 0.:
-        #             continue
-        #         ax.text(i + 0.5, j + 0.5, str(c), va='center', ha='center')
-        # ax = plot.axes()
-
-        # ax.set_xlim(0, A.shape[1])
-        # ax.set_ylim(0, A.shape[0])
-        # ax.set_xticks(np.arange(A.shape[1]))
-        # ax.set_yticks(np.arange(A.shape[0]))
-        # ax.grid()
-
-        plot.show()
 
     ### MODEL EQUATIONS ----------------------------------------------------------------
 
@@ -1082,7 +1048,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Returns a representation of the reference component fraction by unity"""
         equation = pp.ad.Scalar(1.0)
         for component in self.composition.components:
-            if component != self.reference_component:
+            if component != self.composition.reference_component:
                 equation -= component.fraction
         return equation
 
@@ -1182,7 +1148,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         for component in cp.components:
             # exclude one mass balance equation if requested
-            if self._use_pressure_equation and component == self.reference_component:
+            if self._use_pressure_equation and component == self.composition.reference_component:
                 continue
 
             upwind_adv = self.advective_upwind_component[component]
@@ -1207,7 +1173,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
                 scalar_part = (
                     phase.density(cp.p, cp.T)
-                    * phase.fraction_of_component(component)
+                    * phase.normalized_fraction_of_component(component)
                     * k_re
                     / phase.dynamic_viscosity(cp.p, cp.T)
                 )

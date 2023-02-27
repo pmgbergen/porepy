@@ -14,10 +14,10 @@ params = {
 }
 
 t = 0.0
-T = 10.0
-dt = T / 1e2
-max_iter = 200
-tol = 1e-5
+T = 2.2
+dt = 0.1 # T / 1e2
+max_iter = 70
+tol = 5e-5
 
 model = pp.CompositionalFlowModel(params=params)
 
