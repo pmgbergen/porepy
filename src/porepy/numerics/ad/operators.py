@@ -596,13 +596,13 @@ class Operator:
 
         """
         unique_discretizations: dict[
-            _ad_utils.MergedOperator, GridLike
+            pp.discretization_type, list[GridLike]
         ] = self._identify_discretizations()
         _ad_utils.discretize_from_list(unique_discretizations, mdg)
 
     def _identify_discretizations(
         self,
-    ) -> dict["_ad_utils.MergedOperator", GridLike]:
+    ) -> dict[pp.discretization_type, list[GridLike]]:
         """Perform a recursive search to find all discretizations present in the
         operator tree. Uniquify the list to avoid double computations.
 
