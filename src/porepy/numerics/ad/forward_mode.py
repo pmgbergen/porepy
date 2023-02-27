@@ -154,7 +154,7 @@ class AdArray:
         return self.__add__(other)
 
     def __sub__(self, other: AdType) -> AdArray:
-        """Subtract another object from this AdArray.
+        """Subtract right hand operand (this AdArray) from left hand operand (other).
 
         Parameters:
             other: An object to be subtracted from this object. See class
@@ -170,7 +170,7 @@ class AdArray:
         return self.__add__(-other)
 
     def __rsub__(self, other: AdType) -> AdArray:
-        """Subtract this AdArray from another object.
+        """Subtract right hand operand (other) from left hand operand (this AdArray).
 
         Parameters:
             other: An object to be subtracted from this object. See class
@@ -205,7 +205,7 @@ class AdArray:
     #    return self.val == _cast(other).val
 
     def __mul__(self, other: AdType) -> AdArray:
-        """Elementwise product between two objects.
+        """Elementwise product (Hadamard or Schur product) between two objects.
 
         Parameters:
             other: An object to be multiplied with this object. See class documentation
@@ -267,7 +267,7 @@ class AdArray:
             )
 
     def __rmul__(self, other: AdType) -> AdArray:
-        """Elementwise product between two objects.
+        """Elementwise product (Hadamard or Schur product) between two objects.
 
         Parameters:
             other: An object to be multiplied with this object. See class documentation
