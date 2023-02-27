@@ -90,7 +90,7 @@ class Glossary:
     )
 
     basis: Entry = Entry(
-        type="Callable[[Sequence[pp.GridLike], int], list[pp.ad.Matrix]]",
+        type="Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]",
         docstring="Basis for the local coordinate system. Normally set by a mixin"
         " instance of :class:`porepy.models.geometry.ModelGeometry`.",
         name="basis",
@@ -105,7 +105,7 @@ class Glossary:
     )
 
     bc_type_enthalpy: Entry = Entry(
-        type="Callable[[pp.Grid], pp.ad.Array]",
+        type="Callable[[pp.Grid], pp.ad.DenseArray]",
         docstring="Function that returns the boundary condition type for the enthalpy"
         " flux. Normally defined in a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsEnergyBalance`.",
@@ -113,7 +113,7 @@ class Glossary:
     )
 
     bc_type_fourier: Entry = Entry(
-        type="Callable[[pp.Grid], pp.ad.Array]",
+        type="Callable[[pp.Grid], pp.ad.DenseArray]",
         docstring="Function that returns the boundary condition type for the Fourier"
         " flux. Normally defined in a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsEnergyBalance`.",
@@ -137,7 +137,7 @@ class Glossary:
     )
 
     bc_values_darcy: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Array]",
+        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
         docstring="Darcy flux boundary conditions. Normally defined in a mixin instance"
         " of :class:`~porepy.models.fluid_mass_balance"
         ".BoundaryConditionsSinglePhaseFlow`.",
@@ -145,7 +145,7 @@ class Glossary:
     )
 
     bc_values_enthalpy_flux: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Array]",
+        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
         docstring="Boundary condition for enthalpy flux. Normally defined in a mixin"
         " instance of"
         " :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`",
@@ -153,14 +153,14 @@ class Glossary:
     )
 
     bc_values_fourier: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Array]",
+        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
         docstring="Fourier flux boundary conditions. Normally defined in a mixin"
         " instance of :class:`~porepy.models.fluid_mass_balance.BoundaryCondition.",
         name="bc_values_fourier",
     )
 
     bc_values_mechanics: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Array]",
+        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
         docstring="Mechanics boundary conditions. Normally defined in a mixin instance"
         " of :class:`~porepy.models.fluid_mass_balance"
         ".BoundaryConditionsMomentumBalance`.",
@@ -168,7 +168,7 @@ class Glossary:
     )
 
     bc_values_mobrho: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Array]",
+        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
         docstring="Mobility times density boundary conditions. Normally defined in a"
         " mixin instance of :class:`~porepy.models.fluid_mass_balance"
         ".BoundaryConditionsSinglePhaseFlow`.",
@@ -266,7 +266,7 @@ class Glossary:
     )
 
     e_i: Entry = Entry(
-        type="Callable[[Sequence[pp.GridLike], int, int], pp.ad.Matrix]",
+        type="Callable[[Sequence[pp.GridLike], int, int], pp.ad.SparseArray]",
         docstring="A unit vector in a local coordinate system. Normally set by a mixin"
         " instance of :class:`porepy.models.geometry.ModelGeometry`.",
         name="e_i",
@@ -356,7 +356,7 @@ class Glossary:
     )
 
     local_coordinates: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Matrix]",
+        type="Callable[[list[pp.Grid]], pp.ad.SparseArray]",
         docstring="Mapping to local coordinates. Normally defined in a mixin instance"
         " of :class:`~porepy.models.geometry.ModelGeometry`.",
         name="local_coordinates",
@@ -463,7 +463,7 @@ class Glossary:
     )
 
     internal_boundary_normal_to_outwards: Entry = Entry(
-        type="Callable[[list[pp.Grid], int], pp.ad.Matrix]",
+        type="Callable[[list[pp.Grid], int], pp.ad.SparseArray]",
         docstring="Switch interface normal vectors to point outwards from the"
         " subdomain. Normally set by a mixin instance of "
         ":class:`porepy.models.geometry.ModelGeometry`.",
@@ -657,7 +657,7 @@ class Glossary:
     )
 
     tangential_component: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Matrix]",
+        type="Callable[[list[pp.Grid]], pp.ad.SparseArray]",
         docstring="Operator giving the tangential component of vectors. Normally"
         " defined in a mixin instance of "
         " :class:`~porepy.models.models.ModelGeometry`.",
@@ -704,7 +704,7 @@ class Glossary:
     )
 
     wrap_grid_attribute: Entry = Entry(
-        type="Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]",
+        type="Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray]",
         docstring="Wrap grid attributes as Ad operators. Normally set by a mixin"
         " instance of :class:`porepy.models.geometry.ModelGeometry`.",
         name="wrap_grid_attribute",

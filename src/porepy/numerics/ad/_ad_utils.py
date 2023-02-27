@@ -28,6 +28,9 @@ from . import operators
 from .forward_mode import AdArray
 
 
+discr_type = Union["pp.Discretization", "pp.AbstractInterfaceLaw"]
+
+
 def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified axis."""
     vals = [var.val for var in ad_arrays]
@@ -83,7 +86,9 @@ def wrap_discretization(
         setattr(obj, key, op)
 
 
-def uniquify_discretization_list(all_discr):
+def uniquify_discretization_list(
+    all_discr: list[discr_type],
+) -> dict[discr_type, list[pp.Grid] | list[pp.MortarGrid]]:
     """From a list of Ad discretizations (in an Operator), define a unique list
     of discretization-keyword combinations.
 
@@ -99,7 +104,6 @@ def uniquify_discretization_list(all_discr):
     discretization is already registered.
 
     """
-    discr_type = Union["pp.Discretization", "pp.AbstractInterfaceLaw"]
     unique_discr_grids: dict[discr_type, list[pp.Grid] | list[pp.MortarGrid]] = dict()
 
     # Mapping from discretization classes to the discretization.
