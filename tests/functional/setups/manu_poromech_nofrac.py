@@ -73,10 +73,8 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.verification_setups.verification_utils import (
-    VerificationDataSaving,
-    VerificationUtils,
-)
+from porepy.applications.building_blocks.verification_utils import VerificationUtils
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -156,6 +154,13 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
     """Method that returns the (integrated) poroelastic stress in the form of an Ad
     operator. Usually provided by the mixin class
     :class:`porepy.models.poromechanics.ConstitutiveLawsPoromechanics`.
+
+    """
+
+    relative_l2_error: Callable
+    """Method for computing the discrete relative L2-error. Normally provided by a
+    mixin instance of :class:`~porepy.applications.building_blocks.
+    verification_utils.VerificationUtils`.
 
     """
 
@@ -636,8 +641,8 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
 
     def set_fracture_network(self) -> None:
         """Set fracture network. Unit square with no fractures."""
-        domain = {"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0}
-        self.fracture_network = pp.FractureNetwork2d(None, None, domain)
+        domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
+        self.fracture_network = pp.FractureNetwork2d(domain=domain)
 
     def mesh_arguments(self) -> dict:
         """Set mesh arguments."""
@@ -648,17 +653,8 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
         """Set mixed-dimensional grid."""
         self.mdg = self.fracture_network.mesh(self.mesh_arguments())
         domain = self.fracture_network.domain
-        if isinstance(domain, np.ndarray):
-            assert domain.shape == (2, 2)
-            self.domain_bounds: dict[str, float] = {
-                "xmin": domain[0, 0],
-                "xmax": domain[1, 0],
-                "ymin": domain[0, 1],
-                "ymax": domain[1, 1],
-            }
-        else:
-            assert isinstance(domain, dict)
-            self.domain_bounds = domain
+        if domain is not None and domain.is_boxed:
+            self.domain = domain
 
 
 # -----> Balance equations
@@ -801,7 +797,7 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
 
 # -----> Mixer class
-class ManufacturedNonlinearPoromechanicsNoFrac2d(  # type: ignore[misc]
+class ManuPoroMechSetup(  # type: ignore[misc]
     UnitSquareTriangleGrid,
     ManuPoroMechEquations,
     ManuPoroMechSolutionStrategy,

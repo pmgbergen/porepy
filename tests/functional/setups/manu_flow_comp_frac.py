@@ -33,14 +33,12 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-from porepy.applications.verification_setups.manu_flow_incomp_frac import (
+from tests.functional.setups.manu_flow_incomp_frac import (
     ManuIncompSaveData,
     ManuIncompUtils,
     SingleEmbeddedVerticalFracture,
 )
-from porepy.applications.verification_setups.verification_utils import (
-    VerificationDataSaving,
-)
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -616,7 +614,7 @@ class ManuCompExactSolution:
 class ManuCompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility function to access the domain boundary sides."""
 
     mdg: pp.MixedDimensionalGrid
@@ -777,7 +775,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
 
 # -----> Mixer
-class ManufacturedCompressibleFlow2d(  # type: ignore[misc]
+class ManuCompFlowSetup(  # type: ignore[misc]
     SingleEmbeddedVerticalFracture,
     ManuCompBalanceEquation,
     ManuCompBoundaryConditions,

@@ -2,11 +2,11 @@
 
 """
 from __future__ import annotations
-import pytest
+
 import numpy as np
+import pytest
 
 import porepy as pp
-
 
 coord_1 = [
     [[np.array([1])], np.array([42])],

@@ -3,9 +3,10 @@
 Access: from test import test_utils.
 """
 
+import os
+
 import numpy as np
 import scipy.sparse as sps
-import os
 
 import porepy as pp
 

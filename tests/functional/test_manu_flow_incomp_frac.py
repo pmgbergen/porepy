@@ -7,8 +7,8 @@ from __future__ import annotations
 import numpy as np
 
 import porepy as pp
-from porepy.applications.verification_setups.manu_flow_incomp_frac import (
-    ManufacturedIncompressibleFlow2d,
+from tests.functional.setups.manu_flow_incomp_frac import (
+    ManuIncompFlowSetup,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
@@ -55,7 +55,7 @@ def test_pressure_and_fluxes():
         "mesh_arguments": mesh_arguments,
     }
 
-    setup = ManufacturedIncompressibleFlow2d(params)
+    setup = ManuIncompFlowSetup(params)
     pp.run_stationary_model(setup, params)
 
     desired_matrix_pressure_error = 0.003967565610557834
