@@ -22,10 +22,8 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-from porepy.applications.verification_setups.verification_utils import (
-    VerificationDataSaving,
-    VerificationUtils,
-)
+from porepy.applications.building_blocks.verification_utils import VerificationUtils
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -120,6 +118,13 @@ class ManuIncompDataSaving(VerificationDataSaving):
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    relative_l2_error: Callable
+    """Method for computing the discrete relative L2-error. Normally provided by a
+    mixin instance of :class:`~porepy.applications.building_blocks.
+    verification_utils.VerificationUtils`.
 
     """
 
@@ -622,18 +627,16 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
 
         """
         # Unit square domain
-        domain: dict[str, number] = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
-        # Point coordinates
-        point_coordinates = np.array(
-            [[0.50, 0.50, 0.00, 1.00, 0.00, 1.00], [0.25, 0.75, 0.25, 0.25, 0.75, 0.75]]
-        )
-
-        # Point connections
-        point_indices = np.array([[0, 2, 4], [1, 3, 5]])
+        fractures = [
+            pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
+            pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
+            pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
+        ]
 
         # Create fracture network
-        network_2d = pp.FractureNetwork2d(point_coordinates, point_indices, domain)
+        network_2d = pp.FractureNetwork2d(fractures, domain)
         self.fracture_network = network_2d
 
     def mesh_arguments(self) -> dict:
@@ -648,27 +651,15 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
             self.mesh_arguments(), constraints=np.array([1, 2])
         )
         domain = self.fracture_network.domain
-        # Convert domain to dictionary if it is given as a numpy array.
-        # TODO: We should rather unify the way we define the domain in the
-        # FractureNetwork2d class.
-        if isinstance(domain, np.ndarray):
-            assert domain.shape == (2, 2)
-            self.domain_bounds: dict[str, float] = {
-                "xmin": domain[0, 0],
-                "xmax": domain[1, 0],
-                "ymin": domain[0, 1],
-                "ymax": domain[1, 1],
-            }
-        else:
-            assert isinstance(domain, dict)
-            self.domain_bounds = domain
+        if domain is not None and domain.is_boxed:
+            self.domain: pp.Domain = domain
 
 
 # -----> Boundary conditions
 class ManuIncompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.bounding_box.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility function to access the domain boundary sides."""
 
     exact_sol: ManuIncompExactSolution
@@ -798,7 +789,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
 
 # -----> Mixer
-class ManufacturedIncompressibleFlow2d(  # type: ignore[misc]
+class ManuIncompFlowSetup(  # type: ignore[misc]
     SingleEmbeddedVerticalFracture,
     ManuIncompBalanceEquation,
     ManuIncompBoundaryConditions,

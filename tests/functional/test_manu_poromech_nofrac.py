@@ -46,29 +46,34 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.verification_setups.manu_poromech_nofrac import (
-    ManufacturedNonlinearPoromechanicsNoFrac2d,
+from tests.functional.setups.manu_poromech_nofrac import (
+    ManuPoroMechSaveData,
+    ManuPoroMechSetup,
 )
 
-# Run verification setup and retrieve results for three different times
-fluid = pp.FluidConstants({"compressibility": 0.02})
-solid = pp.SolidConstants({"biot_coefficient": 0.5})
-material_constants = {"fluid": fluid, "solid": solid}
-params = {
-    "mesh_arguments": {"mesh_size_frac": 0.1, "mesh_size_bound": 0.1},
-    "manufactured_solution": "nordbotten_2016",
-    "material_constants": material_constants,
-    "time_manager": pp.TimeManager([0, 0.2, 0.6, 1], 0.2, True),
-}
-setup = ManufacturedNonlinearPoromechanicsNoFrac2d(params)
-pp.run_time_dependent_model(setup, params)
+
+@pytest.fixture
+def results() -> list[ManuPoroMechSaveData]:
+    # Run verification setup and retrieve results for three different times
+    fluid = pp.FluidConstants({"compressibility": 0.02})
+    solid = pp.SolidConstants({"biot_coefficient": 0.5})
+    material_constants = {"fluid": fluid, "solid": solid}
+    params = {
+        "mesh_arguments": {"mesh_size_frac": 0.1, "mesh_size_bound": 0.1},
+        "manufactured_solution": "nordbotten_2016",
+        "material_constants": material_constants,
+        "time_manager": pp.TimeManager([0, 0.2, 0.6, 1], 0.2, True),
+    }
+    setup = ManuPoroMechSetup(params)
+    pp.run_time_dependent_model(setup, params)
+    return setup.results
+
 
 # Desired errors
 DesiredError = namedtuple(
     "DesiredError",
     "error_pressure, " "error_flux, " "error_displacement, " "error_force ",
 )
-
 desired_errors: list[DesiredError] = [
     # t = 0.2 [s]
     DesiredError(
@@ -95,12 +100,15 @@ desired_errors: list[DesiredError] = [
 
 
 # Now, we write the actual test
-@pytest.mark.parametrize(
-    "desired, actual",
-    [(desired, actual) for (desired, actual) in zip(desired_errors, setup.results)],
-)
-def test_manufactured_poromechanics_unfractured_2d(desired, actual):
-    """Check errors for pressure, flux, displacement, and force."""
+@pytest.mark.parametrize("time_index", [0, 1, 2])
+def test_manufactured_poromechanics_unfractured_2d(time_index: int, results):
+    """Check errors for pressure, flux, displacement, and force.
+
+    Nest test functions to avoid computing the solution multiple times.
+
+    """
+    actual = results[time_index]
+    desired = desired_errors[time_index]
 
     np.testing.assert_allclose(
         actual.error_pressure, desired.error_pressure, atol=1e-5, rtol=1e-3
