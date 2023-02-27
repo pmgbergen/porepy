@@ -76,7 +76,6 @@ class AdArray:
     """
 
     def __init__(self, val: np.ndarray, jac: sps.spmatrix) -> None:
-
         # Consistency checks, to limit the possibilities for errors when combining this
         # array with other objects.
         if val.ndim != 1:
@@ -185,24 +184,6 @@ class AdArray:
         """
         # Calculate self - other and negative the answer (note the minus sign in front).
         return -self.__sub__(other)
-
-    # TODO: EK removed these methods temporarily, since it is not clear if they are
-    # used, and what the natural interpretation of the methods would be. Revisit this at
-    # a later point.
-    #
-    # def __lt__(self, other): return self.val < _cast(other).val
-
-    # def __le__(self, other):
-    #    return self.val <= _cast(other).val
-
-    # def __gt__(self, other):
-    #    return self.val > _cast(other).val
-
-    # def __ge__(self, other):
-    #    return self.val >= _cast(other).val
-
-    # def __eq__(self, other):
-    #    return self.val == _cast(other).val
 
     def __mul__(self, other: AdType) -> AdArray:
         """Elementwise product (Hadamard or Schur product) between two objects.
@@ -579,21 +560,3 @@ class AdArray:
         A = sps.diags(a)
 
         return self.jac * A
-
-
-# EK: This can likely go together with the __le__ methods etc., but do not delete them
-# just yet.
-# def _cast(variables):
-#    if isinstance(variables, list):
-#        out_var = []
-#        for var in variables:
-#            if isinstance(var, AdArray):
-#                out_var.append(var)
-#            else:
-#                out_var.append(AdArray(var))
-#    else:
-#        if isinstance(variables, AdArray):
-#            out_var = variables
-#        else:
-#            out_var = AdArray(variables)
-#    return out_var
