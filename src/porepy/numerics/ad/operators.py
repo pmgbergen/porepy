@@ -483,7 +483,7 @@ class Operator:
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
         elif isinstance(results[0], pp.ad.AdArray):
             msg += (
-                "First argument is an AdArray of size {results[0].size()} "
+                f"First argument is an AdArray of size {results[0].val.size} "
                 f" and Jacobian of shape  {results[0].jac.shape} \n"
             )
         elif isinstance(results[0], np.ndarray):
@@ -493,7 +493,7 @@ class Operator:
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
         elif isinstance(results[1], pp.ad.AdArray):
             msg += (
-                "Second argument is an AdArray of size {results[1].size()} "
+                f"Second argument is an AdArray of size {results[1].val.size} "
                 f" and Jacobian of shape  {results[1].jac.shape} \n"
             )
         elif isinstance(results[1], np.ndarray):
