@@ -1287,7 +1287,7 @@ class FouriersLaw:
             self.bc_values_fourier(subdomains)
             + projection.mortar_to_primary_int @ self.interface_fourier_flux(interfaces)
         )
-        flux.set_name("Darcy_flux")
+        flux.set_name("Fourier_flux")
         return flux
 
     def interface_fourier_flux_equation(
