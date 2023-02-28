@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List
 
 import numpy as np
 
 import porepy as pp
 
 logger = logging.getLogger(__name__)
-GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 def grid_error(
@@ -117,7 +116,7 @@ def grid_error(
     return errors
 
 
-def interpolate(g: GridLike, fun: Callable):
+def interpolate(g: pp.GridLike, fun: Callable):
     """
     Interpolate a scalar or vector function on the cell centers of the grid.
 
@@ -149,7 +148,7 @@ def interpolate(g: GridLike, fun: Callable):
     return np.array([fun(pt) for pt in g.cell_centers.T]).T
 
 
-def norm_L2(g: GridLike, val: np.ndarray):
+def norm_L2(g: pp.GridLike, val: np.ndarray):
     """
     Compute the L2 norm of a scalar or vector field.
 
@@ -181,7 +180,9 @@ def norm_L2(g: GridLike, val: np.ndarray):
     return np.sqrt(np.sum([norm_sq(v) for v in val]))
 
 
-def error_L2(g: GridLike, val: np.ndarray, val_ex: np.ndarray, relative: bool = True):
+def error_L2(
+    g: pp.GridLike, val: np.ndarray, val_ex: np.ndarray, relative: bool = True
+):
     """
     Compute the L2 error of a scalar or vector field with respect to a reference
     field. It is possible to compute the relative error (default) or the

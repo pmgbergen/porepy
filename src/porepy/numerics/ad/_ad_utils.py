@@ -17,7 +17,8 @@ Classes:
 """
 from __future__ import annotations
 
-from typing import Optional, Union
+from abc import ABCMeta
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -83,7 +84,9 @@ def wrap_discretization(
         setattr(obj, key, op)
 
 
-def uniquify_discretization_list(all_discr):
+def uniquify_discretization_list(
+    all_discr: list[MergedOperator],
+) -> dict[pp.discretization_type, list[pp.GridLike]]:
     """From a list of Ad discretizations (in an Operator), define a unique list
     of discretization-keyword combinations.
 
@@ -99,12 +102,11 @@ def uniquify_discretization_list(all_discr):
     discretization is already registered.
 
     """
-    discr_type = Union["pp.Discretization", "pp.AbstractInterfaceLaw"]
-    unique_discr_grids: dict[discr_type, list[pp.Grid] | list[pp.MortarGrid]] = dict()
+    unique_discr_grids: dict[pp.discretization_type, list[pp.GridLike]] = dict()
 
     # Mapping from discretization classes to the discretization.
     # We needed this for some reason.
-    cls_obj_map = {}
+    cls_obj_map: dict[ABCMeta, pp.discretization_type] = {}
     # List of all combinations of discretizations and parameter keywords covered.
     cls_key_covered = []
     for discr in all_discr:
@@ -186,7 +188,7 @@ class MergedOperator(operators.Operator):
 
     def __init__(
         self,
-        discr: "pp.ad.Discretization",
+        discr: pp.discretization_type,
         key: str,
         mat_dict_key: str,
         mat_dict_grids,
@@ -196,11 +198,11 @@ class MergedOperator(operators.Operator):
         """Initiate a merged discretization.
 
         Parameters:
-            discr (dict): Mapping between subdomains, or interfaces, where the
+            discr: Mapping between subdomains, or interfaces, where the
                 discretization is applied, and the actual Discretization objects.
-            key (str): Keyword that identifies this discretization matrix, e.g.
+            key: Keyword that identifies this discretization matrix, e.g.
                 for a class with an attribute foo_matrix_key, the key will be foo.
-            mat_dict_key (str): Keyword used to access discretization matrices, if this
+            mat_dict_key: Keyword used to access discretization matrices, if this
                 is not the same as the keyword of the discretization. The only known
                 case where this is necessary is for Mpfa applied to Biot's equations.
             mat_dict_grids: EK, could this be a list of grid-likes?
@@ -224,6 +226,8 @@ class MergedOperator(operators.Operator):
         # Special field to access matrix dictionary for Biot
         self.mat_dict_key = mat_dict_key
         self.mat_dict_grids = mat_dict_grids
+
+        self.keyword: Optional[str] = None
 
     def __repr__(self) -> str:
         if len(self.interfaces) == 0:

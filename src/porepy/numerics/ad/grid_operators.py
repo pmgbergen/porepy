@@ -221,7 +221,7 @@ class MortarProjections(Operator):
         secondary_to_mortar_avg (pp.ad.SparseArray): Matrix of projections from the secondary
             grid to the mortar grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
-        sign_of_mortar_sides (pp.Ad.Matrix): Matrix representation that assigns signs
+        sign_of_mortar_sides (pp.ad.SparseArray): Matrix representation that assigns signs
             to two mortar sides. Needed to implement a jump operator in contact
             mechanics.
 
