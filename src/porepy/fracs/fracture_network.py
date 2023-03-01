@@ -13,16 +13,16 @@ from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.plane_fracture import PlaneFracture
 
 # Custom typings
-Fracture = Union[LineFracture, PlaneFracture]
-FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
+LineFractures = list[LineFracture]
+PlaneFractures = list[PlaneFracture]
 
 
 def create_fracture_network(
-    fractures: Optional[list[Fracture]] = None,
+    fractures: Optional[Union[LineFractures, PlaneFractures]] = None,
     domain: Optional[pp.Domain] = None,
     tol: float = 1e-8,
     run_checks: bool = False,
-) -> FractureNetwork:
+) -> pp.fracture_network:
     """Create a fracture network.
 
     Examples:
@@ -68,7 +68,7 @@ def create_fracture_network(
     """
 
     # Interpret empty `fractures` list as None
-    fracs: Optional[list[Fracture]]
+    fracs: Optional[Union[LineFractures, PlaneFractures]]
     if isinstance(fractures, list) and len(fractures) == 0:
         fracs = None
     else:
@@ -116,12 +116,12 @@ def create_fracture_network(
     # mypy complains fervently since fracs can be either 2d or 3d. Since we created a
     # robust dimensionality check above, it is safe to ignore the argument type
     if dim == 2:
-        fracture_network_2d = pp.FractureNetwork2d(
+        fracture_network_2d = FractureNetwork2d(
             fractures=fracs, domain=domain, tol=tol  # type: ignore[arg-type]
         )
         return fracture_network_2d
     else:
-        fracture_network_3d = pp.FractureNetwork3d(
+        fracture_network_3d = FractureNetwork3d(
             fractures=fracs,  # type: ignore[arg-type]
             domain=domain,
             tol=tol,
