@@ -32,7 +32,9 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
             pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
             pp.LineFracture(np.array([[0.3, 0.7], [0.3, 0.7]]) * ls),
         ]
-        self.fracture_network = pp.FractureNetwork2d(fractures[:num_fracs], domain)
+        self.fracture_network = pp.create_fracture_network(
+            fractures[:num_fracs], domain
+        )
 
     def mesh_arguments(self) -> dict:
         # Divide by length scale:
@@ -44,7 +46,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
             return super().set_md_grid()
 
         # Not implemented for 3d. Assert for safety and mypy.
-        assert isinstance(self.fracture_network, pp.FractureNetwork2d)
+        assert self.fracture_network.domain.dim == 2
 
         # Length scale:
         ls = 1 / self.units.m
@@ -95,7 +97,7 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         if num_fracs > 2:
             pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
         fractures = [pp.PlaneFracture(p) for p in pts]
-        self.fracture_network = pp.FractureNetwork3d(fractures, domain)
+        self.fracture_network = pp.create_fracture_network(fractures, domain)
 
     def mesh_arguments(self) -> dict:
         # Length scale:
