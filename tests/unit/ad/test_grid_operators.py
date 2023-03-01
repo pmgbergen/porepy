@@ -626,9 +626,9 @@ def test_ad_discretization_class():
 
 
 def _compare_matrices(m1, m2):
-    if isinstance(m1, pp.ad.Matrix):
+    if isinstance(m1, pp.ad.SparseArray):
         m1 = m1._mat
-    if isinstance(m2, pp.ad.Matrix):
+    if isinstance(m2, pp.ad.SparseArray):
         m2 = m2._mat
     if m1.shape != m2.shape:
         return False

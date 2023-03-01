@@ -28,7 +28,9 @@ class BalanceEquation:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
+    wrap_grid_attribute: Callable[
+        [Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray
+    ]
     """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -38,7 +40,7 @@ class BalanceEquation:
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Matrix]]
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -81,7 +83,7 @@ class BalanceEquation:
         dt_operator = pp.ad.time_derivatives.dt
         dt = pp.ad.Scalar(self.time_manager.dt)
         div = pp.ad.Divergence(subdomains, dim=dim)
-        return dt_operator(accumulation, dt) + div * surface_term - source
+        return dt_operator(accumulation, dt) + div @ surface_term - source
 
     def volume_integral(
         self,
@@ -119,12 +121,13 @@ class BalanceEquation:
         # volumes.
         if len(grids) == 0:
             # No need for a scaling here
-            volumes = cell_volumes
+            volumes: pp.ad.Operator = cell_volumes
         elif all(isinstance(g, pp.Grid) for g in grids):
             # For grids, we can use the specific volume method.
             # make mypy happy
             subdomains: list[pp.Grid] = [g for g in grids if isinstance(g, pp.Grid)]
-            volumes = cell_volumes * self.specific_volume(subdomains)
+            integrand = self.specific_volume(subdomains) * integrand
+            volumes = cell_volumes
         elif not all(isinstance(g, pp.MortarGrid) for g in grids):
             # We cannot deal with a combination of subdomains and interfaces.
             raise ValueError("Grids must be either all subdomains or all interfaces.")
@@ -142,16 +145,17 @@ class BalanceEquation:
 
         if dim == 1:
             # No need to do more for scalar problems
-            return volumes * integrand
+            return volumes @ integrand
         else:
             # For vector problems, we need to expand the integrand to a vector. Do this
             # by left and right multiplication with e_i and e_i.T
-            basis: list[pp.ad.Matrix] = self.basis(
+            basis: list[pp.ad.SparseArray] = self.basis(
                 grids, dim=dim  # type: ignore[call-arg]
             )
-            volumes_nd = sum([e * volumes * e.T for e in basis])
+            # Ignore mypy complaints about the summands not being a list of booleans.
+            volumes_nd = sum([e * volumes * e.T for e in basis])  # type: ignore[misc]
 
-            return volumes_nd * integrand
+            return volumes_nd @ integrand
 
 
 class VariableMixin:

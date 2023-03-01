@@ -21,6 +21,7 @@ import pytest
 from deepdiff import DeepDiff
 
 import porepy as pp
+from porepy.fracs.utils import pts_edges_to_linefractures
 
 # Globally store location of reference files
 folder_reference = (
@@ -442,8 +443,9 @@ def test_fracture_network_2d(setup):
     # Define network
     p = np.array([[0, 2, 1, 2, 1], [0, 0, 0, 1, 2]])
     e = np.array([[0, 2, 3], [1, 3, 4]])
-    domain = {"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3}
-    network_2d = pp.FractureNetwork2d(p, e, domain)
+    fractures = pts_edges_to_linefractures(p, e)
+    domain = pp.Domain({"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3})
+    network_2d = pp.FractureNetwork2d(fractures, domain)
 
     # Define data
     dummy_scalar = np.ones(network_2d.num_frac())
@@ -479,7 +481,7 @@ def test_fracture_network_3d(setup):
     network_3d = pp.FractureNetwork3d([f_1, f_2], domain=domain)
 
     # Define data
-    num_frac = len(network_3d._fractures)
+    num_frac = len(network_3d.fractures)
     dummy_scalar = [[1] for _ in range(num_frac)]
     dummy_vector = [[np.ones(3)] for _ in range(num_frac)]
     data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}

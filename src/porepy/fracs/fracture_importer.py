@@ -5,6 +5,7 @@ import gmsh
 import numpy as np
 
 import porepy as pp
+from porepy.fracs.utils import pts_edges_to_linefractures
 
 
 def network_3d_from_csv(
@@ -309,7 +310,8 @@ def network_2d_from_csv(
     if not np.all(np.diff(edges[:2], axis=0) != 0):
         raise ValueError
 
-    network = pp.FractureNetwork2d(pts, edges, domain, tol=tol)
+    fractures = pts_edges_to_linefractures(pts, edges)
+    network = pp.FractureNetwork2d(fractures, domain, tol=tol)
 
     if return_frac_id:
         edges_frac_id = np.delete(edges_frac_id, to_remove)

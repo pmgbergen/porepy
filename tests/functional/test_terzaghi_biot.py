@@ -1,7 +1,7 @@
 """
 Module containing functional tests for Terzaghi's consolidation problem.
 
-We consider two functional tests:
+We consider three functional tests:
 
     - The first test guarantees that the results obtained with the Biot class
       :class:`porepy.applications.classic_models.Biot` matches `exactly` the results
@@ -13,12 +13,16 @@ We consider two functional tests:
       degree of consolidation obtained from the MPFA/MPSA-FV solutions and the
       exact Terzaghi's solution.
 
+    - The last test checks if we obtain the same results for an unscaled and a scaled
+      setup. The scaled setup employs units of length in millimeters and units of
+      mass in grams.
+
 """
 
 import numpy as np
 
 import porepy as pp
-from porepy.applications.verification_setups.terzaghi_biot import (
+from porepy.applications.complete_setups.terzaghi_biot import (
     PseudoOneDimensionalColumn,
     TerzaghiDataSaving,
     TerzaghiPoromechanicsBoundaryConditions,
@@ -130,4 +134,40 @@ def test_pressure_and_consolidation_degree_errors():
     ]
     np.testing.assert_allclose(
         actual_error_consol, desired_error_consol, rtol=1e-3, atol=1e-5
+    )
+
+
+def test_scaled_vs_unscaled_systems():
+    """Checks that the same results are obtained for scaled and unscaled systems."""
+
+    # The unscaled problem
+    material_constants_unscaled = {
+        "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        "solid": pp.SolidConstants(terzaghi_solid_constants),
+    }
+    params_unscaled = {"material_constants": material_constants_unscaled}
+    unscaled = TerzaghiSetup(params=params_unscaled)
+    pp.run_time_dependent_model(model=unscaled, params=params_unscaled)
+
+    # The scaled problem
+    material_constants_scaled = {
+        "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+        "solid": pp.SolidConstants(terzaghi_solid_constants),
+    }
+    scaling = {"m": 0.001, "kg": 0.001}  # length in millimeters and mass in grams
+    units = pp.Units(**scaling)
+    params_scaled = {"material_constants": material_constants_scaled, "units": units}
+    scaled = TerzaghiSetup(params=params_scaled)
+    pp.run_time_dependent_model(model=scaled, params=params_scaled)
+
+    # Compare results
+    np.testing.assert_almost_equal(
+        unscaled.results[-1].error_pressure,
+        scaled.results[-1].error_pressure,
+        decimal=5,
+    )
+    np.testing.assert_almost_equal(
+        unscaled.results[-1].error_consolidation_degree,
+        unscaled.results[-1].error_consolidation_degree,
+        decimal=5,
     )

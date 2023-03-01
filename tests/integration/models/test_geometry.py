@@ -19,7 +19,7 @@ import porepy as pp
 from . import setup_utils
 
 geometry_list = [
-    setup_utils.RectangularDomainOrthogonalFractures2d,
+    setup_utils.RectangularDomainThreeFractures,
     setup_utils.OrthogonalFractures3d,
 ]
 
@@ -406,7 +406,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     # Left multiply with dim-vector defined on the interface. This should give a vector
     # of length dim*num_intf_cells.
     size = dim * sum([intf.num_cells for intf in interfaces])
-    dim_vec = pp.ad.Array(np.ones(size))
+    dim_vec = pp.ad.DenseArray(np.ones(size))
 
     # Left multiply with the normal operator; in essense this extracts the normal vector
     # (in the geometric sense) as a vector (in the algebraic sense).

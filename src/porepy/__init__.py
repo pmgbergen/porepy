@@ -62,6 +62,7 @@ from porepy.utils.interpolation_tables import (
 from porepy.utils import array_operations
 from porepy.numerics.linalg import matrix_operations
 
+# Geometry
 from porepy.geometry import (
     intersections,
     distances,
@@ -111,6 +112,7 @@ from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
 from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network import create_fracture_network
 
 # Wells
 from porepy.fracs.wells_3d import (
@@ -228,12 +230,6 @@ from porepy.models import (
     thermoporomechanics,
 )
 
-from porepy.models.contact_mechanics_model import ContactMechanics
-from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
-from porepy.models.thm_model import THM
-from porepy.models.incompressible_flow_model import IncompressibleFlow
-from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
-
 
 # Visualization
 from porepy.viz.exporter import Exporter
@@ -247,7 +243,6 @@ from porepy.utils import error
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
 from porepy.grids import coarsening, partition, refinement
-import porepy.utils.derived_discretizations
 from porepy.numerics import displacement_correlation
 from porepy.utils.default_domains import (
     CubeDomain,

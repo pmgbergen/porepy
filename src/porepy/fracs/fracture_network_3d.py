@@ -29,35 +29,21 @@ logger = logging.getLogger(__name__)
 
 
 class FractureNetwork3d(object):
-    """
-    Collection of Fractures with geometrical information. Facilitates
-    computation of intersections of the fracture. Also incorporates the
-    bounding box of the domain. To ensure that all fractures lie within the box,
+    """Representation of a set of plane fractures in a three-dimensional domain.
+
+    Collection of Fractures with geometrical information. Facilitates computation of
+    intersections of the fracture. Also incorporates the bounding box of the domain.
+    To ensure that all fractures lie within the box,
     call :meth:`impose_external_boundary()` _after_ all fractures have been specified.
 
-    Attributes:
-        _fractures (list of Fracture): All fractures forming the network.
-        intersections (list of Intersection): All known intersections in the
-            network.
-        has_checked_intersections (boolean): If True, the intersection finder
-            method has been run. Useful in meshing algorithms to avoid
-            recomputing known information.
-        tol (double): Geometric tolerance used in computations.
-        domain (pp.Domain): Domain specification. See
-            :class:`~porepy.geometry.domain.Domain`.
-        tags (dictionary): Tags used on Fractures and subdomain boundaries.
-        mesh_size_min (double): Mesh size parameter, minimum mesh size to be
-            sent to gmsh. Set by insert_auxiliary_points().
-        mesh_size_frac (double): Mesh size parameter. Ideal mesh size, fed to
-            gmsh. Set by insert_auxiliary_points().
-        mesh_size_bound (double): Mesh size parameter. Boundary mesh size, fed to
-            gmsh. Set by insert_auxiliary_points().
-        auxiliary_points_added (boolean): Mesh size parameter. If True,
-            extra points have been added to Fracture geometry to facilitate
-            mesh size tuning.
-        decomposition (dictionary): Splitting of network, accounting for
-            fracture intersections etc. Necessary pre-processing before
-            meshing. Added by split_intersections().
+    Parameters:
+        fractures (list of Fracture, optional): Fractures that make up the network.
+            Defaults to None, which will create a domain empty of fractures.
+        domain (pp.Domain): Domain specification.
+        tol (double, optional): Tolerance used in geometric computations. Defaults
+            to 1e-8.
+        run_checks (boolean, optional): Run consistency checks during the network
+            processing. Can be considered a limited debug mode. Defaults to False.
 
     """
 
@@ -68,31 +54,16 @@ class FractureNetwork3d(object):
         tol: float = 1e-8,
         run_checks: bool = False,
     ) -> None:
-        """Initialize fracture network.
 
-        Generate network from specified fractures. The fractures will have their
-        index set (and existing values overridden), according to the ordering in the
-        input list.
-
-        Initialization sets most fields (see attributes) to None.
-
-        Parameters:
-            fractures (list of Fracture, optional): Fractures that make up the network.
-                Defaults to None, which will create a domain empty of fractures.
-            domain (pp.Domain): Domain specification.
-            tol (double, optional): Tolerance used in geometric computations. Defaults
-                to 1e-8.
-            run_checks (boolean, optional): Run consistency checks during the network
-                processing. Can be considered a limited debug mode. Defaults to False.
-
-        """
-        self._fractures = []
+        # Initialize fractures as an empy list
+        self.fractures = []
+        """All fractures forming the network."""
 
         if fractures is not None:
             for f in fractures:
-                self._fractures.append(f)
+                self.fractures.append(f)
 
-        for i, f in enumerate(self._fractures):
+        for i, f in enumerate(self.fractures):
             f.set_index(i)
 
         # Store intersection information as a dictionary. Keep track of
@@ -108,26 +79,63 @@ class FractureNetwork3d(object):
             "bound_first": np.array([], dtype=bool),
             "bound_second": np.array([], dtype=bool),
         }
+        """All known intersections in the network."""
 
         self.has_checked_intersections = False
+        """If True, the intersection finder method has been run. Useful in meshing
+        algorithms to avoid recomputing known information.
+
+        """
+
         self.tol = tol
+        """Geometric tolerance used in computations."""
+
         self.run_checks = run_checks
+        """Wheter to run consistency checks during the network processing."""
 
         # Initialize with an empty domain unless given explicitly. Can be modified
         # later by a call to 'impose_external_boundary()'
         self.domain: pp.Domain | None = domain
+        """Domain specification. See class:`~porepy.geometry.domain.Domain`."""
 
         # Initialize mesh size parameters as empty
         self.mesh_size_min = None
+        """Mesh size parameter, minimum mesh size to be sent to gmsh. Set by
+        insert_auxiliary_points().
+
+        """
+
         self.mesh_size_frac = None
+        """Mesh size parameter. Ideal mesh size, fed to gmsh. Set by
+        insert_auxiliary_points().
+
+        """
+
         self.mesh_size_bound = None
+        """Mesh size parameter. Boundary mesh size, fed to gmsh. Set by
+        insert_auxiliary_points().
+
+        """
+
         # Assign an empty tag dictionary
         self.tags: dict[str, list[bool]] = {}
+        """Tags used on Fractures and subdomain boundaries."""
 
         # No auxiliary points have been added
         self.auxiliary_points_added = False
+        """Mesh size parameter. If True, extra points have been added to PlaneFracture
+        geometry to facilitate mesh size tuning.
+
+        """
 
         self.bounding_box_imposed = False
+        """Whether a bounding box have been imposed to the set of fractures."""
+
+        self.decomposition: dict
+        """Splitting of network, accounting for fracture intersections etc. Necessary
+        pre-processing before meshing. Added by :meth:`~split_intersections()`.
+
+        """
 
     def add(self, f):
         """Add a fracture to the network.
@@ -139,13 +147,13 @@ class FractureNetwork3d(object):
             f (Fracture): Fracture to be added.
 
         """
-        ind = np.array([f.index for f in self._fractures])
+        ind = np.array([f.index for f in self.fractures])
 
         if ind.size > 0:
             f.set_index(np.max(ind) + 1)
         else:
             f.set_index(0)
-        self._fractures.append(f)
+        self.fractures.append(f)
 
     def copy(self):
         """Create deep copy of the network.
@@ -158,7 +166,7 @@ class FractureNetwork3d(object):
             pp.FractureNetwork3d.
 
         """
-        fracs = [f.copy() for f in self._fractures]
+        fracs = [f.copy() for f in self.fractures]
 
         domain = self.domain
         if domain is not None:
@@ -182,10 +190,10 @@ class FractureNetwork3d(object):
         """
         num = 0
         if not self.bounding_box_imposed:
-            return len(self._fractures)
+            return len(self.fractures)
 
         # The boundary is set when the bounding box is imposed.
-        for fi in range(len(self._fractures)):
+        for fi in range(len(self.fractures)):
             if not self.tags["boundary"][fi]:
                 num += 1
 
@@ -542,7 +550,7 @@ class FractureNetwork3d(object):
         physical_surfaces: dict[int, GmshInterfaceTags] = dict()
         polygon_tags: dict[int, GmshInterfaceTags] = dict()
 
-        for fi, _ in enumerate(self._fractures):
+        for fi, _ in enumerate(self.fractures):
             # Translate from numerical tags to the GmshInterfaceTags system.
             if has_boundary and self.tags["boundary"][fi]:
                 physical_surfaces[fi] = GmshInterfaceTags.DOMAIN_BOUNDARY_SURFACE
@@ -587,7 +595,7 @@ class FractureNetwork3d(object):
         return gmsh_repr
 
     def __getitem__(self, position):
-        return self._fractures[position]
+        return self.fractures[position]
 
     def intersections_of_fracture(
         self, frac: Union[int, PlaneFracture]
@@ -653,12 +661,12 @@ class FractureNetwork3d(object):
         # This will reset the field self._fractures.pts, and thus revoke
         # modifications due to boundaries etc.
         if use_orig_points:
-            for f in self._fractures:
+            for f in self.fractures:
                 f.pts = f.orig_pts
 
         # Intersections are found using a method in the comp_geom module, which requires
         # the fractures to be represented as a list of polygons.
-        polys = [f.pts for f in self._fractures]
+        polys = [f.pts for f in self.fractures]
 
         # Obtain intersection points, indexes of intersection points for each fracture
         # information on whether the fracture is on the boundary, and pairs of fractures
@@ -701,8 +709,8 @@ class FractureNetwork3d(object):
 
             # Add the intersection to the internal storage
             self._add_intersection(
-                self._fractures[ind_0],
-                self._fractures[ind_1],
+                self.fractures[ind_0],
+                self.fractures[ind_1],
                 isect[:, point_ind[ind_1][common_ind[0]]],
                 isect[:, point_ind[ind_1][common_ind[1]]],
                 bound_first=on_bound_0,
@@ -750,7 +758,7 @@ class FractureNetwork3d(object):
         }
         polygons = []
         line_in_frac = []
-        for fi, _ in enumerate(self._fractures):
+        for fi, _ in enumerate(self.fractures):
             ei = []
             ei_bound = []
             # Find the edges of this fracture, add to either internal or
@@ -788,7 +796,7 @@ class FractureNetwork3d(object):
                 it.
         """
         f2e = []
-        for fi in range(len(self._fractures)):
+        for fi in range(len(self.fractures)):
             f_l = []
             for ei, e in enumerate(edges_2_frac):
                 if fi in e:
@@ -831,7 +839,7 @@ class FractureNetwork3d(object):
 
         # First loop over all fractures. All edges are assumed to be new; we
         # will deal with coinciding points later.
-        for fi, frac in enumerate(self._fractures):
+        for fi, frac in enumerate(self.fractures):
             num_p = all_p.shape[1]
             num_p_loc = frac.pts.shape[1]
             all_p = np.hstack((all_p, frac.pts))
@@ -998,7 +1006,7 @@ class FractureNetwork3d(object):
         # intersections there (direct search in 3D may also work, but this was
         # a simple option). When intersections are found, the global lists of
         # points and edges are updated.
-        for fi in range(len(self._fractures)):
+        for fi in range(len(self.fractures)):
 
             logger.debug("Remove intersections from fracture %i", fi)
 
@@ -1209,7 +1217,7 @@ class FractureNetwork3d(object):
         This has turned out to be a common symptom of trouble.
 
         """
-        for fi, _ in enumerate(self._fractures):
+        for fi, _ in enumerate(self.fractures):
 
             # Identify the edges associated with this fracture
             edges_loc_ind = []
@@ -1256,16 +1264,17 @@ class FractureNetwork3d(object):
         return p_2d, edges_2d, p_loc_c, rot
 
     def __repr__(self) -> str:
-        s = "Fracture set with " + str(len(self._fractures)) + " planes\n"
-        if "boundary" in self.tags:
-            bnd = "boundary"
-            s += f"{sum(self.tags[bnd])} of the fractures are domain boundaries"
-        else:
-            s += "No boundary information is given"
+        s = (
+            f"Three-dimensional fracture network with "
+            f"{str(len(self.fractures))} plane fractures.\n"
+        )
+        if self.domain is not None:
+            s += f"The domain is a {(str(self.domain)).lower()}"
+
         return s
 
     def _reindex_fractures(self):
-        for fi, f in enumerate(self._fractures):
+        for fi, f in enumerate(self.fractures):
             f.index = fi
 
     def bounding_box(self):
@@ -1281,7 +1290,7 @@ class FractureNetwork3d(object):
         min_coord = np.ones(3) * float("inf")
         max_coord = -np.ones(3) * float("inf")
 
-        for f in self._fractures:
+        for f in self.fractures:
             min_coord = np.minimum(np.min(f.pts, axis=1), min_coord)
             max_coord = np.maximum(np.max(f.pts, axis=1), max_coord)
 
@@ -1349,7 +1358,7 @@ class FractureNetwork3d(object):
             to this method.
 
         """
-        if domain is None and not self._fractures:
+        if domain is None and not self.fractures:
             # Cannot automatically calculate external boundary for non-fractured grids.
             raise ValueError(
                 "A domain must be supplied to constrain non-fractured media."
@@ -1363,7 +1372,7 @@ class FractureNetwork3d(object):
             overlap = 0.15
             cmin = np.ones((3, 1)) * float("inf")
             cmax = -np.ones((3, 1)) * float("inf")
-            for f in self._fractures:
+            for f in self.fractures:
                 cmin = np.min(np.hstack((cmin, f.pts)), axis=1).reshape((-1, 1))
                 cmax = np.max(np.hstack((cmax, f.pts)), axis=1).reshape((-1, 1))
             cmin = cmin[:, 0]
@@ -1388,13 +1397,13 @@ class FractureNetwork3d(object):
             self.domain = pp.Domain(box)
 
         # Constrain the fractures to lie within the bounding polyhedron
-        polys = [f.pts for f in self._fractures]
+        polys = [f.pts for f in self.fractures]
 
         constrained_polys, inds = pp.constrain_geometry.polygons_by_polyhedron(
             polys, self.domain.polytope
         )
         # Delete fractures that are not member of any constrained fracture
-        old_frac_ind = np.arange(len(self._fractures))
+        old_frac_ind = np.arange(len(self.fractures))
         delete_frac = np.setdiff1d(old_frac_ind, inds)
         # Identify fractures that have been split
         if inds.size > 0:
@@ -1409,7 +1418,7 @@ class FractureNetwork3d(object):
         # Update the fractures with the new data format
         for poly, ind in zip(constrained_polys, inds):
             if ind not in split_frac:
-                self._fractures[ind].pts = poly
+                self.fractures[ind].pts = poly
 
         # Special handling of fractures that are split in two
         for fi in split_frac:
@@ -1433,7 +1442,7 @@ class FractureNetwork3d(object):
         current_ind_map = 0
         delete_from_ind_map = np.array([], dtype=int)
         # Loop over all fractures
-        for fi, f in enumerate(self._fractures):
+        for fi, f in enumerate(self.fractures):
             # No need to check for fractures that will be deleted anyhow.
             if fi in delete_frac:
                 continue
@@ -1762,16 +1771,16 @@ class FractureNetwork3d(object):
         # There may be some uncovered cases here, with a fracture barely
         # touching the box from the outside, but we leave that for now.
         for i in np.unique(delete_frac)[::-1]:
-            del self._fractures[i]
+            del self.fractures[i]
 
         ind_map = np.delete(ind_map, delete_from_ind_map)
 
         # Final sanity check: All fractures should have at least three
         # points at the end of the manipulations
-        for f in self._fractures:
+        for f in self.fractures:
             assert f.pts.shape[1] >= 3
 
-        boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
+        boundary_tags = self.tags.get("boundary", [False] * len(self.fractures))
         if keep_box:
             for pnt in self.domain.polytope:
                 self.add(PlaneFracture(pnt))
@@ -1870,7 +1879,7 @@ class FractureNetwork3d(object):
         """
         # Obtain current tags on fractures
         boundary_polygons = np.where(
-            self.tags.get("boundary", [False] * len(self._fractures))
+            self.tags.get("boundary", [False] * len(self.fractures))
         )[0]
 
         # ... on the points...
@@ -2073,7 +2082,7 @@ class FractureNetwork3d(object):
         # Dictionary that for each fracture maps the index of all other fractures.
         intersecting_fracs: dict[list[int]] = {}
         # Loop over all fractures
-        for fi, f in enumerate(self._fractures):
+        for fi, f in enumerate(self.fractures):
 
             # Do not insert auxiliary points on domain boundaries
             if "boundary" in self.tags.keys() and self.tags["boundary"][fi]:
@@ -2163,10 +2172,10 @@ class FractureNetwork3d(object):
 
         # Precompute rolling of fracture points - this saves a bit of time.
         rolled_fracture_points = {
-            f.index: np.roll(f.pts, -1, axis=1) for f in self._fractures
+            f.index: np.roll(f.pts, -1, axis=1) for f in self.fractures
         }
 
-        for fi, f in enumerate(self._fractures):
+        for fi, f in enumerate(self.fractures):
 
             # Do not insert auxiliary points on domain boundaries
             if "boundary" in self.tags.keys() and self.tags["boundary"][fi]:
@@ -2176,7 +2185,7 @@ class FractureNetwork3d(object):
             # the main one.
             # First the indices
             other_fractures = []
-            for of in self._fractures:
+            for of in self.fractures:
                 if not (of.index in intersecting_fracs[fi] or of.index == f.index):
                     other_fractures.append(of)
 
@@ -2463,7 +2472,7 @@ class FractureNetwork3d(object):
         # Data structure for cells in meshio format.
         meshio_cells = []
         # we operate fracture by fracture
-        for fid, frac in enumerate(self._fractures):
+        for fid, frac in enumerate(self.fractures):
             # In old meshio, polygonal cells are distinguished based on the
             # number of vertexes.
             # save the points of the fracture
@@ -2484,7 +2493,7 @@ class FractureNetwork3d(object):
         data.update(
             {
                 "fracture_number": [
-                    [fracture_offset + i] for i in range(len(self._fractures))
+                    [fracture_offset + i] for i in range(len(self.fractures))
                 ]
             }
         )
@@ -2520,7 +2529,7 @@ class FractureNetwork3d(object):
                 csv_writer.writerow([domain.bounding_box[o] for o in order])
 
             # write all the fractures
-            for f in self._fractures:
+            for f in self.fractures:
                 csv_writer.writerow(f.pts.ravel(order="F"))
 
     def to_fab(self, file_name):
@@ -2540,8 +2549,8 @@ class FractureNetwork3d(object):
 
         with open(file_name, "w") as f:
             # write the first part of the file, some information are fake
-            num_frac = len(self._fractures)
-            num_nodes = np.sum([frac.pts.shape[1] for frac in self._fractures])
+            num_frac = len(self.fractures)
+            num_nodes = np.sum([frac.pts.shape[1] for frac in self.fractures])
             f.write(
                 "BEGIN FORMAT\n\tFormat = Ascii\n\tXAxis = East\n"
                 + "\tScale = 100.0\n\tNo_Fractures = "
@@ -2555,7 +2564,7 @@ class FractureNetwork3d(object):
 
             # start to write the fractures
             f.write("BEGIN FRACTURE\n")
-            for frac_pos, frac in enumerate(self._fractures):
+            for frac_pos, frac in enumerate(self.fractures):
                 f.write(
                     "\t" + str(frac_pos) + " " + str(frac.pts.shape[1]) + " 1\n\t\t"
                 )
@@ -2588,7 +2597,7 @@ class FractureNetwork3d(object):
         """
         isect = self.intersections_of_fracture(frac_num)
 
-        frac = self._fractures[frac_num]
+        frac = self.fractures[frac_num]
         cp = frac.center.reshape((-1, 1))
 
         rot = pp.map_geometry.project_plane_matrix(frac.pts)
