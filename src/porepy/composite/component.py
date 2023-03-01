@@ -5,6 +5,21 @@ Components are models for chemical species inside a mixture.
 They are either genuine components (with relevant fractional variables) or
 pseudo-components, which act as parameters in compounds.
 
+The hierarchy is as follows:
+
+1. :class:`PseudoComponent`:
+   A representation of a species involving some physical constants
+2. :class:`Component`:
+   Additionally to above, this class represents a variable quantity in the equilibrium
+   problem. It can appear in multiple phases.
+   It also has a thermodynamic property, the ideal specific enthalpy, which needs to be
+   implemented for each component based on some experimental data.
+3. :class:`Compound`:
+   Additionally to being a variable quantity, this class has :class:`PseudoComponent`
+   with related solute fractions functioning as parameters for thermodynamic
+   properties. The solute fractions are **not** variables of the equilibrium problem.
+   They might nevertheless be transportable by a coupled flow problem f.e.
+
 """
 
 from __future__ import annotations
@@ -16,8 +31,9 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.operator_functions import NumericType
 
-from ._composite_utils import VARIABLE_SYMBOLS, CompositionalSingleton
+from ._composite_utils import COMPOSITIONAL_VARIABLE_SYMBOLS, CompositionalSingleton
 
 
 class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
@@ -147,20 +163,19 @@ class Component(PseudoComponent):
 
         # creating the overall molar fraction variable
         self._fraction: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.fraction_name, subdomains=ad_system.mdg.subdomains()
+            f"{COMPOSITIONAL_VARIABLE_SYMBOLS['component_fraction']}_{self.name}",
+            subdomains=ad_system.mdg.subdomains(),
         )
-
-    @property
-    def fraction_name(self) -> str:
-        """Name of the feed fraction variable,
-        given by the general symbol and :meth:`name`."""
-        return f"{VARIABLE_SYMBOLS['component_fraction']}_{self.name}"
 
     @property
     def fraction(self) -> pp.ad.MixedDimensionalVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [%] fractional
+
+        The name of this variable is composed of the general symbol and the component
+        class' :meth:`name`
+        (see :data:`~porepy.composite._composite_utils.VARIABLE_SYMBOLS`).
 
         Returns:
             Feed fraction of this component,
@@ -169,6 +184,40 @@ class Component(PseudoComponent):
 
         """
         return self._fraction
+
+    @property
+    @abc.abstractmethod
+    def acentric_factor(self) -> float:
+        """This is a constant value, hence to be a static function.
+
+        | Math. Dimension:        scalar
+        | Phys. Dimension:        [-]
+
+        Returns:
+            Acentric factor.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
+        """Abstract method for implementing the component-specific ideal part of the
+        specific molar enthalpy.
+
+        This function depends on experimental data and heuristic laws.
+
+        | Math. Dimension:        scalar
+        | Phys. Dimension:        [-]
+
+        Parameters:
+            p: The pressure of the mixture.
+            T: The temperature of the mixture.
+
+        Returns:
+            Ideal specific enthalpy for given pressure and temperature.
+
+        """
+        pass
 
 
 class Compound(Component):  # TODO fix molality to make it an ad.Function call
@@ -188,7 +237,7 @@ class Compound(Component):  # TODO fix molality to make it an ad.Function call
         the solvent and solutes are not considered as genuine components which
         can transition into various phases,
         but rather as parameters in the flash problem.
-        Only the compound as a whole splits into various phases and fractions in phases
+        Only the compound as a whole splits into various phases. Fractions in phases
         are associated with the compound.
 
     This class provides variables representing fractions of solutes.
@@ -278,7 +327,7 @@ class Compound(Component):  # TODO fix molality to make it an ad.Function call
             composed of the general symbol and the solute name.
 
         """
-        return f"{VARIABLE_SYMBOLS['solute_fraction']}_{solute.name}"
+        return f"{COMPOSITIONAL_VARIABLE_SYMBOLS['solute_fraction']}_{solute.name}"
 
     def solution_fraction_of(self, pseudo_component: PseudoComponent) -> pp.ad.Operator:
         """

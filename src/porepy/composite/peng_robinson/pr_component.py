@@ -23,20 +23,6 @@ class PR_Component(Component):
     """
 
     @property
-    @abc.abstractmethod
-    def acentric_factor(self) -> float:
-        """This is a constant value, hence to be a static function.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-]
-
-        Returns:
-            Acentric factor.
-
-        """
-        pass
-
-    @property
     def critical_cohesion(self) -> float:
         """The critical cohesion parameter
 
@@ -116,26 +102,6 @@ class PR_Component(Component):
         return (
             B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
-
-    @abc.abstractmethod
-    def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
-        """Abstract method for implementing the component-specific ideal part of the
-        specific molar enthalpy.
-
-        This function depends on experimental data and heuristic laws.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-]
-
-        Parameters:
-            p: The pressure of the mixture.
-            T: The temperature of the mixture.
-
-        Returns:
-            Acentric factor.
-
-        """
-        pass
 
 
 class PR_Compound(PR_Component, Compound):

@@ -11,6 +11,7 @@ import pathlib
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+
 # from matplotlib.colors import from_levels_and_colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -931,7 +932,8 @@ img = axis.pcolormesh(
     T_mesh,
     p_mesh_f,
     cond_start_mesh,
-    cmap="Greys",  norm=norm,
+    cmap="Greys",
+    norm=norm,
     # vmin=vmin,
     # vmax=vmax,
     shading="nearest",
@@ -954,7 +956,9 @@ cb = fig.colorbar(
     orientation="vertical",
     # ticks=ticks,
 )
-cb.set_label(f"Max.: {'{:.4e}'.format(vmax)}\nMean: {'{:.4e}'.format(np.mean(cond_start_mesh))}")
+cb.set_label(
+    f"Max.: {'{:.4e}'.format(vmax)}\nMean: {'{:.4e}'.format(np.mean(cond_start_mesh))}"
+)
 
 vmin = cond_end_mesh.min()
 vmax = cond_end_mesh.max()
@@ -965,7 +969,8 @@ img = axis.pcolormesh(
     T_mesh,
     p_mesh_f,
     cond_end_mesh,
-    cmap="Greys",  norm=norm,
+    cmap="Greys",
+    norm=norm,
     # vmin=vmin,
     # vmax=vmax,
     shading="nearest",
@@ -988,7 +993,9 @@ cb = fig.colorbar(
     orientation="vertical",
     # ticks=ticks,
 )
-cb.set_label(f"Max.: {'{:.4e}'.format(vmax)}\nMean: {'{:.4e}'.format(np.mean(cond_end_mesh))}")
+cb.set_label(
+    f"Max.: {'{:.4e}'.format(vmax)}\nMean: {'{:.4e}'.format(np.mean(cond_end_mesh))}"
+)
 
 vmin = num_iter_mesh.min()
 vmax = num_iter_mesh.max()

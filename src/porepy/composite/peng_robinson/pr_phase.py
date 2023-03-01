@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import porepy as pp
 
+from .._composite_utils import _safe_sum
 from ..phase import Phase
 from .pr_component import PR_Component
 from .pr_eos import PR_EoS
@@ -17,6 +18,15 @@ class PR_Phase(Phase):
 
     For further information on thermodynamic properties and how they are computed,
     see respective EoS class.
+
+    Important:
+        For reasons of efficiency, the computation of thermodynamic properties
+        was outsourced to :meth:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.compute`.
+
+        This is due to the solution of the cubic EoS being expensive.
+
+        Meaning, before assembling any equation involving the thermodynamic properties
+        herein, above method should be called to update respective values.
 
     """
 
@@ -51,10 +61,11 @@ class PR_Phase(Phase):
 
     def fugacity_of(
         self,
-        p: pp.ad.MixedDimensionalVariable,
-        T: pp.ad.MixedDimensionalVariable,
         component: PR_Component,
-    ) -> pp.ad.Operator:
+        p,
+        T,
+        *X,
+    ):
         """See :class:`~porepy.composite.peng_robinson.pr_eos.PR_EoS`.
 
         Since for efficiency reasons roots are ought to be computed once before
@@ -68,15 +79,15 @@ class PR_Phase(Phase):
             # wrapping the fugacity coefficient in a component specific
             # AD operator function
             @pp.ad.admethod
-            def phi_i(p_, T_):
+            def phi_i(p_, T_, *X):
                 return self.eos.phi[component]
 
-            return phi_i(p, T)
+            return phi_i(p, T, *X)
         else:
-            return pp.ad.Scalar(0.0)
+            return 0.0
 
     @pp.ad.admethod
-    def density(self, p, T):
+    def density(self, p, T, *X):
         """See :class:`~porepy.composite.peng_robinson.pr_eos.PR_EoS`.
 
         Since for efficiency reasons roots are ought to be computed once before
@@ -92,7 +103,7 @@ class PR_Phase(Phase):
         """Returns the sum of fraction weighted ideal component enthalpies (normalized)
         added to the departer enthalpy of the EoS.
 
-        The departer enthalpy is wrapped into an AD operator function using
+        The departer enthalpy is obtained from
         :data:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.h_dep`.
 
         Parameters:
@@ -100,13 +111,24 @@ class PR_Phase(Phase):
                 ideal part, to be able to evaluate it w.r.t. specific values.
 
         """
+        if X:
+            X_ = X
+        else:
+            X_ = [
+                self.fraction_of_component(comp).evaluate(self.ad_system)
+                for comp in self
+            ]
+            X_sum = _safe_sum(X_)
+            X_ = [x / X_sum for x in X_]
 
-        h_ideal = sum([x * comp.h_ideal(p, T) for x, comp in zip(X, self)]) / sum(X)
+        h_ideal = _safe_sum([x * comp.h_ideal(p, T) for x, comp in zip(X_, self)])
 
         return h_ideal + self.eos.h_dep
 
-    def dynamic_viscosity(self, p, T):  # TODO
-        return pp.ad.Scalar(1.0)
+    @pp.ad.admethod
+    def dynamic_viscosity(self, p, T, *X):  # TODO
+        return 1.0
 
-    def thermal_conductivity(self, p, T):  # TODO
-        return pp.ad.Scalar(10.0)
+    @pp.ad.admethod
+    def thermal_conductivity(self, p, T, *X):  # TODO
+        return 1.0

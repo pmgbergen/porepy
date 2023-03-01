@@ -1,8 +1,4 @@
-"""This module contains the private base class for all phases.
-
-It is not imported by default into the composite subpackage,
-since the user is not supposed to be able to create phase classes,
-only the composition class.
+"""This module contains the (private) base class for all phases.
 
 The abstract phase class contains relevant fractional variables, as well as abstract
 methods for thermodynamic properties used in the unified formulation.
@@ -18,7 +14,11 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._composite_utils import VARIABLE_SYMBOLS, CompositionalSingleton
+from ._composite_utils import (
+    COMPOSITIONAL_VARIABLE_SYMBOLS,
+    CompositionalSingleton,
+    _safe_sum,
+)
 from .component import Component
 
 
@@ -32,7 +32,15 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     Phases have physical properties,
     dependent on the thermodynamic state and the composition.
     The composition variables (molar fractions of present components)
-    can be accessed by internal reference.
+    can be accessed by internal reference (see overload of ``__iter__``).
+
+    Important:
+        Due to the user being able to access component fractions in this phase by
+        reference, the signature of all thermodynamic properties contains **optional**
+        arguments ``*X`` representing the phase composition.
+
+        I.e., when implementing custom Phases using a specific EoS, **always** include
+        computations for the case when specific fractions are passed as ``*X``.
 
     The Phase is a Singleton per AD system,
     using the **given** name as a unique identifier.
@@ -43,8 +51,6 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     Note:
         The variables representing saturation and molar fraction of a phase are created
         and their value is set to zero.
-        The :class:`~porepy.composite.composition.Composition` and its flash methods are
-        supposed to be used to calculate valid values for a given thermodynamic state.
 
     Parameters:
         ad_system: AD system in which this phase is present cell-wise in each subdomain.
@@ -69,16 +75,18 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         self._components: list[Component] = []
 
         self._composition: dict[Component, pp.ad.MixedDimensionalVariable] = dict()
-        """A dictionary containing the composition variable (value) for each
+        """A dictionary containing the composition variable for each
         added/modelled component in this phase."""
 
         self._s: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.saturation_name, subdomains=ad_system.mdg.subdomains()
+            f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_saturation']}_{self.name}",
+            subdomains=ad_system.mdg.subdomains(),
         )
         """Saturation Variable in AD form."""
 
         self._fraction: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            self.fraction_name, subdomains=ad_system.mdg.subdomains()
+            f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_fraction']}_{self.name}",
+            subdomains=ad_system.mdg.subdomains(),
         )
         """Molar fraction variable in AD form."""
 
@@ -86,13 +94,13 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         nc = ad_system.mdg.num_subdomain_cells()
         ad_system.set_variable_values(
             np.zeros(nc),
-            variables=[self.saturation_name],
+            variables=[self.saturation.name],
             to_state=True,
             to_iterate=True,
         )
         ad_system.set_variable_values(
             np.zeros(nc),
-            variables=[self.fraction_name],
+            variables=[self.fraction.name],
             to_state=True,
             to_iterate=True,
         )
@@ -124,16 +132,14 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return len(self._composition)
 
     @property
-    def saturation_name(self) -> str:
-        """Name for the saturation variable,
-        given by the general symbol and :meth:`name`."""
-        return f"{VARIABLE_SYMBOLS['phase_saturation']}_{self.name}"
-
-    @property
     def saturation(self) -> pp.ad.MixedDimensionalVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
+
+        The name of this variable is composed of the general symbol and the name
+        assigned to this phase at instantiation
+        (see :data:`~porepy.composite._composite_utils.VARIABLE_SYMBOLS`).
 
         Returns:
             Saturation (volumetric fraction), a secondary variable on the whole domain.
@@ -143,16 +149,14 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return self._s
 
     @property
-    def fraction_name(self) -> str:
-        """Name for the molar fraction variable,
-        given by the general symbol and :meth:`name`."""
-        return f"{VARIABLE_SYMBOLS['phase_fraction']}_{self.name}"
-
-    @property
     def fraction(self) -> pp.ad.MixedDimensionalVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
+
+        The name of this variable is composed of the general symbol and the name
+        assigned to this phase at instantiation
+        (see :data:`~porepy.composite._composite_utils.VARIABLE_SYMBOLS`).
 
         Returns:
             Molar phase fraction, a primary variable on the whole domain.
@@ -160,18 +164,6 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
         """
         return self._fraction
-
-    def fraction_of_component_name(self, component: Component) -> str:
-        """
-        Parameters:
-            component: Component for which the respective name is requested.
-
-        Returns:
-            Name of the respective variable, given by the general symbol, the
-            component name and the phase name.
-
-        """
-        return f"{VARIABLE_SYMBOLS['phase_composition']}_{component.name}_{self.name}"
 
     def fraction_of_component(
         self, component: Component
@@ -232,9 +224,13 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         """
         if component in self._composition:
             # normalization by division through fraction sum
-            return self.fraction_of_component(component) / sum(
+            norm_frac = self.fraction_of_component(component) / _safe_sum(
                 [self.fraction_of_component(comp) for comp in self]
             )
+            norm_frac.set_name(
+                f"{self.fraction_of_component(component).name}_normalized"
+            )
+            return norm_frac
         else:
             return pp.ad.Scalar(0.0)
 
@@ -244,7 +240,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
         The user does not need to set the components directly in a phase.
         This is done during
-        :meth:`~porepy.composite.composition.Composition.initialize`.
+        :meth:`~porepy.composite.composition.Mixture.initialize`.
 
         By setting components, variables representing the phase composition
         are created or overwritten with zero.
@@ -282,16 +278,18 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
                 added_components.append(comp.name)
 
             # create compositional variables for the component in this phase
-            fraction_name = self.fraction_of_component_name(comp)
+            fname = f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_composition']}"
+            fname += f"_{comp.name}_{self.name}"
             comp_fraction = self.ad_system.create_variables(
-                fraction_name, subdomains=self.ad_system.mdg.subdomains()
+                fname,
+                subdomains=self.ad_system.mdg.subdomains(),
             )
 
             # set fractional values to zero
             nc = self.ad_system.mdg.num_subdomain_cells()
             self.ad_system.set_variable_values(
                 np.zeros(nc),
-                variables=[fraction_name],
+                variables=[comp_fraction.name],
                 to_state=True,
                 to_iterate=True,
             )
@@ -303,33 +301,53 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     ### Physical properties ------------------------------------------------------------
 
     def mass_density(
-        self, p: pp.ad.MixedDimensionalVariable, T: pp.ad.MixedDimensionalVariable
-    ) -> pp.ad.Operator:
-        """Uses the  molar mass in combination with the molar masses and fractions
-        of components in this phase, to compute the mass density of the phase.
+        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
+    ) -> NumericType | pp.ad.Operator:
+        """Uses the mass of this phase in combination with the molar masses and
+        fractions of present components, to compute the mass density of the phase.
 
         | Math. Dimension:        scalar
         | Phys. Dimension:        [kg / REV]
 
+        Note:
+            A call to :meth:`density` is performed using the input.
+            If ``*X`` is not provided, the normalized phase compositions are evaluated
+            and passed as *X to :meth:`density`.
+
         Parameters:
             p: Pressure.
             T: Temperature.
+            *X: (Normalized) Component fractions in this phase.
 
         Returns:
-            An AD operator representing the mass density of this phase.
+            The mass density of this phase in AD compatible form.
 
         """
-        weight = 0.0
         # add the mass-weighted fraction for each present substance.
         # if no components are present, the weight is zero!
-        for component in self._composition:
-            weight += component.molar_mass() * self._composition[component]
-
-        # Multiply the mass weight with the molar density and return the operator
-        return weight * self.density(p, T)
+        weight = 0.0
+        if X:
+            assert len(X) == len(
+                self._components
+            ), f"Mismatch fractions: Need {len(self._components)} got {len(X)}"
+            for i, component in enumerate(self._components):
+                weight += component.molar_mass() * X[i]
+            return weight * self.density(p, T, *X)
+        else:
+            X_ = [
+                self.fraction_of_component(comp).evaluate(self.ad_system)
+                for comp in self
+            ]
+            normalization = _safe_sum(X_)
+            X_ = tuple([x / normalization for x in X_])
+            for component in self._composition:
+                weight += component.molar_mass() * X_[component]
+            return weight * self.density(p, T, *X_)
 
     @abc.abstractmethod
-    def density(self, p: NumericType, T: NumericType) -> NumericType:
+    def density(
+        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
+    ) -> NumericType:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / REV]
@@ -337,6 +355,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         Parameters:
             p: Pressure.
             T: Temperature.
+            *X: (Normalized) Component fractions in this phase.
 
         Returns:
             The molar density of this phase in AD compatible form.
@@ -346,7 +365,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     @abc.abstractmethod
     def specific_enthalpy(
-        self, p: NumericType, T: NumericType, *X: NumericType
+        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
     ) -> NumericType:
         """
         | Math. Dimension:        scalar
@@ -364,7 +383,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         pass
 
     @abc.abstractmethod
-    def dynamic_viscosity(self, p: NumericType, T: NumericType) -> NumericType:
+    def dynamic_viscosity(
+        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
+    ) -> NumericType:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / m / s]
@@ -372,6 +393,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         Parameters:
             p: Pressure.
             T: Temperature.
+            *X: (Normalized) Component fractions in this phase.
 
         Returns:
             The dynamic viscosity of this phase in AD compatible form.
@@ -380,7 +402,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         pass
 
     @abc.abstractmethod
-    def thermal_conductivity(self, p: NumericType, T: NumericType) -> NumericType:
+    def thermal_conductivity(
+        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
+    ) -> NumericType:
         """
         | Math. Dimension:    2nd-order tensor
         | Phys. Dimension:    [W / m / K]
@@ -388,6 +412,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         Parameters:
             p: Pressure.
             T: Temperature.
+            *X: (Normalized) Component fractions in this phase.
 
         Returns:
             The thermal conductivity of this phase in AD compatible form.
@@ -398,18 +423,20 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     @abc.abstractmethod
     def fugacity_of(
         self,
+        component: Component,
         p: NumericType,
         T: NumericType,
-        component: Component,
+        *X: tuple[NumericType],
     ) -> NumericType:
         """
         | Math. Dimension:    scalar
         | Phys. Dimension:    [Pa]
 
         Parameters:
+            component: A component present in this mixture.
             p: Pressure.
             T: Temperature.
-            component: A component present in this mixture
+            *X: (Normalized) Component fractions in this phase.
 
         Returns:
             The fugacity of ``component`` in this phase in AD compatible form.

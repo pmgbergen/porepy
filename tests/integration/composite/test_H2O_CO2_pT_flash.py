@@ -613,34 +613,33 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         phi_co2_L_result = np.zeros(nc)
         phi_co2_G_result = np.zeros(nc)
 
-        composition = pp.composite.PR_Composition(nc=nc_test)
-        adsys = composition.ad_system
+        MIX = pp.composite.PengRobinsonMixture(nc=nc_test)
+        ads = MIX.AD.system
 
-        phase_L = pp.composite.PR_Phase(adsys, False, name="L")
-        phase_G = pp.composite.PR_Phase(adsys, True, name="G")
+        phase_L = pp.composite.PR_Phase(ads, False, name="L")
+        phase_G = pp.composite.PR_Phase(ads, True, name="G")
 
-        h2o = pp.composite.H2O(adsys)
-        co2 = pp.composite.CO2(adsys)
+        h2o = pp.composite.H2O(ads)
+        co2 = pp.composite.CO2(ads)
 
-        composition.add_components([h2o, co2])
-        composition.add_phases([phase_L, phase_G])
+        MIX.add([h2o, co2], [phase_L, phase_G])
 
         # setting overall fractions
-        adsys.set_variable_values(
-            np.ones(nc_test) * self.h2o_fraction, [h2o.fraction_name], True, True, False
+        ads.set_variable_values(
+            np.ones(nc_test) * self.h2o_fraction, [h2o.fraction.name], True, True, False
         )
-        adsys.set_variable_values(
-            np.ones(nc_test) * self.co2_fraction, [co2.fraction_name], True, True, False
+        ads.set_variable_values(
+            np.ones(nc_test) * self.co2_fraction, [co2.fraction.name], True, True, False
         )
+
+        MIX.AD.set_up()
 
         # setting zero enthalpy, which does not matter for pT flash
-        adsys.set_variable_values(
-            np.zeros(nc_test), [composition.h_name], True, True, False
+        ads.set_variable_values(
+            np.zeros(nc_test), [MIX.AD.h.name], True, True, False
         )
 
-        composition.initialize()
-
-        flash = pp.composite.Flash(composition, auxiliary_npipm=False)
+        flash = pp.composite.Flash(MIX, auxiliary_npipm=False)
         flash.use_armijo = True
         flash.armijo_parameters["rho"] = 0.99
         flash.armijo_parameters["j_max"] = 50
@@ -652,26 +651,27 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         flash_erro_msg = dict()
 
         if vectorize:
-            adsys.set_variable_values(p, [composition.p_name], True, True, False)
-            adsys.set_variable_values(T, [composition.T_name], True, True, False)
+            ads.set_variable_values(p, [MIX.AD.p.name], True, True, False)
+            ads.set_variable_values(T, [MIX.AD.T.name], True, True, False)
 
             with self.subTest("Vectorized Flash convergence sub test."):
                 success = flash.flash(
-                    "isothermal", "npipm", "rachford_rice", False, False
+                    "pT", "npipm", "rachford_rice", False, False
                 )
                 self.assertTrue(success, msg=f"Vectorized Flash did not succeed.")
 
             # compute values with obtained fractions
-            composition.compute_roots()
+            flash.post_process_fractions(False)
+            MIX.precompute(apply_smoother=False)
 
             # extract values for l2 error check
-            y_result = phase_G.fraction.evaluate(adsys).val
+            y_result = phase_G.fraction.evaluate(ads).val
             Z_L_result = phase_L.eos.Z.val
             Z_G_result = phase_G.eos.Z.val
-            x_h2o_L_result = phase_L.fraction_of_component(h2o).evaluate(adsys).val
-            x_h2o_G_result = phase_G.fraction_of_component(h2o).evaluate(adsys).val
-            x_co2_L_result = phase_L.fraction_of_component(co2).evaluate(adsys).val
-            x_co2_G_result = phase_G.fraction_of_component(co2).evaluate(adsys).val
+            x_h2o_L_result = phase_L.fraction_of_component(h2o).evaluate(ads).val
+            x_h2o_G_result = phase_G.fraction_of_component(h2o).evaluate(ads).val
+            x_co2_L_result = phase_L.fraction_of_component(co2).evaluate(ads).val
+            x_co2_G_result = phase_G.fraction_of_component(co2).evaluate(ads).val
             phi_h2o_L_result = phase_L.eos.phi[h2o].val
             phi_h2o_G_result = phase_G.eos.phi[h2o].val
             phi_co2_L_result = phase_L.eos.phi[co2].val
@@ -682,12 +682,12 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                 # with self.subTest(f"Flash test row ID: {str(i)}:"):
                 p_ = np.array([p[i]])
                 T_ = np.array([T[i]])
-                adsys.set_variable_values(p_, [composition.p_name], True, True, False)
-                adsys.set_variable_values(T_, [composition.T_name], True, True, False)
+                ads.set_variable_values(p_, [MIX.AD.p.name], True, True, False)
+                ads.set_variable_values(T_, [MIX.AD.T.name], True, True, False)
 
                 try:
                     success = flash.flash(
-                        "isothermal", "npipm", "rachford_rice", False, False
+                        "pT", "npipm", "rachford_rice", False, False
                     )
                 except Exception as err:
                     flash_erro_msg.update({i: str(err)})
@@ -697,26 +697,27 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
                     success_result[i] = success
 
                 # compute values with obtained fractions
-                composition.compute_roots()
+                flash.post_process_fractions(False)
+                MIX.precompute(apply_smoother=False)
 
-                y_result[i] = phase_G.fraction.evaluate(adsys).val
+                y_result[i] = phase_G.fraction.evaluate(ads).val
 
                 Z_L_result[i] = phase_L.eos.Z.val
                 x_h2o_L_result[i] = (
-                    phase_L.fraction_of_component(h2o).evaluate(adsys).val
+                    phase_L.fraction_of_component(h2o).evaluate(ads).val
                 )
                 x_co2_L_result[i] = (
-                    phase_L.fraction_of_component(co2).evaluate(adsys).val
+                    phase_L.fraction_of_component(co2).evaluate(ads).val
                 )
                 phi_h2o_L_result[i] = phase_L.eos.phi[h2o].val
                 phi_co2_L_result[i] = phase_L.eos.phi[co2].val
 
                 Z_G_result[i] = phase_G.eos.Z.val
                 x_h2o_G_result[i] = (
-                    phase_G.fraction_of_component(h2o).evaluate(adsys).val
+                    phase_G.fraction_of_component(h2o).evaluate(ads).val
                 )
                 x_co2_G_result[i] = (
-                    phase_G.fraction_of_component(co2).evaluate(adsys).val
+                    phase_G.fraction_of_component(co2).evaluate(ads).val
                 )
                 phi_h2o_G_result[i] = phase_G.eos.phi[h2o].val
                 phi_co2_G_result[i] = phase_G.eos.phi[co2].val

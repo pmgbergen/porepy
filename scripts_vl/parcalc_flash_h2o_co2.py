@@ -1,18 +1,19 @@
 """Experimental script for parallelyzed processing of thermo data"""
 import csv
-import pathlib
-import multiprocessing
 import itertools
-import psutil
+import multiprocessing
+import pathlib
 import time
+from ctypes import c_double, c_uint8
+from multiprocessing import Array, Pool, RawArray
 
 import numpy as np
+import psutil
+
 import porepy as pp
 
-from multiprocessing import Array, Pool, RawArray
-from ctypes import c_double, c_uint8
-
 NUM_PHYS_CPU_CORS = psutil.cpu_count(logical=False)
+
 
 def path():
     return str(pathlib.Path(__file__).parent.resolve())
@@ -26,7 +27,7 @@ def get_thermodata(files: list[tuple[str, str]]):
     # (p, T) -> (mode, file name, row id)
     pT_id: dict[tuple[float, float], tuple[str, str, int]] = dict()
 
-    print("Reading data ...", end='', flush=True)
+    print("Reading data ...", end="", flush=True)
     for filename, mode in files:
         with open(f"{path()}/{filename}") as file:
             file_reader = csv.reader(file, delimiter=",")
@@ -49,59 +50,65 @@ def get_thermodata(files: list[tuple[str, str]]):
     print("\rReading data ... DONE", flush=True)
     return p_points, T_points, pT_id
 
+
 def get_MIX_AD_FLASH(num_cells):
 
     h2o_frac = 0.99
     co2_frac = 0.01
 
-    MIX = pp.composite.PR_Composition(nc=num_cells)
-    AD = MIX.ad_system
+    MIX = pp.composite.PengRobinsonMixture(nc=num_cells)
+    ADS = MIX.AD.system
 
     # components
-    H2O = pp.composite.H2O(AD)
-    CO2 = pp.composite.CO2(AD)
+    H2O = pp.composite.H2O(ADS)
+    CO2 = pp.composite.CO2(ADS)
     # phases
-    LIQ = pp.composite.PR_Phase(AD, False, name="L")
-    GAS = pp.composite.PR_Phase(AD, True, name="G")
+    LIQ = pp.composite.PR_Phase(ADS, False, name="L")
+    GAS = pp.composite.PR_Phase(ADS, True, name="G")
 
-    MIX.add_components([H2O, CO2])
-    MIX.add_phases([LIQ, GAS])
+    MIX.add([H2O, CO2], [LIQ, GAS])
 
     # setting feed fractions
-    AD.set_variable_values(
+    ADS.set_variable_values(
         h2o_frac * np.ones(num_cells),
-        variables=[H2O.fraction_name],
+        variables=[H2O.fraction.name],
         to_iterate=True,
         to_state=True,
     )
-    AD.set_variable_values(
+    ADS.set_variable_values(
         co2_frac * np.ones(num_cells),
-        variables=[CO2.fraction_name],
+        variables=[CO2.fraction.name],
         to_iterate=True,
         to_state=True,
-    )
-    # Setting zero enthalpy to get the AD framework going (h is irrelevant here)
-    AD.set_variable_values(
-        0 * np.ones(num_cells), variables=[MIX.h_name], to_iterate=True, to_state=True
     )
 
-    MIX.initialize()
+    MIX.AD.set_up()
+    # Setting zero enthalpy to get the AD framework going (h is irrelevant here)
+    ADS.set_variable_values(
+        0 * np.ones(num_cells),
+        variables=[MIX.AD.h.name],
+        to_iterate=True,
+        to_state=True,
+    )
 
     # instantiating Flasher, without auxiliary variables V and W
     FLASH = pp.composite.Flash(MIX, auxiliary_npipm=False)
     FLASH.use_armijo = True
     FLASH.armijo_parameters["rho"] = 0.99
     FLASH.armijo_parameters["j_max"] = 55  # cap the number of Armijo iterations
-    FLASH.armijo_parameters["return_max"] = True  # return max Armijo iter, even if not min
+    FLASH.armijo_parameters[
+        "return_max"
+    ] = True  # return max Armijo iter, even if not min
     FLASH.flash_tolerance = 1e-8
     FLASH.max_iter_flash = 140
 
-    return MIX, AD, FLASH
+    return MIX, ADS, FLASH
+
 
 def write_identifier_file(filename, pT_id):
 
     # identifiers
-    print("Writing identifier file ...", end='', flush=True)
+    print("Writing identifier file ...", end="", flush=True)
     with open(f"{path()}/{filename}", "w", newline="") as csvfile:
         id_writer = csv.writer(csvfile, delimiter=",")
         # header labeling column values
@@ -115,12 +122,25 @@ def write_identifier_file(filename, pT_id):
             id_writer.writerow(row)
     print("\rWriting identifier file ... DONE", flush=True)
 
+
 def write_results(filename, pT_points, results):
 
     p_points, T_points = pT_points
-    success, num_iter, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G, cond_start, cond_end = results
+    (
+        success,
+        num_iter,
+        y,
+        x_h2o_L,
+        x_co2_L,
+        x_h2o_G,
+        x_co2_G,
+        Z_L,
+        Z_G,
+        cond_start,
+        cond_end,
+    ) = results
 
-    print("Writing results ...", end='', flush=True)
+    print("Writing results ...", end="", flush=True)
     with open(f"{path()}/{filename}", "w", newline="") as csvfile:
         result_writer = csv.writer(csvfile, delimiter=",")
         # header labeling column values
@@ -161,48 +181,64 @@ def write_results(filename, pT_points, results):
             result_writer.writerow(row)
         print("\rWriting results ... DONE", flush=True)
 
+
 def par_flash(args):
 
     # storage, ipT = args
 
     i, p, T = args
     global arrs_loc
-    success, num_iter, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G, cond_start, cond_end = arrs_loc
+    (
+        success,
+        num_iter,
+        y,
+        x_h2o_L,
+        x_co2_L,
+        x_h2o_G,
+        x_co2_G,
+        Z_L,
+        Z_G,
+        cond_start,
+        cond_end,
+    ) = arrs_loc
 
-    MIX, AD, FLASH = get_MIX_AD_FLASH(num_cells=1)
+    MIX, ADS, FLASH = get_MIX_AD_FLASH(num_cells=1)
     LIQ, GAS = [phase for phase in MIX.phases]
     H2O, CO2 = [comp for comp in MIX.components]
 
     p_vec = np.array([p], dtype=np.double) * 1e-6
     T_vec = np.array([T])
 
-    AD.set_variable_values(
-        p_vec, variables=[MIX.p_name], to_iterate=True, to_state=True,
+    ADS.set_variable_values(
+        p_vec,
+        variables=[MIX.AD.p.name],
+        to_iterate=True,
+        to_state=True,
     )
-    AD.set_variable_values(
-        T_vec, variables=[MIX.T_name], to_iterate=True, to_state=True
+    ADS.set_variable_values(
+        T_vec, variables=[MIX.AD.T.name], to_iterate=True, to_state=True
     )
     print(f"Performing flash {i} ...", flush=True)
     try:
         success_ = FLASH.flash(
-            flash_type="isothermal",
+            flash_type="pT",
             method="npipm",
             initial_guess="rachford_rice",
             copy_to_state=False,  # don't overwrite the state, store as iterate
             do_logging=False,
         )
     except Exception:  # if Flasher fails, flag as failed
-            success_ = False
+        success_ = False
     print(f"Flash {i} done.", flush=True)
 
     if success_:
         try:
-            MIX.compute_roots()
+            MIX.precompute(apply_smoother=False)
         except Exception:
             # if the flash failed, the root computation can fail too
             # store nans as compressibility factors
-            Z_L[i] = 0.
-            Z_G[i] = 0.
+            Z_L[i] = 0.0
+            Z_G[i] = 0.0
         else:
             # if successful, store values
             Z_L[i] = LIQ.eos.Z.val[0]
@@ -210,30 +246,31 @@ def par_flash(args):
 
         # extract and store results from last iterate
         success[i] = 1
-        y[i] = GAS.fraction.evaluate(AD).val[0]
-        x_h2o_L[i] = LIQ.fraction_of_component(H2O).evaluate(AD).val[0]
-        x_co2_L[i] = LIQ.fraction_of_component(CO2).evaluate(AD).val[0]
-        x_h2o_G[i] = GAS.fraction_of_component(H2O).evaluate(AD).val[0]
-        x_co2_G[i] = GAS.fraction_of_component(CO2).evaluate(AD).val[0]
+        y[i] = GAS.fraction.evaluate(ADS).val[0]
+        x_h2o_L[i] = LIQ.fraction_of_component(H2O).evaluate(ADS).val[0]
+        x_co2_L[i] = LIQ.fraction_of_component(CO2).evaluate(ADS).val[0]
+        x_h2o_G[i] = GAS.fraction_of_component(H2O).evaluate(ADS).val[0]
+        x_co2_G[i] = GAS.fraction_of_component(CO2).evaluate(ADS).val[0]
 
-        num_iter[i] = FLASH.flash_history[-1]['iterations']
+        num_iter[i] = FLASH.flash_history[-1]["iterations"]
         cond_start[i] = FLASH.cond_start
         cond_end[i] = FLASH.cond_end
     else:
-        Z_L[i] = 0.
-        Z_G[i] = 0.
+        Z_L[i] = 0.0
+        Z_G[i] = 0.0
         success[i] = 0
-        y[i] = 0.
-        x_h2o_L[i] = 0.
-        x_co2_L[i] = 0.
-        x_h2o_G[i] = 0.
-        x_co2_G[i] = 0.
+        y[i] = 0.0
+        x_h2o_L[i] = 0.0
+        x_co2_L[i] = 0.0
+        x_h2o_G[i] = 0.0
+        x_co2_G[i] = 0.0
 
         num_iter[i] = 0
-        cond_start[i] = 0.
-        cond_end[i] = 0.
+        cond_start[i] = 0.0
+        cond_end[i] = 0.0
 
     return f"Flash {i} finished."
+
 
 def local_storage(storage: list[Array]):
     global arrs_loc
@@ -241,7 +278,8 @@ def local_storage(storage: list[Array]):
     arrs_loc = [np.frombuffer(vec.get_obj(), dtype=c_uint8) for vec in storage[:2]]
     arrs_loc += [np.frombuffer(vec.get_obj(), dtype=c_double) for vec in storage[2:]]
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # thermo data files
     files = [
         ("data/pr_data_thermo_isothermal_G_easy.csv", "G"),
@@ -281,7 +319,19 @@ if __name__ == '__main__':
     # iterable input for parallelism
     # i indicates which position in the global result array the respective pT point takes
     npT = [(i, p, T) for i, p, T in zip(np.arange(nc), p_points, T_points)]
-    storage = [success, num_iter, y, x_h2o_L, x_co2_L, x_h2o_G, x_co2_G, Z_L, Z_G, cond_start, cond_end]
+    storage = [
+        success,
+        num_iter,
+        y,
+        x_h2o_L,
+        x_co2_L,
+        x_h2o_G,
+        x_co2_G,
+        Z_L,
+        Z_G,
+        cond_start,
+        cond_end,
+    ]
     # par_args = itertools.product([storage], npT)
 
     print("Performing parallel flash ... ", flush=True)
@@ -291,7 +341,7 @@ if __name__ == '__main__':
         processes=NUM_PHYS_CPU_CORS, initargs=(storage,), initializer=local_storage
     ) as pool:
 
-        chunksize  = NUM_PHYS_CPU_CORS
+        chunksize = NUM_PHYS_CPU_CORS
         # chunksize=int(np.floor(nc / NUM_PHYS_CPU_CORS))
         pool.imap_unordered(par_flash, npT, chunksize=chunksize)
 

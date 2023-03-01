@@ -1,13 +1,6 @@
-"""This module contains a composition class for the Peng-Robinson equation of state.
+"""This module contains a mixture class for the Peng-Robinson equation of state.
 
-As of now, it supports a liquid and a gas phase, and several modelled components.
-
-The formulation is thermodynamically consistent. The PR composition creates and assigns
-thermodynamic properties of phases, based on the roots of the cubic polynomial and
-added components.
-
-For the equilibrium equations, formulae for fugacity values for each component in each
-phase are implemented.
+It must be used in combination with respective component and phase classes.
 
 This framework is highly non-linear and active research code.
 
@@ -18,28 +11,28 @@ References:
 """
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
-import scipy.sparse as sps
 
-from ..composition import Composition
+from ..mixture import Mixture
 from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
+from .pr_phase import PR_Phase
 
-__all__ = ["PR_Composition"]
+__all__ = ["PengRobinsonMixture"]
 
 
-class PR_Composition(Composition):
-    """A composition modelled using the Peng-Robinson equation of state.
+class PengRobinsonMixture(Mixture):
+    """A mixture modelled using the original Peng-Robinson equation of state.
 
-    This composition class is in principle applicable to any cubic EoS,
+    This mixture class is in principle applicable to any cubic EoS,
     where the roots of the cubic polynomial must be computed before the flash system
     is linearized.
 
     """
 
-    def add_components(self, components: list[PR_Component]) -> None:
+    def add(self, components: list[PR_Component], phases: list[PR_Phase]) -> None:
         """This child class method checks additionally if BIPs are defined for
         components to be added and components already added.
 
@@ -48,7 +41,7 @@ class PR_Composition(Composition):
         :data:`~porepy.composite.peng_robinson.pr_bip.PR_BIP_MAP`.
 
         Parameters:
-            components: Peng-Robinson component(s) for this composition.
+            components: Peng-Robinson component(s) for this mixture.
 
         Raises:
             NotImplementedError: If a BIP is not available for any combination of
@@ -83,38 +76,16 @@ class PR_Composition(Composition):
                 f"BIPs not available for following component-pairs:\n\t{missing_bips}"
             )
         # if no missing bips, we proceed adding the components using the parent method.
-        super().add_components(components)
-
-    def linearize_subsystem(
-        self,
-        flash_type: Literal["isenthalpic", "isothermal"],
-        other_vars: Optional[list[str]] = None,
-        other_eqns: Optional[list[str]] = None,
-        state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray]:
-        """Before the system is linearized by a super call to the parent method,
-        the PR mixture computes the EoS Roots in each phase for (iterative) updates,
-        including the smoothing procedure by default.
-
-        Note:
-            This is for performance reasons, since the roots can be evaluated only
-            once and used for all thermodynamic properties.
-            If they are computed during each call to every property, this becomes
-            very inefficient.
-
-        """
-
-        # compute roots and thermodynamic properties ONCE, since they depend on
-        # fractions, pressure and temperature.
-        self.compute_roots(state=state, apply_smoother=True)
-        return super().linearize_subsystem(flash_type, other_vars, other_eqns, state)
+        super().add(components, phases)
 
     ### root computation ---------------------------------------------------------------
 
-    def compute_roots(
+    def precompute(
         self,
+        *args,
         state: Optional[np.ndarray] = None,
-        apply_smoother: bool = False,
+        apply_smoother: bool = True,
+        **kwargs,
     ) -> None:
         """Invokes the computation of the compressibility factor for each present phase
         (see :meth:`~porepy.composite.peng_robinson.pr_eos.PR_EoS.compute`).
@@ -129,7 +100,7 @@ class PR_Composition(Composition):
 
                 An optional (global) state vector for the AD system, containing the
                 thermodynamic state of the system.
-            apply_smoother: ``default=False``
+            apply_smoother: ``default=True``
 
                 If True, a smoothing procedure is applied in the three-root-region,
                 where the intermediate root approaches one of the other roots.
@@ -140,14 +111,13 @@ class PR_Composition(Composition):
 
         """
         # evaluate variables in AD form to get the derivatives
-        pressure = self.p.evaluate(self.ad_system, state=state)
-        temperature = self.T.evaluate(self.ad_system, state=state)
+        ads = self.AD.system
+        pressure = self.AD.p.evaluate(ads, state=state)
+        temperature = self.AD.T.evaluate(ads, state=state)
 
         for phase in self.phases:
             X = [
-                phase.normalized_fraction_of_component(comp).evaluate(
-                    self.ad_system, state=state
-                )
+                phase.normalized_fraction_of_component(comp).evaluate(ads, state=state)
                 for comp in self.components
             ]
             phase.eos.compute(pressure, temperature, *X, apply_smoother=apply_smoother)

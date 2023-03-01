@@ -13,15 +13,15 @@ References:
 
 __all__ = []
 
-from . import pr_bip, pr_composition, pr_eos, pr_model_components, pr_utils
+from . import pr_bip, pr_eos, pr_mixture, pr_model_components, pr_utils
 from .pr_bip import *
-from .pr_composition import *
 from .pr_eos import *
+from .pr_mixture import *
 from .pr_model_components import *
 from .pr_phase import PR_Phase
 from .pr_utils import *
 
-__all__.extend(pr_composition.__all__)
+__all__.extend(pr_mixture.__all__)
 __all__.extend(pr_bip.__all__)
 __all__.extend(pr_eos.__all__)
 __all__.extend(pr_model_components.__all__)
