@@ -5,12 +5,14 @@ import gmsh
 import numpy as np
 
 import porepy as pp
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.utils import pts_edges_to_linefractures
 
 
 def network_3d_from_csv(
     file_name: str, has_domain: bool = True, tol: float = 1e-4, **kwargs
-) -> pp.FractureNetwork3d:
+) -> FractureNetwork3d:
     """
     Create the fracture network from a set of 3d fractures stored in a csv file and
     domain. In the csv file, we assume the following structure
@@ -85,9 +87,13 @@ def network_3d_from_csv(
 
     # Create the network
     if has_domain:
-        return pp.FractureNetwork3d(frac_list, tol=tol, domain=domain)
+        fn = pp.create_fracture_network(frac_list, domain, tol=tol)
+        assert isinstance(fn, FractureNetwork3d)  # needed to please mypy
+        return fn
     else:
-        return pp.FractureNetwork3d(frac_list, tol=tol)
+        fn = pp.create_fracture_network(frac_list, tol=tol)
+        assert isinstance(fn, FractureNetwork3d)  # needed to please mypy
+        return fn
 
 
 def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
@@ -131,15 +137,16 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
 
         # Read the domain first
         if has_domain:
-            domain = np.asarray(next(spam_reader), dtype=np.float)
-            domain = {
-                "xmin": domain[0],
-                "xmax": domain[3],
-                "ymin": domain[1],
-                "ymax": domain[4],
-                "zmin": domain[2],
-                "zmax": domain[5],
+            bbox = np.asarray(next(spam_reader), dtype=np.float)
+            bbox = {
+                "xmin": bbox[0],
+                "xmax": bbox[3],
+                "ymin": bbox[1],
+                "ymax": bbox[4],
+                "zmin": bbox[2],
+                "zmax": bbox[5],
             }
+            domain = pp.Domain(bbox)
 
         for row in spam_reader:
             # If the line starts with a '#', we consider this a comment
@@ -169,9 +176,9 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
             )
     # Create the network
     if has_domain:
-        return pp.FractureNetwork3d(frac_list, tol=tol, domain=domain)
+        return pp.create_fracture_network(frac_list, domain, tol=tol)
     else:
-        return pp.FractureNetwork3d(frac_list, tol=tol)
+        return pp.create_fracture_network(frac_list, tol=tol)
 
 
 def network_2d_from_csv(
@@ -236,18 +243,20 @@ def network_2d_from_csv(
     if data.size == 0:
         # we still consider the possibility that a domain is given
         if return_frac_id:
-            return pp.FractureNetwork2d(domain=domain, tol=tol), np.empty(0)
+            return pp.create_fracture_network(domain=domain, tol=tol), np.empty(0)
         else:
-            return pp.FractureNetwork2d(domain=domain, tol=tol)
+            return pp.create_fracture_network(domain=domain, tol=tol)
     data = np.atleast_2d(data)
 
     # Consider subset of fractures if asked for
+    # Note: We cannot use pp.create_fracture_newtork() in this case, since it assumes
+    # that at least the fracture list or the domain are given.
     if max_num_fracs is not None:
         if max_num_fracs == 0:
             if return_frac_id:
-                return pp.FractureNetwork2d(tol=tol), np.empty(0)
+                return FractureNetwork2d(tol=tol), np.empty(0)
             else:
-                return pp.FractureNetwork2d(tol=tol)
+                return FractureNetwork2d(tol=tol)
         else:
             data = data[:max_num_fracs]
 
@@ -311,7 +320,7 @@ def network_2d_from_csv(
         raise ValueError
 
     fractures = pts_edges_to_linefractures(pts, edges)
-    network = pp.FractureNetwork2d(fractures, domain, tol=tol)
+    network = pp.create_fracture_network(fractures, domain, tol=tol)
 
     if return_frac_id:
         edges_frac_id = np.delete(edges_frac_id, to_remove)
@@ -515,9 +524,9 @@ def network_3d_from_fab(
 
     fractures = [pp.PlaneFracture(f) for f in fracs]
     if tol is not None:
-        network = pp.FractureNetwork3d(fractures, tol=tol)
+        network = pp.create_fracture_network(fractures, tol=tol)
     else:
-        network = pp.FractureNetwork3d(fractures)
+        network = pp.create_fracture_network(fractures)
 
     if return_all:
         return network, tess_fracs, tess_sgn
