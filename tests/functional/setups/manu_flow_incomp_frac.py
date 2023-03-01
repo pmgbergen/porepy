@@ -674,7 +674,7 @@ class ManuIncompBoundaryConditions:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Set boundary condition values."""
         values = []
         for sd in subdomains:
