@@ -32,6 +32,7 @@ import scipy.optimize as opt
 import scipy.sparse as sps
 
 import porepy as pp
+import porepy.fracs.fracture_network_2d
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
@@ -1238,18 +1239,12 @@ class MandelGeometry(pp.ModelGeometry):
     params: dict
     """Simulation model parameters."""
 
-    fracture_network: pp.FractureNetwork2d
-    """Two-dimensional fracture network object. Set by a mixin instance of
-    :class:`~MandelGeometry`.
-
-    """
-
     def set_fracture_network(self) -> None:
         """Set fracture network. Unit square with no fractures."""
         ls = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
-        self.fracture_network = pp.FractureNetwork2d(None, domain)
+        self.fracture_network = pp.create_fracture_network(None, domain)
 
     def mesh_arguments(self) -> dict:
         """Set mesh arguments."""
