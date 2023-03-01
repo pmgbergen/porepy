@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import abc
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import gmsh
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.grids.grid import Grid
 from porepy.grids.simplex import TriangleGrid
 from porepy.grids.structured import TensorGrid
@@ -367,9 +369,7 @@ class GridSequenceFactory(abc.ABC):
 
     """
 
-    def __init__(
-        self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: dict
-    ) -> None:
+    def __init__(self, network: pp.fracture_network, params: dict) -> None:
         self._network = network.copy()
         self._counter: int = 0
         self._set_parameters(params)
@@ -377,9 +377,9 @@ class GridSequenceFactory(abc.ABC):
         self.dim: int
         """Dimension of the fracture network."""
 
-        if isinstance(network, pp.FractureNetwork2d):
+        if isinstance(network, FractureNetwork2d):
             self.dim = 2
-        elif isinstance(network, pp.FractureNetwork3d):
+        elif isinstance(network, FractureNetwork3d):
             self.dim = 3
         else:
             raise ValueError("Invalid type for fracture network")
