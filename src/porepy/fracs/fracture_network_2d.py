@@ -989,7 +989,7 @@ class FractureNetwork2d:
         return point_set
 
     # Methods for copying fracture network
-    def copy(self) -> "pp.FractureNetwork2d":
+    def copy(self) -> "FractureNetwork2d":
         """Create deep copy of the network.
 
         The method will create a deep copy of all fractures, as well as the domain, of
@@ -1022,7 +1022,7 @@ class FractureNetwork2d:
 
         return fn
 
-    def snapped_copy(self, tol: float) -> "pp.FractureNetwork2d":
+    def snapped_copy(self, tol: float) -> "FractureNetwork2d":
         """Modify point definition so that short branches are removed, and
         almost intersecting fractures become intersecting.
 
@@ -1049,7 +1049,7 @@ class FractureNetwork2d:
 
     def copy_with_split_intersections(
         self, tol: Optional[float] = None
-    ) -> "pp.FractureNetwork2d":
+    ) -> "FractureNetwork2d":
         """Create a new FractureSet, with all fracture intersections removed
 
         Parameters:

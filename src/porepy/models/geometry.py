@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import copy
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.grids.standard_grids.utils import unit_domain
 
 
 class ModelGeometry:
@@ -17,7 +18,7 @@ class ModelGeometry:
     model."""
 
     # Define attributes to be assigned later
-    fracture_network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d]
+    fracture_network: pp.fracture_network
     """Representation of fracture network including intersections."""
     well_network: pp.WellNetwork3d
     """Well network."""
@@ -41,7 +42,7 @@ class ModelGeometry:
 
     def set_fracture_network(self) -> None:
         """Assign fracture network class."""
-        self.fracture_network = pp.FractureNetwork2d()
+        self.fracture_network = pp.create_fracture_network(None, unit_domain(2))
 
     def mesh_arguments(self) -> dict:
         """Mesh arguments for md-grid creation.
