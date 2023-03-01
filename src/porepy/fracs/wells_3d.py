@@ -18,6 +18,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -384,7 +385,7 @@ class WellNetwork3d:
 
 
 def compute_well_fracture_intersections(
-    well_network: WellNetwork3d, fracture_network: pp.FractureNetwork3d
+    well_network: WellNetwork3d, fracture_network: FractureNetwork3d
 ) -> None:
     """Compute intersections and store tags identifying which fracture
     and well segments each intersection corresponds.
@@ -452,12 +453,13 @@ def compute_well_rock_matrix_intersections(
     To speed up the geometrical computation we construct an ADTree.
 
     Args:
-        mdg (pp.MixedDimensionalGrid): the mixed-dimensional grid containing all the elements
-        cells (np.ndarray, optional): a set of cells that might be considered to construct the
-            ADTree. If it is not given the tree is constructed by using all the higher
-            dimensional grid cells
-        min_length (float, optional): minimum length a segment that intersect a cell needs
-            to have to be considered in the mapping
+        mdg (pp.MixedDimensionalGrid): the mixed-dimensional grid containing all the
+            elements.
+        cells (np.ndarray, optional): a set of cells that might be considered to
+            construct the ADTree. If it is not given the tree is constructed by using
+            all the higher dimensional grid cells
+        min_length (float, optional): minimum length a segment that intersect a cell
+            needs to have to be considered in the mapping
         tol (float, optional): geometric tolerance, default 1e-5
 
     """
