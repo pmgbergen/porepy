@@ -613,9 +613,6 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
     params: dict
     """Simulation model parameters"""
 
-    fracture_network: pp.FractureNetwork2d
-    """Fracture network. Set in :meth:`set_fracture_network`."""
-
     def set_fracture_network(self) -> None:
         """Create fracture network.
 
@@ -636,8 +633,7 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
         ]
 
         # Create fracture network
-        network_2d = pp.FractureNetwork2d(fractures, domain)
-        self.fracture_network = network_2d
+        self.fracture_network = pp.create_fracture_network(fractures, domain)
 
     def mesh_arguments(self) -> dict:
         """Define mesh arguments for meshing."""
