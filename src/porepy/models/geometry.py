@@ -142,7 +142,7 @@ class ModelGeometry:
         *,
         dim: int,
         inverse: bool = False,
-    ) -> pp.ad.Matrix:
+    ) -> pp.ad.SparseArray:
         """Wrap a grid attribute as an ad matrix.
 
         Parameters:
@@ -216,11 +216,11 @@ class ModelGeometry:
             # For an empty list of grids, return an empty matrix
             mat = sps.csr_matrix((0, 0))
 
-        ad_matrix = pp.ad.Matrix(mat)
+        ad_matrix = pp.ad.SparseArray(mat)
         ad_matrix.set_name(f"Matrix wrapping attribute {attr} on {len(grids)} grids")
         return ad_matrix
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Matrix]:
+    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
         """Return a cell-wise basis for all subdomains.
 
         The basis is represented as a list of matrices, each of which represents a
@@ -245,7 +245,7 @@ class ModelGeometry:
             dim: Dimension of the basis.
 
         Returns:
-            List of pp.ad.Matrix, each of which represents a basis function.
+            List of pp.ad.SparseArrayArray, each of which represents a basis function.
 
         """
         # NOTE: See self.wrap_grid_attribute for comments on typing when this method
@@ -254,13 +254,15 @@ class ModelGeometry:
 
         assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         # Collect the basis functions for each dimension
-        basis: list[pp.ad.Matrix] = []
+        basis: list[pp.ad.SparseArray] = []
         for i in range(dim):
             basis.append(self.e_i(grids, i=i, dim=dim))
         # Stack the basis functions horizontally
         return basis
 
-    def e_i(self, grids: Sequence[pp.GridLike], *, i: int, dim: int) -> pp.ad.Matrix:
+    def e_i(
+        self, grids: Sequence[pp.GridLike], *, i: int, dim: int
+    ) -> pp.ad.SparseArray:
         """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
@@ -287,8 +289,8 @@ class ModelGeometry:
             i: Index of the basis function. Note: Counts from 0.
 
         Returns:
-            pp.ad.Matrix: Ad representation of a matrix with the basis functions as
-                columns.
+            pp.ad.SparseArray: Ad representation of a matrix with the basis functions as
+            columns.
 
         Raises:
             ValueError: If dim is smaller than the dimension of the mixed-dimensional.
@@ -320,7 +322,7 @@ class ModelGeometry:
         num_cells = sum([g.num_cells for g in grids])
         # Expand to a matrix.
         mat = sps.kron(sps.eye(num_cells), e_i)
-        return pp.ad.Matrix(mat)
+        return pp.ad.SparseArray(mat)
 
     # Local basis related methods
     def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -343,18 +345,20 @@ class ModelGeometry:
         # component of the cell-wise vector v to be transformed. Then we want to express
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
-        # secondly t_i (column vector).
-        op: pp.ad.Operator = sum(
+        # secondly t_i (column vector). Mypy considers the return type to be int (EK has
+        # no idea why), so ignore the error. Also ignore mypy error that the iterable is
+        # not a list of booleans.
+        op: pp.ad.Operator = sum(  # type: ignore[assignment]
             [
-                self.e_i(subdomains, i=i, dim=self.nd - 1)
-                * self.e_i(subdomains, i=i, dim=self.nd).T
+                self.e_i(subdomains, i=i, dim=self.nd - 1)  # type: ignore[misc]
+                @ self.e_i(subdomains, i=i, dim=self.nd).T
                 for i in range(self.nd - 1)
             ]
         )
         op.set_name("tangential_component")
         return op
 
-    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
         """Compute the normal component of a vector field.
 
         The normal space is defined according to the local coordinates of the
@@ -382,14 +386,14 @@ class ModelGeometry:
         e_n.set_name("normal_component")
         return e_n.T
 
-    def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+    def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
         """Ad wrapper around tangential_normal_projections for fractures.
 
         Parameters:
             subdomains: List of subdomains for which to compute the local coordinates.
 
         Returns:
-            Local coordinates as a pp.ad.Matrix.
+            Local coordinates as a pp.ad.SparseArray.
 
         """
         # TODO: If we ever implement a mapping to reference space for all subdomains,
@@ -411,7 +415,7 @@ class ModelGeometry:
         else:
             # Also treat no subdomains
             local_coord_proj = sps.csr_matrix((0, 0))
-        return pp.ad.Matrix(local_coord_proj)
+        return pp.ad.SparseArray(local_coord_proj)
 
     def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
@@ -530,7 +534,7 @@ class ModelGeometry:
         """
         if len(subdomains) == 0:
             # Special case if no interfaces.
-            sign_flipper = pp.ad.Matrix(sps.csr_matrix((0, 0)))
+            sign_flipper = pp.ad.SparseArray(sps.csr_matrix((0, 0)))
         else:
             # There is already a method to construct a switcher matrix in grid_utils,
             # so we use that. Loop over all subdomains, construct a local switcher
@@ -550,7 +554,7 @@ class ModelGeometry:
                 matrices.append(switcher_int)
 
             # Construct the block diagonal matrix.
-            sign_flipper = pp.ad.Matrix(sps.block_diag(matrices).tocsr())
+            sign_flipper = pp.ad.SparseArray(sps.block_diag(matrices).tocsr())
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
@@ -567,8 +571,9 @@ class ModelGeometry:
             unitary: If True, return unit vectors, i.e. normalize by face area.
 
         Returns:
-            Operator computing outward normal vectors on internal boundaries. Evaluated
-            shape `(num_intf_cells * dim, num_intf_cells * dim)`.
+            Operator computing outward normal vectors on internal boundaries; in effect,
+            this is a matrix. Evaluated shape `(num_intf_cells * dim,
+            num_intf_cells * dim)`.
 
         """
         # NOTE: See self.wrap_grid_attribute for comments on typing when this method
@@ -578,7 +583,7 @@ class ModelGeometry:
         if len(interfaces) == 0:
             # Special case if no interfaces.
             mat = sps.csr_matrix((0, 0))
-            return pp.ad.Matrix(mat)
+            return pp.ad.SparseArray(mat)
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
@@ -611,13 +616,13 @@ class ModelGeometry:
         # Flip the normal vectors. Unravelled from the right: Restrict from faces on all
         # subdomains to the primary ones, multiply with the face normals, flip the
         # signs, and project back up to all subdomains.
-        flipped_normals = flip * primary_face_normals
+        flipped_normals = flip @ primary_face_normals
         # Project to mortar grid, as a mapping from mortar to the subdomains and back
         # again.
         outwards_normals = (
             mortar_projection.primary_to_mortar_avg
-            * flipped_normals
-            * mortar_projection.mortar_to_primary_avg
+            @ flipped_normals
+            @ mortar_projection.mortar_to_primary_avg
         )
         outwards_normals.set_name("outwards_internal_boundary_normals")
 
@@ -634,12 +639,16 @@ class ModelGeometry:
             # over all dimensions.
             # EK: It should be possible to do this in a better, less opaque, way. A
             # Kronecker product comes to mind, but this will require an extension of the
-            # Ad matrix.
+            # Ad matrix. Ignore mypy error that the iterable is not a list of booleans,
+            # which mypy insists it should be.
             cell_volumes_inv_nd = sum(
-                [e * cell_volumes_inv * e.T for e in self.basis(interfaces, self.nd)]
+                [
+                    e @ cell_volumes_inv @ e.T  # type: ignore[misc]
+                    for e in self.basis(interfaces, self.nd)
+                ]
             )
             # Scale normals.
-            outwards_normals = cell_volumes_inv_nd * outwards_normals
+            outwards_normals = cell_volumes_inv_nd @ outwards_normals
             outwards_normals.set_name("unitary_outwards_internal_boundary_normals")
 
         return outwards_normals

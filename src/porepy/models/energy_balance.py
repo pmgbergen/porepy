@@ -106,7 +106,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
-    bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Boundary condition for enthalpy flux. Normally defined in a mixin instance
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
@@ -194,7 +194,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         energy_density = (
             self.solid_density(subdomains)
             * self.solid_enthalpy(subdomains)
-            * (1 - self.porosity(subdomains))
+            * (pp.ad.Scalar(1) - self.porosity(subdomains))
         )
         energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("solid_internal_energy")
@@ -323,7 +323,8 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux = self.interface_enthalpy_flux(interfaces) + self.interface_fourier_flux(
             interfaces
         )
-        source = projection.mortar_to_secondary_int * flux
+        # Matrix-vector product, use @
+        source = projection.mortar_to_secondary_int @ flux
         source.set_name("interface_energy_source")
         return source
 
@@ -530,7 +531,7 @@ class BoundaryConditionsEnergyBalance:
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the Fourier flux.
 
         Parameters:
@@ -543,7 +544,7 @@ class BoundaryConditionsEnergyBalance:
         num_faces = sum([sd.num_faces for sd in subdomains])
         return pp.wrap_as_ad_array(0, num_faces, "bc_values_fourier")
 
-    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the enthalpy.
 
         SI units for Dirichlet: [J/m^3]
@@ -562,13 +563,16 @@ class BoundaryConditionsEnergyBalance:
         # Loop over subdomains to collect boundary values
         for sd in subdomains:
             vals = np.zeros(sd.num_faces)
-            # If you know the boundary temperature, do something like:
-            # boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # vals[boundary_faces] = self.fluid.specific_heat_capacity() * dirichlet_values
-            # Append to list of boundary values
+            # If you know the boundary temperature, do something like: boundary_faces =
+            # self.domain_boundary_sides(sd).all_bf vals[boundary_faces] = (
+            # self.fluid.specific_heat_capacity()
+            # * dirichlet_values
+            # * self.fluid.density()
+            # )
+            #  Append to list of boundary values
             bc_values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
+        # Concatenate to single array and wrap as ad.DenseArray
         bc_values_ad = pp.wrap_as_ad_array(
             np.hstack(bc_values), name="bc_values_enthalpy"
         )
@@ -627,7 +631,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         self.interface_enthalpy_flux_variable: str = "interface_enthalpy_flux"
         """Name of the primary variable representing the enthalpy flux on the interface."""
 
-        # Discrretization
+        # Discretization
         self.fourier_keyword: str = "fourier_discretization"
         """Keyword for Fourier flux term.
 
@@ -682,9 +686,9 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """
         conductivity_ad = self.specific_volume([sd]) * self.thermal_conductivity([sd])
         conductivity = conductivity_ad.evaluate(self.equation_system)
-        # The result may be an Ad_array, in which case we need to extract the
+        # The result may be an AdArray, in which case we need to extract the
         # underlying array.
-        if isinstance(conductivity, pp.ad.Ad_array):
+        if isinstance(conductivity, pp.ad.AdArray):
             conductivity = conductivity.val
         return pp.SecondOrderTensor(conductivity)
 

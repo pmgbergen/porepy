@@ -11,7 +11,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .operators import Matrix, Operator
+from .operators import Operator, SparseArray
 
 __all__ = [
     "MortarProjections",
@@ -80,7 +80,7 @@ class SubdomainProjections(Operator):
             subdomains, self.dim
         )
 
-    def cell_restriction(self, subdomains: list[pp.Grid]) -> Matrix:
+    def cell_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct restrictions from global to subdomain cell quantities.
 
         Parameters:
@@ -88,7 +88,7 @@ class SubdomainProjections(Operator):
                 the projection should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represents the
+            pp.ad.SparseArray: Matrix operator (in the Ad sense) that represents the
                 projection.
 
         """
@@ -105,9 +105,9 @@ class SubdomainProjections(Operator):
             # If the grid list is empty, we project from the full set of cells to
             # nothing.
             mat = sps.csr_matrix((0, self._tot_num_cells * self.dim))
-        return pp.ad.Matrix(mat, name="CellRestriction")
+        return pp.ad.SparseArray(mat, name="CellRestriction")
 
-    def cell_prolongation(self, subdomains: list[pp.Grid]) -> Matrix:
+    def cell_prolongation(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct prolongation from subdomain to global cell quantities.
 
         Parameters:
@@ -115,7 +115,7 @@ class SubdomainProjections(Operator):
                 the prolongation should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the
+            pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
                 prolongation.
 
         """
@@ -131,9 +131,9 @@ class SubdomainProjections(Operator):
             # If the grid list is empty, we project from nothing to the full set of
             # cells
             mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
-        return pp.ad.Matrix(mat, name="CellProlongation")
+        return pp.ad.SparseArray(mat, name="CellProlongation")
 
-    def face_restriction(self, subdomains: list[pp.Grid]) -> Matrix:
+    def face_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct restrictions from global to subdomain face quantities.
 
         Parameters:
@@ -141,7 +141,7 @@ class SubdomainProjections(Operator):
                 the projection should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the
+            pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
                 projection.
 
         """
@@ -155,9 +155,9 @@ class SubdomainProjections(Operator):
             # If the grid list is empty, we project from the full set of faces to
             # nothing.
             mat = sps.csr_matrix((0, self._tot_num_faces * self.dim))
-        return pp.ad.Matrix(mat, name="FaceRestriction")
+        return pp.ad.SparseArray(mat, name="FaceRestriction")
 
-    def face_prolongation(self, subdomains: list[pp.Grid]) -> Matrix:
+    def face_prolongation(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct prolongation from subdomain to global face quantities.
 
         Parameters:
@@ -165,7 +165,7 @@ class SubdomainProjections(Operator):
                 the prolongation should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the
+            pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
                 prolongation.
 
         """
@@ -179,7 +179,7 @@ class SubdomainProjections(Operator):
             # If the grid list is empty, we project from nothing to the full set of
             # faces
             mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
-        return pp.ad.Matrix(mat, name="FaceProlongation")
+        return pp.ad.SparseArray(mat, name="FaceProlongation")
 
     def __repr__(self) -> str:
         s = (
@@ -197,31 +197,31 @@ class MortarProjections(Operator):
     """Wrapper class to generate projections to and from MortarGrids.
 
     Attributes:
-        mortar_to_primary_int (pp.ad.Matrix): Matrix of projections from the mortar
+        mortar_to_primary_int (pp.ad.SparseArray): Matrix of projections from the mortar
             grid to the primary grid. Intended for extensive quantities (so fluxes).
             Represented as an Ad Matrix operator.
-        mortar_to_primary_avg (pp.ad.Matrix): Matrix of projections from the mortar
+        mortar_to_primary_avg (pp.ad.SparseArray): Matrix of projections from the mortar
             grid to the primary grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
-        primary_to_mortar_int (pp.ad.Matrix): Matrix of projections from the primary
+        primary_to_mortar_int (pp.ad.SparseArray): Matrix of projections from the primary
             grid to the mortar grid. Intended for extensive quantities (so fluxes).
             Represented as an Ad Matrix operator.
-        primary_to_mortar_avg (pp.ad.Matrix): Matrix of projections from the primary
+        primary_to_mortar_avg (pp.ad.SparseArray): Matrix of projections from the primary
             grid to the mortar grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
-        mortar_to_secondary_int (pp.ad.Matrix): Matrix of projections from the mortar
+        mortar_to_secondary_int (pp.ad.SparseArray): Matrix of projections from the mortar
             grid to the secondary grid. Intended for extensive quantities (so fluxes).
             Represented as an Ad Matrix operator.
-        mortar_to_secondary_avg (pp.ad.Matrix): Matrix of projections from the mortar
+        mortar_to_secondary_avg (pp.ad.SparseArray): Matrix of projections from the mortar
             grid to the secondary grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
-        secondary_to_mortar_int (pp.ad.Matrix): Matrix of projections from the secondary
+        secondary_to_mortar_int (pp.ad.SparseArray): Matrix of projections from the secondary
             grid to the mortar grid. Intended for extensive quantities (so fluxes).
             Represented as an Ad Matrix operator.
-        secondary_to_mortar_avg (pp.ad.Matrix): Matrix of projections from the secondary
+        secondary_to_mortar_avg (pp.ad.SparseArray): Matrix of projections from the secondary
             grid to the mortar grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
-        sign_of_mortar_sides (pp.Ad.Matrix): Matrix representation that assigns signs
+        sign_of_mortar_sides (pp.ad.SparseArray): Matrix representation that assigns signs
             to two mortar sides. Needed to implement a jump operator in contact
             mechanics.
 
@@ -447,14 +447,14 @@ class MortarProjections(Operator):
             secondary_to_mortar_avg.append(from_cells)
 
         # Stack mappings from the mortar horizontally.
-        # The projections are wrapped by a pp.ad.Matrix to be compatible with the
+        # The projections are wrapped by a pp.ad.SparseArray to be compatible with the
         # requirements for processing of Ad operators.
         def bmat(matrices, name):
             # Create block matrix, convert it to optimized storage format
             block_matrix = pp.matrix_operations.optimized_compressed_storage(
                 sps.bmat(matrices)
             )
-            return Matrix(block_matrix, name=name)
+            return SparseArray(block_matrix, name=name)
 
         self.mortar_to_primary_int = bmat(
             [mortar_to_primary_int], name="MortarToPrimaryInt"
@@ -489,11 +489,11 @@ class MortarProjections(Operator):
             assert isinstance(intf, pp.MortarGrid)  # Appease mypy
             mats.append(intf.sign_of_mortar_sides(dim))
         if len(interfaces) == 0:
-            self.sign_of_mortar_sides = Matrix(
+            self.sign_of_mortar_sides = SparseArray(
                 sps.bmat([[None]]), name="SignOfMortarSides"
             )
         else:
-            self.sign_of_mortar_sides = Matrix(
+            self.sign_of_mortar_sides = SparseArray(
                 sps.block_diag(mats), name="SignOfMortarSides"
             )
 
@@ -555,8 +555,8 @@ class Trace(Operator):
     of face normal vectors is not accounted for.
 
     Attributes:
-        trace (pp.ad.Matrix): Matrix of trace projections from cells to faces.
-        inv_trace (pp.ad.Matrix): Matrix of trace projections from faces to cells.
+        trace (pp.ad.SparseArray): Matrix of trace projections from cells to faces.
+        inv_trace (pp.ad.SparseArray): Matrix of trace projections from faces to cells.
 
     """
 
@@ -613,8 +613,8 @@ class Trace(Operator):
         # Stack both trace and inv_trace vertically to make them into mappings to
         # global quantities.
         # Wrap the stacked matrices into an Ad object
-        self.trace = Matrix(sps.bmat([[m] for m in trace]).tocsr())
-        self.inv_trace = Matrix(sps.bmat([[m] for m in inv_trace]).tocsr())
+        self.trace = SparseArray(sps.bmat([[m] for m in trace]).tocsr())
+        self.inv_trace = SparseArray(sps.bmat([[m] for m in inv_trace]).tocsr())
 
     def __repr__(self) -> str:
         s = (
@@ -635,8 +635,8 @@ class Geometry(Operator):
     """Wrapper class for Ad representations of grids.
 
     Attributes:
-        cell_volumes (pp.ad.Matrix): Diagonal ad matrix of cell volumes.
-        face_areas (pp.ad.Matrix):  Diagonal ad matrix of face areas.
+        cell_volumes (pp.ad.SparseArray): Diagonal ad matrix of cell volumes.
+        face_areas (pp.ad.SparseArray):  Diagonal ad matrix of face areas.
         nd (int): Ambient/highest dimension of the mixed-dimensional grid.
 
     FIXME: Implement parse??
@@ -685,9 +685,9 @@ class Geometry(Operator):
             matrix_names = ["cell_volumes", "face_areas"]
         for field in matrix_names:
             if len(subdomains) == 0:
-                ad_matrix = Matrix(sps.csr_matrix((0, 0)))
+                ad_matrix = SparseArray(sps.csr_matrix((0, 0)))
             else:
-                ad_matrix = Matrix(
+                ad_matrix = SparseArray(
                     sps.diags(np.hstack([getattr(g, field) for g in subdomains]))
                 )
             setattr(self, field, ad_matrix)
@@ -704,13 +704,13 @@ class Geometry(Operator):
 
             """
             mat = sps.kron(sps.eye(size), np.ones(nd)).transpose()
-            return pp.ad.Matrix(mat)
+            return pp.ad.SparseArray(mat)
 
         self.scalar_to_nd_cell = scalar_to_nd(self.num_cells)
         if not is_mortar:
             self.scalar_to_nd_face = scalar_to_nd(self.num_faces)
 
-    def basis(self, dim: Optional[int] = None) -> list[pp.ad.Matrix]:
+    def basis(self, dim: Optional[int] = None) -> list[pp.ad.SparseArray]:
         """Return a cell-wise basis for all subdomains.
 
         Parameters:
@@ -718,7 +718,7 @@ class Geometry(Operator):
                 the Geometry.
 
         Returns:
-            Array of dim pp.ad.Matrix, each of which is represents a basis function.
+            Array of dim pp.ad.SparseArray, each of which is represents a basis function.
 
         """
         if dim is None:
@@ -732,7 +732,7 @@ class Geometry(Operator):
         # Stack the basis functions horizontally
         return basis
 
-    def e_i(self, i: int, dim: Optional[int] = None) -> pp.ad.Matrix:
+    def e_i(self, i: int, dim: Optional[int] = None) -> pp.ad.SparseArray:
         """Return a cell-wise basis function for all subdomains.
 
         Parameters:
@@ -740,7 +740,7 @@ class Geometry(Operator):
             i (int): Index of the basis function. Note: Counts from 0.
 
         Returns:
-            pp.ad.Matrix: Ad representation of a matrix with the basis functions as
+            pp.ad.SparseArray: Ad representation of a matrix with the basis functions as
                 columns.
 
         """
@@ -753,7 +753,7 @@ class Geometry(Operator):
         e_i[i] = 1
         # expand to cell-wise column vectors.
         mat = sps.kron(sps.eye(self.num_cells), e_i)
-        return pp.ad.Matrix(mat)
+        return pp.ad.SparseArray(mat)
 
     def __repr__(self) -> str:
         s = (
