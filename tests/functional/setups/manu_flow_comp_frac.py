@@ -9,11 +9,11 @@ case [1].
 In particular, we have added a pressure-dependent density which obeys the following
 consitutive relationship:
 
-.. math:
+.. math::
 
-    \rho(p) = \rho_0 \exp{c_f (p - p_0)},
+    \\rho(p) = \\rho_0 \\exp{c_f (p - p_0)},
 
-where :math:`\rho` and :math:`p` are the density and pressure, :math:`\rho_0` and
+where :math:`\\rho` and :math:`p` are the density and pressure, :math:`\\rho_0` and
 :math:`p_0` are the density and pressure at reference states, and :math:`c_f` is the
 fluid compressibility.
 
@@ -33,12 +33,12 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from tests.functional.setups.manu_flow_incomp_frac import (
     ManuIncompSaveData,
     ManuIncompUtils,
     SingleEmbeddedVerticalFracture,
 )
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -93,6 +93,13 @@ class ManuCompDataSaving(VerificationDataSaving):
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    relative_l2_error: Callable
+    """Method for computing the discrete relative L2-error. Normally provided by a
+    mixin instance of :class:`~porepy.applications.building_blocks.
+    verification_utils.VerificationUtils`.
 
     """
 
