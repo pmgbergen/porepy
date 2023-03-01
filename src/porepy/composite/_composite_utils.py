@@ -5,6 +5,7 @@ The module is built around the assumptions made here.
 from __future__ import annotations
 
 import abc
+from typing import Any
 
 import porepy as pp
 
@@ -19,8 +20,9 @@ __all__ = [
     "CP_REF",
     "CV_REF",
     "MPa_kJ_SCALE",
+    "_safe_sum",
     "CompositionalSingleton",
-    "VARIABLE_SYMBOLS",
+    "COMPOSITIONAL_VARIABLE_SYMBOLS",
 ]
 
 MPa_kJ_SCALE = 1e3
@@ -133,10 +135,10 @@ where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
 
 """
 
-VARIABLE_SYMBOLS = {
-    "pressure": "p",
-    "enthalpy": "h",
-    "temperature": "T",
+COMPOSITIONAL_VARIABLE_SYMBOLS = {
+    "pressure": "p_mix",
+    "enthalpy": "h_mix",
+    "temperature": "T_mix",
     "component_fraction": "z",
     "phase_fraction": "y",
     "phase_saturation": "s",
@@ -151,6 +153,18 @@ Warning:
     variable using the symbols here.
 
 """
+
+
+def _safe_sum(x: tuple[Any]) -> Any:
+    """Auxiliary method to safely sum the elements, without creating
+    a first addition with 0 (important for AD operators to avoid overhead)."""
+    if len(x) >= 1:
+        sum_ = x[0]
+        for i in range(1, len(x)):
+            sum_ += x[i]
+        return sum_
+    else:
+        return 0
 
 
 class CompositionalSingleton(abc.ABCMeta):

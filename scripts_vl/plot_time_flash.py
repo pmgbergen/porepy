@@ -1,3 +1,9 @@
+"""
+Important:
+    This script assumes local modifications to the Flash class, where respective times
+    are stored.
+
+"""
 import time
 
 import matplotlib.gridspec as gridspec
@@ -20,42 +26,41 @@ h2o_fraction = 0.99
 
 for nc in cells:
     print(f"Calculating for nc={nc}", flush=True)
-    M = pp.composite.PR_Composition(nc=nc)
-    adsys = M.ad_system
+    M = pp.composite.PengRobinsonMixture(nc=nc)
+    ads = M.AD.system
     vec = np.ones(nc)
 
-    h2o = pp.composite.H2O(adsys)
-    co2 = pp.composite.CO2(adsys)
-    LIQ = pp.composite.PR_Phase(adsys, False, name="L")
-    GAS = pp.composite.PR_Phase(adsys, True, name="G")
+    h2o = pp.composite.H2O(ads)
+    co2 = pp.composite.CO2(ads)
+    LIQ = pp.composite.PR_Phase(ads, False, name="L")
+    GAS = pp.composite.PR_Phase(ads, True, name="G")
 
-    M.add_components([h2o, co2])
-    M.add_phases([LIQ, GAS])
+    M.add([h2o, co2], [LIQ, GAS])
 
-    adsys.set_variable_values(
+    ads.set_variable_values(
         h2o_fraction * vec,
-        variables=[h2o.fraction_name],
+        variables=[h2o.fraction.name],
         to_iterate=True,
         to_state=True,
     )
-    adsys.set_variable_values(
+    ads.set_variable_values(
         co2_fraction * vec,
-        variables=[co2.fraction_name],
+        variables=[co2.fraction.name],
         to_iterate=True,
         to_state=True,
     )
 
-    adsys.set_variable_values(
-        temperature * vec, variables=[M.T_name], to_iterate=True, to_state=True
-    )
-    adsys.set_variable_values(
-        pressure * vec, variables=[M.p_name], to_iterate=True, to_state=True
-    )
-    adsys.set_variable_values(
-        0 * vec, variables=[M.h_name], to_iterate=True, to_state=True
-    )
+    M.AD.set_up()
 
-    M.initialize()
+    ads.set_variable_values(
+        temperature * vec, variables=[M.AD.T.name], to_iterate=True, to_state=True
+    )
+    ads.set_variable_values(
+        pressure * vec, variables=[M.AD.p.name], to_iterate=True, to_state=True
+    )
+    ads.set_variable_values(
+        0 * vec, variables=[M.AD.h.name], to_iterate=True, to_state=True
+    )
 
     FLASH = pp.composite.Flash(M, auxiliary_npipm=False)
     FLASH.use_armijo = True
@@ -67,7 +72,7 @@ for nc in cells:
     FLASH.max_iter_flash = 50
 
     start = time.time()
-    FLASH.flash("isothermal", "npipm", "rachford_rice", True, False)
+    FLASH.flash("pT", "npipm", "rachford_rice", True, False)
     stop = time.time()
 
     total_flash_time.append(stop - start)

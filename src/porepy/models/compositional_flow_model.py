@@ -161,7 +161,7 @@ class CompositionalFlowModel:
         self.advective_upwind_energy_bc: pp.ad.BoundaryCondition
 
         ### COMPOSITION SETUP
-        self.composition: pp.composite.Composition
+        self.composition: pp.composite.Mixture
         self.flash: pp.composite.Flash
 
         ### PRIVATE
@@ -248,13 +248,12 @@ class CompositionalFlowModel:
 
         """
         ## creating composition
-        self.composition = pp.composite.PR_Composition(self.ad_system)
+        self.composition = pp.composite.PengRobinsonMixture(self.ad_system)
         h2o = pp.composite.H2O(self.ad_system)
         co2 = pp.composite.CO2(self.ad_system)
         LIQ = pp.composite.PR_Phase(self.ad_system, gas_like=False, name='L')
         GAS = pp.composite.PR_Phase(self.ad_system, gas_like=True, name='G')
-        self.composition.add_components([h2o, co2])
-        self.composition.add_phases([LIQ, GAS])
+        self.composition.add([h2o, co2], [LIQ, GAS])
 
         ## setting thermodynamic state in terms of p-T-z
         nc = self.mdg.num_subdomain_cells()
@@ -264,26 +263,26 @@ class CompositionalFlowModel:
         for i, comp in enumerate(self.composition.components):
             frac_val = self.initial_component_fractions[i] * vec
             self.ad_system.set_variable_values(
-                frac_val, variables=[comp.fraction_name], to_iterate=True, to_state=True
+                frac_val, variables=[comp.fraction.name], to_iterate=True, to_state=True
             )
 
         # setting initial pressure
         p_vals = self.initial_pressure * vec
         self.ad_system.set_variable_values(
-            p_vals, variables=[self.composition.p_name], to_iterate=True, to_state=True
+            p_vals, variables=[self.composition.p.name], to_iterate=True, to_state=True
         )
 
         # setting initial temperature
         T_vals = self.initial_temperature * vec
         self.ad_system.set_variable_values(
-            T_vals, variables=[self.composition.T_name], to_iterate=True, to_state=True
+            T_vals, variables=[self.composition.T.name], to_iterate=True, to_state=True
         )
 
         # set zero enthalpy values at the beginning
         # to get the AD framework properly started
         h_vals = np.zeros(nc)
         self.ad_system.set_variable_values(
-            h_vals, variables=[self.composition.h_name], to_iterate=True, to_state=True
+            h_vals, variables=[self.composition.h.name], to_iterate=True, to_state=True
         )
 
         ## initialize and construct flasher
@@ -297,10 +296,9 @@ class CompositionalFlowModel:
         self.flash.newton_update_chop = 1.0
         self.flash.flash_tolerance = 5e-6
         self.flash.max_iter_flash = 140
-        self.flash.flash("isothermal", "npipm", "rachford_rice", True, False)
-        self.flash.post_process_fractions()
-        self.flash.evaluate_specific_enthalpy()
-        self.flash.evaluate_saturations()
+        self.flash.flash("pT", "npipm", "rachford_rice", True, False)
+        self.flash.post_process_fractions(True)
+        self.flash.evaluate_specific_enthalpy(True)
         self.composition.compute_roots()
 
         ## configuration at boundary and injection points
@@ -312,14 +310,13 @@ class CompositionalFlowModel:
 
         ## INFLOW BOUNDARY
         nc = 1
-        C = pp.composite.PR_Composition(nc=nc)
+        C = pp.composite.PengRobinsonMixture(nc=nc)
         adsys = C.ad_system
         h2o = pp.composite.H2O(adsys)
         co2 = pp.composite.CO2(adsys)
         LIQ = pp.composite.PR_Phase(adsys, gas_like=False, name='L')
         GAS = pp.composite.PR_Phase(adsys, gas_like=True, name='G')
-        C.add_components([h2o, co2])
-        C.add_phases([LIQ, GAS])
+        C.add([h2o, co2], [LIQ, GAS])
 
         # setting thermodynamic state at boundary
         vec = np.ones(nc)
@@ -328,25 +325,25 @@ class CompositionalFlowModel:
             frac_vals = self.inflow_boundary_composition[i] * vec
             adsys.set_variable_values(
                 frac_vals,
-                variables=[comp.fraction_name],
+                variables=[comp.fraction.name],
                 to_iterate=True,
                 to_state=True,
             )
 
         adsys.set_variable_values(
             self.inflow_boundary_temperature * vec,
-            variables=[C.T_name],
+            variables=[C.T.name],
             to_iterate=True,
             to_state=True,
         )
         adsys.set_variable_values(
             self.inflow_boundary_pressure * vec,
-            variables=[C.p_name],
+            variables=[C.p.name],
             to_iterate=True,
             to_state=True,
         )
         adsys.set_variable_values(
-            0 * vec, variables=[C.h_name], to_iterate=True, to_state=True
+            0 * vec, variables=[C.h.name], to_iterate=True, to_state=True
         )
 
         print("Computing inflow boundary equilibrium ...")
@@ -359,11 +356,10 @@ class CompositionalFlowModel:
         F.newton_update_chop = 1.0
         F.flash_tolerance = 1e-8
         F.max_iter_flash = 140
-        F.flash("isothermal", "npipm", "rachford_rice", True, False)
-        F.post_process_fractions()
-        F.evaluate_specific_enthalpy()
-        F.evaluate_saturations()
-        C.compute_roots()
+        F.flash("pT", "npipm", "rachford_rice", True, False)
+        F.post_process_fractions(True)
+        F.evaluate_specific_enthalpy(True)
+        C.precompute(apply_smoother=False)
 
         # computing mass entering the system through boundary
         self.inflow_boundary_advective_component = dict()
@@ -409,8 +405,8 @@ class CompositionalFlowModel:
         )
         # the primary vars of the flash, are secondary for the flow, and vice versa.
         # deep copies to not mess with the flash subsystems
-        primary_vars = [var for var in self.composition.ph_subsystem["secondary_vars"]]
-        secondary_vars = [var for var in self.composition.ph_subsystem["primary_vars"]]
+        primary_vars = [var for var in self.composition.AD.ph_subsystem["secondary-variables"]]
+        secondary_vars = [var for var in self.composition.AD.ph_subsystem["primary-variables"]]
 
         # eliminate the reference component fraction if pressure equation is used
         if self._use_pressure_equation:
@@ -457,7 +453,7 @@ class CompositionalFlowModel:
             self._z_R = self._get_reference_feed_by_unity()
 
         # deep copies, just in case
-        sec_eq = [eq for eq in self.composition.ph_subsystem["equations"]]
+        sec_eq = [eq for eq in self.composition.AD.ph_subsystem["equations"]]
         sec_eq += [eq for eq in self.flash.complementary_equations]
         self.flow_subsystem.update({"secondary_equations": sec_eq})
 
@@ -816,7 +812,7 @@ class CompositionalFlowModel:
             self.mdg,
             self.flow_keyword,
             self.flow_keyword,
-            p_name=self.composition.p_name,
+            p_name=self.composition.p.name,
             from_iterate=True,
         )
 
@@ -851,7 +847,7 @@ class CompositionalFlowModel:
             self.mdg,
             self.energy_keyword,
             f"{self.energy_upwind_keyword}_conductive",
-            p_name=self.composition.T_name,
+            p_name=self.composition.T.name,
             from_iterate=True,
         )
 
@@ -872,12 +868,11 @@ class CompositionalFlowModel:
 
         if not self._monolithic:
             print(f".. .. isenthalpic flash at iteration {self._nonlinear_iteration}.")
-            success = self.flash.flash("isenthalpic", "npipm", "iterate", False, False)
+            success = self.flash.flash("ph", "npipm", "iterate", False, False)
             if not success:
                 raise RuntimeError("FAILURE: Isenthalpic flash.")
 
-            # self.flash.post_process_fractions(False)
-            self.flash.evaluate_saturations(False)
+            self.flash.post_process_fractions(False)
 
     def after_newton_iteration(
         self, solution_vector: np.ndarray, iteration: int

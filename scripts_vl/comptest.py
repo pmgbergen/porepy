@@ -1,7 +1,8 @@
 from datetime import datetime
 
-import porepy as pp
 import numpy as np
+
+import porepy as pp
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
 file_name = "cf_test"  # + timestamp
@@ -16,7 +17,7 @@ params = {
 
 t = 0.0
 T = 2.2
-dt = 0.1 # T / 1e2
+dt = 0.1  # T / 1e2
 max_iter = 70
 tol = 5e-5
 

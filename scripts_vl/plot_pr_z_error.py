@@ -244,11 +244,3 @@ fig.show()
 
 
 print("Done.")
-
-
-# axs[0, 1].plot(x, y, 'tab:orange')
-# axs[0, 1].set_title('Axis [0, 1]')
-# axs[1, 0].plot(x, -y, 'tab:green')
-# axs[1, 0].set_title('Axis [1, 0]')
-# axs[1, 1].plot(x, -y, 'tab:red')
-# axs[1, 1].set_title('Axis [1, 1]')
