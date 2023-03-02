@@ -26,6 +26,16 @@ class DimensionReduction:
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
         """Get the aperture of a single grid.
@@ -45,7 +55,7 @@ class DimensionReduction:
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
-        Aperture is a characteristic thickness of a cell, with units [m].
+        Aperture is a characteristic thickness of a cell, with units [m]. It's value is
         1 in matrix, thickness of fractures and "side length" of cross-sectional
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
 
@@ -83,28 +93,55 @@ class DimensionReduction:
 
         return apertures
 
-    def specific_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Specific volume [m^(nd-d)]
+    def specific_volume(
+        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
+    ) -> pp.ad.Operator:
+        """Specific volume [m^(nd-d)].
 
-        Aperture is a characteristic thickness of a cell, with units [m].
-        1 in matrix, thickness of fractures and "side length" of cross-sectional
-        area/volume (or "specific volume") for intersections of dimension 1 and 0.
+        For subdomains, the specific volume is the cross-sectional area/volume of the
+        cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the specific
+        volume is inherited from the higher-dimensional subdomain neighbor.
 
         See also:
             :meth:aperture.
 
         Parameters:
-            subdomains: List of subdomain grids.
+            subdomains: List of subdomain or interface grids.
 
         Returns:
             Specific volume for each cell.
 
         """
-        if len(subdomains) == 0:
+        if len(grids) == 0:
             return pp.wrap_as_ad_array(0, size=0)
+
+        if isinstance(grids[0], pp.MortarGrid):
+            # For interfaces, the specific volume is inherited from the
+            # higher-dimensional subdomain neighbor.
+            assert all(isinstance(g, pp.MortarGrid) for g in grids), "Mixed grids"
+
+            interfaces: list[pp.MortarGrid] = [
+                g for g in grids if isinstance(g, pp.MortarGrid)
+            ]  # appease mypy.
+            neighbor_sds = self.interfaces_to_subdomains(interfaces)
+            projection = pp.ad.MortarProjections(self.mdg, neighbor_sds, interfaces)
+            # Check that all interfaces are of the same co-dimension
+            codim = interfaces[0].codim
+            assert all(intf.codim == codim for intf in interfaces)
+            if codim == 1:
+                trace = pp.ad.Trace(neighbor_sds)
+                v_h = trace.trace * self.specific_volume(neighbor_sds)
+            else:
+                v_h = self.specific_volume(neighbor_sds)
+            v = projection.primary_to_mortar_avg * v_h
+            v.set_name("specific_volume")
+            return v
+
+        assert all(isinstance(g, pp.Grid) for g in grids), "Mixed grids"
+        subdomains: list[pp.Grid] = [g for g in grids if isinstance(g, pp.Grid)]
         # Compute specific volume as the cross-sectional area/volume
         # of the cell, i.e. raise to the power nd-dim
-        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        subdomain_projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         v: pp.ad.Operator = None  # type: ignore
 
         # Loop over dimensions, and add the contribution from each subdomain within
@@ -119,15 +156,11 @@ class DimensionReduction:
                 continue
             a_loc = self.aperture(sd_dim)
             v_loc = a_loc ** Scalar(self.nd - dim)
-            v_glob = projection.cell_prolongation(sd_dim) @ v_loc
+            v_glob = subdomain_projection.cell_prolongation(sd_dim) @ v_loc
             if v is None:
                 v = v_glob
             else:
                 v = v + v_glob
-
-        # If we found no subdomains, we may have a problem. Possibly we should just
-        # return a void Operator.
-        assert v is not None, "No subdomains found"
 
         v.set_name("specific_volume")
 
@@ -641,7 +674,9 @@ class CubicLawPermeability(ConstantPermeability):
     defining the solution strategy.
 
     """
-    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
     """Function that returns the specific volume of a subdomain. Normally provided by a
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
@@ -799,7 +834,9 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
     """Specific volume. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
@@ -1218,7 +1255,9 @@ class FouriersLaw:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
     """Specific volume. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
@@ -2057,6 +2096,7 @@ class ThermoPressureStress(PressureStress):
 
 
 class ConstantSolidDensity:
+
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -2347,6 +2387,7 @@ class SpecificStorage:
 
 
 class ConstantPorosity:
+
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
