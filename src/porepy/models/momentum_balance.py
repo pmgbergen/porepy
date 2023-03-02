@@ -392,10 +392,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # tangential plane. EK: mypy insists that the argument to sum should be a list
         # of booleans. Ignore this error.
         c_num = pp.ad.sum_operator_list(
-            [
-                e_i * c_num_as_scalar * e_i.T
-                for e_i in tangential_basis
-            ]
+            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
         )
 
         # Combine the above into expressions that enter the equation. c_num will

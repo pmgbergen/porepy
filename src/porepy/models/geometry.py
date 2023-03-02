@@ -609,10 +609,7 @@ class ModelGeometry:
         flipped_normals = flip @ primary_face_normals
         # Project to mortar grid, as a mapping from mortar to the subdomains and back
         # again.
-        outwards_normals = (
-            mortar_projection.primary_to_mortar_avg
-            @ flipped_normals
-        )
+        outwards_normals = mortar_projection.primary_to_mortar_avg @ flipped_normals
         outwards_normals.set_name("outwards_internal_boundary_normals")
 
         # Normalize by face area if requested.
