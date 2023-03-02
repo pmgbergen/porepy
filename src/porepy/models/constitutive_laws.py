@@ -130,10 +130,10 @@ class DimensionReduction:
             assert all(intf.codim == codim for intf in interfaces)
             if codim == 1:
                 trace = pp.ad.Trace(neighbor_sds)
-                v_h = trace.trace * self.specific_volume(neighbor_sds)
+                v_h = trace.trace @ self.specific_volume(neighbor_sds)
             else:
                 v_h = self.specific_volume(neighbor_sds)
-            v = projection.primary_to_mortar_avg * v_h
+            v = projection.primary_to_mortar_avg @ v_h
             v.set_name("specific_volume")
             return v
 
@@ -820,10 +820,8 @@ class DarcysLaw:
     """Switch interface normal vectors to point outwards from the subdomain. Normally
     set by a mixin instance of :class:`porepy.models.geometry.ModelGeometry`.
     """
-    wrap_grid_attribute: Callable[
-        [Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray
-    ]
-    """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
+    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int], pp.ad.DenseArray]
+    """Wrap a grid attribute as a DenseArray. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
@@ -921,7 +919,7 @@ class DarcysLaw:
 
         # Ignore mypy complaint about unexpected keyword arguments.
         cell_volumes = self.wrap_grid_attribute(
-            interfaces, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
+            interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
         )
         trace = pp.ad.Trace(subdomains, dim=1)
 
@@ -951,7 +949,7 @@ class DarcysLaw:
         specific_volume_intf.set_name("specific_volume_at_interfaces")
         eq = self.interface_darcy_flux(interfaces) - (
             cell_volumes
-            @ (
+            * (
                 self.normal_permeability(interfaces)
                 * normal_gradient
                 * specific_volume_intf
@@ -1025,19 +1023,19 @@ class DarcysLaw:
         # Make dot product with vector source in two steps. First multiply the vector
         # source with a matrix (though the formal mypy type is Operator, the matrix is
         # composed by summation).
-        normals_time_source = normals @ self.vector_source(
+        normals_times_source = normals * self.vector_source(
             interfaces, material=material
         )
         # Then sum over the nd dimensions. We need to surpress mypy complaints on  basis
         # having keyword-only arguments. The result will in effect be a matrix.
         nd_to_scalar_sum = pp.ad.sum_operator_list(
-            [e.T for e in self.basis(interfaces, dim=self.nd)] 
+            [e.T for e in self.basis(interfaces, dim=self.nd)]  # type: ignore[call-arg]
         )
         # Finally, the dot product between normal vectors and the vector source. This
         # must be implemented as a matrix-vector product (yes, this is confusing).
-        product = nd_to_scalar_sum @ normals_time_source
-        product.set_name("Interface vector source term")
-        return product
+        dot_product = nd_to_scalar_sum @ normals_times_source
+        dot_product.set_name("Interface vector source term")
+        return dot_product
 
 
 class ThermalExpansion:
@@ -1243,10 +1241,8 @@ class FouriersLaw:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
-    wrap_grid_attribute: Callable[
-        [Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray
-    ]
-    """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
+    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int], pp.ad.DenseArray]
+    """Wrap a grid attribute as a DenseArray. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
@@ -1342,10 +1338,7 @@ class FouriersLaw:
 
         # Ignore mypy complaint about unexpected keyword arguments.
         cell_volumes = self.wrap_grid_attribute(
-            interfaces,
-            "cell_volumes",
-            dim=1,
-            inverse=False,  # type: ignore[call-arg]
+            interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
         )
         specific_volume = self.specific_volume(subdomains)
         trace = pp.ad.Trace(subdomains, dim=1)
@@ -1363,7 +1356,7 @@ class FouriersLaw:
         # the terms in the below equation.
         eq = self.interface_fourier_flux(interfaces) - (
             cell_volumes
-            @ (
+            * (
                 self.normal_thermal_conductivity(interfaces)
                 * (
                     normal_gradient
@@ -1980,7 +1973,7 @@ class PressureStress(LinearElasticMechanicalStress):
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
         # Mypy seems to believe that sum always returns a scalar. Ignore errors.
-        scalar_to_nd: pp.ad.Operator = sum(  # type: ignore[assignment]
+        scalar_to_nd: pp.ad.Operator = pp.ad.sum_operator_list(  # type: ignore[assignment]
             [
                 e_i  # type: ignore[misc]
                 for e_i in self.basis(interfaces, dim=self.nd)  # type: ignore[call-arg]
@@ -1988,9 +1981,8 @@ class PressureStress(LinearElasticMechanicalStress):
         )
         # Spelled out, from the right: Project the pressure from the fracture to the
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
-        stress = (
-            outwards_normal
-            @ scalar_to_nd
+        stress = outwards_normal * (
+            scalar_to_nd
             @ mortar_projection.secondary_to_mortar_avg
             @ self.pressure(subdomains)
         )
@@ -2490,10 +2482,8 @@ class PoroMechanicsPorosity:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    wrap_grid_attribute: Callable[
-        [Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray
-    ]
-    """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
+    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int], pp.ad.DenseArray]
+    """Wrap a grid attribute as a DenseArray. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
@@ -2657,12 +2647,10 @@ class PoroMechanicsPorosity:
         # Divide by cell volumes to counteract integration.
         # The div_u discretization contains a volume integral. Since div u is used here
         # together with intensive quantities, we need to divide by cell volumes.
-        div_u = (
-            self.wrap_grid_attribute(  # type: ignore[call-arg]
-                subdomains, "cell_volumes", dim=1, inverse=True
-            )
-            @ div_u_integrated
+        cell_volumes_inv = Scalar(1) / self.wrap_grid_attribute(
+            subdomains, "cell_volumes", dim=1  # type: ignore[call-arg]
         )
+        div_u = cell_volumes_inv * div_u_integrated
         div_u.set_name("div_u")
         return div_u
 
@@ -2693,13 +2681,10 @@ class PoroMechanicsPorosity:
         # The stabilization discretization contains a volume integral. Since the
         # stabilization term is used here together with intensive quantities, we need to
         # divide by cell volumes.
-        stabilization = (
-            self.wrap_grid_attribute(  # type: ignore[call-arg]
-                subdomains, "cell_volumes", dim=1, inverse=True
-            )
-            @ stabilization_integrated
+        cell_volumes_inverse = Scalar(1) / self.wrap_grid_attribute(
+            subdomains, "cell_volumes", dim=1  # type: ignore[call-arg]
         )
-
+        stabilization = cell_volumes_inverse * stabilization_integrated
         stabilization.set_name("biot_stabilization")
         return stabilization
 

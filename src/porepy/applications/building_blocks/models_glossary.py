@@ -704,8 +704,8 @@ class Glossary:
     )
 
     wrap_grid_attribute: Entry = Entry(
-        type="Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.SparseArray]",
-        docstring="Wrap grid attributes as Ad operators. Normally set by a mixin"
+        type="Callable[[Sequence[pp.GridLike], str, int], pp.ad.SparseArray]",
+        docstring="Wrap a grid attribute as a DenseArray. Normally set by a mixin"
         " instance of :class:`porepy.models.geometry.ModelGeometry`.",
         name="wrap_grid_attribute",
     )
