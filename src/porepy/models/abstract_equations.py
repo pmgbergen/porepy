@@ -147,13 +147,15 @@ class BalanceEquation:
             # No need to do more for scalar problems
             return volumes @ integrand
         else:
-            # For vector problems, we need to expand the integrand to a vector. Do this
-            # by left and right multiplication with e_i and e_i.T
+            # For vector problems, we need to expand the volume array from cell-wise
+            # scalar values to cell-wise vectors. We do this by left multiplication with
+            #  e_i and summing over i.
             basis: list[pp.ad.SparseArray] = self.basis(
                 grids, dim=dim  # type: ignore[call-arg]
             )
-            # Ignore mypy complaints about the summands not being a list of booleans.
-            volumes_nd = sum([e * volumes * e.T for e in basis])  # type: ignore[misc]
+            volumes_nd = pp.ad.sum_operator_list(
+                [e @ (cell_volumes * self.specific_volume(grids)) for e in basis]
+            )
 
             return volumes_nd @ integrand
 

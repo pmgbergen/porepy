@@ -25,6 +25,7 @@ __all__ = [
     "Scalar",
     "Variable",
     "MixedDimensionalVariable",
+    "sum_operator_list",
 ]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
@@ -420,6 +421,12 @@ class Operator:
                     # Again, we do not want to call numpy's matmul method, but instead
                     # directly invoke AdArarray's right matmul.
                     return results[1].__rmatmul__(results[0])
+                # elif isinstance(results[1], np.ndarray) and isinstance(
+                #     results[0], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+                # ):
+                #     # Again, we do not want to call numpy's matmul method, but instead
+                #     # directly invoke AdArarray's right matmul.
+                #     return results[0].__rmatmul__(results[1])
                 else:
                     return results[0] @ results[1]
             except ValueError as exc:
@@ -1866,3 +1873,32 @@ def wrap_as_ad_matrix(
 
     """
     return _ad_wrapper(vals, False, size=size, name=name)
+
+
+def sum_operator_list(
+    operators: list[Operator],
+    name: Optional[str] = None,
+) -> Operator:
+    """Sum a list of operators.
+
+    Parameters:
+        operators: List of operators to be summed.
+        name: Name of the resulting operator.
+
+    Returns:
+        Operator that is the sum of the input operators.
+
+    """
+    # NOTE: The function replaces Python's built-in sum, which is not suitable for
+    # operators. The suspicion is that sum starts by creating a zero, and then adds
+    # each operator to the zero. This creates type mismatches, as well as potential
+    # problems for empty lists.
+    if len(operators) == 0:
+        raise NotImplementedError("Cannot sum an empty list of operators.")
+    # Start with the first operator
+    result = operators[0]
+    for i in range(1, len(operators)):
+        result += operators[i]
+    if name is not None:
+        result.set_name(name)
+    return result

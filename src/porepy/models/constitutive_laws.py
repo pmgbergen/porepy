@@ -1028,15 +1028,10 @@ class DarcysLaw:
         normals_time_source = normals @ self.vector_source(
             interfaces, material=material
         )
-        # Then sum over the nd dimensions. We need to surpress mypy complaints on e
-        # being a list of integers (error code misc, EK has no idea why mypy thinks this
-        # is actually happening) and the standard problem with basis having keyword-only
-        # arguments. The result will in effect be a matrix.
-        nd_to_scalar_sum = sum(
-            [
-                e.T  # type: ignore[misc]
-                for e in self.basis(interfaces, dim=self.nd)  # type: ignore[call-arg]
-            ]
+        # Then sum over the nd dimensions. We need to surpress mypy complaints on  basis
+        # having keyword-only arguments. The result will in effect be a matrix.
+        nd_to_scalar_sum = pp.ad.sum_operator_list(
+            [e.T for e in self.basis(interfaces, dim=self.nd)] 
         )
         # Finally, the dot product between normal vectors and the vector source. This
         # must be implemented as a matrix-vector product (yes, this is confusing).

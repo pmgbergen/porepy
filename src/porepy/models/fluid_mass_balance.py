@@ -145,12 +145,12 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the mass balance equation.
 
         """
-        # Assemble the terms of the mass balance equation, and then feed them into the
-        # general balance equation method.
+        # Assemble the terms of the mass balance equation.
         accumulation = self.fluid_mass(subdomains)
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
 
+        # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name("mass_balance_equation")
         return eq
