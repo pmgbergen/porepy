@@ -12,7 +12,7 @@ models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBala
 """
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import numpy as np
 
@@ -592,7 +592,9 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
     """Function that returns the specific volume of a subdomain. Normally provided by a
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 

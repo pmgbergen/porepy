@@ -451,6 +451,7 @@ class ConstitutiveLawsMomentumBalance(
     constitutive_laws.LinearElasticSolid,
     constitutive_laws.FracturedSolid,
     constitutive_laws.FrictionBound,
+    constitutive_laws.DimensionReduction,
 ):
     """Class for constitutive equations for momentum balance equations."""
 
@@ -469,13 +470,10 @@ class ConstitutiveLawsMomentumBalance(
 
 
 class VariablesMomentumBalance:
-    """
-    Variables for mixed-dimensional deformation:
-        Displacement in matrix and on fracture-matrix interfaces. Fracture contact
-        traction.
+    """Variables for mixed-dimensional deformation.
 
-    .. note::
-        Implementation postponed till Veljko's more convenient SystemManager is available.
+    Displacement in matrix and on fracture-matrix interfaces. Fracture contact
+    traction.
 
     """
 

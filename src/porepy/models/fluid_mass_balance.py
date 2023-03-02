@@ -18,7 +18,7 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import numpy as np
 
@@ -512,11 +512,17 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     """
 
-    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Function that returns the specific volume of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
+
+    """Function that returns the specific volume of a subdomain or interface.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
+
     permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function that returns the permeability of a subdomain. Normally provided by a
     mixin class with a suitable permeability definition.
