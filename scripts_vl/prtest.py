@@ -13,8 +13,8 @@ GAS = pp.composite.PR_Phase(ads, True, name="G")
 
 MIX.add([h2o, co2], [LIQ, GAS])
 
-temperature = 433.3333333333333
-pressure = 82864277.28546843 * 1e-6
+temperature = 700
+pressure = 23965794.8140 * 1e-6
 co2_fraction = 0.01
 h2o_fraction = 0.99
 vec = np.ones(nc)
@@ -48,6 +48,7 @@ FLASH.flash_tolerance = 1e-8
 FLASH.max_iter_flash = 140
 
 FLASH.flash("pT", "npipm", "rachford_rice", True, True)
+MIX.precompute(apply_smoother=False)
 # evaluate enthalpy after pT flash
 FLASH.post_process_fractions(True)
 FLASH.evaluate_specific_enthalpy(True)

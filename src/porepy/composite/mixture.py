@@ -651,6 +651,62 @@ class MixtureAD:
             state=state,
         )
 
+    def evaluate_Gibbs(
+        self,
+        p: NumericType,
+        T: NumericType,
+        Z: list[NumericType],
+        Y: list[NumericType],
+        X: list[list[NumericType]],
+        h: Optional[NumericType] = None,
+    ) -> NumericType:
+        """Evaluate the first-order conditions for the Gibbs energy, including the
+        mass constraints, for a given thermodynamic state.
+
+        Optionally the enthalpy constraint can be evaluated as well.
+
+        This functions intends to give an alternative to the AD framework, bypassing
+        its evaluation by directly calling respective functions.
+
+        Its intended use is for the quick evaluation of the residual of the system.
+
+        Note:
+            You can use :meth:`get_compositional_state` to obtain the right input for
+            this method.
+
+        Parameters:
+            p: Pressure values.
+            T: Temperature values.
+            Z: A list of component feed fractions in correct order.
+            Y: A list of phase molar fractions in correct order.
+            X: Phase compositions, where the outer list follows to the order of
+                phases and the inner lists follow the order of components.
+            h: ``default=None``
+
+                If given, the enthalpy constraint will be evaluated as well and
+                appended.
+
+        Returns:
+            The evaluation of the mass constraints, excluding the reference component,
+            and the equilibrium conditions (fugacities).
+
+            If ``h`` is given, the enthalpy constraint is evaluated and appended at the
+            end.
+
+        """
+        # evaluating the mass constraints
+        ads = self.system
+        components = list(self._mix.components)
+        phases = list(self._mix.phases)
+
+        mass_constraints = list()
+
+        r_idx = components.index(self._mix.reference_component)
+        for i, z in enumerate(Z):
+            if i != r_idx:
+                X_i = [X_[i] for X_ in X]
+                mass_constraints.append(self.evaluate_mass_constraint(z, Y, X_i))
+
     @staticmethod
     def evaluate_unity(*x: tuple[Any]) -> Any:
         """Returns ``1 - sum(x)`` with 1 as a Python integer."""
@@ -666,8 +722,11 @@ class MixtureAD:
         """Returns ``y * (1 - sum(x))`` with 1 as a Python integer."""
         return y * (1 - _safe_sum(x))
 
-    def extract_from_state(
-        self, state: np.ndarray, as_ad: bool = False
+    def get_compositional_state(
+        self,
+        state: Optional[np.ndarray] = None,
+        derivatives: Optional[list[str]] = None,
+        as_ad: bool = False,
     ) -> tuple[
         NumericType,
         NumericType,
@@ -679,7 +738,19 @@ class MixtureAD:
         """Extract compositional variables from a global AD state vector.
 
         Parameters:
-            state: Global state vector
+            state: ``default=None``
+
+                A state vector from which the compositional state should be extracted.
+                (see :meth:`~porepy.numerics.ad.ad_system.assemble_subsystem`).
+
+                If ``None``, the values stored as ``ITERATE`` are obtained.
+            derivatives: ``default=None``
+
+                A list of variables for which derivatives in the AD-array should be
+                included, if ``as_ad`` is ``True``.
+
+                If given, the Jacobian of the assembled AD-arrays will be sliced
+                accordingly.
             as_ad: ``default=False``
 
                 If ``True``, the variables are returned as
@@ -708,8 +779,10 @@ class MixtureAD:
 
         """
         ads = self.system
-        components = self._mix.components
-        phases = self._mix.phases
+        components = list(self._mix.components)
+        phases = list(self._mix.phases)
+        # If derivatives requested, utilize the AD framework to get the correct
+        # derivatives
         if as_ad:
             p = self.p.evaluate(ads, state)
             T = self.T.evaluate(ads, state)
@@ -723,32 +796,69 @@ class MixtureAD:
                 ]
                 for phase in phases
             ]
+
+            # if only certain derivatives are requested, slice the Jacobians
+            if derivatives:
+                projection = ads.projection_to(derivatives).transpose()
+                p.jac = p.jac * projection
+                T.jac = T.jac * projection
+                h.jac = h.jac * projection
+                Z = [pp.ad.Ad_array(z.val, z.jac * projection) for z in Z]
+                Y = [pp.ad.Ad_array(y.val, y.jac * projection) for y in Y]
+                X = [
+                    [pp.ad.Ad_array(x.val, x.jac * projection) for x in X_] for X_ in X
+                ]
+        # Otherwise we extract only the values using functions of the AD system
         else:
-            p = state[ads.dofs_of([self.p.name])]
-            T = state[ads.dofs_of([self.T.name])]
-            h = state[ads.dofs_of([self.h.name])]
-            Z = [
-                state[ads.dofs_of([component.fraction.name])]
-                for component in components
-            ]
-            Y = [state[ads.dofs_of([phase.fraction.name])] for phase in phases]
-            X = [
-                [
-                    state[ads.dofs_of([phase.fraction_of_component(component).name])]
+            if state:
+                p = state[ads.dofs_of([self.p.name])]
+                T = state[ads.dofs_of([self.T.name])]
+                h = state[ads.dofs_of([self.h.name])]
+                Z = [
+                    state[ads.dofs_of([component.fraction.name])]
                     for component in components
                 ]
-                for phase in phases
-            ]
+                Y = [state[ads.dofs_of([phase.fraction.name])] for phase in phases]
+                X = [
+                    [
+                        state[
+                            ads.dofs_of([phase.fraction_of_component(component).name])
+                        ]
+                        for component in components
+                    ]
+                    for phase in phases
+                ]
 
-            # if this happens, above index slicing extracts numbers from arrays
-            # wrap values in that case
-            if ads.mdg.num_subdomain_cells() == 1:
-                p = np.array([p])
-                T = np.array([T])
-                h = np.array([h])
-                Z = [np.array([z]) for z in Z]
-                Y = [np.array([y]) for y in Y]
-                X = [[np.array(x) for x in X_] for X_ in X]
+                # if this happens, above index slicing extracts numbers from arrays
+                # wrap values back into arrays in that case
+                if ads.mdg.num_subdomain_cells() == 1:
+                    p = np.array([p])
+                    T = np.array([T])
+                    h = np.array([h])
+                    Z = [np.array([z]) for z in Z]
+                    Y = [np.array([y]) for y in Y]
+                    X = [[np.array(x) for x in X_] for X_ in X]
+            else:
+                p = ads.get_variable_values([self.p.name], True)
+                T = ads.get_variable_values([self.T.name], True)
+                h = ads.get_variable_values([self.h.name], True)
+                Z = [
+                    ads.get_variable_values([component.fraction.name], True)
+                    for component in components
+                ]
+                Y = [
+                    ads.get_variable_values([phase.fraction.name], True)
+                    for phase in phases
+                ]
+                X = [
+                    [
+                        ads.get_variable_values(
+                            [phase.fraction_of_component(component).name], True
+                        )
+                        for component in components
+                    ]
+                    for phase in phases
+                ]
 
         return p, T, h, Z, Y, X
 

@@ -1428,7 +1428,7 @@ class Flash:
             logging_end = ""
 
         A, b = assembler()
-        # self.cond_start = np.linalg.cond(A.todense())
+        self.cond_start = np.linalg.cond(A.todense())
 
         # if residual is already small enough
         if np.linalg.norm(b) <= self.flash_tolerance:
@@ -1477,7 +1477,7 @@ class Flash:
                         print(f"\nNewton iteration {iter_final}: success", flush=True)
                     success = True
                     break
-        # self.cond_end = np.linalg.cond(A.todense())
+        self.cond_end = np.linalg.cond(A.todense())
         return success, iter_final
 
     ### Saturation evaluation methods --------------------------------------------------
