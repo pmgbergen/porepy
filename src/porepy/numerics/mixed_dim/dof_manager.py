@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import itertools
-from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Literal, Optional, Sequence, Type
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
+csc_or_csr_matrix = Type[sps.csc_matrix | sps.csr_matrix]
 
 
 __all__ = ["DofManager"]
 
-GridLike = Union[pp.Grid, pp.MortarGrid]
+GridLike = pp.Grid | pp.MortarGrid
 
 
 class DofManager:
@@ -34,7 +34,7 @@ class DofManager:
 
         full_dof: Is a np.ndarray of int that stores the number of degrees of
             freedom per key-item pair in block_dof. Thus
-              len(full_dof) == len(block_dof).
+            len(full_dof) == len(block_dof).
             The total size of the global system is self.num_dofs() = full_dof.sum().
 
     """
@@ -43,22 +43,22 @@ class DofManager:
         """Set up a DofManager for a mixed-dimensional grid.
 
         Parameters:
-            mdg (pp.MixedDimensionalGrid): MixedDimensionalGrid representing the
-                mixed-dimensional grid.
+            mdg: Mixed-dimensional grid.
 
         """
         DeprecationWarning("The DofManager will be replaced by EquationSystem.")
-        self.mdg = mdg
+        self.mdg: pp.MixedDimensionalGrid = mdg
+        """Mixed-dimensional grid."""
 
         # Counter for block index
         block_dof_counter = 0
 
         # Dictionary that maps node/edge + variable combination to an index.
-        block_dof: Dict[Tuple[Union[pp.Grid, pp.MortarGrid], str], int] = {}
+        block_dof: dict[tuple[GridLike, str], int] = {}
 
         # Storage for number of dofs per variable per node/edge, with respect
         # to the ordering specified in block_dof
-        full_dof: List[int] = []
+        full_dof: list[int] = []
 
         for sd, data in mdg.subdomains(return_data=True):
             if pp.PRIMARY_VARIABLES not in data:
@@ -98,7 +98,13 @@ class DofManager:
 
         # Array version of the number of dofs per node/edge and variable
         self.full_dof: np.ndarray = np.array(full_dof)
-        self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
+        """Number of dofs for each grid + variable combination. The ordering is
+        specified by the numbering in ``self.block_dof``.
+
+        """
+
+        self.block_dof: dict[tuple[GridLike, str], int] = block_dof
+        """Maps grid + variable combination to an index."""
 
     def dofs_of(self, variables: list[pp.ad.Variable]) -> np.ndarray:
         """Get the indices in the global vector of unknowns belonging to the variables.
@@ -138,7 +144,7 @@ class DofManager:
         Parameters:
             g (pp.Grid or pp.MixedDimensionalGrid edge): Either a grid or an edge in the
                 MixedDimensionalGrid.
-           variable (str): Name of a variable.
+            variable (str): Name of a variable.
 
         Returns:
             np.array (int): Index of degrees of freedom for this variable.
@@ -150,11 +156,11 @@ class DofManager:
 
     def grid_and_variable_block_range(
         self,
-        grids: Optional[List[GridLike]] = None,
-        variables: Optional[List[str]] = None,
+        grids: Optional[list[GridLike]] = None,
+        variables: Optional[list[str]] = None,
         sort_by: Literal["grids", "variables", ""] = "",
         return_str: bool = False,
-    ) -> Dict | str:
+    ) -> dict | str:
         """Get the range of indices in the global system of variables
         associated with combinations of nodes / edges (in the MixedDimensionalGrid sense)
         and variables.
@@ -194,7 +200,7 @@ class DofManager:
         # Get the range of all grid-variable combinations.
         # The iteration strategy depends on the specified output format, given by
         # the value of sort_by.
-        pairs: Dict = {}
+        pairs: dict = {}
         # TODO: Match-switch, but we're not yet at Python 3.10
         if sort_by == "grids":
             for g in grids:
@@ -271,7 +277,7 @@ class DofManager:
         else:
             return pairs
 
-    def dof_to_grid_and_variable(self, ind: int) -> Tuple[GridLike, str]:
+    def dof_to_grid_and_variable(self, ind: int) -> tuple[GridLike, str]:
         """Find the grid (or grid pair) and variable name for a degree of freedom,
         specified by its index in the global ordering.
 
@@ -298,7 +304,7 @@ class DofManager:
         block_ind = np.argmax(dof_start > ind) - 1
 
         # Invert the block-dof map to make reverse loopup easy.
-        inv_block_dof: Dict[int, Tuple[GridLike, str]] = {
+        inv_block_dof: dict[int, tuple[GridLike, str]] = {
             v: k for k, v in self.block_dof.items()
         }
         return inv_block_dof[block_ind]  # type: ignore
@@ -364,7 +370,7 @@ class DofManager:
 
     def _block_range_from_grid_and_var(
         self, g: GridLike, variable: str
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """Helper function to get the block range for a grid-variable combination
         (start and end of the associated dofs).
 
@@ -400,10 +406,10 @@ class DofManager:
 
     def dof_var(
         self,
-        var: Union[List[str], str],
+        var: list[str] | str,
         return_projection: Optional[bool] = False,
         matrix_format: csc_or_csr_matrix = sps.csr_matrix,
-    ) -> Union[np.ndarray, Tuple[np.ndarray, csc_or_csr_matrix]]:
+    ) -> np.ndarray | tuple[np.ndarray, csc_or_csr_matrix]:
         """Get the indices in the global system of variables given as input on all
         nodes and edges (in the MixedDimensionalGrid sense).
 
@@ -461,8 +467,8 @@ class DofManager:
     def distribute_variable(
         self,
         values: np.ndarray,
-        grids: Optional[List[GridLike]] = None,
-        variables: Optional[List[str]] = None,
+        grids: Optional[list[GridLike]] = None,
+        variables: Optional[list[str]] = None,
         additive: bool = False,
         to_iterate: bool = False,
     ) -> None:
@@ -532,8 +538,8 @@ class DofManager:
 
     def assemble_variable(
         self,
-        grids: Optional[List[GridLike]] = None,
-        variables: Optional[List[str]] = None,
+        grids: Optional[list[GridLike]] = None,
+        variables: Optional[list[str]] = None,
         from_iterate: bool = False,
     ) -> np.ndarray:
         """Assemble a vector from the variable state stored in nodes and edges in
