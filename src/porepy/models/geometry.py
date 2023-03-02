@@ -634,18 +634,10 @@ class ModelGeometry:
                 interfaces, "cell_volumes", dim=self.nd, inverse=True
             )
 
-            # Expand cell volumes to nd by (from the right) mapping from nd to 1 (e.T),
-            # multiplying with the cell volumes, mapping back to nd (e), and summing
+            # Expand cell volumes to nd by multiplying from left by e_i and summing
             # over all dimensions.
-            # EK: It should be possible to do this in a better, less opaque, way. A
-            # Kronecker product comes to mind, but this will require an extension of the
-            # Ad matrix. Ignore mypy error that the iterable is not a list of booleans,
-            # which mypy insists it should be.
-            cell_volumes_inv_nd = sum(
-                [
-                    e @ cell_volumes_inv @ e.T  # type: ignore[misc]
-                    for e in self.basis(interfaces, self.nd)
-                ]
+            cell_volumes_inv_nd = pp.ad.sum_operator_list(
+                [e @ cell_volumes_inv for e in self.basis(interfaces, self.nd)]
             )
             # Scale normals.
             outwards_normals = cell_volumes_inv_nd @ outwards_normals
