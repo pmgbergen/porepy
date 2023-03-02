@@ -1,7 +1,5 @@
 from datetime import datetime
 
-import numpy as np
-
 import porepy as pp
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
@@ -71,7 +69,11 @@ while t < T:
 # cond_end = np.array(cond_end)
 # print("CONDITION NUMBERS: ")
 # print("\tAt beginning of iterations:")
-# print(f"\tMin: {'{:.4e}'.format(np.min(cond_start))}\n\tMax: {'{:.4e}'.format(np.max(cond_start))}\n\tMean: {'{:.4e}'.format(np.mean(cond_start))}")
+# print(f"\tMin: {'{:.4e}'.format(np.min(cond_start))}\n\t"
+# + f"Max: {'{:.4e}'.format(np.max(cond_start))}\n\t"
+# + f"Mean: {'{:.4e}'.format(np.mean(cond_start))}")
 # print("\tAt converged state:")
-# print(f"\tMin: {'{:.4e}'.format(np.min(cond_end))}\n\tMax: {'{:.4e}'.format(np.max(cond_end))}\n\tMean: {'{:.4e}'.format(np.mean(cond_end))}")
+# print(f"\tMin: {'{:.4e}'.format(np.min(cond_end))}\n\t"
+# + f"Max: {'{:.4e}'.format(np.max(cond_end))}\n\t"
+# + f"Mean: {'{:.4e}'.format(np.mean(cond_end))}")
 model.after_simulation()

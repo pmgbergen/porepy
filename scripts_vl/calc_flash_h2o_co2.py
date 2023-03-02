@@ -13,7 +13,7 @@ import porepy as pp
 # General configuration of this test
 h2o_frac = 0.99
 co2_frac = 0.01
-vectorize = True
+vectorize = False
 
 # results from which to draw data
 # list of (filename, mode),
@@ -27,11 +27,9 @@ files = [
     ("data/pr_data_thermo_isothermal_GL_hard.csv", "GL"),
 ]
 # results stored here
-version = "w-o-reg-vectorized"
+version = "test"
 output_file = f"data/results/pr_result_VL_{version}.csv"  # file with flash data
-identifier_file = (
-    f"data/results/pr_result_VL_{version}_ID.csv"  # file to identify thermo data
-)
+identifier_file = f"data/results/pr_result_VL_ID.csv"  # file to identify thermo data
 path = pathlib.Path(__file__).parent.resolve()  # path to script for file i/o
 
 # lists containing pressure and Temperature data for test cases
@@ -134,6 +132,9 @@ x_h2o_G: list[float] = list()  # fraction h2o in gas
 x_co2_G: list[float] = list()  # fraction co2 in gas
 Z_L: list[float] = list()  # liquid compressibility factor
 Z_G: list[float] = list()  # gas compressibility factor
+num_iter: list[int] = list()  # number of iterations
+cond_start: list[float] = list()
+cond_end: list[float] = list()
 
 # perform the Flash per pT point
 if vectorize:
@@ -239,6 +240,9 @@ else:
         x_co2_L.append(LIQ.fraction_of_component(CO2).evaluate(ADS).val[0])
         x_h2o_G.append(GAS.fraction_of_component(H2O).evaluate(ADS).val[0])
         x_co2_G.append(GAS.fraction_of_component(CO2).evaluate(ADS).val[0])
+        num_iter.append(FLASH.flash_history[-1]["iterations"])
+        cond_start.append(FLASH.cond_start)
+        cond_end.append(FLASH.cond_end)
 
     end_time = time.time()
     print(f"Ended point-wise Flash after {end_time - start_time} seconds.", flush=True)
@@ -261,6 +265,9 @@ with open(f"{path}/{output_file}", "w", newline="") as csvfile:
         "x_co2_G",
         "Z_L",
         "Z_G",
+        "num_iter",
+        "cond_start",
+        "cond_end",
     ]
     result_writer.writerow(header)
 
@@ -277,6 +284,9 @@ with open(f"{path}/{output_file}", "w", newline="") as csvfile:
             x_co2_G[i],
             Z_L[i],
             Z_G[i],
+            num_iter[i],
+            cond_start[i],
+            cond_end[i],
         ]
         result_writer.writerow(row)
 

@@ -442,8 +442,9 @@ class PR_EoS:
         ### CLASSIFYING REGIONS
         # identify super-critical region and store information
         # limited physical insight into what this means with this EoS
-        self.is_supercritical = B.val > B_CRIT / A_CRIT * A.val
+        self.is_supercritical = B.val >= B_CRIT / A_CRIT * A.val
         subcritical_square = np.logical_and(A.val <= A_CRIT, B.val <= B_CRIT)
+        sub_critical = np.logical_and(np.logical_not(self.is_supercritical), B.val > 0)
 
         # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
@@ -535,7 +536,10 @@ class PR_EoS:
             # there are two EoS objects with contextual fractions, and a single one.
             correction = np.logical_or(
                 # self.is_supercritical[one_root_region], w_1.val <=0
-                np.logical_not(subcritical_square[one_root_region]),
+                # np.logical_not(sub_critical[one_root_region]),
+                np.logical_not(
+                    subcritical_square[one_root_region]
+                ),  # TODO try subcritical (less restrictive)
                 w_1.val <= B_1.val,
             )
             w_1.val[correction] = z_1.val[correction]

@@ -1,60 +1,32 @@
-"""Experimental script for parallelyzed processing of thermo data"""
-import csv
-import itertools
-import multiprocessing
+"""Experimental script for parallelyzed processing of thermo data.
+
+Important:
+    This script relies on some local modifications of the Flash to store condition
+    numbers. Make sure to comment/uncomment respective lines.
+"""
 import pathlib
+import sys
+
+# adding script path to find relevant moduls
+sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
+
 import time
 from ctypes import c_double, c_uint8
 from multiprocessing import Array, Pool, RawArray
 
 import numpy as np
 import psutil
+from thermo_comparison import FEED
 
 import porepy as pp
 
 NUM_PHYS_CPU_CORS = psutil.cpu_count(logical=False)
 
 
-def path():
-    return str(pathlib.Path(__file__).parent.resolve())
-
-
-def get_thermodata(files: list[tuple[str, str]]):
-
-    p_points: list[float] = list()
-    T_points: list[float] = list()
-    # to identify file and row per pT point
-    # (p, T) -> (mode, file name, row id)
-    pT_id: dict[tuple[float, float], tuple[str, str, int]] = dict()
-
-    print("Reading data ...", end="", flush=True)
-    for filename, mode in files:
-        with open(f"{path()}/{filename}") as file:
-            file_reader = csv.reader(file, delimiter=",")
-            _ = next(file_reader)  # get rid of header
-
-            for datarow in file_reader:
-
-                row_id = int(datarow[0])
-                p = float(datarow[1])
-                T = float(datarow[2])
-
-                pT = (p, T)
-                # get only unique points
-                if pT not in pT_id:
-                    identifier = (mode, filename, row_id)
-                    pT_id.update({pT: identifier})
-
-                    p_points.append(p)
-                    T_points.append(T)
-    print("\rReading data ... DONE", flush=True)
-    return p_points, T_points, pT_id
-
-
 def get_MIX_AD_FLASH(num_cells):
 
-    h2o_frac = 0.99
-    co2_frac = 0.01
+    h2o_frac = FEED["water"]
+    co2_frac = FEED["CO2"]
 
     MIX = pp.composite.PengRobinsonMixture(nc=num_cells)
     ADS = MIX.AD.system
@@ -103,83 +75,6 @@ def get_MIX_AD_FLASH(num_cells):
     FLASH.max_iter_flash = 140
 
     return MIX, ADS, FLASH
-
-
-def write_identifier_file(filename, pT_id):
-
-    # identifiers
-    print("Writing identifier file ...", end="", flush=True)
-    with open(f"{path()}/{filename}", "w", newline="") as csvfile:
-        id_writer = csv.writer(csvfile, delimiter=",")
-        # header labeling column values
-        header = ["p [Pa]", "T [K]", "mode", "file", "row-id"]
-        id_writer.writerow(header)
-
-        for pT, identifier in pT_id.items():
-            p, T = pT
-            mode, file, row_id = identifier
-            row = [p, T, mode, file, row_id]
-            id_writer.writerow(row)
-    print("\rWriting identifier file ... DONE", flush=True)
-
-
-def write_results(filename, pT_points, results):
-
-    p_points, T_points = pT_points
-    (
-        success,
-        num_iter,
-        y,
-        x_h2o_L,
-        x_co2_L,
-        x_h2o_G,
-        x_co2_G,
-        Z_L,
-        Z_G,
-        cond_start,
-        cond_end,
-    ) = results
-
-    print("Writing results ...", end="", flush=True)
-    with open(f"{path()}/{filename}", "w", newline="") as csvfile:
-        result_writer = csv.writer(csvfile, delimiter=",")
-        # header labeling column values
-        header = [
-            "p [Pa]",
-            "T [K]",
-            "success",
-            "y",
-            "x_h2o_L",
-            "x_co2_L",
-            "x_h2o_G",
-            "x_co2_G",
-            "Z_L",
-            "Z_G",
-            "num_iter",
-            "cond_start",
-            "cond_end",
-        ]
-        result_writer.writerow(header)
-
-        for i, pT in enumerate(zip(p_points, T_points)):
-            p, T = pT
-            row = [
-                p,
-                T,
-                success[i],
-                y[i],
-                x_h2o_L[i],
-                x_co2_L[i],
-                x_h2o_G[i],
-                x_co2_G[i],
-                Z_L[i],
-                Z_G[i],
-                num_iter[i],
-                cond_start[i],
-                cond_end[i],
-            ]
-            result_writer.writerow(row)
-        print("\rWriting results ... DONE", flush=True)
 
 
 def par_flash(args):
@@ -290,18 +185,15 @@ if __name__ == "__main__":
         ("data/pr_data_thermo_isothermal_GL_hard.csv", "GL"),
     ]
     # output files
-    version = "reg-omar-par-cond"
+    version = "test2"
     output_file = f"data/results/pr_result_VL_{version}.csv"  # file with flash data
     identifier_file = (
-        f"data/results/pr_result_VL_{version}_ID.csv"  # file to identify thermo data
+        f"data/results/pr_result_VL_ID.csv"  # file to identify thermo data
     )
 
     # reading p-T points from thermo data files
     p_points, T_points, pT_id = get_thermodata(files)
     nc = len(p_points)
-
-    # writing identifier file
-    write_identifier_file(identifier_file, pT_id)
 
     # prepare storage of results
     # raw arrays without lock due to the values being not interdependent
@@ -343,9 +235,11 @@ if __name__ == "__main__":
 
         chunksize = NUM_PHYS_CPU_CORS
         # chunksize=int(np.floor(nc / NUM_PHYS_CPU_CORS))
-        pool.imap_unordered(par_flash, npT, chunksize=chunksize)
+        result = pool.map_async(par_flash, npT, chunksize=chunksize)
 
+        result.wait(5 * 60)
         pool.close()
+        pool.terminate()
         pool.join()
 
     end_time = time.time()
@@ -353,5 +247,7 @@ if __name__ == "__main__":
 
     results = [np.frombuffer(vec.get_obj(), dtype=c_uint8) for vec in storage[:2]]
     results += [np.frombuffer(vec.get_obj(), dtype=c_double) for vec in storage[2:]]
+    # writing identifier file
+    write_identifier_file(identifier_file, pT_id)
     # writing result file
     write_results(output_file, (p_points, T_points), results)
