@@ -104,7 +104,7 @@ class TestMeshSize(unittest.TestCase):
         on_boundary = np.array(
             [False, False, False, False, True, True, True, True, True, True, True, True]
         )
-        network = pp.FractureNetwork3d(f_set)
+        network = pp.create_fracture_network(f_set)
         network.impose_external_boundary(domain)
         network.find_intersections()
         network.split_intersections()
@@ -142,29 +142,6 @@ class TestMeshSize(unittest.TestCase):
         mesh_size_known[ind] = np.sqrt(2)
 
         self.assertTrue(np.all(np.isclose(mesh_size, mesh_size_known)))
-
-
-def make_mdg_2d():
-    """
-    Helper function to obtain known quantities and the inputs for
-    determine_mesh_size in 2d.
-    """
-
-    f_1 = np.array([[0.5, 5], [1.5, 1.5]])
-    f_set = [f_1]
-    mesh_size_min = 0.2
-    mesh_size_frac = 1
-    mesh_size_bound = 2
-    domain = {"xmin": 0, "ymin": 0, "xmax": 5, "ymax": 5}
-    mdg = pp.meshing.simplex_grid(
-        f_set,
-        domain=domain,
-        mesh_size_frac=mesh_size_frac,
-        mesh_size_min=mesh_size_min,
-        mesh_size_bound=mesh_size_bound,
-    )
-    mdg.compute_geometry()
-    return mdg
 
 
 if __name__ == "__main__":
