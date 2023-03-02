@@ -265,7 +265,7 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
     for f in fracs:
         frac_list.append(pp.PlaneFracture(f))
     # Combine the fractures into a network
-    network = pp.FractureNetwork3d(frac_list)
+    network = pp.create_fracture_network(frac_list)
     # Impose domain boundary. For the moment, the network should be immersed in
     # the domain, or else gmsh will complain.
     if physdims is None:

@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.grids.standard_grids.utils import unit_domain
 
 
 def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
@@ -28,7 +29,6 @@ def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
         pp.MixedDimensionalGrid: grid bucket with matrix, fractures, wells and well-fracture
             intersection grids + all interfaces
     """
-    domain: pp.Domain = pp.grids.standard_grids.utils.unit_domain(3)
 
     # Three horizontal fractures
     fracture_coords = [
@@ -37,7 +37,7 @@ def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
         np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.1, 0.1, 0.1, 0.1]]),
     ]
     fractures = [pp.PlaneFracture(fracture_coords[i]) for i in fracture_indices]
-    fracture_network = pp.FractureNetwork3d(fractures, domain)
+    fracture_network = pp.create_fracture_network(fractures, unit_domain(3))
 
     # Vertical well extending from 0.1 (frac 2) to upper boundary and
     #   tilted well extending from 0.2 (frac 1) to upper boundary
@@ -46,7 +46,7 @@ def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
         np.array([[0.5, 0.6], [0.7, 0.8], [1, 0.2]]),
     ]
     wells = [pp.Well(well_coords[i]) for i in well_indices]
-    well_network = pp.WellNetwork3d(wells, domain, parameters={"mesh_size": 1})
+    well_network = pp.WellNetwork3d(wells, unit_domain(3), parameters={"mesh_size": 1})
 
     mdg = fracture_network.mesh({"mesh_size_frac": 1, "mesh_size_min": 1})
 
