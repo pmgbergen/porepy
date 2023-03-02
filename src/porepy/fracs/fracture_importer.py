@@ -188,7 +188,7 @@ def network_2d_from_csv(
     max_num_fracs=None,
     polyline=False,
     return_frac_id=False,
-    domain=None,
+    domain: Optional[pp.Domain] = None,
     **kwargs,
 ):
     """Read csv file with fractures to obtain fracture description.
@@ -223,6 +223,7 @@ def network_2d_from_csv(
         max_num_fracs (int, optional): Maximum number of fractures included,
             counting from the start of the file. Defaults to inclusion of all
             fractures.
+        domain (pp.Domain): Domain specification.
         **kwargs: keyword arguments passed on to np.genfromtxt.
 
     Returns:
@@ -243,14 +244,12 @@ def network_2d_from_csv(
     if data.size == 0:
         # we still consider the possibility that a domain is given
         if return_frac_id:
-            return pp.create_fracture_network(domain=domain, tol=tol), np.empty(0)
+            return FractureNetwork2d(domain=domain, tol=tol), np.empty(0)
         else:
-            return pp.create_fracture_network(domain=domain, tol=tol)
+            return FractureNetwork2d(domain=domain, tol=tol)
     data = np.atleast_2d(data)
 
     # Consider subset of fractures if asked for
-    # Note: We cannot use pp.create_fracture_newtork() in this case, since it assumes
-    # that at least the fracture list or the domain are given.
     if max_num_fracs is not None:
         if max_num_fracs == 0:
             if return_frac_id:
