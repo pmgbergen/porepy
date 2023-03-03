@@ -734,7 +734,7 @@ class MixedDimensionalGrid:
                 Predicate with a subdomain as input.
 
         Returns:
-            The total number of subdomain cells of the grid bucket.
+            The total number of subdomain cells of the mixed-dimensional grid.
 
         """
         if cond is None:
@@ -756,7 +756,7 @@ class MixedDimensionalGrid:
                 Predicate with an interface as input.
 
         Returns:
-            The total number of mortar cells of the grid bucket.
+            The total number of mortar cells of the mixed-dimensional grid.
 
         """
         if cond is None:
