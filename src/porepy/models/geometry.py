@@ -154,8 +154,11 @@ class ModelGeometry:
                 with code which is explicitly 2d (e.g. fv discretizations).
 
         Returns:
-            The property wrapped as an ad matrix, with the wrapped attribute on the
-            diagonal.
+            class:`porepy.numerics.ad.DenseArray`: ``(shape=(dim * num_cells_in_grids,))``
+
+                The property wrapped as a single ad vector. The values are arranged
+                according to the order of the grids in the list, optionally flattened if
+                the attribute is a vector.
 
         Raises:
             ValueError: If one of the grids does not have the attribute.
