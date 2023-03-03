@@ -141,8 +141,7 @@ class ModelGeometry:
         attr: str,
         *,
         dim: int,
-        inverse: bool = False,
-    ) -> pp.ad.SparseArray:
+    ) -> pp.ad.DenseArray:
         """Wrap a grid attribute as an ad matrix.
 
         Parameters:
@@ -153,13 +152,13 @@ class ModelGeometry:
                 limit the number of dimensions for a vector attribute, e.g. to exclude
                 the z-component of a vector attribute in 2d, to acieve compatibility
                 with code which is explicitly 2d (e.g. fv discretizations).
-            inverse: If True, the inverse of the attribute will be wrapped. This is a
-                hack around the fact that the Ad framework does not support division.
-                FIXME: Remove when ad supports division.
 
         Returns:
-            The property wrapped as an ad matrix, with the wrapped attribute on the
-            diagonal.
+            class:`porepy.numerics.ad.DenseArray`: ``(shape=(dim * num_cells_in_grids,))``
+
+                The property wrapped as a single ad vector. The values are arranged
+                according to the order of the grids in the list, optionally flattened if
+                the attribute is a vector.
 
         Raises:
             ValueError: If one of the grids does not have the attribute.
@@ -180,7 +179,7 @@ class ModelGeometry:
         # this made mypy happy, it is not vald syntax. The only viable solution (save
         # from using typing protocols, which we really do not want to do, there are
         # enough classes and inheritance in the mixin combination as it is) seems to be
-        # to add a # type: ignore[call-args] comment where the method is called. By only
+        # to add a # type: ignore[call-arg] comment where the method is called. By only
         # ignoring call-args problems, we limit the risk of silencing other errors that
         # mypy might find.
 
@@ -209,16 +208,13 @@ class ModelGeometry:
                 vals = np.hstack(
                     [np.atleast_2d(getattr(g, attr))[:dim].ravel("F") for g in grids]
                 )
-            if inverse:
-                vals = 1 / vals
-            mat = sps.diags(vals)
         else:
             # For an empty list of grids, return an empty matrix
-            mat = sps.csr_matrix((0, 0))
+            vals = np.zeros(0)
 
-        ad_matrix = pp.ad.SparseArray(mat)
-        ad_matrix.set_name(f"Matrix wrapping attribute {attr} on {len(grids)} grids")
-        return ad_matrix
+        array = pp.ad.DenseArray(vals)
+        array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
+        return array
 
     def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
         """Return a cell-wise basis for all subdomains.
@@ -345,12 +341,10 @@ class ModelGeometry:
         # component of the cell-wise vector v to be transformed. Then we want to express
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
-        # secondly t_i (column vector). Mypy considers the return type to be int (EK has
-        # no idea why), so ignore the error. Also ignore mypy error that the iterable is
-        # not a list of booleans.
-        op: pp.ad.Operator = sum(  # type: ignore[assignment]
+        # secondly t_i (column vector). Ignore mypy keyword argument error.
+        op: pp.ad.Operator = pp.ad.sum_operator_list(
             [
-                self.e_i(subdomains, i=i, dim=self.nd - 1)  # type: ignore[misc]
+                self.e_i(subdomains, i=i, dim=self.nd - 1)  # type: ignore[arg-type]
                 @ self.e_i(subdomains, i=i, dim=self.nd).T
                 for i in range(self.nd - 1)
             ]
@@ -582,8 +576,7 @@ class ModelGeometry:
 
         if len(interfaces) == 0:
             # Special case if no interfaces.
-            mat = sps.csr_matrix((0, 0))
-            return pp.ad.SparseArray(mat)
+            return pp.ad.DenseArray(np.zeros(0))
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
@@ -604,8 +597,8 @@ class ModelGeometry:
             self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
         # Ignore mypy complaint about unexpected keyword arguments.
-        primary_face_normals = self.wrap_grid_attribute(  # type: ignore[call-arg]
-            primary_subdomains, "face_normals", dim=self.nd, inverse=False
+        primary_face_normals = self.wrap_grid_attribute(
+            primary_subdomains, "face_normals", dim=self.nd  # type: ignore[call-arg]
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.
@@ -619,36 +612,24 @@ class ModelGeometry:
         flipped_normals = flip @ primary_face_normals
         # Project to mortar grid, as a mapping from mortar to the subdomains and back
         # again.
-        outwards_normals = (
-            mortar_projection.primary_to_mortar_avg
-            @ flipped_normals
-            @ mortar_projection.mortar_to_primary_avg
-        )
+        outwards_normals = mortar_projection.primary_to_mortar_avg @ flipped_normals
         outwards_normals.set_name("outwards_internal_boundary_normals")
 
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
             # Ignore mypy complaint about unexpected keyword arguments.
-            cell_volumes_inv = self.wrap_grid_attribute(  # type: ignore[call-arg]
-                interfaces, "cell_volumes", dim=self.nd, inverse=True
+            cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
+                interfaces, "cell_volumes", dim=self.nd  # type: ignore[call-arg]
             )
 
-            # Expand cell volumes to nd by (from the right) mapping from nd to 1 (e.T),
-            # multiplying with the cell volumes, mapping back to nd (e), and summing
+            # Expand cell volumes to nd by multiplying from left by e_i and summing
             # over all dimensions.
-            # EK: It should be possible to do this in a better, less opaque, way. A
-            # Kronecker product comes to mind, but this will require an extension of the
-            # Ad matrix. Ignore mypy error that the iterable is not a list of booleans,
-            # which mypy insists it should be.
-            cell_volumes_inv_nd = sum(
-                [
-                    e @ cell_volumes_inv @ e.T  # type: ignore[misc]
-                    for e in self.basis(interfaces, self.nd)
-                ]
+            cell_volumes_inv_nd = pp.ad.sum_operator_list(
+                [e @ cell_volumes_inv for e in self.basis(interfaces, self.nd)]
             )
             # Scale normals.
-            outwards_normals = cell_volumes_inv_nd @ outwards_normals
+            outwards_normals = cell_volumes_inv_nd * outwards_normals
             outwards_normals.set_name("unitary_outwards_internal_boundary_normals")
 
         return outwards_normals
