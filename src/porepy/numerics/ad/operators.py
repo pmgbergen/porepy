@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 from enum import Enum, EnumMeta
+from functools import reduce
 from itertools import count
 from typing import Any, Literal, Optional, Sequence, Union, overload
 
@@ -1889,16 +1890,5 @@ def sum_operator_list(
         Operator that is the sum of the input operators.
 
     """
-    # NOTE: The function replaces Python's built-in sum, which is not suitable for
-    # operators. The suspicion is that sum starts by creating a zero, and then adds
-    # each operator to the zero. This creates type mismatches, as well as potential
-    # problems for empty lists.
-    if len(operators) == 0:
-        raise NotImplementedError("Cannot sum an empty list of operators.")
-    # Start with the first operator
-    result = operators[0]
-    for i in range(1, len(operators)):
-        result += operators[i]
-    if name is not None:
-        result.set_name(name)
+    result = reduce(lambda a, b: a + b, operators)
     return result
