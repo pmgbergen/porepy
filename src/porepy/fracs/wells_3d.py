@@ -28,14 +28,6 @@ class Well:
 
     The fracture is defined by its vertexes. It contains various utility
     methods, mainly intended for use together with the WellNetwork3d class.
-
-    Attributes:
-        p (np.ndarray, 3 x npt): Fracture vertices. Will be stored in a CCW
-            order (or CW, depending on which side it is viewed from).
-        orig_p (np.ndarray, 3 x npt): Original fracture vertices, kept in case
-            the fracture geometry for some reason is modified.
-        index (int): Index of well. Intended used in WellNetwork3d.
-        tags
     """
 
     def __init__(
@@ -44,21 +36,11 @@ class Well:
         index: Optional[int] = None,
         tags: Optional[dict] = None,
     ) -> None:
-        """Initialize fractures.
 
-        __init__ defines the points of the well.
-
-        Parameters:
-            points (np.ndarray-like, 3 x npt): End points of each of the npt-1
-                line segments of the new well.
-            index (int, optional): Index of well. Defaults to None.
-            tags (dictionary, optional): may e.g. identify different types
-                of points. In particular, tags["intersecting_fractures"] has
-                length npt and will be used to identify which fracture(s)
-                intersects each of the points in points.
-
-        """
         self.pts = np.asarray(points, dtype=float)
+        """``shape = (3, num_points)``
+
+        Endpoints of each of the num_points-1 line segments of the new well."""
         self.orig_pts = self.pts.copy()
         self.dim = 1
         # Set well index
@@ -66,6 +48,11 @@ class Well:
         # Initialize tag dictionary.
         if tags is None:
             self.tags = {}
+            """Dictionary of tags, e.g. to identify different types of points.
+
+            In particular, tags["intersecting_fractures"] has length num_points and will be
+            used to identify which fracture(s) intersects each of the points in points.
+            """
         else:
             self.tags = tags
 

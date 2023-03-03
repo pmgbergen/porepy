@@ -62,9 +62,9 @@ class ModelGeometry:
         method is used.
 
         The method assigns the following attributes to self:
-            mdg (pp.MixedDimensionalGrid): The produced grid bucket.
-            box (dict): The bounding box of the domain, defined through minimum and
-                maximum values in each dimension.
+            mdg: The produced mixed-dimensional grid.
+            box: The bounding box of the domain, defined through minimum and maximum
+                values in each dimension.
 
         """
 
