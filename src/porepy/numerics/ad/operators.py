@@ -56,10 +56,12 @@ class Operator:
         subdomains (optional): List of subdomains on which the operator is defined.
             Will be empty for operators not associated with any subdomains.
             Defaults to None (converted to empty list).
-        interfaces (optional): List of interfaces in the mixed-dimensional grid on which the
-            operator is defined.
-            Will be empty for operators not associated with any interface.
-            Defaults to None (converted to empty list).
+        interfaces (optional): List of interfaces in the mixed-dimensional grid on which
+            the operator is defined. Will be empty for operators not associated with any
+            interface. Defaults to None (converted to empty list).
+        tree (optional): The tree structure of child operators. Defaults to None
+            (converted to a tree with a single void operator).
+
     """
 
     Operations: EnumMeta = Enum(
@@ -1891,4 +1893,8 @@ def sum_operator_list(
 
     """
     result = reduce(lambda a, b: a + b, operators)
+
+    if name is not None:
+        result.set_name(name)
+
     return result
