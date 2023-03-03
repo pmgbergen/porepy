@@ -1,6 +1,7 @@
 """Runscript to calculate the data using thermo for the water-CO2, 2-phase mixture."""
 import pathlib
 import sys
+import time
 
 # adding script path to find relevant moduls
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
@@ -21,25 +22,24 @@ from thermo_comparison import (
 
 if __name__ == "__main__":
 
-    result_file_pT = f"data/thermodata_pT.csv"
-    result_file_ph = f"data/thermodata_ph.csv"
+    result_file_pT = f"data/thermodata_pT100.csv"
+    result_file_ph = f"data/thermodata_ph100.csv"
 
-    pT_identifier_file = f"data/thermodata_pT_id.csv"
-    ph_identifier_file = f"data/thermodata_ph_id.csv"
-
-    eps = 0.01
-    p_limits = [0.01e6, 100.0e6]  # [Pa]
-    h_limits = [-30000.0, 10000.0]  # [J/mol]
-    T_limits = [280, 700]  # [K]
+    pT_identifier_file = f"data/thermodata_pT100_id.csv"
+    ph_identifier_file = f"data/thermodata_ph100_id.csv"
 
     print("Computing thermo data: calculating", flush=True)
+    start_time = time.time()
     results_pT = thermo_pT_flash(P_LIMITS, T_LIMITS, p_res=RESOLUTION, T_res=RESOLUTION)
-
-    results_ph = thermo_ph_flash(P_LIMITS, H_LIMITS, p_res=RESOLUTION, h_res=RESOLUTION)
-
-    print("Computing thermo data: writing result files", flush=True)
+    end_time = time.time()
+    print(f"Computing thermo data: p-T data calculated after {end_time - start_time} seconds", flush=True)
     write_results(result_file_pT, results_pT)
-    write_results(result_file_ph, results_ph)
+
+    start_time = time.time()
+    results_ph = thermo_ph_flash(P_LIMITS, H_LIMITS, p_res=RESOLUTION, h_res=RESOLUTION)
+    end_time = time.time()
+    print(f"Computing thermo data: p-h data calculated after {end_time - start_time} seconds", flush=True)
+    write_results(result_file_ph, results_ph)    
 
     print("Computing thermo data: writing identifier files", flush=True)
     p_points, T_points, pT_id = read_px_data([result_file_pT], "T")
