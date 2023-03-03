@@ -19,12 +19,12 @@ vectorize = False
 # list of (filename, mode),
 # where mode indicates if only L (liquid), G (gas) or both (GL) data are available
 files = [
-    ("data/pr_data_thermo_isothermal_G_easy.csv", "G"),
-    ("data/pr_data_thermo_isothermal_G_hard.csv", "G"),
-    ("data/pr_data_thermo_isothermal_L_easy.csv", "L"),
-    ("data/pr_data_thermo_isothermal_L_hard.csv", "L"),
-    ("data/pr_data_thermo_isothermal_GL_easy.csv", "GL"),
-    ("data/pr_data_thermo_isothermal_GL_hard.csv", "GL"),
+    ("data/pr_data_thermo_isothermal_G_0.csv", "G"),
+    ("data/pr_data_thermo_isothermal_G_1.csv", "G"),
+    ("data/pr_data_thermo_isothermal_L_0.csv", "L"),
+    ("data/pr_data_thermo_isothermal_L_1.csv", "L"),
+    ("data/pr_data_thermo_isothermal_GL_0.csv", "GL"),
+    ("data/pr_data_thermo_isothermal_GL_1.csv", "GL"),
 ]
 # results stored here
 version = "test"

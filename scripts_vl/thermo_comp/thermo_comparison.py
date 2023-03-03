@@ -68,6 +68,7 @@ fugacity_HEADER: dict[str, dict[str, str]] = dict(
 num_iter_HEADER: str = "num-iter"
 cond_start_HEADER: str = "cond-start"
 cond_end_HEADER: str = "cond-end"
+is_supercrit_HEADER: str = "is-supercrit"
 
 RESOLUTION: int = 10
 
@@ -79,6 +80,32 @@ H_LIMITS: list[float] = [-30000.0, 10000.0]  # [J/mol]
 def path():
     """Returns path to script calling this function as string."""
     return str(pathlib.Path(__file__).parent.resolve())
+
+
+def get_result_headers() -> list[str]:
+    """Returns the headers for results computed using PorePy's flash."""
+    headers: list[str] = [success_HEADER, num_iter_HEADER, is_supercrit_HEADER]
+    headers += [cond_start_HEADER, cond_end_HEADER]
+    headers += [p_HEADER, T_HEADER, h_HEADER, gas_frac_HEADER]
+    # only one liquid phase
+    headers += [compressibility_HEADER[p] for p in PHASES[:2]]
+    for c in COMPONENTS:
+        for p in PHASES[:2]:
+            headers.append(composition_HEADER[c][p])
+    for c in COMPONENTS:
+        for p in PHASES[:2]:
+            headers.append(fugacity_HEADER[c][p])
+    return headers
+
+
+def read_headers(filename: str) -> list[str]:
+    """Reads and returns the first line of a file."""
+    print(f"Reading headers: file {filename}", flush=True)
+    with open(f"{path()}/{filename}", "r") as csvfile:
+        reader = csv.reader(csvfile, delimiter=DELIMITER)
+        headers = next(reader)
+    print(f"Reading headers: done", flush=True)
+    return headers
 
 
 def read_px_data(
