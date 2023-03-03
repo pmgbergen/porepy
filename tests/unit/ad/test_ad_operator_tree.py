@@ -32,8 +32,8 @@ operators = [
 
 @pytest.mark.parametrize("operator", operators)
 def test_elementary_operations(operator):
-    """Test that performing elementary arithmetic operations on operators return operator
-    trees with the expected structure.
+    """Test that performing elementary arithmetic operations on operators return
+    operator trees with the expected structure.
 
     The test does not consider evaluation of the numerical values of the operators.
     """
@@ -210,8 +210,8 @@ def test_time_dependent_array():
             pp.ITERATE: {"bar": np.ones(intf.num_cells)},
         }
 
-    # We make three arrays: One defined on a single subdomain, one on all subdomains of mdg
-    # and one on an interface.
+    # We make three arrays: One defined on a single subdomain, one on all subdomains of
+    # mdg and one on an interface.
     sd_array_top = pp.ad.TimeDependentDenseArray(
         "foo", subdomains=mdg.subdomains(dim=mdg.dim_max())
     )
@@ -264,8 +264,8 @@ def test_time_dependent_array():
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationSystem.
     1) Fetching the same variable twice should get the same variable (same attribute id).
-    2) Fetching the same mixed-dimensional variable twice should result in objects with different
-       id attributes, but point to the same underlying variable.
+    2) Fetching the same mixed-dimensional variable twice should result in objects with
+       different id attributes, but point to the same underlying variable.
 
     No tests are made of the actual values of the variables, as this is tested in
     test_ad_variable_evaluation() (below).

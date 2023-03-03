@@ -345,8 +345,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # but the row corresponding to each cell will be non-zero in all rows
         # corresponding to the tangential basis vectors of this cell. EK: mypy insists
         # that the argument to sum should be a list of booleans. Ignore this error.
-        scalar_to_tangential = sum(
-            [e_i for e_i in tangential_basis]  # type: ignore[misc]
+        scalar_to_tangential = pp.ad.sum_operator_list(
+            [e_i for e_i in tangential_basis]
         )
 
         # Variables: The tangential component of the contact traction and the
@@ -391,11 +391,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # to the full vector quantity (e_i), and sum over all all directions in the
         # tangential plane. EK: mypy insists that the argument to sum should be a list
         # of booleans. Ignore this error.
-        c_num = sum(
-            [
-                e_i * c_num_as_scalar * e_i.T  # type: ignore[misc]
-                for e_i in tangential_basis
-            ]
+        c_num = pp.ad.sum_operator_list(
+            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
         )
 
         # Combine the above into expressions that enter the equation. c_num will
@@ -451,6 +448,7 @@ class ConstitutiveLawsMomentumBalance(
     constitutive_laws.LinearElasticSolid,
     constitutive_laws.FracturedSolid,
     constitutive_laws.FrictionBound,
+    constitutive_laws.DimensionReduction,
 ):
     """Class for constitutive equations for momentum balance equations."""
 
@@ -469,13 +467,10 @@ class ConstitutiveLawsMomentumBalance(
 
 
 class VariablesMomentumBalance:
-    """
-    Variables for mixed-dimensional deformation:
-        Displacement in matrix and on fracture-matrix interfaces. Fracture contact
-        traction.
+    """Variables for mixed-dimensional deformation.
 
-    .. note::
-        Implementation postponed till Veljko's more convenient SystemManager is available.
+    Displacement in matrix and on fracture-matrix interfaces. Fracture contact
+    traction.
 
     """
 
