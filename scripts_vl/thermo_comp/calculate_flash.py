@@ -21,15 +21,27 @@ from thermo_comparison import (
     PHASES,
     NAN_ENTRY,
     get_result_headers,
-    write_results
+    write_results,
+    p_HEADER,
+    T_HEADER,
+    h_HEADER,
+    compressibility_HEADER,
+    composition_HEADER,
+    fugacity_HEADER,
+    cond_end_HEADER,
+    cond_start_HEADER,
+    num_iter_HEADER,
+    is_supercrit_HEADER,
+    success_HEADER,
+    gas_frac_HEADER
 )
 
 # How to calculate:
-# 0 - component-wise
+# 0 - point-wise
 # 1 - vectorized
 # 2 - parallelized
 # This is critical when it comes to performance on big data files
-MODE: int = 2
+MODE: int = 0
 # flash type: pT or ph
 FLASH_TYPE: str = 'pT'
 # p-x data from an thermo results file
@@ -477,6 +489,129 @@ def parallel_ph_flash(iph):
     progress_queue_loc.put(i)
 
 
+def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str, list]:
+    """Performs point-wise a p-T flash for p and T in passed lists.
+    
+    Returns the results stored in a dictionary with column headers as keys.
+    
+    """
+    NC = len(p_points)
+    MIX, ADS, FLASH  = get_flash_setup(num_cells=1)
+    LIQ, GAS = [p for p in MIX.phases]
+    H2O, CO2 = [c for c in MIX.components]
+
+
+    ADS.set_variable_values(np.zeros(1), [MIX.AD.h.name], to_iterate=True, to_state=True)
+
+    # result storage
+    success: list[int] = list()  # flag if flash succeeded
+    num_iter: list[int] = list()  # number of iterations
+    cond_start: list[float] = list()
+    cond_end: list[float] = list()
+    is_supercrit: list[int] = list()
+    h: list[float] = list()
+    y: list[float] = list()
+    Z_L: list[float] = list()
+    Z_G: list[float] = list()
+    x_h2o_L: list[float] = list()
+    x_co2_L: list[float] = list()
+    x_h2o_G: list[float] = list()
+    x_co2_G: list[float] = list()
+    phi_h2o_L: list[float] = list()
+    phi_co2_L: list[float] = list()
+    phi_h2o_G: list[float] = list()
+    phi_co2_G: list[float] = list()
+
+    print(f"Point-wise flash: starting ... ", flush=True)
+    for i, pT in enumerate(zip(p_points, T_points)):
+        p, T = pT
+        ADS.set_variable_values(np.array([p]) * 1e-6, [MIX.AD.p.name], True, True)
+        ADS.set_variable_values(np.array([T]), [MIX.AD.T.name], True, True)
+
+        try:
+            print(f"\rPoint-wise flash: flash {i}/{NC}", end="", flush=True)
+            success_ = FLASH.flash(
+                flash_type="pT",
+                method="npipm",
+                initial_guess="rachford_rice",
+                copy_to_state=False,  # don't overwrite the state, store as iterate
+                do_logging=False,
+            )
+        except Exception as err:  # if Flasher fails, flag as failed
+            print(f"\rPoint-wise flash: failed at {i}\n{str(err)}", flush=True)
+            success_ = False
+
+        try:
+            MIX.precompute(apply_smoother=False)
+            FLASH.evaluate_specific_enthalpy(True)
+        except Exception as err:
+            print(f"\rPoint-wise flash: EOS evaluation failed at {i}\n{str(err)}", flush=True)
+            # if the flash failed, the root computation can fail too
+            # store nans as compressibility factors
+            Z_L.append(np.nan)
+            Z_G.append(np.nan)
+            phi_h2o_L.append(np.nan)
+            phi_h2o_G.append(np.nan)
+            phi_co2_L.append(np.nan)
+            phi_co2_G.append(np.nan)
+            h.append(np.nan)
+            is_supercrit.append(0)
+        else:
+            # if successful, store values
+            Z_L.append(LIQ.eos.Z.val[0])
+            Z_G.append(GAS.eos.Z.val[0])
+            phi_h2o_L.append(LIQ.eos.phi[H2O].val[0])
+            phi_h2o_G.append(GAS.eos.phi[H2O].val[0])
+            phi_co2_L.append(LIQ.eos.phi[CO2].val[0])
+            phi_co2_G.append(GAS.eos.phi[CO2].val[0])
+            h.append(MIX.AD.h.evaluate(ADS).val[0])
+            is_supercrit.append(int(LIQ.eos.is_supercritical[0] or GAS.eos.is_supercritical[0]))
+
+        # extract and store results from last iterate
+        success.append(int(success_))  # store booleans as 0 and 1
+        y.append(GAS.fraction.evaluate(ADS).val[0])
+        x_h2o_L.append(LIQ.fraction_of_component(H2O).evaluate(ADS).val[0])
+        x_co2_L.append(LIQ.fraction_of_component(CO2).evaluate(ADS).val[0])
+        x_h2o_G.append(GAS.fraction_of_component(H2O).evaluate(ADS).val[0])
+        x_co2_G.append(GAS.fraction_of_component(CO2).evaluate(ADS).val[0])
+        num_iter.append(FLASH.flash_history[-1]["iterations"])
+        cond_start.append(FLASH.cond_start)
+        cond_end.append(FLASH.cond_end)
+
+    results: dict[str, int] = dict()
+
+    results[p_HEADER] = p_points
+    results[T_HEADER] = T_points
+    results[h_HEADER] = h
+
+    results[success_HEADER] = success
+    results[num_iter_HEADER] = num_iter
+    results[cond_start_HEADER] = cond_start
+    results[cond_end_HEADER] = cond_end
+    results[is_supercrit_HEADER] = is_supercrit
+    results[gas_frac_HEADER] = y
+
+    results[compressibility_HEADER[PHASES[0]]] = Z_G
+    results[compressibility_HEADER[PHASES[1]]] = Z_L
+
+    h2o = COMPONENTS[0]
+    co2 = COMPONENTS[1]
+    gas = PHASES[0]
+    liq = PHASES[1]
+
+    results[composition_HEADER[h2o][gas]] = x_h2o_G
+    results[composition_HEADER[h2o][liq]] = x_h2o_L
+    results[composition_HEADER[co2][gas]] = x_co2_G
+    results[composition_HEADER[co2][liq]] = x_co2_L
+
+    results[fugacity_HEADER[h2o][gas]] = phi_h2o_G
+    results[fugacity_HEADER[h2o][liq]] = phi_h2o_L
+    results[fugacity_HEADER[co2][gas]] = phi_co2_G
+    results[fugacity_HEADER[co2][liq]] = phi_co2_L
+
+    return results
+
+
 if __name__ == '__main__':
 
     if FLASH_TYPE == 'pT':
@@ -495,7 +630,10 @@ if __name__ == '__main__':
     results: dict[str, list]
 
     if MODE == 0:
-        pass
+        if FLASH_TYPE == 'pT':
+            results = pointwise_pT_flash(p_points=p_points, T_points=x_points)
+        elif FLASH_TYPE == 'ph':
+            pass
     elif MODE == 1:
         pass
     elif MODE == 2:

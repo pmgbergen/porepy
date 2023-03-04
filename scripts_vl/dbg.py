@@ -17,4 +17,14 @@ plt.plot(x, y)
 
 plt.show()
 
-print("done")
+try:
+    raise RuntimeError("err")
+except Exception as err:
+    print(str(err))
+else:
+    print("else")
+finally:
+    print("finally")
+
+
+print("Done")
