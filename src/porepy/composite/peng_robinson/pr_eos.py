@@ -540,7 +540,7 @@ class PR_EoS:
                 np.logical_not(
                     subcritical_square[one_root_region]
                 ),  # TODO try subcritical (less restrictive)
-                w_1.val <= B_1.val,
+                w_1.val < B_1.val,
             )
             w_1.val[correction] = z_1.val[correction]
             w_1.jac[correction] = z_1.jac[correction]
