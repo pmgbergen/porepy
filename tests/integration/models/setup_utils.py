@@ -9,12 +9,12 @@ import numpy as np
 import porepy as pp
 
 
-class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
-    """A 2d domain with up to two orthogonal fractures.
+class RectangularDomainThreeFractures(pp.ModelGeometry):
+    """A rectangular domain with up to three fractures.
 
-    The fractures have constant x and y coordinates equal to 0.5, respectively, and are
-    situated in a unit square domain. The number of fractures is controlled by the
-    parameter `num_fracs`, which can be 0, 1 or 2.
+    The first two fractures are orthogonal, with `x` and `y` coordinates equal to
+    0.5, respectively. The third fracture is tilted. The number of fractures is
+    controlled by the parameter ``num_fracs``, which can be 0, 1, 2, or 3.
 
     """
 
@@ -26,8 +26,7 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         ls = 1 / self.units.m
 
         num_fracs = self.params.get("num_fracs", 1)
-        box = {"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls}
-        domain = pp.Domain(box)
+        domain = pp.Domain({"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls})
         fractures = [
             pp.LineFracture(np.array([[0, 2], [0.5, 0.5]]) * ls),
             pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
@@ -56,17 +55,17 @@ class RectangularDomainOrthogonalFractures2d(pp.ModelGeometry):
         self.domain = pp.Domain(box)
         # Translate fracture network to cart_grid format
         fracs = []
-        for f in self.fracture_network.edges.T:
-            fracs.append(self.fracture_network.pts[:, f])
+        for f in self.fracture_network._edges.T:
+            fracs.append(self.fracture_network._pts[:, f])
         self.mdg = pp.fracs.meshing.cart_grid(fracs, n_cells, physdims=phys_dims)
 
 
 class OrthogonalFractures3d(pp.ModelGeometry):
     """A 3d domain with up to three orthogonal fractures.
 
-    The fractures have constant x, y and z coordinates equal to 0.5, respectively,
+    The fractures have constant `x`, `y` and `z` coordinates equal to 0.5, respectively,
     and are situated in a unit cube domain. The number of fractures is controlled by
-    the parameter num_fracs, which can be 0, 1, 2 or 3.
+    the parameter ``num_fracs``, which can be 0, 1, 2 or 3.
 
     """
 
@@ -122,11 +121,11 @@ class WellGeometryMixin:
         num_wells = self.params.get("num_wells", 1)
         if self.nd == 2:
             # Comments are the intersection with fractures in
-            # RectangularDomainOrthogonalFractures
+            # RectangularDomainThreeFractures
             wells = [
-                pp.Well(np.array([0.5, 0.1])),  # Intersects one fracture
-                pp.Well(np.array([0.5, 0.5])),  # Intersects both fractures
-                pp.Well(np.array([0.25, 0.9])),  # Intersects no fractures
+                pp.Well(np.array([0.5], [0.1], [0])),  # Intersects one fracture
+                pp.Well(np.array([0.5], [0.5], [0])),  # Intersects two fractures
+                pp.Well(np.array([0.25], [0.9], [0])),  # Intersects no fractures
             ]
             self.well_network = pp.WellNetwork2d(wells[:num_wells])
         else:
@@ -175,7 +174,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
@@ -190,7 +189,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         """
         vals = []
         if len(subdomains) == 0:
-            return pp.ad.Array(np.zeros(0), name="bc_values_darcy")
+            return pp.ad.DenseArray(np.zeros(0), name="bc_values_darcy")
         for sd in subdomains:
             domain_sides = self.domain_boundary_sides(sd)
             vals_loc = np.zeros(sd.num_faces)
@@ -246,7 +245,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for the mobility.
 
         Nonzero values are only defined on the north and south boundaries corresponding
@@ -271,7 +270,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
             )
             values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
+        # Concatenate to single array and wrap as ad.DenseArray
         bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_mobility")
         return bc_values
 
@@ -341,7 +340,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         )
         return values.ravel("F")
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the mechanics problem.
 
         Parameters:
@@ -355,7 +354,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         # Set the boundary values
         bc_values = []
         if len(subdomains) == 0:
-            return pp.ad.Array(np.zeros(0), name="bc_values_mechanics")
+            return pp.ad.DenseArray(np.zeros(0), name="bc_values_mechanics")
         for sd in subdomains:
             bc_values.append(self.bc_values_mechanics_np(sd))
         ad_values = pp.wrap_as_ad_array(
@@ -413,14 +412,14 @@ class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
 
 
 class MassBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     ...
 
 
 class MomentumBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.momentum_balance.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
@@ -429,7 +428,7 @@ class MomentumBalance(
 
 
 class MassAndEnergyBalance(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
@@ -438,7 +437,7 @@ class MassAndEnergyBalance(
 
 
 class Poromechanics(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.poromechanics.Poromechanics,
 ):
     """Combine components needed for poromechanics simulation."""
@@ -447,7 +446,7 @@ class Poromechanics(
 
 
 class Thermoporomechanics(
-    RectangularDomainOrthogonalFractures2d,
+    RectangularDomainThreeFractures,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
@@ -468,7 +467,7 @@ def model(
 
     # Identify the geometry class
     if dim == 2:
-        geometry = RectangularDomainOrthogonalFractures2d
+        geometry = RectangularDomainThreeFractures
     elif dim == 3:
         geometry = OrthogonalFractures3d
     else:
@@ -623,7 +622,7 @@ def compare_scaled_model_quantities(
             domains = domains_from_method_name(setup.mdg, method, domain_dimension=dim)
             # Convert back to SI units.
             value = method(domains).evaluate(setup.equation_system)
-            if isinstance(value, pp.ad.Ad_array):
+            if isinstance(value, pp.ad.AdArray):
                 value = value.val
             values.append(setup.fluid.convert_units(value, method_unit, to_si=True))
         compare_values(values[0], values[1], cell_wise=cell_wise)

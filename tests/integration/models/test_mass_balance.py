@@ -40,7 +40,7 @@ class BoundaryConditionLinearPressure:
         # Define Dirichlet conditions on the left and right boundaries
         return pp.BoundaryCondition(sd, east + west, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the pressure.
 
         Parameters:
@@ -62,7 +62,7 @@ class BoundaryConditionLinearPressure:
             bc_values = np.empty(0)
         return pp.wrap_as_ad_array(bc_values, name="bc_values_darcy")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the mobility times density.
 
         Parameters:

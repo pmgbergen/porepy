@@ -1,6 +1,7 @@
 """
 Module containing a wrapper function to generate fracture networks in 2d and 3d.
 """
+from __future__ import annotations
 
 import warnings
 from typing import Optional, Union
@@ -26,7 +27,7 @@ def create_fracture_network(
 
     Examples:
 
-        .. code: python3
+        .. code:: python3
 
             import porepy as pp
             import numpy as np
@@ -44,6 +45,7 @@ def create_fracture_network(
 
     Raises:
         - ValueError: If ``domain = None`` and ``fractures = None`` (or an empty list).
+        - ValueError: If the dimensions from ``domain`` and ``fractures`` do not match.
         - TypeError: If not all items of ``fractures`` are of the same type.
         - Warning: If ``run_checks = True`` when dimension is different from 3.
 
@@ -95,16 +97,16 @@ def create_fracture_network(
         # Infer the dimension from the dimension
         dim_from_domain = domain.dim
         # Make sure both dimension match
-        assert dim_from_domain == dim_from_fracs
+        if not dim_from_domain == dim_from_fracs:
+            msg = "The dimensions inferred from 'fractures' and 'domain' do not match."
+            raise ValueError(msg)
         dim = dim_from_domain
-    elif fracs is not None and domain is None:  # CASE 3: fractures given, no domain
+    else:  # CASE 3: fractures given, no domain
+        assert fracs is not None and domain is None  # needed to please mypy
         if isinstance(fracs[0], LineFracture):
             dim = 2
         else:
             dim = 3
-    # The correct thing to do above would've been to use an `else` statement, but mypy
-    # complains if there are no explicit checks ensuring that fracs is not None and
-    # domain is None
 
     # Warn if run_checks = True is given when dimension is different from 3
     if run_checks and dim != 3:
