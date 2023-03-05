@@ -119,7 +119,10 @@ class MixedDimensionalGrid:
 
     @overload
     def interfaces(
-        self, return_data: Literal[False] = False, dim: Optional[int] = None
+        self,
+        return_data: Literal[False] = False,
+        dim: Optional[int] = None,
+        codim: int = 1,
     ) -> list[pp.MortarGrid]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
@@ -127,14 +130,14 @@ class MixedDimensionalGrid:
 
     @overload
     def interfaces(
-        self, return_data: Literal[True], dim: Optional[int] = None
+        self, return_data: Literal[True], dim: Optional[int] = None, codim: int = 1
     ) -> list[tuple[pp.MortarGrid, dict]]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         ...
 
     def interfaces(
-        self, return_data: bool = False, dim: Optional[int] = None
+        self, return_data: bool = False, dim: Optional[int] = None, codim: int = 1
     ) -> Union[list[pp.MortarGrid], list[tuple[pp.MortarGrid, dict]]]:
         """Get a sorted list of interfaces in the mixed-dimensional grid.
 
@@ -154,6 +157,11 @@ class MixedDimensionalGrid:
                 If provided, only interfaces of the specified dimension will
                 be returned.
 
+            codim: ``default=1``
+
+                Codimension of the interface. Defaults to 1, i.e., the interface is
+                assumed to have subdomains exactly one dimension apart.
+
         Returns:
             Either a list of mortar grids associated with interfaces (default), or (if
             ``return_data=True``) list of tuples, where the first tuple item is the
@@ -163,7 +171,7 @@ class MixedDimensionalGrid:
         interfaces: list[pp.MortarGrid] = list()
         data_list: list[dict] = list()
         for intf, data in self._interface_data.items():
-            if dim is None or dim == intf.dim:
+            if (dim is None or dim == intf.dim) and intf.codim == codim:
                 interfaces.append(intf)
                 data_list.append(data)
         sort_ind = self.argsort_grids(interfaces)
@@ -734,7 +742,7 @@ class MixedDimensionalGrid:
                 Predicate with a subdomain as input.
 
         Returns:
-            The total number of subdomain cells of the mixed-dimensional grid.
+            The total number of subdomain cells of the grid bucket.
 
         """
         if cond is None:
@@ -756,7 +764,7 @@ class MixedDimensionalGrid:
                 Predicate with an interface as input.
 
         Returns:
-            The total number of mortar cells of the mixed-dimensional grid.
+            The total number of mortar cells of the grid bucket.
 
         """
         if cond is None:
