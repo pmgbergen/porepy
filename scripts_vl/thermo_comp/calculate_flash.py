@@ -8,6 +8,7 @@ import numpy as np
 import porepy as pp
 
 from multiprocessing import Pool, Array, Queue, Process
+from multiprocessing.pool import AsyncResult
 from ctypes import c_uint8, c_double
 from typing import Any
 
@@ -41,7 +42,7 @@ from thermo_comparison import (
 # 1 - vectorized
 # 2 - parallelized
 # This is critical when it comes to performance on big data files
-MODE: int = 0
+MODE: int = 2
 # flash type: pT or ph
 FLASH_TYPE: str = 'pT'
 # p-x data from an thermo results file
@@ -142,8 +143,7 @@ def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
     return shared_arrays
 
 
-
-def _progress_counter(q: Queue, NC: int):
+def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
     """A function sharing a Queue object with other processes, which receives
     the index of all finished flashes. This function finishes when all indices
     where received."""
@@ -156,6 +156,9 @@ def _progress_counter(q: Queue, NC: int):
         print(f"\rParallel flash: {progress}/{NC}", end='', flush=True)
         if progress == NC:
             break
+        # if flash_result.ready():
+        #     print(f"\rParallel flash: results ready", end='', flush=True)
+        #     break
 
 
 def get_flash_setup(
@@ -529,7 +532,7 @@ def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str
         ADS.set_variable_values(np.array([T]), [MIX.AD.T.name], True, True)
 
         try:
-            print(f"\rPoint-wise flash: flash {i}/{NC}", end="", flush=True)
+            print(f"\rPoint-wise flash: flash {i + 1}/{NC}", end="", flush=True)
             success_ = FLASH.flash(
                 flash_type="pT",
                 method="npipm",
@@ -655,23 +658,28 @@ if __name__ == '__main__':
             initargs=(shared_arrays, prog_q),
             initializer=_access_shared_objects
         ) as pool:
-            prog_process = Process(
-                target=_progress_counter,
-                args=(prog_q, NC),
-                daemon=True
-            )
+
             chunksize = NUM_PHYS_CPU_CORS
             result = pool.map_async(flash_func, ipx, chunksize=chunksize)
 
+            prog_process = Process(
+                target=_progress_counter,
+                args=(prog_q, NC, None),
+                daemon=True
+            )
+
             # Wait until all results are here
             prog_process.start()
-            prog_process.join()
             # Wait for some time and see if processes terminate as they should
             # we terminate if the processes for some case could not finish
-            result.wait(3)
-            if result.ready() and result.successful():
+            result.wait(60 *60 * 5)
+            if result.ready():
+                prog_process.join(5)
+                if prog_process.exitcode != 0:
+                    prog_process.terminate()
                 pool.close()
             else:
+                prog_process.terminate()
                 print(f"\nParallel flash: terminated", flush=True)
                 pool.close()
                 pool.terminate()
