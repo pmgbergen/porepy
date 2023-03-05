@@ -6,10 +6,9 @@ import porepy as pp
 from porepy.fracs.utils import pts_edges_to_linefractures
 
 """
-In this test we validate the propagation of physical tags from gmsh to porepy.
-We consider the case with only boundary, fractures, auxiliary segments, and a mixed of
+In this test we validate the propagation of physical tags from gmsh to porepy. We 
+consider the case with only boundary, fractures, auxiliary segments, and a mixed of
 them.
-
 """
 
 

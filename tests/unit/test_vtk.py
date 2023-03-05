@@ -481,7 +481,7 @@ def test_fracture_network_3d(setup):
     network_3d = pp.FractureNetwork3d([f_1, f_2], domain=domain)
 
     # Define data
-    num_frac = len(network_3d._fractures)
+    num_frac = len(network_3d.fractures)
     dummy_scalar = [[1] for _ in range(num_frac)]
     dummy_vector = [[np.ones(3)] for _ in range(num_frac)]
     data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}

@@ -28,17 +28,22 @@ class BalanceEquation:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int, bool], pp.ad.Matrix]
-    """Wrap grid attributes as Ad operators. Normally set by a mixin instance of
+    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int], pp.ad.DenseArray]
+    """Wrap a grid attribute as a DenseArray. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Function that returns the specific volume of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
+
+    """Function that returns the specific volume of a subdomain or interface.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Matrix]]
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
 
@@ -81,7 +86,7 @@ class BalanceEquation:
         dt_operator = pp.ad.time_derivatives.dt
         dt = pp.ad.Scalar(self.time_manager.dt)
         div = pp.ad.Divergence(subdomains, dim=dim)
-        return dt_operator(accumulation, dt) + div * surface_term - source
+        return dt_operator(accumulation, dt) + div @ surface_term - source
 
     def volume_integral(
         self,
@@ -94,62 +99,45 @@ class BalanceEquation:
         Includes cell volumes and specific volume.
 
         Parameters:
-            integrand: Operator for the integrand.
-            grids: List of subdomain or interface to be integrated over.
-            dim: Spatial dimension of the integrand.
+            integrand: Operator for the integrand. Assumed to be a cell-wise scalar or
+                vector quantity, cf. :code:`dim` argument.
+            grids: List of subdomains or interfaces to be integrated over.
+            dim: Spatial dimension of the integrand. dim = 1 for scalar problems, dim >
+                1 for vector problems.
 
         Returns:
             Operator for the volume integral.
 
         Raises:
             ValueError: If the grids are not all subdomains or all interfaces.
-            NotImplementedError: If the grids are not all interfaces of dimension nd-1.
 
         """
-        # First construct a volume integral for scalar equations, then extend to vector
-        # (below).
+
+        assert all(isinstance(g, pp.MortarGrid) for g in grids) or all(
+            isinstance(g, pp.Grid) for g in grids
+        ), "Grids must be either all subdomains or all interfaces."
 
         # First account for cell volumes.
         # Ignore mypy complaint about unexpected keyword arguments.
-        cell_volumes = self.wrap_grid_attribute(
-            grids, "cell_volumes", dim=1, inverse=False  # type: ignore[call-arg]
+        cell_volumes = self.wrap_grid_attribute(  # type: ignore[call-arg]
+            grids, "cell_volumes", dim=1
         )
 
         # Next, include the effects of reduced dimensions, expressed as specific
         # volumes.
-        if len(grids) == 0:
-            # No need for a scaling here
-            volumes = cell_volumes
-        elif all(isinstance(g, pp.Grid) for g in grids):
-            # For grids, we can use the specific volume method.
-            # make mypy happy
-            subdomains: list[pp.Grid] = [g for g in grids if isinstance(g, pp.Grid)]
-            volumes = cell_volumes * self.specific_volume(subdomains)
-        elif not all(isinstance(g, pp.MortarGrid) for g in grids):
-            # We cannot deal with a combination of subdomains and interfaces.
-            raise ValueError("Grids must be either all subdomains or all interfaces.")
-        elif all(g.dim == self.nd - 1 for g in grids):
-            # Subdomain grids are dealt with above. Here we only need to account for
-            # interfaces.
-            # For interfaces of dimension nd-1, there is no need for further scalings.
-            volumes = cell_volumes
-        else:
-            # TODO: Extend specific volume to mortar grids.
-            # EK: I am not sure what specific volume means for a mortar grid.
-            raise NotImplementedError(
-                "Only implemented for interfaces of dimension nd-1."
-            )
-
         if dim == 1:
             # No need to do more for scalar problems
-            return volumes * integrand
+            return cell_volumes * self.specific_volume(grids) * integrand
         else:
-            # For vector problems, we need to expand the integrand to a vector. Do this
-            # by left and right multiplication with e_i and e_i.T
-            basis: list[pp.ad.Matrix] = self.basis(
+            # For vector problems, we need to expand the volume array from cell-wise
+            # scalar values to cell-wise vectors. We do this by left multiplication with
+            #  e_i and summing over i.
+            basis: list[pp.ad.SparseArray] = self.basis(
                 grids, dim=dim  # type: ignore[call-arg]
             )
-            volumes_nd = sum([e * volumes * e.T for e in basis])
+            volumes_nd = pp.ad.sum_operator_list(
+                [e @ (cell_volumes * self.specific_volume(grids)) for e in basis]
+            )
 
             return volumes_nd * integrand
 
