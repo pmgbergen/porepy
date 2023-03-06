@@ -534,12 +534,11 @@ class PR_EoS:
             # NOTE: The following is a preliminary correction for when the extension
             # violates physical bounds. It needs some investigation for the cases when
             # there are two EoS objects with contextual fractions, and a single one.
+            # correction = w_1.val < B_1.val
             correction = np.logical_or(
                 # self.is_supercritical[one_root_region], w_1.val <=0
                 # np.logical_not(sub_critical[one_root_region]),
-                np.logical_not(
-                    subcritical_square[one_root_region]
-                ),  # TODO try subcritical (less restrictive)
+                np.logical_not(subcritical_square[one_root_region]),
                 w_1.val < B_1.val,
             )
             w_1.val[correction] = z_1.val[correction]

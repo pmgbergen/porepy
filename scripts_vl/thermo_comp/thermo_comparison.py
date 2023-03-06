@@ -9,13 +9,11 @@ import pathlib
 from typing import Any, Literal
 
 import numpy as np
-from thermo import (
+from thermo import (  # PRMIX,; FlashVL,
     PR78MIX,
-    # PRMIX,
     CEOSGas,
     CEOSLiquid,
     ChemicalConstantsPackage,
-    # FlashVL,
     FlashVLN,
 )
 from thermo.interaction_parameters import IPDB
@@ -70,7 +68,7 @@ cond_start_HEADER: str = "cond-start"
 cond_end_HEADER: str = "cond-end"
 is_supercrit_HEADER: str = "is-supercrit"
 
-RESOLUTION: int = 10
+RESOLUTION: int = 50
 
 P_LIMITS: list[float] = [0.01e6, 100.0e6]  # [Pa]
 T_LIMITS: list[float] = [280, 700]  # [K]
