@@ -1019,6 +1019,11 @@ class Flash:
             z_c = [comp.fraction.evaluate(ads) for comp in self._MIX.components]
 
             # Collects initial K values from Wilson's correlation
+            partial_Pcs = [z_c[i].val * comp.critical_pressure() for i, comp in enumerate(self._MIX.components)]
+            partial_Tcs = [z_c[i].val * comp.critical_temperature() for i, comp in enumerate(self._MIX.components)]
+            mixture_Pr = pressure.val / sum(partial_Pcs);
+            mixture_Tr = temperature.val/sum(partial_Tcs);
+
             K = [
                 comp.critical_pressure()
                 / pressure.val
@@ -1030,6 +1035,7 @@ class Flash:
                 + 1.0e-12
                 for comp in self._MIX.components
             ]
+            K = [np.power(K_i,1.0/3.0) for K_i in K]
 
             def ResidualRR(Y, z_c, K):
                 res = np.zeros_like(Y)
@@ -1042,15 +1048,22 @@ class Flash:
                 # R. Okuno, R.T. Johns, and K. Sepehrnoori,
                 # SPE, The University of Texas at Austin
                 # TODO: Generalization to n_phases
-                # Since the RR function becomes the function becomes monotonic
-                # the absence of one phase one can if the integral is strictly positive
-                # value is strictly
-                potential = np.zeros_like(Y)
+                functionRR = np.zeros_like(Y)
                 for z_i, K_i in zip(z_c, K):
-                    potential = potential - z_i.val * np.log(
+                    functionRR = functionRR - z_i.val * np.log(
                         np.abs((1 + Y * (K_i - 1)))
                     )
-                return potential
+                return functionRR
+
+            def YConstraints(Y, z_c, K):
+                # A New Algorithm for Rachford-Rice for Multiphase Compositional Simulation
+                # Non-negativity of phase fracttion
+                # R. Okuno, R.T. Johns, and K. Sepehrnoori,
+                # SPE, The University of Texas at Austin
+                t_vals = 1 + Y * (np.array(K)-1.0)
+                cond_1 = np.array([t_vals[i] - z_c[i].val  for i, t in enumerate(t_vals)]) > 0
+                cond_2 = np.array([t_vals[i] - K[i] * z_c[i].val for i, t in enumerate(t_vals)]) > 0
+                return np.all(np.logical_and(cond_1,cond_2))
 
             def YPhaseFraction(z_c, K):
                 # TODO: Generalize the case for multidimensional bisection
@@ -1070,9 +1083,21 @@ class Flash:
 
                 Y = YPhaseFraction(z_c, K)
                 invalid_state = np.logical_or(0.0 > Y, Y > 1.0)
-                function_RR_val = FunctionRR(np.ones(nc), z_c, K)
-                Y = np.where((function_RR_val > 0.0) & (invalid_state), np.zeros(nc), Y)
-                Y = np.where((function_RR_val < 0.0) & (invalid_state), np.ones(nc), Y)
+
+                Gas_feasible_q = YConstraints(np.ones(nc), z_c, K)
+
+                if mixture_Pr > 1.0 and mixture_Tr > 1.0:
+                    function_RR_val = FunctionRR(np.ones(nc), z_c, K)
+                    Y = np.where((function_RR_val > 0.0) & (invalid_state), np.zeros(nc),
+                                 Y)
+                    Y = np.where((function_RR_val < 0.0) & (invalid_state), np.ones(nc),
+                                 Y)
+                else:
+                    if Gas_feasible_q:
+                        Y = np.where(invalid_state, np.ones(nc), Y)
+                    else:
+                        Y = np.where(invalid_state,np.zeros(nc),Y)
+
                 assert not np.any(np.logical_or(0.0 > Y, Y > 1.0))
 
                 for phase in self._MIX.phases:
