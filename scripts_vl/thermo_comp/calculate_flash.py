@@ -2,39 +2,39 @@
 import pathlib
 import sys
 import time
-import psutil
+from ctypes import c_double, c_uint8
+from multiprocessing import Array, Pool, Process, Queue
+from multiprocessing.pool import AsyncResult
+from typing import Any
 
 import numpy as np
-import porepy as pp
+import psutil
 
-from multiprocessing import Pool, Array, Queue, Process
-from multiprocessing.pool import AsyncResult
-from ctypes import c_uint8, c_double
-from typing import Any
+import porepy as pp
 
 # adding script path to find relevant moduls
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from thermo_comparison import (
-    FEED,
-    read_px_data,
     COMPONENTS,
-    PHASES,
+    FEED,
     NAN_ENTRY,
-    get_result_headers,
-    write_results,
-    p_HEADER,
+    PHASES,
     T_HEADER,
-    h_HEADER,
-    compressibility_HEADER,
     composition_HEADER,
-    fugacity_HEADER,
+    compressibility_HEADER,
     cond_end_HEADER,
     cond_start_HEADER,
-    num_iter_HEADER,
+    fugacity_HEADER,
+    gas_frac_HEADER,
+    get_result_headers,
+    h_HEADER,
     is_supercrit_HEADER,
+    num_iter_HEADER,
+    p_HEADER,
+    read_px_data,
     success_HEADER,
-    gas_frac_HEADER
+    write_results,
 )
 
 # How to calculate:
@@ -44,23 +44,22 @@ from thermo_comparison import (
 # This is critical when it comes to performance on big data files
 MODE: int = 2
 # flash type: pT or ph
-FLASH_TYPE: str = 'pT'
+FLASH_TYPE: str = "pT"
 # p-x data from an thermo results file
-PX_DATA_FILE = f"data/thermodata_pT10K.csv"
+PX_DATA_FILE = f"data\\thermodata_pT10k.csv"
 # file to which to write the results
-RESULT_FILE = f"data/results/results_pT10k_par_wo-reg.csv"
+RESULT_FILE = f"data\\results/results_pT10k_par_wo-reg-test.csv"
 # Number of physical CPU cores.
 # This is used for the number of sub-processes and chunksize in the parallelization
 NUM_PHYS_CPU_CORS = psutil.cpu_count(logical=False)
 
 
 def _access_shared_objects(
-        shared_arrays: list[tuple[Array, Any]],
-        progress_queue: Queue
+    shared_arrays: list[tuple[Array, Any]], progress_queue: Queue
 ):
     """Helper function to be called by subprocesses to provide access to shared-memory
     objects.
-    
+
     ``sharred_arrays`` must be a list of tuples, where the first entry is the
     shared array object and the second entry its data type (as a C-type).
 
@@ -69,15 +68,14 @@ def _access_shared_objects(
 
     progress_queue_loc = progress_queue
     arrays_loc = [
-        np.frombuffer(vec.get_obj(), dtype=dtype)
-        for vec, dtype in shared_arrays
+        np.frombuffer(vec.get_obj(), dtype=dtype) for vec, dtype in shared_arrays
     ]
 
 
 def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
     """Creates shared memory arrays for the parallelized flash and returns a list of
-    tuples with arrays and their data types as entries. 
-    
+    tuples with arrays and their data types as entries.
+
     Important:
         The order here in the list determines for which quantities they are used.
         The same order is assumed in the parallelized flash.
@@ -96,6 +94,7 @@ def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
 
     def _double_array():
         return Array(typecode_or_type=FLOAT_PRECISION, size_or_initializer=size)
+
     def _uint_array():
         return Array(typecode_or_type=INT_PRECISION, size_or_initializer=size)
 
@@ -139,7 +138,7 @@ def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
         for _ in PHASES[:2]:
             phi = _double_array()
             shared_arrays.append((phi, FLOAT_PRECISION))
-    
+
     return shared_arrays
 
 
@@ -153,7 +152,7 @@ def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
         i = q.get()
         progress_array[i] = 1
         progress = int(sum(progress_array))
-        print(f"\rParallel flash: {progress}/{NC}", end='', flush=True)
+        print(f"\rParallel flash: {progress}/{NC}", end="", flush=True)
         if progress == NC:
             break
         # if flash_result.ready():
@@ -162,11 +161,11 @@ def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
 
 
 def get_flash_setup(
-        num_cells: int
+    num_cells: int,
 ) -> tuple[pp.composite.Mixture, pp.ad.EquationSystem, pp.composite.Flash]:
     """Returns instances of the modelled mixture, respective AD system and flash from
     PorePy's framework, in that order.
-    
+
     ``num_cells`` is an integer indicating how large AD arrays should be.
     I.e., choose 1 for a point-wise and parallelized flash, choose some number ``n``
     for a vectorized flash.
@@ -224,7 +223,7 @@ def get_flash_setup(
 def parallel_pT_flash(ipT):
     """Performs a p-T flash (including modelling) and stores the results in shared
     memory.
-    
+
     ``ipT`` must be a tuple containing the index where the results should be stored,
     and the p-T point.
 
@@ -253,14 +252,14 @@ def parallel_pT_flash(ipT):
         y_arr,
         Z_L_arr,
         Z_G_arr,
-        x_h2o_L_arr,
         x_h2o_G_arr,
-        x_co2_L_arr,
+        x_h2o_L_arr,
         x_co2_G_arr,
-        phi_h2o_L_arr,
+        x_co2_L_arr,
         phi_h2o_G_arr,
-        phi_co2_L_arr,
+        phi_h2o_L_arr,
         phi_co2_G_arr,
+        phi_co2_L_arr,
     ) = arrays_loc
 
     MIX, ADS, FLASH = get_flash_setup(num_cells=1)
@@ -273,7 +272,10 @@ def parallel_pT_flash(ipT):
 
     # setting thermodynamic state, feed fractions assumed to be set
     ADS.set_variable_values(
-        p_vec, variables=[MIX.AD.p.name], to_iterate=True, to_state=True,
+        p_vec,
+        variables=[MIX.AD.p.name],
+        to_iterate=True,
+        to_state=True,
     )
     ADS.set_variable_values(
         T_vec, variables=[MIX.AD.T.name], to_iterate=True, to_state=True
@@ -281,6 +283,8 @@ def parallel_pT_flash(ipT):
     ADS.set_variable_values(
         h_vec, variables=[MIX.AD.h.name], to_iterate=True, to_state=True
     )
+    p_arr[i] = p
+    T_arr[i] = T
 
     try:
         success_ = FLASH.flash(
@@ -293,13 +297,6 @@ def parallel_pT_flash(ipT):
     except Exception as err:  # if Flasher fails, flag as failed
         print(f"\nParallel flash: failed at {ipT}\n{str(err)}\n", flush=True)
         success_ = False
-
-    # always available
-    num_iter_arr[i] = FLASH.flash_history[-1]["iterations"]
-    cond_start_arr[i] = FLASH.cond_start
-    cond_end_arr[i] = FLASH.cond_end
-    p_arr[i] = p
-    T_arr[i] = T
 
     if success_:
         try:
@@ -326,9 +323,9 @@ def parallel_pT_flash(ipT):
             phi_co2_G_arr[i] = LIQ.eos.phi[CO2].val[0]
             h_arr[i] = MIX.AD.h.evaluate(ADS).val[0]
             # TODO normally both phases should have the same boolean value here
-            is_supercrit_arr[i] = int(LIQ.eos.is_supercritical[0] or GAS.eos.is_supercritical[0])
-
-            
+            is_supercrit_arr[i] = int(
+                LIQ.eos.is_supercritical[0] and GAS.eos.is_supercritical[0]
+            )
 
         # extract and store results from last iterate
         success_arr[i] = 1
@@ -337,6 +334,10 @@ def parallel_pT_flash(ipT):
         x_h2o_G_arr[i] = GAS.fraction_of_component(H2O).evaluate(ADS).val[0]
         x_co2_L_arr[i] = LIQ.fraction_of_component(CO2).evaluate(ADS).val[0]
         x_co2_G_arr[i] = GAS.fraction_of_component(CO2).evaluate(ADS).val[0]
+
+        num_iter_arr[i] = FLASH.flash_history[-1]["iterations"]
+        cond_start_arr[i] = FLASH.cond_start
+        cond_end_arr[i] = FLASH.cond_end
 
     else:
         Z_L_arr[i] = FAILURE_ENTRY
@@ -347,12 +348,17 @@ def parallel_pT_flash(ipT):
         phi_co2_G_arr[i] = FAILURE_ENTRY
         h_arr[i] = FAILURE_ENTRY
 
-        success_arr[i] = FAILURE_ENTRY
+        success_arr[i] = 0
+        is_supercrit_arr[i] = 0
         y_arr[i] = FAILURE_ENTRY
         x_h2o_L_arr[i] = FAILURE_ENTRY
         x_h2o_G_arr[i] = FAILURE_ENTRY
         x_co2_L_arr[i] = FAILURE_ENTRY
         x_co2_G_arr[i] = FAILURE_ENTRY
+
+        num_iter_arr[i] = FAILURE_ENTRY
+        cond_start_arr[i] = FAILURE_ENTRY
+        cond_end_arr[i] = FAILURE_ENTRY
 
     progress_queue_loc.put(i)
 
@@ -360,7 +366,7 @@ def parallel_pT_flash(ipT):
 def parallel_ph_flash(iph):
     """Performs a p-h flash (including modelling) and stores the results in shared
     memory.
-    
+
     ``iph`` must be a tuple containing the index where the results should be stored,
     and the p-h point.
 
@@ -409,7 +415,10 @@ def parallel_ph_flash(iph):
 
     # setting thermodynamic state, feed fractions assumed to be set
     ADS.set_variable_values(
-        p_vec, variables=[MIX.AD.p.name], to_iterate=True, to_state=True,
+        p_vec,
+        variables=[MIX.AD.p.name],
+        to_iterate=True,
+        to_state=True,
     )
     ADS.set_variable_values(
         T_vec, variables=[MIX.AD.T.name], to_iterate=True, to_state=True
@@ -417,6 +426,9 @@ def parallel_ph_flash(iph):
     ADS.set_variable_values(
         h_vec, variables=[MIX.AD.h.name], to_iterate=True, to_state=True
     )
+
+    p_arr[i] = p
+    h_arr[i] = h
 
     try:
         success_ = FLASH.flash(
@@ -434,8 +446,6 @@ def parallel_ph_flash(iph):
     num_iter_arr[i] = FLASH.flash_history[-1]["iterations"]
     cond_start_arr[i] = FLASH.cond_start
     cond_end_arr[i] = FLASH.cond_end
-    p_arr[i] = p
-    h_arr[i] = h
 
     if success_:
         try:
@@ -460,9 +470,9 @@ def parallel_ph_flash(iph):
             phi_h2o_G_arr[i] = LIQ.eos.phi[H2O].val[0]
             phi_co2_G_arr[i] = LIQ.eos.phi[CO2].val[0]
             # TODO normally both phases should have the same boolean value here
-            is_supercrit_arr[i] = int(LIQ.eos.is_supercritical[0] or GAS.eos.is_supercritical[0])
-
-            
+            is_supercrit_arr[i] = int(
+                LIQ.eos.is_supercritical[0] or GAS.eos.is_supercritical[0]
+            )
 
         # extract and store results from last iterate
         T_arr[i] = MIX.AD.T.evaluate(ADS).val[0]
@@ -482,7 +492,8 @@ def parallel_ph_flash(iph):
         phi_co2_G_arr[i] = FAILURE_ENTRY
         T_arr[i] = FAILURE_ENTRY
 
-        success_arr[i] = FAILURE_ENTRY
+        success_arr[i] = 0
+        is_supercrit_arr[i] = 0
         y_arr[i] = FAILURE_ENTRY
         x_h2o_L_arr[i] = FAILURE_ENTRY
         x_h2o_G_arr[i] = FAILURE_ENTRY
@@ -494,17 +505,18 @@ def parallel_ph_flash(iph):
 
 def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str, list]:
     """Performs point-wise a p-T flash for p and T in passed lists.
-    
+
     Returns the results stored in a dictionary with column headers as keys.
-    
+
     """
     NC = len(p_points)
-    MIX, ADS, FLASH  = get_flash_setup(num_cells=1)
+    MIX, ADS, FLASH = get_flash_setup(num_cells=1)
     LIQ, GAS = [p for p in MIX.phases]
     H2O, CO2 = [c for c in MIX.components]
 
-
-    ADS.set_variable_values(np.zeros(1), [MIX.AD.h.name], to_iterate=True, to_state=True)
+    ADS.set_variable_values(
+        np.zeros(1), [MIX.AD.h.name], to_iterate=True, to_state=True
+    )
 
     # result storage
     success: list[int] = list()  # flag if flash succeeded
@@ -548,7 +560,10 @@ def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str
             MIX.precompute(apply_smoother=False)
             FLASH.evaluate_specific_enthalpy(True)
         except Exception as err:
-            print(f"\rPoint-wise flash: EOS evaluation failed at {i}\n{str(err)}", flush=True)
+            print(
+                f"\rPoint-wise flash: EOS evaluation failed at {i}\n{str(err)}",
+                flush=True,
+            )
             # if the flash failed, the root computation can fail too
             # store nans as compressibility factors
             Z_L.append(np.nan)
@@ -568,7 +583,9 @@ def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str
             phi_co2_L.append(LIQ.eos.phi[CO2].val[0])
             phi_co2_G.append(GAS.eos.phi[CO2].val[0])
             h.append(MIX.AD.h.evaluate(ADS).val[0])
-            is_supercrit.append(int(LIQ.eos.is_supercritical[0] or GAS.eos.is_supercritical[0]))
+            is_supercrit.append(
+                int(LIQ.eos.is_supercritical[0] or GAS.eos.is_supercritical[0])
+            )
 
         # extract and store results from last iterate
         success.append(int(success_))  # store booleans as 0 and 1
@@ -615,17 +632,18 @@ def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str
     return results
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    if FLASH_TYPE == 'pT':
-        p_points, x_points, pT_id = read_px_data([PX_DATA_FILE], 'T')
-    elif FLASH_TYPE == 'ph':
-        p_points, x_points, pT_id = read_px_data([PX_DATA_FILE], 'h')
+    if FLASH_TYPE == "pT":
+        p_points, x_points, pT_id = read_px_data([PX_DATA_FILE], "T")
+    elif FLASH_TYPE == "ph":
+        p_points, x_points, pT_id = read_px_data([PX_DATA_FILE], "h")
     else:
         NotImplementedError(f"Unknown flash type: {FLASH_TYPE}.")
-    
+
     # sanity check
-    assert len(p_points) == len(x_points
+    assert len(p_points) == len(
+        x_points
     ), f"Incomplete set of p-T points from file {PX_DATA_FILE}"
     # number of p-T points, i.e. flashes to perform
     NC: int = len(p_points)
@@ -633,16 +651,16 @@ if __name__ == '__main__':
     results: dict[str, list]
 
     if MODE == 0:
-        if FLASH_TYPE == 'pT':
+        if FLASH_TYPE == "pT":
             results = pointwise_pT_flash(p_points=p_points, T_points=x_points)
-        elif FLASH_TYPE == 'ph':
+        elif FLASH_TYPE == "ph":
             pass
     elif MODE == 1:
         pass
     elif MODE == 2:
-        if FLASH_TYPE == 'pT':
+        if FLASH_TYPE == "pT":
             flash_func = parallel_pT_flash
-        elif FLASH_TYPE == 'ph':
+        elif FLASH_TYPE == "ph":
             flash_func = parallel_ph_flash
         else:
             raise AssertionError("Something went terribly wrong")
@@ -656,23 +674,21 @@ if __name__ == '__main__':
         with Pool(
             processes=NUM_PHYS_CPU_CORS,
             initargs=(shared_arrays, prog_q),
-            initializer=_access_shared_objects
+            initializer=_access_shared_objects,
         ) as pool:
 
             chunksize = NUM_PHYS_CPU_CORS
             result = pool.map_async(flash_func, ipx, chunksize=chunksize)
 
             prog_process = Process(
-                target=_progress_counter,
-                args=(prog_q, NC, None),
-                daemon=True
+                target=_progress_counter, args=(prog_q, NC, None), daemon=True
             )
 
             # Wait until all results are here
             prog_process.start()
             # Wait for some time and see if processes terminate as they should
             # we terminate if the processes for some case could not finish
-            result.wait(60 *60 * 5)
+            result.wait(60 * 60 * 5)
             if result.ready():
                 prog_process.join(5)
                 if prog_process.exitcode != 0:
@@ -686,7 +702,10 @@ if __name__ == '__main__':
             pool.join()
 
         end_time = time.time()
-        print(f"\nParallel flash: finished after {end_time - start_time} seconds.", flush=True)
+        print(
+            f"\nParallel flash: finished after {end_time - start_time} seconds.",
+            flush=True,
+        )
 
         result_vecs = [
             list(np.frombuffer(vec.get_obj(), dtype=dtype))
