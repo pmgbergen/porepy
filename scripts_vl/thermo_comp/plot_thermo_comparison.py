@@ -14,7 +14,7 @@ import numpy as np
 
 # from matplotlib.colors import from_levels_and_colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from typing import Any
+from typing import Any, Optional
 
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
@@ -28,16 +28,24 @@ from thermo_comparison import (
     h_HEADER,
     success_HEADER,
     phases_HEADER,
+    gas_frac_HEADER,
+    num_iter_HEADER,
+    cond_start_HEADER,
+    cond_end_HEADER,
+    is_supercrit_HEADER,
     FAILED_ENTRY,
     NAN_ENTRY,
-    MISSING_ENTRY
+    MISSING_ENTRY,
+    COMPONENTS,
+    PHASES,
+    composition_HEADER
 )
 
 ### General settings
 
 # files containing data
-THERMO_FILE: str = f"data/thermodata_pT10K.csv"
-RESULT_FILE: str = f"data/results/results_pT10k_par_wo-reg.csv"
+THERMO_FILE: str = f"data/thermodata_pT10k.csv"
+RESULT_FILE: str = f"data/results/results_pT10k_pw_wo-reg.csv"
 # Path to where figures should be stored
 FIGURE_PATH: str = f"data/results/figures/"
 # Indicate flash type 'pT' or 'ph' to plot respectively
@@ -48,7 +56,7 @@ P_UNIT: str = "[kPa]"
 H_FACTOR: float = 1e-3
 H_UNIT: str = "[J / mol]"
 # flag to scale the pressure logarithmically in the plots
-P_LOG_SCALE: bool = True
+P_LOG_SCALE: bool = False
 # image size information
 FIG_WIDTH = 15  # in inches, 1080 / 1920 ratio applied to height
 DPI: int = 500
@@ -78,7 +86,7 @@ def get_px_index_map(p: list[Any], x: list[Any]) -> tuple[np.ndarray, np.ndarray
 
 
 def _plot_overshoot(
-    axis: plt.Axes, vals: np.ndarray, T: np.ndarray, p: np.ndarray, name: str
+    axis: plt.Axes, vals: np.ndarray, x_mesh: np.ndarray, p_mesh: np.ndarray, val_name: str
 ):
     over_shoot = vals > 1
     under_shoot = vals < 0
@@ -86,20 +94,24 @@ def _plot_overshoot(
     legend_txt = []
     if np.any(under_shoot):
         img_u = axis.plot(
-            T[under_shoot].flat, p[under_shoot].flat, "v", markersize=3, color="black"
+            (x_mesh[under_shoot] * H_FACTOR).flat,
+            (p_mesh[under_shoot] * P_FACTOR).flat,
+            "v", markersize=3, color="black"
         )
         legend_img.append(img_u[0])
-        legend_txt.append(f"{name} < 0")
+        legend_txt.append(f"{val_name} < 0")
     if np.any(over_shoot):
         img_o = axis.plot(
-            T[over_shoot].flat, p[over_shoot].flat, "^", markersize=3, color="red"
+            (x_mesh[under_shoot] * H_FACTOR).flat,
+            (p_mesh[under_shoot] * P_FACTOR).flat,
+            "^", markersize=3, color="red"
         )
         legend_img.append(img_o[0])
-        legend_txt.append(f"{name} > 1")
+        legend_txt.append(f"{val_name} > 1")
     return legend_img, legend_txt
 
 
-def _plot_crit_point(axis):
+def _plot_crit_point_pT(axis: plt.Axes):
     """Plot critical pressure and temperature in p-T plot for components H2O and CO2."""
 
     pc_co2 = 7376460 * P_FACTOR
@@ -107,10 +119,43 @@ def _plot_crit_point(axis):
     pc_h2o = 22048320 * P_FACTOR
     Tc_h2o = 647.14
 
-    img_h2o = axis.plot(Tc_h2o, pc_h2o, "*", markersize=10, color="blue")
-    img_co2 = axis.plot(Tc_co2, pc_co2, "*", markersize=10, color="black")
+    img_h2o = axis.plot(Tc_h2o, pc_h2o, "*", markersize=10, color="cyan")
+    img_co2 = axis.plot(Tc_co2, pc_co2, "*", markersize=10, color="lime")
 
     return [img_h2o[0], img_co2[0]], ["H2O Crit. Point", "CO2 Crit. Point"]
+
+
+def _plot_supercrit(
+        axis: plt.Axes, p_mesh: np.ndarray, x_mesh: np.ndarray,
+        success: list[Any], supercrit: list[Any],
+        px_map: dict,
+):
+    """Plot markers at points where the results indicate a supercritical mixture."""
+    is_supercrit = np.zeros(p_mesh.shape, dtype=bool)
+    ignore = [FAILED_ENTRY, str(NAN_ENTRY), MISSING_ENTRY]
+    for i in range(p_mesh.shape[0]):
+        for j in range(p_mesh.shape[1]):
+            p_ = p_mesh[i, j]
+            x_ = x_mesh[i, j]
+            px = (p_, x_)
+
+            idx = px_map[px]
+            s = int(success[idx])
+            if s == 1:
+                v = bool(int(supercrit[idx]))
+                is_supercrit[i, j] = v
+
+    legend_img = []
+    legend_txt = []
+    if np.any(is_supercrit):
+        img_u = axis.plot(
+            (x_mesh[is_supercrit] * H_FACTOR).flat,
+            (p_mesh[is_supercrit] * P_FACTOR).flat,
+            "*", markersize=5, color="coral"
+        )
+        legend_img.append(img_u[0])
+        legend_txt.append(f"supercritical")
+    return legend_img, legend_txt
 
 
 def _plot_liquid_phase_splits(
@@ -140,23 +185,24 @@ def _plot_liquid_phase_splits(
     legend_txt = []
     if np.any(LL_split):
         img_u = axis.plot(
-            x_mesh[LL_split].flat * H_FACTOR, p_mesh[LL_split].flat * P_FACTOR,
+            (x_mesh[LL_split] * H_FACTOR).flat, (p_mesh[LL_split] * P_FACTOR).flat,
             "+", markersize=3, color="red"
         )
         legend_img.append(img_u[0])
-        legend_txt.append(f"LL split")
+        legend_txt.append(f"LL split (thermo)")
     if np.any(GLL_split):
         img_o = axis.plot(
             x_mesh[GLL_split].flat * H_FACTOR, p_mesh[GLL_split].flat * P_FACTOR,
             "P", markersize=3, color="red"
         )
         legend_img.append(img_o[0])
-        legend_txt.append(f"GLL split")
+        legend_txt.append(f"GLL split (thermo)")
     return legend_img, legend_txt
 
 
 def plot_success(
-        axis: plt.Axes, p_mesh: np.ndarray, x_mesh: np.ndarray, vals: list[Any],
+        axis: plt.Axes, p_mesh: np.ndarray, x_mesh: np.ndarray,
+        success: list[Any], supercrit: list[Any],
         x_name: str, px_map: dict
 ):
     """Plots a discrete success mesh plot for given p-x data.
@@ -172,7 +218,7 @@ def plot_success(
             x_ = x_mesh[i, j]
             px = (p_, x_)
 
-            v = vals[px_map[px]]
+            v = success[px_map[px]]
 
             if v in [MISSING_ENTRY, str(NAN_ENTRY)]:
                 v_mesh[i, j] = 0
@@ -194,10 +240,17 @@ def plot_success(
         x_mesh * H_FACTOR, p_mesh * P_FACTOR, v_mesh,
         cmap=cmap, vmin=0, vmax=2, shading="nearest"
     )
+    # img_sc, leg_sc = _plot_supercrit(axis, p_mesh, x_mesh, success, supercrit, px_map)
+    img_sc, leg_sc = [list(), list()]
     if 'T' in x_name:
-        img_c, leg_c = _plot_crit_point(axis)
-        axis.legend(img_c, leg_c, loc="upper left")
-    axis.set_title(f"Success rate: {(success_rate) / (p_mesh.shape[0] * p_mesh.shape[1]) * 100} %")
+        img_c, leg_c = _plot_crit_point_pT(axis)
+    else:
+        img_c = list()
+        leg_c = list()
+    if img_sc + img_c:
+        axis.legend(img_sc + img_c, leg_sc + leg_c, loc="upper left")
+    rate = (success_rate) / (p_mesh.shape[0] * p_mesh.shape[1]) * 100
+    axis.set_title(f"Success rate: {'{:.2f}'.format(rate)} %")
     axis.set_xlabel(x_name)
     axis.set_ylabel(f"p {P_UNIT}")
     if P_LOG_SCALE:
@@ -207,7 +260,7 @@ def plot_success(
     cax = divider.append_axes("right", size="5%", pad=0.1)
     cb = fig.colorbar(img, cax=cax, orientation="vertical")
     cb.set_ticks([0, 1, 2])
-    cb.set_ticklabels(["missing/nan", "failed", "succeeded"])
+    cb.set_ticklabels(["N/A", "failed", "succeeded"])
 
 
 def plot_phase_regions(
@@ -237,7 +290,7 @@ def plot_phase_regions(
         cmap=cmap, vmin=0, vmax=3, shading="nearest"
     )
     if 'T' in x_name:
-        img_c, leg_c = _plot_crit_point(axis)
+        img_c, leg_c = _plot_crit_point_pT(axis)
     else:
         img_c = list()
         leg_c = list()
@@ -256,41 +309,298 @@ def plot_phase_regions(
     cb.set_ticklabels(["N/A", "liquid", "gas", "2-phase"])
 
 
-# region Plot 2: Absolute error in gas fraction per pT point
-y_err_mesh = np.zeros((nx, ny))
-y_mesh = np.zeros((nx, ny))
+def plot_any_vals(
+        axis: plt.Axes, p_mesh: np.ndarray, x_mesh: np.ndarray,
+        success: list[Any], vals: list[Any], val_type: Any, title: str,
+        x_name: str, px_map: dict, norm: Optional[str] = None
+):
+    """Plots any values.
+    
+    Specify ``norm`` using matplotlib if you wish to scale the values, otherwise
+    it will scaled linear between min and max value.
+    Available norms: ``'log'``
+    """
+    val_mesh = np.zeros(p_mesh.shape)
+    ignore = [FAILED_ENTRY, str(NAN_ENTRY), MISSING_ENTRY]
+    for i in range(p_mesh.shape[0]):
+        for j in range(p_mesh.shape[1]):
+            p_ = p_mesh[i, j]
+            x_ = x_mesh[i, j]
+            px = (p_, x_)
 
-for i in range(nx):
-    for j in range(ny):
+            idx = px_map[px]
 
-        p = p_mesh[i, j]
-        T = T_mesh[i, j]
+            v = vals[idx]
+            # assuming always present
+            if v not in ignore:
+                v = val_type(v)
+                val_mesh[i, j] = v
 
-        pT = (p, T)
+    vmin, vmax = val_mesh.min(), val_mesh.max()
+    cmap = 'Greys'
 
-        # If data for point is available
-        if pT in pT_id:
-            results = result_data[pT]
-            identifier = pT_id[pT]
+    if norm:
+        if norm == 'log':
+            norm = mpl.colors.SymLogNorm(linthresh=1e-3, linscale=0.5, vmin=vmin, vmax=vmax)
+        else:
+            raise ValueError(f"Unknown norm option: {norm}")
+        img = axis.pcolormesh(
+            x_mesh * H_FACTOR,
+            p_mesh * P_FACTOR,
+            val_mesh,
+            cmap=cmap,
+            norm=norm,
+            shading="nearest",
+        )
+    else:
+        img = axis.pcolormesh(
+            x_mesh * H_FACTOR,
+            p_mesh * P_FACTOR,
+            val_mesh,
+            cmap=cmap,
+            vmin=vmin, vmax=vmax,
+            shading="nearest",
+        )
 
-            y_result = results["y"]
-            y_thermo = thermo_data[identifier[1]][pT]["y"]
+    if 'T' in x_name:
+        img_c, leg_c = _plot_crit_point_pT(axis)
+        axis.legend(img_c, leg_c, loc="upper left")
+    axis.set_title(f"{title}")
+    axis.set_xlabel(x_name)
+    axis.set_ylabel(f"p {P_UNIT}")
+    if P_LOG_SCALE:
+        axis.set_yscale("log")
+    divider = make_axes_locatable(axis)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = fig.colorbar(
+        img,
+        cax=cax,
+        orientation="vertical",
+    )
+    cb.set_label(
+        f"Min.: {'{:.3e}'.format(vmin)}"
+        + f" ; Max.: {'{:.3e}'.format(vmax)}"
+        + f"\nMean: {'{:.3e}'.format(np.mean(val_mesh))}"
+    )
 
-            abs_err = np.abs(y_result - y_thermo)
 
-            y_err_mesh[i, j] = abs_err
-            y_mesh[i, j] = y_result
+def plot_fraction_values(
+        axis: plt.Axes, p_mesh: np.ndarray, x_mesh: np.ndarray,
+        success: list[Any], vals: list[Any], val_name: str,
+        x_name: str, px_map: dict, norm: Optional[str] = None
+):
+    """Plots fractional values between 0 and 1, with over and undershoots.
+    
+    Specify ``norm`` using matplotlib if you wish to scale the values, otherwise
+    it will scaled linear between min and max value.
+    Available norms: ``'log'``
+    """
+    frac_mesh = np.zeros(p_mesh.shape)
+    ignore = [FAILED_ENTRY, str(NAN_ENTRY), MISSING_ENTRY]
+    for i in range(p_mesh.shape[0]):
+        for j in range(p_mesh.shape[1]):
+            p_ = p_mesh[i, j]
+            x_ = x_mesh[i, j]
+            px = (p_, x_)
 
-# filter out nans where the flash failed
-y_err_mesh[np.isnan(y_err_mesh)] = 0.0
-y_mesh[np.isnan(y_mesh)] = 0.0
+            idx = px_map[px]
 
-figwidth = 15
-fig = plt.figure(figsize=(figwidth, 1080 / 1920 * figwidth))
-gs = fig.add_gridspec(1, 2)
-fig.suptitle(f"Gas fraction values and absolute error: {version}")
+            v = vals[idx]
 
-vmin, vmax = y_mesh.min(), y_mesh.max()
+            s = int(success[idx])
+            # if successful, check for nan entry or anything else
+            if s == 1:
+                if v not in ignore:
+                    v = float(v)
+                    frac_mesh[i, j] = v
+
+    vmin, vmax = frac_mesh.min(), frac_mesh.max()
+    cmap = 'coolwarm'
+
+    if norm:
+        if norm == 'log':
+            norm = mpl.colors.SymLogNorm(linthresh=1e-3, linscale=0.5, vmin=vmin, vmax=vmax)
+        else:
+            raise ValueError(f"Unknown norm option: {norm}")
+        img = axis.pcolormesh(
+            x_mesh * H_FACTOR,
+            p_mesh * P_FACTOR,
+            frac_mesh,
+            cmap=cmap,
+            norm=norm,
+            shading="nearest",
+        )
+    else:
+        img = axis.pcolormesh(
+            x_mesh * H_FACTOR,
+            p_mesh * P_FACTOR,
+            frac_mesh,
+            cmap=cmap,
+            vmin=vmin, vmax=vmax,
+            shading="nearest",
+        )
+
+    img_uo, leg_uo = _plot_overshoot(axis, frac_mesh, x_mesh, p_mesh, val_name)
+    if 'T' in x_name:
+        img_c, leg_c = _plot_crit_point_pT(axis)
+    else:
+        img_c = list()
+        leg_c = list()
+    if img_c + img_uo:
+        axis.legend(img_uo + img_c, leg_uo + leg_c, loc="upper left")
+    axis.set_title(f"Fraction values: {val_name}")
+    axis.set_xlabel(x_name)
+    axis.set_ylabel(f"p {P_UNIT}")
+    if P_LOG_SCALE:
+        axis.set_yscale("log")
+    divider = make_axes_locatable(axis)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = fig.colorbar(
+        img,
+        cax=cax,
+        orientation="vertical",
+    )
+    cb.set_label(f"Min.: {vmin}\nMax.: {vmax}")
+    cb.set_label(f"Min.: {'{:.6f}'.format(vmin)}\nMax.: {'{:.6f}'.format(vmax)}")
+
+
+def plot_abs_error_values(
+        axis: plt.Axes, p_mesh: np.ndarray, x_mesh: np.ndarray,
+        success: list[Any], vals: list[Any], target_vals: list[Any], val_name: str,
+        x_name: str, px_map: dict, norm: Optional[str] = None
+):
+    """Plots absolute error between ``vals`` and ``target_vals``.
+    
+    Specify ``norm`` using matplotlib if you wish to scale the values, otherwise
+    it will scaled linear between min and max value.
+    Available norms: ``'log'``
+    """
+    err_mesh = np.zeros(p_mesh.shape)
+    ignore = [FAILED_ENTRY, str(NAN_ENTRY), MISSING_ENTRY]
+    for i in range(p_mesh.shape[0]):
+        for j in range(p_mesh.shape[1]):
+            p_ = p_mesh[i, j]
+            x_ = x_mesh[i, j]
+            px = (p_, x_)
+
+            idx = px_map[px]
+
+            v = vals[idx]
+            v_target = target_vals[idx]
+
+            s = int(success[idx])
+            # if successful, check for nan entry or anything else
+            if s == 1:
+                if (v not in ignore) and (v_target not in ignore):
+                    v = float(v)
+                    v_target = float(v_target)
+                    err_mesh[i, j] = np.abs(v - v_target)
+
+    vmin, vmax = err_mesh.min(), err_mesh.max()
+    cmap = 'Greys'
+
+    if norm:
+        if norm == 'log':
+            norm = mpl.colors.SymLogNorm(linthresh=1e-3, linscale=0.5, vmin=vmin, vmax=vmax)
+        else:
+            raise ValueError(f"Unknown norm option: {norm}")
+        img = axis.pcolormesh(
+            x_mesh * H_FACTOR,
+            p_mesh * P_FACTOR,
+            err_mesh,
+            cmap=cmap,
+            norm=norm,
+            shading="nearest",
+        )
+    else:
+        img = axis.pcolormesh(
+            x_mesh * H_FACTOR,
+            p_mesh * P_FACTOR,
+            err_mesh,
+            cmap=cmap,
+            vmin=vmin, vmax=vmax,
+            shading="nearest",
+        )
+
+    if 'T' in x_name:
+        img_c, leg_c = _plot_crit_point_pT(axis)
+        axis.legend(img_c, leg_c, loc="upper left")
+
+    axis.set_title(f"Absolute error: {val_name}")
+    axis.set_xlabel(x_name)
+    axis.set_ylabel(f"p {P_UNIT}")
+    if P_LOG_SCALE:
+        axis.set_yscale("log")
+    divider = make_axes_locatable(axis)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = fig.colorbar(
+        img,
+        cax=cax,
+        orientation="vertical",
+    )
+    cb.set_label(
+        "Max. abs. error: "
+        + "{:.0e}".format(float(err_mesh.max()))
+        + "\nL2-error: "
+        + "{:.0e}".format(float(np.sqrt(np.sum(np.square(err_mesh)))))
+    )
+
+
+def plot_duality_gap(
+        axis: plt.Axes, p_mesh: np.ndarray, x_mesh: np.ndarray,
+        results: dict[str, list],
+        phase_name: str, x_name: str, px_map: dict,
+):
+    """Plot the duality gap for a given phase."""
+    gap_mesh = np.zeros(p_mesh.shape)
+    ignore = [FAILED_ENTRY, str(NAN_ENTRY), MISSING_ENTRY]
+    h2o, co2 = COMPONENTS
+    for i in range(p_mesh.shape[0]):
+        for j in range(p_mesh.shape[1]):
+            p_ = p_mesh[i, j]
+            x_ = x_mesh[i, j]
+            px = (p_, x_)
+
+            idx = px_map[px]
+
+            s = int(results[success_HEADER][idx])
+            
+            # if successful, check for nan entry or anything else
+            if s == 1:
+                x_h2o = results[composition_HEADER[h2o][phase_name]][idx]
+                x_co2 = results[composition_HEADER[co2][phase_name]][idx]
+                x_h2o = float(x_h2o)
+                x_co2 = float(x_co2)
+                gap_mesh[i, j] = 1 - x_co2 - x_h2o
+
+    vmin, vmax = gap_mesh.min(), gap_mesh.max()
+    cmap = 'Greys'
+
+    img = axis.pcolormesh(
+        x_mesh * H_FACTOR,
+        p_mesh * P_FACTOR,
+        gap_mesh,
+        cmap=cmap,
+        vmin=vmin, vmax=vmax,
+        shading="nearest",
+    )
+
+    if 'T' in x_name:
+        img_c, leg_c = _plot_crit_point_pT(axis)
+        axis.legend(img_c, leg_c, loc="upper left")
+
+    axis.set_title(f"Duality gap: phase {phase_name}")
+    axis.set_xlabel(x_name)
+    axis.set_ylabel(f"p {P_UNIT}")
+    if P_LOG_SCALE:
+        axis.set_yscale("log")
+    divider = make_axes_locatable(axis)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = fig.colorbar(
+        img,
+        cax=cax,
+        orientation="vertical",
+    )
 
 # num_levels = 20
 # midpoint = 0
@@ -300,680 +610,6 @@ vmin, vmax = y_mesh.min(), y_mesh.max()
 # vals = np.interp(midp, [vmin, midpoint, vmax], [0, 0.5, 1])
 # colors = mcm.get_cmap('coolwarm_r')(vals)  # RdYlGn
 # cmap, norm = from_levels_and_colors(levels, colors)
-cmap = "coolwarm"
-linthresh = 1e-3
-norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
-# norm = mpl.colors.TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
-
-axis = fig.add_subplot(gs[0, 0])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    y_mesh,
-    cmap=cmap,
-    norm=norm,
-    # vmin=y_mesh.min(), vmax=y_mesh.max(),
-    shading="nearest",
-)
-# plot over and undershooting
-img_uo, leg_uo = _plot_overshoot(axis, y_mesh, T_mesh, p_mesh_f, "y")
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_uo + img_c, leg_uo + leg_c, loc="upper left")
-axis.set_title("Gas fraction: values")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-ticks = np.linspace(0, 1, 6)
-ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
-cb = fig.colorbar(
-    img,
-    cax=cax,
-    orientation="vertical",
-    ticks=ticks,
-)
-cb.set_label(f"Min.: {vmin}\nMax.: {vmax}")
-
-axis = fig.add_subplot(gs[0, 1])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    y_err_mesh,
-    cmap="Greys",
-    vmin=y_err_mesh.min(),
-    vmax=y_err_mesh.max(),
-    shading="nearest",
-)
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Absolute error: Gas fraction")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-cb = fig.colorbar(img, cax=cax, orientation="vertical")
-cb.set_label(
-    "Max abs. error: "
-    + "{:.0e}".format(float(y_err_mesh.max()))
-    + "\nL2-error: "
-    + "{:.0e}".format(float(np.sqrt(np.sum(np.square(y_err_mesh)))))
-)
-
-fig.tight_layout()
-fig.savefig(
-    f"{str(path)}/{figure_path}2_gas_fraction__{result_fnam_stripped}.png",
-    format="png",
-    dpi=500,
-)
-fig.show()
-
-# endregion
-
-# region Plot 3: Absolute error in Liquid phase
-x_h2o_L_err_mesh = np.zeros((nx, ny))
-x_h2o_L_mesh = np.zeros((nx, ny))
-x_co2_L_err_mesh = np.zeros((nx, ny))
-x_co2_L_mesh = np.zeros((nx, ny))
-
-for i in range(nx):
-    for j in range(ny):
-
-        p = p_mesh[i, j]
-        T = T_mesh[i, j]
-
-        pT = (p, T)
-
-        # If data for point is available
-        if pT in pT_id:
-            results = result_data[pT]
-            identifier = pT_id[pT]
-
-            x_h2o_L = results["x_h2o_L"]
-            x_co2_L = results["x_co2_L"]
-
-            x_h2o_L_mesh[i, j] = x_h2o_L
-            x_co2_L_mesh[i, j] = x_co2_L
-
-            # If thermo data contains Liquid or Gas, calculate error
-            # leave zero otherwise
-            if "L" in identifier[0]:
-                x_h2o_L_thermo = thermo_data[identifier[1]][pT]["x_h2o_L"]
-                x_co2_L_thermo = thermo_data[identifier[1]][pT]["x_co2_L"]
-
-                x_h2o_L_err_mesh[i, j] = np.abs(x_h2o_L - x_h2o_L_thermo)
-                x_co2_L_err_mesh[i, j] = np.abs(x_co2_L - x_co2_L_thermo)
-
-
-# filter out nans where the flash failed
-x_h2o_L_err_mesh[np.isnan(x_h2o_L_err_mesh)] = 0.0
-x_h2o_L_mesh[np.isnan(x_h2o_L_err_mesh)] = 0.0
-x_co2_L_err_mesh[np.isnan(x_co2_L_err_mesh)] = 0.0
-x_co2_L_mesh[np.isnan(x_co2_L_err_mesh)] = 0.0
-
-figwidth = 15
-fig = plt.figure(figsize=(figwidth, 1080 / 1920 * figwidth))
-gs = fig.add_gridspec(2, 2)
-fig.suptitle(f"Liquid phase composition and absolute error: {version}")
-
-vmin = x_h2o_L_mesh.min()
-vmax = x_h2o_L_mesh.max()
-linthresh = 1e-3
-# norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
-# norm = mpl.colors.TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
-axis = fig.add_subplot(gs[0, 0])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    x_h2o_L_mesh,
-    cmap="coolwarm",  # norm=norm,
-    vmin=vmin,
-    vmax=vmax,
-    shading="nearest",
-)
-# plot over and undershooting
-img_uo, leg_uo = _plot_overshoot(axis, x_h2o_L_mesh, T_mesh, p_mesh_f, "x_h2o_L")
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_uo + img_c, leg_uo + leg_c, loc="upper left")
-axis.set_title("Fraction H2O in Liquid: values")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-ticks = np.linspace(0, 1, 6)
-ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
-cb = fig.colorbar(
-    img,
-    cax=cax,
-    orientation="vertical",
-    ticks=ticks,
-)
-cb.set_label(f"Min.: {vmin}\nMax.: {vmax}")
-
-vmin = x_co2_L_mesh.min()
-vmax = x_co2_L_mesh.max()
-linthresh = 1e-3
-# norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
-# norm = mpl.colors.TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
-axis = fig.add_subplot(gs[0, 1])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    x_co2_L_mesh,
-    cmap="coolwarm",  # norm=norm,
-    vmin=vmin,
-    vmax=vmax,
-    shading="nearest",
-)
-# plot over and undershooting
-img_uo, leg_uo = _plot_overshoot(axis, x_co2_L_mesh, T_mesh, p_mesh_f, "x_co2_L")
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_uo + img_c, leg_uo + leg_c, loc="upper left")
-axis.set_title("Fraction CO2 in Liquid: values")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-ticks = np.linspace(0, 1, 6)
-ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
-cb = fig.colorbar(
-    img,
-    cax=cax,
-    orientation="vertical",
-    ticks=ticks,
-)
-cb.set_label(f"Min.: {vmin}\nMax.: {vmax}")
-
-axis = fig.add_subplot(gs[1, 0])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    x_h2o_L_err_mesh,
-    cmap="Greys",
-    vmin=x_h2o_L_err_mesh.min(),
-    vmax=x_h2o_L_err_mesh.max(),
-    shading="nearest",
-)
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Absolute error: H2O fraction in Liquid")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-cb = fig.colorbar(img, cax=cax, orientation="vertical")
-cb.set_label(
-    "Max abs. error: "
-    + "{:.0e}".format(float(x_h2o_L_err_mesh.max()))
-    + "\nL2-error: "
-    + "{:.0e}".format(float(np.sqrt(np.sum(np.square(x_h2o_L_err_mesh)))))
-)
-
-axis = fig.add_subplot(gs[1, 1])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    x_co2_L_err_mesh,
-    cmap="Greys",
-    vmin=x_co2_L_err_mesh.min(),
-    vmax=x_co2_L_err_mesh.max(),
-    shading="nearest",
-)
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Absolute error: CO2 fraction in Liquid")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-cb = fig.colorbar(img, cax=cax, orientation="vertical")
-cb.set_label(
-    "Max abs. error: "
-    + "{:.0e}".format(float(x_co2_L_err_mesh.max()))
-    + "\nL2-error: "
-    + "{:.0e}".format(float(np.sqrt(np.sum(np.square(x_co2_L_err_mesh)))))
-)
-
-fig.tight_layout()
-fig.savefig(
-    f"{str(path)}/{figure_path}3_liquid_composition_error__{result_fnam_stripped}.png",
-    format="png",
-    dpi=500,
-)
-fig.show()
-# endregion
-
-# region Plot4: Absolute error in Gas phase
-x_h2o_G_err_mesh = np.zeros((nx, ny))
-x_h2o_G_mesh = np.zeros((nx, ny))
-x_co2_G_err_mesh = np.zeros((nx, ny))
-x_co2_G_mesh = np.zeros((nx, ny))
-
-for i in range(nx):
-    for j in range(ny):
-
-        p = p_mesh[i, j]
-        T = T_mesh[i, j]
-
-        pT = (p, T)
-
-        # If data for point is available
-        if pT in pT_id:
-            results = result_data[pT]
-            identifier = pT_id[pT]
-
-            x_h2o_G = results["x_h2o_G"]
-            x_co2_G = results["x_co2_G"]
-
-            x_h2o_G_mesh[i, j] = x_h2o_G
-            x_co2_G_mesh[i, j] = x_co2_G
-
-            # If thermo data contains Liquid or Gas, calculate error
-            # leave zero otherwise
-            if "G" in identifier[0]:
-                x_h2o_G_thermo = thermo_data[identifier[1]][pT]["x_h2o_G"]
-                x_co2_G_thermo = thermo_data[identifier[1]][pT]["x_co2_G"]
-
-                x_h2o_G_err_mesh[i, j] = np.abs(x_h2o_G - x_h2o_G_thermo)
-                x_co2_G_err_mesh[i, j] = np.abs(x_co2_G - x_co2_G_thermo)
-
-
-# filter out nans where the flash failed
-x_h2o_G_err_mesh[np.isnan(x_h2o_G_err_mesh)] = 0.0
-x_h2o_G_mesh[np.isnan(x_h2o_G_err_mesh)] = 0.0
-x_co2_G_err_mesh[np.isnan(x_co2_G_err_mesh)] = 0.0
-x_co2_G_mesh[np.isnan(x_co2_G_err_mesh)] = 0.0
-
-figwidth = 15
-fig = plt.figure(figsize=(figwidth, 1080 / 1920 * figwidth))
-gs = fig.add_gridspec(2, 2)
-fig.suptitle(f"Gas phase composition and absolute error: {version}")
-
-vmin = x_h2o_G_mesh.min()
-vmax = x_h2o_G_mesh.max()
-linthresh = 1e-3
-# norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
-# norm = mpl.colors.TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
-axis = fig.add_subplot(gs[0, 0])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    x_h2o_G_mesh,
-    cmap="coolwarm",  # norm=norm,
-    vmin=vmin,
-    vmax=vmax,
-    shading="nearest",
-)
-# plot over and undershooting
-img_uo, leg_uo = _plot_overshoot(axis, x_h2o_G_mesh, T_mesh, p_mesh_f, "x_h2o_L")
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_uo + img_c, leg_uo + leg_c, loc="upper left")
-axis.set_title("Fraction H2O in Gas: values")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-ticks = np.linspace(0, 1, 6)
-ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
-cb = fig.colorbar(
-    img,
-    cax=cax,
-    orientation="vertical",
-    ticks=ticks,
-)
-cb.set_label(f"Min.: {vmin}\nMax.: {vmax}")
-
-vmin = x_co2_G_mesh.min()
-vmax = x_co2_G_mesh.max()
-linthresh = 1e-3
-# norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
-# norm = mpl.colors.TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
-axis = fig.add_subplot(gs[0, 1])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    x_co2_G_mesh,
-    cmap="coolwarm",  # norm=norm,
-    vmin=vmin,
-    vmax=vmax,
-    shading="nearest",
-)
-# plot over and undershooting
-img_uo, leg_uo = _plot_overshoot(axis, x_co2_G_mesh, T_mesh, p_mesh_f, "x_co2_L")
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_uo + img_c, leg_uo + leg_c, loc="upper left")
-axis.set_title("Fraction CO2 in Gas: values")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-ticks = np.linspace(0, 1, 6)
-ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
-cb = fig.colorbar(
-    img,
-    cax=cax,
-    orientation="vertical",
-    ticks=ticks,
-)
-cb.set_label(f"Min.: {vmin}\nMax.: {vmax}")
-
-axis = fig.add_subplot(gs[1, 0])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    x_h2o_G_err_mesh,
-    cmap="Greys",
-    vmin=x_h2o_G_err_mesh.min(),
-    vmax=x_h2o_G_err_mesh.max(),
-    shading="nearest",
-)
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Absolute error: H2O fraction in Gas")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-cb = fig.colorbar(img, cax=cax, orientation="vertical")
-cb.set_label(
-    "Max abs. error: "
-    + "{:.0e}".format(float(x_h2o_G_err_mesh.max()))
-    + "\nL2-error: "
-    + "{:.0e}".format(float(np.sqrt(np.sum(np.square(x_h2o_G_err_mesh)))))
-)
-
-axis = fig.add_subplot(gs[1, 1])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    x_co2_G_err_mesh,
-    cmap="Greys",
-    vmin=x_co2_G_err_mesh.min(),
-    vmax=x_co2_G_err_mesh.max(),
-    shading="nearest",
-)
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Absolute error: CO2 fraction in Gas")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-cb = fig.colorbar(img, cax=cax, orientation="vertical")
-cb.set_label(
-    "Max abs. error: "
-    + "{:.0e}".format(float(x_co2_G_err_mesh.max()))
-    + "\nL2-error: "
-    + "{:.0e}".format(float(np.sqrt(np.sum(np.square(x_co2_G_err_mesh)))))
-)
-
-fig.tight_layout()
-fig.savefig(
-    f"{str(path)}/{figure_path}4_gas_composition_error__{result_fnam_stripped}.png",
-    format="png",
-    dpi=500,
-)
-fig.show()
-# endregion
-
-# region Plot 5: Duality gap
-dual_gap_L_mesh = np.zeros((nx, ny))
-dual_gap_G_mesh = np.zeros((nx, ny))
-
-for i in range(nx):
-    for j in range(ny):
-
-        p = p_mesh[i, j]
-        T = T_mesh[i, j]
-
-        pT = (p, T)
-
-        # If data for point is available
-        if pT in pT_id:
-            results = result_data[pT]
-            identifier = pT_id[pT]
-
-            x_h2o_L = results["x_h2o_L"]
-            x_co2_L = results["x_co2_L"]
-            x_h2o_G = results["x_h2o_G"]
-            x_co2_G = results["x_co2_G"]
-
-            dual_gap_L_mesh[i, j] = 1 - x_h2o_L - x_co2_L
-            dual_gap_G_mesh[i, j] = 1 - x_h2o_G - x_co2_G
-
-dual_gap_L_mesh[np.isnan(dual_gap_L_mesh)] = 0.0
-dual_gap_G_mesh[np.isnan(dual_gap_G_mesh)] = 0.0
-
-figwidth = 15
-fig = plt.figure(figsize=(figwidth, 1080 / 1920 * figwidth))
-gs = fig.add_gridspec(1, 2)
-fig.suptitle(f"Duality gaps: {version}")
-
-axis = fig.add_subplot(gs[0, 0])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    dual_gap_L_mesh,
-    cmap="Greys",
-    vmin=dual_gap_L_mesh.min(),
-    vmax=dual_gap_L_mesh.max(),
-    shading="nearest",
-)
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Duality Gap: Liquid")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-cb = fig.colorbar(img, cax=cax, orientation="vertical")
-
-axis = fig.add_subplot(gs[0, 1])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    dual_gap_G_mesh,
-    cmap="Greys",
-    vmin=dual_gap_G_mesh.min(),
-    vmax=dual_gap_G_mesh.max(),
-    shading="nearest",
-)
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Duality Gap: Gas")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-cb = fig.colorbar(img, cax=cax, orientation="vertical")
-
-fig.tight_layout()
-fig.savefig(
-    f"{str(path)}/{figure_path}5_duality_gap__{result_fnam_stripped}.png",
-    format="png",
-    dpi=500,
-)
-fig.show()
-
-# endregion
-
-# region Plot 6: Condition numbers and numbers of iterations
-cond_start_mesh = np.zeros((nx, ny))
-cond_end_mesh = np.zeros((nx, ny))
-num_iter_mesh = np.zeros((nx, ny))
-
-for i in range(nx):
-    for j in range(ny):
-
-        p = p_mesh[i, j]
-        T = T_mesh[i, j]
-
-        pT = (p, T)
-
-        # If data for point is available
-        if pT in pT_id:
-            results = result_data[pT]
-            identifier = pT_id[pT]
-
-            num_iter = results["num_iter"]
-            cond_start = results["cond_start"]
-            cond_end = results["cond_end"]
-
-            cond_start_mesh[i, j] = cond_start
-            cond_end_mesh[i, j] = cond_end
-            num_iter_mesh[i, j] = num_iter
-
-# i,j = np.unravel_index(cond_start_mesh.argmax(), cond_start_mesh.shape)
-# print(f"COND START MAX AT: p={p_mesh[i,j]} ; T={T_mesh[i,j]}\n\tVal: {np.max(cond_start_mesh)}")
-# i,j = np.unravel_index(cond_end_mesh.argmax(), cond_end_mesh.shape)
-# print(f"COND CONVERGED MAX AT: p={p_mesh[i,j]} ; T={T_mesh[i,j]}\n\tVal: {np.max(cond_end_mesh)}")
-
-figwidth = 15
-fig = plt.figure(figsize=(figwidth, 1080 / 1920 * figwidth))
-gs = fig.add_gridspec(2, 2)
-fig.suptitle(f"Condition and iteration numbers: {version}")
-
-vmin = cond_start_mesh.min()
-vmax = cond_start_mesh.max()
-linthresh = 1e-3
-norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
-# norm = mpl.colors.TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
-axis = fig.add_subplot(gs[0, 0])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    cond_start_mesh,
-    cmap="Greys",
-    norm=norm,
-    # vmin=vmin,
-    # vmax=vmax,
-    shading="nearest",
-)
-# plot over and undershooting
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Condition number: Start of iterations")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-# ticks = np.linspace(0, 1, 6)
-# ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
-cb = fig.colorbar(
-    img,
-    cax=cax,
-    orientation="vertical",
-    # ticks=ticks,
-)
-cb.set_label(
-    f"Max.: {'{:.4e}'.format(vmax)}\nMean: {'{:.4e}'.format(np.mean(cond_start_mesh))}"
-)
-
-vmin = cond_end_mesh.min()
-vmax = cond_end_mesh.max()
-linthresh = 1e-3
-norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
-axis = fig.add_subplot(gs[0, 1])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    cond_end_mesh,
-    cmap="Greys",
-    norm=norm,
-    # vmin=vmin,
-    # vmax=vmax,
-    shading="nearest",
-)
-# plot over and undershooting
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Condition number: At converged state")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-# ticks = np.linspace(0, 1, 6)
-# ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
-cb = fig.colorbar(
-    img,
-    cax=cax,
-    orientation="vertical",
-    # ticks=ticks,
-)
-cb.set_label(
-    f"Max.: {'{:.4e}'.format(vmax)}\nMean: {'{:.4e}'.format(np.mean(cond_end_mesh))}"
-)
-
-vmin = num_iter_mesh.min()
-vmax = num_iter_mesh.max()
-linthresh = 1e-3
-# norm = mpl.colors.SymLogNorm(linthresh=linthresh, linscale=0.5, vmin=vmin, vmax=vmax)
-axis = fig.add_subplot(gs[1, 0])
-img = axis.pcolormesh(
-    T_mesh,
-    p_mesh_f,
-    num_iter_mesh,
-    cmap="Greys",  # norm=norm,
-    vmin=vmin,
-    vmax=vmax,
-    shading="nearest",
-)
-# plot over and undershooting
-img_c, leg_c = _plot_crit_point(axis)
-axis.legend(img_c, leg_c, loc="upper left")
-axis.set_title("Number of iterations")
-axis.set_xlabel("T")
-axis.set_ylabel(f"p {P_UNIT}")
-if P_LOG_SCALE:
-    axis.set_yscale("log")
-divider = make_axes_locatable(axis)
-cax = divider.append_axes("right", size="5%", pad=0.1)
-# ticks = np.linspace(0, 1, 6)
-# ticks = np.hstack([np.array([vmin]), ticks, np.array([vmax])])
-cb = fig.colorbar(
-    img,
-    cax=cax,
-    orientation="vertical",
-    # ticks=ticks,
-)
-cb.set_label(f"Max.: {vmax}\nMean: {np.mean(num_iter_mesh)}")
-
-fig.tight_layout()
-fig.savefig(
-    f"{str(path)}/{figure_path}6_cond_iter_nums__{result_fnam_stripped}.png",
-    format="png",
-    dpi=500,
-)
-fig.show()
-
-# endregion
 
 if __name__ == '__main__':
     figwidth = 15
@@ -1001,14 +637,9 @@ if __name__ == '__main__':
     p_vec, x_vec, px_map = get_px_index_map(p_points, x_points)
 
     x_mesh, p_mesh = np.meshgrid(x_vec, p_vec)
-    p_mesh_f = p_mesh * P_FACTOR
-    if FLASH_TYPE == 'pT':
-        x_mesh_f = x_mesh
-    elif FLASH_TYPE == 'ph':
-        x_mesh_f = x_mesh * H_FACTOR
 
-    # Plot 1: success rate and phase regions
-    
+    # region Plot 1: Overview on success, phase regions and number of iterations
+    print("Plotting: Overview", flush=True)
     fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
     gs = fig.add_gridspec(1, 2)
     fig.suptitle(f"Overview: VLE with H2O and CO2")
@@ -1016,8 +647,11 @@ if __name__ == '__main__':
     plot_phase_regions(axis, p_mesh, x_mesh, thermo_results[phases_HEADER], x_name, px_map)
 
     axis = fig.add_subplot(gs[0, 1])
-    plot_success(axis, p_mesh, x_mesh, results[success_HEADER], x_name, px_map)
-
+    plot_success(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[is_supercrit_HEADER],
+        x_name, px_map
+    )
 
     fig.tight_layout()
     fig.savefig(
@@ -1025,3 +659,200 @@ if __name__ == '__main__':
         format="png",
         dpi=DPI,
     )
+    # endregion
+    
+    # region Plot 2: Gas fraction values
+    print("Plotting: Gas fraction data", flush=True)
+    fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
+    gs = fig.add_gridspec(1, 2)
+    fig.suptitle(f"Gas fraction")
+    axis = fig.add_subplot(gs[0, 0])
+
+    plot_fraction_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[gas_frac_HEADER], 'y',
+        x_name, px_map, norm='log'
+    )
+
+    axis = fig.add_subplot(gs[0, 1])
+    plot_abs_error_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[gas_frac_HEADER], thermo_results[gas_frac_HEADER], 'y',
+        x_name, px_map, norm='log'
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{str(scipt_path)}/{FIGURE_PATH}2_gasfrac__{fname}.png",
+        format="png",
+        dpi=DPI,
+    )
+    # endregion
+
+    liq = PHASES[1]
+    gas = PHASES[0]
+    h2o, co2 = COMPONENTS
+
+    # region Plot 3: Fraction values in Liquid phase
+    print("Plotting: Liquid phase data", flush=True)
+    fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
+    gs = fig.add_gridspec(2, 2)
+    fig.suptitle(f"Liquid phase composition")
+
+    frac_header = composition_HEADER[h2o][liq]
+    axis = fig.add_subplot(gs[0, 0])
+    plot_fraction_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[frac_header], frac_header,
+        x_name, px_map, norm=None
+    )
+    axis = fig.add_subplot(gs[0, 1])
+    plot_abs_error_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[frac_header], thermo_results[frac_header], frac_header,
+        x_name, px_map, norm=None
+    )
+
+    frac_header = composition_HEADER[co2][liq]
+    axis = fig.add_subplot(gs[1, 0])
+    plot_fraction_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[frac_header], frac_header,
+        x_name, px_map, norm=None
+    )
+    axis = fig.add_subplot(gs[1, 1])
+    plot_abs_error_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[frac_header], thermo_results[frac_header], frac_header,
+        x_name, px_map, norm=None
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{str(scipt_path)}/{FIGURE_PATH}3_liqcomp__{fname}.png",
+        format="png",
+        dpi=DPI,
+    )
+    # endregion
+    
+    # region Plot 4: Fraction values in Gas phase
+    print("Plotting: Gas phase data", flush=True)
+    fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
+    gs = fig.add_gridspec(2, 2)
+    fig.suptitle(f"Gas phase composition")
+
+    frac_header = composition_HEADER[h2o][gas]
+    axis = fig.add_subplot(gs[0, 0])
+    plot_fraction_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[frac_header], frac_header,
+        x_name, px_map, norm=None
+    )
+    axis = fig.add_subplot(gs[0, 1])
+    plot_abs_error_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[frac_header], thermo_results[frac_header], frac_header,
+        x_name, px_map, norm=None
+    )
+
+    frac_header = composition_HEADER[co2][gas]
+    axis = fig.add_subplot(gs[1, 0])
+    plot_fraction_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[frac_header], frac_header,
+        x_name, px_map, norm=None
+    )
+    axis = fig.add_subplot(gs[1, 1])
+    plot_abs_error_values(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[frac_header], thermo_results[frac_header], frac_header,
+        x_name, px_map, norm=None
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{str(scipt_path)}/{FIGURE_PATH}4_gascomp__{fname}.png",
+        format="png",
+        dpi=DPI,
+    )
+    # endregion
+
+    # region Plot 5: Duality gaps
+    print("Plotting: Duality gaps", flush=True)
+    fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
+    gs = fig.add_gridspec(1, 2)
+    fig.suptitle(f"Duality gaps")
+
+    phase_name = PHASES[1]
+    axis = fig.add_subplot(gs[0, 0])
+    plot_duality_gap(
+        axis, p_mesh, x_mesh,
+        results, phase_name,
+        x_name, px_map,
+    )
+    phase_name = PHASES[0]
+    axis = fig.add_subplot(gs[0, 1])
+    plot_duality_gap(
+        axis, p_mesh, x_mesh,
+        results, phase_name,
+        x_name, px_map,
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{str(scipt_path)}/{FIGURE_PATH}5_duality__{fname}.png",
+        format="png",
+        dpi=DPI,
+    )
+    # endregion
+
+    # region Plot 6: Condition numbers
+    print("Plotting: Condition numbers", flush=True)
+    fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
+    gs = fig.add_gridspec(1, 2)
+    fig.suptitle(f"Condition numbers")
+    axis = fig.add_subplot(gs[0, 0])
+    plot_any_vals(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[cond_start_HEADER], float, "Condition number: Initial guess",
+        x_name, px_map, norm='log'
+    )
+
+    axis = fig.add_subplot(gs[0, 1])
+    plot_any_vals(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[cond_end_HEADER], float, "Condition number: Converged state",
+        x_name, px_map, norm='log'
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{str(scipt_path)}/{FIGURE_PATH}6_condition__{fname}.png",
+        format="png",
+        dpi=DPI,
+    )
+
+    # endregion
+
+    # region Plot 7: Number of iterations
+    print("Plotting: Number of iterations", flush=True)
+    fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
+    gs = fig.add_gridspec(1, 1)
+    fig.suptitle(f"Number of iterations")
+
+    axis = fig.add_subplot(gs[0, 0])
+    plot_any_vals(
+        axis, p_mesh, x_mesh,
+        results[success_HEADER], results[num_iter_HEADER], int, "",
+        x_name, px_map, norm='log'
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{str(scipt_path)}/{FIGURE_PATH}7_numiter__{fname}.png",
+        format="png",
+        dpi=DPI,
+    )
+    # endregion
+
+    print("Plotting: Done", flush=True)
