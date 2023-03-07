@@ -68,7 +68,7 @@ cond_start_HEADER: str = "cond-start"
 cond_end_HEADER: str = "cond-end"
 is_supercrit_HEADER: str = "is-supercrit"
 
-RESOLUTION: int = 50
+RESOLUTION: int = 100
 
 P_LIMITS: list[float] = [0.01e6, 100.0e6]  # [Pa]
 T_LIMITS: list[float] = [280, 700]  # [K]

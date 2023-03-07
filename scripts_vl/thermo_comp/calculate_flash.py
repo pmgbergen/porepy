@@ -42,13 +42,13 @@ from thermo_comparison import (
 # 1 - vectorized
 # 2 - parallelized
 # This is critical when it comes to performance on big data files
-MODE: int = 2
+MODE: int = 0
 # flash type: pT or ph
 FLASH_TYPE: str = "pT"
 # p-x data from an thermo results file
 PX_DATA_FILE = f"data\\thermodata_pT10k.csv"
 # file to which to write the results
-RESULT_FILE = f"data\\results/results_pT10k_par_wo-reg-test.csv"
+RESULT_FILE = f"data\\results\\results_pT10k_par_wo-reg-final.csv"
 # Number of physical CPU cores.
 # This is used for the number of sub-processes and chunksize in the parallelization
 NUM_PHYS_CPU_CORS = psutil.cpu_count(logical=False)
@@ -67,8 +67,13 @@ def _access_shared_objects(
     global arrays_loc, progress_queue_loc
 
     progress_queue_loc = progress_queue
+    # # access locally as np arrays
+    # arrays_loc = [
+    #     np.frombuffer(vec.get_obj(), dtype=dtype) for vec, dtype in shared_arrays
+    # ]
+    # # access locally as Array from multiprocessing
     arrays_loc = [
-        np.frombuffer(vec.get_obj(), dtype=dtype) for vec, dtype in shared_arrays
+        vec for vec, _ in shared_arrays
     ]
 
 
@@ -360,7 +365,7 @@ def parallel_pT_flash(ipT):
         cond_start_arr[i] = FAILURE_ENTRY
         cond_end_arr[i] = FAILURE_ENTRY
 
-    progress_queue_loc.put(i)
+    progress_queue_loc.put(i, block=False)
 
 
 def parallel_ph_flash(iph):
@@ -584,7 +589,7 @@ def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str
             phi_co2_G.append(GAS.eos.phi[CO2].val[0])
             h.append(MIX.AD.h.evaluate(ADS).val[0])
             is_supercrit.append(
-                int(LIQ.eos.is_supercritical[0] or GAS.eos.is_supercritical[0])
+                int(LIQ.eos.is_supercritical[0] and GAS.eos.is_supercritical[0])
             )
 
         # extract and store results from last iterate
