@@ -357,6 +357,8 @@ class EquationSystem:
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
         tags: Optional[dict[str, Any]] = None,
+        number_stored_time_steps: int = 0,
+        number_stored_iterates: int = 0,
     ) -> MixedDimensionalVariable:
         """Creates new variables according to specifications.
 
@@ -382,6 +384,11 @@ class EquationSystem:
             tags (optional): dictionary containing tags for the variables. The tags are
                 assigned to all variables created by this method and can be updated
                 using :meth:`update_variable_tags`.
+            number_stored_time_steps: The number of time-steps back in time to store.   
+                Defaults to zero, which means that only the latest time-step is stored. In that case, the value is the same as the one in `data[pp.STATE]` in the data dictionary corresponding to the subdomain.
+            number_stored_iterates: The wanted number of stored iterates, not including 
+                the last one. Defaults to zero which means only the latest iterate is saved. In that case, the value is the same as the one in `data[pp.STATE][pp.ITERATE]` in the data dictionary corresponding to the subdomain. The iterates stored are the ones related to the solution on the latest time-step. 
+                
 
         Returns:
             A mixed-dimensional variable with above specifications.
@@ -435,6 +442,14 @@ class EquationSystem:
                     data[pp.STATE] = dict()
                 if pp.ITERATE not in data[pp.STATE]:
                     data[pp.STATE][pp.ITERATE] = dict()
+                    
+                # Prepare indexed storage of values in data dictionary if not already prepared   
+                if name not in data:
+                    data[name] = dict()
+                    if 'stored_time_steps' not in data[name]:
+                        data[name]['stored_time_steps'] = {i: np.zeros(grid.num_cells) for i in range(number_stored_time_steps + 1)}
+                    if 'stored_iterates' not in data[name]:
+                        data[name]['stored_iterates'] = {i: np.zeros(grid.num_cells) for i in range(number_stored_iterates + 1)}
 
                 # Create grid variable.
                 new_variable = Variable(name, dof_info, domain=grid, tags=tags)
@@ -447,7 +462,7 @@ class EquationSystem:
                 self._variable_dof_type[new_variable] = dof_info
                 self._append_dofs(new_variable)
 
-        # Create an md variable that wrapps all the individual variables created on
+        # Create an md variable that wraps all the individual variables created on
         # individual grids.
         merged_variable = MixedDimensionalVariable(variables)
 
@@ -534,7 +549,9 @@ class EquationSystem:
         return filtered_variables
 
     def get_variable_values(
-        self, variables: Optional[VariableList] = None, from_iterate: bool = False
+        self, 
+        variables: Optional[VariableList] = None, 
+        from_iterate: bool = False,
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
@@ -577,6 +594,7 @@ class EquationSystem:
                         values.append(data[pp.STATE][pp.ITERATE][name].copy())
                     else:
                         values.append(data[pp.STATE][name].copy())
+
                 except KeyError:
                     raise KeyError(
                         f"No values stored for variable {name}, "
@@ -601,7 +619,7 @@ class EquationSystem:
     ) -> None:
         """Sets values for a (sub) vector of the global vector of unknowns.
 
-        The order of values is assumed to fit the global order.
+        The order of values is assumed to fit the global order. Handles storing of the previous time-step values and previous iterates if this is wanted by the user. For more details see :meth:`create_variables`.
 
         Note:
             The vector is assumed to be of proper size and will be dissected according
@@ -654,14 +672,45 @@ class EquationSystem:
                         # No need for a copy here, since we are adding to an existing
                         # array.
                         data[pp.STATE][pp.ITERATE][name] += local_vec
+
+                        self.shift_dictionary(
+                                        data = data, 
+                                        name = name, 
+                                        values = local_vec,
+                                        location = 'stored_iterates',
+                                        additive = additive)
+
                     if to_state:
                         data[pp.STATE][name] += local_vec
+
+                        self.shift_dictionary(
+                                        data = data, 
+                                        name = name, 
+                                        values = local_vec,
+                                        location = 'stored_time_steps',
+                                        additive = additive)
+
                 else:
                     if to_iterate:
                         # The copy is critcial here.
                         data[pp.STATE][pp.ITERATE][name] = local_vec.copy()
+
+                        self.shift_dictionary(
+                                        data = data, 
+                                        name = name, 
+                                        values = local_vec,
+                                        location = 'stored_iterates',
+                                        additive = additive)
+
                     if to_state:
                         data[pp.STATE][name] = local_vec.copy()
+
+                        self.shift_dictionary(
+                                        data = data, 
+                                        name = name, 
+                                        values = local_vec,
+                                        location = 'stored_time_steps',
+                                        additive = additive)
 
                 # Move dissection forward.
                 dof_start = dof_end
@@ -670,6 +719,35 @@ class EquationSystem:
         # This imposes a theoretically unnecessary restriction on the input argument
         # since we only require a vector of at least this size.
         assert dof_end == values.size
+
+    def shift_dictionary(
+        self, 
+        data: dict, 
+        name: str, 
+        values: np.ndarray,
+        location: str,
+        additive: bool = False 
+        ) -> None:
+        """Method for shifting the values of data sub-dictionary.
+
+        The values in `data[name][location]` are stored with storage indices as keys. For each time-step/iteration, these values are shifted such that the most recent variable value is placed at key 0. The previous time-step/iterate values are moved to a "one number higher" key. Values of key 0 is moved to key 1, values of key 1 is moved to key 2, and so on. The value at the highest key is discarded.
+
+        Parameters:
+            data: Data dictionary corresponding to the subdomain in question
+            name: Name of the variable whose values are to be shifted
+            values: The values that are to be put at 0-key.
+            location: Should be either 'stored_time_steps' or 'stored_iterates' 
+                depending on whether it is a time-step that is to be stored or if it is an iterate.
+        
+        """
+        num_stored = len(data[name][location])
+        for i in range(num_stored - 1, 0, -1):
+            data[name][location][i] = data[name][location][i - 1].copy()
+        if additive:
+            data[name][location][0] += values.copy()
+        else:
+            data[name][location][0] = values.copy()         
+
 
     ### DOF management -----------------------------------------------------------------
 
