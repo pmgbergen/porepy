@@ -47,7 +47,7 @@ from thermo_comparison import (
 
 # files containing data
 THERMO_FILE: str = f"data/thermodata_pT10k.csv"
-RESULT_FILE: str = f"data/results/results_pT10k_par_wo-reg-new.csv"
+RESULT_FILE: str = f"data/results/results_pT10k_par_wo-reg-final.csv"
 # Path to where figures should be stored
 FIGURE_PATH: str = f"data/results/figures/"
 # Indicate flash type 'pT' or 'ph' to plot respectively
@@ -859,7 +859,7 @@ if __name__ == "__main__":
     print("Plotting: Succes and num iter", flush=True)
     fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
     gs = fig.add_gridspec(1, 2)
-    fig.suptitle(f"Overview: VLE with H2O and CO2")
+    fig.suptitle(f"Overview on numeric procedure.")
     axis = fig.add_subplot(gs[0, 0])
     plot_success(
         axis,
