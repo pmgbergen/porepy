@@ -21,6 +21,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 from thermo_comparison import (
     COMPONENTS,
     FAILED_ENTRY,
+    FEED,
     MISSING_ENTRY,
     NAN_ENTRY,
     PHASES,
@@ -46,7 +47,7 @@ from thermo_comparison import (
 
 # files containing data
 THERMO_FILE: str = f"data/thermodata_pT10k.csv"
-RESULT_FILE: str = f"data/results/results_pT10k_pw_wo-reg.csv"
+RESULT_FILE: str = f"data/results/results_pT10k_par_wo-reg-new.csv"
 # Path to where figures should be stored
 FIGURE_PATH: str = f"data/results/figures/"
 # Indicate flash type 'pT' or 'ph' to plot respectively
@@ -257,7 +258,7 @@ def _plot_liquid_phase_splits(
             color="red",
         )
         legend_img.append(img_u[0])
-        legend_txt.append(f"LL split (thermo)")
+        legend_txt.append(f"LL split")
     if np.any(GLL_split):
         img_o = axis.plot(
             x_mesh[GLL_split].flat * H_FACTOR,
@@ -267,7 +268,7 @@ def _plot_liquid_phase_splits(
             color="red",
         )
         legend_img.append(img_o[0])
-        legend_txt.append(f"GLL split (thermo)")
+        legend_txt.append(f"GLL split")
     return legend_img, legend_txt
 
 
@@ -320,8 +321,8 @@ def plot_success(
         vmax=2,
         shading="nearest",
     )
-    # img_sc, leg_sc = _plot_supercrit(axis, p_mesh, x_mesh, success, supercrit, px_map)
-    img_sc, leg_sc = [list(), list()]
+    img_sc, leg_sc = _plot_supercrit(axis, p_mesh, x_mesh, success, supercrit, px_map)
+    # img_sc, leg_sc = [list(), list()]
     if "T" in x_name:
         img_c, leg_c = _plot_crit_point_pT(axis)
     else:
@@ -343,7 +344,7 @@ def plot_success(
     cb.set_ticklabels(["N/A", "failed", "succeeded"])
 
 
-def plot_phase_regions(
+def plot_phase_regions_thermo(
     axis: plt.Axes,
     p_mesh: np.ndarray,
     x_mesh: np.ndarray,
@@ -385,7 +386,63 @@ def plot_phase_regions(
         leg_c = list()
     img_ps, leg_ps = _plot_liquid_phase_splits(axis, p_mesh, x_mesh, vals, px_map)
     axis.legend(img_c + img_ps, leg_c + leg_ps, loc="upper left")
-    axis.set_title("Phase regions")
+    axis.set_title("Phase regions (thermo)")
+    axis.set_xlabel(x_name)
+    axis.set_ylabel(f"p {P_UNIT}")
+    if P_LOG_SCALE:
+        axis.set_yscale("log")
+
+    divider = make_axes_locatable(axis)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = fig.colorbar(img, cax=cax, orientation="vertical")
+    cb.set_ticks([0, 1, 2, 3])
+    cb.set_ticklabels(["N/A", "liquid", "gas", "2-phase"])
+
+
+def plot_phase_regions_from_y(
+    axis: plt.Axes,
+    p_mesh: np.ndarray,
+    x_mesh: np.ndarray,
+    success: list[Any],
+    vals: list[Any],
+    x_name: str,
+    px_map: dict,
+):
+    """Plots a discrete phase regions map from gas fraction values."""
+    v_mesh = np.zeros(p_mesh.shape)
+    for i in range(p_mesh.shape[0]):
+        for j in range(p_mesh.shape[1]):
+            p_ = p_mesh[i, j]
+            x_ = x_mesh[i, j]
+            px = (p_, x_)
+            idx = px_map[px]
+            v = vals[idx]
+
+            s = int(success[idx])
+            if s == 1:
+                v = float(v)
+                if v >= 1:
+                    v_mesh[i, j] = 2
+                elif v <= 0:
+                    v_mesh[i, j] = 1
+                elif 0 < v < 1:
+                    v_mesh[i, j] = 3
+
+    cmap = mpl.colors.ListedColormap(["white", "blue", "red", "yellow"])
+    img = axis.pcolormesh(
+        x_mesh * H_FACTOR,
+        p_mesh * P_FACTOR,
+        v_mesh,
+        cmap=cmap,
+        vmin=0,
+        vmax=3,
+        shading="nearest",
+    )
+    if "T" in x_name:
+        img_c, leg_c = _plot_crit_point_pT(axis)
+        axis.legend(img_c, leg_c, loc="upper left")
+
+    axis.set_title("Phase regions (based on y)")
     axis.set_xlabel(x_name)
     axis.set_ylabel(f"p {P_UNIT}")
     if P_LOG_SCALE:
@@ -584,6 +641,9 @@ def plot_abs_error_values(
     val_name: str,
     x_name: str,
     px_map: dict,
+    results: dict,
+    is_rel_frac: bool = False,
+    comp: Optional[str] = None,
     norm: Optional[str] = None,
 ):
     """Plots absolute error between ``vals`` and ``target_vals``.
@@ -608,6 +668,12 @@ def plot_abs_error_values(
             s = int(success[idx])
             # if successful, check for nan entry or anything else
             if s == 1:
+                # work around for relative fractions to filter out error
+                # introduced by extended fractions
+                if is_rel_frac:
+                    y = float(results[gas_frac_HEADER][idx])
+                    if (y <= 0. or y >= 1.)  and v_target not in ignore and comp is not None:
+                        v_target = FEED[comp]
                 if (v not in ignore) and (v_target not in ignore):
                     v = float(v)
                     v_target = float(v_target)
@@ -762,17 +828,39 @@ if __name__ == "__main__":
 
     x_mesh, p_mesh = np.meshgrid(x_vec, p_vec)
 
-    # region Plot 1: Overview on success, phase regions and number of iterations
-    print("Plotting: Overview", flush=True)
+    liq = PHASES[1]
+    gas = PHASES[0]
+    h2o, co2 = COMPONENTS
+
+    # region Plot 0: Phase regions
+    print("Plotting: Phase regions", flush=True)
     fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
     gs = fig.add_gridspec(1, 2)
     fig.suptitle(f"Overview: VLE with H2O and CO2")
     axis = fig.add_subplot(gs[0, 0])
-    plot_phase_regions(
+    plot_phase_regions_thermo(
         axis, p_mesh, x_mesh, thermo_results[phases_HEADER], x_name, px_map
     )
 
     axis = fig.add_subplot(gs[0, 1])
+    plot_phase_regions_from_y(
+        axis, p_mesh, x_mesh, results[success_HEADER], results[gas_frac_HEADER], x_name, px_map
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{str(scipt_path)}/{FIGURE_PATH}0_regions__{fname}.png",
+        format="png",
+        dpi=DPI,
+    )
+    # endregion
+
+    # region Plot 1: Success and number of iterations
+    print("Plotting: Succes and num iter", flush=True)
+    fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
+    gs = fig.add_gridspec(1, 2)
+    fig.suptitle(f"Overview: VLE with H2O and CO2")
+    axis = fig.add_subplot(gs[0, 0])
     plot_success(
         axis,
         p_mesh,
@@ -781,6 +869,20 @@ if __name__ == "__main__":
         results[is_supercrit_HEADER],
         x_name,
         px_map,
+    )
+
+    axis = fig.add_subplot(gs[0, 1])
+    plot_any_vals(
+        axis,
+        p_mesh,
+        x_mesh,
+        results[success_HEADER],
+        results[num_iter_HEADER],
+        int,
+        "Number of iterations",
+        x_name,
+        px_map,
+        norm=None,
     )
 
     fig.tight_layout()
@@ -821,6 +923,9 @@ if __name__ == "__main__":
         "y",
         x_name,
         px_map,
+        results,
+        is_rel_frac=False,
+        comp=None,
         norm="log",
     )
 
@@ -831,10 +936,6 @@ if __name__ == "__main__":
         dpi=DPI,
     )
     # endregion
-
-    liq = PHASES[1]
-    gas = PHASES[0]
-    h2o, co2 = COMPONENTS
 
     # region Plot 3: Fraction values in Liquid phase
     print("Plotting: Liquid phase data", flush=True)
@@ -867,6 +968,9 @@ if __name__ == "__main__":
         frac_header,
         x_name,
         px_map,
+        results,
+        is_rel_frac=True,
+        comp=h2o,
         norm=None,
     )
 
@@ -895,6 +999,9 @@ if __name__ == "__main__":
         frac_header,
         x_name,
         px_map,
+        results,
+        is_rel_frac=True,
+        comp=co2,
         norm=None,
     )
 
@@ -936,7 +1043,10 @@ if __name__ == "__main__":
         frac_header,
         x_name,
         px_map,
-        norm="log",
+        results,
+        is_rel_frac=True,
+        comp=h2o,
+        norm=None,
     )
 
     frac_header = composition_HEADER[co2][gas]
@@ -963,7 +1073,10 @@ if __name__ == "__main__":
         frac_header,
         x_name,
         px_map,
-        norm="log",
+        results,
+        is_rel_frac=True,
+        comp=co2,
+        norm=None,
     )
 
     fig.tight_layout()
@@ -1051,34 +1164,6 @@ if __name__ == "__main__":
         dpi=DPI,
     )
 
-    # endregion
-
-    # region Plot 7: Number of iterations
-    print("Plotting: Number of iterations", flush=True)
-    fig = plt.figure(figsize=(FIG_WIDTH, 1080 / 1920 * FIG_WIDTH))
-    gs = fig.add_gridspec(1, 1)
-    fig.suptitle(f"Number of iterations")
-
-    axis = fig.add_subplot(gs[0, 0])
-    plot_any_vals(
-        axis,
-        p_mesh,
-        x_mesh,
-        results[success_HEADER],
-        results[num_iter_HEADER],
-        int,
-        "",
-        x_name,
-        px_map,
-        norm=None,
-    )
-
-    fig.tight_layout()
-    fig.savefig(
-        f"{str(scipt_path)}/{FIGURE_PATH}7_numiter__{fname}.png",
-        format="png",
-        dpi=DPI,
-    )
     # endregion
 
     print("Plotting: Done", flush=True)
