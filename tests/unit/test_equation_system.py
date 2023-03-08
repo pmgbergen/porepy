@@ -1,7 +1,7 @@
 """Tests of the EquationSystem used in the Ad machinery.
 
 The tests focus on various assembly methods:
-    * tets_variable_creation: Test that variable creation from a EquationSystem works.
+    * test_variable_creation: Test that variable creation from a EquationSystem works.
     * test_variable_tags: Tagging of variables, used for filtering in an EquationSystem.
     * test_get_set_methods: Get and set methods for variables.
     * test_projection_matrix: Projection from a global vector to one defined on a subset
@@ -353,7 +353,7 @@ class EquationSystemSetup:
         if not square_system:
             # One equation combining top and all subdomains.
             # Assigned last to avoid mess if omitted
-            self.eq_combined = self.sd_top_variable * (proj * self.sd_variable)
+            self.eq_combined = self.sd_top_variable * (proj @ self.sd_variable)
             self.eq_combined.set_name("eq_combined")
             sys_man.set_equation(
                 self.eq_combined, grids=[sd_top], equations_per_grid_entity=dof_combined

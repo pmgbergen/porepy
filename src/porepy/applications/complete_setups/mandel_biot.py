@@ -262,7 +262,7 @@ class MandelDataSaving(VerificationDataSaving):
 class MandelExactSolution:
     """Exact solutions to Mandel's problem taken from [2]."""
 
-    def __init__(self, setup):
+    def __init__(self, setup) -> None:
         """Constructor of the class."""
         self.setup = setup
 
