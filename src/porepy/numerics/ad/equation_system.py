@@ -381,11 +381,17 @@ class EquationSystem:
             tags (optional): dictionary containing tags for the variables. The tags are
                 assigned to all variables created by this method and can be updated
                 using :meth:`update_variable_tags`.
-            number_stored_time_steps: The number of time-steps back in time to store.   
-                Defaults to zero, which means that only the latest time-step is stored. In that case, the value is the same as the one in `data[pp.STATE]` in the data dictionary corresponding to the subdomain.
-            number_stored_iterates: The wanted number of stored iterates, not including 
-                the last one. Defaults to zero which means only the latest iterate is saved. In that case, the value is the same as the one in `data[pp.STATE][pp.ITERATE]` in the data dictionary corresponding to the subdomain. The iterates stored are the ones related to the solution on the latest time-step. 
-                
+            number_stored_time_steps: The number of time-steps back in time to store.
+                Defaults to zero, which means that only the most recent time-step is
+                stored. In that case, the value is the same as the one in `data[pp.
+                STATE]` in the data dictionary corresponding to the subdomain.
+            number_stored_iterates: The wanted number of stored iterates, not including
+                the most recent one. Defaults to zero which means only the latest
+                iterate is saved. In that case, the value is the same as the one in
+                `data[pp.STATE][pp.ITERATE]` in the data dictionary corresponding to
+                the subdomain. The iterates stored are the ones related to the solution
+                on the latest time-step.
+
 
         Returns:
             A mixed-dimensional variable with above specifications.
@@ -439,14 +445,20 @@ class EquationSystem:
                     data[pp.STATE] = dict()
                 if pp.ITERATE not in data[pp.STATE]:
                     data[pp.STATE][pp.ITERATE] = dict()
-                    
-                # Prepare indexed storage of values in data dictionary if not already prepared   
+
+                # Prepare indexed storage of values in data dictionary if not already prepared
                 if name not in data:
                     data[name] = dict()
-                    if 'stored_time_steps' not in data[name]:
-                        data[name]['stored_time_steps'] = {i: np.zeros(grid.num_cells) for i in range(number_stored_time_steps + 1)}
-                    if 'stored_iterates' not in data[name]:
-                        data[name]['stored_iterates'] = {i: np.zeros(grid.num_cells) for i in range(number_stored_iterates + 1)}
+                    if "stored_time_steps" not in data[name]:
+                        data[name]["stored_time_steps"] = {
+                            i: np.zeros(grid.num_cells)
+                            for i in range(number_stored_time_steps + 1)
+                        }
+                    if "stored_iterates" not in data[name]:
+                        data[name]["stored_iterates"] = {
+                            i: np.zeros(grid.num_cells)
+                            for i in range(number_stored_iterates + 1)
+                        }
 
                 # Create grid variable.
                 new_variable = Variable(name, dof_info, domain=grid, tags=tags)
@@ -546,9 +558,11 @@ class EquationSystem:
         return filtered_variables
 
     def get_variable_values(
-        self, 
-        variables: Optional[VariableList] = None, 
+        self,
+        variables: Optional[VariableList] = None,
         from_iterate: bool = False,
+        indexed_time_step: int = 0,
+        indexed_iterate: int = 0,
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
@@ -560,6 +574,15 @@ class EquationSystem:
                 requested. If None (default), the global vector of unknowns is returned.
             from_iterate (optional): flag to return values stored as ITERATE,
                 instead of STATE (default).
+            indexed_time_step: Specified by user if they want to gather
+                variable values from a specific time-step. Value 0 (default) provides
+                the most recent time-step. A value of 1 will give the values of one
+                time-step back in time.
+            indexed_iterate: Specified by user if they want to gather a
+                specific set of iterate values. The iterate values are only stored for
+                the most recent time-step, so all iterates belong to the current
+                solution. Similar to `indexed_time_step`, value 0 is the default value
+                and gives the last iterate.
 
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
@@ -590,7 +613,10 @@ class EquationSystem:
                     if from_iterate:
                         values.append(data[pp.STATE][pp.ITERATE][name].copy())
                     else:
-                        values.append(data[pp.STATE][name].copy())
+                        # values.append(data[pp.STATE][name].copy())
+                        values.append(
+                            data[name]["stored_time_steps"][indexed_time_step].copy()
+                        )
 
                 except KeyError:
                     raise KeyError(
@@ -616,7 +642,9 @@ class EquationSystem:
     ) -> None:
         """Sets values for a (sub) vector of the global vector of unknowns.
 
-        The order of values is assumed to fit the global order. Handles storing of the previous time-step values and previous iterates if this is wanted by the user. For more details see :meth:`create_variables`.
+        The order of values is assumed to fit the global order. Handles storing of the
+        previous time-step values and previous iterates if this is wanted by the user.
+        For more details see :meth:`create_variables`.
 
         Note:
             The vector is assumed to be of proper size and will be dissected according
@@ -671,21 +699,30 @@ class EquationSystem:
                         data[pp.STATE][pp.ITERATE][name] += local_vec
 
                         self.shift_dictionary(
-                                        data = data, 
-                                        name = name, 
-                                        values = local_vec,
-                                        location = 'stored_iterates',
-                                        additive = additive)
+                            data=data,
+                            name=name,
+                            values=local_vec,
+                            location="stored_iterates",
+                            additive=additive,
+                        )
 
                     if to_state:
                         data[pp.STATE][name] += local_vec
 
                         self.shift_dictionary(
-                                        data = data, 
-                                        name = name, 
-                                        values = local_vec,
-                                        location = 'stored_time_steps',
-                                        additive = additive)
+                            data=data,
+                            name=name,
+                            values=local_vec,
+                            location="stored_time_steps",
+                            additive=additive,
+                        )
+
+                        if not to_iterate:
+                            # Need to wipe the entire stored_iterates sub-dictionary
+                            # after each time-step.
+                            zero_array = np.zeros(len(local_vec))
+                            for key, _ in data[name]["stored_iterates"].items():
+                                data[name]["stored_iterates"][key] = zero_array.copy()
 
                 else:
                     if to_iterate:
@@ -693,21 +730,30 @@ class EquationSystem:
                         data[pp.STATE][pp.ITERATE][name] = local_vec.copy()
 
                         self.shift_dictionary(
-                                        data = data, 
-                                        name = name, 
-                                        values = local_vec,
-                                        location = 'stored_iterates',
-                                        additive = additive)
+                            data=data,
+                            name=name,
+                            values=local_vec,
+                            location="stored_iterates",
+                            additive=additive,
+                        )
 
                     if to_state:
                         data[pp.STATE][name] = local_vec.copy()
 
                         self.shift_dictionary(
-                                        data = data, 
-                                        name = name, 
-                                        values = local_vec,
-                                        location = 'stored_time_steps',
-                                        additive = additive)
+                            data=data,
+                            name=name,
+                            values=local_vec,
+                            location="stored_time_steps",
+                            additive=additive,
+                        )
+
+                        if not to_iterate:
+                            # Need to wipe the entire stored_iterates sub-dictionary
+                            # after each time-step.
+                            zero_array = np.zeros(len(local_vec))
+                            for key, _ in data[name]["stored_iterates"].items():
+                                data[name]["stored_iterates"][key] = zero_array.copy()
 
                 # Move dissection forward.
                 dof_start = dof_end
@@ -718,24 +764,30 @@ class EquationSystem:
         assert dof_end == values.size
 
     def shift_dictionary(
-        self, 
-        data: dict, 
-        name: str, 
+        self,
+        data: dict,
+        name: str,
         values: np.ndarray,
         location: str,
-        additive: bool = False 
-        ) -> None:
+        additive: bool = False,
+    ) -> None:
         """Method for shifting the values of data sub-dictionary.
 
-        The values in `data[name][location]` are stored with storage indices as keys. For each time-step/iteration, these values are shifted such that the most recent variable value is placed at key 0. The previous time-step/iterate values are moved to a "one number higher" key. Values of key 0 is moved to key 1, values of key 1 is moved to key 2, and so on. The value at the highest key is discarded.
+        The values in `data[name][location]` are stored with storage indices as keys.
+        For each time-step/iteration, these values are shifted such that the most
+        recent variable value is placed at key 0. The previous time-step/iterate values
+        are moved to a "one number higher" key. Values of key 0 is moved to key 1,
+        values of key 1 is moved to key 2, and so on. The value at the highest key is
+        discarded.
 
         Parameters:
             data: Data dictionary corresponding to the subdomain in question
             name: Name of the variable whose values are to be shifted
             values: The values that are to be put at 0-key.
-            location: Should be either 'stored_time_steps' or 'stored_iterates' 
-                depending on whether it is a time-step that is to be stored or if it is an iterate.
-        
+            location: Should be either 'stored_time_steps' or 'stored_iterates'
+                depending on whether it is a time-step that is to be stored or if it is
+                an iterate.
+
         """
         num_stored = len(data[name][location])
         for i in range(num_stored - 1, 0, -1):
@@ -743,8 +795,7 @@ class EquationSystem:
         if additive:
             data[name][location][0] += values.copy()
         else:
-            data[name][location][0] = values.copy()         
-
+            data[name][location][0] = values.copy()
 
     ### DOF management -----------------------------------------------------------------
 
