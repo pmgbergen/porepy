@@ -451,12 +451,12 @@ class EquationSystem:
                     data[name] = dict()
                     if "stored_time_steps" not in data[name]:
                         data[name]["stored_time_steps"] = {
-                            i: np.zeros(grid.num_cells)
+                            i: np.zeros(grid.num_cells * dof_info["cells"])
                             for i in range(number_stored_time_steps + 1)
                         }
                     if "stored_iterates" not in data[name]:
                         data[name]["stored_iterates"] = {
-                            i: np.zeros(grid.num_cells)
+                            i: np.zeros(grid.num_cells * dof_info["cells"])
                             for i in range(number_stored_iterates + 1)
                         }
 
@@ -611,12 +611,22 @@ class EquationSystem:
                 # Extract a copy of requested values.
                 try:
                     if from_iterate:
+                        if indexed_iterate != 0:
+                            values.append(
+                                data[name]["stored_iterates"][indexed_iterate].copy()
+                            )
+                            continue
                         values.append(data[pp.STATE][pp.ITERATE][name].copy())
+
                     else:
-                        # values.append(data[pp.STATE][name].copy())
-                        values.append(
-                            data[name]["stored_time_steps"][indexed_time_step].copy()
-                        )
+                        if indexed_time_step != 0:
+                            values.append(
+                                data[name]["stored_time_steps"][
+                                    indexed_time_step
+                                ].copy()
+                            )
+                            continue
+                        values.append(data[pp.STATE][name].copy())
 
                 except KeyError:
                     raise KeyError(
