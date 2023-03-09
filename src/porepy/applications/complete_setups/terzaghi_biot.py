@@ -198,7 +198,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
 class TerzaghiExactSolution:
     """Class containing exact solutions to Terzaghi's consolidation problem."""
 
-    def __init__(self, setup):
+    def __init__(self, setup) -> None:
         """Constructor of the class"""
 
         self.setup = setup
