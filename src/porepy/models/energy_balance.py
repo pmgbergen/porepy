@@ -156,7 +156,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the energy balance equation.
 
         """
-        accumulation = self.total_internal_energy(subdomains)
+        accumulation = self.volume_integral(
+            self.total_internal_energy(subdomains), subdomains, dim=1
+        )
         flux = self.energy_flux(subdomains)
         source = self.energy_source(subdomains)
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
@@ -173,11 +175,10 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid energy.
 
         """
-        energy_density = (
+        energy = (
             self.fluid_density(subdomains) * self.fluid_enthalpy(subdomains)
             - self.pressure(subdomains)
         ) * self.porosity(subdomains)
-        energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("fluid_internal_energy")
         return energy
 
@@ -191,12 +192,11 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the solid energy.
 
         """
-        energy_density = (
+        energy = (
             self.solid_density(subdomains)
             * self.solid_enthalpy(subdomains)
             * (pp.ad.Scalar(1) - self.porosity(subdomains))
         )
-        energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("solid_internal_energy")
         return energy
 
