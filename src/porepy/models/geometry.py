@@ -41,7 +41,7 @@ class ModelGeometry:
         pp.contact_conditions.set_projections(self.mdg)
 
         self.set_well_network()
-        if self.well_network is not None:
+        if len(self.well_network.wells) > 0:
             # Compute intersections
             assert isinstance(self.fracture_network, pp.FractureNetwork3d)
             pp.compute_well_fracture_intersections(
