@@ -51,6 +51,7 @@ class ConstitutiveLawFluidMassAndEnergy(
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.DarcysLaw,
+    pp.constitutive_laws.PeacemanWellFlux,
     pp.constitutive_laws.FluidMobility,
     pp.constitutive_laws.ConstantPorosity,
     pp.constitutive_laws.ConstantPermeability,
