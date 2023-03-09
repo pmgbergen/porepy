@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List
 
 import numpy as np
 
 import porepy as pp
 
 logger = logging.getLogger(__name__)
-GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 def grid_error(
@@ -19,26 +18,21 @@ def grid_error(
 ) -> dict:
     """Compute grid errors a grid bucket and refined reference grid bucket
 
-    Assumes that the coarse grid bucket has a property
-    'coarse_fine_cell_mapping' assigned on each subdomain, which
-    maps from coarse to fine cells according to the method
-    'coarse_fine_cell_mapping(...)'.
+    Assumes that the coarse grid bucket has a property 'coarse_fine_cell_mapping'
+    assigned on each subdomain, which maps from coarse to fine cells according to the
+    method 'coarse_fine_cell_mapping(...)'.
 
-    Parameters
-    ----------
-    mdg, mdg_ref : pp.MixedDimensionalGrid
-        Coarse and fine grid buckets, respectively
-    variable : List[str]
-        which variables to compute error over
-    variable_dof : List[int]
-        Degrees of freedom for each variable in the list 'variable'.
+    Parameters:
+        mdg: "Coarse" mixed-dimensional grid.
+        mdg_ref: "Fine" mixed-dimensional grid.
+        variable: List defining which variables to compute error over.
+        variable_dof: List specifying the number of degrees of freedom for each variable
+            in the list 'variable'.
 
-    Returns
-    -------
-    errors : dict
-        Dictionary with top level keys as node_number,
-        within which for each variable, the error is
-        reported.
+    Returns:
+        errors: Dictionary with top level keys as node_number, within which for each
+            variable, the error is reported.
+
     """
     assert len(variable) == len(variable_dof), (
         "Each variable must have associated " "with it a number of degrees of freedom."
@@ -117,7 +111,7 @@ def grid_error(
     return errors
 
 
-def interpolate(g: GridLike, fun: Callable):
+def interpolate(g: pp.GridLike, fun: Callable):
     """
     Interpolate a scalar or vector function on the cell centers of the grid.
 
@@ -149,7 +143,7 @@ def interpolate(g: GridLike, fun: Callable):
     return np.array([fun(pt) for pt in g.cell_centers.T]).T
 
 
-def norm_L2(g: GridLike, val: np.ndarray):
+def norm_L2(g: pp.GridLike, val: np.ndarray):
     """
     Compute the L2 norm of a scalar or vector field.
 
@@ -181,7 +175,9 @@ def norm_L2(g: GridLike, val: np.ndarray):
     return np.sqrt(np.sum([norm_sq(v) for v in val]))
 
 
-def error_L2(g: GridLike, val: np.ndarray, val_ex: np.ndarray, relative: bool = True):
+def error_L2(
+    g: pp.GridLike, val: np.ndarray, val_ex: np.ndarray, relative: bool = True
+):
     """
     Compute the L2 error of a scalar or vector field with respect to a reference
     field. It is possible to compute the relative error (default) or the

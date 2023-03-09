@@ -174,7 +174,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
@@ -189,7 +189,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         """
         vals = []
         if len(subdomains) == 0:
-            return pp.ad.Array(np.zeros(0), name="bc_values_darcy")
+            return pp.ad.DenseArray(np.zeros(0), name="bc_values_darcy")
         for sd in subdomains:
             domain_sides = self.domain_boundary_sides(sd)
             vals_loc = np.zeros(sd.num_faces)
@@ -245,7 +245,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for the mobility.
 
         Nonzero values are only defined on the north and south boundaries corresponding
@@ -270,7 +270,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
             )
             values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
+        # Concatenate to single array and wrap as ad.DenseArray
         bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_mobility")
         return bc_values
 
@@ -340,7 +340,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         )
         return values.ravel("F")
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the mechanics problem.
 
         Parameters:
@@ -354,7 +354,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         # Set the boundary values
         bc_values = []
         if len(subdomains) == 0:
-            return pp.ad.Array(np.zeros(0), name="bc_values_mechanics")
+            return pp.ad.DenseArray(np.zeros(0), name="bc_values_mechanics")
         for sd in subdomains:
             bc_values.append(self.bc_values_mechanics_np(sd))
         ad_values = pp.wrap_as_ad_array(
@@ -622,7 +622,7 @@ def compare_scaled_model_quantities(
             domains = domains_from_method_name(setup.mdg, method, domain_dimension=dim)
             # Convert back to SI units.
             value = method(domains).evaluate(setup.equation_system)
-            if isinstance(value, pp.ad.Ad_array):
+            if isinstance(value, pp.ad.AdArray):
                 value = value.val
             values.append(setup.fluid.convert_units(value, method_unit, to_si=True))
         compare_values(values[0], values[1], cell_wise=cell_wise)
