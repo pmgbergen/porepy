@@ -1,6 +1,6 @@
 """
-Module containing a worker function to generate mixed-dimensional grids in an unified
-way.
+Module containing a function to generate mixed-dimensional grids. It encapsulates
+different lower-level md-grid generation.
 """
 from __future__ import annotations
 
@@ -10,64 +10,6 @@ import numpy as np
 
 import porepy as pp
 import porepy.grids.standard_grids.utils as utils
-from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
-
-def __coord_cart_2d(self, phys_dims, dev, pos):
-    xmax = phys_dims[0]
-    ymax = phys_dims[1]
-
-    x = np.array(pos)
-    y = np.array([dev, ymax - dev])
-    return np.array([x, y])
-
-
-def __cartersian_2d(
-    fracture_network: pp.FractureNetwork2d, mesh_arguments: dict[str], **kwargs
-):
-
-    phys_dims = mesh_arguments["phys_dims"]
-    n_cells = mesh_arguments["n_cells"]
-    fractures = list(fracture_network.pts.T[fracture_network.edges.T])
-    mdg = pp.meshing.cart_grid(
-        fracs=fractures, physdims=phys_dims, nx=np.array(n_cells)
-    )
-    return mdg
-
-
-def coord_cart_3d(self, phys_dims, dev, pos):
-    xmax = phys_dims[0]
-    ymax = phys_dims[1]
-    zmax = phys_dims[2]
-
-    z = np.array([dev, dev, zmax - dev, zmax - dev])
-
-    if pos[1] == "x":
-        x = np.ones(4) * pos[0]
-        y = np.array([dev, ymax - dev, ymax - dev, dev])
-    elif pos[1] == "y":
-        x = np.array([dev, xmax - dev, xmax - dev, dev])
-        y = np.ones(4) * pos[0]
-    return np.array([x, y, z])
-
-
-def cartersian_3d():
-
-    # Generate mixed-dimensional mesh
-    phys_dims = [50, 50, 10]
-    n_cells = [20, 20, 10]
-    bounding_box_points = np.array(
-        [[0, phys_dims[0]], [0, phys_dims[1]], [0, phys_dims[2]]]
-    )
-    box = pp.geometry.bounding_box.from_points(bounding_box_points)
-
-    frac1 = coord_cart_3d(phys_dims, 2, (25, "x"))
-    frac2 = coord_cart_3d(phys_dims, 2, (25, "y"))
-    frac3 = coord_cart_3d(phys_dims, 2, (23, "y"))
-    frac4 = coord_cart_3d(phys_dims, 2, (27, "y"))
-    mdg = pp.meshing.cart_grid(
-        fracs=[frac1, frac2, frac3, frac4], physdims=phys_dims, nx=np.array(n_cells)
-    )
-    return mdg
 
 
 def _validate_arguments(
@@ -81,9 +23,11 @@ def _validate_arguments(
 
 
 def create_mdg(
-    fracture_network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d],
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     mesh_arguments: dict[str],
+    fracture_network: Optional[
+        Union[pp.FractureNetwork2d, pp.FractureNetwork3d]
+    ] = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
 
@@ -91,27 +35,115 @@ def create_mdg(
         raise (ValueError)
 
     # Assertion for FN type
-    assert isinstance(fracture_network, pp.FractureNetwork2d) or isinstance(
-        fracture_network, pp.FractureNetwork3d
+    assert (
+        isinstance(fracture_network, pp.FractureNetwork2d)
+        or isinstance(fracture_network, pp.FractureNetwork3d)
+        or isinstance(fracture_network, None)
     )
 
+    # lower level mdg generation
     # TODO: Collect examples for Tensor grids
     # 2d cases
     if isinstance(fracture_network, pp.FractureNetwork2d):
         if grid_type == "simplex":
-            utils.set_mesh_sizes(mesh_arguments)
-            mdg = fracture_network.mesh(mesh_arguments)
+            assert type(mesh_arguments) == type(kwargs)
+            # Equivalence: expected mesh_size
+            h_size = mesh_arguments["mesh_size"]
+            lower_level_arguments = {}
+            lower_level_arguments["mesh_size_frac"] = h_size
+            lower_level_arguments.update(kwargs)
+            utils.set_mesh_sizes(lower_level_arguments)
+            mdg = fracture_network.mesh(lower_level_arguments)
             mdg.compute_geometry()
         elif grid_type == "cartesian":
-            mdg = __cartersian_2d(fracture_network, mesh_arguments, **kwargs)
+            # mesh_size
+            xmin = fracture_network.domain.bounding_box["xmin"]
+            xmax = fracture_network.domain.bounding_box["xmax"]
+            ymin = fracture_network.domain.bounding_box["ymin"]
+            ymax = fracture_network.domain.bounding_box["ymax"]
+
+            h_size = mesh_arguments["mesh_size"]
+            n_x = round((xmax - xmin) / h_size)
+            n_y = round((ymax - ymin) / h_size)
+
+            fractures = [f.pts for f in fracture_network.fractures]
+            mdg = pp.meshing.cart_grid(
+                fracs=fractures, physdims=[ymax, xmax], nx=np.array([n_x, n_y])
+            )
+
+        elif grid_type == "tensor_grid":
+
+            # mesh_size
+            xmin = fracture_network.domain.bounding_box["xmin"]
+            xmax = fracture_network.domain.bounding_box["xmax"]
+            ymin = fracture_network.domain.bounding_box["ymin"]
+            ymax = fracture_network.domain.bounding_box["ymax"]
+
+            h_size = mesh_arguments["mesh_size"]
+            n_x = round((xmax - xmin) / h_size) + 1
+            n_y = round((ymax - ymin) / h_size) + 1
+            x_space = np.linspace(xmin, xmax, num=n_x)
+            y_space = np.linspace(ymin, ymax, num=n_y)
+
+            fractures = [f.pts for f in fracture_network.fractures]
+            # fracs: list[np.ndarray], x: np.ndarray, y = None, z = None, ** kwargs
+            mdg = pp.meshing.tensor_grid(fracs=fractures, x=x_space, y=y_space)
 
     # 3d cases
     if isinstance(fracture_network, pp.FractureNetwork3d):
         if grid_type == "simplex":
-            utils.set_mesh_sizes(mesh_arguments)
-            mdg = fracture_network.mesh(mesh_arguments)
+            # Equivalence: expected mesh_size
+            h_size = mesh_arguments["mesh_size"]
+            lower_level_arguments = {}
+            lower_level_arguments["mesh_size_frac"] = h_size
+            lower_level_arguments.update(kwargs)
+            utils.set_mesh_sizes(lower_level_arguments)
+            mdg = fracture_network.mesh(lower_level_arguments)
             mdg.compute_geometry()
         elif grid_type == "cartesian":
-            mdg = cartersian_3d()
+
+            # mesh_size
+            xmin = fracture_network.domain.bounding_box["xmin"]
+            xmax = fracture_network.domain.bounding_box["xmax"]
+            ymin = fracture_network.domain.bounding_box["ymin"]
+            ymax = fracture_network.domain.bounding_box["ymax"]
+            zmin = fracture_network.domain.bounding_box["zmin"]
+            zmax = fracture_network.domain.bounding_box["zmax"]
+
+            h_size = mesh_arguments["mesh_size"]
+            n_x = round((xmax - xmin) / h_size)
+            n_y = round((ymax - ymin) / h_size)
+            n_z = round((zmax - zmin) / h_size)
+
+            fractures = [f.pts for f in fracture_network.fractures]
+            mdg = pp.meshing.cart_grid(
+                fracs=fractures,
+                physdims=[ymax, xmax, zmax],
+                nx=np.array([n_x, n_y, n_z]),
+            )
+
+        elif grid_type == "tensor_grid":
+
+            # mesh_size
+            xmin = fracture_network.domain.bounding_box["xmin"]
+            xmax = fracture_network.domain.bounding_box["xmax"]
+            ymin = fracture_network.domain.bounding_box["ymin"]
+            ymax = fracture_network.domain.bounding_box["ymax"]
+            zmin = fracture_network.domain.bounding_box["zmin"]
+            zmax = fracture_network.domain.bounding_box["zmax"]
+
+            h_size = mesh_arguments["mesh_size"]
+            n_x = round((xmax - xmin) / h_size) + 1
+            n_y = round((ymax - ymin) / h_size) + 1
+            n_z = round((zmax - zmin) / h_size) + 1
+
+            x_space = np.linspace(xmin, xmax, num=n_x)
+            y_space = np.linspace(ymin, ymax, num=n_y)
+            z_space = np.linspace(zmin, zmax, num=n_y)
+
+            fractures = [f.pts for f in fracture_network.fractures]
+            mdg = pp.meshing.tensor_grid(
+                fracs=fractures, x=x_space, y=y_space, z=z_space
+            )
 
     return mdg
