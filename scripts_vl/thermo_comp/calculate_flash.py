@@ -39,16 +39,16 @@ from thermo_comparison import (
 
 # How to calculate:
 # 0 - point-wise
-# 1 - vectorized
+# 1 - vectorized  NOTE: Not implemented
 # 2 - parallelized
 # This is critical when it comes to performance on big data files
-MODE: int = 0
+MODE: int = 2
 # flash type: pT or ph
 FLASH_TYPE: str = "pT"
 # p-x data from an thermo results file
-PX_DATA_FILE = f"data\\thermodata_pT10k.csv"
+PX_DATA_FILE = f"data\\thermodata_pT2k_co2_1e-1.csv"
 # file to which to write the results
-RESULT_FILE = f"data\\results\\results_pT10k_par_wo-reg-final.csv"
+RESULT_FILE = f"data\\results\\results_pT2k_co2_1e-1_par_bothsc.csv"
 # Number of physical CPU cores.
 # This is used for the number of sub-processes and chunksize in the parallelization
 NUM_PHYS_CPU_CORS = psutil.cpu_count(logical=False)
