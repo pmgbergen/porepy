@@ -46,8 +46,8 @@ from thermo_comparison import (
 ### General settings
 
 # files containing data
-THERMO_FILE: str = f"data/thermodata_pT10k.csv"
-RESULT_FILE: str = f"data/results/results_pT10k_par_wo-reg-final.csv"
+THERMO_FILE: str = f"data/thermodata_pT10k_co2_1e-2.csv"
+RESULT_FILE: str = f"data/results/results_pT10k_par_co2_1e-2_bothsc.csv"
 # Path to where figures should be stored
 FIGURE_PATH: str = f"data/results/figures/"
 # Indicate flash type 'pT' or 'ph' to plot respectively

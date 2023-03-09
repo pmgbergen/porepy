@@ -9,9 +9,9 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
+import pypardiso
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
-import pypardiso
 
 import porepy as pp
 from porepy.composite.component import Component

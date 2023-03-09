@@ -410,6 +410,10 @@ class PR_EoS:
             The root ``Z`` corresponding to the assigned phase label.
 
         """
+        # NOTE it must be asserted that A and B are strictly positive
+        # They can be negative is the fractions violate the bound [0, 1]
+        assert np.all(A.val > 0.), "Cohesion A must be strictly positive"
+        assert np.all(B.val > 0.), "Covolume B must be strictly positive"
         # the coefficients of the compressibility polynomial
         c0 = pp.ad.power(B, 3) + pp.ad.power(B, 2) - A * B
         c1 = A - 2 * B - 3 * pp.ad.power(B, 2)
@@ -443,8 +447,16 @@ class PR_EoS:
         # identify super-critical region and store information
         # limited physical insight into what this means with this EoS
         self.is_supercritical = B.val >= B_CRIT / A_CRIT * A.val
-        subcritical_square = np.logical_and(A.val <= A_CRIT, B.val <= B_CRIT)
-        sub_critical = np.logical_and(np.logical_not(self.is_supercritical), B.val > 0)
+        # rectangle with upper right corner at (Ac,Bc)
+        acbc_rect = np.logical_and(A.val < A_CRIT, B.val < B_CRIT)
+        # subcritical triangle in the acbc rectangle
+        subc_triang = np.logical_and(np.logical_not(self.is_supercritical), B.val < B_CRIT)
+        # supercritical triangle in the acbc rectangle
+        sc_triang = np.logical_and(acbc_rect, np.logical_not(subc_triang))
+        # trapezoid above the acbc recangle, bound supercritical slope (supercrit)
+        B_trapez = np.logical_and(self.is_supercritical, B.val >= B_CRIT)
+        # trapezoid right of the acbc rectangle, bound by supercritical slope (sub-crit)
+        A_trapez = np.logical_and(A.val > A_CRIT, np.logical_not(self.is_supercritical))
 
         # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
@@ -538,9 +550,11 @@ class PR_EoS:
             correction = np.logical_or(
                 # self.is_supercritical[one_root_region], w_1.val <=0
                 # np.logical_not(sub_critical[one_root_region]),
-                np.logical_not(subcritical_square[one_root_region]),
-                w_1.val < B_1.val,
+                np.logical_not(acbc_rect[one_root_region]),
+                w_1.val <= B_1.val,
             )
+            # W must be greater than B
+            phys_bound = w_1.val <= B_1.val
             w_1.val[correction] = z_1.val[correction]
             w_1.jac[correction] = z_1.jac[correction]
 

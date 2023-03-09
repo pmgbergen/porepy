@@ -37,8 +37,8 @@ MISSING_ENTRY: str = "missing"  # entry for missing entries, sanity check for sc
 COMPONENTS: list[str] = ["water", "CO2"]
 MAX_LIQ_PHASES: int = 2  # maximal number of anticipated liquid phases
 FEED: dict[str, float] = {
-    "water": 0.99,
-    "CO2": 0.01,
+    "water": 0.9,
+    "CO2": 0.1,
 }
 PHASES: list[str] = ["G"] + [f"L{i}" for i in range(1, MAX_LIQ_PHASES + 1)]
 
@@ -68,7 +68,7 @@ cond_start_HEADER: str = "cond-start"
 cond_end_HEADER: str = "cond-end"
 is_supercrit_HEADER: str = "is-supercrit"
 
-RESOLUTION: int = 100
+RESOLUTION: int = 50
 
 P_LIMITS: list[float] = [0.01e6, 100.0e6]  # [Pa]
 T_LIMITS: list[float] = [280, 700]  # [K]
