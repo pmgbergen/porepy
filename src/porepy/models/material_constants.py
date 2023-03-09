@@ -261,18 +261,8 @@ class SolidConstants(MaterialConstants):
 
     Parameters:
         constants (dict): Dictionary of constants. Only keys corresponding to a constant
-            in the class will be used. The permissible keys are:
-                - ``thermal_expansion``: Thermal expansion coefficient [1/K].
-                - ``density``: Density [kg/m^3].
-                - ``porosity``: Porosity [-].
-                - ``permeability``: Permeability [m^2].
-                - ``normal_permeability``: Normal permeability [m^2].
-                - ``lame_lambda``: Lame parameter lambda [Pa].
-                - ``shear_modulus``: Shear modulus [Pa].
-                - ``specific_storage``: Specific storage [Pa^-1].
-                - ``friction_coefficient``: Friction coefficient [-].
-                - ``fracture_gap``: Fracture gap [m].
-                - ``dilation_angle``: Dilation angle [radians].
+            in the class will be used. If not specified, default values are used, mostly
+            0 or 1.
 
     """
 
@@ -290,11 +280,13 @@ class SolidConstants(MaterialConstants):
             "porosity": 0.1,
             "residual_aperture": 0.1,
             "shear_modulus": 1,
+            "skin_factor": 0,
             "specific_heat_capacity": 1,
             "specific_storage": 1,
             "temperature": 0,
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
+            "well_radius": 0.1,
         }
 
         if constants is not None:
@@ -429,7 +421,7 @@ class SolidConstants(MaterialConstants):
             Friction coefficient.
 
         """
-        return self.convert_units(self.constants["friction_coefficient"], "-")
+        return self.constants["friction_coefficient"]
 
     def dilation_angle(self) -> number:
         """Dilation angle.
@@ -440,6 +432,15 @@ class SolidConstants(MaterialConstants):
         """
         return self.convert_units(self.constants["dilation_angle"], "rad")
 
+    def skin_factor(self) -> number:
+        """Skin factor [-].
+
+        Returns:
+            Skin factor.
+
+        """
+        return self.constants["skin_factor"]
+
     def temperature(self) -> number:
         """Temperature [K].
 
@@ -448,3 +449,12 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["temperature"], "K")
+
+    def well_radius(self) -> number:
+        """Well radius [m].
+
+        Returns:
+            Well radius in converted length units.
+
+        """
+        return self.convert_units(self.constants["well_radius"], "m")
