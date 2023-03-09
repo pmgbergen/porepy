@@ -49,7 +49,11 @@ class DimensionReduction:
         """
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
-            aperture = self.solid.residual_aperture() * aperture
+            if getattr(grid, "well_num", -1) >= 0:
+                # This is a well. The aperture is the well radius.
+                aperture *= self.solid.well_radius()
+            else:
+                aperture = self.solid.residual_aperture() * aperture
         return aperture
 
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -1038,6 +1042,136 @@ class DarcysLaw:
         return dot_product
 
 
+class PeacemanWellFlux:
+    """Well fluxes.
+
+    Relations between well fluxes and pressures are implemented in this class.
+    Peaceman 1977 https://doi.org/10.2118/6893-PA
+
+
+    Assumes permeability is cell-wise scalar.
+    """
+
+    volume_integral: Callable[
+        [pp.ad.Operator, Union[list[pp.Grid], list[pp.MortarGrid]], int], pp.ad.Operator
+    ]
+    """Integration over cell volumes, implemented in
+    :class:`pp.models.abstract_equations.BalanceEquation`.
+
+    """
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
+    pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Pressure variable."""
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Well flux variable."""
+    solid: pp.SolidConstants
+    """Solid constants object."""
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the permeability of a subdomain. Normally provided by a
+    mixin class with a suitable permeability definition.
+
+    """
+
+    def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Equation for well fluxes.
+
+        Parameters:
+            interfaces: List of interfaces where the well fluxes are defined.
+
+        Returns:
+            Cell-wise well flux operator.
+
+        """
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        r_w = self.well_radius(subdomains)
+        skin_factor = self.skin_factor(interfaces)
+        r_e = self.equivalent_well_radius(subdomains)
+
+        f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
+        WI = (
+            pp.ad.Scalar(2 * np.pi)
+            * projection.primary_to_mortar_avg
+            @ (self.permeability(subdomains) / (f_log(r_e / r_w) + skin_factor))
+        )
+        eq: pp.ad.Operator = self.well_flux(interfaces) - self.volume_integral(
+            WI, interfaces, 1
+        ) * (
+            projection.primary_to_mortar_avg @ self.pressure(subdomains)
+            - projection.secondary_to_mortar_avg @ self.pressure(subdomains)
+        )
+        eq.set_name("Piecmann_well_flux")
+        return eq
+
+    def equivalent_well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute equivalent radius for Peaceman well model.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise equivalent radius operator.
+
+        """
+        # Implementational note: The computation of equivalent radius is highly
+        # simplified and ignores discretization and anisotropy effects. For more
+        # advanced alternatives, see the MRST book,
+        # https://www.cambridge.org/core/books/an-introduction-to-
+        # reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
+        if len(subdomains) == 0:
+            # Set 0.2 as the unused value for equivalent radius. This is a bit arbitrary,
+            # but 0 is a bad choice, as it will lead to division by zero.
+            return Scalar(0.2, name="equivalent_well_radius")
+            # pp.ad.DenseArray(np.zeros(0), name="equivalent_well_radius")
+
+        h_list = []
+        for sd in subdomains:
+            if sd.dim == 0:
+                # Avoid division by zero for points.
+                # The value is not used in calling method well_flux_equation.
+                h_list.append(np.array([1]))
+            else:
+                h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
+        r_e = Scalar(0.2) * pp.wrap_as_ad_array(np.concatenate(h_list))
+        r_e.set_name("equivalent_well_radius")
+        return r_e
+
+    def skin_factor(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Compute skin factor for Peaceman well model.
+
+        Parameters:
+            interfaces: List of interfaces.
+
+        Returns:
+            Skin factor operator.
+
+        """
+        skin_factor = pp.ad.Scalar(self.solid.skin_factor())
+        skin_factor.set_name("skin_factor")
+        return skin_factor
+
+    def well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute well radius for Peaceman well model.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise well radius operator.
+
+        """
+        r_w = pp.ad.Scalar(self.solid.well_radius())
+        r_w.set_name("well_radius")
+        return r_w
+
+
 class ThermalExpansion:
     """Thermal expansion coefficients for the fluid and the solid."""
 
@@ -1411,6 +1545,10 @@ class AdvectiveFlux:
     """Darcy flux variables on interfaces. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """Well flux variables on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
 
     def advective_flux(
         self,
@@ -1500,6 +1638,43 @@ class AdvectiveFlux:
             discr.upwind_primary
             @ mortar_projection.primary_to_mortar_avg
             @ trace.trace
+            @ advected_entity
+            + discr.upwind_secondary
+            @ mortar_projection.secondary_to_mortar_avg
+            @ advected_entity
+        )
+        return interface_flux
+
+    def well_advective_flux(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """An operator represetning the advective flux on interfaces.
+
+        .. note::
+            The implementation here is tailored for discretization using an upwind
+            discretization for the advective interface flux. Other discretizaitons may
+            be possible, but this has not been considered.
+
+        Parameters:
+            interfaces: List of interface grids.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+
+        Returns:
+            Operator representing the advective flux on the interfaces.
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        # Project the two advected entities to the interface and multiply with upstream
+        # weights and the interface Darcy flux.
+        interface_flux: pp.ad.Operator = self.well_flux(interfaces) * (
+            discr.upwind_primary
+            @ mortar_projection.primary_to_mortar_avg
             @ advected_entity
             + discr.upwind_secondary
             @ mortar_projection.secondary_to_mortar_avg
