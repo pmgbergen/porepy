@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 from enum import Enum, EnumMeta
+from functools import reduce
 from itertools import count
 from typing import Any, Literal, Optional, Sequence, Union, overload
 
@@ -25,6 +26,7 @@ __all__ = [
     "Scalar",
     "Variable",
     "MixedDimensionalVariable",
+    "sum_operator_list",
 ]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
@@ -54,10 +56,12 @@ class Operator:
         subdomains (optional): List of subdomains on which the operator is defined.
             Will be empty for operators not associated with any subdomains.
             Defaults to None (converted to empty list).
-        interfaces (optional): List of interfaces in the mixed-dimensional grid on which the
-            operator is defined.
-            Will be empty for operators not associated with any interface.
-            Defaults to None (converted to empty list).
+        interfaces (optional): List of interfaces in the mixed-dimensional grid on which
+            the operator is defined. Will be empty for operators not associated with any
+            interface. Defaults to None (converted to empty list).
+        tree (optional): The tree structure of child operators. Defaults to None
+            (converted to a tree with a single void operator).
+
     """
 
     Operations: EnumMeta = Enum(
@@ -420,6 +424,12 @@ class Operator:
                     # Again, we do not want to call numpy's matmul method, but instead
                     # directly invoke AdArarray's right matmul.
                     return results[1].__rmatmul__(results[0])
+                # elif isinstance(results[1], np.ndarray) and isinstance(
+                #     results[0], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+                # ):
+                #     # Again, we do not want to call numpy's matmul method, but instead
+                #     # directly invoke AdArarray's right matmul.
+                #     return results[0].__rmatmul__(results[1])
                 else:
                     return results[0] @ results[1]
             except ValueError as exc:
@@ -1866,3 +1876,25 @@ def wrap_as_ad_matrix(
 
     """
     return _ad_wrapper(vals, False, size=size, name=name)
+
+
+def sum_operator_list(
+    operators: list[Operator],
+    name: Optional[str] = None,
+) -> Operator:
+    """Sum a list of operators.
+
+    Parameters:
+        operators: List of operators to be summed.
+        name: Name of the resulting operator.
+
+    Returns:
+        Operator that is the sum of the input operators.
+
+    """
+    result = reduce(lambda a, b: a + b, operators)
+
+    if name is not None:
+        result.set_name(name)
+
+    return result
