@@ -36,23 +36,51 @@ class ModelGeometry:
         self.set_fracture_network()
         self.set_md_grid()
         self.nd: int = self.mdg.dim_max()
+
         # If fractures are present, it is advised to call
         pp.contact_conditions.set_projections(self.mdg)
+
+        self.set_well_network()
+        if self.well_network is not None:
+            # Compute intersections
+            assert isinstance(self.fracture_network, pp.FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            # Mesh fractures and add fracture + intersection grids to grid bucket along
+            # with these grids' new interfaces to fractures.
+            self.well_network.mesh(self.mdg)
 
     def set_fracture_network(self) -> None:
         """Assign fracture network class."""
         self.fracture_network = pp.FractureNetwork2d()
 
+    def set_well_network(self) -> None:
+        """Assign well network class."""
+        self.well_network = pp.WellNetwork3d()
+
     def mesh_arguments(self) -> dict:
         """Mesh arguments for md-grid creation.
 
         Returns:
-            mesh_args: Dictionary of meshing arguments compatible with
-                FractureNetwork.mesh() method.
+            Meshing arguments compatible with FractureNetwork.mesh() method.
 
         """
-        mesh_args: dict[str, float] = {}
+        mesh_args: dict[str, float] = {
+            "mesh_size_frac": self.mesh_size(),  # Mesh size for fractures
+            "mesh_size_min": self.mesh_size() / 2,  # Minimum mesh size
+            "mesh_size_bound": self.mesh_size(),  # Mesh size for boundary
+        }
         return mesh_args
+
+    def mesh_size(self) -> float:
+        """Mesh size for md-grid creation.
+
+        Returns:
+            mesh_size: Mesh size for the mixed-dimensional grid.
+
+        """
+        return 1
 
     def set_md_grid(self) -> None:
         """Create the mixed-dimensional grid.
