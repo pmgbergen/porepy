@@ -122,7 +122,7 @@ class MixedDimensionalGrid:
         self,
         return_data: Literal[False] = False,
         dim: Optional[int] = None,
-        codim: int = 1,
+        codim: Optional[int] = None,
     ) -> list[pp.MortarGrid]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
@@ -130,14 +130,20 @@ class MixedDimensionalGrid:
 
     @overload
     def interfaces(
-        self, return_data: Literal[True], dim: Optional[int] = None, codim: int = 1
+        self,
+        return_data: Literal[True],
+        dim: Optional[int] = None,
+        codim: Optional[int] = None,
     ) -> list[tuple[pp.MortarGrid, dict]]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         ...
 
     def interfaces(
-        self, return_data: bool = False, dim: Optional[int] = None, codim: int = 1
+        self,
+        return_data: bool = False,
+        dim: Optional[int] = None,
+        codim: Optional[int] = None,
     ) -> Union[list[pp.MortarGrid], list[tuple[pp.MortarGrid, dict]]]:
         """Get a sorted list of interfaces in the mixed-dimensional grid.
 
@@ -157,10 +163,11 @@ class MixedDimensionalGrid:
                 If provided, only interfaces of the specified dimension will
                 be returned.
 
-            codim: ``default=1``
+            codim: ``default=None``
 
-                Codimension of the interface. Defaults to 1, i.e., the interface is
-                assumed to have subdomains exactly one dimension apart.
+                Codimension of the returned interfaces. Defaults to None, in which case
+                no codimension filtering is performed. If provided, only interfaces with
+                the specified codimension will be returned.
 
         Returns:
             Either a list of mortar grids associated with interfaces (default), or (if
@@ -171,7 +178,7 @@ class MixedDimensionalGrid:
         interfaces: list[pp.MortarGrid] = list()
         data_list: list[dict] = list()
         for intf, data in self._interface_data.items():
-            if (dim is None or dim == intf.dim) and intf.codim == codim:
+            if (dim is None or intf.dim == dim) and (codim is None or intf.codim == codim):
                 interfaces.append(intf)
                 data_list.append(data)
         sort_ind = self.argsort_grids(interfaces)
@@ -188,7 +195,7 @@ class MixedDimensionalGrid:
         Sorting by descending boundary dimension and increasing BoundaryGrid id,
         see :meth:`argsort_grids`.
 
-        Args:
+        Parameters:
             dim: ``default=None``
 
                 If provided, only boundary grids of the specified
@@ -283,7 +290,7 @@ class MixedDimensionalGrid:
     def subdomain_to_boundary_grid(self, sd: pp.Grid) -> pp.BoundaryGrid:
         """Get the boundary grid associated with a subdomain.
 
-        Args:
+        Parameters:
             sd: A subdomain in the mixed-dimensional grid.
 
         Returns:
@@ -824,14 +831,17 @@ class MixedDimensionalGrid:
         for dim in range(self.dim_max(), self.dim_min(), -1):
             num_e = 0
             nc = 0
-            for mg in self.interfaces(dim=dim - 1):
+            for mg in self.interfaces(dim=dim - 1, codim=1):
                 num_e += 1
                 nc += mg.num_cells
 
             s += (
                 f"{num_e} interfaces between grids of dimension {dim} and {dim-1} with"
-                f" in total {nc} cells\n"
+                f" in total {nc} cells.\n"
             )
+            for mg in self.interfaces(dim=dim - 2, codim=2):
+                s += f"Interface between grids of dimension {dim} and {dim-2} with"
+                s += f" {mg.num_cells} cells.\n"
         return s
 
     def __repr__(self) -> str:
@@ -857,13 +867,23 @@ class MixedDimensionalGrid:
             for dim in range(self.dim_max(), self.dim_min(), -1):
                 num_intf = 0
                 num_intf_cells = 0
-                for intf in self.interfaces(dim=dim - 1):
+                for intf in self.interfaces(dim=dim - 1, codim=1):
                     num_intf += 1
                     num_intf_cells += intf.num_cells
 
                 s += (
                     f"{num_intf} interfaces between grids of dimension {dim} and"
-                    f" {dim-1} with in total {num_intf_cells} mortar cells\n"
+                    f" {dim-1} with in total {num_intf_cells} mortar cells.\n"
+                )
+                num_intf_codim_2 = 0
+                num_intf_cells_codim_2 = 0
+                for intf in self.interfaces(dim=dim - 2, codim=2):
+                    num_intf_codim_2 += 1
+                    num_intf_cells_codim_2 += intf.num_cells
+
+                s += (
+                    f"{num_intf_codim_2} interfaces between grids of dimension {dim} and"
+                    f" {dim-2} with in total {num_intf_cells_codim_2} mortar cells.\n"
                 )
 
         return s
