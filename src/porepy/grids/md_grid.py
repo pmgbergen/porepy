@@ -178,7 +178,9 @@ class MixedDimensionalGrid:
         interfaces: list[pp.MortarGrid] = list()
         data_list: list[dict] = list()
         for intf, data in self._interface_data.items():
-            if (dim is None or intf.dim == dim) and (codim is None or intf.codim == codim):
+            if (dim is None or intf.dim == dim) and (
+                codim is None or intf.codim == codim
+            ):
                 interfaces.append(intf)
                 data_list.append(data)
         sort_ind = self.argsort_grids(interfaces)

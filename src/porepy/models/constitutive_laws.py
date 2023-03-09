@@ -1063,7 +1063,7 @@ class PeacemanWellFlux:
     """Mixed-dimensional grid."""
     pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Pressure variable."""
-    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
     """Well flux variable."""
     solid: pp.SolidConstants
     """Solid constants object."""
