@@ -25,6 +25,7 @@ fracture_2d_data: List[np.array] = [
     np.array([[1.0, 1.0], [0.0, 1.0]]),
     np.array([[2.0, 2.0], [0.0, 2.0]]),
 ]
+
 fracture_3d_data: List[np.array] = [
     np.array([[2.0, 3.0, 3.0, 2.0], [2.0, 2.0, 2.0, 2.0], [0.0, 0.0, 1.0, 1.0]]),
     np.array([[2.0, 3.0, 3.0, 2.0], [1.0, 1.0, 3.0, 3.0], [1.0, 1.0, 1.0, 1.0]]),
@@ -111,7 +112,7 @@ def _high_level_mdg_generation(grid_type, fracture_network, well_network):
 
     extra_arg_index = mdg_types.index(grid_type)
     extra_arguments = extra_args_data[extra_arg_index]
-    mdg = pp.create_mdg(grid_type, mesh_arguments, fracture_network, **extra_arguments)
+    mdg = pp.create_mdg(grid_type, mesh_arguments, fracture_network=fracture_network, **extra_arguments)
     return mdg
 
 
