@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -14,7 +14,8 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
     The first two fractures are orthogonal, with `x` and `y` coordinates equal to
     0.5, respectively. The third fracture is tilted. The number of fractures is
-    controlled by the parameter ``num_fracs``, which can be 0, 1, 2, or 3.
+    controlled by the parameter ``fracture_indices``, which can be any subset of
+    [0, 1, 2].
 
     """
 
@@ -25,14 +26,15 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
         # Length scale:
         ls = 1 / self.units.m
 
-        num_fracs = self.params.get("num_fracs", 1)
+        fracture_indices = self.params.get("fracture_indices", [0])
         domain = pp.Domain({"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls})
         fractures = [
             pp.LineFracture(np.array([[0, 2], [0.5, 0.5]]) * ls),
             pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
             pp.LineFracture(np.array([[0.3, 0.7], [0.3, 0.7]]) * ls),
         ]
-        self.fracture_network = pp.FractureNetwork2d(fractures[:num_fracs], domain)
+        used_fractures = [fractures[i] for i in fracture_indices]
+        self.fracture_network = pp.FractureNetwork2d(used_fractures, domain)
 
     def mesh_arguments(self) -> dict:
         # Divide by length scale:
@@ -81,20 +83,18 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         # Length scale:
         ls = 1 / self.units.m
 
-        num_fracs = self.params.get("num_fracs", 1)
+        # Fracture number i has coordinates [0.5, 0.5, 0.5] in the i'th direction.
+        fracture_indices = self.params.get("fracture_indices", [0])
         domain: pp.Domain = pp.grids.standard_grids.utils.unit_domain(3)
         pts = []
-        if num_fracs > 0:
-            # The three fractures are defined by pertubations of the coordinate arrays.
-            coords_a = [0.5, 0.5, 0.5, 0.5]
-            coords_b = [0, 0, 1, 1]
-            coords_c = [0, 1, 1, 0]
-            pts.append(np.array([coords_a, coords_b, coords_c]) * ls)
-        if num_fracs > 1:
-            pts.append(np.array([coords_b, coords_a, coords_c]) * ls)
-        if num_fracs > 2:
-            pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
-        fractures = [pp.PlaneFracture(p) for p in pts]
+        # The three fractures are defined by pertubations of the coordinate arrays.
+        coords_a = [0.5, 0.5, 0.5, 0.5]
+        coords_b = [0, 0, 1, 1]
+        coords_c = [0, 1, 1, 0]
+        pts.append(np.array([coords_a, coords_b, coords_c]) * ls)
+        pts.append(np.array([coords_b, coords_a, coords_c]) * ls)
+        pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
+        fractures = [pp.PlaneFracture(pts[i]) for i in fracture_indices]
         self.fracture_network = pp.FractureNetwork3d(fractures, domain)
 
     def mesh_arguments(self) -> dict:
@@ -119,27 +119,20 @@ class WellGeometryMixin:
     def set_well_network(self) -> None:
         """Assign well network class."""
         num_wells = self.params.get("num_wells", 1)
-        if self.nd == 2:
-            # Comments are the intersection with fractures in
-            # RectangularDomainThreeFractures
-            wells = [
-                pp.Well(np.array([0.5], [0.1], [0])),  # Intersects one fracture
-                pp.Well(np.array([0.5], [0.5], [0])),  # Intersects two fractures
-                pp.Well(np.array([0.25], [0.9], [0])),  # Intersects no fractures
-            ]
-            self.well_network = pp.WellNetwork2d(wells[:num_wells])
-        else:
-            wells = [
-                # Intersects one (horizontal) fracture of OrthogonalFractures3d and
-                # extends to the top of the domain
-                pp.Well(np.array([[0.2, 0.2], [0.1, 0.1], [0.2, 1]])),
-                # Intersects two (horizontal and vertical) fractures of
-                # OrthogonalFractures3d. Extends between two domain boundaries.
-                pp.Well(np.array([[0.0, 0.6], [0.5, 0.5], [0.4, 1]])),
-                # Intersects no fractures. Internal well.
-                pp.Well(np.array([[0.3, 0.3], [0.3, 0.3], [0.3, 0.4]])),
-            ]
-            self.well_network = pp.WellNetwork3d(wells[:num_wells])
+        wells = [
+            # Intersects one (horizontal) fracture of OrthogonalFractures3d and
+            # extends to the top of the domain
+            pp.Well(np.array([[0.2, 0.2], [0.1, 0.1], [0.2, 1]])),
+            # Intersects two (horizontal and vertical) fractures of
+            # OrthogonalFractures3d. Extends between two domain boundaries.
+            pp.Well(np.array([[0.0, 0.6], [0.5, 0.5], [0.4, 1]])),
+            # Intersects no fractures. Internal well.
+            pp.Well(np.array([[0.3, 0.3], [0.3, 0.3], [0.3, 0.4]])),
+        ]
+        parameters = {"mesh_size": self.mesh_size()}
+        self.well_network = pp.WellNetwork3d(
+            wells[:num_wells], domain=self.domain, parameters=parameters
+        )
 
 
 class BoundaryConditionsMassAndEnergyDirNorthSouth(
@@ -459,7 +452,8 @@ def model(
 ) -> MassBalance | MomentumBalance | MassAndEnergyBalance | Poromechanics:
     """Setup for tests."""
     # Suppress output for tests
-    params = {"suppress_export": True, num_fracs: num_fracs}
+    fracture_indices = [i for i in range(num_fracs)]
+    params = {"suppress_export": True, "fracture_indices": fracture_indices}
 
     # To define the model we comine a geometry with a physics class.
     # First identify the two component classes from the user input, and then combine
@@ -503,7 +497,7 @@ def model(
 
 def domains_from_method_name(
     mdg: pp.MixedDimensionalGrid,
-    method_name: str,
+    method_name: Callable,
     domain_dimension: int,
 ) -> list[pp.Grid] | list[pp.MortarGrid]:
     """Return the domains to be tested for a given method.
