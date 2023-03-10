@@ -23,7 +23,8 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional energy balance equation.
 
     Balance equation for all subdomains and advective and diffusive fluxes internally
-    and on all interfaces of codimension one.
+    and on all interfaces of codimension one and advection on interfaces of codimension
+    two (well-fracture intersections).
 
     The class is not meant to be used stand-alone, but as a mixin in a coupled model.
 
@@ -152,8 +153,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
-        # If wells are implemented for 2d, consider refactoring this into method
-        # returning the well interfaces.
         codim_2_interfaces = self.mdg.interfaces(codim=2)
         # Define the equations
         sd_eq = self.energy_balance_equation(subdomains)

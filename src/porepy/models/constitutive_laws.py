@@ -1048,8 +1048,8 @@ class PeacemanWellFlux:
     Relations between well fluxes and pressures are implemented in this class.
     Peaceman 1977 https://doi.org/10.2118/6893-PA
 
-
     Assumes permeability is cell-wise scalar.
+    
     """
 
     volume_integral: Callable[
