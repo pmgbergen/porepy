@@ -131,7 +131,7 @@ test_parameters = [
 
 @pytest.mark.parametrize("grid_type, domain, fracture_indices", test_parameters)
 def test_generation(grid_type, domain, fracture_indices) -> None:
-    """Test the geneated mdg object."""
+    """Test the generated mdg object."""
     fracture_network = _generate_network(domain, fracture_indices)
     mdg = _high_level_mdg_generation(grid_type, fracture_network, None)
     pp.Exporter(mdg, "generated_mdg").write_vtu()

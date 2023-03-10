@@ -4,6 +4,7 @@ different lower-level md-grid generation.
 """
 from __future__ import annotations
 
+import inspect
 from typing import Dict, Literal, Optional, Union
 
 import numpy as np
@@ -81,6 +82,7 @@ def _infer_dimension_from_domain_or_networks(
             "Not able to infer the dimension. A pp.domain instance must be provided."
         )
 
+    dimension: int = 0
     if domain is not None:
         if fracture_network is not None:
             if not domain.polytope == fracture_network.domain.polytope:
@@ -88,16 +90,22 @@ def _infer_dimension_from_domain_or_networks(
         if well_network is not None:
             if not domain.polytope == well_network.domain.polytope:
                 raise ValueError("domain and well_network.domain differ.")
-        return domain.dim
+        dimension = domain.dim
     elif fracture_network is not None and domain is None:
         if well_network is not None:
             if not fracture_network.domain.polytope == well_network.domain.polytope:
                 raise ValueError(
                     "fracture_network.domain and well_network.domain differ."
                 )
-        return fracture_network.domain.dim
+        dimension = fracture_network.domain.dim
     elif well_network is not None and domain is None:
-        return well_network.domain.dim
+        dimension = well_network.domain.dim
+
+    valid_dimension = dimension == 2 or dimension == 3
+    if not valid_dimension:
+        raise ValueError("Inferred dimension must be 2 or 3, not %r" % dimension)
+
+    return dimension
 
 
 def _validate_args(
@@ -117,33 +125,34 @@ def _validate_args(
 
 
 def _setup_extra_simplex_2d_args(**extra_args):
-    defaults = [
-        ("tol", None),
-        ("do_snap", True),
-        ("constraints", None),
-        ("file_name", None),
-        ("dfn", False),
-        ("tags_to_transfer", None),
-        ("remove_small_fractures", False),
-        ("write_geo", True),
-        ("finalize_gmsh", True),
-        ("clear_gmsh", False),
+    # fetch signature
+    defaults = dict(inspect.signature(FractureNetwork2d.mesh).parameters.items())
+
+    # filter arguments processed in an alternative manner
+    defaults.pop("self")
+    defaults.pop("mesh_args")
+    defaults.pop("kwargs")
+
+    # transfer defaults
+    extra_args_list = [
+        extra_args.get(item[0], item[1].default) for item in defaults.items()
     ]
-    extra_args_list = [extra_args.get(default[0], default[1]) for default in defaults]
     return extra_args_list
 
 
 def _setup_extra_simplex_3d_args(**extra_args):
-    defaults = [
-        ("dfn", None),
-        ("file_name", None),
-        ("constraints", None),
-        ("write_geo", True),
-        ("tags_to_transfer", None),
-        ("finalize_gmsh", True),
-        ("clear_gmsh", False),
+    # fetch signature
+    defaults = dict(inspect.signature(FractureNetwork3d.mesh).parameters.items())
+
+    # filter arguments processed in an alternative manner
+    defaults.pop("self")
+    defaults.pop("mesh_args")
+    defaults.pop("kwargs")
+
+    # transfer defaults
+    extra_args_list = [
+        extra_args.get(item[0], item[1].default) for item in defaults.items()
     ]
-    extra_args_list = [extra_args.get(default[0], default[1]) for default in defaults]
     return extra_args_list
 
 
@@ -205,7 +214,6 @@ def create_mdg(
         grid_type, mesh_arguments, domain, fracture_network, well_network, **kwargs
     )
 
-    # infer dimension
     dimension = _infer_dimension_from_domain_or_networks(
         domain, fracture_network, well_network
     )
