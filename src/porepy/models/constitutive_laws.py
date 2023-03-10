@@ -1107,7 +1107,7 @@ class PeacemanWellFlux:
             projection.primary_to_mortar_avg @ self.pressure(subdomains)
             - projection.secondary_to_mortar_avg @ self.pressure(subdomains)
         )
-        eq.set_name("Piecmann_well_flux")
+        eq.set_name("well_flux_equation")
         return eq
 
     def equivalent_well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
