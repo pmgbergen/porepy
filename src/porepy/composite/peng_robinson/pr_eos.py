@@ -18,6 +18,120 @@ from .pr_utils import A_CRIT, B_CRIT
 __all__ = ["PR_EoS"]
 
 
+def root_smoother(
+    Z_L: pp.ad.Ad_array, Z_I: pp.ad.Ad_array, Z_G: pp.ad.Ad_array, s: float
+) -> tuple[pp.ad.Ad_array, pp.ad.Ad_array]:
+    """Smoothing procedure on boundaries of three-root-region.
+
+    Smooths the value and Jacobian rows of the liquid and gas root close to
+    phase boundaries.
+
+    See Also:
+        `Vu et al. (2021), Section 6.
+        <https://doi.org/10.1016/j.matcom.2021.07.015>`_
+
+    Parameters:
+        Z_L: Liquid-like root.
+        Z_I: Intermediate root.
+        Z_G: Gas-like root.
+        s: smoothing factor.
+
+    Returns:
+        A tuple containing the smoothed liquid and gas root as AD arrays
+
+    """
+    # proximity:
+    # If close to 1, intermediate root is close to gas root.
+    # If close to 0, intermediate root is close to liquid root.
+    # values bound by [0,1]
+    proximity: np.ndarray = (Z_I.val - Z_L.val) / (Z_G.val - Z_L.val)
+
+    # average intermediate and gas root for gas root smoothing
+    W_G = (Z_I + Z_G) / 2
+    # analogously for liquid root
+    W_L = (Z_I + Z_L) / 2
+
+    v_G = _gas_smoother(proximity, s)
+    v_L = _liquid_smoother(proximity, s)
+
+    # smoothing values with convex combination
+    Z_G_val = (1 - v_G) * Z_G.val + v_G * W_G.val
+    Z_L_val = (1 - v_L) * Z_L.val + v_L * W_L.val
+
+    # smoothing jacobian with component-wise product
+    # betweem matrix row and vector component
+    Z_G_jac = Z_G.diagvec_mul_jac((1 - v_G)) + W_G.diagvec_mul_jac(v_G)
+    Z_L_jac = Z_L.diagvec_mul_jac((1 - v_L)) + W_L.diagvec_mul_jac(v_L)
+
+    # store in AD array format and return
+    smooth_Z_L = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
+    smooth_Z_G = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
+
+    return smooth_Z_L, smooth_Z_G
+
+
+def _gas_smoother(proximity: np.ndarray, s: float) -> np.ndarray:
+    """Smoothing function for three-root-region where the intermediate root comes
+    close to the gas root.
+
+    Parameters:
+        proximity: An array containing the proximity between the intermediate
+            root and the liquid root, relative to the difference in liquid and
+            gas root
+        s: smoothing factor
+
+    Returns:
+        The smoothing weight for the gas root.
+
+    """
+    # smoother starts with zero values
+    smoother = np.zeros(proximity.shape[0])
+    # values around smoothing parameter are constructed according to Vu
+    upper_bound = proximity < 1 - s
+    lower_bound = (1 - 2 * s) < proximity
+    bound = np.logical_and(upper_bound, lower_bound)
+
+    bound_smoother = (proximity[bound] - (1 - 2 * s)) / s
+    bound_smoother = bound_smoother**2 * (3 - 2 * bound_smoother)
+
+    smoother[bound] = bound_smoother
+    # where proximity is close to one, set value of one
+    smoother[proximity >= 1 - s] = 1.0
+
+    return smoother
+
+
+def _liquid_smoother(proximity: np.ndarray, s: float) -> np.ndarray:
+    """Smoothing function for three-root-region where the intermediate root comes
+    close to the liquid root.
+
+    Parameters:
+        proximity: An array containing the proximity between the intermediate
+            root and the liquid root, relative to the difference in liquid and
+            gas root
+        s: smoothing factor
+
+    Returns:
+        The smoothing weight for the liquid root
+
+    """
+    # smoother starts with zero values
+    smoother = np.zeros(proximity.shape[0])
+    # values around smoothing parameter are constructed according to Vu
+    upper_bound = proximity < 2 * s
+    lower_bound = s < proximity
+    bound = np.logical_and(upper_bound, lower_bound)
+
+    bound_smoother = (proximity[bound] - s) / s
+    bound_smoother = (-1) * bound_smoother**2 * (3 - 2 * bound_smoother) + 1
+
+    smoother[bound] = bound_smoother
+    # where proximity is close to zero, set value of one
+    smoother[proximity <= s] = 1.0
+
+    return smoother
+
+
 class PR_EoS:
     """A class implementing thermodynamic properties resulting from the Peng-Robinson
     equation of state
@@ -410,10 +524,25 @@ class PR_EoS:
             The root ``Z`` corresponding to the assigned phase label.
 
         """
-        # NOTE it must be asserted that A and B are strictly positive
-        # They can be negative is the fractions violate the bound [0, 1]
-        assert np.all(A.val > 0.), "Cohesion A must be strictly positive"
-        assert np.all(B.val > 0.), "Covolume B must be strictly positive"
+        # NOTE A and B must in theory be strictly positive
+        # Numerically they can be NAN or non-positive.
+        # this must be checked.
+        # Non-positivity can happen due to numerical imprecision
+        # (e.g. slightly negative fractions)
+        # For now we try to work with it.
+
+        # # Positivity check
+        # assert np.all(A.val > 0.), "Cohesion A must be strictly positive"
+        # assert np.all(B.val > 0.), "Covolume B must be strictly positive"
+
+        # NAN check
+        A_nan_vals = np.any(np.isnan(A.val))
+        B_nan_vals = np.any(np.isnan(B.val))
+        if A_nan_vals or B_nan_vals:
+            raise ValueError(
+                f"Discovered NANs in A ({A_nan_vals}) or B ({B_nan_vals})."
+            )
+
         # the coefficients of the compressibility polynomial
         c0 = pp.ad.power(B, 3) + pp.ad.power(B, 2) - A * B
         c1 = A - 2 * B - 3 * pp.ad.power(B, 2)
@@ -432,31 +561,49 @@ class PR_EoS:
         q.jac = q.jac.tolil()
         delta.jac = delta.jac.tolil()
 
-        # prepare storage for roots
-        # storage for roots
+        # prepare storage for root
         nc = len(delta.val)
         shape = delta.jac.shape
-        Z_L_val = np.zeros(nc)
-        Z_G_val = np.zeros(nc)
-        Z_L_jac = sps.lil_matrix(shape)
-        Z_G_jac = sps.lil_matrix(shape)
+        Z_val = np.zeros(nc)
+        Z_jac = sps.lil_matrix(shape)
+        # Z_L_val = np.zeros(nc)
+        # Z_G_val = np.zeros(nc)
+        # Z_L_jac = sps.lil_matrix(shape)
+        # Z_G_jac = sps.lil_matrix(shape)
 
+        # an indicater where the root is extended
         self.is_extended = np.zeros(nc, dtype=bool)
 
         ### CLASSIFYING REGIONS
-        # identify super-critical region and store information
-        # limited physical insight into what this means with this EoS
+        # identify super-critical line
         self.is_supercritical = B.val >= B_CRIT / A_CRIT * A.val
-        # rectangle with upper right corner at (Ac,Bc)
-        acbc_rect = np.logical_and(A.val < A_CRIT, B.val < B_CRIT)
+        # At A,B=0 we have 2 real roots, one with multiplicity 2
+        zero_point = np.logical_and(
+            np.isclose(A.val, 0, atol=self.eps), np.isclose(B.val, 0, atol=self.eps)
+        )
+        # The critical point is known to be a triple-point
+        critical_point = np.logical_and(
+            np.isclose(A.val, A_CRIT, rtol=0, atol=self.eps),
+            np.isclose(B.val, B_CRIT, rtol=0, atol=self.eps),
+        )
+        # rectangle with upper right corner at (Ac,Bc) and lower left corner at 0
+        # with tolerance
+        acbc_rect = np.logical_and(
+            np.logical_and(self.eps < A.val, A.val < A_CRIT - self.eps),
+            np.logical_and(self.eps < B.val, B.val < B_CRIT - self.eps),
+        )
         # subcritical triangle in the acbc rectangle
-        subc_triang = np.logical_and(np.logical_not(self.is_supercritical), B.val < B_CRIT)
-        # supercritical triangle in the acbc rectangle
-        sc_triang = np.logical_and(acbc_rect, np.logical_not(subc_triang))
-        # trapezoid above the acbc recangle, bound supercritical slope (supercrit)
-        B_trapez = np.logical_and(self.is_supercritical, B.val >= B_CRIT)
-        # trapezoid right of the acbc rectangle, bound by supercritical slope (sub-crit)
-        A_trapez = np.logical_and(A.val > A_CRIT, np.logical_not(self.is_supercritical))
+        subc_triang = np.logical_and(np.logical_not(self.is_supercritical), acbc_rect)
+
+        # # Other relevant regions for narrowing down regions, unused so far
+        # # This can happen if some fraction is slightly negative and pushed B outside
+        # A_neg_halfplane = A.val <= self.eps
+        # # supercritical triangle in the acbc rectangle
+        # sc_triang = np.logical_and(acbc_rect, np.logical_not(subc_triang))
+        # outer_region = np.logical_and(
+        #     np.logical_not(A_neg_halfplane),
+        #     np.logical_not(acbc_rect)
+        # )
 
         # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
@@ -469,17 +616,7 @@ class PR_EoS:
         one_root_region = delta.val > self.eps
         three_root_region = delta.val < -self.eps
 
-        def check_for_nan(A_, B_):
-
-            A_nan_vals = np.any(np.isnan(A_.val))
-            B_nan_vals = np.any(np.isnan(B_.val))
-
-            if A_nan_vals or B_nan_vals:
-                return f"Discovered NANs in A ({A_nan_vals}) or B ({B_nan_vals})."
-            else:
-                return "Uncovered cells/rows detected in PR root computation."
-
-        # sanity check that every cell/case covered
+        # sanity check that every cell/case is covered
         assert np.all(
             np.logical_or.reduce(
                 [
@@ -489,14 +626,13 @@ class PR_EoS:
                     three_root_region,
                 ]
             )
-        ), check_for_nan(A, B)
+        ), "Uncovered cells/rows detected in PR root computation."
 
         # sanity check that the regions are mutually exclusive
         # this array must have 1 in every entry for the test to pass
         trues_per_row = np.vstack(
             [one_root_region, triple_root_region, double_root_region, three_root_region]
         ).sum(axis=0)
-        # TODO assert dtype does not compromise test
         trues_check = np.ones(nc, dtype=trues_per_row.dtype)
         assert np.all(
             trues_check == trues_per_row
@@ -505,241 +641,241 @@ class PR_EoS:
         ### COMPUTATIONS IN THE ONE-ROOT-REGION
         # Missing real root is replaced with conjugated imaginary roots
         if np.any(one_root_region):
-            B_1 = pp.ad.Ad_array(B.val[one_root_region], B.jac[one_root_region])
-            r_1 = pp.ad.Ad_array(r.val[one_root_region], r.jac[one_root_region])
-            q_1 = pp.ad.Ad_array(q.val[one_root_region], q.jac[one_root_region])
-            delta_1 = pp.ad.Ad_array(
+            B_ = pp.ad.Ad_array(B.val[one_root_region], B.jac[one_root_region])
+            B_ = pp.ad.Ad_array(r.val[one_root_region], r.jac[one_root_region])
+            q_ = pp.ad.Ad_array(q.val[one_root_region], q.jac[one_root_region])
+            delta_ = pp.ad.Ad_array(
                 delta.val[one_root_region], delta.jac[one_root_region]
             )
-            c2_1 = pp.ad.Ad_array(c2.val[one_root_region], c2.jac[one_root_region])
+            c2_ = pp.ad.Ad_array(c2.val[one_root_region], c2.jac[one_root_region])
 
             # delta has only positive values in this case by logic
-            t_1 = -q_1 / 2 + pp.ad.sqrt(delta_1)
+            t = -q_ / 2 + pp.ad.sqrt(delta_)
 
             # t_1 might be negative, in this case we must choose the real cubic root
             # by extracting cbrt(-1), where -1 is the real cubic root.
-            im_cube = t_1.val < 0.0
+            im_cube = t.val < 0.0
             if np.any(im_cube):
-                t_1.val[im_cube] *= -1
-                t_1.jac[im_cube] *= -1
+                t.val[im_cube] *= -1
+                t.jac[im_cube] *= -1
 
-                u_1 = pp.ad.cbrt(t_1)
+                u = pp.ad.cbrt(t)
 
-                u_1.val[im_cube] *= -1
-                u_1.jac[im_cube] *= -1
+                u.val[im_cube] *= -1
+                u.jac[im_cube] *= -1
             else:
-                u_1 = pp.ad.cbrt(t_1)
+                u = pp.ad.cbrt(t)
 
-            ## Relevant roots
-            # only real root, Cardano formula, positive discriminant
-            real_part = u_1 - r_1 / (u_1 * 3)
-            z_1 = real_part - c2_1 / 3
+            # TODO In rare, un-physical areas of A,B, u can become zero,
+            # causing infinity here, e.g.
+            # A = 0.3620392380873223
+            # B = -0.4204815080014268
+            # this should never happen in physical simulations,
+            # but I note it here nevertheless - VL
+            real_part = u - B_ / (u * 3)
+            z_1 = real_part - c2_ / 3  # Only real root, always greater than B
+
             # real part of the conjugate imaginary roots
             # used for extension of vanished roots
-            w_1 = (1 - B_1 - z_1) / 2
-            # w_1 = -real_part / 2 - c2_1 / 3
+            w = (1 - B_ - z_1) / 2
+            # w = -real_part / 2 - c2_1 / 3
 
-            ## simplified labeling, Vu et al. (2021), equ. 4.24
-            gas_region = w_1.val < z_1.val
-            liquid_region = z_1.val < w_1.val
+            extension_is_bigger = z_1.val < w.val
+            extension_is_smaller = np.logical_not(extension_is_bigger)
 
-            # NOTE: The following is a preliminary correction for when the extension
-            # violates physical bounds. It needs some investigation for the cases when
-            # there are two EoS objects with contextual fractions, and a single one.
-            # correction = w_1.val < B_1.val
-            correction = np.logical_or(
-                # self.is_supercritical[one_root_region], w_1.val <=0
-                # np.logical_not(sub_critical[one_root_region]),
-                np.logical_not(acbc_rect[one_root_region]),
-                w_1.val <= B_1.val,
-            )
-            # W must be greater than B
-            phys_bound = w_1.val <= B_1.val
-            w_1.val[correction] = z_1.val[correction]
-            w_1.jac[correction] = z_1.jac[correction]
+            nc_e = np.count_nonzero(one_root_region)
+            small_root_val = np.zeros(nc_e)
+            small_root_jac = sps.lil_matrix((nc_e, shape[1]))
+            big_root_val = np.zeros(nc_e)
+            big_root_jac = sps.lil_matrix((nc_e, shape[1]))
 
-            # assert the whole one-root-region is covered
-            assert np.all(
-                np.logical_or(gas_region, liquid_region)
-            ), "Phase labeling does not cover whole one-root-region."
-            # assert mutual exclusion to check sanity
-            assert np.all(
-                np.logical_not(np.logical_and(gas_region, liquid_region))
-            ), "Labeled subregions in one-root-region overlap."
+            # storring roots as they are
+            big_root_val[extension_is_bigger] = w.val[extension_is_bigger]
+            big_root_jac[extension_is_bigger] = w.jac[extension_is_bigger]
+            big_root_val[extension_is_smaller] = z_1.val[extension_is_smaller]
+            big_root_jac[extension_is_smaller] = z_1.jac[extension_is_smaller]
 
-            # assert physical lower bound by mixture covolume
-            assert np.all(
-                B_1.val <= z_1.val
-            ), "Real root in 1-root-region violates lower bound by covolume B."
+            small_root_val[extension_is_bigger] = z_1.val[extension_is_bigger]
+            small_root_jac[extension_is_bigger] = z_1.jac[extension_is_bigger]
+            small_root_val[extension_is_smaller] = w.val[extension_is_smaller]
+            small_root_jac[extension_is_smaller] = w.jac[extension_is_smaller]
 
-            # store values in one-root-region
-            nc_1 = np.count_nonzero(one_root_region)
-            Z_L_val_1 = np.zeros(nc_1)
-            Z_G_val_1 = np.zeros(nc_1)
-            Z_L_jac_1 = sps.lil_matrix((nc_1, shape[1]))
-            Z_G_jac_1 = sps.lil_matrix((nc_1, shape[1]))
-
-            # store gas root where actual gas, use extension where liquid
-            Z_G_val_1[gas_region] = z_1.val[gas_region]
-            Z_G_val_1[liquid_region] = w_1.val[liquid_region]
-            Z_G_jac_1[gas_region] = z_1.jac[gas_region]
-            Z_G_jac_1[liquid_region] = w_1.jac[liquid_region]
-            # store liquid where actual liquid, use extension where gas
-            Z_L_val_1[liquid_region] = z_1.val[liquid_region]
-            Z_L_val_1[gas_region] = w_1.val[gas_region]
-            Z_L_jac_1[liquid_region] = z_1.jac[liquid_region]
-            Z_L_jac_1[gas_region] = w_1.jac[gas_region]
-
-            # store values in global root structure
-            Z_L_val[one_root_region] = Z_L_val_1
-            Z_L_jac[one_root_region] = Z_L_jac_1
-            Z_G_val[one_root_region] = Z_G_val_1
-            Z_G_jac[one_root_region] = Z_G_jac_1
-
-            # save information about where it is extended
+            # The bigger, gas-like root is always bigger than B
             if self.gaslike:
-                if np.any(liquid_region):
-                    self.is_extended = liquid_region
+                self.is_extended[one_root_region] = extension_is_bigger
+
+                Z_val[one_root_region] = big_root_val
+                Z_jac[one_root_region] = big_root_jac
+            # The extension outside the subcritical triangle is not always bigger
+            # than B, correct if necessary
             else:
-                if np.any(gas_region):
-                    self.is_extended = gas_region
+                self.is_extended[one_root_region] = extension_is_smaller
 
-        ### COMPUTATIONS IN TRIPLE ROOT REGION
-        # the single real root is returned.
-        if np.any(triple_root_region):
-            c2_triple = pp.ad.Ad_array(
-                c2.val[triple_root_region], c2.jac[triple_root_region]
-            )
+                correction = small_root_val <= B_.val
+                if np.any(correction):
+                    small_root_val[correction] = B_.val[correction] + self.eps
+                    small_root_jac[correction] = B_.jac[correction] + self.eps
 
-            z_triple = -c2_triple / 3
-
-            assert np.all(
-                0.0 < z_triple.val
-            ), "Non-positive root in triple-root-region detected."
-
-            # store root where it belongs
-            if self.gaslike:
-                Z_G_val[triple_root_region] = z_triple.val
-                Z_G_jac[triple_root_region] = z_triple.jac
-            else:
-                Z_L_val[triple_root_region] = z_triple.val
-                Z_L_jac[triple_root_region] = z_triple.jac
-
-        ### COMPUTATIONS IN DOUBLE ROOT REGION
-        # compute both roots and label the bigger one as the gas root
-        if np.any(double_root_region):
-            r_double = pp.ad.Ad_array(
-                r.val[double_root_region], r.jac[double_root_region]
-            )
-            q_double = pp.ad.Ad_array(
-                q.val[double_root_region], q.jac[double_root_region]
-            )
-            c2_double = pp.ad.Ad_array(
-                c2.val[double_root_region], c2.jac[double_root_region]
-            )
-
-            u = 3 / 2 * q_double / r_double
-
-            z_1 = 2 * u - c2_double / 3
-            z_23 = -u - c2_double / 3
-
-            # choose bigger root as gas like
-            # theoretically they should strictly be different, otherwise it would be
-            # the three root case
-            double_is_gaslike = z_23.val >= z_1.val
-            double_is_liquidlike = np.logical_not(double_is_gaslike)
-
-            # assert physical meaning
-            # TODO: review all your checks with <=
-            # using <= on floats could lead to instabilities and errors difficult to find
-            assert np.all(0 < z_1.val), "Non-positive root in 2-root-region detected."
-            assert np.all(
-                0 < z_23.val
-            ), "Non-positive double-root in 2-root-region detected."
-
-            # store values in double-root-region
-            nc_d = np.count_nonzero(double_root_region)
-            Z_L_val_d = np.zeros(nc_d)
-            Z_G_val_d = np.zeros(nc_d)
-            Z_L_jac_d = sps.lil_matrix((nc_d, shape[1]))
-            Z_G_jac_d = sps.lil_matrix((nc_d, shape[1]))
-
-            # store bigger as gas root, smaller as liquid root
-            Z_G_val_d[double_is_gaslike] = z_23.val[double_is_gaslike]
-            Z_G_val_d[double_is_liquidlike] = z_1.val[double_is_liquidlike]
-            Z_G_jac_d[double_is_gaslike] = z_23.jac[double_is_gaslike]
-            Z_G_jac_d[double_is_liquidlike] = z_1.jac[double_is_liquidlike]
-            # store liquid where actual liquid, use extension where gas
-            Z_L_val_d[double_is_gaslike] = z_1.val[double_is_gaslike]
-            Z_L_val_d[double_is_liquidlike] = z_23.val[double_is_liquidlike]
-            Z_L_jac_d[double_is_gaslike] = z_1.jac[double_is_gaslike]
-            Z_L_jac_d[double_is_liquidlike] = z_23.jac[double_is_liquidlike]
-
-            # store values in global root structure
-            Z_L_val[double_root_region] = Z_L_val_d
-            Z_L_jac[double_root_region] = Z_L_jac_d
-            Z_G_val[double_root_region] = Z_G_val_d
-            Z_G_jac[double_root_region] = Z_G_jac_d
+                assert np.all(
+                    small_root_val > B_.val
+                ), "Liquid root in 1-root-region violates lower physical bound B."
+                Z_val[one_root_region] = small_root_val
+                Z_jac[one_root_region] = small_root_jac
 
         ### COMPUTATIONS IN THE THREE-ROOT-REGION
         # compute all three roots, label them (smallest=liquid, biggest=gas)
         # optionally smooth them
         if np.any(three_root_region):
-            r_3 = pp.ad.Ad_array(r.val[three_root_region], r.jac[three_root_region])
-            q_3 = pp.ad.Ad_array(q.val[three_root_region], q.jac[three_root_region])
-            c2_3 = pp.ad.Ad_array(c2.val[three_root_region], c2.jac[three_root_region])
+            B_ = pp.ad.Ad_array(B.val[three_root_region], B.jac[three_root_region])
+            r_ = pp.ad.Ad_array(r.val[three_root_region], r.jac[three_root_region])
+            q_ = pp.ad.Ad_array(q.val[three_root_region], q.jac[three_root_region])
+            c2_ = pp.ad.Ad_array(c2.val[three_root_region], c2.jac[three_root_region])
 
             # compute roots in three-root-region using Cardano formula,
             # Casus Irreducibilis
-            t_2 = pp.ad.arccos(-q_3 / 2 * pp.ad.sqrt(-27 * pp.ad.power(r_3, -3))) / 3
-            t_1 = pp.ad.sqrt(-4 / 3 * r_3)
+            t_2 = pp.ad.arccos(-q_ / 2 * pp.ad.sqrt(-27 * pp.ad.power(r_, -3))) / 3
+            t_1 = pp.ad.sqrt(-4 / 3 * r_)
 
-            z3_3 = t_1 * pp.ad.cos(t_2) - c2_3 / 3
-            z2_3 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_3 / 3
-            z1_3 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_3 / 3
+            z3 = t_1 * pp.ad.cos(t_2) - c2_ / 3
+            z2 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_ / 3
+            z1 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_ / 3
 
             # assert roots are ordered by size
-            assert np.all(z1_3.val <= z2_3.val) and np.all(
-                z2_3.val <= z3_3.val
+            assert np.all(z1.val <= z2.val) and np.all(
+                z2.val <= z3.val
             ), "Roots in three-root-region improperly ordered."
-            # assert positivity (only then  physically meaningful)
-            assert np.all(
-                0.0 < z1_3.val
-            ), "Non-positive roots in 3-root-region detected."
 
-            ## Smoothing of roots close to double-real-root case
-            # this happens when the phase changes, at the phase border the polynomial
-            # can have a real double root.
-            if apply_smoother:
-                Z_L_3, Z_G_3 = self._smoother(z1_3, z2_3, z3_3)
+            # The largest root is always bigger than B, no further work needed
+            if self.gaslike:
+                # smoothing is only valid in the sub-critical region
+                smoothable = subc_triang[three_root_region]
+                if apply_smoother and np.any(smoothable):
+                    _, Z_G_s = root_smoother(z1, z2, z3, self.smoothing_factor)
+
+                    z3.val[smoothable] = Z_G_s.val[smoothable]
+                    z3.jac[smoothable] = Z_G_s.jac[smoothable]
+
+                Z_val[three_root_region] = z3.val
+                Z_jac[three_root_region] = z3.jac
+            # The smallest root violates the B bound in some parts and must be treated
             else:
-                Z_L_3, Z_G_3 = (z1_3, z3_3)
+                # smoothing is only valid in the sub-critical region
+                smoothable = subc_triang[three_root_region]
+                if apply_smoother and np.any(smoothable):
+                    Z_L_s, _ = root_smoother(z1, z2, z3, self.smoothing_factor)
+                    z1.val[apply_smoother] = Z_L_s.val[apply_smoother]
+                    z1.jac[apply_smoother] = Z_L_s.jac[apply_smoother]
 
-            ## Labeling in the three-root-region follows topological patterns
-            # biggest root belongs to gas phase
-            # smallest root belongs to liquid phase
-            Z_L_val[three_root_region] = Z_L_3.val
-            Z_L_jac[three_root_region] = Z_L_3.jac
-            Z_G_val[three_root_region] = Z_G_3.val
-            Z_G_jac[three_root_region] = Z_G_3.jac
+                correction = z1.val <= B_.val
+                if np.any(correction):
+                    z1.val[correction] = B_.val[correction] + self.eps
+                    z1.jac[correction] = B_.jac[correction] + self.eps
 
-        if self.gaslike:
-            Z = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
-        else:
-            Z = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
+                assert np.all(
+                    z1.val > B_.val
+                ), "Liquid root in 3-root-region violates lower physical bound B."
 
-        # # region is for plotting purpose
-        # regions = np.array(
-        #     [
-        #         one_root_region[0],
-        #         triple_root_region[0],
-        #         double_root_region[0],
-        #         three_root_region[0]
-        #     ],
-        #     dtype=bool,
-        # )
+                Z_val[three_root_region] = z1.val
+                Z_jac[three_root_region] = z1.jac
 
-        return Z  # , regions
+        # we put computations in the triple and double root region at the end
+        # as corrective features.
+
+        ### COMPUTATIONS IN TRIPLE ROOT REGION
+        # The critical point is known to be a triple root
+        # Use logical or to include unknown triple points, but that should not happen
+        # NOTE In the critical point, the roots are unavoidably equal
+        region = np.logical_or(triple_root_region, critical_point)
+        if np.any(region):
+            c2_ = pp.ad.Ad_array(c2.val[region], c2.jac[region])
+
+            z = -c2_ / 3
+
+            assert np.all(
+                B.val[region] < z.val
+            ), "Triple-roots violating the lower physical bound B detected."
+
+            # store root where it belongs
+            Z_val[region] = z.val
+            Z_jac[region] = z.jac
+
+        ### COMPUTATIONS IN DOUBLE ROOT REGION
+        # The point A,B = 0 is known to be such a point
+        region = np.logical_or(double_root_region, zero_point)
+        if np.any(region):
+            B_ = pp.ad.Ad_array(B.val[region], B.jac[region])
+            r_ = pp.ad.Ad_array(r.val[region], r.jac[region])
+            q_ = pp.ad.Ad_array(q.val[region], q.jac[region])
+            c2_ = pp.ad.Ad_array(c2.val[region], c2.jac[region])
+
+            u = 3 / 2 * q_ / r_
+
+            z_1 = 2 * u - c2_ / 3
+            z_23 = -u - c2_ / 3
+
+            # choose bigger root as gas like
+            # theoretically they should strictly be different, otherwise it would be
+            # the three root case
+            double_is_bigger = z_23.val > z_1.val
+            double_is_smaller = np.logical_not(double_is_bigger)
+
+            # allocate storage for roots in this region
+            nc_d = np.count_nonzero(region)
+            small_root_val = np.zeros(nc_d)
+            small_root_jac = sps.lil_matrix((nc_d, shape[1]))
+            big_root_val = np.zeros(nc_d)
+            big_root_jac = sps.lil_matrix((nc_d, shape[1]))
+
+            # storring roots as they are
+            big_root_val[double_is_bigger] = z_23.val[double_is_bigger]
+            big_root_jac[double_is_bigger] = z_23.jac[double_is_bigger]
+            big_root_val[double_is_smaller] = z_1.val[double_is_smaller]
+            big_root_jac[double_is_smaller] = z_1.jac[double_is_smaller]
+
+            small_root_val[double_is_bigger] = z_1.val[double_is_bigger]
+            small_root_jac[double_is_bigger] = z_1.jac[double_is_bigger]
+            small_root_val[double_is_smaller] = z_23.val[double_is_smaller]
+            small_root_jac[double_is_smaller] = z_23.jac[double_is_smaller]
+
+            # The biggest root is always greater than B, no work needed
+            if self.gaslike:
+                Z_val[region] = big_root_val
+                Z_jac[region] = big_root_jac
+            else:
+                # Correct the smaller root if it violates the lower bound B
+                correction = small_root_val <= B_.val
+                if np.any(correction):
+                    small_root_val[correction] = B_.val[correction] + self.eps
+                    small_root_jac[correction] = B_.jac[correction] + self.eps
+
+                    # NOTE Below code minding the over-correction is only valid if
+                    # both roots of this computation are used, which is not the case
+                    # if each phase has an own EoS object.
+
+                    # nc_ = np.count_nonzero(correction)
+                    # c_val = np.zeros(nc_)
+                    # c_jac = sps.lil_matrix((nc_, shape[1]))
+                    # c_val[:] = B_.val[correction] + self.eps
+                    # c_jac[:] = B_.jac[correction] + self.eps
+
+                    # # This is to ensure the smaller root is really smaller
+                    # over_corrected = c_val >= big_root_val[correction]
+                    # if np.any(over_corrected):
+                    #     b = B_.val[correction][over_corrected]
+                    #     br = big_root_val[correction][over_corrected]
+                    #     c_val[over_corrected] = b + (br - b) / 2
+
+                    #     b_jac = B_.jac[correction][over_corrected]
+                    #     br_jac = big_root_jac[correction][over_corrected]
+                    #     c_jac[over_corrected] = b_jac + (br_jac - b_jac) / 2
+
+                assert np.all(
+                    small_root_val > B_.val
+                ), "Liquid root in 2-root-region violates lower physical bound B."
+                Z_val[region] = small_root_val
+                Z_jac[region] = small_root_jac
+
+        return pp.ad.Ad_array(Z_val, Z_jac.tocsr())
 
     def get_rho(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Computes the molar density from scratch.
@@ -880,97 +1016,3 @@ class PR_EoS:
 
         """
         return 1.0
-
-    ### Smoothing method ---------------------------------------------------------------
-
-    def _smoother(
-        self, Z_L: pp.ad.Ad_array, Z_I: pp.ad.Ad_array, Z_G: pp.ad.Ad_array
-    ) -> tuple[pp.ad.Ad_array, pp.ad.Ad_array]:
-        """Smoothing procedure on boundaries of three-root-region.
-
-        Smooths the value and Jacobian rows of the liquid and gas root close to
-        phase boundaries.
-
-        See Also:
-            `Vu et al. (2021), Section 6.
-            <https://doi.org/10.1016/j.matcom.2021.07.015>`_
-
-        Parameters:
-            Z_L: liquid-like root.
-            Z_I: intermediate root.
-            Z_G: gas-like root.
-
-        Returns:
-            A tuple containing the smoothed liquid and gas root as AD arrays
-
-        """
-        # proximity:
-        # If close to 1, intermediate root is close to gas root.
-        # If close to 0, intermediate root is close to liquid root.
-        # values bound by [0,1]
-        proximity: np.ndarray = (Z_I.val - Z_L.val) / (Z_G.val - Z_L.val)
-
-        # average intermediate and gas root for gas root smoothing
-        W_G = (Z_I + Z_G) / 2
-        # analogously for liquid root
-        W_L = (Z_I + Z_L) / 2
-
-        v_G = self._gas_smoother(proximity)
-        v_L = self._liquid_smoother(proximity)
-
-        # smoothing values with convex combination
-        Z_G_val = (1 - v_G) * Z_G.val + v_G * W_G.val
-        Z_L_val = (1 - v_L) * Z_L.val + v_L * W_L.val
-
-        # smoothing jacobian with component-wise product
-        # betweem matrix row and vector component
-        Z_G_jac = Z_G.diagvec_mul_jac((1 - v_G)) + W_G.diagvec_mul_jac(v_G)
-        Z_L_jac = Z_L.diagvec_mul_jac((1 - v_L)) + W_L.diagvec_mul_jac(v_L)
-
-        # store in AD array format and return
-        smooth_Z_L = pp.ad.Ad_array(Z_L_val, Z_L_jac.tocsr())
-        smooth_Z_G = pp.ad.Ad_array(Z_G_val, Z_G_jac.tocsr())
-
-        return smooth_Z_L, smooth_Z_G
-
-    def _gas_smoother(self, proximity: np.ndarray) -> np.ndarray:
-        """Smoothing function for three-root-region where the intermediate root comes
-        close to the gas root."""
-        # smoother starts with zero values
-        smoother = np.zeros(proximity.shape[0])
-        # values around smoothing parameter are constructed according to Vu
-        upper_bound = proximity < 1 - self.smoothing_factor
-        lower_bound = (1 - 2 * self.smoothing_factor) < proximity
-        bound = np.logical_and(upper_bound, lower_bound)
-
-        bound_smoother = (
-            proximity[bound] - (1 - 2 * self.smoothing_factor)
-        ) / self.smoothing_factor
-        bound_smoother = bound_smoother**2 * (3 - 2 * bound_smoother)
-
-        smoother[bound] = bound_smoother
-        # where proximity is close to one, set value of one
-        smoother[proximity >= 1 - self.smoothing_factor] = 1.0
-
-        return smoother
-
-    def _liquid_smoother(self, proximity: np.ndarray) -> np.ndarray:
-        """Smoothing function for three-root-region where the intermediate root comes
-        close to the liquid root."""
-        # smoother starts with zero values
-        smoother = np.zeros(proximity.shape[0])
-        # values around smoothing parameter are constructed according to Vu
-        upper_bound = proximity < 2 * self.smoothing_factor
-        lower_bound = self.smoothing_factor < proximity
-        bound = np.logical_and(upper_bound, lower_bound)
-
-        bound_smoother = (
-            proximity[bound] - self.smoothing_factor
-        ) / self.smoothing_factor
-        bound_smoother = (-1) * bound_smoother**2 * (3 - 2 * bound_smoother) + 1
-
-        smoother[bound] = bound_smoother
-        # where proximity is close to zero, set value of one
-        smoother[proximity <= self.smoothing_factor] = 1.0
-
-        return smoother

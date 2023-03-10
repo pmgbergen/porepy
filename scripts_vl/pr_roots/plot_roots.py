@@ -13,7 +13,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from calculate_roots import A_CRIT, B_CRIT, REGION_ENCODING, path, read_root_results, EPS
 
-RESULTFILE: str = "roots_nosmooth_x3.csv"
+RESULTFILE: str = "roots_nosmooth_mod.csv"
 FIGUREPATH: str = 'figs'
 FIGWIDTH: int = 15  # in inches, 1080 / 1920 ratio applied to height
 DPI: int = 400
@@ -60,7 +60,7 @@ def _plot_B_violation(
     violated = val_mesh <= B_mesh
     if np.any(violated):
         img = axis.plot(
-            A_mesh[violated], B_mesh[violated], 'v', markersize=0.08, color="magenta"
+            A_mesh[violated], B_mesh[violated], 'v', markersize=0.1, color="magenta"
         )
         return [img[0]], [f"{val_name} < B"]
     else:
@@ -73,7 +73,7 @@ def _plot_negative(
 ):
     neg = val_mesh < 0
     if np.any(neg):
-        img = axis.plot(A_mesh[neg], B_mesh[neg], '.', markersize=1, color='red')
+        img = axis.plot(A_mesh[neg], B_mesh[neg], '*', markersize=3, color='red')
         return [img[0]], [f"{val_name} < 0"]
     else:
         return [], []
@@ -85,7 +85,7 @@ def _plot_positive(
 ):
     pos = val_mesh > 0
     if np.any(pos):
-        img = axis.plot(A_mesh[pos], B_mesh[pos], '.', markersize=1, color='green')
+        img = axis.plot(A_mesh[pos], B_mesh[pos], '*', markersize=1, color='green')
         return [img[0]], [f"{val_name} > 0"]
     else:
         return [], []
@@ -181,11 +181,7 @@ def plot_values(
             vmax=vmax,
             shading="nearest",
         )
-    if plot_B_violation:
-        imgs_v, legs_v = _plot_B_violation(axis, A_mesh, B_mesh, val_mesh, val_name)
-    else:
-        imgs_v = []
-        legs_v = []
+    imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
     if plot_neg:
         imgs_n, legs_n = _plot_negative(axis, A_mesh, B_mesh, val_mesh, val_name)
     else:
@@ -201,7 +197,11 @@ def plot_values(
     else:
         imgs_z = []
         legs_z = []
-    imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
+    if plot_B_violation:
+        imgs_v, legs_v = _plot_B_violation(axis, A_mesh, B_mesh, val_mesh, val_name)
+    else:
+        imgs_v = []
+        legs_v = []
     axis.legend(
         imgs_c + imgs_v + imgs_n + imgs_z + imgs_p,
         legs_c + legs_v + legs_n + legs_z + legs_p,

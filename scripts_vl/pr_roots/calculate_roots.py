@@ -8,24 +8,26 @@ import numpy as np
 
 import porepy as pp
 
-RESULTFILE: str = "roots_nosmooth_x22.csv"
+RESULTFILE: str = "roots_nosmooth_mod.csv"
 DELIMITER: str = ","
 
 B_CRIT: float = pp.composite.B_CRIT
 A_CRIT: float = pp.composite.A_CRIT
-EPS: float = 1e-15
+EPS: float = 1e-14
 SMOOTHING_FACTOR: float = 5e-1
 
 APPLY_SMOOTHING: bool = False
 
 # define the upper limit for A and B by UPPER_LIM_FACTOR * A_CRIT (B_CRIT)
-UPPER_LIM_FACTOR: float = 22
+UPPER_LIM_FACTOR: float = 3
 # Refinement between upper and lower limits
 REFINEMENT: int = 200
+# A flag to include A,B = 0
+INCLUDE_ZERO: bool = True
 
-A_LIMIT: list[float] = [-EPS, UPPER_LIM_FACTOR * A_CRIT]
+A_LIMIT: list[float] = [-A_CRIT, UPPER_LIM_FACTOR * A_CRIT]
 # A_LIMIT: list[float] = [-25, 25]
-B_LIMIT: list[float] = [-EPS, UPPER_LIM_FACTOR * B_CRIT]
+B_LIMIT: list[float] = [-B_CRIT, UPPER_LIM_FACTOR * B_CRIT]
 # B_LIMIT: list[float] = [-25, 25]
 
 
@@ -307,8 +309,6 @@ def calc_Z(
         # # Correction
         if apply_W_correction:
             correction = np.logical_or(
-                # self.is_supercritical[one_root_region], w_1.val <=0
-                # np.logical_not(sub_critical[one_root_region]),
                 np.logical_not(acbc_rect[one_root_region]),
                 w_1 <= B,
             )
@@ -432,6 +432,363 @@ def calc_Z(
     raise RuntimeError("No region case was triggered.")
 
 
+def calc_Z_mod(
+    A: np.ndarray,
+    B: np.ndarray,
+    apply_W_correction: bool = False,
+    apply_smoother: bool = False,
+) -> tuple[int, list[np.ndarray], Optional[int]]:
+    """Algorithm for calculating (extended roots) of the compressibility polynomial.
+
+    Parameters:
+        A: Dimensionless cohesion
+        B: Dimensionless covolume
+        apply_W_correction: In the case of 1 real root, apply corrective algorithm.
+        apply_smoother: In the case of 3 real roots, apply smoothing procedure
+
+    Returns:
+        A tuple containing the polynomial root case, the roots (liquid- intermediate - gas),
+        and an optional integer, saying which one is extended, in the case of 1 real root.
+
+        The intermediate root is zero in all cases except in the 3-root case
+    """
+    # the coefficients of the compressibility polynomial
+    c0 = np.power(B, 3) + np.power(B, 2) - A * B
+    c1 = A - 2 * B - 3 * np.power(B, 2)
+    c2 = B - 1
+
+    # the coefficients of the reduced polynomial (elimination of 2-monomial)
+    r = c1 - np.power(c2, 2) / 3
+    q = 2 / 27 * np.power(c2, 3) - c2 * c1 / 3 + c0
+
+    # discriminant to determine the number of roots
+    delta = np.power(q, 2) / 4 + np.power(r, 3) / 27
+
+    # prepare storage for roots
+    # storage for roots
+    nc = len(delta)
+    Z_L = np.zeros(nc)
+    Z_I = np.zeros(nc)
+    Z_G = np.zeros(nc)
+
+    ### CLASSIFYING REGIONS
+    # identify super-critical region and store information
+    # limited physical insight into what this means with this EoS
+    is_supercritical = B >= B_CRIT / A_CRIT * A
+    # rectangle with upper right corner at (Ac,Bc)
+    acbc_rect = np.logical_and(
+        np.logical_and(EPS < A, A < A_CRIT - EPS),
+        np.logical_and(EPS < B, B < B_CRIT - EPS)
+    )
+    # This can happen if some fraction is slightly negative and pushed B outside
+    A_neg_halfplain = A <= EPS
+    # subcritical triangle in the acbc rectangle
+    subc_triang = np.logical_and(np.logical_not(is_supercritical), acbc_rect)
+    # supercritical triangle in the acbc rectangle
+    sc_triang = np.logical_and(acbc_rect, np.logical_not(subc_triang))
+    # this is the larger, outer super-critical region, in the positive A half-plain
+    # it includes the positive A axis, where the smaller (extended) root possibly
+    # violates the lower bound B
+    outer_region = np.logical_and(
+        np.logical_not(A_neg_halfplain),
+        np.logical_not(acbc_rect)
+    )
+    # At A,B=0 we have 2 real roots, one with multiplicity 2
+    zero_point = np.logical_and(
+        np.isclose(A, 0, atol=EPS),
+        np.isclose(B, 0, atol=EPS)
+    )
+    # The critical point is known to be a triple-point
+    critical_point = np.logical_and(
+        np.isclose(A, A_CRIT, rtol=0, atol=EPS),
+        np.isclose(B, B_CRIT, rtol=0, atol=EPS)
+    )
+
+    # discriminant of zero indicates triple or two real roots with multiplicity
+    degenerate_region = np.isclose(delta, 0.0, atol=EPS)
+
+    double_root_region = np.logical_and(degenerate_region, np.abs(r) > EPS)
+    triple_root_region = np.logical_and(degenerate_region, np.isclose(r, 0.0, atol=EPS))
+
+    one_root_region = delta > EPS
+    three_root_region = delta < -EPS
+
+    is_extended: Optional[int] = None
+
+    # sanity check that every cell/case covered
+    assert np.all(
+        np.logical_or.reduce(
+            [
+                one_root_region,
+                triple_root_region,
+                double_root_region,
+                three_root_region,
+            ]
+        )
+    ), "Uncovered region for polynomial root cases."
+
+    # sanity check that the regions are mutually exclusive
+    # this array must have 1 in every entry for the test to pass
+    trues_per_row = np.vstack(
+        [one_root_region, triple_root_region, double_root_region, three_root_region]
+    ).sum(axis=0)
+    # TODO assert dtype does not compromise test
+    trues_check = np.ones(nc, dtype=trues_per_row.dtype)
+    assert np.all(
+        trues_check == trues_per_row
+    ), "Regions with different root scenarios overlap."
+
+    ### COMPUTATIONS IN THE ONE-ROOT-REGION
+    # Missing real root is replaced with conjugated imaginary roots
+    region = np.logical_and(one_root_region, subc_triang)
+    if np.all(region):
+
+        # delta has only positive values in this case by logic
+        t_1 = -q / 2 + np.sqrt(delta)
+
+        # t_1 might be negative, in this case we must choose the real cubic root
+        # by extracting cbrt(-1), where -1 is the real cubic root.
+        im_cube = t_1 < 0.0
+        if np.any(im_cube):
+            t_1[im_cube] *= -1
+
+            u_1 = np.cbrt(t_1)
+
+            u_1[im_cube] *= -1
+        else:
+            u_1 = np.cbrt(t_1)
+
+        
+        real_part = u_1 - r / (u_1 * 3)
+
+        z_1 = real_part - c2 / 3
+
+        w_1 = (1 - B - z_1) / 2
+        # w_1 = -real_part / 2 - c2_1 / 3
+
+        assert np.all(w_1 > B), "Extended root violates B-bound in subcrit triangle."
+        assert np.all(z_1 > B), "Single real root violates B-bound in subcrit triangle."
+
+        extension_is_bigger = w_1 > z_1
+        extension_is_smaller = np.logical_not(extension_is_bigger)
+
+        big_root = z_1.copy()
+        big_root[extension_is_bigger] = w_1[extension_is_bigger]
+
+        small_root = z_1.copy()
+        small_root[extension_is_smaller] = w_1[extension_is_smaller]
+
+        assert np.all(small_root <= big_root), "Roots are not ordered by size."
+
+        # store values in global root structure
+        Z_L[region] = small_root
+        Z_G[region] = big_root
+
+        if np.all(extension_is_smaller):
+            is_extended = 0
+        else:
+            if np.all(extension_is_bigger):
+                is_extended = 2
+            else:
+                raise RuntimeError(
+                    "Something went wrong with labeling which is extended."
+                )
+        assert is_extended is not None, "is_extended is still None"
+        return REGION_ENCODING[0], [Z_L, Z_I, Z_G], is_extended
+
+    region = np.logical_and(one_root_region, np.logical_not(subc_triang))
+    if np.all(region):
+
+        # delta has only positive values in this case by logic
+        t_1 = -q / 2 + np.sqrt(delta)
+
+        # t_1 might be negative, in this case we must choose the real cubic root
+        # by extracting cbrt(-1), where -1 is the real cubic root.
+        im_cube = t_1 < 0.0
+        if np.any(im_cube):
+            t_1[im_cube] *= -1
+
+            u_1 = np.cbrt(t_1)
+
+            u_1[im_cube] *= -1
+        else:
+            u_1 = np.cbrt(t_1)
+
+        
+        real_part = u_1 - r / (u_1 * 3)
+
+        z_1 = real_part - c2 / 3
+
+        w_1 = (1 - B - z_1) / 2
+        # w_1 = -real_part / 2 - c2_1 / 3
+
+        extension_is_bigger = w_1 > z_1
+        extension_is_smaller = np.logical_not(extension_is_bigger)
+
+        big_root = z_1.copy()
+        big_root[extension_is_bigger] = w_1[extension_is_bigger]
+
+        small_root = z_1.copy()
+        small_root[extension_is_smaller] = w_1[extension_is_smaller]
+
+        assert np.all(big_root > B), 'Bigger root violates B-bound in 1-root-region outside of subcrit triangle.'
+
+        correction = small_root <= B
+        if np.any(correction):
+            c = B + EPS
+            over_corrected = c >= big_root
+            if np.any(over_corrected):
+                c = B + (big_root - B) / 2
+            small_root = c
+
+        # store values in global root structure
+        Z_L[region] = small_root
+        Z_G[region] = big_root
+
+        if np.all(extension_is_smaller):
+            is_extended = 0
+        else:
+            if np.all(extension_is_bigger):
+                is_extended = 2
+            else:
+                raise RuntimeError(
+                    "Something went wrong with labeling which is extended."
+                )
+        assert is_extended is not None, "is_extended is still None"
+        return REGION_ENCODING[0], [Z_L, Z_I, Z_G], is_extended
+
+    ### COMPUTATIONS IN THE THREE-ROOT-REGION
+    # compute all three roots, label them (smallest=liquid, biggest=gas)
+    # optionally smooth them
+    region = np.logical_and(three_root_region, subc_triang)
+    if np.all(region):
+
+        # compute roots in three-root-region using Cardano formula,
+        # Casus Irreducibilis
+        t_2 = np.arccos(-q / 2 * np.sqrt(-27 * np.power(r, -3))) / 3
+        t_1 = np.sqrt(-4 / 3 * r)
+
+        z3_3 = t_1 * np.cos(t_2) - c2 / 3
+        z2_3 = -t_1 * np.cos(t_2 + np.pi / 3) - c2 / 3
+        z1_3 = -t_1 * np.cos(t_2 - np.pi / 3) - c2 / 3
+
+        # assert roots are ordered by size
+        assert np.all(z1_3 <= z2_3) and np.all(
+            z2_3 <= z3_3
+        ), "Roots in three-root-region improperly ordered."
+        assert np.all(z1_3 > B), "Sub-critical three-root-region violates lower bound by covolume"
+
+        ## Smoothing of roots close to double-real-root case
+        # this happens when the phase changes, at the phase border the polynomial
+        # can have a real double root.
+        if apply_smoother:
+            Z_L_3, Z_G_3 = Z_I_smoother(z1_3, z2_3, z3_3)
+        else:
+            Z_L_3, Z_G_3 = (z1_3, z3_3)
+
+        ## Labeling in the three-root-region follows topological patterns
+        # biggest root belongs to gas phase
+        # smallest root belongs to liquid phase
+        Z_L[region] = Z_L_3
+        Z_I[region] = z2_3
+        Z_G[region] = Z_G_3
+
+        return REGION_ENCODING[3], [Z_L, Z_I, Z_G], None
+
+        ### COMPUTATIONS IN TRIPLE ROOT REGION
+    
+    region = np.logical_and(three_root_region, np.logical_not(subc_triang))
+    if np.all(region):
+
+        # compute roots in three-root-region using Cardano formula,
+        # Casus Irreducibilis
+        t_2 = np.arccos(-q / 2 * np.sqrt(-27 * np.power(r, -3))) / 3
+        t_1 = np.sqrt(-4 / 3 * r)
+
+        z3_3 = t_1 * np.cos(t_2) - c2 / 3
+        z2_3 = -t_1 * np.cos(t_2 + np.pi / 3) - c2 / 3
+        z1_3 = -t_1 * np.cos(t_2 - np.pi / 3) - c2 / 3
+
+        # assert roots are ordered by size
+        assert np.all(z1_3 <= z2_3) and np.all(
+            z2_3 <= z3_3
+        ), "Roots in three-root-region improperly ordered."
+        assert np.all(z3_3 > B), "Bigger root violates B bound outside of subcrit triangle."
+
+        correction = z1_3 <= B
+        if np.any(correction):
+            c = B + EPS
+            over_corrected = c >= z3_3
+            if np.any(over_corrected):
+                c = B + (z3_3 - B) / 2
+            
+            z1_3[correction] = c
+
+        ## Labeling in the three-root-region follows topological patterns
+        # biggest root belongs to gas phase
+        # smallest root belongs to liquid phase
+        Z_L[region] = z1_3
+        Z_I[region] = z2_3
+        Z_G[region] = z3_3
+
+        return REGION_ENCODING[3], [Z_L, Z_I, Z_G], None
+
+    ### COMPUTATION IN THE TRIPLE-ROOT-REGIOn
+    region = np.logical_or(triple_root_region, critical_point)
+    if np.all(region):
+
+        z_triple = -c2 / 3
+
+        # store root where it belongs
+        Z_L[region] = z_triple
+        Z_G[region] = z_triple
+
+        return REGION_ENCODING[1], [Z_L, Z_I, Z_G], None
+
+    ### COMPUTATIONS IN DOUBLE ROOT REGION
+    region = np.logical_or(double_root_region, zero_point)
+    if np.any(region):
+
+        u = 3 / 2 * q / r
+
+        z_1 = 2 * u - c2 / 3
+        z_23 = -u - c2 / 3
+
+        # choose bigger root as gas like
+        # theoretically they should strictly be different, otherwise it would be
+        # the three root case
+        double_is_bigger = z_23 > z_1
+        double_is_smaller = np.logical_not(double_is_bigger)
+
+        # store values in double-root-region
+        nc_d = np.count_nonzero(region)
+        small_root = np.zeros(nc_d)
+        big_root = np.zeros(nc_d)
+
+        big_root[double_is_bigger] = z_23[double_is_bigger]
+        big_root[double_is_smaller] = z_1[double_is_smaller]
+
+        small_root[double_is_bigger] = z_1[double_is_bigger]
+        small_root[double_is_smaller] = z_23[double_is_smaller]
+
+        correction = small_root <= B
+        if np.any(correction):
+            c = B + EPS
+            over_corrected = c >= big_root
+            if np.any(over_corrected):
+                c[over_corrected] = B + (big_root[over_corrected] - B[over_corrected]) / 2
+            
+            small_root[correction] = c
+
+        # store values in global root structure
+        Z_L[region] = small_root
+        Z_G[region] = big_root
+
+        return REGION_ENCODING[2], [Z_L, Z_I, Z_G], None
+
+    raise RuntimeError("No region case was triggered.")
+
+
 if __name__ == "__main__":
 
     # TODO this is a problematic A,B combo were there is a division by zero error in
@@ -440,6 +797,12 @@ if __name__ == "__main__":
 
     A = np.linspace(A_LIMIT[0], A_LIMIT[1], REFINEMENT)
     B = np.linspace(B_LIMIT[0], B_LIMIT[1], REFINEMENT)
+
+    if INCLUDE_ZERO:
+        A = np.hstack([A, np.array([0.])])
+        A = np.sort(np.unique(A))
+        B = np.hstack([B, np.array([0.])])
+        B = np.sort(np.unique(B))
 
     A_mesh, B_mesh = np.meshgrid(A, B)
 
@@ -461,7 +824,7 @@ if __name__ == "__main__":
             A_ij = np.array([A_])
             B_ij = np.array([B_])
 
-            reg, roots, is_extended = calc_Z(A_ij, B_ij, apply_smoother=APPLY_SMOOTHING)
+            reg, roots, is_extended = calc_Z_mod(A_ij, B_ij, apply_smoother=APPLY_SMOOTHING)
             Z_L = roots[0][0]
             Z_I = roots[1][0]
             Z_G = roots[2][0]
