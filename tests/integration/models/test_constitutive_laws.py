@@ -228,7 +228,10 @@ def test_evaluated_values(model, method_name, expected):
     # Assign non-trivial values to the parameters to avoid masking errors.
     solid = pp.SolidConstants(setup_utils.granite_values)
     fluid = pp.FluidConstants(setup_utils.water_values)
-    params = {"material_constants": {"solid": solid, "fluid": fluid}, "fracture_indices": []}
+    params = {
+        "material_constants": {"solid": solid, "fluid": fluid},
+        "fracture_indices": [],
+    }
 
     setup = model(params)
     setup.prepare_simulation()

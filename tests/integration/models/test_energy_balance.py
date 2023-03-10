@@ -184,11 +184,15 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
         sds = setup.mdg.subdomains(dim=2)
-        total_energy = setup.volume_integral(
-            setup.total_internal_energy(sds),
-            sds,
-            dim=1,
-        ).evaluate(setup.equation_system).val
+        total_energy = (
+            setup.volume_integral(
+                setup.total_internal_energy(sds),
+                sds,
+                dim=1,
+            )
+            .evaluate(setup.equation_system)
+            .val
+        )
         expected = setup.fluid.specific_heat_capacity() * setup.solid.permeability() / 2
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
 
