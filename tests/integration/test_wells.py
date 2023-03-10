@@ -193,40 +193,20 @@ def test_add_one_well_with_matrix() -> None:
         assert well_grid.num_faces == 2
         assert well_grid.num_nodes == 2
 
-    for intf, data in mdg.interfaces(return_data=True):
+    for intf in mdg.interfaces():
         assert intf.num_sides() == 1
         assert intf.num_cells == 1
         assert np.allclose(intf.mortar_to_secondary_int().todense(), 1)
-        known = np.array(
-            [
-                0.175,
-                0.0,
-                0.0,
-                0.29166667,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.25,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.08333333,
-                0.2,
-                0.0,
-            ]
-        )
+        
+        known = np.zeros(24)
+        known[0] = 0.175
+        known[3] = 0.29166667
+        known[11] = 0.25
+        known[22] = 0.08333333
+        known[23] = 0.2
 
-        # Since the generation of .msh files is platform-dependent, only norm values are compared
+        # Since the generation of .msh files is platform-dependent, only norm values are
+        # compared.
         assert np.isclose(
             np.linalg.norm(known),
             np.linalg.norm(intf.mortar_to_primary_int().A.flatten()),
