@@ -343,7 +343,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         )
 
         eq = self.well_enthalpy_flux(interfaces) - flux
-        eq.set_name("well_interface_enthalpy_flux_equation")
+        eq.set_name("well_enthalpy_flux_equation")
         return eq
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
