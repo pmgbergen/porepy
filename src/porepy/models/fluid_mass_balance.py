@@ -31,9 +31,8 @@ class MassBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional mass balance equation.
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
-    of codimension one.
-
-    FIXME: Well equations? Low priority.
+    of codimension one and Peaceman flux relation on interfaces of codimension two
+    (well-fracture intersections).
 
     """
 
@@ -144,8 +143,8 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
-        # If wells are implemented for 2d, consider refactoring this into method
-        # returning the well interfaces.
+        # If wells are implemented for 2d, consider refactoring sorting of interfaces
+        # into method returning either "normal" or well interfaces.
         codim_2_interfaces = self.mdg.interfaces(codim=2)
         sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
