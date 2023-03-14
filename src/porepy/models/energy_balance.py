@@ -370,6 +370,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        # Interfaces relating to wells, and the associated subdomains.
         well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
         well_subdomains = self.interfaces_to_subdomains(well_interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)

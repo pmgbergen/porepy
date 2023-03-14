@@ -107,8 +107,8 @@ class Well:
                 Point to be added.
 
             ind: Index. If ind is not specified, the point is appended at the end of
-                self.pts. Otherwise, it is inserted between the old points ind ind + 1.
-
+                self.pts. Otherwise, it is inserted between the old points ``ind`` and
+                ``ind + 1``.
         """
         if ind is None:
             self.pts = np.hstack((self.pts, point))
@@ -121,7 +121,8 @@ class Well:
         """Return the mesh size for a well or one of its segments.
 
         Parameters:
-            segment_ind: Indices defining the segment.
+            segment_ind: Indices defining the segment, i.e. indices of the endpoints of
+                the segment. If None, the mesh size for the entire well is returned.
 
         Can be overwritten to yield well specific or segment specific values. Meshing of
         WellNetwork defaults to WellNetwork._mesh_size if None is returned by this
@@ -210,8 +211,8 @@ class WellNetwork3d:
 
         Parameters:
             w: Well for which to access mesh size.
-            segment_ind: Indices defining the segment.
-
+            segment_ind: Indices defining the segment, i.e. indices of the endpoints of
+                the segment. If None, the mesh size for the entire well is returned.
 
         """
         # TODO: IS: I have not concluded whether mesh size should be global (Network)
@@ -223,7 +224,8 @@ class WellNetwork3d:
         return size
 
     def mesh(self, mdg: pp.MixedDimensionalGrid) -> None:
-        """Produce grids for the network's wells and add to existing mixed-dimensional grid.
+        """Produce grids for the network's wells and add to existing mixed-dimensional
+         grid.
 
         One grid is constructed for each subline extending between two fracture
         intersections. In the simplest case, the well is a (poly)line with two

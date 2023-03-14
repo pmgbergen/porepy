@@ -226,7 +226,6 @@ class MortarProjections(Operator):
         subdomains: list[pp.Grid],
         interfaces: list[pp.MortarGrid],
         dim: int = 1,
-        codim: Optional[int] = None,
     ) -> None:
         """Construct mortar projection object.
 
@@ -296,18 +295,13 @@ class MortarProjections(Operator):
                     # configuration
                     raise NotImplementedError("Non-standard interface.")
                 if g_primary in subdomains:
-                    if codim is None:
-                        primary_projection = (
-                            face_projection[g_primary]
-                            if intf.codim < 2
-                            else cell_projection[g_primary]
-                        )
-                    else:
-                        primary_projection = (
-                            face_projection[g_primary]
-                            if codim < 2
-                            else cell_projection[g_primary]
-                        )
+                    # Choose projection matrices for primary grid based on codimension
+                    # of the interface.
+                    primary_projection = (
+                        face_projection[g_primary]
+                        if intf.codim < 2
+                        else cell_projection[g_primary]
+                    )
                     # Create all projection matrices for this MortarGrid and append them
                     # to the list. The use of optimized storage is of importance here,
                     # since for small subdomain subdomains in problems with many cells

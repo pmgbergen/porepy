@@ -168,6 +168,7 @@ class MixedDimensionalGrid:
                 Codimension of the returned interfaces. Defaults to None, in which case
                 no codimension filtering is performed. If provided, only interfaces with
                 the specified codimension will be returned.
+                If both dim and codim are provided, a combined filter will be applied.
 
         Returns:
             Either a list of mortar grids associated with interfaces (default), or (if
