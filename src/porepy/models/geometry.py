@@ -47,8 +47,8 @@ class ModelGeometry:
             pp.compute_well_fracture_intersections(
                 self.well_network, self.fracture_network
             )
-            # Mesh fractures and add fracture + intersection grids to grid bucket along
-            # with these grids' new interfaces to fractures.
+            # Mesh fractures and add fracture + intersection grids to mixed-dimensional
+            # grid along with these grids' new interfaces to fractures.
             self.well_network.mesh(self.mdg)
 
     def set_fracture_network(self) -> None:

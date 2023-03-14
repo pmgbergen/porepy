@@ -25,7 +25,7 @@ from . import setup_utils
 )
 @pytest.mark.parametrize("num_wells", [1])
 def test_run_models(base_model, num_wells):
-    """Test that the value of the parsed operator is as expected."""
+    """Test that the model actually runs."""
 
     solid = pp.SolidConstants({"residual_aperture": 0.01, "permeability": 42})
     params = {
@@ -217,9 +217,8 @@ class TailoredPermeability(pp.constitutive_laws.CubicLawPermeability):
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
 
-        This function combines a matrix permeability with a cubic law permeability for
-        fractures and intersections. The combination entails projection between the two
-        subdomain subsets and all subdomains.
+        This function is an extension of the CubicLawPermeability class which includes
+        well permeability.
 
         Parameters:
             subdomains: List of subdomains.
@@ -247,10 +246,6 @@ class TailoredPermeability(pp.constitutive_laws.CubicLawPermeability):
 
     def well_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
-
-        This function combines a matrix permeability with a cubic law permeability for
-        fractures and intersections. The combination entails projection between the two
-        subdomain subsets and all subdomains.
 
         Parameters:
             subdomains: List of subdomains.

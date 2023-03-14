@@ -83,9 +83,11 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         # Length scale:
         ls = 1 / self.units.m
 
-        # Fracture number i has coordinates [0.5, 0.5, 0.5] in the i'th direction.
+        # Fracture number i has coordinate 0.5 in the i'th direction, and span [0, 1] in
+        # the other directions.
         fracture_indices = self.params.get("fracture_indices", [0])
-        domain: pp.Domain = pp.grids.standard_grids.utils.unit_domain(3)
+        box = {"xmin": 0, "xmax": ls, "ymin": 0, "ymax": ls, "zmin": 0, "zmax": ls}
+        domain = pp.Domain(box)
         pts = []
         # The three fractures are defined by pertubations of the coordinate arrays.
         coords_a = [0.5, 0.5, 0.5, 0.5]
