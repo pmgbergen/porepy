@@ -2,7 +2,7 @@ import numpy as np
 
 import porepy as pp
 
-MIX = pp.composite.PengRobinsonMixture(nc = 3)
+MIX = pp.composite.PengRobinsonMixture(nc = 1)
 ads = MIX.AD.system
 nc = ads.mdg.num_subdomain_cells()
 
@@ -16,8 +16,8 @@ MIX.add([h2o, co2], [LIQ, GAS])
 temperature = 300
 pressure = 1e8 * 1e-6
 
-temperature = 588.8888888888889
-pressure = 177410.61109663505 * 1e-6
+# temperature = 588.8888888888889
+# pressure = 177410.61109663505 * 1e-6
 
 co2_fraction = 0.01
 h2o_fraction = 0.99

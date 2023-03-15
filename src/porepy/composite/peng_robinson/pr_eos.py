@@ -564,12 +564,9 @@ class PR_EoS:
         # prepare storage for root
         nc = len(delta.val)
         shape = delta.jac.shape
-        Z_val = np.zeros(nc)
-        Z_jac = sps.lil_matrix(shape)
-        # Z_L_val = np.zeros(nc)
-        # Z_G_val = np.zeros(nc)
-        # Z_L_jac = sps.lil_matrix(shape)
-        # Z_G_jac = sps.lil_matrix(shape)
+
+        Z_L = pp.ad.Ad_array(np.zeros(nc), sps.lil_matrix(shape))
+        Z_G = pp.ad.Ad_array(np.zeros(nc), sps.lil_matrix(shape))
 
         # an indicater where the root is extended
         self.is_extended = np.zeros(nc, dtype=bool)
@@ -594,16 +591,6 @@ class PR_EoS:
         )
         # subcritical triangle in the acbc rectangle
         subc_triang = np.logical_and(np.logical_not(self.is_supercritical), acbc_rect)
-
-        # # Other relevant regions for narrowing down regions, unused so far
-        # # This can happen if some fraction is slightly negative and pushed B outside
-        # A_neg_halfplane = A.val <= self.eps
-        # # supercritical triangle in the acbc rectangle
-        # sc_triang = np.logical_and(acbc_rect, np.logical_not(subc_triang))
-        # outer_region = np.logical_and(
-        #     np.logical_not(A_neg_halfplane),
-        #     np.logical_not(acbc_rect)
-        # )
 
         # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = np.isclose(delta.val, 0.0, atol=self.eps)
@@ -700,27 +687,17 @@ class PR_EoS:
             small_root_val[extension_is_smaller] = w.val[extension_is_smaller]
             small_root_jac[extension_is_smaller] = w.jac[extension_is_smaller]
 
-            # The bigger, gas-like root is always bigger than B
+            Z_L.val[one_root_region] = small_root_val
+            Z_L.jac[one_root_region] = small_root_jac
+
+            Z_G.val[one_root_region] = big_root_val
+            Z_G.jac[one_root_region] = big_root_jac
+
+            # Store flag where the extended root was used
             if self.gaslike:
                 self.is_extended[one_root_region] = extension_is_bigger
-
-                Z_val[one_root_region] = big_root_val
-                Z_jac[one_root_region] = big_root_jac
-            # The extension outside the subcritical triangle is not always bigger
-            # than B, correct if necessary
             else:
                 self.is_extended[one_root_region] = extension_is_smaller
-
-                correction = small_root_val <= B_.val
-                if np.any(correction):
-                    small_root_val[correction] = B_.val[correction] + self.eps
-                    small_root_jac[correction] = B_.jac[correction] + self.eps
-
-                assert np.all(
-                    small_root_val > B_.val
-                ), "Liquid root in 1-root-region violates lower physical bound B."
-                Z_val[one_root_region] = small_root_val
-                Z_jac[one_root_region] = small_root_jac
 
         ### COMPUTATIONS IN THE THREE-ROOT-REGION
         # compute all three roots, label them (smallest=liquid, biggest=gas)
@@ -740,43 +717,28 @@ class PR_EoS:
             z2 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_ / 3
             z1 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_ / 3
 
+            # Smoothing procedure only valid in the sub-critical area, where the three
+            # roots are positive and bound from below by B
+            smoothable = subc_triang[three_root_region]
+            if apply_smoother and np.any(smoothable):
+                z1_s, z3_s = root_smoother(z1, z2, z3, self.smoothing_factor)
+
+                z3.val[smoothable] = z3_s.val[smoothable]
+                z3.jac[smoothable] = z3_s.jac[smoothable]
+
+                z1.val[smoothable] = z1_s.val[smoothable]
+                z1.jac[smoothable] = z1_s.jac[smoothable]
+
             # assert roots are ordered by size
             assert np.all(z1.val <= z2.val) and np.all(
                 z2.val <= z3.val
             ), "Roots in three-root-region improperly ordered."
 
-            # The largest root is always bigger than B, no further work needed
-            if self.gaslike:
-                # smoothing is only valid in the sub-critical region
-                smoothable = subc_triang[three_root_region]
-                if apply_smoother and np.any(smoothable):
-                    _, Z_G_s = root_smoother(z1, z2, z3, self.smoothing_factor)
+            Z_L.val[three_root_region] = z1.val
+            Z_L.jac[three_root_region] = z1.jac
 
-                    z3.val[smoothable] = Z_G_s.val[smoothable]
-                    z3.jac[smoothable] = Z_G_s.jac[smoothable]
-
-                Z_val[three_root_region] = z3.val
-                Z_jac[three_root_region] = z3.jac
-            # The smallest root violates the B bound in some parts and must be treated
-            else:
-                # smoothing is only valid in the sub-critical region
-                smoothable = subc_triang[three_root_region]
-                if apply_smoother and np.any(smoothable):
-                    Z_L_s, _ = root_smoother(z1, z2, z3, self.smoothing_factor)
-                    z1.val[apply_smoother] = Z_L_s.val[apply_smoother]
-                    z1.jac[apply_smoother] = Z_L_s.jac[apply_smoother]
-
-                correction = z1.val <= B_.val
-                if np.any(correction):
-                    z1.val[correction] = B_.val[correction] + self.eps
-                    z1.jac[correction] = B_.jac[correction] + self.eps
-
-                assert np.all(
-                    z1.val > B_.val
-                ), "Liquid root in 3-root-region violates lower physical bound B."
-
-                Z_val[three_root_region] = z1.val
-                Z_jac[three_root_region] = z1.jac
+            Z_G.val[three_root_region] = z3.val
+            Z_G.jac[three_root_region] = z3.jac
 
         # we put computations in the triple and double root region at the end
         # as corrective features.
@@ -795,9 +757,11 @@ class PR_EoS:
                 B.val[region] < z.val
             ), "Triple-roots violating the lower physical bound B detected."
 
-            # store root where it belongs
-            Z_val[region] = z.val
-            Z_jac[region] = z.jac
+            Z_L.val[region] = z.val
+            Z_L.jac[region] = z.jac
+
+            Z_G.val[region] = z.val
+            Z_G.jac[region] = z.jac
 
         ### COMPUTATIONS IN DOUBLE ROOT REGION
         # The point A,B = 0 is known to be such a point
@@ -837,45 +801,35 @@ class PR_EoS:
             small_root_val[double_is_smaller] = z_23.val[double_is_smaller]
             small_root_jac[double_is_smaller] = z_23.jac[double_is_smaller]
 
-            # The biggest root is always greater than B, no work needed
-            if self.gaslike:
-                Z_val[region] = big_root_val
-                Z_jac[region] = big_root_jac
-            else:
-                # Correct the smaller root if it violates the lower bound B
-                correction = small_root_val <= B_.val
-                if np.any(correction):
-                    small_root_val[correction] = B_.val[correction] + self.eps
-                    small_root_jac[correction] = B_.jac[correction] + self.eps
+            Z_L.val[region] = small_root_val
+            Z_L.jac[region] = small_root_jac
 
-                    # NOTE Below code minding the over-correction is only valid if
-                    # both roots of this computation are used, which is not the case
-                    # if each phase has an own EoS object.
+            Z_G.val[region] = big_root_val
+            Z_G.jac[region] = big_root_jac
 
-                    # nc_ = np.count_nonzero(correction)
-                    # c_val = np.zeros(nc_)
-                    # c_jac = sps.lil_matrix((nc_, shape[1]))
-                    # c_val[:] = B_.val[correction] + self.eps
-                    # c_jac[:] = B_.jac[correction] + self.eps
+        # Correct the smaller root if it violates the lower bound B
+        correction = Z_L.val <= B.val
+        if np.any(correction):
+            Z_L.val[correction] = B.val[correction] + self.eps
+            Z_L.jac[correction] = B.jac[correction]  # + self.eps
 
-                    # # This is to ensure the smaller root is really smaller
-                    # over_corrected = c_val >= big_root_val[correction]
-                    # if np.any(over_corrected):
-                    #     b = B_.val[correction][over_corrected]
-                    #     br = big_root_val[correction][over_corrected]
-                    #     c_val[over_corrected] = b + (br - b) / 2
+        # assert physical meaningfulness
+        assert np.all(
+            Z_L.val > B.val
+        ), "Liquid root violates lower physical bound given by covolume B."
+        # assert gas root is bigger than liquid root
+        assert np.all(
+            Z_G.val >= Z_L.val
+        ), "Liquid root violates upper physical bound given by gas root."
 
-                    #     b_jac = B_.jac[correction][over_corrected]
-                    #     br_jac = big_root_jac[correction][over_corrected]
-                    #     c_jac[over_corrected] = b_jac + (br_jac - b_jac) / 2
+        # convert Jacobians to csr
+        Z_L.jac = Z_L.jac.tocsr()
+        Z_G.jac = Z_G.jac.tocsr()
 
-                assert np.all(
-                    small_root_val > B_.val
-                ), "Liquid root in 2-root-region violates lower physical bound B."
-                Z_val[region] = small_root_val
-                Z_jac[region] = small_root_jac
-
-        return pp.ad.Ad_array(Z_val, Z_jac.tocsr())
+        if self.gaslike:
+            return Z_G
+        else:
+            return Z_L
 
     def get_rho(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Computes the molar density from scratch.
