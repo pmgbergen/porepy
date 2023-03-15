@@ -33,16 +33,17 @@ class Fracture(abc.ABC):
             points for line/plane fractures.
         tags: ``(shape=(num_tags)`, dtype=np.int8)``
             All the tags of the fracture. A tag value of ``-1`` equals to the tag not
-            existing at all.
-        index:
-        sort_points:
+            existing at all. Default is None.
+        index: Identify the fracture with an index. Two fractures with the same index
+            are assumed to be identical. Default is None.
+        sort_points: Sort the points internally. Concrete implementation depends on the
+            subclass. Default is True.
 
     """
 
     def __init__(
         self,
         points: ArrayLike,
-        # TODO: Should there be tests for different ``ArrayLike`` objects?
         tags: Optional[ArrayLike] = None,
         index: Optional[int] = None,
         sort_points: bool = True,
@@ -74,7 +75,7 @@ class Fracture(abc.ABC):
         else:
             self.tags = np.asarray(tags, dtype=np.int8)
         """Tags of the fracture.
-        
+
         In the standard form, the first tag identifies the type of the fracture,
         referring to the numbering system in GmshInterfaceTags. The second tag keeps
         track of the numbering of the fracture (referring to the original order of the
@@ -139,7 +140,7 @@ class Fracture(abc.ABC):
         """Generator over the vertices of the fracture.
 
         Yields:
-            Fracture vertex `(shape=(nd, ))`.
+            Fracture vertex `(shape=(nd, 1))`.
 
         """
         for i in range(self.pts.shape[1]):

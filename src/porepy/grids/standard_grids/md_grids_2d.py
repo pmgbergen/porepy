@@ -112,7 +112,6 @@ def single_vertical(
             raise ValueError("Mesh arguments should be a dictionary for simplex grids")
 
         points = np.array([[0.5, 0.5], y_endpoints])
-        #
         edges = np.array([[0], [1]])
         mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
 

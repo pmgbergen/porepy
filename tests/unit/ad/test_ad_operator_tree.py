@@ -32,8 +32,8 @@ operators = [
 
 @pytest.mark.parametrize("operator", operators)
 def test_elementary_operations(operator):
-    """Test that performing elementary arithmetic operations on operators return operator
-    trees with the expected structure.
+    """Test that performing elementary arithmetic operations on operators return
+    operator trees with the expected structure.
 
     The test does not consider evaluation of the numerical values of the operators.
     """
@@ -66,7 +66,7 @@ def test_copy_operator_tree():
     a = pp.ad.Scalar(a_val)
 
     b_arr = np.arange(3)
-    b = pp.ad.Array(b_arr)
+    b = pp.ad.DenseArray(b_arr)
 
     # The combined operator, and two copies
     c = a + b
@@ -124,10 +124,10 @@ def test_copy_operator_tree():
     assert not np.allclose(c.evaluate(eq_system), c_deepcopy.evaluate(eq_system))
 
 
-## Test of pp.ad.Matrix, pp.ad.Array, pp.ad.Scalar
+## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
 fields = [
-    (pp.ad.Matrix, sps.csr_matrix(np.random.rand(3, 2))),
-    (pp.ad.Array, np.random.rand(3)),
+    (pp.ad.SparseArray, sps.csr_matrix(np.random.rand(3, 2))),
+    (pp.ad.DenseArray, np.random.rand(3)),
     (pp.ad.Scalar, 42),
 ]
 
@@ -210,13 +210,13 @@ def test_time_dependent_array():
             pp.ITERATE: {"bar": np.ones(intf.num_cells)},
         }
 
-    # We make three arrays: One defined on a single subdomain, one on all subdomains of mdg
-    # and one on an interface.
-    sd_array_top = pp.ad.TimeDependentArray(
+    # We make three arrays: One defined on a single subdomain, one on all subdomains of
+    # mdg and one on an interface.
+    sd_array_top = pp.ad.TimeDependentDenseArray(
         "foo", subdomains=mdg.subdomains(dim=mdg.dim_max())
     )
-    sd_array = pp.ad.TimeDependentArray("foo", subdomains=mdg.subdomains())
-    intf_array = pp.ad.TimeDependentArray("bar", interfaces=mdg.interfaces())
+    sd_array = pp.ad.TimeDependentDenseArray("foo", subdomains=mdg.subdomains())
+    intf_array = pp.ad.TimeDependentDenseArray("bar", interfaces=mdg.interfaces())
 
     # Evaluate each of the Ad objects, verify that they have the expected values.
     sd_array_top_eval = sd_array_top.parse(mdg)
@@ -245,7 +245,7 @@ def test_time_dependent_array():
 
     # Create and evaluate a time-dependent array that is a function of neither
     # subdomains nor interfaces.
-    empty_array = pp.ad.TimeDependentArray("none", subdomains=[], interfaces=[])
+    empty_array = pp.ad.TimeDependentDenseArray("none", subdomains=[], interfaces=[])
     # In this case evaluation should return an empty array.
     empty_eval = empty_array.parse(mdg)
     assert empty_eval.size == 0
@@ -256,7 +256,7 @@ def test_time_dependent_array():
     with pytest.raises(ValueError):
         # If we try to define an array on both subdomain and interface, we should get an
         # error.
-        pp.ad.TimeDependentArray(
+        pp.ad.TimeDependentDenseArray(
             "foobar", subdomains=mdg.subdomains(), interfaces=mdg.interfaces()
         )
 
@@ -264,8 +264,8 @@ def test_time_dependent_array():
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationSystem.
     1) Fetching the same variable twice should get the same variable (same attribute id).
-    2) Fetching the same mixed-dimensional variable twice should result in objects with different
-       id attributes, but point to the same underlying variable.
+    2) Fetching the same mixed-dimensional variable twice should result in objects with
+       different id attributes, but point to the same underlying variable.
 
     No tests are made of the actual values of the variables, as this is tested in
     test_ad_variable_evaluation() (below).
@@ -590,26 +590,28 @@ def test_variable_combinations(grids, variables):
         assert expr.jac.shape[1] == eq_system.num_dofs()
 
     # Finally, check that the size of the Jacobian matrix is correct when combining
-    # variables (this will cover both variables and mixed-dimensional variable with the same name,
-    # and with different name).
+    # variables (this will cover both variables and mixed-dimensional variable with the
+    # same name, and with different name).
     for sd in grids:
         for var in ad_vars:
-            nc = var.size()
+            nc = var.size
             cols = np.arange(nc)
             data = np.ones(nc)
             for mv in merged_vars:
-                nr = mv.size()
+                nr = mv.size
 
                 # The variable must be projected to the full set of grid for addition
                 # to be meaningful. This requires a bit of work.
-                sv_size = np.array([sv.size() for sv in mv.sub_vars])
+                sv_size = np.array([sv.size for sv in mv.sub_vars])
                 mv_grids = [sv._g for sv in mv.sub_vars]
                 ind = mv_grids.index(var._g)
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
-                P = pp.ad.Matrix(sps.coo_matrix((data, (rows, cols)), shape=(nr, nc)))
+                P = pp.ad.SparseArray(
+                    sps.coo_matrix((data, (rows, cols)), shape=(nr, nc))
+                )
 
-                eq = eq = mv + P * var
+                eq = eq = mv + P @ var
                 expr = eq.evaluate(eq_system)
                 # Jacobian matrix size is set according to the dof manager,
                 assert expr.jac.shape[1] == eq_system.num_dofs()
@@ -671,7 +673,7 @@ def test_time_differentiation():
     assert np.allclose(diff_var_1.evaluate(eq_system).val, 2 * ts)
 
     # Differentiate the time dependent array residing on the subdomain
-    array = pp.ad.TimeDependentArray(name="bar", subdomains=[sd])
+    array = pp.ad.TimeDependentDenseArray(name="bar", subdomains=[sd])
     dt_array = pp.ad.dt(array, time_step)
     assert np.allclose(dt_array.evaluate(eq_system), -0.5)
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from porepy.models.abstract_model import AbstractModel
+from porepy.models.solution_strategy import SolutionStrategy
 
 
 class LinearSolver:
@@ -28,14 +28,13 @@ class LinearSolver:
         """
         if params is None:
             params = {}
-        # default_options.update(params)
-        self.params = params  # default_options
+        self.params = params
 
-    def solve(self, setup: AbstractModel) -> tuple[float, bool]:
+    def solve(self, setup: SolutionStrategy) -> tuple[float, bool]:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
-            setup (subclass of pp.AbstractModel): Model to be solved.
+            setup (subclass of pp.SolutionStrategy): Model to be solved.
 
         Returns:
             float: Norm of the error.
@@ -44,10 +43,7 @@ class LinearSolver:
         """
 
         setup.before_newton_loop()
-        if hasattr(setup, "equation_system"):
-            prev_sol = setup.equation_system.get_variable_values(from_iterate=False)
-        else:
-            prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
+        prev_sol = setup.equation_system.get_variable_values(from_iterate=False)
 
         # For linear problems, the tolerance is irrelevant
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters

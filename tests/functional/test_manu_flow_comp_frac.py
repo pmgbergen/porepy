@@ -50,7 +50,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.verification_setups.manu_flow_comp_frac import (
+from tests.functional.setups.manu_flow_comp_frac import (
     ManuCompFlowSetup,
     ManuCompSaveData,
     manu_comp_fluid,
