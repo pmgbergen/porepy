@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import logging
-from itertools import zip_longest
 
 import numpy as np
 
@@ -73,12 +72,18 @@ def uniquify_points(pts, edges, tol):
 def linefractures_to_pts_edges(
     fractures: list[pp.LineFracture], tol: float = 1e-8
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Convert a list of fractures into arrays of the corresponding points and edges.
+    """Convert a list of line fractures into arrays of the corresponding points and
+    edges.
+
+    The function loops over the points of the individual fractures and checks if the
+    point is the start/end point (up to the given tolerance) of a previously checked
+    fracture. If yes, the edge index links to the existing point. If no, the point is
+    added to the points array.
 
     Parameters:
-        fractures: List of fractures.
+        fractures: List of line fractures.
         tol: Absolute tolerance to decide if start-/endpoints of two different fractures
-            are equal. Defaults to 1e-8.
+            are equal. The comparison is done element-wise. Defaults to 1e-8.
 
     Returns:
         pts: ``(shape=(2, num_points))``
@@ -94,16 +99,19 @@ def linefractures_to_pts_edges(
             edges) in geometry processing like intersection removal. Additional tags can
             be assigned by the user.
 
+        When an empty list of fractures is passed, both the ``pts`` and the ``edges``
+        array have shape ``(2, 0)``.
+
     """
     pts_list: list[np.ndarray] = []
     edges_list: list[np.ndarray] = []
+
+    # Iterate through the fractures and list all start-/endpoints and the corresponding
+    # edge indices.
     for frac in fractures:
-        # Peter: I did not find a practical way to do this with numpy arrays only
-        # (without the code getting messy).
         pt_indices: list[int] = []
         for point in frac.points():
             # Check if the point is already start-/endpoint of another fracture.
-            # TODO: Change the comparison to functions in numpy (e.g. ``np.any``).
             compare_points = [
                 np.allclose(point.squeeze(), x, atol=tol) for x in pts_list
             ]
@@ -112,14 +120,19 @@ def linefractures_to_pts_edges(
                 pt_indices.append(len(pts_list) - 1)
             else:
                 pt_indices.append(compare_points.index(True))
-        # TODO: Perhaps remove this assertion, it's impact on computation time should be
-        # negligible though.
+        # Sanity check that two points indices were added.
         assert len(pt_indices) == 2
         # Combine with tags of the fracture and store the full edge in a list.
         edges_list.append(np.concatenate([np.array(pt_indices), frac.tags]))
-    pts = np.stack(pts_list, axis=-1)
-    # Determine the maximum number of tags. -> This determines the shape of the
-    # ``edges`` array.
+
+    # Transform the lists to two ``np.ndarrays`` (``pts`` and ``edges``).
+    if pts_list:
+        # ``np.stack`` requires a nonempty list.
+        pts = np.stack(pts_list, axis=-1)
+    else:
+        pts = np.zeros([2, 0])
+    # Before creating the ``edges`` array, determine the maximum number of tags.
+    # -> This determines the shape of the ``edges`` array.
     max_edge_dim = max((np.shape(edge)[0] for edge in edges_list), default=2)
     # Initialize the ``edges`` array with ``-1``. This value indicates that each edge
     # has no tags. Fill in the first two rows with the fracture start-/endpoints and the
@@ -130,16 +143,17 @@ def linefractures_to_pts_edges(
     edges = np.full((max_edge_dim, len(fractures)), -1, dtype=np.int8)
     for row_index, edge in enumerate(edges_list):
         edges[: edge.shape[0], row_index] = edge
+
     return pts, edges
 
 
 def pts_edges_to_linefractures(
     pts: np.ndarray, edges: np.ndarray
 ) -> list[pp.LineFracture]:
-    """Convert points and edges into a list of fractures.
+    """Convert points and edges into a list of line fractures.
 
     Parameters:
-        pts: ``(shape=(2, np))``
+        pts: ``(shape=(2, num_points))``
             Coordinates of the start- and endpoints of the
             fractures.
         edges: ``(2 + num_tags, shape=(len(fractures)), dtype=int)``
@@ -154,7 +168,7 @@ def pts_edges_to_linefractures(
             be assigned by the user.
 
     Returns:
-        List of fractures.
+        List of line fractures.
     """
     fractures: list[pp.LineFracture] = []
     for start_index, end_index, *tags in edges.T:
