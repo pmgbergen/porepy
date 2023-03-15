@@ -46,9 +46,9 @@ MODE: int = 2
 # flash type: pT or ph
 FLASH_TYPE: str = "pT"
 # p-x data from an thermo results file
-PX_DATA_FILE = f"data\\thermodata_pT2k_co2_1e-1.csv"
+PX_DATA_FILE = f"data\\thermodata_pT2k_co2_1e-2.csv"
 # file to which to write the results
-RESULT_FILE = f"data\\results\\results_pT2k_co2_1e-1_par_bothsc.csv"
+RESULT_FILE = f"data\\results\\results_pT2k_co2_1e-2_par.csv"
 # Number of physical CPU cores.
 # This is used for the number of sub-processes and chunksize in the parallelization
 NUM_PHYS_CPU_CORS = psutil.cpu_count(logical=False)

@@ -22,11 +22,11 @@ from thermo_comparison import (
 
 if __name__ == "__main__":
 
-    result_file_pT = f"data/thermodata_pT2k_co2_1e-1.csv"
-    result_file_ph = f"data/thermodata_ph2k_co2_1e-1.csv"
+    result_file_pT = f"data/thermodata_pT2k_co2_1e-2.csv"
+    result_file_ph = f"data/thermodata_ph2k_co2_1e-2.csv"
 
-    pT_identifier_file = f"data/thermodata_pT2k_co2_1e-1_id.csv"
-    ph_identifier_file = f"data/thermodata_ph2k_co2_1e-1_id.csv"
+    pT_identifier_file = f"data/thermodata_pT2k_co2_1e-2_id.csv"
+    ph_identifier_file = f"data/thermodata_ph2k_co2_1e-2_id.csv"
 
     print("Computing thermo data: calculating", flush=True)
     start_time = time.time()
