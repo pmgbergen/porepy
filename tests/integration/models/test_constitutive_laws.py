@@ -193,12 +193,12 @@ def test_parse_constitutive_laws(
             setup_utils.Thermoporomechanics,
             "matrix_porosity",
             # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk * p
-            # - (1 - phi_0) * thermal expansion * T
+            # - (alpha - phi_0) * thermal expansion * T
             #  Only pressure and temperature, not div(u), is included in this test.
             (
                 7e-3
                 + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2
-                - (1 - 7e-3) * 1e-5 * 3
+                - (0.8 - 7e-3) * 1e-5 * 3
             ),
         ),
         (
