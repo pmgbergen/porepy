@@ -570,7 +570,7 @@ class ConstitutiveLawsEnergyBalance(
     pp.constitutive_laws.ThermalConductivityLTE,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
-    pp.constitutive_laws.FluidDensityFromTemperature,
+    pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     pp.constitutive_laws.ConstantSolidDensity,
 ):
     """Collect constitutive laws for the energy balance."""
@@ -824,4 +824,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         # TODO: Targeted rediscretization.
+        self.set_discretization_parameters()
+
         self.discretize()

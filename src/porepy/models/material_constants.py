@@ -262,8 +262,7 @@ class SolidConstants(MaterialConstants):
     Parameters:
         constants (dict): Dictionary of constants. Only keys corresponding to a constant
             in the class will be used. If not specified, default values are used, mostly
-            0 or 1.
-
+            0 or 1. See the soucre code for permissible keys and default values.
     """
 
     def __init__(self, constants: Optional[dict] = None):

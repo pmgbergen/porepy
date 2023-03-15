@@ -1129,13 +1129,12 @@ class PeacemanWellFlux:
             # Set 0.2 as the unused value for equivalent radius. This is a bit arbitrary,
             # but 0 is a bad choice, as it will lead to division by zero.
             return Scalar(0.2, name="equivalent_well_radius")
-            # pp.ad.DenseArray(np.zeros(0), name="equivalent_well_radius")
 
         h_list = []
         for sd in subdomains:
             if sd.dim == 0:
-                # Avoid division by zero for points.
-                # The value is not used in calling method well_flux_equation.
+                # Avoid division by zero for points. The value is not used in calling
+                # method well_flux_equation, as all wells are 1d.
                 h_list.append(np.array([1]))
             else:
                 h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
@@ -2927,6 +2926,11 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+
+    """
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity [-].
@@ -2965,8 +2969,9 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         dtemperature = self.perturbation_from_reference("temperature", subdomains)
         phi_ref = self.reference_porosity(subdomains)
         beta = self.solid_thermal_expansion(subdomains)
+        alpha = self.biot_coefficient(subdomains)
         # TODO: Figure out why * is needed here, but not in
         # porosity_change_from_pressure.
-        phi = Scalar(-1) * (Scalar(1) - phi_ref) * beta * dtemperature
+        phi = Scalar(-1) * (alpha - phi_ref) * beta * dtemperature
         phi.set_name("Porosity change from temperature")
         return phi

@@ -91,7 +91,7 @@ class ModelGeometry:
 
         The method assigns the following attributes to self:
             mdg: The produced mixed-dimensional grid.
-            box: The bounding box of the domain, defined through minimum and maximum
+            domain: The bounding box of the domain, defined through minimum and maximum
                 values in each dimension.
 
         """
