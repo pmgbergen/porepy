@@ -883,10 +883,11 @@ class MixedDimensionalGrid:
                 for intf in self.interfaces(dim=dim - 2, codim=2):
                     num_intf_codim_2 += 1
                     num_intf_cells_codim_2 += intf.num_cells
-
-                s += (
-                    f"{num_intf_codim_2} interfaces between grids of dimension {dim} and"
-                    f" {dim-2} with in total {num_intf_cells_codim_2} mortar cells.\n"
-                )
+                if num_intf_codim_2 > 0:
+                    s += (
+                        f"{num_intf_codim_2} interfaces between grids of dimension"
+                        f" {dim} and {dim-2} with in total {num_intf_cells_codim_2}"
+                        f" mortar cells.\n"
+                    )
 
         return s

@@ -36,6 +36,11 @@ class DimensionReduction:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    is_well: Callable[[pp.Grid | pp.MortarGrid], bool]
+    """Check if a grid is a well. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
         """Get the aperture of a single grid.
@@ -49,7 +54,7 @@ class DimensionReduction:
         """
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
-            if getattr(grid, "well_num", -1) >= 0:
+            if self.is_well(grid):
                 # This is a well. The aperture is the well radius.
                 aperture *= self.solid.well_radius()
             else:
@@ -209,6 +214,11 @@ class DisplacementJumpAperture(DimensionReduction):
     defining the solution strategy.
 
     """
+    is_well: Callable[[pp.Grid | pp.MortarGrid], bool]
+    """Check if a grid is a well. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
         """Residual aperture [m].
@@ -279,6 +289,25 @@ class DisplacementJumpAperture(DimensionReduction):
                     + projection.cell_prolongation(subdomains_of_dim) @ apertures_of_dim
                 )
             else:
+                if dim == self.nd - 2:
+                    well_subdomains = [
+                        sd for sd in subdomains_of_dim if self.is_well(sd)
+                    ]
+                    if len(well_subdomains) > 0:
+                        # Wells. Aperture is given by well radius.
+                        radii = [self.grid_aperture(sd) for sd in well_subdomains]
+                        well_apertures = pp.wrap_as_ad_array(
+                            np.hstack(radii), name="well apertures"
+                        )
+                        apertures = (
+                            apertures
+                            + projection.cell_prolongation(well_subdomains)
+                            @ well_apertures
+                        )
+                        subdomains_of_dim = [
+                            sd for sd in subdomains_of_dim if sd not in well_subdomains
+                        ]
+
                 # Intersection aperture is average of apertures of intersecting
                 # fractures.
                 interfaces_dim = self.subdomains_to_interfaces(subdomains_of_dim, [1])
