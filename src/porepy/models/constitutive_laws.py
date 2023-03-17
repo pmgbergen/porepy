@@ -1777,7 +1777,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid enthalpy [J / kg].
+        """Fluid enthalpy [J*kg^-1*m^-nd].
 
         The enthalpy is computed as a perturbation from a reference temperature as
         .. math::
@@ -1796,7 +1796,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         return enthalpy
 
     def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Solid enthalpy [J/kg].
+        """Solid enthalpy [J*kg^-1*m^-nd].
 
         The enthalpy is computed as a perturbation from a reference temperature as
         .. math::
@@ -2286,7 +2286,6 @@ class ThermoPressureStress(PressureStress):
 
 
 class ConstantSolidDensity:
-
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -2577,7 +2576,6 @@ class SpecificStorage:
 
 
 class ConstantPorosity:
-
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
