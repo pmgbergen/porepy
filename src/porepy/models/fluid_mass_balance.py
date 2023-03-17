@@ -31,9 +31,8 @@ class MassBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional mass balance equation.
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
-    of codimension one.
-
-    FIXME: Well equations? Low priority.
+    of codimension one and Peaceman flux relation on interfaces of codimension two
+    (well-fracture intersections).
 
     """
 
@@ -121,19 +120,38 @@ class MassBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    well_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Well flux equation. Provided e.g. by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.PiecmannWellFlux`.
+
+    """
+    well_advective_flux: Callable[
+        [list[pp.MortarGrid], pp.ad.Operator, pp.ad.UpwindCouplingAd], pp.ad.Operator
+    ]
+    """Ad operator representing the advective flux on well interfaces. Normally
+    provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
+
+    """
 
     def set_equations(self):
         """Set the equations for the mass balance problem.
 
         A mass balance equation is set for all subdomains and a Darcy-type flux relation
         is set for all interfaces of codimension one.
+
         """
         subdomains = self.mdg.subdomains()
-        interfaces = self.mdg.interfaces()
+        codim_1_interfaces = self.mdg.interfaces(codim=1)
+        # TODO: If wells are integrated for nd=2 models, consider refactoring sorting of
+        # interfaces into method returning either "normal" or well interfaces.
+        codim_2_interfaces = self.mdg.interfaces(codim=2)
         sd_eq = self.mass_balance_equation(subdomains)
-        intf_eq = self.interface_darcy_flux_equation(interfaces)
+        intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
+        well_eq = self.well_flux_equation(codim_2_interfaces)
         self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_eq, interfaces, {"cells": 1})
+        self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
+        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mass balance equation for subdomains.
@@ -233,11 +251,32 @@ class MassBalanceEquations(pp.BalanceEquation):
         flux.set_name("interface_fluid_flux")
         return flux
 
+    def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Interface fluid flux.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the interface fluid flux.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        discr = self.interface_mobility_discretization(interfaces)
+        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        # Call to constitutive law for advective fluxes.
+        flux: pp.ad.Operator = self.well_advective_flux(interfaces, mob_rho, discr)
+        flux.set_name("well_fluid_flux")
+        return flux
+
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid source term.
 
-        Includes both external sources *and* inflow from neighboring subdomains of
-        higher dimension (via interfaces).
+        Includes
+
+            - external sources
+            - interface flow from neighboring subdomains of higher dimension.
+            - well flow from neighboring subdomains of lower and higher dimension.
 
         .. note::
             When overriding this method to assign internal fluid sources, one is advised
@@ -254,17 +293,30 @@ class MassBalanceEquations(pp.BalanceEquation):
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        well_subdomains = self.interfaces_to_subdomains(well_interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        # Matrix-vector product, use @
+        well_projection = pp.ad.MortarProjections(
+            self.mdg, well_subdomains, well_interfaces
+        )
+        subdomain_projection = pp.ad.SubdomainProjections(subdomains)
         source = projection.mortar_to_secondary_int @ self.interface_fluid_flux(
             interfaces
         )
         source.set_name("interface_fluid_flux_source")
+        well_fluxes = well_projection.mortar_to_secondary_int @ self.well_fluid_flux(
+            well_interfaces
+        ) - well_projection.mortar_to_primary_int @ self.well_fluid_flux(
+            well_interfaces
+        )
+        well_fluxes.set_name("well_fluid_flux_source")
+        source += subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
         return source
 
 
 class ConstitutiveLawsSinglePhaseFlow(
     pp.constitutive_laws.DarcysLaw,
+    pp.constitutive_laws.PeacemanWellFlux,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.ConstantPorosity,
@@ -442,6 +494,12 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
+    well_flux_variable: str
+    """Name of the primary variable representing the flux across a well interface.
+    Normally defined in a mixin of instance
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -454,7 +512,11 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         )
         self.equation_system.create_variables(
             self.interface_darcy_flux_variable,
-            interfaces=self.mdg.interfaces(),
+            interfaces=self.mdg.interfaces(codim=1),
+        )
+        self.equation_system.create_variables(
+            self.well_flux_variable,
+            interfaces=self.mdg.interfaces(codim=2),
         )
 
     def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
@@ -476,6 +538,21 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         flux = self.equation_system.md_variable(
             self.interface_darcy_flux_variable, interfaces
         )
+        return flux
+
+    def well_flux(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.MixedDimensionalVariable:
+        """Well flux.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Variable representing the well flux.
+
+        """
+        flux = self.equation_system.md_variable(self.well_flux_variable, interfaces)
         return flux
 
     def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -548,14 +625,20 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
+
         # Variables
         self.pressure_variable: str = "pressure"
         """Name of the pressure variable."""
 
         self.interface_darcy_flux_variable: str = "interface_darcy_flux"
-        """Name of the primary variable representing the Darcy flux on the interface."""
+        """Name of the primary variable representing the Darcy flux on interfaces of
+        codimension one."""
 
-        # Discrretization
+        self.well_flux_variable: str = "well_flux"
+        """Name of the primary variable representing the well flux on interfaces of
+        codimension two."""
+
+        # Discretization
         self.darcy_keyword: str = "flow"
         """Keyword for Darcy flux term.
 
@@ -623,7 +706,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             )
 
         # Assign diffusivity in the normal direction of the fractures.
-        for intf, intf_data in self.mdg.interfaces(return_data=True):
+        for intf, intf_data in self.mdg.interfaces(return_data=True, codim=1):
             pp.initialize_data(
                 intf,
                 intf_data,
@@ -670,9 +753,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
-        for intf, data in self.mdg.interfaces(return_data=True):
+        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
+            vals = self.well_flux([intf]).evaluate(self.equation_system).val
+            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+
         # FIXME: Targeted rediscretization of upwind.
         self.discretize()
 

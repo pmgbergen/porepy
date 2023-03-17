@@ -197,12 +197,12 @@ class Grid:
         """
 
         # Add tag for the boundary faces
-        self.tags: dict[str, np.ndarray]
+        self.tags: dict[str, Any]
         """Tags allow to mark subdomains of interest.
 
-        The default tags are used to mark fractures, tips and domain boundaries.
-        Tags are used for nodes, as well as faces.
-        User tags can be provided in the constructor.
+        The default tags are used to mark faces or nodes as fracture, tips and domain
+        boundaries.
+        User tags can be provided in the constructor or added later.
 
         """
         if external_tags is None:

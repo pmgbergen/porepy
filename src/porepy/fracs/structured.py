@@ -364,7 +364,7 @@ def _create_lower_dim_grids_2d(g_2d, fracs, nx):
 
     # 1D grids:
     shared_nodes = np.zeros(g_2d.num_nodes)
-    for f in fracs:
+    for fi, f in enumerate(fracs):
         is_x_frac = f[1, 0] == f[1, 1]
         is_y_frac = f[0, 0] == f[0, 1]
         assert is_x_frac != is_y_frac, "Fracture must align to x- or y-axis"
@@ -374,6 +374,7 @@ def _create_lower_dim_grids_2d(g_2d, fracs, nx):
         # nodes = np.unique(nodes)
         loc_coord = g_2d.nodes[:, nodes]
         g = msh_2_grid.create_embedded_line_grid(loc_coord, nodes)
+        g.frac_num = fi
         g_1d.append(g)
         shared_nodes[nodes] += 1
 
