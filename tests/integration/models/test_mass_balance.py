@@ -158,7 +158,7 @@ def test_unit_conversion(units):
     """
     params = {
         "suppress_export": True,  # Suppress output for tests
-        "num_fracs": 2,
+        "fracture_indices": [0, 1],
         "cartesian": True,
     }
     reference_params = copy.deepcopy(params)

@@ -162,7 +162,7 @@ class Exporter:
         # Generate infrastructure for storing fixed-dimensional mortar grids
         # in meshio format.
 
-        self._m_dims = np.unique([intf.dim for intf in self._mdg.interfaces()])
+        self._m_dims = np.unique([intf.dim for intf in self._mdg.interfaces(codim=1)])
         """Array of dimensions of the mortar grids."""
 
         self.m_meshio_geom: MD_Meshio_Geom = dict()
@@ -384,7 +384,7 @@ class Exporter:
                             offset += sd.num_cells
                     else:
                         for intf, intf_data in self._mdg.interfaces(
-                            dim=dim, return_data=True
+                            dim=dim, return_data=True, codim=1
                         ):
                             if pp.STATE not in intf_data:
                                 intf_data[pp.STATE] = {}
@@ -817,7 +817,7 @@ class Exporter:
                         has_key = True
 
                 # Check data associated to interface field data
-                for intf, intf_data in self._mdg.interfaces(return_data=True):
+                for intf, intf_data in self._mdg.interfaces(return_data=True, codim=1):
                     if _add_data(key, intf, intf_data, interface_data):
                         has_key = True
 
@@ -1216,7 +1216,7 @@ class Exporter:
             self._constant_interface_data = dict()
 
         # Add mesh related, constant interface data by direct assignment.
-        for intf, intf_data in self._mdg.interfaces(return_data=True):
+        for intf, intf_data in self._mdg.interfaces(return_data=True, codim=1):
 
             # Construct empty arrays for all extra interface data
             self._constant_interface_data[(intf, "grid_dim")] = np.empty(0, dtype=int)
@@ -1336,7 +1336,7 @@ class Exporter:
             if is_subdomain_data:
                 entities: list[Any] = self._mdg.subdomains(dim=dim)
             else:
-                entities = self._mdg.interfaces(dim=dim)
+                entities = self._mdg.interfaces(dim=dim, codim=1)
 
             # Construct the list of fields represented on this dimension.
             fields: list[Field] = []
@@ -1463,7 +1463,7 @@ class Exporter:
             # Extract the mortar grids for dimension dim, unrolled by sides
             interface_side_grids = [
                 grid
-                for intf in self._mdg.interfaces(dim=dim)
+                for intf in self._mdg.interfaces(dim=dim, codim=1)
                 for _, grid in intf.side_grids.items()
             ]
             # Export and store
