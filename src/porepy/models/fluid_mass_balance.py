@@ -665,14 +665,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 self.mobility_keyword,
                 {"darcy_flux": np.zeros(sd.num_faces)},
             )
-        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            pp.initialize_data(
-                intf,
-                data,
-                self.mobility_keyword,
-                {"darcy_flux": np.zeros(intf.num_cells)},
-            )
-        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
+        for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
                 intf,
                 data,
