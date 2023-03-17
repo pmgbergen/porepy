@@ -304,6 +304,7 @@ class DisplacementJumpAperture(DimensionReduction):
                             + projection.cell_prolongation(well_subdomains)
                             @ well_apertures
                         )
+                        # Well subdomains need not be considered further.
                         subdomains_of_dim = [
                             sd for sd in subdomains_of_dim if sd not in well_subdomains
                         ]
