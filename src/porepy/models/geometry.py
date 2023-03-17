@@ -59,6 +59,23 @@ class ModelGeometry:
         """Assign well network class."""
         self.well_network = pp.WellNetwork3d()
 
+    def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+        """Check if a subdomain is a well.
+
+        Parameters:
+            sd: Subdomain to check.
+
+        Returns:
+            True if the subdomain is a well, False otherwise.
+
+        """
+        if isinstance(grid, pp.Grid):
+            return getattr(grid, "well_num", -1) >= 0
+        elif isinstance(grid, pp.MortarGrid):
+            return False
+        else:
+            raise ValueError("Unknown grid type.")
+
     def mesh_arguments(self) -> dict:
         """Mesh arguments for md-grid creation.
 
