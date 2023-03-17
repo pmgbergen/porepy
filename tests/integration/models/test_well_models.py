@@ -144,7 +144,9 @@ class BoundaryConditionsWellSetup(
             bc: Boundary condition object.
 
         """
-        val = self.fluid.convert_units(-1, "kg * m ^ 3 * s ^ -1")
+        val = self.fluid.convert_units(
+            self.params.get("well_flux", -1), "kg * m ^ 3 * s ^ -1"
+        )
         return self._bc_values(subdomains, val, "bc_values_darcy")
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -194,7 +196,7 @@ class BoundaryConditionsWellSetup(
 
         """
         val = self.fluid.convert_units(
-            1e7, "kg * m ^ 3 * s ^ -1"
+            self.params.get("well_enthalpy", 1e7), "kg * m ^ 3 * s ^ -1"
         )  # * self.fluid.density() * self.fluid.specific_heat_capacity()
         return self._bc_values(subdomains, val, "bc_values_enthalpy")
 
@@ -408,3 +410,63 @@ def test_energy_conservation():
     # Well fluid flux should equal the injected fluid. Minus for convention of interface
     # fluxes from higher to lower domain.
     assert np.isclose(well_fluid_flux, -1, rtol=1e-10)
+
+
+class Poromechanics(
+    OneVerticalWell,
+    setup_utils.OrthogonalFractures3d,
+    BoundaryConditionsWellSetup,
+    pp.poromechanics.Poromechanics,
+):
+    def mesh_arguments(self) -> dict:
+        # Length scale:
+        ls = 1 / self.units.m
+        h = 0.5 * ls
+        mesh_sizes = {
+            "mesh_size_frac": h,
+            "mesh_size_bound": h,
+            "mesh_size_min": 0.2 * h,
+        }
+        return mesh_sizes
+
+
+def test_poromechanics():
+    """Test that the poromechanics model runs without errors."""
+    # These parameters hopefully yield a relatively easy problem
+    params = {
+        "fracture_indices": [2],
+        "well_flux": -1e-2,
+    }
+    setup = Poromechanics(params)
+    pp.run_time_dependent_model(setup, {})
+
+
+class Thermoporomechanics(
+    OneVerticalWell,
+    setup_utils.OrthogonalFractures3d,
+    BoundaryConditionsWellSetup,
+    pp.thermoporomechanics.Thermoporomechanics,
+):
+    def mesh_arguments(self) -> dict:
+        # Length scale:
+        ls = 1 / self.units.m
+        h = 0.5 * ls
+        mesh_sizes = {
+            "mesh_size_frac": h,
+            "mesh_size_bound": h,
+            "mesh_size_min": 0.2 * h,
+        }
+        return mesh_sizes
+
+
+def test_thermoporomechanics():
+    """Test that the thermoporomechanics model runs without errors."""
+    # These parameters hopefully yield a relatively easy problem
+    params = {
+        "fracture_indices": [2],
+        "well_flux": -1e-2,
+        "well_enthalpy": 1e0,
+    }
+
+    setup = Thermoporomechanics(params)
+    pp.run_time_dependent_model(setup, {})
