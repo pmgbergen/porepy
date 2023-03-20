@@ -280,7 +280,7 @@ def test_unit_conversion(units):
 
     params = {
         "suppress_export": True,  # Suppress output for tests
-        "num_fracs": 1,
+        "fracture_indices": [0],
         "cartesian": True,
         "uy_north": -0.1,
     }

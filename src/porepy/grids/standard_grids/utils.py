@@ -57,7 +57,8 @@ def make_mdg_2d_simplex(
 
     """
     set_mesh_sizes(mesh_args)
-    network = pp.FractureNetwork2d(points, fractures, domain)
+    fracs = pp.frac_utils.pts_edges_to_linefractures(points, fractures)
+    network = pp.FractureNetwork2d(fracs, domain)
     mdg = network.mesh(mesh_args)
     mdg.compute_geometry()
     return mdg

@@ -5,6 +5,7 @@ import gmsh
 import numpy as np
 
 import porepy as pp
+from porepy.fracs.utils import pts_edges_to_linefractures
 
 
 def network_3d_from_csv(
@@ -309,7 +310,8 @@ def network_2d_from_csv(
     if not np.all(np.diff(edges[:2], axis=0) != 0):
         raise ValueError
 
-    network = pp.FractureNetwork2d(pts, edges, domain, tol=tol)
+    fractures = pts_edges_to_linefractures(pts, edges)
+    network = pp.FractureNetwork2d(fractures, domain, tol=tol)
 
     if return_frac_id:
         edges_frac_id = np.delete(edges_frac_id, to_remove)
@@ -376,19 +378,19 @@ def dfm_3d_from_fab(
     return_domain: bool = False,
     **mesh_kwargs,
 ):
-    """
-    Create the grid bucket from a set of 3d fractures stored in a fab file and
-    domain.
+    """Create a mixed-dimensional grid from a set of 3d fractures stored in a fab file
+    and domain.
 
     Parameters:
-        file_name: name of the file
-        tol: (optional) tolerance for the methods
-        domain: (optional) the domain, otherwise a bounding box is considered
+        file_name: name of the file.
+        tol: (optional) tolerance for the methods.
+        domain: (optional) the domain, otherwise a bounding box is considered.
         return_domain: whether to return the domain.
-        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
+        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid.
 
     Return:
-        mdg: the mixed-dimensional grid
+        mdg: the mixed-dimensional grid.
+
     """
 
     network = network_3d_from_fab(file_name, return_all=False, tol=tol)

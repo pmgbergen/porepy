@@ -62,6 +62,7 @@ from porepy.utils.interpolation_tables import (
 from porepy.utils import array_operations
 from porepy.numerics.linalg import matrix_operations
 
+# Geometry
 from porepy.geometry import (
     intersections,
     distances,
@@ -111,6 +112,7 @@ from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
 from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network import create_fracture_network
 
 # Wells
 from porepy.fracs.wells_3d import (

@@ -35,6 +35,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.FluidMobility,
+    pp.constitutive_laws.PeacemanWellFlux,
     pp.constitutive_laws.ConstantPermeability,
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
@@ -104,7 +105,7 @@ class BoundaryConditionsMechanicsTimeDependent(
 
     def bc_values_mechanics(
         self, subdomains: list[pp.Grid]
-    ) -> pp.ad.TimeDependentArray:
+    ) -> pp.ad.TimeDependentDenseArray:
         """Boundary values for mechanics.
 
         Parameters:
@@ -118,7 +119,7 @@ class BoundaryConditionsMechanicsTimeDependent(
             raise ValueError("Subdomains must be of dimension nd.")
         # Use time dependent array to allow for time dependent boundary conditions in
         # the div(u) term.
-        return pp.ad.TimeDependentArray(self.bc_values_mechanics_key, subdomains)
+        return pp.ad.TimeDependentDenseArray(self.bc_values_mechanics_key, subdomains)
 
     def time_dependent_bc_values_mechanics(
         self, subdomains: list[pp.Grid]
