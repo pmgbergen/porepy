@@ -56,6 +56,8 @@ class DataSavingMixin:
 
         """
         var_names = [var.name for var in self.equation_system.variables]
+        # Filter out variables for interfaces of codimension 2
+        var_names = [var for var in var_names if not var.startswith("well_")]
         return var_names
 
     def initialize_data_saving(self) -> None:

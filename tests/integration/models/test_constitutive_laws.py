@@ -193,12 +193,12 @@ def test_parse_constitutive_laws(
             setup_utils.Thermoporomechanics,
             "matrix_porosity",
             # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk * p
-            # - (1 - phi_0) * thermal expansion * T
+            # - (alpha - phi_0) * thermal expansion * T
             #  Only pressure and temperature, not div(u), is included in this test.
             (
                 7e-3
                 + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2
-                - (1 - 7e-3) * 1e-5 * 3
+                - (0.8 - 7e-3) * 1e-5 * 3
             ),
         ),
         (
@@ -228,7 +228,10 @@ def test_evaluated_values(model, method_name, expected):
     # Assign non-trivial values to the parameters to avoid masking errors.
     solid = pp.SolidConstants(setup_utils.granite_values)
     fluid = pp.FluidConstants(setup_utils.water_values)
-    params = {"material_constants": {"solid": solid, "fluid": fluid}, "num_fracs": 0}
+    params = {
+        "material_constants": {"solid": solid, "fluid": fluid},
+        "fracture_indices": [],
+    }
 
     setup = model(params)
     setup.prepare_simulation()
@@ -287,7 +290,7 @@ def test_permeability_values(constitutive_mixin, domain_dimension, expected):
     """Test that the value of the parsed operator is as expected."""
 
     solid = pp.SolidConstants({"residual_aperture": 0.01, "permeability": 42})
-    params = {"material_constants": {"solid": solid}, "num_fracs": 2}
+    params = {"material_constants": {"solid": solid}, "fracture_indices": [0, 1]}
 
     class LocalThermoporomechanics(constitutive_mixin, setup_utils.Thermoporomechanics):
         pass
@@ -332,7 +335,7 @@ def test_dimension_reduction_values(
     solid = pp.SolidConstants({"residual_aperture": 0.02})
     params = {"material_constants": {"solid": solid}, "num_fracs": 3}
     if geometry is setup_utils.RectangularDomainThreeFractures:
-        params["num_fracs"] = 2
+        params["fracture_indices"] = [0, 1]
 
     class Model(
         geometry, pp.constitutive_laws.DimensionReduction, setup_utils.NoPhysics
