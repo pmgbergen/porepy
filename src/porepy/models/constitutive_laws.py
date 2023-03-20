@@ -2524,6 +2524,23 @@ class BartonBandis:
     """Implementation of the Barton-Bandis model for elastic fracture normal
     deformation.
 
+    """
+
+    normal_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
+    """Operator giving the normal component of vectors. Normally defined in a mixin
+    instance of :class:`~porepy.models.models.ModelGeometry`.
+
+    """
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -2558,7 +2575,7 @@ class BartonBandis:
         # The effective contact traction. Units: Force / area = Pa / m^(nd-1).
         # The papers by Barton and Bandis assumes positive traction in contact, thus we
         # need to switch the sign.
-        contact_traction = -self.contact_traction(subdomains)
+        contact_traction = Scalar(-1) * self.contact_traction(subdomains)
 
         # Normal component of the traction.
         normal_traction = nd_vec_to_normal @ contact_traction
@@ -2608,7 +2625,7 @@ class BartonBandis:
 
         """
 
-        normal_stiffness = self.solid.normal_fracture_stiffness()
+        normal_stiffness = self.solid.fracture_normal_stiffness()
         return Scalar(normal_stiffness, "fracture_normal_stiffness")
 
 
