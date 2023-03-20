@@ -473,7 +473,7 @@ class SolidConstants(MaterialConstants):
             self.constants["fracture_normal_stiffness"], "Pa*m^-1"
         )
 
-    def fracture_maximal_closure(self) -> number:
+    def maximal_fracture_closure(self) -> number:
         """The maximal closure of a fracture [m].
 
         Intended use is in Barton-Bandis-type models for elastic fracture deformation.
