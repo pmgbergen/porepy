@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import itertools
-from typing import Literal, Optional, Sequence, Type
+from typing import Literal, Optional, Sequence, TypeVar, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-csc_or_csr_matrix = Type[sps.csc_matrix | sps.csr_matrix]
+csc_or_csr_matrix = TypeVar("csc_or_csr_matrix", sps.csc_matrix, sps.csr_matrix)
 
 
 __all__ = ["DofManager"]
 
-GridLike = pp.Grid | pp.MortarGrid
+GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 class DofManager:
