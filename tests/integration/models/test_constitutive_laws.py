@@ -30,7 +30,6 @@ from . import setup_utils
         ("mass_balance", "mobility", None),
         ("mass_balance", "fluid_density", None),
         ("mass_balance", "aperture", None),
-        ("mass_balance", "specific_volume", None),
         ("mass_balance", "darcy_flux", None),
         ("mass_balance", "interface_fluid_flux", None),
         ("mass_balance", "fluid_flux", None),
@@ -63,7 +62,6 @@ from . import setup_utils
         ("energy_balance", "reference_temperature", None),
         ("energy_balance", "normal_thermal_conductivity", None),
         ("energy_balance", "aperture", None),
-        ("energy_balance", "specific_volume", None),
         # Poromechanics
         ("poromechanics", "reference_porosity", None),
         ("poromechanics", "biot_coefficient", 0),
@@ -71,7 +69,6 @@ from . import setup_utils
         ("poromechanics", "porosity", None),
         ("poromechanics", "pressure_stress", 0),
         ("poromechanics", "stress", 0),
-        ("poromechanics", "specific_volume", None),
         ("poromechanics", "aperture", None),
         ("poromechanics", "fracture_pressure_stress", 1),
     ],
@@ -97,6 +94,9 @@ def test_parse_constitutive_laws(
         2. Something goes wrong in discretization.
         3. Something goes wroing in parsing of the Ad operator tree, perhaps due to
            combining matrices and arrays of incompatible dimensions.
+
+    Note: Some methods are unfit for this test due to not having signature equal to
+    either subdomains or interfaces.
 
     Parameters:
         model_type: Type of model to test. Currently supported are "mass_balance" and
@@ -193,12 +193,12 @@ def test_parse_constitutive_laws(
             setup_utils.Thermoporomechanics,
             "matrix_porosity",
             # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk * p
-            # - (1 - phi_0) * thermal expansion * T
+            # - (alpha - phi_0) * thermal expansion * T
             #  Only pressure and temperature, not div(u), is included in this test.
             (
                 7e-3
                 + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2
-                - (1 - 7e-3) * 1e-5 * 3
+                - (0.8 - 7e-3) * 1e-5 * 3
             ),
         ),
         (
@@ -228,7 +228,10 @@ def test_evaluated_values(model, method_name, expected):
     # Assign non-trivial values to the parameters to avoid masking errors.
     solid = pp.SolidConstants(setup_utils.granite_values)
     fluid = pp.FluidConstants(setup_utils.water_values)
-    params = {"material_constants": {"solid": solid, "fluid": fluid}, "num_fracs": 0}
+    params = {
+        "material_constants": {"solid": solid, "fluid": fluid},
+        "fracture_indices": [],
+    }
 
     setup = model(params)
     setup.prepare_simulation()
@@ -268,7 +271,7 @@ def test_evaluated_values(model, method_name, expected):
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
     val = op.evaluate(setup.equation_system)
-    if isinstance(val, pp.ad.Ad_array):
+    if isinstance(val, pp.ad.AdArray):
         val = val.val
     # Strict tolerance. We know analytical expected values, and some of the
     # perturbations are small relative to
@@ -287,7 +290,7 @@ def test_permeability_values(constitutive_mixin, domain_dimension, expected):
     """Test that the value of the parsed operator is as expected."""
 
     solid = pp.SolidConstants({"residual_aperture": 0.01, "permeability": 42})
-    params = {"material_constants": {"solid": solid}, "num_fracs": 2}
+    params = {"material_constants": {"solid": solid}, "fracture_indices": [0, 1]}
 
     class LocalThermoporomechanics(constitutive_mixin, setup_utils.Thermoporomechanics):
         pass
@@ -307,10 +310,10 @@ def test_permeability_values(constitutive_mixin, domain_dimension, expected):
 @pytest.mark.parametrize(
     "geometry, domain_dimension, expected",
     [
-        (setup_utils.OrthogonalFractures3d, 1, [0.02, 0.02**2]),
-        (setup_utils.OrthogonalFractures3d, 0, [0.02, 0.02**3]),
-        (setup_utils.RectangularDomainOrthogonalFractures2d, 0, [0.02, 0.02**2]),
-        (setup_utils.RectangularDomainOrthogonalFractures2d, 2, [1, 1]),
+        (setup_utils.OrthogonalFractures3d, 1, [0.02, 0.02**2, 0.02]),
+        (setup_utils.OrthogonalFractures3d, 0, [0.02, 0.02**3, 0.02**2]),
+        (setup_utils.RectangularDomainThreeFractures, 0, [0.02, 0.02**2, 0.02]),
+        (setup_utils.RectangularDomainThreeFractures, 2, [1, 1, 42]),
     ],
 )
 def test_dimension_reduction_values(
@@ -318,15 +321,21 @@ def test_dimension_reduction_values(
 ):
     """Test that the value of the parsed operator is as expected.
 
-    The two values in expected are the values of the aperture and specific volumes,
-    respectively.
+    Parameters:
+        geometry: The model geometry to use for the test.
+        domain_dimension: The dimension of the domains to test.
+        expected: The expected values of the:
+            - subdomain aperture
+            - subdomain specific volume
+            - interface specific volume
+
 
     """
     # Assign non-trivial values to the parameters to avoid masking errors.
     solid = pp.SolidConstants({"residual_aperture": 0.02})
     params = {"material_constants": {"solid": solid}, "num_fracs": 3}
-    if geometry is setup_utils.RectangularDomainOrthogonalFractures2d:
-        params["num_fracs"] = 2
+    if geometry is setup_utils.RectangularDomainThreeFractures:
+        params["fracture_indices"] = [0, 1]
 
     class Model(
         geometry, pp.constitutive_laws.DimensionReduction, setup_utils.NoPhysics
@@ -337,13 +346,14 @@ def test_dimension_reduction_values(
     setup.prepare_simulation()
 
     subdomains = setup.mdg.subdomains(dim=domain_dimension)
+    interfaces = setup.mdg.interfaces(dim=domain_dimension)
     # Check aperture and specific volume values
     aperture = setup.aperture(subdomains).evaluate(setup.equation_system)
-    if isinstance(aperture, pp.ad.Ad_array):
+    if isinstance(aperture, pp.ad.AdArray):
         aperture = aperture.val
-    assert np.allclose(aperture, expected[0])
-
-    specific_volume = setup.specific_volume(subdomains).evaluate(setup.equation_system)
-    if isinstance(specific_volume, pp.ad.Ad_array):
-        specific_volume = specific_volume.val
-    assert np.allclose(specific_volume, expected[1])
+    assert np.allclose(aperture.data, expected[0])
+    for grids, expected_value in zip([subdomains, interfaces], expected[1:]):
+        specific_volume = setup.specific_volume(grids).evaluate(setup.equation_system)
+        if isinstance(specific_volume, pp.ad.AdArray):
+            specific_volume = specific_volume.val
+        assert np.allclose(specific_volume.data, expected_value)

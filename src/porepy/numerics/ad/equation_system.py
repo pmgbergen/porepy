@@ -17,9 +17,6 @@ from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
 
-GridLike = Union[pp.Grid, pp.MortarGrid]
-"""A union type representing a domain either by a grid or mortar grid.
-FIXME: Rename to Domain? Or GridLikeList/GridList below?"""
 
 # For Python3.8, a direct definition of type aliases with list is apparently not posible
 # (DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]]), the same applies to dict
@@ -149,7 +146,7 @@ class EquationSystem:
         """
 
         self._equation_image_space_composition: dict[
-            str, dict[GridLike, np.ndarray]
+            str, dict[pp.GridLike, np.ndarray]
         ] = dict()
         """Definition of image space for all equations.
 
@@ -990,7 +987,7 @@ class EquationSystem:
         # The function loops over all grids the operator is defined on and calculate the
         # number of equations per grid quantity (cell, face, node). This information
         # is then stored together with the equation itself.
-        image_info: dict[GridLike, np.ndarray] = dict()
+        image_info: dict[pp.GridLike, np.ndarray] = dict()
         total_num_equ = 0
 
         # The domain of this equation is the set of grids on which it is defined
@@ -1267,16 +1264,13 @@ class EquationSystem:
                 for grid in img_info:
                     if grid in grids:
                         block_idx.append(img_info[grid])
-                # If indices not empty, concatenate and return
-                if block_idx:
+
+                if len(block_idx) > 0:
+                    # If indices not empty, concatenate and return.
                     block.update({name: np.concatenate(block_idx, dtype=int)})
-                # indices should by logic always be found, if not alert the user.
                 else:
-                    # TODO: Should this not be permissible, say, due to a filtering of
-                    # the grids? However, it may lead to errors downstream.
-                    raise TypeError(
-                        f"Equation-like item ({type(equ)}, {type(grids)}) yielded no rows."
-                    )
+                    # If indices empty, return empty array.
+                    block.update({name: np.array([], dtype=int)})
             return block
         else:
             # Getting an error here means the user has passed a type that is not

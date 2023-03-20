@@ -262,7 +262,7 @@ class MandelDataSaving(VerificationDataSaving):
 class MandelExactSolution:
     """Exact solutions to Mandel's problem taken from [2]."""
 
-    def __init__(self, setup):
+    def __init__(self, setup) -> None:
         """Constructor of the class."""
         self.setup = setup
 
@@ -1249,7 +1249,7 @@ class MandelGeometry(pp.ModelGeometry):
         ls = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
-        self.fracture_network = pp.FractureNetwork2d(None, None, domain)
+        self.fracture_network = pp.FractureNetwork2d(None, domain)
 
     def mesh_arguments(self) -> dict:
         """Set mesh arguments."""

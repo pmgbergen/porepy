@@ -124,7 +124,7 @@ def test_unit_conversion(units, uy_north):
 
     params = {
         "suppress_export": True,  # Suppress output for tests
-        "num_fracs": 2,
+        "fracture_indices": [0, 1],
         "cartesian": True,
         "uy_north": uy_north,
         "max_iterations": 10,

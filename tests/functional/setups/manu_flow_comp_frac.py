@@ -96,6 +96,13 @@ class ManuCompDataSaving(VerificationDataSaving):
 
     """
 
+    relative_l2_error: Callable
+    """Method for computing the discrete relative L2-error. Normally provided by a
+    mixin instance of :class:`~porepy.applications.building_blocks.
+    verification_utils.VerificationUtils`.
+
+    """
+
     def collect_data(self) -> ManuCompSaveData:
         """Collect data from the verification setup.
 
@@ -641,16 +648,16 @@ class ManuCompBoundaryConditions:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Set boundary condition values for the elliptic discretization."""
-        bc_values = pp.ad.TimeDependentArray(
+        bc_values = pp.ad.TimeDependentDenseArray(
             name="darcy_bc_values", subdomains=subdomains, previous_timestep=True
         )
         return bc_values
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Set boundary condition values for the upwind discretization."""
-        bc_values = pp.ad.TimeDependentArray(
+        bc_values = pp.ad.TimeDependentDenseArray(
             name="mobrho_bc_values", subdomains=subdomains, previous_timestep=True
         )
         return bc_values
@@ -667,7 +674,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
         # External sources are retrieved from STATE and wrapped as an AdArray
-        external_sources = pp.ad.TimeDependentArray(
+        external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
             subdomains=self.mdg.subdomains(),
             previous_timestep=True,

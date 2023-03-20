@@ -1,6 +1,6 @@
 """
 Tests of the well class. In particular, functionality for constructing the
-well network and the resulting updates to the grid bucket are tested.
+well network and the resulting updates to the mixed-dimensional grid are tested.
 
 Content:
   * Addition of one well to mdgs with one or two 2d fractures.
@@ -8,6 +8,7 @@ Content:
 Both tests check for number of grids, number of edges and three types of face
 tags. Grid node ordering is tacitly assumed - if the assumption is broken, the
 well implementation should also be revisited.
+
 """
 from typing import List
 
@@ -21,12 +22,13 @@ def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
     """Construct networks and generate mdg.
 
     Parameters:
-        fracture_indices (list): which fractures to use.
-        well_indices (list): which wells to use.
+        fracture_indices: which fractures to use.
+        well_indices: which wells to use.
 
     Returns:
-        pp.MixedDimensionalGrid: grid bucket with matrix, fractures, wells and well-fracture
-            intersection grids + all interfaces
+        Mixed-dimensional grid with matrix, fractures, wells and
+        well-fracture intersection grids + all interfaces
+
     """
     domain: pp.Domain = pp.grids.standard_grids.utils.unit_domain(3)
 
@@ -54,8 +56,8 @@ def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
     pp.fracs.wells_3d.compute_well_fracture_intersections(
         well_network, fracture_network
     )
-    # Mesh fractures and add fracture + intersection grids to grid bucket along
-    # with these grids' new interfaces to fractures.
+    # Mesh fractures and add fracture + intersection grids to the mixed-dimensional grid
+    # along with these grids' new interfaces to fractures.
     well_network.mesh(mdg)
 
     return mdg
@@ -79,11 +81,12 @@ def test_add_one_well(
     add well grids to mdg.
 
     Parameters:
-        fracture_indices (list): which fractures to use.
-        fracture_faces (list): Each item is the expected fracture face tags for one
+        fracture_indices: which fractures to use.
+        fracture_faces: Each item is the expected fracture face tags for one
             well grid, assumed to have two faces each.
-        tip_faces (list): Each item is the expected tip face tags for one well grid,
+        tip_faces: Each item is the expected tip face tags for one well grid,
             assumed to have two faces each.
+
     """
     mdg = _generate_mdg(fracture_indices, [0])
     # One 3d grid, n_frac 2d grids, n_frac 1d well grids + one if none of the
@@ -110,8 +113,9 @@ def test_add_one_well(
         )
 
 
-# Single fracture: internal to well 0 and tip for well 1
-# First two well grids (first dimension below) correspond to well 0, the last grid to well 1
+# Single fracture: internal to well 0 and tip for well 1.
+# First two well grids (first dimension below) correspond to well 0, the last grid to
+# well 1.
 f_tags_0 = [[0, 1], [1, 0], [0, 1]]
 t_tags_0 = [[0, 0], [0, 1], [0, 0]]
 b_tags_0 = [[1, 0], [0, 0], [1, 0]]
@@ -150,14 +154,15 @@ def test_add_two_wells(
     add well grids to mdg.
 
     Parameters:
-        fracture_indices (list): which fractures to use.
-        fracture_faces (list): Each item is the expected fracture face tags for one
+        fracture_indices: which fractures to use.
+        fracture_faces: Each item is the expected fracture face tags for one
             well grid, assumed to have two faces each.
-        tip_faces (list): Each item is the expected tip face tags for one well grid,
+        tip_faces: Each item is the expected tip face tags for one well grid,
             assumed to have two faces each.
-        boundary_faces (list): Each item is the expected boundary face tags for one
+        boundary_faces: Each item is the expected boundary face tags for one
             well grid, assumed to have two faces each.
-        mdg_data (list): expected number of grids and number of interfaces.
+        mdg_data: expected number of grids and number of interfaces.
+
     """
     mdg = _generate_mdg(fracture_indices, [0, 1])
     assert np.isclose(mdg.num_subdomains(), mdg_data[0])
@@ -188,40 +193,20 @@ def test_add_one_well_with_matrix() -> None:
         assert well_grid.num_faces == 2
         assert well_grid.num_nodes == 2
 
-    for intf, data in mdg.interfaces(return_data=True):
+    for intf in mdg.interfaces():
         assert intf.num_sides() == 1
         assert intf.num_cells == 1
         assert np.allclose(intf.mortar_to_secondary_int().todense(), 1)
-        known = np.array(
-            [
-                0.175,
-                0.0,
-                0.0,
-                0.29166667,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.25,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.08333333,
-                0.2,
-                0.0,
-            ]
-        )
+        
+        known = np.zeros(24)
+        known[0] = 0.175
+        known[3] = 0.29166667
+        known[11] = 0.25
+        known[22] = 0.08333333
+        known[23] = 0.2
 
-        # Since the generation of .msh files is platform-dependent, only norm values are compared
+        # Since the generation of .msh files is platform-dependent, only norm values are
+        # compared.
         assert np.isclose(
             np.linalg.norm(known),
             np.linalg.norm(intf.mortar_to_primary_int().A.flatten()),
