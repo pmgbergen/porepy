@@ -286,6 +286,8 @@ class SolidConstants(MaterialConstants):
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
             "well_radius": 0.1,
+            "fracture_normal_stiffness": 1,
+            "maximal_fracture_closure": 0,
         }
 
         if constants is not None:
@@ -457,3 +459,27 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["well_radius"], "m")
+
+    def fracture_normal_stiffness(self) -> number:
+        """The normal stiffness of a fracture [Pa * m^-1].
+
+        Intended use is in Barton-Bandis-type models for elastic fracture deformation.
+
+        Returns:
+            The fracture normal stiffness in converted units.
+
+        """
+        return self.convert_units(
+            self.constants["fracture_normal_stiffness"], "Pa*m^-1"
+        )
+
+    def fracture_maximal_closure(self) -> number:
+        """The maximal closure of a fracture [m].
+
+        Intended use is in Barton-Bandis-type models for elastic fracture deformation.
+
+        Returns:
+            The maximal closure of a fracture.
+
+        """
+        return self.convert_units(self.constants["maximal_fracture_closure"], "m")
