@@ -422,16 +422,6 @@ class MomentumBalance(
     pass
 
 
-class BartonBandisMechanics(
-    RectangularDomainThreeFractures,
-    pp.momentum_balance.MomentumBalance,
-    pp.constitutive_laws.BartonBandis,
-):
-    """Special class for testing the Barton-Bandis model."""
-
-    pass
-
-
 class MassAndEnergyBalance(
     RectangularDomainThreeFractures,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
@@ -555,6 +545,7 @@ granite_values = {
     "thermal_expansion": 1e-5,
     "fracture_normal_stiffness": 1529,
     "maximal_fracture_closure": 0.1683,
+    "residual_aperture": 0.01,
 }
 # Cf. fluid.py
 water_values = {
