@@ -219,6 +219,13 @@ def test_parse_constitutive_laws(
             # \mu (3 \lambda + 2 \mu) / (\lambda + \mu)
             16.67 * (3 * 11.11 + 2 * 16.67) / (11.11 + 16.67) * pp.GIGA,
         ),
+        (
+            setup_utils.BartonBandisMechanics,
+            "elastic_normal_fracture_deformation",
+            # (-normal_traction) * maximum_closure /
+            #    (normal_stiffness * maximum_closure + (-normal_traction))
+            (1 * 0.1683) / (1529 * 0.1683 + 1),
+        ),
     ],
 )
 def test_evaluated_values(model, method_name, expected):

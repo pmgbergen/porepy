@@ -2520,6 +2520,98 @@ class FrictionBound:
         return bound
 
 
+class BartonBandis:
+    """Implementation of the Barton-Bandis model for elastic fracture normal
+    deformation.
+
+
+    """
+
+    def elastic_normal_fracture_deformation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Barton-Bandis model for elastic normal deformation of a fracture.
+
+        The model computes a *decrease* in the normal opening as a function of the
+        contact traction and material constants.
+
+        The implementation is based on the paper
+
+        References:
+            Fundamentals of Rock Joint Deformation, by S.C. Bandis, A.C.Lumdsen, N.R.
+            Barton, International Journal of Rock Mechanics & Mining Sciences, 1983.
+
+            See in particular Equations (8)-(9) (page 10) in that paper.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The decrease in fracture opening, as computed by the Barton-Bandis model.
+
+        """
+        # The maximal possible closure of the fracture.
+        maximal_closure = self.maximal_fracture_closure(subdomains)
+
+        nd_vec_to_normal = self.normal_component(subdomains)
+
+        # The effective contact traction. Units: Force / area = Pa / m^(nd-1).
+        # The papers by Barton and Bandis assumes positive traction in contact, thus we
+        # need to switch the sign.
+        contact_traction = -self.contact_traction(subdomains)
+
+        # Normal component of the traction.
+        normal_traction = nd_vec_to_normal @ contact_traction
+
+        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
+        normal_stiffness = self.fracture_normal_stiffness(subdomains)
+        # The openening is found from the 1983 paper (slightly rewritten to avoid
+        # dividing by 0 for maximal_closure = 0). Sanity checks:
+        # 1) Increasing the variable normal traction (that is, pushing the fracture
+        #    walls closer together) makes for a larger decrease.
+        # 2) In the limit, the decrease tends to the maximal closure.
+        opening_decrease = (
+            normal_traction
+            * maximal_closure
+            / (normal_stiffness * maximal_closure + normal_traction)
+        )
+
+        opening_decrease.set_name("Barton-Bandis normal opening")
+
+        return opening_decrease
+
+    def maximal_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The maximal closure of a fracture [m].
+
+        Used in the Barton-Bandis model for normal elastic fracture deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The maximal allowed decrease in fracture opening.
+
+        """
+        max_closure = self.solid.maximal_fracture_closure()
+        return Scalar(max_closure, "maximal_fracture_closure")
+
+    def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The normal stiffness of a fracture [Pa*m^-1].
+
+        Used in the Barton-Bandis model for normal elastic fracture deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The fracture normal stiffness.
+
+        """
+
+        normal_stiffness = self.solid.normal_fracture_stiffness()
+        return Scalar(normal_stiffness, "fracture_normal_stiffness")
+
+
 class BiotCoefficient:
     """Biot coefficient."""
 
