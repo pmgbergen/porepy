@@ -52,6 +52,9 @@ class DimensionReduction:
             Aperture for each cell in the grid.
 
         """
+        # NOTE: The aperture concept is not well defined for nd. However, we include it
+        # for simplified implementation of specific volumes, which are defined as
+        # aperture^nd-dim and should be 1 for dim=nd.
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
             if self.is_well(grid):
@@ -1126,13 +1129,13 @@ class PeacemanWellFlux:
         r_e = self.equivalent_well_radius(subdomains)
 
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
-        WI = (
+        well_index = (
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg
             @ (self.permeability(subdomains) / (f_log(r_e / r_w) + skin_factor))
         )
         eq: pp.ad.Operator = self.well_flux(interfaces) - self.volume_integral(
-            WI, interfaces, 1
+            well_index, interfaces, 1
         ) * (
             projection.primary_to_mortar_avg @ self.pressure(subdomains)
             - projection.secondary_to_mortar_avg @ self.pressure(subdomains)
