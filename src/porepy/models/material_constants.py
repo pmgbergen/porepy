@@ -272,8 +272,10 @@ class SolidConstants(MaterialConstants):
             "density": 1,
             "dilation_angle": 0,
             "fracture_gap": 0,
+            "fracture_normal_stiffness": 1,
             "friction_coefficient": 1,
             "lame_lambda": 1,
+            "maximal_fracture_closure": 0,
             "normal_permeability": 1,
             "permeability": 1,
             "porosity": 0.1,
@@ -286,8 +288,6 @@ class SolidConstants(MaterialConstants):
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
             "well_radius": 0.1,
-            "fracture_normal_stiffness": 1,
-            "maximal_fracture_closure": 0,
         }
 
         if constants is not None:
