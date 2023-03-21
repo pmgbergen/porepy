@@ -532,16 +532,19 @@ class VariablesMomentumBalance:
             dof_info={"cells": self.nd},
             name=self.displacement_variable,
             subdomains=self.mdg.subdomains(dim=self.nd),
+            tags={"si_units": "m"}
         )
         self.equation_system.create_variables(
             dof_info={"cells": self.nd},
             name=self.interface_displacement_variable,
             interfaces=self.mdg.interfaces(dim=self.nd - 1, codim=1),
+            tags={"si_units": "m"}
         )
         self.equation_system.create_variables(
             dof_info={"cells": self.nd},
             name=self.contact_traction_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
+            tags={"si_units": "Pa"}
         )
 
     def displacement(self, subdomains: list[pp.Grid]):

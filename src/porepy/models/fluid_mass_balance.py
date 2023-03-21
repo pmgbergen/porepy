@@ -502,6 +502,11 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
+    nd: int
+    """Number of spatial dimensions. Normally defined in a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -511,14 +516,19 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         self.equation_system.create_variables(
             self.pressure_variable,
             subdomains=self.mdg.subdomains(),
+            tags={"si_units": "Pa"},
         )
+        # Extensive fluxes with units Pa * m ^ nd. Multiplication with the fluid density
+        # and division by the fluid viscosity yields kg / s.
         self.equation_system.create_variables(
             self.interface_darcy_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": f"m^{self.nd} * Pa"},
         )
         self.equation_system.create_variables(
             self.well_flux_variable,
             interfaces=self.mdg.interfaces(codim=2),
+            tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
     def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
