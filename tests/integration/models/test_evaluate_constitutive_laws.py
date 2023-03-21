@@ -220,7 +220,7 @@ def test_dimension_reduction_values(
             - interface specific volume
 
     EK: This test could possibly be merged into the above test_evaluated_values(), but
-    the risk of obfuscating the implementation. It was therefore to decided to keep this
+    the risk of obfuscating the implementation. It was therefore decided to keep this
     method separate, at least for now.
 
     """
