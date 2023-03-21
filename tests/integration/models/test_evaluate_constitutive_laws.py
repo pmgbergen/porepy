@@ -22,8 +22,13 @@ def _add_mixin(mixin, parent):
 
     Reference:
         https://www.geeksforgeeks.org/create-classes-dynamically-in-python/
+
     """
     name = parent.__name__
+    # IMPLEMENTATION NOTE: The last curly bracket can be used to add code to the created
+    # class (empty brackets is equivalent to a ``pass``). In principle, we could add
+    # this as an extra parameter to this function, but at the moment it is unclear why
+    # such an addition could not be made in the mixin class instead.
     cls = type(f"Extended_{name}", (mixin, parent), {})
     return cls
 
@@ -148,7 +153,6 @@ def test_evaluated_values(model, method_name, expected, dimension):
     fluid = pp.FluidConstants(setup_utils.water_values)
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
-        "fracture_indices": [],
     }
 
     setup = model(params)
@@ -176,7 +180,9 @@ def test_evaluated_values(model, method_name, expected, dimension):
     # TODO: At some point, we should also consider interface laws.
     op = method(setup.mdg.subdomains(dim=dimension))
     if isinstance(op, np.ndarray):
-        # E.g. permeability or conductivity
+        # This will happen if the return type of method is a pp.ad.DenseArray. EK is not
+        # sure if we still have such methods among the constitutive laws, but the test
+        # is correct, so keeping this should not do any harm.
         assert np.allclose(op, expected)
         return
 
