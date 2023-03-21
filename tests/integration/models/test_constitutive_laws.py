@@ -5,10 +5,11 @@ constitutive laws for models. The setup is applied to the constitutive laws in t
 models subpackage.
 
 In addition to checking that evaluation is possible, the tests also check that the
-compound classes contain the specified constitutive laws, thus revealing mistakes if
-the classes are refactored.
+compound classes contain the specified constitutive laws, thus revealing mistakes if the
+classes are refactored.
 
-The module does *not* 
+The module does not test that the constitutive laws evaluates to reasonable numbers. For
+this see test_evaluate_constitutive_laws.py.
 
 """
 from __future__ import annotations
