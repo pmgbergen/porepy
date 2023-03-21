@@ -377,7 +377,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         well_projection = pp.ad.MortarProjections(
             self.mdg, well_subdomains, well_interfaces
         )
-        subdomain_projection = pp.ad.SubdomainProjections(subdomains)
+        subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
         flux = self.interface_enthalpy_flux(interfaces) + self.interface_fourier_flux(
             interfaces
         )
@@ -391,7 +391,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             well_interfaces
         )
         well_fluxes.set_name("well_enthalpy_flux_source")
-        source += subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
+        source += subdomain_projection.cell_restriction(subdomains) @ (
+            subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
+        )
         return source
 
 
