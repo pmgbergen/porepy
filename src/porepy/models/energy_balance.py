@@ -478,7 +478,6 @@ class VariablesEnergyBalance:
             tags={"si_units": "K"},
         )
         # Flux variables are extensive (surface integrated) and thus have units of W.
-        flux_dim = 1 - self.nd
         self.equation_system.create_variables(
             self.interface_fourier_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),

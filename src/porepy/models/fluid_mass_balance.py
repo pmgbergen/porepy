@@ -312,7 +312,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         well_fluxes.set_name("well_fluid_flux_source")
         source += subdomain_projection.cell_restriction(subdomains) @ (
             subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
-            )
+        )
         return source
 
 
