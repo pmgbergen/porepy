@@ -2521,7 +2521,7 @@ class FrictionBound:
 
 
 class BartonBandis:
-    """Implementation of the Barton-Bandis model for elastic fracture normal
+    """Implementation of the Barton-Bandis model for elastic normal fracture
     deformation.
 
     """
