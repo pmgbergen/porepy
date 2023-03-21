@@ -2521,8 +2521,23 @@ class FrictionBound:
 
 
 class BartonBandis:
-    """Implementation of the Barton-Bandis model for elastic normal fracture
+    """Implementation of the Barton-Bandis model for elastic fracture normal
     deformation.
+
+    The Barton-Bandis model represents a non-linear elastic deformation in the normal
+    direction of a fracture. Specifically, the decrease in normal opening,
+    :math:`\Delta u_n` under a force :math:`\sigma_n` given as
+
+    .. math::
+
+        \Delta u_n =  \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
+
+    Where :math:`\Delta u_n^{max}` is the maximum fracture closure and the material
+    constant :math:`K_n` is known as the fracture normal stiffness.
+
+    The Barton-Bandis equation is defined in :meth:`elastic_normal_fracture_deformation`
+    while the two parameters :math:`\Delta u_n^{max}` and :math:`K_n` can be set by the
+    methods :meth:`maximum_fracture_closure` and :meth:`fracture_normal_stiffness`.
 
     """
 
@@ -2556,7 +2571,8 @@ class BartonBandis:
 
         References:
             Fundamentals of Rock Joint Deformation, by S.C. Bandis, A.C.Lumdsen, N.R.
-            Barton, International Journal of Rock Mechanics & Mining Sciences, 1983.
+            Barton, International Journal of Rock Mechanics & Mining Sciences, 1983,
+            Link: https://doi.org/10.1016/0148-9062(83)90595-8.
 
             See in particular Equations (8)-(9) (page 10) in that paper.
 
@@ -2568,11 +2584,11 @@ class BartonBandis:
 
         """
         # The maximal possible closure of the fracture.
-        maximal_closure = self.maximal_fracture_closure(subdomains)
+        maximal_closure = self.maximum_fracture_closure(subdomains)
 
         nd_vec_to_normal = self.normal_component(subdomains)
 
-        # The effective contact traction. Units: Force / area = Pa / m^(nd-1).
+        # The effective contact traction. Units: Pa = N/m^(nd-1)
         # The papers by Barton and Bandis assumes positive traction in contact, thus we
         # need to switch the sign.
         contact_traction = Scalar(-1) * self.contact_traction(subdomains)
@@ -2583,10 +2599,8 @@ class BartonBandis:
         # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
         normal_stiffness = self.fracture_normal_stiffness(subdomains)
         # The openening is found from the 1983 paper (slightly rewritten to avoid
-        # dividing by 0 for maximal_closure = 0). Sanity checks:
-        # 1) Increasing the variable normal traction (that is, pushing the fracture
-        #    walls closer together) makes for a larger decrease.
-        # 2) In the limit, the decrease tends to the maximal closure.
+        # dividing by 0 for maximal_closure = 0).
+        # Units: Pa * m / Pa = m.
         opening_decrease = (
             normal_traction
             * maximal_closure
@@ -2597,7 +2611,7 @@ class BartonBandis:
 
         return opening_decrease
 
-    def maximal_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def maximum_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The maximal closure of a fracture [m].
 
         Used in the Barton-Bandis model for normal elastic fracture deformation.
