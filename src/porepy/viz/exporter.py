@@ -112,6 +112,7 @@ class Exporter:
         grid: Union[pp.Grid, pp.MixedDimensionalGrid],
         file_name: str,
         folder_name: Optional[str] = None,
+        length_scale: float = 1.0,
         **kwargs,
     ) -> None:
         # Exporter is operating on mixed-dimensional grids. Convert to such.
@@ -145,6 +146,12 @@ class Exporter:
             "export_constants_separately", True
         )
         """Flag controlling whether constant data is exported to a separate file."""
+
+        self._length_scale: float = length_scale
+        """Length scale for the grid. All coordinates are multiplied by this value
+        before exporting.
+
+        """
 
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
@@ -1533,9 +1540,9 @@ class Exporter:
 
         # Loop over all 1d grids
         for grid in grids:
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Lines are 1-simplices, and have a trivial connectivity.
             cn_indices = self._simplex_cell_to_nodes(1, grid)
@@ -1636,9 +1643,9 @@ class Exporter:
         # Loop over all 2d grids
         for grid in grids:
 
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T  * self._length_scale
 
             # Determine cell types based on number of nodes.
             num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
@@ -1845,9 +1852,9 @@ class Exporter:
 
         # Treat each 3d grid separately.
         for grid in grids:
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T  * self._length_scale
 
             # Identify all cells as tetrahedra.
             cells = np.arange(grid.num_cells)
@@ -1909,9 +1916,9 @@ class Exporter:
 
         # Treat each 3d grid separately.
         for grid in grids:
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T  * self._length_scale
 
             # Identify all cells as tetrahedra.
             cells = np.arange(grid.num_cells)
@@ -2120,9 +2127,9 @@ class Exporter:
         # Treat each 3d grid separately.
         for grid in grids:
 
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Categorize all polyhedron cells by their number of nodes.
             # Each category will be treated separately allowing for using
