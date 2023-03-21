@@ -461,6 +461,11 @@ class VariablesEnergyBalance:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
+    nd: int
+    """Number of spatial dimensions. Normally defined in a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -470,18 +475,24 @@ class VariablesEnergyBalance:
         self.equation_system.create_variables(
             self.temperature_variable,
             subdomains=self.mdg.subdomains(),
+            tags={"si_units": "K"},
         )
+        # Flux variables are extensive (surface integrated) and thus have units of W.
+        flux_dim = 1 - self.nd
         self.equation_system.create_variables(
             self.interface_fourier_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": "W"},
         )
         self.equation_system.create_variables(
             self.interface_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": "W"},
         )
         self.equation_system.create_variables(
             self.well_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=2),
+            tags={"si_units": "W"},
         )
 
     def temperature(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
