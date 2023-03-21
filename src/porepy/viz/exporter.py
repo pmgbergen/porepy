@@ -1645,7 +1645,7 @@ class Exporter:
 
             # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T  * self._length_scale
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Determine cell types based on number of nodes.
             num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
@@ -1854,7 +1854,7 @@ class Exporter:
         for grid in grids:
             # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T  * self._length_scale
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Identify all cells as tetrahedra.
             cells = np.arange(grid.num_cells)
@@ -1918,7 +1918,7 @@ class Exporter:
         for grid in grids:
             # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T  * self._length_scale
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Identify all cells as tetrahedra.
             cells = np.arange(grid.num_cells)
