@@ -24,12 +24,14 @@ def _add_mixin(mixin, parent):
         https://www.geeksforgeeks.org/create-classes-dynamically-in-python/
 
     """
-    name = parent.__name__
+    parent_name = parent.__name__
+    mixin_name = mixin.__name__
+    name = f"Combined_{mixin_name}_{parent_name}"
     # IMPLEMENTATION NOTE: The last curly bracket can be used to add code to the created
     # class (empty brackets is equivalent to a ``pass``). In principle, we could add
     # this as an extra parameter to this function, but at the moment it is unclear why
     # such an addition could not be made in the mixin class instead.
-    cls = type(f"Extended_{name}", (mixin, parent), {})
+    cls = type(name, (mixin, parent), {})
     return cls
 
 
@@ -71,7 +73,7 @@ def _add_mixin(mixin, parent):
             # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk p. Only pressure, not
             # div(u), is included in this test.
             7e-3 + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2,
-            None,
+            2,  # Matrix porosity is only defined in Nd
         ),
         (
             setup_utils.Thermoporomechanics,
@@ -84,7 +86,7 @@ def _add_mixin(mixin, parent):
                 + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2
                 - (0.8 - 7e-3) * 1e-5 * 3
             ),
-            None,
+            2,  # Matrix porosity is only defined in Nd
         ),
         (
             setup_utils.MomentumBalance,
@@ -116,21 +118,28 @@ def _add_mixin(mixin, parent):
             1,
         ),
         (
+            # Tets permeability for the matrix domain. Should give the matrix
+            # permeability
             _add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
             "permeability",
             1e-20,
             2,
         ),
         (
+            # Test the permeability for a fracture domain. This should be computed
+            # by the cubic law (i.e., aperture squared by 12, an aditional aperture
+            # scaling to get the transmissivity is taken care of elsewhere).
             _add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
             "permeability",
-            0.01**3 / 12,
+            0.01**2 / 12,
             1,
         ),
         (
+            # Test the permeability for an intersection. The reasoning is the same as
+            # for the 1-d domain.
             _add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
             "permeability",
-            0.01**4 / 12,
+            0.01**2 / 12,
             0,
         ),
     ],
@@ -153,6 +162,7 @@ def test_evaluated_values(model, method_name, expected, dimension):
     fluid = pp.FluidConstants(setup_utils.water_values)
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
+        "fracture_indices": [0, 1],
     }
 
     setup = model(params)
