@@ -518,8 +518,11 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             subdomains=self.mdg.subdomains(),
             tags={"si_units": "Pa"},
         )
-        # Extensive fluxes with units Pa * m ^ nd. Multiplication with the fluid density
-        # and division by the fluid viscosity yields kg / s.
+        # Note that `interface_darcy_flux_variable` is not multiplied by rho * mu^-1.
+        # However, after multiplication, whe know that the resulting flux should be a
+        # mass flux with units  `kg * s^-1`. The units of `interface_darcy_flux` can
+        # then be inferred by solving the below equation for `int_flux_units`:
+        # kg * s^-1 = [kg * (m^nd)^-1] * [Pa * s]^-1 * intf_flux_units
         self.equation_system.create_variables(
             self.interface_darcy_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
