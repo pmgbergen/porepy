@@ -4,7 +4,6 @@ different lower-level mdg generation.
 """
 from __future__ import annotations
 
-import warnings
 import inspect
 from typing import Dict, Literal, Optional, Union
 
@@ -21,8 +20,7 @@ FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 def _validate_args_types(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     mesh_arguments: dict,
-    domain: Optional[pp.Domain] = None,
-    fracture_network: Optional[FractureNetwork] = None,
+    fracture_network: FractureNetwork,
     **kwargs,
 ):
 
@@ -34,25 +32,23 @@ def _validate_args_types(
             "mesh_arguments must be dict[str], not %r" % type(mesh_arguments)
         )
 
-    valid_domain = isinstance(domain, pp.Domain) or domain is None
-    if not valid_domain:
-        raise TypeError("domain must be pp.Domain, not %r" % type(domain))
-
-    valid_fracture_network = (
-        isinstance(fracture_network, FractureNetwork2d)
-        or isinstance(fracture_network, FractureNetwork3d)
-        or fracture_network is None
-    )
+    valid_fracture_network = isinstance(
+        fracture_network, FractureNetwork2d
+    ) or isinstance(fracture_network, FractureNetwork3d)
     if not valid_fracture_network:
         raise TypeError(
-            "fracture_network must be None, FractureNetwork2d, or FractureNetwork3d, not %r"
+            "fracture_network must be FractureNetwork2d or FractureNetwork3d, not %r"
             % type(fracture_network)
         )
+
 
 def _validate_grid_type(grid_type):
     valid_type = grid_type in ["simplex", "cartesian", "tensor_grid"]
     if not valid_type:
-        raise ValueError("grid_type must be in ['simplex', 'cartesian', 'tensor_grid'] not %r" % grid_type)
+        raise ValueError(
+            "grid_type must be in ['simplex', 'cartesian', 'tensor_grid'] not %r"
+            % grid_type
+        )
 
 
 def _validate_mesh_arguments(mesh_arguments):
@@ -65,23 +61,9 @@ def _validate_mesh_arguments(mesh_arguments):
         raise ValueError("mesh_size must be strictly positive %r" % mesh_size)
 
 
-def _validate_and_retrieve_domain_instance(
-    domain: Optional[pp.Domain] = None,
-    fracture_network: Optional[FractureNetwork] = None
-) -> pp.Domain:
+def _validate_domain_instance(fracture_network: FractureNetwork) -> pp.Domain:
 
-    omega: pp.Domain = 0
-    if domain is None and fracture_network is None:
-        raise ValueError("Unable to infer dimension from domain or fracture_network.")
-
-    if domain is not None:
-        if fracture_network is not None:
-            if not domain.polytope == fracture_network.domain.polytope:
-                raise ValueError("domain and fracture_network.domain differ.")
-        omega = domain
-    elif fracture_network is not None:
-        omega = fracture_network.domain
-
+    omega: pp.Domain = fracture_network.domain
     valid_dimension = omega.dim == 2 or omega.dim == 3
     if not valid_dimension:
         raise ValueError("Inferred dimension must be 2 or 3, not %r" % omega.dim)
@@ -92,14 +74,11 @@ def _validate_and_retrieve_domain_instance(
 def _validate_args(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     mesh_arguments: dict,
-    domain: Optional[pp.Domain] = None,
-    fracture_network: Optional[FractureNetwork] = None,
+    fracture_network: FractureNetwork,
     **kwargs,
 ):
 
-    _validate_args_types(
-        grid_type, mesh_arguments, domain, fracture_network
-    )
+    _validate_args_types(grid_type, mesh_arguments, fracture_network)
     _validate_grid_type(grid_type)
     _validate_mesh_arguments(mesh_arguments)
 
@@ -138,6 +117,7 @@ def _collect_extra_simplex_args(mesh_arguments, kwargs, mesh_function):
 
     return (lower_level_args, extra_args_list, kwargs)
 
+
 def _preprocess_cartesian_args(omega, mesh_arguments, kwargs):
 
     nx_cells = None
@@ -161,7 +141,6 @@ def _preprocess_cartesian_args(omega, mesh_arguments, kwargs):
         n_z = round((zmax - zmin) / h_size)
         n_cells = [n_x, n_y, n_z]
         phys_dims = [ymax, xmax, zmax]
-
 
     # Avoid duplicity in values for keyword argument
     nx_arg = kwargs.get("nx", None)
@@ -224,13 +203,13 @@ def _preprocess_tensor_grid_args(omega, mesh_arguments, kwargs):
     # remove duplicate keys
     [kwargs.pop(item[0]) for item in mesh_arguments.items() if item[0] in kwargs]
 
-    return (x_space,y_space,z_space, kwargs)
+    return (x_space, y_space, z_space, kwargs)
+
 
 def create_mdg(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     mesh_arguments: dict,
-    domain: Optional[pp.Domain] = None,
-    fracture_network: Optional[FractureNetwork] = None,
+    fracture_network: FractureNetwork,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
     """Creates a mixed dimensional grid.
@@ -245,23 +224,21 @@ def create_mdg(
             # Set a domain
             domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
-            # Generate and export a simple mdg
-            mdg = pp.create_mdg("simplex",domain)
-            pp.Exporter(mdg, "mdg").write_vtu()
-
-            # Generate and export a mdg with a fracture network
+            # Generate a fracture network
             frac_1 = pp.LineFracture(np.array([[0.0, 2.0], [0.0, 0.0]]))
             frac_2 = pp.LineFracture(np.array([[1.0, 1.0], [0.0, 1.0]]))
             fractures = [frac_1, frac_2]
             fracture_network = pp.create_fracture_network(fractures, domain)
 
-            mdg = pp.create_mdg("simplex",fracture_network)
+            # Generate a mixed-dimensional grid (MDG)
+            mesh_args = {"mesh_size": 0.1}
+            mdg = pp.create_mdg("simplex",mesh_args,fracture_network)
             pp.Exporter(mdg, "mdg_with_fractures").write_vtu()
 
     Raises:
-        - ValueError: If ``domain = None`` and ``fractures = None``
-        - TypeError: ...
-        - Warning: If  ... .
+        - ValueError: If ``fracture_network.domain.dim`` is not 2 or 3.
+            If
+        - TypeError: Mandatory arguments types inconsistent (see type hints in signature).
 
     Parameters:
         grid_type: Type of the resulting grid
@@ -269,45 +246,50 @@ def create_mdg(
         mesh_arguments: ... .
         domain: Domain specfication. An instance of
             :class:`~porepy.geometry.domain.Domain`.
-        fracture_network: ... .
-        **kwargs: ... .
+        fracture_network: fracture network specification. Instance of
+            :class:`~porepy.fracs.fracture_network_2d` or
+            :class:`~porepy.fracs.fracture_network_3d`.
+        **kwargs: Extra arguments associated with each grid_type.
 
     Returns:
         Mixed dimensional grid object.
 
     """
 
-    _validate_args(
-        grid_type, mesh_arguments, domain, fracture_network, **kwargs
-    )
+    _validate_args(grid_type, mesh_arguments, fracture_network, **kwargs)
 
-    omega = _validate_and_retrieve_domain_instance(
-        domain, fracture_network
-    )
+    omega = _validate_domain_instance(fracture_network)
 
     # Unstructure cases
     if grid_type == "simplex":
         function = None
         if omega.dim == 2:
-            function =  FractureNetwork2d.mesh
+            function = FractureNetwork2d.mesh
         elif omega.dim == 3:
             function = FractureNetwork3d.mesh
         # preprocess user's arguments provided in kwargs
         (lower_level_args, extra_args, kwargs) = _collect_extra_simplex_args(
-            mesh_arguments, kwargs, function)
+            mesh_arguments, kwargs, function
+        )
         # perform the actual meshing
         mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
         mdg.compute_geometry()
 
     # Structure cases
     if grid_type == "cartesian":
-        (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(omega, mesh_arguments, kwargs)
+        (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
+            omega, mesh_arguments, kwargs
+        )
         fractures = [f.pts for f in fracture_network.fractures]
-        mdg = pp.meshing.cart_grid(fracs=fractures,nx=nx_cells,physdims=phys_dims,**kwargs)
+        mdg = pp.meshing.cart_grid(
+            fracs=fractures, nx=nx_cells, physdims=phys_dims, **kwargs
+        )
 
     if grid_type == "tensor_grid":
         fractures = [f.pts for f in fracture_network.fractures]
-        (xs,ys,zs, kwargs) = _preprocess_tensor_grid_args(omega, mesh_arguments, kwargs)
-        mdg = pp.meshing.tensor_grid(fracs=fractures,x=xs, y=ys, z=zs, **kwargs)
+        (xs, ys, zs, kwargs) = _preprocess_tensor_grid_args(
+            omega, mesh_arguments, kwargs
+        )
+        mdg = pp.meshing.tensor_grid(fracs=fractures, x=xs, y=ys, z=zs, **kwargs)
 
     return mdg

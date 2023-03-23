@@ -9,12 +9,11 @@ Functionalities being tested:
 * Generation of meshes with dimension {2,3}
 
 """
+import unittest
 from typing import List, Literal, Optional, Union
 
 import numpy as np
-import unittest
 import pytest
-
 
 import porepy as pp
 import porepy.grids.standard_grids.utils as utils
@@ -23,11 +22,9 @@ import porepy.grids.standard_grids.utils as utils
 class TestMDGridGeneration:
     """Test suit for verifying the md-grid generation of pp.create_mdg"""
 
-    # @pytest.fixture(scope="class")
     def h_reference(self) -> float:
         return 0.5
 
-    # @pytest.fixture(scope="class")
     def fracture_2d_data(self) -> List[np.array]:
         data: List[np.array] = [
             np.array([[0.0, 2.0], [0.0, 0.0]]),
@@ -36,20 +33,23 @@ class TestMDGridGeneration:
         ]
         return data
 
-    # @pytest.fixture(scope="class")
     def fracture_3d_data(self) -> List[np.array]:
         data: List[np.array] = [
-            np.array([[2.0, 3.0, 3.0, 2.0], [2.0, 2.0, 2.0, 2.0], [0.0, 0.0, 1.0, 1.0]]),
-            np.array([[2.0, 3.0, 3.0, 2.0], [1.0, 1.0, 3.0, 3.0], [1.0, 1.0, 1.0, 1.0]]),
-            np.array([[1.0, 4.0, 4.0, 1.0], [3.0, 3.0, 3.0, 3.0], [1.0, 1.0, 2.0, 2.0]]),
+            np.array(
+                [[2.0, 3.0, 3.0, 2.0], [2.0, 2.0, 2.0, 2.0], [0.0, 0.0, 1.0, 1.0]]
+            ),
+            np.array(
+                [[2.0, 3.0, 3.0, 2.0], [1.0, 1.0, 3.0, 3.0], [1.0, 1.0, 1.0, 1.0]]
+            ),
+            np.array(
+                [[1.0, 4.0, 4.0, 1.0], [3.0, 3.0, 3.0, 3.0], [1.0, 1.0, 2.0, 2.0]]
+            ),
         ]
         return data
 
-    # @pytest.fixture(scope="class")
     def mdg_types(self):
         return ["simplex", "cartesian", "tensor_grid"]
 
-    # @pytest.fixture(scope="class")
     def domains(self):
         domain_2d = pp.Domain({"xmin": 0, "xmax": 5, "ymin": 0, "ymax": 5})
         domain_3d = pp.Domain(
@@ -57,31 +57,32 @@ class TestMDGridGeneration:
         )
         return [domain_2d, domain_3d]
 
-
     # Extra mesh arguments
-    # @pytest.fixture(scope="class")
     def extra_args_data_2d(self) -> List[dict[str]]:
         simplex_extra_args: dict[str] = {"mesh_size_bound": 1.0, "mesh_size_min": 0.1}
         cartesian_extra_args: dict[str] = {"nx": [10, 10], "physdims": [5, 5]}
-        tensor_grid_extra_args: dict[str] = {"x": np.array([0. , 0.5, 1. , 1.5, 2. , 2.5, 3. , 3.5, 4. , 4.5, 5. ]),
-                                             "y": np.array([0. , 0.5, 1. , 1.5, 2. , 2.5, 3. , 3.5, 4. , 4.5, 5. ])}
+        tensor_grid_extra_args: dict[str] = {
+            "x": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+            "y": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+        }
         return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
     def extra_args_data_3d(self) -> List[dict[str]]:
         simplex_extra_args: dict[str] = {"mesh_size_bound": 1.0, "mesh_size_min": 0.1}
         cartesian_extra_args: dict[str] = {"nx": [10, 10, 10], "physdims": [5, 5, 5]}
         tensor_grid_extra_args: dict[str] = {
-            "x": np.array([0., 0.5, 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, 5.]),
-            "y": np.array([0., 0.5, 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, 5.]),
-            "z": np.array([0., 0.5, 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, 5.])}
+            "x": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+            "y": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+            "z": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+        }
 
-        return [simplex_extra_args,cartesian_extra_args,tensor_grid_extra_args]
+        return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
-    def generate_network(self,domain: pp.Domain, fracture_indices: List[int]):
+    def generate_network(self, domain_index, fracture_indices: List[int]):
         """Construct well network.
 
         Parameters:
-            domain (pp.Domain): geometry representation of the higher dimensional geometrical entity
+            domain_index (int): index of computational domain
             fracture_indices (list): combination of fractures
 
         Returns:
@@ -90,6 +91,7 @@ class TestMDGridGeneration:
         """
 
         disjoint_fractures = None
+        domain: pp.Domain = self.domains()[domain_index]
         if domain.dim == 2:
             geometry = [self.fracture_2d_data()[id] for id in fracture_indices]
             disjoint_fractures = list(map(pp.LineFracture, geometry))
@@ -99,7 +101,6 @@ class TestMDGridGeneration:
 
         network = pp.create_fracture_network(disjoint_fractures, domain)
         return network
-
 
     def high_level_mdg_generation(self, grid_type, fracture_network):
         """Generates a mixed-dimensional grid.
@@ -121,7 +122,9 @@ class TestMDGridGeneration:
             extra_arguments = self.extra_args_data_2d()[extra_arg_index]
         elif fracture_network.domain.dim == 3:
             extra_arguments = self.extra_args_data_3d()[extra_arg_index]
-        mdg = pp.create_mdg(grid_type, mesh_arguments, fracture_network=fracture_network, **extra_arguments)
+        mdg = pp.create_mdg(
+            grid_type, mesh_arguments, fracture_network, **extra_arguments
+        )
         return mdg
 
     def low_level_mdg_generation(self, grid_type, fracture_network):
@@ -138,9 +141,13 @@ class TestMDGridGeneration:
 
         lower_level_arguments = None
         if fracture_network.domain.dim == 2:
-            lower_level_arguments = self.extra_args_data_2d()[self.mdg_types().index(grid_type)]
+            lower_level_arguments = self.extra_args_data_2d()[
+                self.mdg_types().index(grid_type)
+            ]
         elif fracture_network.domain.dim == 3:
-            lower_level_arguments = self.extra_args_data_3d()[self.mdg_types().index(grid_type)]
+            lower_level_arguments = self.extra_args_data_3d()[
+                self.mdg_types().index(grid_type)
+            ]
 
         if grid_type == "simplex":
             lower_level_arguments["mesh_size_frac"] = self.h_reference()
@@ -155,16 +162,12 @@ class TestMDGridGeneration:
             phys_dims = lower_level_arguments["physdims"]
 
             fractures = [f.pts for f in fracture_network.fractures]
-            mdg = pp.meshing.cart_grid(
-                fracs=fractures, **lower_level_arguments
-            )
+            mdg = pp.meshing.cart_grid(fracs=fractures, **lower_level_arguments)
             return mdg
 
         elif grid_type == "tensor_grid":
             fractures = [f.pts for f in fracture_network.fractures]
-            mdg = pp.meshing.tensor_grid(
-                fracs=fractures, **lower_level_arguments
-            )
+            mdg = pp.meshing.tensor_grid(fracs=fractures, **lower_level_arguments)
             return mdg
 
     def mdg_equality(self, h_mdg, l_mdg) -> bool:
@@ -187,98 +190,93 @@ class TestMDGridGeneration:
         ("tensor_grid", 1, [0, 1, 2]),
     ]
 
-    @pytest.mark.parametrize("grid_type, domain_index, fracture_indices", test_parameters)
+    @pytest.mark.parametrize(
+        "grid_type, domain_index, fracture_indices", test_parameters
+    )
     def test_generation(self, grid_type, domain_index, fracture_indices) -> None:
         """Test the generated mdg object."""
-        domain  = self.domains()[domain_index]
-        fracture_network = self.generate_network(domain, fracture_indices)
+
+        fracture_network = self.generate_network(domain_index, fracture_indices)
         h_mdg = self.high_level_mdg_generation(grid_type, fracture_network)
         l_mdg = self.low_level_mdg_generation(grid_type, fracture_network)
-        equality_q = self.mdg_equality(h_mdg,l_mdg)
+        equality_q = self.mdg_equality(h_mdg, l_mdg)
         assert equality_q
+
 
 class TestGenerationInconsistencies(TestMDGridGeneration):
     """Test suit for verifying function inconsistencies."""
 
     def test_grid_type_inconsistencies(self):
 
-        domain = self.domains()[0]
-        fracture_network = self.generate_network(domain, [0,1,2])
+        fracture_network = self.generate_network(0, [0, 1, 2])
         mesh_arguments: dict[str] = {"mesh_size": self.h_reference()}
 
         with pytest.raises(TypeError) as error_message:
-            grid_type = complex(1,2)
+            grid_type = complex(1, 2)
             ref_msg = str("grid_type must be str, not %r" % type(grid_type))
-            pp.create_mdg(grid_type, mesh_arguments)
+            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
         assert ref_msg in str(error_message.value)
 
         with pytest.raises(ValueError) as error_message:
             grid_type = "Simplex"
-            ref_msg = str("grid_type must be in ['simplex', 'cartesian', 'tensor_grid'] not %r" % grid_type)
-            pp.create_mdg(grid_type, mesh_arguments)
+            ref_msg = str(
+                "grid_type must be in ['simplex', 'cartesian', 'tensor_grid'] not %r"
+                % grid_type
+            )
+            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
         assert ref_msg in str(error_message.value)
 
     def test_mesh_arguments_inconsistencies(self):
 
         grid_type = "simplex"
-        domain = self.domains()[0]
-        fracture_network = self.generate_network(domain, [0,1,2])
+        fracture_network = self.generate_network(0, [0, 1, 2])
 
         with pytest.raises(TypeError) as error_message:
             mesh_arguments = [self.h_reference()]
-            ref_msg = str("mesh_arguments must be dict[str], not %r" % type(mesh_arguments))
-            pp.create_mdg(grid_type, mesh_arguments)
+            ref_msg = str(
+                "mesh_arguments must be dict[str], not %r" % type(mesh_arguments)
+            )
+            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
         assert ref_msg in str(error_message.value)
 
         with pytest.raises(TypeError) as error_message:
-            mesh_size = complex(1,2)
+            mesh_size = complex(1, 2)
             mesh_arguments: dict[str] = {"mesh_size": mesh_size}
             ref_msg = str("mesh_size must be float, not %r" % type(mesh_size))
-            pp.create_mdg(grid_type, mesh_arguments)
+            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
         assert ref_msg in str(error_message.value)
 
         with pytest.raises(ValueError) as error_message:
             mesh_size = -1.0
             mesh_arguments: dict[str] = {"mesh_size": mesh_size}
             ref_msg = str("mesh_size must be strictly positive %r" % mesh_size)
-            pp.create_mdg(grid_type, mesh_arguments)
+            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
         assert ref_msg in str(error_message.value)
 
-    def test_domain_and_network_inconsistencies(self):
+    def test_network_inconsistencies(self):
 
         grid_type = "simplex"
-        domain = self.domains()[0]
-        fracture_network = self.generate_network(domain, [0,1,2])
+        fracture_network = self.generate_network(0, [0, 1, 2])
         mesh_arguments: dict[str] = {"mesh_size": self.h_reference()}
 
         with pytest.raises(ValueError) as error_message:
-            ref_msg = str("Unable to infer dimension from domain or fracture_network.")
-            pp.create_mdg(grid_type, mesh_arguments)
-        assert ref_msg in str(error_message.value)
-
-        with pytest.raises(ValueError) as error_message:
-            domain_3d = self.domains()[1]
-            ref_msg = str("domain and fracture_network.domain differ.")
-            pp.create_mdg(grid_type, mesh_arguments, domain=domain_3d, fracture_network=fracture_network)
-        assert ref_msg in str(error_message.value)
-
-        with pytest.raises(ValueError) as error_message:
-            domain.dim = 0
-            ref_msg = str("Inferred dimension must be 2 or 3, not %r" % domain.dim)
-            pp.create_mdg(grid_type, mesh_arguments, domain=domain, fracture_network=fracture_network)
-            domain.dim = 2
+            fracture_network.domain.dim = 0
+            ref_msg = str(
+                "Inferred dimension must be 2 or 3, not %r"
+                % fracture_network.domain.dim
+            )
+            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
+            fracture_network.domain.dim = 2
         assert ref_msg in str(error_message.value)
 
         with pytest.raises(TypeError) as error_message:
-            ref_msg = str("domain must be pp.Domain, not %r" % type(complex(1,2)))
-            pp.create_mdg(grid_type, mesh_arguments, domain=complex(1,2), fracture_network=fracture_network)
+            ref_msg = str(
+                "fracture_network must be FractureNetwork2d or FractureNetwork3d, not %r"
+                % type(complex(1, 2))
+            )
+            pp.create_mdg(grid_type, mesh_arguments, complex(1, 2))
         assert ref_msg in str(error_message.value)
 
-        with pytest.raises(TypeError) as error_message:
-            ref_msg = str("fracture_network must be None, FractureNetwork2d, or FractureNetwork3d, not %r"
-            % type(complex(1,2)))
-            pp.create_mdg(grid_type, mesh_arguments, domain=domain, fracture_network=complex(1,2))
-        assert ref_msg in str(error_message.value)
 
 if __name__ == "__main__":
     unittest.main()
