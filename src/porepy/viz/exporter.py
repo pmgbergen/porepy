@@ -45,7 +45,9 @@ InterfaceData = Dict[Tuple[pp.MortarGrid, str], np.ndarray]
 
 
 class Exporter:
-    """Class for exporting and importing data and grid to and from vtu format.
+    """Class for convering internal grid and data structures to meshio
+    format, allowing to export and import data (and grid - only export)
+    to and from vtu format.
 
     The Exporter allows for various ways to express which state variables,
     on which grids, and which extra data should be exported. A thorough
@@ -262,10 +264,9 @@ class Exporter:
                     restart_vtu_files.append(data["file"])
 
             # Read the time_index from the end of the file.
+            # TODO read time and time step size from additional file.
             restart_time = float(restart_time)
-            restart_dt = float(times[-1]) - float(
-                times[-2]
-            )  # NOTE only dt if data exported at each time step. More metadata needed for the general case!
+            restart_dt = float(times[-1]) - float(times[-2])
             restart_time_index = int(Path(restart_vtu_files[0]).stem[-self._padding :])
 
         else:
