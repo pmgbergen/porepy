@@ -65,7 +65,7 @@ class SolutionStrategy(abc.ABC):
     load_data_from_pvd: Callable[[], None]
     """Load data from pvd to initialize the states, only applicable in restart
     mode.
-    
+
     """
 
     def __init__(self, params: Optional[dict] = None):

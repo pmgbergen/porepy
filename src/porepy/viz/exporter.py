@@ -288,6 +288,7 @@ class Exporter:
             if extract_time:
                 times = []
                 pvd_simulation: Optional[str] = kwargs.get("global_pvd_file")
+                assert isinstance(pvd_simulation, str)
                 tree_simulation = ET.parse(pvd_simulation)
                 for path in tree_simulation.iter("DataSet"):
                     data = path.attrib
