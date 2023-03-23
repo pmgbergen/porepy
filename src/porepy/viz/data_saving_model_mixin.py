@@ -9,7 +9,7 @@ data to a database, or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -33,6 +33,8 @@ class DataSavingMixin:
     """Time manager for the simulation."""
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the simulation."""
+    restart_options: dict
+    """Dictionary of parameters for restarting from pvd."""
 
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step."""
@@ -91,11 +93,15 @@ class DataSavingMixin:
         Raises:
             ValueError: if incompatible file type provided.
         """
-        filename = options.get("file")
+        filename: Optional[str] = options.get("file")
+        assert isinstance(filename, str)
         if Path(filename).suffix == ".vtu":
             self.exporter.import_from_vtu(filename, **kwargs)
         elif Path(filename).suffix == ".pvd":
             time, dt, time_index = self.exporter.import_from_pvd(filename, **kwargs)
+            assert isinstance(time, float)
+            assert isinstance(dt, float)
+            assert isinstance(time_index, int)
             self.time_manager.time = time
             reuse_dt = options.get("reuse_dt", True)
             if reuse_dt:

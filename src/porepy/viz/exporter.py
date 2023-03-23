@@ -218,7 +218,7 @@ class Exporter:
         pvd_file: Union[str],
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
-    ) -> Optional[tuple[float, float, int]]:
+    ) -> tuple[Optional[float], Optional[float], Optional[int]]:
         """Fetch time and vtu files from pvd and populate the corresponding data
         to the mixed-dimensional grid.
 
@@ -249,24 +249,24 @@ class Exporter:
             for path in tree_simulation.iter("DataSet"):
                 data = path.attrib
                 times.append(data["timestep"])
-            times = np.unique(times)
+            unique_times = np.unique(times)
 
             # Pick the last time step.
             # NOTE: Possibility to extend to timestep-based choice?
-            restart_time = times[-1]
+            restart_time_str = unique_times[-1]
 
             # Collect all vtu files connected to single time
             restart_vtu_files = []
             for path in tree_simulation.iter("DataSet"):
                 data = path.attrib
                 time = data["timestep"]
-                if time == restart_time:
+                if time == restart_time_str:
                     restart_vtu_files.append(data["file"])
 
             # Read the time_index from the end of the file.
             # TODO read time and time step size from additional file.
-            restart_time = float(restart_time)
-            restart_dt = float(times[-1]) - float(times[-2])
+            restart_time = float(restart_time_str)
+            restart_dt = float(unique_times[-1]) - float(unique_times[-2])
             restart_time_index = int(Path(restart_vtu_files[0]).stem[-self._padding :])
 
         else:
@@ -287,7 +287,7 @@ class Exporter:
             extract_time = kwargs.get("extract_time", False)
             if extract_time:
                 times = []
-                pvd_simulation = kwargs.get("global_pvd_file")
+                pvd_simulation: Optional[str] = kwargs.get("global_pvd_file")
                 tree_simulation = ET.parse(pvd_simulation)
                 for path in tree_simulation.iter("DataSet"):
                     data = path.attrib
@@ -480,7 +480,7 @@ class Exporter:
 
             # 3rd step. Fill-in keys.
             if keys is None:
-                _keys = []
+                _keys: list[str] = []
                 if is_subdomain_data:
                     for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
                         if pp.STATE in sd_data:
@@ -492,7 +492,7 @@ class Exporter:
                         if pp.STATE in intf_data:
                             _keys += list(intf_data[pp.STATE].keys())
             else:
-                _keys = keys
+                _keys = list(keys)
 
             # Make keys unique
             _keys = list(set(_keys))
@@ -780,8 +780,7 @@ class Exporter:
             o_file.close()
 
             # Rewrite the pvd file without the restart files and the footer
-            header = previous_content[: -2 - len(self._restart_files)]
-            header = "".join(header)
+            header: str = "".join(previous_content[: -2 - len(self._restart_files)])
 
         else:
 
