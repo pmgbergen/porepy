@@ -215,7 +215,7 @@ class Exporter:
 
     def import_from_pvd(
         self,
-        pvd_file: Union[str],
+        pvd_file: str,
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> tuple[Optional[float], Optional[float], Optional[int]]:
@@ -266,7 +266,11 @@ class Exporter:
             # Read the time_index from the end of the file.
             # TODO read time and time step size from additional file.
             restart_time = float(restart_time_str)
-            restart_dt = float(unique_times[-1]) - float(unique_times[-2])
+            restart_dt: Optional[float] = (
+                float(unique_times[-1]) - float(unique_times[-2])
+                if len(unique_times) > 1
+                else None
+            )
             restart_time_index = int(Path(restart_vtu_files[0]).stem[-self._padding :])
 
         else:
