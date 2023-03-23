@@ -5,7 +5,7 @@ different lower-level mdg generation.
 from __future__ import annotations
 
 import inspect
-from typing import Dict, Literal, Optional, Union
+from typing import Literal, Union
 
 import numpy as np
 
@@ -139,7 +139,7 @@ def _preprocess_cartesian_args(omega, mesh_arguments, kwargs):
         zmin = omega.bounding_box["zmin"]
         zmax = omega.bounding_box["zmax"]
         n_z = round((zmax - zmin) / h_size)
-        n_cells = [n_x, n_y, n_z]
+        nx_cells = [n_x, n_y, n_z]
         phys_dims = [ymax, xmax, zmax]
 
     # Avoid duplicity in values for keyword argument
@@ -193,7 +193,7 @@ def _preprocess_tensor_grid_args(omega, mesh_arguments, kwargs):
         zmin = omega.bounding_box["zmin"]
         zmax = omega.bounding_box["zmax"]
         n_z = round((zmax - zmin) / h_size) + 1
-        z_space = np.linspace(zmin, zmax, num=n_y)
+        z_space = np.linspace(zmin, zmax, num=n_z)
 
         z_arg = kwargs.get("z", None)
         if isinstance(z_arg, z_space.__class__):
