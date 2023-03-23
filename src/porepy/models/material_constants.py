@@ -292,8 +292,10 @@ class SolidConstants(MaterialConstants):
             "density": 1,
             "dilation_angle": 0,
             "fracture_gap": 0,
+            "fracture_normal_stiffness": 1,
             "friction_coefficient": 1,
             "lame_lambda": 1,
+            "maximal_fracture_closure": 0,
             "normal_permeability": 1,
             "permeability": 1,
             "porosity": 0.1,
@@ -477,3 +479,27 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["well_radius"], "m")
+
+    def fracture_normal_stiffness(self) -> number:
+        """The normal stiffness of a fracture [Pa * m^-1].
+
+        Intended use is in Barton-Bandis-type models for elastic fracture deformation.
+
+        Returns:
+            The fracture normal stiffness in converted units.
+
+        """
+        return self.convert_units(
+            self.constants["fracture_normal_stiffness"], "Pa*m^-1"
+        )
+
+    def maximal_fracture_closure(self) -> number:
+        """The maximal closure of a fracture [m].
+
+        Intended use is in Barton-Bandis-type models for elastic fracture deformation.
+
+        Returns:
+            The maximal closure of a fracture.
+
+        """
+        return self.convert_units(self.constants["maximal_fracture_closure"], "m")
