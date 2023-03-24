@@ -10,6 +10,8 @@ failure of any test indicates that something in the export filter, or in the vtk
 python bindings has changed. If the change is external to PorePy, this does not
 necessarily mean that something is wrong.
 """
+from __future__ import annotations
+
 import os
 import shutil
 import xml.etree.ElementTree as ET
