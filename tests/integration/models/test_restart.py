@@ -97,6 +97,8 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # to a reference folder.
     pvd_files = list(Path(current_dir + "/visualization").glob("*.pvd"))
     vtu_files = list(Path(current_dir + "/visualization").glob("*.vtu"))
+    print(Path(current_dir + "/visualization"))
+    print(vtu_files)
     for f in pvd_files + vtu_files:
         dst = Path(current_dir) / Path("restart_reference") / Path(f.stem + f.suffix)
         print(str(f), str(dst))
