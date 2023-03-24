@@ -9,7 +9,7 @@ data to a database, or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Union, Optional
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 
@@ -152,8 +152,7 @@ class DataSavingMixin:
         Raises:
             ValueError: if incompatible file type provided.
         """
-        filename: 
-        [str] = options.get("file")
+        filename: Optional[str] = options.get("file")
         assert isinstance(filename, str)
         if Path(filename).suffix == ".vtu":
             self.exporter.import_from_vtu(filename, **kwargs)
