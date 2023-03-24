@@ -163,7 +163,6 @@ class SolutionStrategy(abc.ABC):
         self.create_variables()
         self.initial_condition()
         self.set_equations()
-        self.set_discretization_parameters()
 
         # Export initial condition
         self.save_data_time_step()
@@ -241,6 +240,7 @@ class SolutionStrategy(abc.ABC):
         # discretization process can be achieved by exploiting knowledge of the equation
         # system (e.g., which terms are linear and need not be discretized at every
         # iteration).
+        self.set_discretization_parameters()
         self.equation_system.discretize()
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
