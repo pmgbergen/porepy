@@ -299,7 +299,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         well_projection = pp.ad.MortarProjections(
             self.mdg, well_subdomains, well_interfaces
         )
-        subdomain_projection = pp.ad.SubdomainProjections(subdomains)
+        subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
         source = projection.mortar_to_secondary_int @ self.interface_fluid_flux(
             interfaces
         )
@@ -310,7 +310,9 @@ class MassBalanceEquations(pp.BalanceEquation):
             well_interfaces
         )
         well_fluxes.set_name("well_fluid_flux_source")
-        source += subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
+        source += subdomain_projection.cell_restriction(subdomains) @ (
+            subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
+        )
         return source
 
 
@@ -500,6 +502,11 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
+    nd: int
+    """Number of spatial dimensions. Normally defined in a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -509,14 +516,22 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         self.equation_system.create_variables(
             self.pressure_variable,
             subdomains=self.mdg.subdomains(),
+            tags={"si_units": "Pa"},
         )
+        # Note that `interface_darcy_flux_variable` is not multiplied by rho * mu^-1.
+        # However, after multiplication, whe know that the resulting flux should be a
+        # mass flux with units  `kg * s^-1`. The units of `interface_darcy_flux` can
+        # then be inferred by solving the below equation for `int_flux_units`:
+        # kg * s^-1 = [kg * (m^nd)^-1] * [Pa * s]^-1 * intf_flux_units
         self.equation_system.create_variables(
             self.interface_darcy_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": f"m^{self.nd} * Pa"},
         )
         self.equation_system.create_variables(
             self.well_flux_variable,
             interfaces=self.mdg.interfaces(codim=2),
+            tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
     def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:

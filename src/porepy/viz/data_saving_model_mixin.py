@@ -8,11 +8,12 @@ data to a database, or to a file format other than vtu.
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Union
 
 import numpy as np
 
 import porepy as pp
+from porepy.viz.exporter import DataInput
 
 
 class DataSavingMixin:
@@ -32,6 +33,12 @@ class DataSavingMixin:
     """Time manager for the simulation."""
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the simulation."""
+    units: pp.Units
+    """Units for the simulation."""
+    fluid: pp.FluidConstants
+    """Fluid constants for the simulation."""
+    nd: int
+    """Number of spatial dimensions for the simulation."""
 
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step."""
@@ -46,19 +53,76 @@ class DataSavingMixin:
         if not self.suppress_export:
             self.exporter.write_pvd()
 
-    def data_to_export(self):
+    def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
 
         Return type should comply with pp.exporter.DataInput.
 
         Returns:
-            List containing all variable names.
+            List containing all (grid, name, scaled_values) tuples.
 
         """
-        var_names = [var.name for var in self.equation_system.variables]
-        # Filter out variables for interfaces of codimension 2
-        var_names = [var for var in var_names if not var.startswith("well_")]
-        return var_names
+        data = []
+        variables = self.equation_system.variables
+        for var in variables:
+            scaled_values = self.equation_system.get_variable_values([var])
+            units = var.tags["si_units"]
+            values = self.fluid.convert_units(scaled_values, units, to_si=True)
+            data.append((var.domain, var.name, values))
+
+        # Add secondary variables/derived quantities.
+        # All models are expected to have the dimension reduction methods for aperture
+        # and specific volume. More methods may be added as needed, e.g. by overriding
+        # this method:
+        #   def data_to_export(self):
+        #       data = super().data_to_export()
+        #       data.append(
+        #           (grid, "name", self._evaluate_and_scale(sd, "name", "units"))
+        #       )
+        #       return data
+        for dim in range(self.nd + 1):
+            for sd in self.mdg.subdomains(dim=dim):
+                if dim < self.nd:
+                    data.append(
+                        (sd, "aperture", self._evaluate_and_scale(sd, "aperture", "m"))
+                    )
+                data.append(
+                    (
+                        sd,
+                        "specific_volume",
+                        self._evaluate_and_scale(
+                            sd, "specific_volume", f"m^{self.nd-sd.dim}"
+                        ),
+                    )
+                )
+
+        # We combine grids and mortar grids. This is supported by the exporter, but not
+        # by the type hints in the exporter module. Hence, we ignore the type hints.
+        return data  # type: ignore[return-value]
+
+    def _evaluate_and_scale(
+        self,
+        grid: Union[pp.Grid, pp.MortarGrid],
+        method_name: str,
+        units: str,
+    ) -> np.ndarray:
+        """Evaluate a method for a derived quantity and scale the result to SI units.
+
+        Parameters:
+            grid: Grid or mortar grid for which the method should be evaluated.
+            method_name: Name of the method to be evaluated.
+            units: Units of the quantity returned by the method. Should be parsable by
+                :meth:`porepy.fluid.FluidConstants.convert_units`.
+
+        Returns:
+            Array of values for the quantity, scaled to SI units.
+
+        """
+        vals_scaled = getattr(self, method_name)([grid]).evaluate(self.equation_system)
+        if isinstance(vals_scaled, pp.ad.AdArray):
+            vals_scaled = vals_scaled.val
+        vals = self.fluid.convert_units(vals_scaled, units, to_si=True)
+        return vals
 
     def initialize_data_saving(self) -> None:
         """Initialize data saving.
@@ -75,6 +139,7 @@ class DataSavingMixin:
             export_constants_separately=self.params.get(
                 "export_constants_separately", False
             ),
+            length_scale=self.units.m,
         )
 
     @property
