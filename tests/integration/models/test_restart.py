@@ -6,12 +6,18 @@ time-varying boundary conditions.
 """
 from __future__ import annotations
 
+import os
+import shutil
+
 import pytest
 
 import porepy as pp
 
 from ...unit.test_vtk import _compare_pvd_files, _compare_vtu_files
 from .test_poromechanics import TailoredPoromechanics
+
+# Store current directory
+current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 def create_fractured_setup(solid_vals, fluid_vals, uy_north):
@@ -47,7 +53,7 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
         "restart_options": {
             "restart": True,
             "reuse_dt": True,
-            "file": "./restart_reference/previous_data.pvd",
+            "file": current_dir + "/restart_reference/previous_data.pvd",
         },
     }
     setup = TailoredPoromechanics(params)
@@ -83,20 +89,21 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     for ending in ["000001", "000002"]:
         for i in ["1", "2"]:
             assert _compare_vtu_files(
-                f"./visualization/data_{i}_{ending}.vtu",
-                f"./restart_reference/data_{i}_{ending}.vtu",
+                current_dir + f"/visualization/data_{i}_{ending}.vtu",
+                current_dir + f"/restart_reference/data_{i}_{ending}.vtu",
             )
 
             assert _compare_vtu_files(
-                f"./visualization/data_mortar_1_{ending}.vtu",
-                f"./restart_reference/data_mortar_1_{ending}.vtu",
+                current_dir + f"/visualization/data_mortar_1_{ending}.vtu",
+                current_dir + f"/restart_reference/data_mortar_1_{ending}.vtu",
             )
 
     # Compare final solution with reference solution
     for ending in ["_000002", ""]:
         assert _compare_pvd_files(
-            f"./visualization/data{ending}.pvd",
-            f"./restart_reference/data{ending}.pvd",
+            current_dir + f"/visualization/data{ending}.pvd",
+            current_dir + f"/restart_reference/data{ending}.pvd",
         )
 
-    # TODO rm visualization
+    # Remove temporary visualization folder
+    shutil.rmtree(current_dir + "/visualization")
