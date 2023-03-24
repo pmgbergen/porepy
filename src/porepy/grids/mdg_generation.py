@@ -241,7 +241,7 @@ def create_mdg(
         - TypeError: Mandatory arguments types inconsistent (see type hints in signature).
 
     Parameters:
-        grid_type: Type of the resulting grid
+        grid_type: Type of grid. Use ``simplex`` for unstructured triangular and tetrahedral grids, ``cartesian`` for structured, uniform Cartesian grids, and ``tensor_grid`` for structured, non-uniform Cartesian grids.
             instance of Literal["simplex", "cartesian", "tensor_grid"].
         mesh_arguments: ... .
         domain: Domain specfication. An instance of
