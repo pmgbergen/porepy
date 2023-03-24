@@ -12,6 +12,8 @@ time step is indeed adapted (based on iterations or recomputation criteria) and 
 (based on minimum and maximum allowable time steps or to satisfy required scheduled times).
 """
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -486,7 +488,8 @@ class TestTimeControl:
         """An error should be raised when adaption based on recomputation is attempted with
         dt = dt_min"""
         time_manager = pp.TimeManager(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
-        # For these parameters, we have time_manager.dt = time_manager.dt_init = time_manager.dt_min_max[0]
+        # For these parameters, we have time_manager.dt = time_manager.dt_init
+        # = time_manager.dt_min_max[0]
         # Attempting a recomputation should raise an error
         with pytest.raises(ValueError) as excinfo:
             msg = (
@@ -513,8 +516,8 @@ class TestTimeControl:
         time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10)
         warn_msg = (
             f"The given number of iterations '{iterations}' is larger than the maximum "
-            f"number of iterations '{time_manager.iter_max}'. This usually means that the solver "
-            f"did not converge, but since recompute_solution = False was given, the "
+            f"number of iterations '{time_manager.iter_max}'. This usually means that the "
+            f"solver did not converge, but since recompute_solution = False was given, the "
             f"algorithm will adapt the time step anyways."
         )
         with pytest.warns() as record:
@@ -635,3 +638,32 @@ class TestTimeControl:
         time_manager.time_index = time_index
         time_manager.increase_time_index()
         assert time_manager.time_index == (time_index + 1)
+
+    def test_io_history(self):
+        """Check I/O functionality."""
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1, constant_dt=True)
+        for i in range(10):
+            time_manager.write("times.json")
+            time_manager.increase_time_index()
+            time_manager.increase_time()
+
+        new_time_manager = pp.TimeManager(
+            schedule=[0, 1], dt_init=0.1, constant_dt=True
+        )
+        new_time_manager.load("times.json")
+        new_time_manager.set_from_history(5)
+        assert np.isclose(new_time_manager.time, 0.5)
+        assert np.isclose(new_time_manager.dt, 0.1)
+        assert np.all(
+            np.isclose(
+                np.array(new_time_manager.time_history),
+                np.array([0, 0.1, 0.2, 0.3, 0.4]),
+            )
+        )
+        assert np.all(
+            np.isclose(
+                np.array(new_time_manager.dt_history),
+                np.array([0.1, 0.1, 0.1, 0.1, 0.1]),
+            )
+        )
+        Path("times.json").unlink()
