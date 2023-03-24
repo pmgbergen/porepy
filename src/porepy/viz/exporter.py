@@ -225,7 +225,7 @@ class Exporter:
         pvd_file: str,
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
-    ) -> tuple[Optional[float], Optional[float], Optional[int]]:
+    ) -> int:
         """Fetch time and vtu files from pvd and populate the corresponding data
         to the mixed-dimensional grid.
 
@@ -237,53 +237,43 @@ class Exporter:
                 is_global: Flag controlling whether the input pvd file is
                     a pvd file collecting multiple time steps, or just
                     one local one.
-                extract_time: Flag controlling whether a physical time
-                    shall be found, in case is_global == False.
                 global_pvd_file: Path to global pvd file, required to
                     extract time.
 
         Returns:
-            Physical time corresponding to the restart data, and the corresponding
-            time index, if kwargs chosen accordingly.
+            Time index, obtained from suffix.
 
         """
+        # Distinguish between the case that an overall managing pvd file
+        # is provided ("is_global" is true), or a pvd file associated to
+        # a single time step. The former is usually easier to handle.
         pvd_is_global: bool = kwargs.get("is_global", True)
         if pvd_is_global:
 
-            # Collect all times first, and sort them
-            times = []
+            # Collect all timesteps first, and sort them
+            timesteps = []
             tree_simulation = ET.parse(pvd_file)
             for path in tree_simulation.iter("DataSet"):
                 data = path.attrib
-                times.append(data["timestep"])
-            unique_times = np.unique(times)
+                timesteps.append(data["timestep"])
+            unique_timesteps = np.unique(timesteps)
 
             # Pick the last time step.
             # NOTE: Possibility to extend to timestep-based choice?
-            restart_time_str = unique_times[-1]
+            restart_timestep_str = unique_timesteps[-1]
 
             # Collect all vtu files connected to single time
             restart_vtu_files = []
             for path in tree_simulation.iter("DataSet"):
                 data = path.attrib
-                time = data["timestep"]
-                if time == restart_time_str:
+                timestep = data["timestep"]
+                if timestep == restart_timestep_str:
                     restart_vtu_files.append(data["file"])
 
             # Read the time_index from the end of the file.
-            # TODO read time and time step size from additional file.
-            restart_time = float(restart_time_str)
-            restart_dt: Optional[float] = (
-                float(unique_times[-1]) - float(unique_times[-2])
-                if len(unique_times) > 1
-                else None
-            )
-            restart_time_index = int(Path(restart_vtu_files[0]).stem[-self._padding :])
+            time_index = int(float(restart_timestep_str))
 
         else:
-            # Read the time_index from the end of the file.
-            restart_time_index = int(Path(pvd_file).stem[-self._padding :])
-
             # Find all vtu files attached to the specific time step.
             # Utilize the hardcoded format in self._export_mdg_pvd().
             restart_vtu_files = []
@@ -292,29 +282,8 @@ class Exporter:
                 data = path.attrib
                 restart_vtu_files.append(str(data["file"]))
 
-            # Check the simulation pvd file and extract the physical time
-            # for all vtu files detected in pvd_time_step.
-            # Utilize the hardcoded format in self.write_pvd().
-            extract_time = kwargs.get("extract_time", False)
-            if extract_time:
-                times = []
-                pvd_simulation: Optional[str] = kwargs.get("global_pvd_file")
-                assert isinstance(pvd_simulation, str)
-                tree_simulation = ET.parse(pvd_simulation)
-                for path in tree_simulation.iter("DataSet"):
-                    data = path.attrib
-                    if data["file"] in restart_vtu_files:
-                        times.append(data["timestep"])
-
-                # Make a safety check, whether the times are the same for all
-                # files (should always be true).
-                assert len(set(times)) == 1
-                restart_time = float(list(times)[0])
-                restart_dt = None  # TODO
-            else:
-                restart_time = None
-                restart_dt = None
-                restart_time_index = None
+            # Read the time_index from the end of the file.
+            time_index = int(Path(pvd_file).stem[-self._padding :])
 
         # Cache the number of restart files used
         self._restart_files = restart_vtu_files
@@ -337,7 +306,7 @@ class Exporter:
         self.import_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
         self.import_from_vtu(interface_vtu_files, keys, are_subdomain_data=False)
 
-        return restart_time, restart_dt, restart_time_index
+        return time_index
 
     def import_from_vtu(
         self,
