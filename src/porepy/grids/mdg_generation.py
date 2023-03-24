@@ -247,7 +247,7 @@ def create_mdg(
         domain: Domain specfication. An instance of
             :class:`~porepy.geometry.domain.Domain`.
         fracture_network: fracture network specification. Instance of
-            :class:`~porepy.fracs.fracture_network_2d` or
+            :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d` or
             :class:`~porepy.fracs.fracture_network_3d`.
         **kwargs: Extra arguments associated with each grid_type.
 
