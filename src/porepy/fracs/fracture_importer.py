@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import csv
-from typing import Optional
+from typing import Optional, Union
 
 import gmsh
 import numpy as np
+from numpy.typing import ArrayLike
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
@@ -13,25 +16,32 @@ from porepy.fracs.utils import pts_edges_to_linefractures
 def network_3d_from_csv(
     file_name: str, has_domain: bool = True, tol: float = 1e-4, **kwargs
 ) -> FractureNetwork3d:
-    """
-    Create the fracture network from a set of 3d fractures stored in a csv file and
-    domain. In the csv file, we assume the following structure
-    - first line (optional) describes the domain as a rectangle with
-      X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
-    - the other lines descibe the N fractures as a list of points
-      P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
+    """Create the fracture network from a set of 3d fractures stored in a CSV file.
 
-    Lines that start with a # are ignored.
+    In the CSV file, we assume the following structure:
 
-    Args:
-        file_name (str): path to the csv file
-        has_domain (boolean): if the first line in the csv file specify the domain
-        tol: (double, optional) geometric tolerance used in the computations.
-            Defaults to 1e-4.
-        **kwargs: Keyword arguments passed on to Fracture and FractureNetwork3d
+        The first line (optional) describes the domain as a cuboid with ``X_MIN,
+        Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX``.
 
-    Return:
-        network: the fracture network
+        The other lines descibe the `N` fractures as a list of points ``P0_X, P0_Y,
+        P0_Z, ..., PN_X, PN_Y, PN_Z``.
+
+    Lines starting with ``#`` will be ignored.
+
+    Parameters:
+        file_name: Path to the CSV file.
+        has_domain: ``default=True``
+
+            Whether the first line in the CSV file specifies the domain.
+        tol: ``default=1e-4``
+
+            Geometric tolerance used in the computations.
+        **kwargs: Keyword arguments passed to
+            :class:`~porepy.fracs.plane_fracture.PlaneFracture` and
+            :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
+
+    Returns:
+        Three-dimensional fracture network object.
 
     """
 
@@ -97,34 +107,35 @@ def network_3d_from_csv(
 
 
 def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
-    """
-    Create the fracture network from a set of 3d fractures stored in a csv file and
-    domain. In the csv file, we assume the following structure
-    - first line (optional) describes the domain as a rectangle with
-      X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
-    - the other lines describe the N fractures as a elliptic fractures:
-      center_x, center_y, center_z, major_axis, minor_axis, major_axis_angle,
-                 strike_angle, dip_angle, num_points.
-     See create_elliptic_fracture for information about the parameters
+    """Create fracture network from a set of elliptic fractures stored in a CSV file.
+
+    In the CSV file, we assume the following structure:
+
+        The first line (optional) describes the domain as a cuboid with ``X_MIN,
+        Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX``.
+
+        The other lines describe the ``N`` fractures as a elliptic fractures with
+        ``center_x, center_y, center_z, major_axis, minor_axis, major_axis_angle,
+        strike_angle, dip_angle, num_points``.
+
+    See :meth:`~porepy.fracs.plane_fracture.create_elliptic_fracture` for
+    information about the parameters
 
     Lines that start with a # are ignored.
 
-    Parameters
-    ----------
-    file_name
-        Name of the file
-    has_domain
-        Whether the first line in the csv file specify the domain
-    tol
-        Tolerance for geometry related methods (snapping etc.) of FractureNetwork3d.
-        Defaults to 1e-4.
-    # TODO document argument
-    degrees
+    Parameters:
 
-    Returns
-    -------
-    FractureNetwork3d
-        the fracture network
+        file_name: Path to the CSV file.
+        has_domain: ``default=True``
+
+            Whether the first line in the CSV file specifies the domain.
+        tol: ``default=1e-4``
+
+            Geometric tolerance used in the computations.
+        degrees: FIXME: Fill description of the argument. EK maybe you know?
+
+    Returns:
+        Three-dimensional fracture network object with elliptic fractures.
 
     """
 
@@ -182,55 +193,68 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
 
 
 def network_2d_from_csv(
-    f_name,
-    tagcols=None,
-    tol=1e-8,
-    max_num_fracs=None,
-    polyline=False,
-    return_frac_id=False,
+    f_name: str,
+    tagcols: Optional[ArrayLike] = None,
+    tol: float = 1e-8,
+    max_num_fracs: Optional[int] = None,
+    polyline: bool = False,
+    return_frac_id: bool = False,
     domain: Optional[pp.Domain] = None,
     **kwargs,
-):
-    """Read csv file with fractures to obtain fracture description.
+) -> Union[FractureNetwork2d, tuple[FractureNetwork2d, np.ndarray]]:
+    """Create two-dimensional fracture network from a CSV file.
 
-    Create the mixed-dimensional grid from a set of fractures stored in a csv file and a
-    domain. In the csv file, we assume one of the two following structures:
+    In the CSV file, we assume one of the two following structures:
 
-        a) FID, START_X, START_Y, END_X, END_Y
-        b) FID, PT_X, PT_Y
+        (a) ``FID, START_X, START_Y, END_X, END_Y``.
+        (b) ``FID, PT_X, PT_Y``.
 
-    Format a) is used to describe fractures consisting of a straight line.
-    FID is the fracture id, START_X and START_Y are the abscissa and
-    coordinate of the starting point, and END_X and END_Y are the abscissa and
+    Format (a) is used to describe fractures consisting of a straight line.
+    ``FID`` is the fracture id, ``START_X`` and ``START_Y`` are the abscissa and
+    coordinate of the starting point, and ``END_X`` and ``END_Y`` are the abscissa and
     coordinate of the ending point.
 
-    Format b) can be used to describe polyline fractures: Each row in the file
-    represents a separate points, points with the same FID will be assigned to
+    Format (b) can be used to describe polyline fractures, where each row in the file
+    represents separate points, points with the same ``FID`` will be assigned to
     the same fracture *in the order specified in the file*.
 
     To change the delimiter from the default comma, use kwargs passed to
-    np.genfromtxt.
+    ``np.genfromtxt``.
 
-    The csv file is assumed to have a header of 1 line. To change this number,
-    use kwargs skip_header.
+    The CSV file is assumed to have a header of 1 line. To change this number,
+    use kwargs ``skip_header``.
 
     Parameters:
-        f_name (str): Path to csv file
-        tagcols (array-like, int. Optional): Column index where fracture tags
-            are stored. 0-offset. Defaults to no columns.
-        tol (double, optional): Tolerance for merging points with almost equal
-            coordinates.
-        max_num_fracs (int, optional): Maximum number of fractures included,
-            counting from the start of the file. Defaults to inclusion of all
-            fractures.
-        domain (pp.Domain): Domain specification.
-        **kwargs: keyword arguments passed on to np.genfromtxt.
+        f_name: Path to the CSV file.
+        tagcols: ``(dtype=np.int8, default=None)``
+
+            Column index where fracture tags are stored. 0-offset. Defaults to no
+            columns.
+        tol: ``default=1e-10``
+
+            Tolerance for merging points with almost equal coordinates.
+        max_num_fracs: ``default=None``
+
+            Maximum number of fractures included, counting from the start of the
+            file. Defaults to inclusion of all fractures.
+        polyline: ``default=False``
+
+            Whether the fractures are given as a polyline, e.g., via format (b).
+        return_frac_id: ``default=False``
+
+            Whether to return the fractures ID.
+        domain:  ``default=None``
+
+            Domain specification. If not given, the domain will be set as the
+            bounding box of the set of fractures.
+        **kwargs: keyword arguments passed to ``np.genfromtxt``.
 
     Returns:
-        FractureNetwork2d: Network representation of the fractures
+        The two-dimensional fracture network, and if :attr:`return_frac_id` = True,
+        also the fractures' ID as a numpy array of ``shape=(num_fracs, )``.
 
     Raises:
-        ValueError: If a fracture of a single point is specified.
+        - ValueError: If a fracture of a single point is specified.
 
     """
     npargs = {}
@@ -320,6 +344,7 @@ def network_2d_from_csv(
 
     fractures = pts_edges_to_linefractures(pts, edges)
     network = pp.create_fracture_network(fractures, domain, tol=tol)
+    assert isinstance(network, FractureNetwork2d)
 
     if return_frac_id:
         edges_frac_id = np.delete(edges_frac_id, to_remove)
@@ -329,19 +354,26 @@ def network_2d_from_csv(
 
 
 def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid:
-    """Generate a MixedDimensionalGrid from a gmsh file.
+    """Generate a mixed-dimensional grid from a Gmsh file.
 
-    If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
-    to generate the mesh before the MixedDimensionalGrid is constructed.
+    If the provided extension of the input file for Gmsh is ``.geo`` (not ``.msh``),
+    Gmsh will be called to generate the mesh before the mixed-dimensional grid is
+    constructed.
 
     Parameters:
-        file_name (str): Name of gmsh in and out file. Should have extsion .geo
-            or .msh. In the former case, gmsh will be called upon to generate the
+        file_name: Name of Gmsh ``in`` and ``out`` file. Should have extension ``.geo``
+            or ``.msh``. In the former case, Gmsh will be called upon to generate the
             mesh before the mixed-dimensional mesh is constructed.
-        dim (int): Dimension of the problem. Should be 2 or 3.
+        dim: Dimension of the problem. Should be ``2`` or ``3``.
+        **kwargs: Optional keyword arguments.
+
+            See :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh` for
+            :attr:`dim` = 2, and
+            :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh` for
+            :attr:`dim` = 3.
 
     Returns:
-        MixedDimensionalGrid: Mixed-dimensional grid as contained in the gmsh file.
+        Mixed-dimensional grid as contained in the Gmsh file.
 
     """
 
@@ -382,29 +414,37 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
 def dfm_3d_from_fab(
     file_name: str,
     tol: float = 1e-4,
-    domain=None,
+    domain: Optional[pp.Domain] = None,
     return_domain: bool = False,
     **mesh_kwargs,
-):
+) -> Union[pp.MixedDimensionalGrid, tuple[pp.MixedDimensionalGrid, pp.Domain]]:
     """
-    Create the grid bucket from a set of 3d fractures stored in a fab file and
-    domain.
+    Create the grid bucket from a set of 3d fractures stored in a fab file and domain.
 
     Parameters:
-        file_name: name of the file
-        tol: (optional) tolerance for the methods
-        domain: (optional) the domain, otherwise a bounding box is considered
-        return_domain: whether to return the domain.
-        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
+        file_name: Name of the file.
+        tol: ``default=1e-4``
 
-    Return:
-        mdg: the mixed-dimensional grid
+            Tolerance for the methods.
+        domain: ``default=None``
+
+            Domain specification. If not given, the bounding box is considered.
+        return_domain:  ``default=False``
+
+            Whether to return the domain.
+        mesh_kwargs: ``kwargs`` for the gridding, see e.g.,
+            :meth:`~porepy.fracs.simplex.tetrahedral_grid_from_gmsh`.
+
+    Returns:
+        The resulting mixed-dimensional grid, and if :attr:`return_domain` = True,
+        also the domain.
+
     """
 
     network = network_3d_from_fab(file_name, return_all=False, tol=tol)
+    assert isinstance(network, FractureNetwork3d)
 
     # Compute the domain if not given
-    # TODO: Retrieve from as an attribute
     if domain is None:
         domain = pp.Domain(network.bounding_box())
 
@@ -419,29 +459,36 @@ def dfm_3d_from_fab(
 
 def network_3d_from_fab(
     f_name: str, return_all: bool = False, tol: Optional[float] = None
-):
-    """Read fractures from a .fab file, as specified by FracMan.
+) -> Union[FractureNetwork3d, tuple[FractureNetwork3d, list[np.ndarray], np.ndarray]]:
+    """Create 3d fracture network from a ``.fab`` file, as specified by FracMan.
 
-    The filter is based on the .fab-files available at the time of writing, and
+    The filter is based on the ``.fab``-files available at the time of writing, and
     may not cover all options available.
 
+    Note:
+        The function also reads in various other information of unknown usefulness,
+        see implementation for details. This information is currently not returned.
+
     Parameters:
-        f_name (str): Path to .fab file.
-        return_all: Whether to return additional information (see Returns)
-        tol: Tolerance passed on instantiation of the returned FractureNetwork3d
+        f_name: Path to the ``.fab`` file.
+        return_all: ``default=False``
+
+            Whether to return additional information (see the Retunrs section).
+        tol: ``default=None``
+
+            Tolerance passed on instantiation of the returned
+            :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
 
     Returns:
-        network: the network of fractures
-        tess_fracs (optional returned if return_all==True, list of np.ndarray):
-            Each list element contains fracture
-            cut by the domain boundary, represented by vertexes as a nd x n_pt
-            array.
-        tess_sgn (optional returned if return_all==True, np.ndarray):
-            For each element in tess_frac, a +-1 defining
-            which boundary the fracture is on.
+        Three-dimensional fracture network, and if :attr:`return_all` = True, also:
 
-    The function also reads in various other information of unknown usefulness,
-    see implementation for details. This information is currently not returned.
+            - A list of numpy arrays of ``shape=(nd, num_points)``, where each
+            item of the list contains the fractures cut by the domain boundary,
+            represented by their ``num_points`` vertexes.
+
+            - A numpy array, where for each element in the list of numpy arrays from
+            above, a :math:`\\pm 1` is associated, establishing which boundary the
+            fracture is on.
 
     """
 
@@ -526,6 +573,7 @@ def network_3d_from_fab(
         network = pp.create_fracture_network(fractures, tol=tol)
     else:
         network = pp.create_fracture_network(fractures)
+    assert isinstance(network, FractureNetwork3d)
 
     if return_all:
         return network, tess_fracs, tess_sgn
