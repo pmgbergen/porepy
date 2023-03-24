@@ -322,17 +322,25 @@
 <span class="sd">        - Warning: If ``run_checks = True`` when dimension is different from 3.</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        fractures: List of fractures. Each item of the list should be either an</span>
-<span class="sd">            instance of :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3d or an</span>
-<span class="sd">            instance of :class:`~porepy.fracs.line_fracture.LineFracture` for 2d.</span>
-<span class="sd">            Default is ``None``, meaning, no fractures. If an empty list is given, it</span>
-<span class="sd">            will be treated as ``None``.</span>
-<span class="sd">        domain: Domain specfication. An instance of</span>
+<span class="sd">        fractures: ``default=None``</span>
+
+<span class="sd">            List of fractures. Each item of the list should be either an instance of</span>
+<span class="sd">            :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3d or an instance</span>
+<span class="sd">            of :class:`~porepy.fracs.line_fracture.LineFracture` for 2d. Default is</span>
+<span class="sd">            ``None``, meaning, no fractures. If an empty list is given, it will be</span>
+<span class="sd">            treated as ``None``.</span>
+<span class="sd">        domain: ``default=None``</span>
+
+<span class="sd">            Domain specfication. If given, it should be an instance of</span>
 <span class="sd">            :class:`~porepy.geometry.domain.Domain`.</span>
-<span class="sd">        tol: Geometric tolerance used in the computations. Default is ``1e-8``.</span>
-<span class="sd">        run_checks: Run consistency checks during the network processing. Can be</span>
+<span class="sd">        tol: ``default=1e-8``</span>
+
+<span class="sd">            Geometric tolerance used in the computations.</span>
+<span class="sd">        run_checks: ``default=False``</span>
+
+<span class="sd">            Run consistency checks during the network processing. Can be</span>
 <span class="sd">            considered a limited debug mode. Only used for three-dimensional fracture</span>
-<span class="sd">            networks. Default is ``False``.</span>
+<span class="sd">            networks.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Fracture network object according to the dimensionality of the problem.</span>
