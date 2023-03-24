@@ -11,7 +11,9 @@ problems with scaling/rounding errors and condition numbers.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union, overload
+
+import numpy as np
 
 import porepy as pp
 
@@ -65,9 +67,27 @@ class MaterialConstants:
         """
         return self._constants
 
+    @overload
     def convert_units(
         self, value: number, units: str, to_si: Optional[bool] = False
     ) -> number:
+        ...
+
+    @overload
+    def convert_units(
+        self,
+        value: np.ndarray,
+        units: str,
+        to_si: Optional[bool] = False,
+    ) -> np.ndarray:
+        ...
+
+    def convert_units(
+        self,
+        value: Union[number, np.ndarray],
+        units: str,
+        to_si: Optional[bool] = False,
+    ) -> Union[number, np.ndarray]:
         """Convert value between SI and user specified units.
 
         The method divides the value by the units as defined by the user. As an example,
@@ -261,19 +281,8 @@ class SolidConstants(MaterialConstants):
 
     Parameters:
         constants (dict): Dictionary of constants. Only keys corresponding to a constant
-            in the class will be used. The permissible keys are:
-                - ``thermal_expansion``: Thermal expansion coefficient [1/K].
-                - ``density``: Density [kg/m^3].
-                - ``porosity``: Porosity [-].
-                - ``permeability``: Permeability [m^2].
-                - ``normal_permeability``: Normal permeability [m^2].
-                - ``lame_lambda``: Lame parameter lambda [Pa].
-                - ``shear_modulus``: Shear modulus [Pa].
-                - ``specific_storage``: Specific storage [Pa^-1].
-                - ``friction_coefficient``: Friction coefficient [-].
-                - ``fracture_gap``: Fracture gap [m].
-                - ``dilation_angle``: Dilation angle [radians].
-
+            in the class will be used. If not specified, default values are used, mostly
+            0 or 1. See the soucre code for permissible keys and default values.
     """
 
     def __init__(self, constants: Optional[dict] = None):
@@ -283,18 +292,22 @@ class SolidConstants(MaterialConstants):
             "density": 1,
             "dilation_angle": 0,
             "fracture_gap": 0,
+            "fracture_normal_stiffness": 1,
             "friction_coefficient": 1,
             "lame_lambda": 1,
+            "maximal_fracture_closure": 0,
             "normal_permeability": 1,
             "permeability": 1,
             "porosity": 0.1,
             "residual_aperture": 0.1,
             "shear_modulus": 1,
+            "skin_factor": 0,
             "specific_heat_capacity": 1,
             "specific_storage": 1,
             "temperature": 0,
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
+            "well_radius": 0.1,
         }
 
         if constants is not None:
@@ -429,7 +442,7 @@ class SolidConstants(MaterialConstants):
             Friction coefficient.
 
         """
-        return self.convert_units(self.constants["friction_coefficient"], "-")
+        return self.constants["friction_coefficient"]
 
     def dilation_angle(self) -> number:
         """Dilation angle.
@@ -440,6 +453,15 @@ class SolidConstants(MaterialConstants):
         """
         return self.convert_units(self.constants["dilation_angle"], "rad")
 
+    def skin_factor(self) -> number:
+        """Skin factor [-].
+
+        Returns:
+            Skin factor.
+
+        """
+        return self.constants["skin_factor"]
+
     def temperature(self) -> number:
         """Temperature [K].
 
@@ -448,3 +470,36 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["temperature"], "K")
+
+    def well_radius(self) -> number:
+        """Well radius [m].
+
+        Returns:
+            Well radius in converted length units.
+
+        """
+        return self.convert_units(self.constants["well_radius"], "m")
+
+    def fracture_normal_stiffness(self) -> number:
+        """The normal stiffness of a fracture [Pa * m^-1].
+
+        Intended use is in Barton-Bandis-type models for elastic fracture deformation.
+
+        Returns:
+            The fracture normal stiffness in converted units.
+
+        """
+        return self.convert_units(
+            self.constants["fracture_normal_stiffness"], "Pa*m^-1"
+        )
+
+    def maximal_fracture_closure(self) -> number:
+        """The maximal closure of a fracture [m].
+
+        Intended use is in Barton-Bandis-type models for elastic fracture deformation.
+
+        Returns:
+            The maximal closure of a fracture.
+
+        """
+        return self.convert_units(self.constants["maximal_fracture_closure"], "m")

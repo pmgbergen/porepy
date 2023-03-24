@@ -183,8 +183,13 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
 
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
+        sds = setup.mdg.subdomains(dim=2)
         total_energy = (
-            setup.total_internal_energy(setup.mdg.subdomains(dim=2))
+            setup.volume_integral(
+                setup.total_internal_energy(sds),
+                sds,
+                dim=1,
+            )
             .evaluate(setup.equation_system)
             .val
         )
@@ -206,7 +211,7 @@ def test_unit_conversion(units):
             :class:`~pp.models.material_constants.MaterialConstants`.
 
     """
-    params = {"suppress_export": True, "num_fracs": 2, "cartesian": True}
+    params = {"suppress_export": True, "fracture_indices": [0, 1], "cartesian": True}
     # Create model and run simulation
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"
