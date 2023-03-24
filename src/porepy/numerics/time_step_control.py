@@ -90,6 +90,7 @@ Algorithm Workflow in Pseudocode:
 
 from __future__ import annotations
 
+import json
 import warnings
 from typing import Optional, Union
 
@@ -648,3 +649,73 @@ class TimeManager:
             schedule[ss + 1], sim_times, rtol=rtol, atol=atol
         )
         return schedule.size == np.sum(in1d)
+
+    # I/O
+    def write(self, path: Optional[str] = None) -> None:
+        """Keep track of history of time and time step size and store.
+
+        Parameters:
+            path: specified path for storing time and dt.
+
+        """
+        # Initialization
+        if not hasattr(self, "time_history"):
+            self.time_history = []
+            """Collection of all visited physical times."""
+        if not hasattr(self, "dt_history"):
+            self.dt_history = []
+            """Collection of all used time step sizes."""
+
+        # Book keeping
+        self.time_history.append(
+            int(self.time) if isinstance(self.time, np.integer) else float(self.time)
+        )
+        self.dt_history.append(
+            int(self.dt) if isinstance(self.dt, np.integer) else float(self.dt)
+        )
+
+        print({"time": self.time_history, "dt": self.dt_history})
+
+        # Storing as json
+        out_file = open(path if path is not None else "visualization/times.json", "w")
+        json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
+        out_file.close()
+
+    def load(self, path: Optional[str] = None) -> None:
+        """Keep track of history of time and time step size and store.
+
+        Mirrors self.write().
+
+        Parameters:
+            path: specified path for retrieving time and dt.
+
+        """
+        in_file = open(path if path is not None else "visualization/times.json")
+        data = json.load(in_file)
+        self.time_history = data["time"]
+        self.dt_history = data["dt"]
+        in_file.close()
+
+    def set_from_history(self, time_index: int = -1) -> None:
+        """Load previous visited history for resuming, and cut-off afterward
+        history.
+
+        Parameters:
+            time_index: reference index addressing the currently stored history.
+                By default, the latest accessible time and dt is retrieved.
+
+        Raises:
+            ValueError
+
+        """
+        if not hasattr(self, "time_history") or not hasattr(self, "dt_history"):
+            raise ValueError(
+                """The time manager does not hold information on
+                previously used time and dt."""
+            )
+
+        self.time = self.time_history[time_index]
+        self.dt = self.dt_history[time_index]
+
+        self.time_history = self.time_history[:time_index]
+        self.dt_history = self.dt_history[:time_index]
