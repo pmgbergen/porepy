@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from pathlib import Path
 
 import pytest
 
@@ -20,16 +21,19 @@ from .test_poromechanics import TailoredPoromechanics
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
-def create_fractured_setup(solid_vals, fluid_vals, uy_north):
+def create_fractured_setup(
+    solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
+):
     """Create a setup for a fractured domain.
 
     This is an enhanced copy of .test_poromechanics.create_fractured_setup.
     It enables multiple time steps, and the export of the solution.
 
     Parameters:
-        solid_vals (dict): Parameters for the solid mechanics model.
-        fluid_vals (dict): Parameters for the fluid mechanics model.
-        uy_north (float): Displacement in y-direction on the north boundary.
+        solid_vals: Parameters for the solid mechanics model.
+        fluid_vals: Parameters for the fluid mechanics model.
+        uy_north: Displacement in y-direction on the north boundary.
+        restart: Flag controlling whether restart is used.
 
     Returns:
         TailoredPoromechanics: A setup for a fractured domain.
@@ -51,7 +55,7 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
         # TODO fix DataSavingMixin.write_pvd and use [0,1] with dt_init=0.5 here.
         "time_manager": pp.TimeManager(schedule=[0, 2], dt_init=1, constant_dt=True),
         "restart_options": {
-            "restart": True,
+            "restart": restart,
             "reuse_dt": True,
             "file": current_dir + "/restart_reference/previous_data.pvd",
         },
@@ -73,6 +77,9 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     simulaton, continue running and compare the final state and exported
     vtu/pvd files with reference files.
 
+    This test also serves as minimal documentation of how to restart a model
+    in a practical situation.
+
     Parameters:
         solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
             and corresponding values.
@@ -81,11 +88,28 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
             directions. The values are used to infer sign of displacement solution.
 
     """
-    # Setup and run model
-    setup = create_fractured_setup(solid_vals, {}, north_displacement)
+    # Setup and run model for full time interval.
+    setup = create_fractured_setup(solid_vals, {}, north_displacement, restart=False)
     pp.run_time_dependent_model(setup, {})
 
-    # Compare solutions at initialized and next time step.
+    # The run generates data for initial and the first two time steps.
+    # In order to use the data as restart and reference data, move it
+    # to a reference folder.
+    pvd_files = list(Path(current_dir + "/visualization").glob("*.pvd"))
+    vtu_files = list(Path(current_dir + "/visualization").glob("*.vtu"))
+    for f in pvd_files + vtu_files:
+        dst = Path(current_dir + "/restart_reference") / Path(f.stem + f.suffix)
+        shutil.move(str(f), str(dst))
+
+    # Now use the reference data to restart the simulation.
+    setup = create_fractured_setup(solid_vals, {}, north_displacement, restart=True)
+    pp.run_time_dependent_model(setup, {})
+
+    # To verify the restart capabilities, test whether:
+    # - the states have been correctly initialized at restart time;
+    # - the follow-up time step has been computed correctely;
+    # - the overall solution stored in a global pvd file is compiled correctly.
+
     for ending in ["000001", "000002"]:
         for i in ["1", "2"]:
             assert _compare_vtu_files(
@@ -98,7 +122,6 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
                 current_dir + f"/restart_reference/data_mortar_1_{ending}.vtu",
             )
 
-    # Compare final solution with reference solution
     for ending in ["_000002", ""]:
         assert _compare_pvd_files(
             current_dir + f"/visualization/data{ending}.pvd",
@@ -107,3 +130,8 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
 
     # Remove temporary visualization folder
     shutil.rmtree(current_dir + "/visualization")
+
+    # Remove the reference data
+    for f in pvd_files + vtu_files:
+        src = Path(current_dir + "/restart_reference") / Path(f.stem + f.suffix)
+        src.unlink()
