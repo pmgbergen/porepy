@@ -95,14 +95,10 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # The run generates data for initial and the first two time steps.
     # In order to use the data as restart and reference data, move it
     # to a reference folder.
-    print(list(Path(current_dir).glob("*")))
-    print(list(Path(".").glob("*")))
     pvd_files = list(Path("./visualization").glob("*.pvd"))
     vtu_files = list(Path("./visualization").glob("*.vtu"))
-    print(vtu_files)
     for f in pvd_files + vtu_files:
         dst = Path(current_dir) / Path("restart_reference") / Path(f.stem + f.suffix)
-        print(str(f), str(dst))
         shutil.move(str(f), str(dst))
 
     # Now use the reference data to restart the simulation.
