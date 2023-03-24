@@ -18,26 +18,32 @@ class Fracture(abc.ABC):
     fracture and the ambient dimension. It contains various utility methods, mainly
     intended for the use together with the FractureNetwork class.
 
-    A fracture is defined by its `num_points` vertices, stored in an `nd x num_points`
-    numpy-array, where `nd` is the assumed ambient dimension. The order/sorting of
-    vertices has to be implemented explicitly.
+    A fracture is defined by its ``num_points`` vertices, stored in an
+    ``nd x num_points`` numpy-array, where ``nd`` is the ambient dimension. The
+    order/sorting of vertices has to be implemented explicitly.
 
     Dimension-dependent routines are implemented as abstract methods.
 
-    PorePy currently only supports planar and convex fractures fully. As a work-around,
-    the fracture can be split into convex parts.
+    PorePy currently only provides full support for planar, convex fractures.
+    As a work-around, the fracture can be split into convex parts.
 
     Parameters:
-        points: ``(shape=(nd, num_points))``
-            Array containing the start- and end point/the corner
-            points for line/plane fractures.
-        tags: ``(shape=(num_tags)`, dtype=np.int8)``
+        points: ``shape=(nd, num_points)``
+
+            Array containing the start- and end point/the corner points for
+            line/plane fractures.
+        tags: ``(shape=(num_tags, ), dtype=np.int8, default=None)``
+
             All the tags of the fracture. A tag value of ``-1`` equals to the tag not
-            existing at all. Default is None.
-        index: Identify the fracture with an index. Two fractures with the same index
-            are assumed to be identical. Default is None.
-        sort_points: Sort the points internally. Concrete implementation depends on the
-            subclass. Default is True.
+            existing at all.
+        index: ``default=None``
+
+            Identify the fracture with an index. Two fractures with the same index
+            are assumed to be identical.
+        sort_points: ``default=True``
+
+            Sort the points internally. Concrete implementation depends on the
+            subclass.
 
     """
 
@@ -49,9 +55,10 @@ class Fracture(abc.ABC):
         sort_points: bool = True,
     ):
         self.pts: np.ndarray = np.asarray(points, dtype=float)
-        """Fracture vertices (shape=(nd, num_points)), stored in the implemented order.
-
-        Note that the ``points`` passed to init will mutate.
+        """Fracture vertices ``(shape=(nd, num_points))``.
+         
+        The points are stored in the implemented order. Note that the ``points`` 
+        passed at instantiation will mutate.
 
         """
         self._check_pts()
@@ -61,40 +68,46 @@ class Fracture(abc.ABC):
             self.sort_points()
 
         self.normal: np.ndarray = self.compute_normal()
-        """Normal vector `(shape=(nd, ))`."""
+        """Normal vector ``(shape=(nd, ))``."""
+
         self.center: np.ndarray = self.compute_centroid()
-        """Centroid of the fracture `(shape=(nd, ))`."""
+        """Centroid of the fracture ``(shape=(nd, ))``."""
+
         self.orig_pts: np.ndarray = self.pts.copy()
-        """Original fracture vertices `(shape=(nd, num_points))`.
+        """Original fracture vertices ``(shape=(nd, num_points))``.
 
         The original points are kept in case the fracture geometry is modified.
 
         """
+
         if tags is None:
             self.tags: np.ndarray = np.full((0,), -1, dtype=np.int8)
         else:
             self.tags = np.asarray(tags, dtype=np.int8)
-        """Tags of the fracture.
-
-        In the standard form, the first tag identifies the type of the fracture,
-        referring to the numbering system in GmshInterfaceTags. The second tag keeps
-        track of the numbering of the fracture (referring to the original order of the
-        fractures) in geometry processing like intersection removal. Additional tags can
-        be assigned by the user.
-
-        A tag value of -1 means that the fracture does not have the specified tag. This
-        enables e.g. the functionality for a fracture to have the second tag, but no the
-        first one. In a more extreme case, ``fracture.tags==[-1, -1, -1, -1, -1]`` is
-        equal to the fracture not having any tags at all.
-
-        """
+            """Tags of the fracture.
+    
+            In the standard form, the first tag identifies the type of the fracture,
+            referring to the numbering system in 
+            :class:`~porepy.fracs.gmsh_interface.Tags`. The second tag keeps track of
+            the numbering of the fracture (referring to the original order of the 
+            fractures) in geometry processing, like intersection removal. Additional
+            tags can be assigned by the user.
+    
+            A tag value of ``-1`` means that the fracture does not have the specified
+            tag. This enables e.g., the functionality for a fracture to have the 
+            second tag, but not the first one. In a more extreme case, 
+            ``fracture.tags==[-1, -1, -1, -1, -1]`` is equal to the fracture not 
+            having any tags at all.
+    
+            """
 
         self.index: Optional[int] = index
         """Index of fracture.
 
         Intended use in :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
         and :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`. Exact use is
-        not clear (several fractures can be given same index), use with care.
+        not clear (several fractures can be given same index). We thus recommend to 
+        use it with care.
 
         """
 
@@ -127,20 +140,20 @@ class Fracture(abc.ABC):
             return NotImplemented
         return self.index == other.index
 
-    def set_index(self, i: int):
+    def set_index(self, index: int) -> None:
         """Set index of this fracture.
 
         Parameters:
-            i: Index.
+            index: Index.
 
         """
-        self.index = i
+        self.index = index
 
     def points(self) -> Generator[np.ndarray, None, None]:
         """Generator over the vertices of the fracture.
 
         Yields:
-            Fracture vertex `(shape=(nd, 1))`.
+            Fracture vertex ``(shape=(nd, 1))``.
 
         """
         for i in range(self.pts.shape[1]):
@@ -150,7 +163,7 @@ class Fracture(abc.ABC):
         """Generator over the segments according to the currently applied order.
 
         Yields:
-            Fracture segment `(shape=(nd, 2))`.
+            Fracture segment ``(shape=(nd, 2))``.
 
         """
         sz = self.pts.shape[1]
@@ -163,17 +176,22 @@ class Fracture(abc.ABC):
         """Check whether a given point is a vertex of the fracture.
 
         Parameters:
-            p (shape=(nd, )): Point to be checked.
-            tol: Tolerance of point accuracy. Default is ``1e-4``.
+            p: ``shape=(nd, )``
+
+                Point to be checked.
+            tol: ``default=1e-4``
+
+                Tolerance of point accuracy.
 
         Returns:
-            A tuple containing
+            A tuple with two elements.
 
-            bool:
+            :obj:`bool`:
                 Indicates whether the point is a vertex.
-            ndarray:
+
+            :obj:`~numpy.ndarray`:
                 Gives the position of ``p`` in :attr:`pts` if the point is a vertex.
-                Else, None is returned.
+                Otherwise, None is returned.
 
         """
         p = p.reshape((-1, 1))
@@ -215,12 +233,12 @@ class Fracture(abc.ABC):
     def local_coordinates(self) -> np.ndarray:
         """Abstract method for computing the local coordinates.
 
-        The compuation is performed on the vertex coordinates in a local system and its
-        local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e. the fracture
-        has co-dimension 1.
+        The computation is performed on the vertex coordinates in a local system and its
+        local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e.,
+        the fracture has co-dimension 1.
 
         Returns:
-            Coordinates of the vertices in local dimensions `(shape=(d, num_points))`.
+            Coordinates of the vertices in local dimensions ``(shape=(d, num_points))``.
 
         """
         pass
