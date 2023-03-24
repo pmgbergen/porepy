@@ -6,10 +6,12 @@ time-varying boundary conditions.
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 import porepy as pp
@@ -52,12 +54,11 @@ def create_fractured_setup(
         "material_constants": {"solid": solid, "fluid": fluid},
         "uy_north": uy_north,
         "max_iterations": 20,
-        # TODO fix DataSavingMixin.write_pvd and use [0,1] with dt_init=0.5 here.
-        "time_manager": pp.TimeManager(schedule=[0, 2], dt_init=1, constant_dt=True),
+        "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True),
         "restart_options": {
             "restart": restart,
-            "reuse_dt": True,
-            "file": current_dir + "/restart_reference/previous_data.pvd",
+            "pvd_file": current_dir + "/restart_reference/previous_data.pvd",
+            "times_file": current_dir + "/restart_reference/previous_times.json",
         },
     }
     setup = TailoredPoromechanics(params)
@@ -97,7 +98,8 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # to a reference folder.
     pvd_files = list(Path("./visualization").glob("*.pvd"))
     vtu_files = list(Path("./visualization").glob("*.vtu"))
-    for f in pvd_files + vtu_files:
+    json_files = list(Path("./visualization").glob("*.json"))
+    for f in pvd_files + vtu_files + json_files:
         dst = Path(current_dir) / Path("restart_reference") / Path(f.stem + f.suffix)
         shutil.move(str(f), str(dst))
 
@@ -108,7 +110,8 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # To verify the restart capabilities, test whether:
     # - the states have been correctly initialized at restart time;
     # - the follow-up time step has been computed correctely;
-    # - the overall solution stored in a global pvd file is compiled correctly.
+    # - the overall solution stored in a global pvd file is compiled correctly;
+    # - the logging of times and step sizes is correct.
 
     for ending in ["000001", "000002"]:
         for i in ["1", "2"]:
@@ -128,10 +131,21 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
             current_dir + f"/restart_reference/data{ending}.pvd",
         )
 
+    restarted_times_json = open("./visualization/times.json")
+    reference_times_json = open(current_dir + "/restart_reference/times.json")
+    restarted_times = json.load(restarted_times_json)
+    reference_times = json.load(reference_times_json)
+    for key in ["time", "dt"]:
+        assert np.all(
+            np.isclose(np.array(restarted_times[key]), np.array(reference_times[key]))
+        )
+    restarted_times_json.close()
+    reference_times_json.close()
+
     # Remove temporary visualization folder
     shutil.rmtree("./visualization")
 
-    # Remove the reference data
-    for f in pvd_files + vtu_files:
+    # Clean up the reference data
+    for f in pvd_files + vtu_files + json_files:
         src = Path(current_dir + "/restart_reference") / Path(f.stem + f.suffix)
         src.unlink()
