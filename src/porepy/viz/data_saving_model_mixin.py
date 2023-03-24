@@ -43,16 +43,17 @@ class DataSavingMixin:
     """Number of spatial dimensions for the simulation."""
 
     def save_data_time_step(self) -> None:
-        """Export the model state at a given time step."""
+        """Export the model state at a given time step, and log time."""
         if not self.suppress_export:
             self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
             if self.restart_options["restart"]:
                 global_pvd_file = self.restart_options.get(
-                    "global_file", self.restart_options["file"]
+                    "global_file", self.restart_options["pvd_file"]
                 )
                 self.exporter.write_pvd(append=True, from_pvd_file=global_pvd_file)
             else:
                 self.exporter.write_pvd()
+            self.time_manager.write()
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
@@ -147,27 +148,30 @@ class DataSavingMixin:
         """Initialize data in the model by reading from file.
 
         Parameters:
-            filename: path to vtu or pvd file.
+            options: dictionary with restart options.
 
         Raises:
             ValueError: if incompatible file type provided.
         """
-        filename: Optional[str] = options.get("file")
-        assert isinstance(filename, str)
-        if Path(filename).suffix == ".vtu":
-            self.exporter.import_from_vtu(filename, **kwargs)
-        elif Path(filename).suffix == ".pvd":
-            time, dt, time_index = self.exporter.import_from_pvd(filename, **kwargs)
-            assert isinstance(time, float)
-            assert isinstance(dt, float)
-            assert isinstance(time_index, int)
-            self.time_manager.time = time
-            reuse_dt = options.get("reuse_dt", True)
-            if reuse_dt:
-                self.time_manager.dt = dt
-            self.exporter._time_step_counter = time_index
+        # Load states and read time index, connecting data and time history
+        pvd_file: Optional[str] = options.get("pvd_file")
+        assert isinstance(pvd_file, str)
+        if Path(pvd_file).suffix == ".vtu":
+            self.exporter.import_from_vtu(pvd_file, **kwargs)
+            time_index: Optional[int] = options.get("time_index")
+
+        elif Path(pvd_file).suffix == ".pvd":
+            time_index = self.exporter.import_from_pvd(pvd_file, **kwargs)
+
         else:
             raise ValueError("Only vtu and pvd files supported for import.")
+
+        # Load time and time step size
+        times_file: Optional[str] = options.get("times_file", None)
+        self.time_manager.load(times_file)
+        assert isinstance(time_index, int)
+        self.time_manager.set_from_history(time_index)
+        self.exporter._time_step_counter = time_index
 
     @property
     def suppress_export(self) -> bool:
