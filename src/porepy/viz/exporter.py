@@ -467,6 +467,9 @@ class Exporter:
             assert isinstance(meshio_geometry, Meshio_Geom)
 
             # Make sure that both grids have same nodes
+            print(meshio_geometry.pts)
+            print()
+            print(vtu_data.points)
             assert np.all(np.isclose(meshio_geometry.pts, vtu_data.points))
 
             for i, connectivity in enumerate(meshio_geometry.connectivity):
