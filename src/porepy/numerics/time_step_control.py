@@ -674,8 +674,6 @@ class TimeManager:
             int(self.dt) if isinstance(self.dt, np.integer) else float(self.dt)
         )
 
-        print({"time": self.time_history, "dt": self.dt_history})
-
         # Storing as json
         out_file = open(path if path is not None else "visualization/times.json", "w")
         json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
