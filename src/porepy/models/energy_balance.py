@@ -12,7 +12,7 @@ models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBala
 """
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import numpy as np
 
@@ -23,7 +23,8 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional energy balance equation.
 
     Balance equation for all subdomains and advective and diffusive fluxes internally
-    and on all interfaces of codimension one.
+    and on all interfaces of codimension one and advection on interfaces of codimension
+    two (well-fracture intersections).
 
     The class is not meant to be used stand-alone, but as a mixin in a coupled model.
 
@@ -106,7 +107,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
-    bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Boundary condition for enthalpy flux. Normally defined in a mixin instance
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
@@ -129,6 +130,19 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    well_advective_flux: Callable[
+        [list[pp.MortarGrid], pp.ad.Operator, pp.ad.UpwindCouplingAd], pp.ad.Operator
+    ]
+    """Ad operator representing the advective flux on well interfaces. Normally
+    provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
+
+    """
+    well_enthalpy_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """Variable for well enthalpy flux. Normally provided by a mixin instance of
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+
+    """
 
     def set_equations(self):
         """Set the equations for the energy balance problem.
@@ -138,13 +152,18 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
         """
         subdomains = self.mdg.subdomains()
-        interfaces = self.mdg.interfaces()
+        codim_1_interfaces = self.mdg.interfaces(codim=1)
+        codim_2_interfaces = self.mdg.interfaces(codim=2)
+        # Define the equations
         sd_eq = self.energy_balance_equation(subdomains)
-        intf_cond = self.interface_fourier_flux_equation(interfaces)
-        intf_adv = self.interface_enthalpy_flux_equation(interfaces)
+        intf_cond = self.interface_fourier_flux_equation(codim_1_interfaces)
+        intf_adv = self.interface_enthalpy_flux_equation(codim_1_interfaces)
+        well_eq = self.well_enthalpy_flux_equation(codim_2_interfaces)
+
         self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_cond, interfaces, {"cells": 1})
-        self.equation_system.set_equation(intf_adv, interfaces, {"cells": 1})
+        self.equation_system.set_equation(intf_cond, codim_1_interfaces, {"cells": 1})
+        self.equation_system.set_equation(intf_adv, codim_1_interfaces, {"cells": 1})
+        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Energy balance equation for subdomains.
@@ -156,7 +175,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the energy balance equation.
 
         """
-        accumulation = self.total_internal_energy(subdomains)
+        accumulation = self.volume_integral(
+            self.total_internal_energy(subdomains), subdomains, dim=1
+        )
         flux = self.energy_flux(subdomains)
         source = self.energy_source(subdomains)
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
@@ -173,11 +194,10 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid energy.
 
         """
-        energy_density = (
+        energy = (
             self.fluid_density(subdomains) * self.fluid_enthalpy(subdomains)
             - self.pressure(subdomains)
         ) * self.porosity(subdomains)
-        energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("fluid_internal_energy")
         return energy
 
@@ -191,12 +211,11 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the solid energy.
 
         """
-        energy_density = (
+        energy = (
             self.solid_density(subdomains)
             * self.solid_enthalpy(subdomains)
-            * (1 - self.porosity(subdomains))
+            * (pp.ad.Scalar(1) - self.porosity(subdomains))
         )
-        energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("solid_internal_energy")
         return energy
 
@@ -300,8 +319,40 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         eq.set_name("interface_enthalpy_flux_equation")
         return eq
 
+    def well_enthalpy_flux_equation(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Well interface enthalpy flux.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the interface enthalpy flux.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        discr = pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
+        flux = self.well_advective_flux(
+            interfaces,
+            self.fluid_enthalpy(subdomains)
+            * self.mobility(subdomains)
+            * self.fluid_density(subdomains),
+            discr,
+        )
+
+        eq = self.well_enthalpy_flux(interfaces) - flux
+        eq.set_name("well_enthalpy_flux_equation")
+        return eq
+
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Energy source term.
+
+        Includes
+
+            - external sources
+            - interface flow from neighboring subdomains of higher dimension.
+            - well flow from neighboring subdomains of lower and higher dimension
 
         .. note::
             When overriding this method to assign internal energy sources, one is
@@ -319,12 +370,30 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        # Interfaces relating to wells, and the associated subdomains.
+        well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        well_subdomains = self.interfaces_to_subdomains(well_interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        well_projection = pp.ad.MortarProjections(
+            self.mdg, well_subdomains, well_interfaces
+        )
+        subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
         flux = self.interface_enthalpy_flux(interfaces) + self.interface_fourier_flux(
             interfaces
         )
-        source = projection.mortar_to_secondary_int * flux
+        # Matrix-vector product, use @
+        source = projection.mortar_to_secondary_int @ flux
+        # Add contribution from well interfaces
         source.set_name("interface_energy_source")
+        well_fluxes = well_projection.mortar_to_secondary_int @ self.well_enthalpy_flux(
+            well_interfaces
+        ) - well_projection.mortar_to_primary_int @ self.well_enthalpy_flux(
+            well_interfaces
+        )
+        well_fluxes.set_name("well_enthalpy_flux_source")
+        source += subdomain_projection.cell_restriction(subdomains) @ (
+            subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
+        )
         return source
 
 
@@ -386,6 +455,17 @@ class VariablesEnergyBalance:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
+    well_enthalpy_flux_variable: str
+    """Name of the primary variable representing the enthalpy flux across a well
+    interface. Normally defined in a mixin of instance
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
+
+    """
+    nd: int
+    """Number of spatial dimensions. Normally defined in a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -395,14 +475,23 @@ class VariablesEnergyBalance:
         self.equation_system.create_variables(
             self.temperature_variable,
             subdomains=self.mdg.subdomains(),
+            tags={"si_units": "K"},
         )
+        # Flux variables are extensive (surface integrated) and thus have units of W.
         self.equation_system.create_variables(
             self.interface_fourier_flux_variable,
-            interfaces=self.mdg.interfaces(),
+            interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": "W"},
         )
         self.equation_system.create_variables(
             self.interface_enthalpy_flux_variable,
-            interfaces=self.mdg.interfaces(),
+            interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": "W"},
+        )
+        self.equation_system.create_variables(
+            self.well_enthalpy_flux_variable,
+            interfaces=self.mdg.interfaces(codim=2),
+            tags={"si_units": "W"},
         )
 
     def temperature(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
@@ -451,6 +540,23 @@ class VariablesEnergyBalance:
         )
         return flux
 
+    def well_enthalpy_flux(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.MixedDimensionalVariable:
+        """Well enthalpy flux.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Variable representing the well enthalpy flux.
+
+        """
+        flux = self.equation_system.md_variable(
+            self.well_enthalpy_flux_variable, interfaces
+        )
+        return flux
+
     def reference_temperature(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Reference temperature.
 
@@ -476,7 +582,7 @@ class ConstitutiveLawsEnergyBalance(
     pp.constitutive_laws.ThermalConductivityLTE,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
-    pp.constitutive_laws.FluidDensityFromTemperature,
+    pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     pp.constitutive_laws.ConstantSolidDensity,
 ):
     """Collect constitutive laws for the energy balance."""
@@ -530,7 +636,7 @@ class BoundaryConditionsEnergyBalance:
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the Fourier flux.
 
         Parameters:
@@ -543,7 +649,7 @@ class BoundaryConditionsEnergyBalance:
         num_faces = sum([sd.num_faces for sd in subdomains])
         return pp.wrap_as_ad_array(0, num_faces, "bc_values_fourier")
 
-    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the enthalpy.
 
         SI units for Dirichlet: [J/m^3]
@@ -562,13 +668,16 @@ class BoundaryConditionsEnergyBalance:
         # Loop over subdomains to collect boundary values
         for sd in subdomains:
             vals = np.zeros(sd.num_faces)
-            # If you know the boundary temperature, do something like:
-            # boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # vals[boundary_faces] = self.fluid.specific_heat_capacity() * dirichlet_values
-            # Append to list of boundary values
+            # If you know the boundary temperature, do something like: boundary_faces =
+            # self.domain_boundary_sides(sd).all_bf vals[boundary_faces] = (
+            # self.fluid.specific_heat_capacity()
+            # * dirichlet_values
+            # * self.fluid.density()
+            # )
+            #  Append to list of boundary values
             bc_values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
+        # Concatenate to single array and wrap as ad.DenseArray
         bc_values_ad = pp.wrap_as_ad_array(
             np.hstack(bc_values), name="bc_values_enthalpy"
         )
@@ -588,7 +697,9 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
     """Function that returns the specific volume of a subdomain. Normally provided by a
     mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
@@ -622,12 +733,18 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """Name of the temperature variable."""
 
         self.interface_fourier_flux_variable: str = "interface_fourier_flux"
-        """Name of the primary variable representing the Fourier flux on the interface."""
+        """Name of the primary variable representing the Fourier flux on interfaces of
+        codimension one."""
 
         self.interface_enthalpy_flux_variable: str = "interface_enthalpy_flux"
-        """Name of the primary variable representing the enthalpy flux on the interface."""
+        """Name of the primary variable representing the enthalpy flux on interfaces of
+        codimension one."""
 
-        # Discrretization
+        self.well_enthalpy_flux_variable: str = "well_enthalpy_flux"
+        """Name of the primary variable representing the well enthalpy flux on
+        interfaces of codimension two."""
+
+        # Discretization
         self.fourier_keyword: str = "fourier_discretization"
         """Keyword for Fourier flux term.
 
@@ -682,9 +799,9 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """
         conductivity_ad = self.specific_volume([sd]) * self.thermal_conductivity([sd])
         conductivity = conductivity_ad.evaluate(self.equation_system)
-        # The result may be an Ad_array, in which case we need to extract the
+        # The result may be an AdArray, in which case we need to extract the
         # underlying array.
-        if isinstance(conductivity, pp.ad.Ad_array):
+        if isinstance(conductivity, pp.ad.AdArray):
             conductivity = conductivity.val
         return pp.SecondOrderTensor(conductivity)
 
@@ -719,4 +836,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         # TODO: Targeted rediscretization.
+        self.set_discretization_parameters()
+
         self.discretize()

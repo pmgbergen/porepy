@@ -1,13 +1,13 @@
 """ Tests for md flow with gravity. Only finite volumes for now.
-    
+
 Much of the code is copied and slightly modified from unit/test_darcy_mortar.py
-    
+
 Logic in all tests:
     1) Set up a grid, with the methods set_grids and (submethod) simplex_mdg
     2) Set parameters.
     3) Run test cases.
     4) Check solution for pressure and mortar flux.
-    
+
 Rudimentary testing in 3d. The tests are direct analogues of the 2d ones.
 Could be expanded.
 """
@@ -337,9 +337,10 @@ class TestMixedDimGravity(unittest.TestCase):
                         if simplex and (
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
-                            # Different number of mortar and 1d cells not implemented for simplex
-                            # Also, tpfa cannot be expected to produce pressure profiles
-                            # with sufficient accuracy for the test to make sense.
+                            # Different number of mortar and 1d cells not implemented
+                            # for simplex grids. Also, tpfa cannot be expected to
+                            # produce pressure profiles with sufficient accuracy for the
+                            # test to make sense.
                             continue
                         self.set_grids(
                             2,
@@ -408,7 +409,8 @@ class TestMixedDimGravity(unittest.TestCase):
                         if simplex and (
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
-                            # Different number of mortar and 1d cells not implemented for simplex
+                            # Different number of mortar and 1d cells not implemented
+                            # for simplex grids.
                             continue
                         self.set_grids(
                             2,
@@ -436,7 +438,8 @@ class TestMixedDimGravity(unittest.TestCase):
                         if simplex and (
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
-                            # Different number of mortar and 1d cells not implemented for simplex
+                            # Different number of mortar and 1d cells not implemented
+                            # for simplex
                             continue
                         self.set_grids(
                             2,
@@ -467,7 +470,8 @@ class TestMixedDimGravity(unittest.TestCase):
                         if simplex and (
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
-                            # Different number of mortar and 1d cells not implemented for simplex
+                            # Different number of mortar and 1d cells not implemented
+                            # for simplex
                             continue
                         self.set_grids(
                             2,
