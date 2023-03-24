@@ -4,7 +4,6 @@ Collection of tests for validating the mixed-dimensional grid generation
 
 Functionalities being tested:
 * Generation with/without fractures
-* Generation with/without wells (lines in 3d)
 * Generation of meshes with type {"simplex", "cartesian", "tensor_grid"}
 * Generation of meshes with dimension {2,3}
 
@@ -79,7 +78,7 @@ class TestMDGridGeneration:
         return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
     def generate_network(self, domain_index, fracture_indices: List[int]):
-        """Construct well network.
+        """Construct fracture network.
 
         Parameters:
             domain_index (int): index of computational domain
@@ -153,7 +152,6 @@ class TestMDGridGeneration:
             lower_level_arguments["mesh_size_frac"] = self.h_reference()
             utils.set_mesh_sizes(lower_level_arguments)
             mdg = fracture_network.mesh(lower_level_arguments)
-            mdg.compute_geometry()
             return mdg
 
         elif grid_type == "cartesian":
@@ -277,6 +275,3 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             pp.create_mdg(grid_type, mesh_arguments, complex(1, 2))
         assert ref_msg in str(error_message.value)
 
-
-if __name__ == "__main__":
-    unittest.main()
