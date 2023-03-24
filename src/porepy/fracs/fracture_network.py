@@ -50,17 +50,25 @@ def create_fracture_network(
         - Warning: If ``run_checks = True`` when dimension is different from 3.
 
     Parameters:
-        fractures: List of fractures. Each item of the list should be either an
-            instance of :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3d or an
-            instance of :class:`~porepy.fracs.line_fracture.LineFracture` for 2d.
-            Default is ``None``, meaning, no fractures. If an empty list is given, it
-            will be treated as ``None``.
-        domain: Domain specfication. An instance of
+        fractures: ``default=None``
+
+            List of fractures. Each item of the list should be either an instance of
+            :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3d or an instance
+            of :class:`~porepy.fracs.line_fracture.LineFracture` for 2d. Default is
+            ``None``, meaning, no fractures. If an empty list is given, it will be
+            treated as ``None``.
+        domain: ``default=None``
+
+            Domain specfication. If given, it should be an instance of
             :class:`~porepy.geometry.domain.Domain`.
-        tol: Geometric tolerance used in the computations. Default is ``1e-8``.
-        run_checks: Run consistency checks during the network processing. Can be
+        tol: ``default=1e-8``
+
+            Geometric tolerance used in the computations.
+        run_checks: ``default=False``
+
+            Run consistency checks during the network processing. Can be
             considered a limited debug mode. Only used for three-dimensional fracture
-            networks. Default is ``False``.
+            networks.
 
     Returns:
         Fracture network object according to the dimensionality of the problem.

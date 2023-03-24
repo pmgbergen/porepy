@@ -309,17 +309,25 @@
 </dd>
 <dt class="field-even">Parameters<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><strong>fractures</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.fracs.line_fracture.html#porepy.fracs.line_fracture.LineFracture" title="porepy.fracs.line_fracture.LineFracture"><em>porepy.fracs.line_fracture.LineFracture</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.fracs.plane_fracture.html#porepy.fracs.plane_fracture.PlaneFracture" title="porepy.fracs.plane_fracture.PlaneFracture"><em>porepy.fracs.plane_fracture.PlaneFracture</em></a><em>]</em><em>]</em><em>]</em>) – List of fractures. Each item of the list should be either an
-instance of <a class="reference internal" href="porepy.fracs.plane_fracture.html#porepy.fracs.plane_fracture.PlaneFracture" title="porepy.fracs.plane_fracture.PlaneFracture"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlaneFracture</span></code></a> for 3d or an
-instance of <a class="reference internal" href="porepy.fracs.line_fracture.html#porepy.fracs.line_fracture.LineFracture" title="porepy.fracs.line_fracture.LineFracture"><code class="xref py py-class docutils literal notranslate"><span class="pre">LineFracture</span></code></a> for 2d.
-Default is <code class="docutils literal notranslate"><span class="pre">None</span></code>, meaning, no fractures. If an empty list is given, it
-will be treated as <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
-<li><p><strong>domain</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference internal" href="porepy.geometry.domain.html#porepy.geometry.domain.Domain" title="porepy.geometry.domain.Domain"><em>Domain</em></a><em>]</em>) – Domain specfication. An instance of
-<a class="reference internal" href="porepy.geometry.domain.html#porepy.geometry.domain.Domain" title="porepy.geometry.domain.Domain"><code class="xref py py-class docutils literal notranslate"><span class="pre">Domain</span></code></a>.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Geometric tolerance used in the computations. Default is <code class="docutils literal notranslate"><span class="pre">1e-8</span></code>.</p></li>
-<li><p><strong>run_checks</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Run consistency checks during the network processing. Can be
+<li><p><strong>fractures</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.fracs.line_fracture.html#porepy.fracs.line_fracture.LineFracture" title="porepy.fracs.line_fracture.LineFracture"><em>porepy.fracs.line_fracture.LineFracture</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.fracs.plane_fracture.html#porepy.fracs.plane_fracture.PlaneFracture" title="porepy.fracs.plane_fracture.PlaneFracture"><em>porepy.fracs.plane_fracture.PlaneFracture</em></a><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<p>List of fractures. Each item of the list should be either an instance of
+<a class="reference internal" href="porepy.fracs.plane_fracture.html#porepy.fracs.plane_fracture.PlaneFracture" title="porepy.fracs.plane_fracture.PlaneFracture"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlaneFracture</span></code></a> for 3d or an instance
+of <a class="reference internal" href="porepy.fracs.line_fracture.html#porepy.fracs.line_fracture.LineFracture" title="porepy.fracs.line_fracture.LineFracture"><code class="xref py py-class docutils literal notranslate"><span class="pre">LineFracture</span></code></a> for 2d. Default is
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, meaning, no fractures. If an empty list is given, it will be
+treated as <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</p></li>
+<li><p><strong>domain</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference internal" href="porepy.geometry.domain.html#porepy.geometry.domain.Domain" title="porepy.geometry.domain.Domain"><em>Domain</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<p>Domain specfication. If given, it should be an instance of
+<a class="reference internal" href="porepy.geometry.domain.html#porepy.geometry.domain.Domain" title="porepy.geometry.domain.Domain"><code class="xref py py-class docutils literal notranslate"><span class="pre">Domain</span></code></a>.</p>
+</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
+<p>Geometric tolerance used in the computations.</p>
+</p></li>
+<li><p><strong>run_checks</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<p>Run consistency checks during the network processing. Can be
 considered a limited debug mode. Only used for three-dimensional fracture
-networks. Default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+networks.</p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
