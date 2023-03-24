@@ -46,11 +46,6 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
 
     """
-    finalize_data_saving: Callable[[], None]
-    """Finalize data saving. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
     create_variables: Callable[[], None]
     """Create variables. Normally provided by a mixin instance of a Variable class
     relevant to the model.
@@ -358,7 +353,7 @@ class SolutionStrategy(abc.ABC):
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
-        self.finalize_data_saving()
+        pass
 
     def check_convergence(
         self,

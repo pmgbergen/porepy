@@ -21,7 +21,6 @@ class DataSavingMixin:
 
     Contract with other classes:
         The model should/may call save_data_time_step() at the end of each time step.
-        The model should/may call finalize_save_data() at the end of the simulation.
 
     """
 
@@ -47,13 +46,6 @@ class DataSavingMixin:
                 self.exporter.write_pvd(append=True, from_pvd_file=global_pvd_file)
             else:
                 self.exporter.write_pvd()
-
-    def finalize_data_saving(self) -> None:
-        """Export pvd file and finalize export."""
-        # TODO; not needed anymore.
-        pass
-        # if not self.suppress_export:
-        #    self.exporter.write_pvd()
 
     def data_to_export(self):
         """Return data to be exported.
