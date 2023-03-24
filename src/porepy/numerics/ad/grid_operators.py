@@ -295,6 +295,8 @@ class MortarProjections(Operator):
                     # configuration
                     raise NotImplementedError("Non-standard interface.")
                 if g_primary in subdomains:
+                    # Choose projection matrices for primary grid based on codimension
+                    # of the interface.
                     primary_projection = (
                         face_projection[g_primary]
                         if intf.codim < 2
