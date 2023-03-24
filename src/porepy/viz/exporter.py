@@ -470,6 +470,9 @@ class Exporter:
             print(meshio_geometry.pts)
             print()
             print(vtu_data.points)
+            print()
+            print(np.isclose(meshio_geometry.pts, vtu_data.points))
+            print()
             assert np.all(np.isclose(meshio_geometry.pts, vtu_data.points))
 
             for i, connectivity in enumerate(meshio_geometry.connectivity):
