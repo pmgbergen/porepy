@@ -96,9 +96,9 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # In order to use the data as restart and reference data, move it
     # to a reference folder.
     print(list(Path(current_dir).glob("*")))
-    pvd_files = list(Path(current_dir + "/visualization").glob("*.pvd"))
-    vtu_files = list(Path(current_dir + "/visualization").glob("*.vtu"))
-    print(Path(current_dir + "/visualization"))
+    print(list(Path(".").glob("*")))
+    pvd_files = list(Path("./visualization").glob("*.pvd"))
+    vtu_files = list(Path("./visualization").glob("*.vtu"))
     print(vtu_files)
     for f in pvd_files + vtu_files:
         dst = Path(current_dir) / Path("restart_reference") / Path(f.stem + f.suffix)
@@ -117,23 +117,23 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     for ending in ["000001", "000002"]:
         for i in ["1", "2"]:
             assert _compare_vtu_files(
-                current_dir + f"/visualization/data_{i}_{ending}.vtu",
+                f"./visualization/data_{i}_{ending}.vtu",
                 current_dir + f"/restart_reference/data_{i}_{ending}.vtu",
             )
 
             assert _compare_vtu_files(
-                current_dir + f"/visualization/data_mortar_1_{ending}.vtu",
+                f"./visualization/data_mortar_1_{ending}.vtu",
                 current_dir + f"/restart_reference/data_mortar_1_{ending}.vtu",
             )
 
     for ending in ["_000002", ""]:
         assert _compare_pvd_files(
-            current_dir + f"/visualization/data{ending}.pvd",
+            f"./visualization/data{ending}.pvd",
             current_dir + f"/restart_reference/data{ending}.pvd",
         )
 
     # Remove temporary visualization folder
-    shutil.rmtree(current_dir + "/visualization")
+    shutil.rmtree("./visualization")
 
     # Remove the reference data
     for f in pvd_files + vtu_files:
