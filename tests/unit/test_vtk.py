@@ -409,23 +409,19 @@ def test_restart_mdg(setup, case):
     # picking up the latest available timestep.
     global_pvd_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
     if case == 0:
-        time, _, time_index = save.import_from_pvd(
+        time_index = save.import_from_pvd(
             global_pvd_file,
             ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
         )
 
     else:
         local_pvd_file = f"{setup.folder_reference}/restart/grid_000001.pvd"
-        time, _, time_index = save.import_from_pvd(
+        time_index = save.import_from_pvd(
             local_pvd_file,
             ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
             is_global=False,
-            extract_time=True,
             global_pvd_file=global_pvd_file,
         )
-
-    # Check whether the right physical time has been extracted
-    assert np.isclose(time, 1.0)
 
     # Check whether the right time index (wrt previous simulation) has been extracted
     assert time_index == 1
