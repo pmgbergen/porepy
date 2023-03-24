@@ -377,7 +377,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         well_projection = pp.ad.MortarProjections(
             self.mdg, well_subdomains, well_interfaces
         )
-        subdomain_projection = pp.ad.SubdomainProjections(subdomains)
+        subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
         flux = self.interface_enthalpy_flux(interfaces) + self.interface_fourier_flux(
             interfaces
         )
@@ -391,7 +391,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             well_interfaces
         )
         well_fluxes.set_name("well_enthalpy_flux_source")
-        source += subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
+        source += subdomain_projection.cell_restriction(subdomains) @ (
+            subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
+        )
         return source
 
 
@@ -459,6 +461,11 @@ class VariablesEnergyBalance:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
+    nd: int
+    """Number of spatial dimensions. Normally defined in a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -468,18 +475,23 @@ class VariablesEnergyBalance:
         self.equation_system.create_variables(
             self.temperature_variable,
             subdomains=self.mdg.subdomains(),
+            tags={"si_units": "K"},
         )
+        # Flux variables are extensive (surface integrated) and thus have units of W.
         self.equation_system.create_variables(
             self.interface_fourier_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": "W"},
         )
         self.equation_system.create_variables(
             self.interface_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": "W"},
         )
         self.equation_system.create_variables(
             self.well_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=2),
+            tags={"si_units": "W"},
         )
 
     def temperature(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:

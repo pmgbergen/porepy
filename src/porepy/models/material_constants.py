@@ -11,7 +11,9 @@ problems with scaling/rounding errors and condition numbers.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union, overload
+
+import numpy as np
 
 import porepy as pp
 
@@ -65,9 +67,27 @@ class MaterialConstants:
         """
         return self._constants
 
+    @overload
     def convert_units(
         self, value: number, units: str, to_si: Optional[bool] = False
     ) -> number:
+        ...
+
+    @overload
+    def convert_units(
+        self,
+        value: np.ndarray,
+        units: str,
+        to_si: Optional[bool] = False,
+    ) -> np.ndarray:
+        ...
+
+    def convert_units(
+        self,
+        value: Union[number, np.ndarray],
+        units: str,
+        to_si: Optional[bool] = False,
+    ) -> Union[number, np.ndarray]:
         """Convert value between SI and user specified units.
 
         The method divides the value by the units as defined by the user. As an example,
