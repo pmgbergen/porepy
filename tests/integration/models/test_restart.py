@@ -95,6 +95,7 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # The run generates data for initial and the first two time steps.
     # In order to use the data as restart and reference data, move it
     # to a reference folder.
+    print(list(Path(current_dir).glob("*")))
     pvd_files = list(Path(current_dir + "/visualization").glob("*.pvd"))
     vtu_files = list(Path(current_dir + "/visualization").glob("*.vtu"))
     print(Path(current_dir + "/visualization"))
