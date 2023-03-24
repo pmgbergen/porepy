@@ -22,7 +22,6 @@ def _validate_args_types(
     fracture_network: FractureNetwork,
     **kwargs,
 ):
-
     if not isinstance(grid_type, str):
         raise TypeError("grid_type must be str, not %r" % type(grid_type))
 
@@ -49,7 +48,6 @@ def _validate_grid_type_value(grid_type):
 
 
 def _validate_simplex_meshing_args_values(meshing_args):
-
     # Get expected arguments
     cell_size = meshing_args.get("cell_size", None)
     cell_size_min = meshing_args.get("cell_size_min", None)
@@ -115,7 +113,6 @@ def _validate_simplex_meshing_args_values(meshing_args):
 
 
 def _validate_cartesian_meshing_args_values(dimension, meshing_args):
-
     # Common requirement among mesh types
     cell_size = meshing_args.get("cell_size", None)
     cell_size_x = meshing_args.get("cell_size_x", None)
@@ -166,7 +163,6 @@ def _validate_cartesian_meshing_args_values(dimension, meshing_args):
 
 
 def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
-
     # Common requirement among mesh types
     cell_size = meshing_args.get("cell_size", None)
     x_pts = meshing_args.get("x_pts", None)
@@ -234,7 +230,6 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
 def _retrieve_domain_instance(
     fracture_network: FractureNetwork,
 ) -> Union[pp.Domain, None]:
-
     # Needed to avoid mypy incompatible types in assignment
     if fracture_network.domain is not None:
         omega: pp.Domain = fracture_network.domain
@@ -247,7 +242,6 @@ def _retrieve_domain_instance(
 
 
 def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
-
     if isinstance(fracture_network, FractureNetwork2d):
         return 2
     elif isinstance(fracture_network, FractureNetwork3d):
@@ -260,7 +254,6 @@ def _validate_args(
     fracture_network: FractureNetwork,
     **kwargs,
 ):
-
     _validate_args_types(grid_type, meshing_args, fracture_network)
     _validate_grid_type_value(grid_type)
 
@@ -282,27 +275,26 @@ def _validate_args(
 
 
 def _preprocess_simplex_args(meshing_args, kwargs, cell_function):
-
-    # fetch signature
-    defaults = dict(inspect.signature(cell_function).parameters.items())
-
+    # The functions for meshing of 2d and 3d fracture networks have different
+    # signatures, thus we need to allow for different arguments. First fetch the
+    # signature of the function - this call gives dictionary of argument names and
+    # default values (None if no default is provided). The values of this dictionary
+    # are of type inspect.Parameter.
+    defaults: dict[str, inspect.Parameter] = dict(
+        inspect.signature(cell_function).parameters.items()
+    )
     # filter arguments processed in an alternative manner
     defaults.pop("self")
     defaults.pop("mesh_args")
     defaults.pop("kwargs")
 
-    # If provided update constrains
-    constraints = meshing_args.get("constraints", None)
-    if constraints is not None:
-        kwargs.update([("constraints", constraints)])
+    # transfer defaults
+    # The values of the dictionary are of type inspect.Parameter, which has a
+    # default attribute that we access.
+    extra_args_list = [kwargs.get(key, val.default) for (key, val) in defaults.items()]
 
-    # Collects provided and default values
-    extra_args_list = [
-        kwargs.get(item[0], item[1].default) for item in defaults.items()
-    ]
-
-    # Removes duplicate keys in kwargs
-    [kwargs.pop(item[0]) for item in defaults.items() if item[0] in kwargs]
+    # remove duplicate keys
+    [kwargs.pop(key) for key in defaults if key in kwargs]
 
     cell_size = meshing_args.get("cell_size", None)
     cell_size_min = meshing_args.get("cell_size_min", None)
@@ -333,7 +325,6 @@ def _preprocess_simplex_args(meshing_args, kwargs, cell_function):
 
 
 def _preprocess_cartesian_args(domain, meshing_args, kwargs):
-
     xmin = domain.bounding_box["xmin"]
     xmax = domain.bounding_box["xmax"]
     ymin = domain.bounding_box["ymin"]
@@ -386,7 +377,6 @@ def _preprocess_cartesian_args(domain, meshing_args, kwargs):
 
 
 def _preprocess_tensor_grid_args(domain, meshing_args, kwargs):
-
     x_pts = None
     y_pts = None
     z_pts = None
@@ -554,7 +544,6 @@ def create_mdg(
 
     domain = _retrieve_domain_instance(fracture_network)
     if domain is not None:
-
         # Structured cases
         if grid_type == "cartesian":
             (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
