@@ -70,6 +70,7 @@ def _validate_domain_instance(fracture_network: FractureNetwork) -> pp.Domain:
 
     return omega
 
+
 def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
 
     if isinstance(fracture_network, FractureNetwork2d):
@@ -90,7 +91,7 @@ def _validate_args(
     _validate_mesh_arguments(mesh_arguments)
 
 
-def _collect_extra_simplex_args(mesh_arguments, kwargs, mesh_function):
+def _preprocess_simplex_args(mesh_arguments, kwargs, mesh_function):
     # fetch signature
     defaults = dict(inspect.signature(mesh_function).parameters.items())
 
@@ -248,7 +249,9 @@ def create_mdg(
         - TypeError: Mandatory arguments types inconsistent (see type hints in signature).
 
     Parameters:
-        grid_type: Type of grid. Use ``simplex`` for unstructured triangular and tetrahedral grids, ``cartesian`` for structured, uniform Cartesian grids, and ``tensor_grid`` for structured, non-uniform Cartesian grids.
+        grid_type: Type of grid. Use ``simplex`` for unstructured triangular and
+            tetrahedral grids, ``cartesian`` for structured, uniform Cartesian grids,
+            and ``tensor_grid`` for structured, non-uniform Cartesian grids.
             instance of Literal["simplex", "cartesian", "tensor_grid"].
         mesh_arguments: ... .
         fracture_network: fracture network specification. Instance of
@@ -269,7 +272,7 @@ def create_mdg(
     if grid_type == "simplex":
         if dim == 2:
             # preprocess user's arguments provided in kwargs
-            (lower_level_args, extra_args, kwargs) = _collect_extra_simplex_args(
+            (lower_level_args, extra_args, kwargs) = _preprocess_simplex_args(
                 mesh_arguments, kwargs, FractureNetwork2d.mesh
             )
             # perform the actual meshing
@@ -277,7 +280,7 @@ def create_mdg(
 
         elif dim == 3:
             # preprocess user's arguments provided in kwargs
-            (lower_level_args, extra_args, kwargs) = _collect_extra_simplex_args(
+            (lower_level_args, extra_args, kwargs) = _preprocess_simplex_args(
                 mesh_arguments, kwargs, FractureNetwork3d.mesh
             )
             # perform the actual meshing
