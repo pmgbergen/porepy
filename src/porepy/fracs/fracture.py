@@ -56,8 +56,8 @@ class Fracture(abc.ABC):
     ):
         self.pts: np.ndarray = np.asarray(points, dtype=float)
         """Fracture vertices ``(shape=(nd, num_points))``.
-         
-        The points are stored in the implemented order. Note that the ``points`` 
+
+        The points are stored in the implemented order. Note that the ``points``
         passed at instantiation will mutate.
 
         """
@@ -85,20 +85,20 @@ class Fracture(abc.ABC):
         else:
             self.tags = np.asarray(tags, dtype=np.int8)
             """Tags of the fracture.
-    
+
             In the standard form, the first tag identifies the type of the fracture,
-            referring to the numbering system in 
+            referring to the numbering system in
             :class:`~porepy.fracs.gmsh_interface.Tags`. The second tag keeps track of
-            the numbering of the fracture (referring to the original order of the 
+            the numbering of the fracture (referring to the original order of the
             fractures) in geometry processing, like intersection removal. Additional
             tags can be assigned by the user.
-    
+
             A tag value of ``-1`` means that the fracture does not have the specified
-            tag. This enables e.g., the functionality for a fracture to have the 
-            second tag, but not the first one. In a more extreme case, 
-            ``fracture.tags==[-1, -1, -1, -1, -1]`` is equal to the fracture not 
+            tag. This enables e.g., the functionality for a fracture to have the
+            second tag, but not the first one. In a more extreme case,
+            ``fracture.tags==[-1, -1, -1, -1, -1]`` is equal to the fracture not
             having any tags at all.
-    
+
             """
 
         self.index: Optional[int] = index
@@ -106,8 +106,8 @@ class Fracture(abc.ABC):
 
         Intended use in :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
         and :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`. Exact use is
-        not clear (several fractures can be given same index). We thus recommend to 
-        use it with care.
+        not clear (several fractures can be given same index). We thus recommend using
+        it with care.
 
         """
 
