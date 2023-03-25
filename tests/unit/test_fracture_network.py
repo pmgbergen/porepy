@@ -197,9 +197,9 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(end, p[:, e[1]]))
 
         # Then index based
-        start = network.start_points(fi=0)
+        start = network.start_points(frac_index=0)
         self.assertTrue(test_utils.compare_arrays(start, p[:, 0].reshape((-1, 1))))
-        end = network.end_points(fi=0)
+        end = network.end_points(frac_index=0)
         self.assertTrue(test_utils.compare_arrays(end, p[:, 1].reshape((-1, 1))))
 
     def test_length(self):
