@@ -41,10 +41,10 @@ def _validate_args_types(
             % type(fracture_network)
         )
 
-    if fracture_network.domain is None and grid_type is not "simplex":
+    if fracture_network.domain is None and grid_type != "simplex":
         raise ValueError(
-            "fracture_network without a domain is only supported for unstructured simplex meshes, not for %r"
-            % grid_type
+            "fracture_network without a domain is only supported for unstructured simplex"
+            " meshes, not for %r" % grid_type
         )
 
 
@@ -67,14 +67,18 @@ def _validate_mesh_arg_values(mesh_arguments):
         raise ValueError("mesh_size must be strictly positive %r" % mesh_size)
 
 
-def _validate_domain_instance(fracture_network: FractureNetwork) -> pp.Domain:
+def _validate_domain_instance(
+    fracture_network: FractureNetwork,
+) -> Union[pp.Domain, None]:
 
-    omega: pp.Domain = fracture_network.domain
-    valid_dimension = omega.dim == 2 or omega.dim == 3
-    if not valid_dimension:
-        raise ValueError("Inferred dimension must be 2 or 3, not %r" % omega.dim)
-
-    return omega
+    if fracture_network.domain is not None:
+        omega: pp.Domain = fracture_network.domain
+        valid_dimension = omega.dim == 2 or omega.dim == 3
+        if not valid_dimension:
+            raise ValueError("Inferred dimension must be 2 or 3, not %r" % omega.dim)
+        return omega
+    else:
+        return None
 
 
 def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
@@ -293,9 +297,8 @@ def create_mdg(
             mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
 
     # Needed to avoid mypy incompatible types in assignment
-    if fracture_network.domain is not None:
-
-        domain = _validate_domain_instance(fracture_network)
+    domain = _validate_domain_instance(fracture_network)
+    if domain is not None:
         # Structured cases
         if grid_type == "cartesian":
             (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
