@@ -211,21 +211,9 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
         # Update the mechanical boundary conditions to both the state and iterate.
         for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
             if initial:
-                if self.time_manager.is_init():
-                    data[pp.STATE][
-                        self.bc_values_mechanics_key
-                    ] = self.time_dependent_bc_values_mechanics([sd])
-                else:
-                    # Active restart. Need to fetch the data from previous time step.
-                    # NOTE: It is not safe to compute the previous time, in case
-                    # of dynamic time stepping.
-                    self.time_manager.time = (
-                        self.time_manager.time - self.time_manager.dt
-                    )
-                    data[pp.STATE][
-                        self.bc_values_mechanics_key
-                    ] = self.time_dependent_bc_values_mechanics([sd])
-                    self.time_manager.time += self.time_manager.dt
+                data[pp.STATE][
+                    self.bc_values_mechanics_key
+                ] = self.time_dependent_bc_values_mechanics([sd])
             else:
                 # Copy old values from iterate to state.
                 data[pp.STATE][self.bc_values_mechanics_key] = data[pp.STATE][
