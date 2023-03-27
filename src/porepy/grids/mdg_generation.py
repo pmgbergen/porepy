@@ -67,10 +67,11 @@ def _validate_mesh_arg_values(mesh_arguments):
         raise ValueError("mesh_size must be strictly positive %r" % mesh_size)
 
 
-def _validate_domain_instance(
+def _retrieve_domain_instance(
     fracture_network: FractureNetwork,
 ) -> Union[pp.Domain, None]:
 
+    # Needed to avoid mypy incompatible types in assignment
     if fracture_network.domain is not None:
         omega: pp.Domain = fracture_network.domain
         valid_dimension = omega.dim == 2 or omega.dim == 3
@@ -296,8 +297,7 @@ def create_mdg(
             # perform the actual meshing
             mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
 
-    # Needed to avoid mypy incompatible types in assignment
-    domain = _validate_domain_instance(fracture_network)
+    domain = _retrieve_domain_instance(fracture_network)
     if domain is not None:
         # Structured cases
         if grid_type == "cartesian":
