@@ -48,7 +48,6 @@ def _validate_args_types(
         )
 
 
-
 def _validate_grid_type_value(grid_type):
     valid_type = grid_type in ["simplex", "cartesian", "tensor_grid"]
     if not valid_type:
