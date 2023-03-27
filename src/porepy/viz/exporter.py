@@ -43,6 +43,9 @@ DataInput = Union[
 SubdomainData = Dict[Tuple[pp.Grid, str], np.ndarray]
 InterfaceData = Dict[Tuple[pp.MortarGrid, str], np.ndarray]
 
+# Data structures allowed to define paths
+PathLike = Union[str, Path]
+
 
 class Exporter:
     """Class for convering internal grid and data structures to meshio format, allowing
@@ -218,65 +221,74 @@ class Exporter:
 
     def import_from_pvd(
         self,
-        pvd_file: str,
+        pvd_file: PathLike,
+        is_mdg_pvd: bool = False,
         keys: Optional[Union[str, list[str]]] = None,
-        **kwargs,
     ) -> int:
         """Fetch time and vtu files from pvd and populate the corresponding data to the
         mixed-dimensional grid.
 
+        NOTE: It is implicitly assumed that the provided pvd file is generated with the
+        Exporter, cf. Exporter.write_pvd() and Exporter._export_mdg_pvd(). The hardcoded
+        structure of both routines is exploited here.
+
         Parameters:
-            pvd_file: path to global pvd file.
-            keys: keywords addressing cell data to be transferred; if None, all
-                relevant data is transferred.
-            kwargs:
-                is_global: Flag controlling whether the input pvd file is a pvd file
-                    collecting multiple time steps, or just one local one.
-                global_pvd_file: Path to global pvd file, required to extract time.
+            pvd_file: path to pvd file.
+            is_mdg_pvd: Flag controlling whether the input pvd file is a mdg pvd
+                file, i.e, collecting vtu files spread over different grids, but
+                associated to the same time step.
+            keys: keywords addressing cell data to be transferred. If 'None', the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through pp.STATES.
 
         Returns:
             Time index, obtained from suffix.
 
         """
-        # Distinguish between the case that an overall managing pvd file is provided
-        # ("is_global" is true), or a pvd file associated to a single time step. The
-        # former is usually easier to handle.
-        pvd_is_global: bool = kwargs.get("is_global", True)
-        if pvd_is_global:
+        # Initialize container for restart files
+        restart_vtu_files = []
 
-            # Collect all timesteps first, and sort them
-            timesteps = []
-            tree_simulation = ET.parse(pvd_file)
-            for path in tree_simulation.iter("DataSet"):
-                data = path.attrib
-                timesteps.append(data["timestep"])
-            unique_timesteps = np.unique(timesteps)
+        # Distinguish between two pvd file types: a (plain) pvd file and a mdg pvd file,
+        # generated either through Exporter.write_pvd() or Exporter._export_mdg_pvd(),
+        # respectively.
+        if is_mdg_pvd:
 
-            # Pick the last time step. NOTE: Possibility to extend to timestep-based.
-            restart_timestep_str = unique_timesteps[-1]
-
-            # Collect all vtu files connected to single time
-            restart_vtu_files = []
-            for path in tree_simulation.iter("DataSet"):
-                data = path.attrib
-                timestep = data["timestep"]
-                if timestep == restart_timestep_str:
-                    restart_vtu_files.append(data["file"])
-
-            # Read the time_index from the end of the file.
-            time_index = int(float(restart_timestep_str))
-
-        else:
-            # Find all vtu files attached to the specific time step. Utilize the
+            # Strategy: Find all vtu files attached to the mdg pvd file. Utilize the
             # hardcoded format in self._export_mdg_pvd().
-            restart_vtu_files = []
-            tree_time_step = ET.parse(pvd_file)
-            for path in tree_time_step.iter("DataSet"):
+            tree_mdg_pvd = ET.parse(pvd_file)
+            for path in tree_mdg_pvd.iter("DataSet"):
                 data = path.attrib
                 restart_vtu_files.append(str(data["file"]))
 
             # Read the time_index from the end of the file.
             time_index = int(Path(pvd_file).stem[-self._padding :])
+
+        else:
+
+            # Strategy: First, identify the latest time step, and second all files
+            # corresponding to that time step. Utilize hardcoded format in
+            # Exporter.write_pvd().
+
+            # Collect all timesteps first listed in the pvd file, and sort them.
+            timesteps = []
+            tree_pvd = ET.parse(pvd_file)
+            for path in tree_pvd.iter("DataSet"):
+                data = path.attrib
+                timesteps.append(data["timestep"])
+            unique_timesteps = np.unique(timesteps)
+
+            # Pick the last time step. NOTE: Possibility to extend to multiple times.
+            restart_timestep_str = unique_timesteps[-1]
+
+            # Collect all vtu files connected to the identified time step.
+            for path in tree_pvd.iter("DataSet"):
+                data = path.attrib
+                timestep = data["timestep"]
+                if timestep == restart_timestep_str:
+                    restart_vtu_files.append(data["file"])
+
+            # Identify the time_index from the content of the pvd file.
+            time_index = int(float(restart_timestep_str))
 
         # Cache the number of restart files used
         self._restart_files = restart_vtu_files
@@ -290,9 +302,9 @@ class Exporter:
         for vtu_file in restart_vtu_files:
             str_vtu_file = str(vtu_file)
             if "mortar" in str_vtu_file:
-                interface_vtu_files.append(str(root / Path(vtu_file)))
+                interface_vtu_files.append(root / Path(vtu_file))
             else:
-                subdomain_vtu_files.append(str(root / Path(vtu_file)))
+                subdomain_vtu_files.append(root / Path(vtu_file))
 
         # Import from vtu
         self.import_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
@@ -302,7 +314,7 @@ class Exporter:
 
     def import_from_vtu(
         self,
-        file_names: Union[str, list[str]],
+        vtu_files: Union[PathLike, list[PathLike]],
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> None:
@@ -311,16 +323,17 @@ class Exporter:
         mixed-dimensional grid is split in the usual way etc.
 
         Parameters:
-            file_names: list of vtu files to be considered.
+            vtu_files: path(s) to vtu file(s)
             keys: keywords addressing cell data to be transferred. If 'None', the
-                mixed-dimensional grid is checked for keywords.
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through pp.STATES.
             kwargs:
                 automatic: boolean flag controlling whether dimensionality of the grids
                     and whether it is a subdomain or interface grid is read
                     automatically from the file names; default is True.
-                dims (int or list of int): compatible with file_names; list of
+                dims (int or list of int): compatible with vtu_files; list of
                     dimensions of the corresponding grids.
-                are_subdomain_data (bool or list of bool): comparible with file_names;
+                are_subdomain_data (bool or list of bool): comparible with vtu_files;
                     list of indicators whether the corresponding grid is a subdomain
                     grid; default is True.
 
@@ -355,19 +368,19 @@ class Exporter:
             # Flatten the data compatible with _to_vector_format.
             return np.ravel(value, "C")
 
-        # Convert file_names to a list
-        if isinstance(file_names, str):
-            file_names = [file_names]
+        # Convert vtu_files to a list
+        if not isinstance(vtu_files, list):
+            vtu_files = [vtu_files]
 
         # Consider each file separately.
         # Procedure has three steps:
         # 1. Determine dimensionality and type of grid, addressed by the vtu file.
         # 2. Check whether the vtu file is compatible with the corresponding grids.
         # 3. Transfer data from vtu to the mixed-dimensional grid.
-        for i, file_name in enumerate(file_names):
+        for i, vtu_file in enumerate(vtu_files):
 
             # Read all data from vtu
-            vtu_data = meshio.read(file_name)
+            vtu_data = meshio.read(vtu_file)
 
             # 1st step: Determine dimension of the grid associated to vtu file, and
             # whether the grid corresponds to a subdomain or interface.
@@ -378,21 +391,21 @@ class Exporter:
                 # could utilize those, but this does not have to be the case. Thus, use
                 # naming convention of the Exporter for this.
 
-                # Remove ending '.vtu' from file_name, and decompose into pieces
+                # Remove ending '.vtu' from vtu_file, and decompose into pieces
                 # separated by '_'.
-                file_name_pieces = Path(file_name).stem.split("_")
+                vtu_file_pieces = Path(vtu_file).stem.split("_")
 
                 # If the last two are numbers, the first one denotes the dimension.
-                assert file_name_pieces[-1].isnumeric()
-                dim_pos = -2 if file_name_pieces[-2].isnumeric() else -1
-                dim = int(file_name_pieces[dim_pos])
+                assert vtu_file_pieces[-1].isnumeric()
+                dim_pos = -2 if vtu_file_pieces[-2].isnumeric() else -1
+                dim = int(vtu_file_pieces[dim_pos])
 
                 # If the key words before are 'mortar', or 'mortar' and 'constant', the
                 # vtu file corresponds to intefaces; otherwise to subdomains.
                 is_subdomain_data = not (
-                    file_name_pieces[dim_pos - 1] == "mortar"
-                    or file_name_pieces[dim_pos - 1] == "constant"
-                    and file_name_pieces[dim_pos - 2] == "mortar"
+                    vtu_file_pieces[dim_pos - 1] == "mortar"
+                    or vtu_file_pieces[dim_pos - 1] == "constant"
+                    and vtu_file_pieces[dim_pos - 2] == "mortar"
                 )
 
             else:
@@ -674,7 +687,7 @@ class Exporter:
         times: Optional[np.ndarray] = None,
         file_extension: Optional[Union[np.ndarray, list[int]]] = None,
         append: bool = False,
-        from_pvd_file: Optional[str] = None,
+        from_pvd_file: Optional[PathLike] = None,
     ) -> None:
         """Interface function to export in PVD file the time loop information. The user
         should open only this file in ParaView.
