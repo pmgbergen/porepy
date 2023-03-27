@@ -92,6 +92,7 @@ from __future__ import annotations
 
 import json
 import warnings
+from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
@@ -651,7 +652,7 @@ class TimeManager:
         return schedule.size == np.sum(in1d)
 
     # I/O
-    def write_time_information(self, path: Optional[str] = None) -> None:
+    def write_time_information(self, path: Optional[Union[Path, str]] = None) -> None:
         """Keep track of history of time and time step size and store as json file
         storing lists the evolution of both as lists.
 
@@ -680,11 +681,12 @@ class TimeManager:
         )
 
         # Storing as json
-        out_file = open(path if path is not None else "visualization/times.json", "w")
+        default_path = Path("visualization") / Path("times.json")
+        out_file = open(path if path is not None else default_path, "w")
         json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
         out_file.close()
 
-    def load_time_information(self, path: Optional[str] = None) -> None:
+    def load_time_information(self, path: Optional[Union[Path, str]] = None) -> None:
         """Keep track of history of time and time step size and store.
 
         Mirrors self.write_time_information().
@@ -694,7 +696,8 @@ class TimeManager:
             default choice from self.write_time_information() is used.
 
         """
-        in_file = open(path if path is not None else "visualization/times.json")
+        default_path = Path("visualization") / Path("times.json")
+        in_file = open(path if path is not None else default_path)
         data = json.load(in_file)
         self.time_history = data["time"]
         self.dt_history = data["dt"]
