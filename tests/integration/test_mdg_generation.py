@@ -8,8 +8,7 @@ Functionalities being tested:
 * Generation of meshes with dimension {2,3}
 
 """
-import unittest
-from typing import List, Literal, Optional, Union
+from typing import List
 
 import numpy as np
 import pytest
@@ -155,10 +154,6 @@ class TestMDGridGeneration:
             return mdg
 
         elif grid_type == "cartesian":
-
-            n_cells = lower_level_arguments["nx"]
-            phys_dims = lower_level_arguments["physdims"]
-
             fractures = [f.pts for f in fracture_network.fractures]
             mdg = pp.meshing.cart_grid(fracs=fractures, **lower_level_arguments)
             return mdg
@@ -256,11 +251,12 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         with pytest.raises(ValueError) as error_message:
             mesh_size = 0.1
             mesh_arguments: dict[str] = {"mesh_size": mesh_size}
-            ref_msg = str("fracture_network without a domain is only supported for unstructured simplex meshes, not for %r"
-            % grid_type)
+            ref_msg = str(
+                "fracture_network without a domain is only supported for unstructured "
+                "simplex meshes, not for %r" % grid_type
+            )
             pp.create_mdg(grid_type, mesh_arguments, fracture_network)
         assert ref_msg in str(error_message.value)
-
 
     def test_network_inconsistencies(self):
 
@@ -285,4 +281,3 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             )
             pp.create_mdg(grid_type, mesh_arguments, complex(1, 2))
         assert ref_msg in str(error_message.value)
-
