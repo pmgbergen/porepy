@@ -57,7 +57,7 @@ class TestMDGridGeneration:
         return [domain_2d, domain_3d]
 
     # Extra mesh arguments
-    def extra_args_data_2d(self) -> List[dict[str]]:
+    def extra_args_data_2d(self) -> List[dict]:
         simplex_extra_args: dict[str] = {"mesh_size_bound": 1.0, "mesh_size_min": 0.1}
         cartesian_extra_args: dict[str] = {"nx": [10, 10], "physdims": [5, 5]}
         tensor_grid_extra_args: dict[str] = {
@@ -66,7 +66,7 @@ class TestMDGridGeneration:
         }
         return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
-    def extra_args_data_3d(self) -> List[dict[str]]:
+    def extra_args_data_3d(self) -> List[dict]:
         simplex_extra_args: dict[str] = {"mesh_size_bound": 1.0, "mesh_size_min": 0.1}
         cartesian_extra_args: dict[str] = {"nx": [10, 10, 10], "physdims": [5, 5, 5]}
         tensor_grid_extra_args: dict[str] = {
