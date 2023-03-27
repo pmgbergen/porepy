@@ -17,7 +17,7 @@ import pytest
 import porepy as pp
 
 from ...unit.test_vtk import _compare_pvd_files, _compare_vtu_files
-from .test_poromechanics import TailoredPoromechanics
+from .test_poromechanics import TailoredPoromechanics, create_fractured_setup
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
@@ -26,44 +26,31 @@ reference_dir = current_dir / Path("restart_reference")
 visualization_dir = Path("visualization")
 
 
-def create_fractured_setup(
+def create_enhanced_fractured_setup(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
 ):
-    """Create a setup for a fractured domain.
+    # Create fractured setup
+    fractured_setup = create_fractured_setup(solid_vals, fluid_vals, uy_north)
 
-    This is an enhanced copy of .test_poromechanics.create_fractured_setup. It enables
-    multiple time steps, and the export of the solution.
+    # Fetch parameters for enhancing them
+    params = fractured_setup.params
 
-    Parameters:
-        solid_vals: Parameters for the solid mechanics model.
-        fluid_vals: Parameters for the fluid mechanics model.
-        uy_north: Displacement in y-direction on the north boundary.
-        restart: Flag controlling whether restart is used.
+    # Enable exporting
+    params["suppress_export"] = False
 
-    Returns:
-        TailoredPoromechanics: A setup for a fractured domain.
+    # Add time stepping to the setup
+    params["time_manager"] = pp.TimeManager(
+        schedule=[0, 1], dt_init=0.5, constant_dt=True
+    )
 
-    """
-    # Instantiate constants and store in params.
-    solid_vals["fracture_gap"] = 0.042
-    solid_vals["residual_aperture"] = 1e-10
-    solid_vals["biot_coefficient"] = 1.0
-    fluid_vals["compressibility"] = 1
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
-
-    params = {
-        "suppress_export": False,  # Suppress output for tests
-        "material_constants": {"solid": solid, "fluid": fluid},
-        "uy_north": uy_north,
-        "max_iterations": 20,
-        "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True),
-        "restart_options": {
-            "restart": restart,
-            "pvd_file": reference_dir / Path("previous_data.pvd"),
-            "times_file": reference_dir / Path("previous_times.json"),
-        },
+    # Add restart possibility
+    params["restart_options"] = {
+        "restart": restart,
+        "pvd_file": reference_dir / Path("previous_data.pvd"),
+        "times_file": reference_dir / Path("previous_times.json"),
     }
+
+    # Redefine setup
     setup = TailoredPoromechanics(params)
     return setup
 
@@ -95,7 +82,9 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # Setup and run model for full time interval. With this generate reference files
     # for comparison with a restarted simulation. At the same time, this generates the
     # restart files.
-    setup = create_fractured_setup(solid_vals, {}, north_displacement, restart=False)
+    setup = create_enhanced_fractured_setup(
+        solid_vals, {}, north_displacement, restart=False
+    )
     pp.run_time_dependent_model(setup, {})
 
     # The run generates data for initial and the first two time steps. In order to use
@@ -113,7 +102,9 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # time step. Thus, the simulation is restarted from the first time step.
     # Recompute the second time step which will serve as foundation for the comparison
     # to the above computed reference files.
-    setup = create_fractured_setup(solid_vals, {}, north_displacement, restart=True)
+    setup = create_enhanced_fractured_setup(
+        solid_vals, {}, north_displacement, restart=True
+    )
     pp.run_time_dependent_model(setup, {})
 
     # To verify the restart capabilities, perform five tests.
