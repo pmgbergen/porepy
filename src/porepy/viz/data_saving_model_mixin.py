@@ -2,9 +2,9 @@
 
 It is combined with a Model class and provides methods for saving data to file.
 
-We provide basic Exporter functionality, but the user is free to override
-and extend this class to suit their needs. This could include, e.g., saving
-data to a database, or to a file format other than vtu.
+We provide basic Exporter functionality, but the user is free to override and extend
+this class to suit their needs. This could include, e.g., saving data to a database,
+or to a file format other than vtu.
 """
 from __future__ import annotations
 

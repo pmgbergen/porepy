@@ -1,14 +1,14 @@
 """Tests of the export functionalities of Exporter, FractureNetwork2d, and
 FractureNetwork3d.
 
-The tests focus on the write-to-file capabilities of the Exporter. It is tested
-for various sorts of relevant meshes in 1d, 2d, and 3d, including single domain
-as well as mixed-dimensional domains. In addition, the export capability of  2d
-and 3d fracture networks is tested. All tests have a similar character and are
-based on a simple comparison with reference vtu files. It should be noted that
-failure of any test indicates that something in the export filter, or in the vtk
-python bindings has changed. If the change is external to PorePy, this does not
-necessarily mean that something is wrong.
+The tests focus on the write-to-file capabilities of the Exporter. It is tested for
+various sorts of relevant meshes in 1d, 2d, and 3d, including single domain as well as
+mixed-dimensional domains. In addition, the export capability of  2d and 3d fracture
+networks is tested. All tests have a similar character and are based on a simple
+comparison with reference vtu files. It should be noted that failure of any test
+indicates that something in the export filter, or in the vtk python bindings has
+changed. If the change is external to PorePy, this does not necessarily mean that
+something is wrong.
 """
 from __future__ import annotations
 
@@ -33,8 +33,8 @@ folder_reference = (
 
 
 class ExporterTestSetup:
-    """Class to define where to store vtu files, and test the export functionality
-    of the Exporter, FractureNetwork2d, and FractureNetwork3d.
+    """Class to define where to store vtu files, and test the export functionality of
+    the Exporter, FractureNetwork2d, and FractureNetwork3d.
 
     """
 
@@ -63,17 +63,15 @@ def _compare_vtu_files(
 ) -> bool:
     """Determine whether the contents of two vtu files are identical.
 
-    Helper method to determine whether two vtu files, accessed by their
-    paths, are identical. Returns True if both files are identified as the
-    same, False otherwise. This is the main auxiliary routine used to compare
-    down below whether the Exporter produces identical outputs as stored
-    reference files.
+    Helper method to determine whether two vtu files, accessed by their paths, are
+    identical. Returns True if both files are identified as the same, False otherwise.
+    This is the main auxiliary routine used to compare down below whether the Exporter
+    produces identical outputs as stored reference files.
 
     .. note:
-        It is implicitly assumed that Gmsh returns the same grid as
-        for the reference grid; thus, if this test fails, it should be
-        rerun with an older version of Gmsh to test for failure due to
-        external reasons.
+        It is implicitly assumed that Gmsh returns the same grid as for the reference
+        grid; thus, if this test fails, it should be rerun with an older version of
+        Gmsh to test for failure due to external reasons.
 
     Parameters:
         test_file: Name of the test file.
@@ -93,13 +91,12 @@ def _compare_vtu_files(
     test_data = meshio.read(test_file)
     reference_data = meshio.read(reference_file)
 
-    # Determine the difference between the two meshio objects.
-    # Ignore differences in the data type if values are close. To judge whether values
-    # are close, only consider certain number of significant digits and base the
-    # comparison in exponential form.
-    # Also ignore differences in the subdomain_id and interface_id, as these are
-    # very sensitive to the order of grid creation, which may depend on pytest assembly
-    # and number of tests run.
+    # Determine the difference between the two meshio objects. Ignore differences in
+    # the data type if values are close. To judge whether values are close, only
+    # consider certain number of significant digits and base the comparison in
+    # exponential form. Also ignore differences in the subdomain_id and interface_id,
+    # as these are very sensitive to the order of grid creation, which may depend on
+    # pytest assembly and number of tests run.
     excludePaths = [
         "root['cell_data']['subdomain_id']",
         "root['cell_data']['interface_id']",
@@ -130,13 +127,12 @@ def _compare_pvd_files(
     tree_test = ET.parse(test_file)
     tree_ref = ET.parse(reference_file)
 
-    # NOTE: Here, we strictly assume that the pvd files subject to the comparison
-    # are created using the Exporter. Thus, they have a non-hierarchical xml-structure.
+    # NOTE: Here, we strictly assume that the pvd files subject to the comparison are
+    # created using the Exporter. Thus, they have a non-hierarchical xml-structure.
     # Finally, there is just two different types of xml structures, either created by
     # write_pvd() or _export_mdg_pvd(). The first contains the keyword "timestep",
     # whereas the second does not. This characteristic is used to determine the type
-    # of pvd files. Assume consistency, and that the first entry is sufficient to
-    # check.
+    # of pvd files. Assume consistency, and that the first entry is sufficient to check.
     for dataset in tree_test.iter("DataSet"):
         data = dataset.attrib
         test_originates_from_write_pvd = "time" in data
@@ -150,8 +146,8 @@ def _compare_pvd_files(
     if not pvd_files_compatible:
         return False
 
-    # Here, we make a simple brute-force comparison, and search for
-    # each item in the test file a matching item in the reference file.
+    # Here, we make a simple brute-force comparison, and search for each item in the
+    # test file a matching item in the reference file.
     def _check_xml_subtrees(
         tree1: ET.ElementTree, tree2: ET.ElementTree, keys: list[str]
     ) -> bool:
@@ -186,8 +182,8 @@ def _compare_pvd_files(
             tree2, tree1, keys
         )
 
-    # Check both directions, to check equality. The keys are chosen depending
-    # on the origin.
+    # Check both directions, to check equality. The keys are chosen depending on the
+    # origin.
     if test_originates_from_write_pvd:
         keys = ["part", "timestep", "file"]
     else:
@@ -262,8 +258,8 @@ def subdomain(request):
 
 @pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
 def test_single_subdomains(setup, subdomain):
-    """Test of the Exporter for single subdomains of different dimensionality
-    and different grid type. Exporting of scalar and vectorial data is tested.
+    """Test of the Exporter for single subdomains of different dimensionality and
+    different grid type. Exporting of scalar and vectorial data is tested.
 
     """
 
@@ -293,8 +289,8 @@ def test_single_subdomains(setup, subdomain):
 
 @pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
 def test_single_subdomains_import(setup, subdomain):
-    # Test of the import routine of the Exporter for single subdomains.
-    # Consistent with test_single_subdomains.
+    # Test of the import routine of the Exporter for single subdomains. Consistent
+    # with test_single_subdomains.
 
     # Define grid
     sd = subdomain.grid
@@ -308,7 +304,8 @@ def test_single_subdomains_import(setup, subdomain):
         export_constants_separately=False,
     )
 
-    # Define keys (here corresponding to all data stored in the vtu file to pass the test).
+    # Define keys (here corresponding to all data stored in the vtu file to pass the
+    # test).
     keys = ["dummy_scalar", "dummy_vector"]
 
     # Import data
@@ -320,8 +317,8 @@ def test_single_subdomains_import(setup, subdomain):
     )
 
     # Perform comparison on vtu level (seems the easiest as it only involves a
-    # comparison of dictionaries). This requires test_single_subdomains to pass
-    # all tests.
+    # comparison of dictionaries). This requires test_single_subdomains to pass all
+    # tests.
     save.write_vtu(keys)
 
     # Check that exported vtu file and reference file are the same
@@ -404,9 +401,12 @@ def test_restart_mdg(setup, case):
     )
 
     # Assume the following has been run for a previous simulation
-    # save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], timestep=1)
-    # Yet, then the simulation crashed, now it is restarted from pvd file,
-    # picking up the latest available timestep.
+    # save.write_vtu(
+    #     ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
+    #     timestep=1
+    # )
+    # Yet, then the simulation crashed, now it is restarted from pvd file, picking up
+    # the latest available timestep.
     global_pvd_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
     if case == 0:
         time_index = save.import_from_pvd(
@@ -426,8 +426,8 @@ def test_restart_mdg(setup, case):
     # Check whether the right time index (wrt previous simulation) has been extracted
     assert time_index == 1
 
-    # To trick the test, copy the current pvd file to the temporary folder
-    # before continuing writing it through appending the next time step.
+    # To trick the test, copy the current pvd file to the temporary folder before
+    # continuing writing it through appending the next time step.
     Path(f"{setup.folder}").mkdir(parents=True, exist_ok=True)
     shutil.copy(global_pvd_file, f"{setup.folder}/{setup.file_name}.pvd")
 
@@ -437,8 +437,7 @@ def test_restart_mdg(setup, case):
 
     # Now, export both the vtu and the pvd (continuing using the previous one).
     # NOTE: Typically, the data would be modified by running the simulation
-    # for one more timestep. This is irrelevant for testing the restarting
-    # capabilities.
+    # for one more timestep. This is irrelevant for testing the restarting capabilities.
     save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], time_step=2)
     save.write_pvd(append=True)
 
@@ -475,7 +474,8 @@ def test_mdg_import(setup, addendum):
         export_constants_separately=False,
     )
 
-    # Define keys (here corresponding to all data stored in the vtu file to pass the test).
+    # Define keys (here corresponding to all data stored in the vtu file to pass the
+    # test).
     keys = ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"]
 
     # Import data

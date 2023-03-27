@@ -1,7 +1,7 @@
 """Test for restart of a model.
 
-Here, exemplarily for a mixed-dimensional poromechanics model with
-time-varying boundary conditions.
+Here, exemplarily for a mixed-dimensional poromechanics model with time-varying boundary
+conditions.
 
 """
 from __future__ import annotations
@@ -28,8 +28,8 @@ def create_fractured_setup(
 ):
     """Create a setup for a fractured domain.
 
-    This is an enhanced copy of .test_poromechanics.create_fractured_setup.
-    It enables multiple time steps, and the export of the solution.
+    This is an enhanced copy of .test_poromechanics.create_fractured_setup. It enables
+    multiple time steps, and the export of the solution.
 
     Parameters:
         solid_vals: Parameters for the solid mechanics model.
@@ -74,12 +74,12 @@ def create_fractured_setup(
 def test_restart_2d_single_fracture(solid_vals, north_displacement):
     """Restart version of .test_poromechanics.test_2d_single_fracture.
 
-    Provided the exported data from a previous time step, restart the
-    simulaton, continue running and compare the final state and exported
-    vtu/pvd files with reference files.
+    Provided the exported data from a previous time step, restart the simulaton,
+    continue running and compare the final state and exported vtu/pvd files with
+    reference files.
 
-    This test also serves as minimal documentation of how to restart a model
-    in a practical situation.
+    This test also serves as minimal documentation of how to restart a model in a
+    practical situation.
 
     Parameters:
         solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
