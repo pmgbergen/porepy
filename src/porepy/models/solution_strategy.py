@@ -58,8 +58,8 @@ class SolutionStrategy(abc.ABC):
     """
 
     load_data_from_pvd: Callable[[dict], None]
-    """Load data from pvd to initialize the states, only applicable in restart
-    mode.
+    """Load data from pvd to initialize the states, only applicable in restart mode.
+    :class:`~porepy.viz.exporter.Exporter`.
 
     """
 
