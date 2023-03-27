@@ -17,6 +17,7 @@ import shutil
 import xml.etree.ElementTree as ET
 from collections import namedtuple
 from pathlib import Path
+from typing import Union
 
 import meshio
 import numpy as np
@@ -30,6 +31,9 @@ from porepy.fracs.utils import pts_edges_to_linefractures
 folder_reference = (
     os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
 )
+
+# Data structure for defining paths
+PathLike = Union[str, Path]
 
 
 class ExporterTestSetup:
@@ -59,7 +63,7 @@ def setup():
 
 
 def _compare_vtu_files(
-    test_file: str, reference_file: str, overwrite: bool = False
+    test_file: PathLike, reference_file: PathLike, overwrite: bool = False
 ) -> bool:
     """Determine whether the contents of two vtu files are identical.
 
@@ -115,7 +119,7 @@ def _compare_vtu_files(
 
 
 def _compare_pvd_files(
-    test_file: str, reference_file: str, overwrite: bool = False
+    test_file: PathLike, reference_file: PathLike, overwrite: bool = False
 ) -> bool:
     """ """
 
@@ -288,7 +292,7 @@ def test_single_subdomains(setup, subdomain):
 
 
 @pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
-def test_single_subdomains_import(setup, subdomain):
+def test_import_from_vtu_single_subdomains(setup, subdomain):
     # Test of the import routine of the Exporter for single subdomains. Consistent
     # with test_single_subdomains.
 
@@ -310,7 +314,7 @@ def test_single_subdomains_import(setup, subdomain):
 
     # Import data
     save.import_from_vtu(
-        file_names=f"{subdomain.ref_vtu_file}",
+        vtu_files=f"{subdomain.ref_vtu_file}",
         keys=keys,
         automatic=False,
         dims=sd.dim,
@@ -378,9 +382,15 @@ def test_mdg(setup):
 
 
 @pytest.mark.parametrize("case", np.arange(2))
-def test_restart_mdg(setup, case):
-    """Test restarting-related functionality of the Exporter for 2d mixed-dimensional
-    grids for a two-fracture domain.
+def test_import_from_pvd_mdg(setup, case):
+    """Test import-from-pvd functionality of the Exporter for 2d mixed-dimensional grids
+    for a two-fracture domain.
+
+    Here, purely reading functionality is tested, given a fixed set of input pvd files.
+
+    Two cases are considered, testing two functionalities: importing from a mdg pvd
+    file and a (conventional) pvd file, originating from pp.Exporter._export_mdg_pvd()
+    and pp.Exporter.write_pvd(). These correspond to case equal 1 and 0, respectively.
 
     Exporting of scalar and vectorial data, separately defined on both subdomains and
     interfaces.
@@ -407,29 +417,32 @@ def test_restart_mdg(setup, case):
     # )
     # Yet, then the simulation crashed, now it is restarted from pvd file, picking up
     # the latest available timestep.
-    global_pvd_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
+    pvd_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
     if case == 0:
+        # Test restart from conventional pvd file.
         time_index = save.import_from_pvd(
-            global_pvd_file,
-            ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
+            pvd_file=pvd_file,
+            keys=["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
         )
 
-    else:
-        local_pvd_file = f"{setup.folder_reference}/restart/grid_000001.pvd"
+    elif case == 1:
+        # Test restart from
         time_index = save.import_from_pvd(
-            local_pvd_file,
-            ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
-            is_global=False,
-            global_pvd_file=global_pvd_file,
+            pvd_file=f"{setup.folder_reference}/restart/grid_000001.pvd",
+            is_mdg_pvd=True,
+            keys=["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
         )
 
-    # Check whether the right time index (wrt previous simulation) has been extracted
+    # The above setup has been created such that the imported data corresponds to some
+    # first time step. In case 0, this is encoded in the content of previous_grid.pvd.
+    # In case 1, this is encoded in the appendix of grid_000001.pvd. Test whether the
+    # time index has been identified correctly.
     assert time_index == 1
 
     # To trick the test, copy the current pvd file to the temporary folder before
     # continuing writing it through appending the next time step.
     Path(f"{setup.folder}").mkdir(parents=True, exist_ok=True)
-    shutil.copy(global_pvd_file, f"{setup.folder}/{setup.file_name}.pvd")
+    shutil.copy(pvd_file, f"{setup.folder}/{setup.file_name}.pvd")
 
     # Imitate the initialization of a simulation, i.e., export the initial condition.
     save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], time_step=1)
@@ -457,7 +470,7 @@ def test_restart_mdg(setup, case):
 
 
 @pytest.mark.parametrize("addendum", ["", "nontrivial_data_"])
-def test_mdg_import(setup, addendum):
+def test_import_from_vtu_mdg(setup, addendum):
     # Test of the import routine of the Exporter for 2d mixed-dimensional grids.
     # Consistent with test_mdg.
 
@@ -480,7 +493,7 @@ def test_mdg_import(setup, addendum):
 
     # Import data
     save.import_from_vtu(
-        file_names=[
+        vtu_files=[
             f"{setup.folder_reference}/mdg_{addendum}grid_2.vtu",
             f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu",
             f"{setup.folder_reference}/mdg_{addendum}grid_mortar_1.vtu",
