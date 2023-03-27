@@ -16,6 +16,9 @@ import numpy as np
 import porepy as pp
 from porepy.viz.exporter import DataInput
 
+# Data structures allowed to define paths
+PathLike = Union[str, Path]
+
 
 class DataSavingMixin:
     """Class for saving data from a simulation model.
@@ -144,32 +147,76 @@ class DataSavingMixin:
             length_scale=self.units.m,
         )
 
-    def load_data_from_pvd(self, options: dict, **kwargs) -> None:
-        """Initialize data in the model by reading from file.
+    def load_data_from_vtu(
+        self,
+        vtu_files: Union[PathLike, list[PathLike]],
+        time_index: int,
+        times_file: Optional[PathLike] = None,
+        keys: Optional[Union[str, list[str]]] = None,
+        **kwargs,
+    ) -> None:
+        """Initialize data in the model by reading from a pvd file.
 
         Parameters:
-            options: dictionary with restart options.
+            vtu_files: path(s) to vtu file(s)
+            keys: keywords addressing cell data to be transferred. If 'None', the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through pp.STATES.
+            keyword arguments: cf. Exporter.import_from_vtu().
 
         Raises:
             ValueError: if incompatible file type provided.
+
         """
+        # Sanity check
+        if (
+            not (
+                isinstance(vtu_files, list)
+                and all([Path(vtu_file).suffix == ".vtu" for vtu_file in vtu_files])
+            )
+            and not Path(vtu_files).suffix == ".vtu"
+        ):
+            raise ValueError
+
         # Load states and read time index, connecting data and time history
-        pvd_file: Optional[str] = options.get("pvd_file")
-        assert isinstance(pvd_file, str)
-        if Path(pvd_file).suffix == ".vtu":
-            self.exporter.import_from_vtu(pvd_file, **kwargs)
-            time_index: Optional[int] = options.get("time_index")
-
-        elif Path(pvd_file).suffix == ".pvd":
-            time_index = self.exporter.import_from_pvd(pvd_file, **kwargs)
-
-        else:
-            raise ValueError("Only vtu and pvd files supported for import.")
+        self.exporter.import_from_vtu(vtu_files, keys, **kwargs)
 
         # Load time and time step size
-        times_file: Optional[str] = options.get("times_file", None)
         self.time_manager.load_time_information(times_file)
-        assert isinstance(time_index, int)
+        self.time_manager.set_from_history(time_index)
+        self.exporter._time_step_counter = time_index
+
+    def load_data_from_pvd(
+        self,
+        pvd_file: PathLike,
+        is_mdg_pvd: bool = False,
+        times_file: Optional[PathLike] = None,
+        keys: Optional[Union[str, list[str]]] = None,
+    ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            pvd_file: path to pvd file with exported vtu files.
+            is_mdg_pvd: flag controlling whether pvd file is a mdg file, i.e., generated
+                with Exporter._export_mdg_pvd() or Exporter.write_pvd().
+            times_file: path to json file storing history of time and time step size.
+            keys: keywords addressing cell data to be transferred. If 'None', the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through pp.STATES.
+
+        Raises:
+            ValueError: if incompatible file type provided.
+
+        """
+        # Sanity check
+        if not Path(pvd_file).suffix == ".pvd":
+            raise ValueError
+
+        # Import data and determine time index corresponding to the pvd file
+        time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
+
+        # Load time and time step size
+        self.time_manager.load_time_information(times_file)
         self.time_manager.set_from_history(time_index)
         self.exporter._time_step_counter = time_index
 
