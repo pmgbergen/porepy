@@ -251,6 +251,17 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             pp.create_mdg(grid_type, mesh_arguments, fracture_network)
         assert ref_msg in str(error_message.value)
 
+        grid_type = "cartesian"
+        fracture_network.domain = None
+        with pytest.raises(ValueError) as error_message:
+            mesh_size = 0.1
+            mesh_arguments: dict[str] = {"mesh_size": mesh_size}
+            ref_msg = str("fracture_network without a domain is only supported for unstructured simplex meshes, not for %r"
+            % grid_type)
+            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
+        assert ref_msg in str(error_message.value)
+
+
     def test_network_inconsistencies(self):
 
         grid_type = "simplex"

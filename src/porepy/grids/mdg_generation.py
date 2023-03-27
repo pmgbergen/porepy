@@ -41,8 +41,15 @@ def _validate_args_types(
             % type(fracture_network)
         )
 
+    if fracture_network.domain is None and grid_type is not "simplex":
+        raise ValueError(
+            "fracture_network without a domain is only supported for unstructured simplex meshes, not for %r"
+            % grid_type
+        )
 
-def _validate_grid_type(grid_type):
+
+
+def _validate_grid_type_value(grid_type):
     valid_type = grid_type in ["simplex", "cartesian", "tensor_grid"]
     if not valid_type:
         raise ValueError(
@@ -51,7 +58,7 @@ def _validate_grid_type(grid_type):
         )
 
 
-def _validate_mesh_arguments(mesh_arguments):
+def _validate_mesh_arg_values(mesh_arguments):
 
     # Common requirement among mesh types
     mesh_size = mesh_arguments.get("mesh_size")
@@ -87,8 +94,8 @@ def _validate_args(
 ):
 
     _validate_args_types(grid_type, mesh_arguments, fracture_network)
-    _validate_grid_type(grid_type)
-    _validate_mesh_arguments(mesh_arguments)
+    _validate_grid_type_value(grid_type)
+    _validate_mesh_arg_values(mesh_arguments)
 
 
 def _preprocess_simplex_args(mesh_arguments, kwargs, mesh_function):
@@ -268,7 +275,7 @@ def create_mdg(
 
     dim = _infer_dimension_from_network(fracture_network)
 
-    # Unstructure cases
+    # Unstructured cases
     if grid_type == "simplex":
         if dim == 2:
             # preprocess user's arguments provided in kwargs
@@ -286,22 +293,25 @@ def create_mdg(
             # perform the actual meshing
             mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
 
-    domain = _validate_domain_instance(fracture_network)
-    # Structure cases
-    if grid_type == "cartesian":
-        (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
-            domain, mesh_arguments, kwargs
-        )
-        fractures = [f.pts for f in fracture_network.fractures]
-        mdg = pp.meshing.cart_grid(
-            fracs=fractures, nx=nx_cells, physdims=phys_dims, **kwargs
-        )
+    # Needed to avoid mypy incompatible types in assignment
+    if fracture_network.domain is not None:
 
-    if grid_type == "tensor_grid":
-        fractures = [f.pts for f in fracture_network.fractures]
-        (xs, ys, zs, kwargs) = _preprocess_tensor_grid_args(
-            domain, mesh_arguments, kwargs
-        )
-        mdg = pp.meshing.tensor_grid(fracs=fractures, x=xs, y=ys, z=zs, **kwargs)
+        domain = _validate_domain_instance(fracture_network)
+        # Structured cases
+        if grid_type == "cartesian":
+            (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
+                domain, mesh_arguments, kwargs
+            )
+            fractures = [f.pts for f in fracture_network.fractures]
+            mdg = pp.meshing.cart_grid(
+                fracs=fractures, nx=nx_cells, physdims=phys_dims, **kwargs
+            )
+
+        if grid_type == "tensor_grid":
+            fractures = [f.pts for f in fracture_network.fractures]
+            (xs, ys, zs, kwargs) = _preprocess_tensor_grid_args(
+                domain, mesh_arguments, kwargs
+            )
+            mdg = pp.meshing.tensor_grid(fracs=fractures, x=xs, y=ys, z=zs, **kwargs)
 
     return mdg
