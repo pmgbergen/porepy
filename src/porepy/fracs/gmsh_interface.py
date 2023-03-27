@@ -170,8 +170,8 @@ class GmshData2d(_GmshData):
 class GmshData3d(_GmshData):
 
     # Polygons (both boundary surfaces, fractures and auxiliary lines).
-    # See FractureNetwork3d for examples of usage.
-    polygons: list[np.ndarray]
+    # See FractureNetwork3d._poly_2_segment() for examples of usage.
+    polygons: tuple[list[np.ndarray], list[np.ndarray]]
     # Tags used to identify the type of polygons.
     polygon_tags: dict[int, Tags]
     # Physical name information for polygons. Used to set gmsh tags for objects to be
