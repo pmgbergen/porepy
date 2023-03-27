@@ -19,8 +19,11 @@ import porepy as pp
 from ...unit.test_vtk import _compare_pvd_files, _compare_vtu_files
 from .test_poromechanics import TailoredPoromechanics
 
-# Store current directory
-current_dir = os.path.dirname(os.path.realpath(__file__))
+# Store current directory, directory containing reference files, and temporary
+# visualization folder.
+current_dir = Path(os.path.dirname(os.path.realpath(__file__)))
+reference_dir = current_dir / Path("restart_reference")
+visualization_dir = Path("visualization")
 
 
 def create_fractured_setup(
@@ -57,8 +60,8 @@ def create_fractured_setup(
         "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True),
         "restart_options": {
             "restart": restart,
-            "pvd_file": current_dir + "/restart_reference/previous_data.pvd",
-            "times_file": current_dir + "/restart_reference/previous_times.json",
+            "pvd_file": reference_dir / Path("previous_data.pvd"),
+            "times_file": reference_dir / Path("previous_times.json"),
         },
     }
     setup = TailoredPoromechanics(params)
@@ -96,12 +99,12 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # The run generates data for initial and the first two time steps.
     # In order to use the data as restart and reference data, move it
     # to a reference folder.
-    pvd_files = list(Path("./visualization").glob("*.pvd"))
-    vtu_files = list(Path("./visualization").glob("*.vtu"))
-    json_files = list(Path("./visualization").glob("*.json"))
+    pvd_files = list(visualization_dir.glob("*.pvd"))
+    vtu_files = list(visualization_dir.glob("*.vtu"))
+    json_files = list(visualization_dir.glob("*.json"))
     for f in pvd_files + vtu_files + json_files:
-        dst = Path(current_dir) / Path("restart_reference") / Path(f.stem + f.suffix)
-        shutil.move(str(f), str(dst))
+        dst = reference_dir / Path(f.stem + f.suffix)
+        shutil.move(f, dst)
 
     # Now use the reference data to restart the simulation.
     setup = create_fractured_setup(solid_vals, {}, north_displacement, restart=True)
@@ -116,23 +119,23 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     for ending in ["000001", "000002"]:
         for i in ["1", "2"]:
             assert _compare_vtu_files(
-                f"./visualization/data_{i}_{ending}.vtu",
-                current_dir + f"/restart_reference/data_{i}_{ending}.vtu",
+                visualization_dir / Path(f"data_{i}_{ending}.vtu"),
+                reference_dir / Path(f"data_{i}_{ending}.vtu"),
             )
 
             assert _compare_vtu_files(
-                f"./visualization/data_mortar_1_{ending}.vtu",
-                current_dir + f"/restart_reference/data_mortar_1_{ending}.vtu",
+                visualization_dir / Path(f"data_mortar_1_{ending}.vtu"),
+                reference_dir / Path(f"data_mortar_1_{ending}.vtu"),
             )
 
     for ending in ["_000002", ""]:
         assert _compare_pvd_files(
-            f"./visualization/data{ending}.pvd",
-            current_dir + f"/restart_reference/data{ending}.pvd",
+            visualization_dir / Path(f"data{ending}.pvd"),
+            reference_dir / Path(f"data{ending}.pvd"),
         )
 
-    restarted_times_json = open("./visualization/times.json")
-    reference_times_json = open(current_dir + "/restart_reference/times.json")
+    restarted_times_json = open(visualization_dir / Path("times.json"))
+    reference_times_json = open(reference_dir / Path("times.json"))
     restarted_times = json.load(restarted_times_json)
     reference_times = json.load(reference_times_json)
     for key in ["time", "dt"]:
@@ -143,9 +146,9 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     reference_times_json.close()
 
     # Remove temporary visualization folder
-    shutil.rmtree("./visualization")
+    shutil.rmtree(visualization_dir)
 
     # Clean up the reference data
     for f in pvd_files + vtu_files + json_files:
-        src = Path(current_dir + "/restart_reference") / Path(f.stem + f.suffix)
+        src = reference_dir / Path(f.stem + f.suffix)
         src.unlink()
