@@ -186,9 +186,26 @@ class SolutionStrategy(abc.ABC):
         vals = np.zeros(self.equation_system.num_dofs())
         self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
 
-        # Overwrite the initial condition in case of a restart
-        if self.restart_options["restart"]:
-            self.load_data_from_pvd(self.restart_options)
+        # Overwrite states from file if restart is enabled.
+        if self.restart_options.get("restart", False):
+            if "pvd_file" in self.restart_options:
+                pvd_file = self.restart_options["pvd_file"]
+                is_mdg_pvd = self.restart_options.get("is_mdg_pvd", False)
+                times_file = self.restart_options.get("times_file", None)
+                self.load_data_from_pvd(
+                    pvd_file,
+                    is_mdg_pvd,
+                    times_file,
+                )
+            else:
+                vtu_files = self.restart_options["vtu_files"]
+                time_index = self.restart_options.get("time_index", -1)
+                times_file = self.restart_options.get("times_file", None)
+                self.load_data_from_vtu(
+                    vtu_files,
+                    time_index,
+                    times_file,
+                )
             vals = self.equation_system.get_variable_values()
             self.equation_system.set_variable_values(
                 vals, to_iterate=True, to_state=True
