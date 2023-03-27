@@ -46,11 +46,11 @@ class DataSavingMixin:
         """Export the model state at a given time step, and log time."""
         if not self.suppress_export:
             self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
-            if self.restart_options["restart"]:
-                global_pvd_file = self.restart_options.get(
-                    "global_file", self.restart_options["pvd_file"]
-                )
-                self.exporter.write_pvd(append=True, from_pvd_file=global_pvd_file)
+            if self.restart_options.get("restart", False):
+                # For a pvd file addressing all time steps (before and after restart
+                # time), resume based on restart input pvd file through append.
+                pvd_file = self.restart_options["pvd_file"]
+                self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
             else:
                 self.exporter.write_pvd()
             self.time_manager.write_time_information()
