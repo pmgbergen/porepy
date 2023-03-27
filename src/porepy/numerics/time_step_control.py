@@ -651,11 +651,16 @@ class TimeManager:
         return schedule.size == np.sum(in1d)
 
     # I/O
-    def write(self, path: Optional[str] = None) -> None:
-        """Keep track of history of time and time step size and store.
+    def write_time_information(self, path: Optional[str] = None) -> None:
+        """Keep track of history of time and time step size and store as json file
+        storing lists the evolution of both as lists.
+
+        NOTE: The history only contains time and dt for all occasions when this routine
+        is called. This routine does neither guarantee completeness, nor duplicated.
 
         Parameters:
-            path: specified path for storing time and dt.
+            path: specified path for storing time and dt; if 'None' provided,
+                a default path within the default 'visualization' folder is used.
 
         """
         # Initialization
@@ -679,13 +684,14 @@ class TimeManager:
         json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
         out_file.close()
 
-    def load(self, path: Optional[str] = None) -> None:
+    def load_time_information(self, path: Optional[str] = None) -> None:
         """Keep track of history of time and time step size and store.
 
-        Mirrors self.write().
+        Mirrors self.write_time_information().
 
         Parameters:
-            path: specified path for retrieving time and dt.
+            path: specified path for retrieving time and dt; if 'None' is provided, the
+            default choice from self.write_time_information() is used.
 
         """
         in_file = open(path if path is not None else "visualization/times.json")
@@ -698,12 +704,12 @@ class TimeManager:
         """Load previous visited history for resuming, and cut-off afterward
         history.
 
-        NOTE: It is implicitly assumed that the first entry of the history
-        corresponds to the initial solution.
+        NOTE: It is implicitly assumed that the first entry of the history corresponds
+        to the initial solution.
 
         Parameters:
-            time_index: reference index addressing the currently stored history.
-                By default, the latest accessible time and dt is retrieved.
+            time_index: reference index addressing the currently stored history. By
+                default, the latest accessible time and dt is retrieved.
 
         Raises:
             ValueError
@@ -711,8 +717,8 @@ class TimeManager:
         """
         if not hasattr(self, "time_history") or not hasattr(self, "dt_history"):
             raise ValueError(
-                """The time manager does not hold information on
-                previously used time and dt."""
+                """The time manager does not hold information on previously used time
+                and dt."""
             )
 
         self.time = self.time_history[time_index]

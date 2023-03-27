@@ -53,7 +53,7 @@ class DataSavingMixin:
                 self.exporter.write_pvd(append=True, from_pvd_file=global_pvd_file)
             else:
                 self.exporter.write_pvd()
-            self.time_manager.write()
+            self.time_manager.write_time_information()
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
@@ -168,7 +168,7 @@ class DataSavingMixin:
 
         # Load time and time step size
         times_file: Optional[str] = options.get("times_file", None)
-        self.time_manager.load(times_file)
+        self.time_manager.load_time_information(times_file)
         assert isinstance(time_index, int)
         self.time_manager.set_from_history(time_index)
         self.exporter._time_step_counter = time_index
