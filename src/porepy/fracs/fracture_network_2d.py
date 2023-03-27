@@ -240,7 +240,9 @@ class FractureNetwork2d:
         clear_gmsh: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
-        """Create a mixed-dimensional grid for this fracture network.
+        """Mesh the fracture network and generate a mixed-dimensional grid.
+
+        Note that the mesh generation process is outsourced to Gmsh.
 
         Todo:
             Add description of **kwargs.
@@ -259,7 +261,10 @@ class FractureNetwork2d:
             constraints: ``(dtype=np.int8, default=None)``
 
                 Indices of fractures that should not generate lower-dimensional
-                meshes, but only act as constraints in the meshing algorithm.
+                meshes, but only act as constraints in the meshing algorithm. Useful
+                to define subregions of the domain (and assign, e.g., material
+                properties, sources, etc.).
+
             file_name: ``default=None``
 
                 Name of the output Gmsh file(s). If not given, ``gmsh_frac_file``
@@ -367,7 +372,8 @@ class FractureNetwork2d:
         """Process network intersections and write ``.geo`` configuration file.
 
         Note:
-             Consider using :meth:`~porepy.fracs.fracture_network_2d.mesh` instead
+             Consider using
+             :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh` instead
              to get a ready mixed-dimensional grid.
 
         Todo:
@@ -682,8 +688,13 @@ class FractureNetwork2d:
         """Find intersection points for a set of lines.
 
         Todo:
-            Add description of Parameters and Returns. EK: Maybe you have the
-            insight to know this?
+            Improve documentation.
+
+        Parameters:
+            lines: Lines defined as pair of points.
+
+        Returns:
+            Numpy array containing the intersection between :attr:`lines`.
 
         """
 
@@ -808,7 +819,7 @@ class FractureNetwork2d:
 
         Fractures outside the imposed domain will be deleted. The :attr:`domain` will be
         added to ``self._pts`` and ``self._edges``, if :attr:`add_domain_edges` is
-        ``True``.The domain boundary edges can be identified from
+        ``True``. The domain boundary edges can be identified from
         ``self.tags['boundary']``.
 
         Parameters:
@@ -817,7 +828,7 @@ class FractureNetwork2d:
                 Domain specification. If not provided, ``self.domain`` will be used.
             add_domain_edges: ``default=True``
 
-                Whether to include the boundary edges and pts in the list of edges.
+                Whether to include the boundary edges and points in the list of edges.
 
         Returns:
             Tuple with two elements.
@@ -1007,7 +1018,7 @@ class FractureNetwork2d:
     def _edges_overlapping_boundary(self, tol: float) -> np.ndarray:
         """Obtain edges that overlap the exterior boundary.
 
-        Known usage is the removal of such edges in
+        Intended usage is the removal of such edges in
         :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.prepare_for_gmsh`.
 
         Parameters:
@@ -1357,7 +1368,7 @@ class FractureNetwork2d:
         self,
         frac_index: Optional[Union[int, np.ndarray]] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Return start and end points of all fractures, or a subset.
+        """Get start and end points of all fractures, or a subset.
 
         Parameters:
             frac_index: ``default=None``
@@ -1368,7 +1379,7 @@ class FractureNetwork2d:
                 If not specified, all start/end points will be returned.
 
         Returns:
-            Tuple of 2 elements.
+            Tuple with 2 elements.
 
             :obj:`numpy.ndarray`: ``shape=(2, num_fracs)``
 
@@ -1416,8 +1427,8 @@ class FractureNetwork2d:
         return np.array([tot_l(f) for f in np.unique(frac_index)])
 
     def orientation(
-            self,
-            frac_index: Optional[Union[int, np.ndarray]] = None,
+        self,
+        frac_index: Optional[Union[int, np.ndarray]] = None,
     ):
         """Compute the angle of the fractures relative to the x-axis.
 
@@ -1570,8 +1581,9 @@ class FractureNetwork2d:
     ) -> None:
         """Export the fracture network to file.
 
-        The file format is given as a kwarg, by default vtu will be used. The writing is
-        outsourced to meshio, thus the file format should be supported by that package.
+        The file format is given as a :attr:`kwarg`, by default ``vtu`` will be used.
+        The writing is outsourced to meshio, thus the file format should be supported
+        by that package.
 
         The fractures are treated as lines, with no special treatment of intersections.
 

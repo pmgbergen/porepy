@@ -109,6 +109,9 @@ def network_3d_from_csv(
 def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
     """Create fracture network from a set of elliptic fractures stored in a CSV file.
 
+    Todo:
+        Fill description of :attr:`degrees`.
+
     In the CSV file, we assume the following structure:
 
         The first line (optional) describes the domain as a cuboid with ``X_MIN,
@@ -132,7 +135,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
         tol: ``default=1e-4``
 
             Geometric tolerance used in the computations.
-        degrees: FIXME: Fill description of the argument. EK maybe you know?
+        degrees:
 
     Returns:
         Three-dimensional fracture network object with elliptic fractures.
@@ -224,6 +227,10 @@ def network_2d_from_csv(
     The CSV file is assumed to have a header of 1 line. To change this number,
     use kwargs ``skip_header``.
 
+    Raises:
+        ValueError:
+            If a fracture of a single point is specified.
+
     Parameters:
         f_name: Path to the CSV file.
         tagcols: ``(dtype=np.int8, default=None)``
@@ -252,9 +259,6 @@ def network_2d_from_csv(
     Returns:
         The two-dimensional fracture network, and if :attr:`return_frac_id` = True,
         also the fractures' ID as a numpy array of ``shape=(num_fracs, )``.
-
-    Raises:
-        - ValueError: If a fracture of a single point is specified.
 
     """
     npargs = {}
@@ -361,7 +365,7 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
     constructed.
 
     Parameters:
-        file_name: Name of Gmsh ``in`` and ``out`` file. Should have extension ``.geo``
+        file_name: Name of Gmsh *in* and *out* file. Should have extension ``.geo``
             or ``.msh``. In the former case, Gmsh will be called upon to generate the
             mesh before the mixed-dimensional mesh is constructed.
         dim: Dimension of the problem. Should be ``2`` or ``3``.
@@ -436,7 +440,7 @@ def dfm_3d_from_fab(
             :meth:`~porepy.fracs.simplex.tetrahedral_grid_from_gmsh`.
 
     Returns:
-        The resulting mixed-dimensional grid, and if :attr:`return_domain` = True,
+        The resulting mixed-dimensional grid, and if :attr:`return_domain` is ``True``,
         also the domain.
 
     """
@@ -473,14 +477,14 @@ def network_3d_from_fab(
         f_name: Path to the ``.fab`` file.
         return_all: ``default=False``
 
-            Whether to return additional information (see the Retunrs section).
+            Whether to return additional information (see the Returns section).
         tol: ``default=None``
 
             Tolerance passed on instantiation of the returned
             :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
 
     Returns:
-        Three-dimensional fracture network, and if :attr:`return_all` = True, also:
+        Three-dimensional fracture network, and if :attr:`return_all` is ``True``, also
 
             - A list of numpy arrays of ``shape=(nd, num_points)``, where each
             item of the list contains the fractures cut by the domain boundary,
