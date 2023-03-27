@@ -252,6 +252,7 @@ class Exporter:
 
             # Collect all timesteps first, and sort them
             timesteps = []
+            # Use the ET package from the standard library to parse the XML-file.
             tree_simulation = ET.parse(pvd_file)
             for path in tree_simulation.iter("DataSet"):
                 data = path.attrib
