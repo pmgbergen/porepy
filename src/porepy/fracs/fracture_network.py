@@ -44,10 +44,17 @@ def create_fracture_network(
             fracture_network = pp.create_fracture_network(fractures, domain)
 
     Raises:
-        - ValueError: If ``domain = None`` and ``fractures = None`` (or an empty list).
-        - ValueError: If the dimensions from ``domain`` and ``fractures`` do not match.
-        - TypeError: If not all items of ``fractures`` are of the same type.
-        - Warning: If ``run_checks = True`` when dimension is different from 3.
+        ValueError
+            If ``domain = None`` and ``fractures = None`` (or an empty list).
+
+        ValueError
+            If the dimensions from ``domain`` and ``fractures`` do not match.
+
+        TypeError
+            If not all items of ``fractures`` are of the same type.
+
+        Warning
+            If ``run_checks = True`` when dimension is different from 3.
 
     Parameters:
         fractures: ``default=None``
@@ -59,30 +66,29 @@ def create_fracture_network(
             treated as ``None``.
         domain: ``default=None``
 
-            Domain specfication. If given, it should be an instance of
+            Domain specification. If given, it should be an instance of
             :class:`~porepy.geometry.domain.Domain`.
         tol: ``default=1e-8``
 
             Geometric tolerance used in the computations.
         run_checks: ``default=False``
 
-            Run consistency checks during the network processing. Can be
-            considered a limited debug mode. Only used for three-dimensional fracture
-            networks.
+            Run consistency checks during the network processing. Can be considered a
+            limited debug mode. Only used for three-dimensional fracture networks.
 
     Returns:
         Fracture network object according to the dimensionality of the problem.
 
     """
 
-    # Interpret empty `fractures` list as None
+    # Interpret empty ``fractures`` list as None
     fracs: Optional[Union[LineFractures, PlaneFractures]]
     if isinstance(fractures, list) and len(fractures) == 0:
         fracs = None
     else:
         fracs = fractures
 
-    # Both `fracs` and `domain` cannot be None at the same time
+    # Both ``fracs`` and ``domain`` cannot be ``None`` at the same time
     if fracs is None and domain is None:
         raise ValueError("'fractures' and 'domain' cannot both be empty/None.")
 

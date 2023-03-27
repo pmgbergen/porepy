@@ -153,7 +153,7 @@ class Fracture(abc.ABC):
         """Generator over the vertices of the fracture.
 
         Yields:
-            Fracture vertex ``(shape=(nd, 1))``.
+            Fracture vertex with ``shape=(nd, 1)``.
 
         """
         for i in range(self.pts.shape[1]):
@@ -163,7 +163,7 @@ class Fracture(abc.ABC):
         """Generator over the segments according to the currently applied order.
 
         Yields:
-            Fracture segment ``(shape=(nd, 2))``.
+            Fracture segment with ``shape=(nd, 2)``.
 
         """
         sz = self.pts.shape[1]
@@ -191,7 +191,7 @@ class Fracture(abc.ABC):
 
             :obj:`~numpy.ndarray`:
                 Gives the position of ``p`` in :attr:`pts` if the point is a vertex.
-                Otherwise, None is returned.
+                Otherwise, ``None`` is returned.
 
         """
         p = p.reshape((-1, 1))
@@ -238,7 +238,8 @@ class Fracture(abc.ABC):
         the fracture has co-dimension 1.
 
         Returns:
-            Coordinates of the vertices in local dimensions ``(shape=(d, num_points))``.
+            Coordinates of the vertices in local dimensions with
+            ``shape=(d, num_points)``.
 
         """
         pass
@@ -262,7 +263,8 @@ class Fracture(abc.ABC):
         """Abstract method for checking consistency of :attr:`pts`.
 
         Raises:
-            ValueError if :attr:`pts` violates some assumptions (e.g. shape).
+            ValueError:
+                If :attr:`pts` violates some assumptions (e.g. shape).
 
         """
         pass
