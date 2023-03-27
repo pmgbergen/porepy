@@ -112,6 +112,7 @@ class Exporter:
         grid: Union[pp.Grid, pp.MixedDimensionalGrid],
         file_name: str,
         folder_name: Optional[str] = None,
+        length_scale: float = 1.0,
         **kwargs,
     ) -> None:
         # Exporter is operating on mixed-dimensional grids. Convert to such.
@@ -146,6 +147,12 @@ class Exporter:
         )
         """Flag controlling whether constant data is exported to a separate file."""
 
+        self._length_scale: float = length_scale
+        """Length scale for the grid. All coordinates are multiplied by this value
+        before exporting.
+
+        """
+
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
@@ -162,7 +169,7 @@ class Exporter:
         # Generate infrastructure for storing fixed-dimensional mortar grids
         # in meshio format.
 
-        self._m_dims = np.unique([intf.dim for intf in self._mdg.interfaces()])
+        self._m_dims = np.unique([intf.dim for intf in self._mdg.interfaces(codim=1)])
         """Array of dimensions of the mortar grids."""
 
         self.m_meshio_geom: MD_Meshio_Geom = dict()
@@ -384,7 +391,7 @@ class Exporter:
                             offset += sd.num_cells
                     else:
                         for intf, intf_data in self._mdg.interfaces(
-                            dim=dim, return_data=True
+                            dim=dim, return_data=True, codim=1
                         ):
                             if pp.STATE not in intf_data:
                                 intf_data[pp.STATE] = {}
@@ -817,7 +824,7 @@ class Exporter:
                         has_key = True
 
                 # Check data associated to interface field data
-                for intf, intf_data in self._mdg.interfaces(return_data=True):
+                for intf, intf_data in self._mdg.interfaces(return_data=True, codim=1):
                     if _add_data(key, intf, intf_data, interface_data):
                         has_key = True
 
@@ -1216,7 +1223,7 @@ class Exporter:
             self._constant_interface_data = dict()
 
         # Add mesh related, constant interface data by direct assignment.
-        for intf, intf_data in self._mdg.interfaces(return_data=True):
+        for intf, intf_data in self._mdg.interfaces(return_data=True, codim=1):
 
             # Construct empty arrays for all extra interface data
             self._constant_interface_data[(intf, "grid_dim")] = np.empty(0, dtype=int)
@@ -1336,7 +1343,7 @@ class Exporter:
             if is_subdomain_data:
                 entities: list[Any] = self._mdg.subdomains(dim=dim)
             else:
-                entities = self._mdg.interfaces(dim=dim)
+                entities = self._mdg.interfaces(dim=dim, codim=1)
 
             # Construct the list of fields represented on this dimension.
             fields: list[Field] = []
@@ -1463,7 +1470,7 @@ class Exporter:
             # Extract the mortar grids for dimension dim, unrolled by sides
             interface_side_grids = [
                 grid
-                for intf in self._mdg.interfaces(dim=dim)
+                for intf in self._mdg.interfaces(dim=dim, codim=1)
                 for _, grid in intf.side_grids.items()
             ]
             # Export and store
@@ -1533,9 +1540,9 @@ class Exporter:
 
         # Loop over all 1d grids
         for grid in grids:
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Lines are 1-simplices, and have a trivial connectivity.
             cn_indices = self._simplex_cell_to_nodes(1, grid)
@@ -1636,9 +1643,9 @@ class Exporter:
         # Loop over all 2d grids
         for grid in grids:
 
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Determine cell types based on number of nodes.
             num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
@@ -1845,9 +1852,9 @@ class Exporter:
 
         # Treat each 3d grid separately.
         for grid in grids:
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Identify all cells as tetrahedra.
             cells = np.arange(grid.num_cells)
@@ -1909,9 +1916,9 @@ class Exporter:
 
         # Treat each 3d grid separately.
         for grid in grids:
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Identify all cells as tetrahedra.
             cells = np.arange(grid.num_cells)
@@ -2120,9 +2127,9 @@ class Exporter:
         # Treat each 3d grid separately.
         for grid in grids:
 
-            # Store node coordinates
+            # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
-            meshio_pts[sl, :] = grid.nodes.T
+            meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Categorize all polyhedron cells by their number of nodes.
             # Each category will be treated separately allowing for using
