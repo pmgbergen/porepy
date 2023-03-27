@@ -92,13 +92,14 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
             directions. The values are used to infer sign of displacement solution.
 
     """
-    # Setup and run model for full time interval.
+    # Setup and run model for full time interval. With this generate reference files
+    # for comparison with a restarted simulation. At the same time, this generates the
+    # restart files.
     setup = create_fractured_setup(solid_vals, {}, north_displacement, restart=False)
     pp.run_time_dependent_model(setup, {})
 
-    # The run generates data for initial and the first two time steps.
-    # In order to use the data as restart and reference data, move it
-    # to a reference folder.
+    # The run generates data for initial and the first two time steps. In order to use
+    # the data as restart and reference data, move it to a reference folder.
     pvd_files = list(visualization_dir.glob("*.pvd"))
     vtu_files = list(visualization_dir.glob("*.vtu"))
     json_files = list(visualization_dir.glob("*.json"))
@@ -106,34 +107,52 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
         dst = reference_dir / Path(f.stem + f.suffix)
         shutil.move(f, dst)
 
-    # Now use the reference data to restart the simulation.
+    # Now use the reference data to restart the simulation. Note, the restart
+    # capabilities of the models automatically use the last available time step for
+    # restart, here the restart files contain information on the initial and first
+    # time step. Thus, the simulation is restarted from the first time step.
+    # Recompute the second time step which will serve as foundation for the comparison
+    # to the above computed reference files.
     setup = create_fractured_setup(solid_vals, {}, north_displacement, restart=True)
     pp.run_time_dependent_model(setup, {})
 
-    # To verify the restart capabilities, test whether:
-    # - the states have been correctly initialized at restart time;
-    # - the follow-up time step has been computed correctely;
-    # - the overall solution stored in a global pvd file is compiled correctly;
-    # - the logging of times and step sizes is correct.
+    # To verify the restart capabilities, perform five tests.
 
-    for ending in ["000001", "000002"]:
-        for i in ["1", "2"]:
-            assert _compare_vtu_files(
-                visualization_dir / Path(f"data_{i}_{ending}.vtu"),
-                reference_dir / Path(f"data_{i}_{ending}.vtu"),
-            )
-
-            assert _compare_vtu_files(
-                visualization_dir / Path(f"data_mortar_1_{ending}.vtu"),
-                reference_dir / Path(f"data_mortar_1_{ending}.vtu"),
-            )
-
-    for ending in ["_000002", ""]:
-        assert _compare_pvd_files(
-            visualization_dir / Path(f"data{ending}.pvd"),
-            reference_dir / Path(f"data{ending}.pvd"),
+    # 1. Check whether the states have been correctly initialized at restart time.
+    for i in ["1", "2"]:
+        assert _compare_vtu_files(
+            visualization_dir / Path(f"data_{i}_000001.vtu"),
+            reference_dir / Path(f"data_{i}_000001.vtu"),
         )
+    assert _compare_vtu_files(
+        visualization_dir / Path(f"data_mortar_1_000001.vtu"),
+        reference_dir / Path(f"data_mortar_1_000001.vtu"),
+    )
 
+    # 2. Check whether the successive time step has been computed correctely.
+    for i in ["1", "2"]:
+        assert _compare_vtu_files(
+            visualization_dir / Path(f"data_{i}_000002.vtu"),
+            reference_dir / Path(f"data_{i}_000002.vtu"),
+        )
+    assert _compare_vtu_files(
+        visualization_dir / Path(f"data_mortar_1_000002.vtu"),
+        reference_dir / Path(f"data_mortar_1_000002.vtu"),
+    )
+
+    # 3. Check whether the mdg pvd file is defined correctly.
+    assert _compare_pvd_files(
+        visualization_dir / Path(f"data_000002.pvd"),
+        reference_dir / Path(f"data_000002.pvd"),
+    )
+
+    # 4. Check whether the pvd file is compiled correctly, combining old and new data.
+    assert _compare_pvd_files(
+        visualization_dir / Path(f"data.pvd"),
+        reference_dir / Path(f"data.pvd"),
+    )
+
+    # 5. the logging of times and step sizes is correct.
     restarted_times_json = open(visualization_dir / Path("times.json"))
     reference_times_json = open(reference_dir / Path("times.json"))
     restarted_times = json.load(restarted_times_json)
