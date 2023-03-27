@@ -36,6 +36,11 @@ class DimensionReduction:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    is_well: Callable[[pp.Grid | pp.MortarGrid], bool]
+    """Check if a grid is a well. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
         """Get the aperture of a single grid.
@@ -47,9 +52,16 @@ class DimensionReduction:
             Aperture for each cell in the grid.
 
         """
+        # NOTE: The aperture concept is not well defined for nd. However, we include it
+        # for simplified implementation of specific volumes, which are defined as
+        # aperture^nd-dim and should be 1 for dim=nd.
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
-            aperture = self.solid.residual_aperture() * aperture
+            if self.is_well(grid):
+                # This is a well. The aperture is the well radius.
+                aperture *= self.solid.well_radius()
+            else:
+                aperture = self.solid.residual_aperture() * aperture
         return aperture
 
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -205,6 +217,11 @@ class DisplacementJumpAperture(DimensionReduction):
     defining the solution strategy.
 
     """
+    is_well: Callable[[pp.Grid | pp.MortarGrid], bool]
+    """Check if a grid is a well. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
         """Residual aperture [m].
@@ -275,6 +292,26 @@ class DisplacementJumpAperture(DimensionReduction):
                     + projection.cell_prolongation(subdomains_of_dim) @ apertures_of_dim
                 )
             else:
+                if dim == self.nd - 2:
+                    well_subdomains = [
+                        sd for sd in subdomains_of_dim if self.is_well(sd)
+                    ]
+                    if len(well_subdomains) > 0:
+                        # Wells. Aperture is given by well radius.
+                        radii = [self.grid_aperture(sd) for sd in well_subdomains]
+                        well_apertures = pp.wrap_as_ad_array(
+                            np.hstack(radii), name="well apertures"
+                        )
+                        apertures = (
+                            apertures
+                            + projection.cell_prolongation(well_subdomains)
+                            @ well_apertures
+                        )
+                        # Well subdomains need not be considered further.
+                        subdomains_of_dim = [
+                            sd for sd in subdomains_of_dim if sd not in well_subdomains
+                        ]
+
                 # Intersection aperture is average of apertures of intersecting
                 # fractures.
                 interfaces_dim = self.subdomains_to_interfaces(subdomains_of_dim, [1])
@@ -858,7 +895,9 @@ class DarcysLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr: pp.ad.MpfaAd = self.darcy_flux_discretization(subdomains)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
         p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
         pressure_trace = (
             discr.bound_pressure_cell @ p
@@ -887,7 +926,9 @@ class DarcysLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr: pp.ad.MpfaAd = self.darcy_flux_discretization(subdomains)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
         flux: pp.ad.Operator = (
             discr.flux @ self.pressure(subdomains)
             + discr.bound_flux
@@ -1036,6 +1077,135 @@ class DarcysLaw:
         dot_product = nd_to_scalar_sum @ normals_times_source
         dot_product.set_name("Interface vector source term")
         return dot_product
+
+
+class PeacemanWellFlux:
+    """Well fluxes.
+
+    Relations between well fluxes and pressures are implemented in this class.
+    Peaceman 1977 https://doi.org/10.2118/6893-PA
+
+    Assumes permeability is cell-wise scalar.
+
+    """
+
+    volume_integral: Callable[
+        [pp.ad.Operator, Union[list[pp.Grid], list[pp.MortarGrid]], int], pp.ad.Operator
+    ]
+    """Integration over cell volumes, implemented in
+    :class:`pp.models.abstract_equations.BalanceEquation`.
+
+    """
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
+    pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Pressure variable."""
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """Well flux variable."""
+    solid: pp.SolidConstants
+    """Solid constants object."""
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the permeability of a subdomain. Normally provided by a
+    mixin class with a suitable permeability definition.
+
+    """
+
+    def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Equation for well fluxes.
+
+        Parameters:
+            interfaces: List of interfaces where the well fluxes are defined.
+
+        Returns:
+            Cell-wise well flux operator.
+
+        """
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        r_w = self.well_radius(subdomains)
+        skin_factor = self.skin_factor(interfaces)
+        r_e = self.equivalent_well_radius(subdomains)
+
+        f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
+        well_index = (
+            pp.ad.Scalar(2 * np.pi)
+            * projection.primary_to_mortar_avg
+            @ (self.permeability(subdomains) / (f_log(r_e / r_w) + skin_factor))
+        )
+        eq: pp.ad.Operator = self.well_flux(interfaces) - self.volume_integral(
+            well_index, interfaces, 1
+        ) * (
+            projection.primary_to_mortar_avg @ self.pressure(subdomains)
+            - projection.secondary_to_mortar_avg @ self.pressure(subdomains)
+        )
+        eq.set_name("well_flux_equation")
+        return eq
+
+    def equivalent_well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute equivalent radius for Peaceman well model.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise equivalent radius operator.
+
+        """
+        # Implementational note: The computation of equivalent radius is highly
+        # simplified and ignores discretization and anisotropy effects. For more
+        # advanced alternatives, see the MRST book,
+        # https://www.cambridge.org/core/books/an-introduction-to-
+        # reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
+        if len(subdomains) == 0:
+            # Set 0.2 as the unused value for equivalent radius. This is a bit arbitrary,
+            # but 0 is a bad choice, as it will lead to division by zero.
+            return Scalar(0.2, name="equivalent_well_radius")
+
+        h_list = []
+        for sd in subdomains:
+            if sd.dim == 0:
+                # Avoid division by zero for points. The value is not used in calling
+                # method well_flux_equation, as all wells are 1d.
+                h_list.append(np.array([1]))
+            else:
+                h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
+        r_e = Scalar(0.2) * pp.wrap_as_ad_array(np.concatenate(h_list))
+        r_e.set_name("equivalent_well_radius")
+        return r_e
+
+    def skin_factor(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Compute skin factor for Peaceman well model.
+
+        Parameters:
+            interfaces: List of interfaces.
+
+        Returns:
+            Skin factor operator.
+
+        """
+        skin_factor = pp.ad.Scalar(self.solid.skin_factor())
+        skin_factor.set_name("skin_factor")
+        return skin_factor
+
+    def well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute well radius for Peaceman well model.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise well radius operator.
+
+        """
+        r_w = pp.ad.Scalar(self.solid.well_radius())
+        r_w.set_name("well_radius")
+        return r_w
 
 
 class ThermalExpansion:
@@ -1277,7 +1447,9 @@ class FouriersLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr = self.fourier_flux_discretization(subdomains)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
+            subdomains
+        )
         t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
         temperature_trace = (
             discr.bound_pressure_cell @ t  # "pressure" is a legacy misnomer
@@ -1307,7 +1479,9 @@ class FouriersLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr = self.fourier_flux_discretization(subdomains)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
+            subdomains
+        )
 
         # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
         # included here.
@@ -1411,6 +1585,10 @@ class AdvectiveFlux:
     """Darcy flux variables on interfaces. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """Well flux variables on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
 
     def advective_flux(
         self,
@@ -1507,6 +1685,43 @@ class AdvectiveFlux:
         )
         return interface_flux
 
+    def well_advective_flux(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """An operator represetning the advective flux on interfaces.
+
+        .. note::
+            The implementation here is tailored for discretization using an upwind
+            discretization for the advective interface flux. Other discretizaitons may
+            be possible, but this has not been considered.
+
+        Parameters:
+            interfaces: List of interface grids.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+
+        Returns:
+            Operator representing the advective flux on the interfaces.
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        # Project the two advected entities to the interface and multiply with upstream
+        # weights and the interface Darcy flux.
+        interface_flux: pp.ad.Operator = self.well_flux(interfaces) * (
+            discr.upwind_primary
+            @ mortar_projection.primary_to_mortar_avg
+            @ advected_entity
+            + discr.upwind_secondary
+            @ mortar_projection.secondary_to_mortar_avg
+            @ advected_entity
+        )
+        return interface_flux
+
 
 class SpecificHeatCapacities:
     """Class for the specific heat capacities of the fluid and solid phases."""
@@ -1574,7 +1789,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid enthalpy [J / kg].
+        """Fluid enthalpy [J*kg^-1*m^-nd].
 
         The enthalpy is computed as a perturbation from a reference temperature as
         .. math::
@@ -1593,7 +1808,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         return enthalpy
 
     def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Solid enthalpy [J/kg].
+        """Solid enthalpy [J*kg^-1*m^-nd].
 
         The enthalpy is computed as a perturbation from a reference temperature as
         .. math::
@@ -2083,7 +2298,6 @@ class ThermoPressureStress(PressureStress):
 
 
 class ConstantSolidDensity:
-
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -2317,6 +2531,129 @@ class FrictionBound:
         return bound
 
 
+class BartonBandis:
+    """Implementation of the Barton-Bandis model for elastic fracture normal
+    deformation.
+
+    The Barton-Bandis model represents a non-linear elastic deformation in the normal
+    direction of a fracture. Specifically, the decrease in normal opening,
+    :math:`\Delta u_n` under a force :math:`\sigma_n` given as
+
+    .. math::
+
+        \Delta u_n =  \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
+
+    Where :math:`\Delta u_n^{max}` is the maximum fracture closure and the material
+    constant :math:`K_n` is known as the fracture normal stiffness.
+
+    The Barton-Bandis equation is defined in :meth:`elastic_normal_fracture_deformation`
+    while the two parameters :math:`\Delta u_n^{max}` and :math:`K_n` can be set by the
+    methods :meth:`maximum_fracture_closure` and :meth:`fracture_normal_stiffness`.
+
+    """
+
+    normal_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
+    """Operator giving the normal component of vectors. Normally defined in a mixin
+    instance of :class:`~porepy.models.models.ModelGeometry`.
+
+    """
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
+    def elastic_normal_fracture_deformation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Barton-Bandis model for elastic normal deformation of a fracture.
+
+        The model computes a *decrease* in the normal opening as a function of the
+        contact traction and material constants.
+
+        The implementation is based on the paper
+
+        References:
+            Fundamentals of Rock Joint Deformation, by S.C. Bandis, A.C.Lumdsen, N.R.
+            Barton, International Journal of Rock Mechanics & Mining Sciences, 1983,
+            Link: https://doi.org/10.1016/0148-9062(83)90595-8.
+
+            See in particular Equations (8)-(9) (page 10) in that paper.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The decrease in fracture opening, as computed by the Barton-Bandis model.
+
+        """
+        # The maximal possible closure of the fracture.
+        maximal_closure = self.maximum_fracture_closure(subdomains)
+
+        nd_vec_to_normal = self.normal_component(subdomains)
+
+        # The effective contact traction. Units: Pa = N/m^(nd-1)
+        # The papers by Barton and Bandis assumes positive traction in contact, thus we
+        # need to switch the sign.
+        contact_traction = Scalar(-1) * self.contact_traction(subdomains)
+
+        # Normal component of the traction.
+        normal_traction = nd_vec_to_normal @ contact_traction
+
+        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
+        normal_stiffness = self.fracture_normal_stiffness(subdomains)
+        # The openening is found from the 1983 paper (slightly rewritten to avoid
+        # dividing by 0 for maximal_closure = 0).
+        # Units: Pa * m / Pa = m.
+        opening_decrease = (
+            normal_traction
+            * maximal_closure
+            / (normal_stiffness * maximal_closure + normal_traction)
+        )
+
+        opening_decrease.set_name("Barton-Bandis normal opening")
+
+        return opening_decrease
+
+    def maximum_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The maximal closure of a fracture [m].
+
+        Used in the Barton-Bandis model for normal elastic fracture deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The maximal allowed decrease in fracture opening.
+
+        """
+        max_closure = self.solid.maximal_fracture_closure()
+        return Scalar(max_closure, "maximal_fracture_closure")
+
+    def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The normal stiffness of a fracture [Pa*m^-1].
+
+        Used in the Barton-Bandis model for normal elastic fracture deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The fracture normal stiffness.
+
+        """
+
+        normal_stiffness = self.solid.fracture_normal_stiffness()
+        return Scalar(normal_stiffness, "fracture_normal_stiffness")
+
+
 class BiotCoefficient:
     """Biot coefficient."""
 
@@ -2374,7 +2711,6 @@ class SpecificStorage:
 
 
 class ConstantPorosity:
-
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -2752,6 +3088,11 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+
+    """
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity [-].
@@ -2790,8 +3131,9 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         dtemperature = self.perturbation_from_reference("temperature", subdomains)
         phi_ref = self.reference_porosity(subdomains)
         beta = self.solid_thermal_expansion(subdomains)
+        alpha = self.biot_coefficient(subdomains)
         # TODO: Figure out why * is needed here, but not in
         # porosity_change_from_pressure.
-        phi = Scalar(-1) * (Scalar(1) - phi_ref) * beta * dtemperature
+        phi = Scalar(-1) * (alpha - phi_ref) * beta * dtemperature
         phi.set_name("Porosity change from temperature")
         return phi

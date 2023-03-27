@@ -100,6 +100,8 @@ class FractureNetwork2d:
         # and the tags located in self.edges. The latter is used for the Gmsh interface,
         # and there may be inconsistencies in the transfer of information between the
         # two systems.
+        for i, f in enumerate(self.fractures):
+            f.set_index(i)
 
         self.bounding_box_imposed: bool = False
         """Flag indicating whether the bounding box has been imposed."""
@@ -357,7 +359,7 @@ class FractureNetwork2d:
                     if key not in g.tags:
                         g.tags[key] = self.tags[key][frac][idg]
 
-        # Assemble in grid bucket
+        # Assemble in md grid
         return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
     def prepare_for_gmsh(

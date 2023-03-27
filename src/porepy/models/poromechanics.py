@@ -35,6 +35,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.FluidMobility,
+    pp.constitutive_laws.PeacemanWellFlux,
     pp.constitutive_laws.ConstantPermeability,
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
