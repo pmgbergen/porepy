@@ -229,7 +229,7 @@ class Exporter:
         mixed-dimensional grid.
 
         NOTE: It is implicitly assumed that the provided pvd file is generated with the
-        Exporter, cf. Exporter.write_pvd() and Exporter._export_mdg_pvd(). The hardcoded
+        Exporter, cf. :meth:`write_pvd` and :meth:`_export_mdg_pvd`. The hardcoded
         structure of both routines is exploited here.
 
         Parameters:
@@ -711,6 +711,13 @@ class Exporter:
                 default pvd file, if chosen 'None'.
 
         """
+        # Strategy: Use a hardcoded template for pvd files gathering all relevant vtu
+        # file for all exported time steps. The association between vtu files and time
+        # step is part of the output. When appending an existing file, because of lack
+        # of open+appending access of files, we simply read and write from scratch.
+        # A pvd file mainly consists of three parts: header, main body, and footer.
+        # The former and latter are hardcoded, while the main body contains the relevant
+        # data (vtu files and time step) and is defined by traversing exported data.
 
         if times is None:
             times = np.array(self._exported_timesteps)
@@ -743,10 +750,11 @@ class Exporter:
         )
         file_exists: bool = Path(pvd_file).exists()
 
-        # Fix the footer.
+        # Fix the footer - standard for vtu/pvd files.
         footer = "</Collection>\n" + "</VTKFile>"
 
-        # Define the header
+        # Define the header - either copy paste from availble previous output, or define
+        # hardcoded header.
         if file_exists and append:
             o_file = open(pvd_file if from_pvd_file is None else from_pvd_file, "r")
             # NOTE: It is strictly assumed that the considered pvd file is originating
@@ -761,7 +769,7 @@ class Exporter:
 
         else:
 
-            # Write header to file
+            # Define hardcoded header
             b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
             c = ' compressor="vtkZLibDataCompressor"'
             header = (
@@ -771,7 +779,7 @@ class Exporter:
                 + "<Collection>\n"
             )
 
-        # Open the file and write the header
+        # Open the file and write the header to file
         o_file = open(pvd_file, "w")
         o_file.write(header)
 
