@@ -136,10 +136,35 @@ class SolutionStrategy(abc.ABC):
             "restart_options",
             {
                 "restart": False,
-                "file": "",
+                # Boolean flag controlling whether restart is active. Internally
+                # assumed to be False.
+                "pvd_file": None,
+                # Path to pvd file collecting either multiple time steps (generated
+                # through pp.Exporter.write_pvd()); or a pvd file associated to a single
+                # time step (generated through pp.Exporter._export_mdg_pvd()).
+                "is_mdg_pvd": False,
+                # Boolean flag controlling whether prescribed pvd file is a mdg pvd
+                # file, i.e., created through Exporter._export_mdg_pvd(). Otherwise,
+                # it is assumed, the provided pvd file originates from
+                # Exporter.write_pvd(). If not provided, assumed to be False.
+                "vtu_files": None,
+                # Path(s) to vtu file(s), (alternative to pvd files which are preferred
+                # if present). Required if pvd_file is not specified.
+                "times_file": None,
+                # Path to json file containing evolution of exported time steps and
+                # used time step size at that time. If 'None' a default value,
+                # defined in :class:`~porepy.numerics.time_step_control.TimeManager
+                # is internally used.
+                "time_index": -1,
+                # Index addressing history in times_file; only relevant if "vtu_files"
+                # is not 'None' or "is_mdg_pvd" is 'True'. The index corresponds to
+                # the single time step vtu/pvd files. If not provided, internally
+                # assumed to address the last time step in times_file.
             },
         )
-        """Restart options for restart from pvd."""
+        """Restart options (template) for restart from pvd as expected restart routines
+        within :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
+        """
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
