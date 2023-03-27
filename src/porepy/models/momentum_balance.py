@@ -725,7 +725,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         super().initial_condition()
 
         if (
-            hasattr(self, "time_manager") and self.time_manager.is_init()
+            hasattr(self, "time_manager") and self.time_manager.is_init
         ) or not hasattr(self, "time_manager"):
             # Contact as initial guess. Ensure traction is consistent with zero jump, which
             # follows from the default zeros set for all variables, specifically interface

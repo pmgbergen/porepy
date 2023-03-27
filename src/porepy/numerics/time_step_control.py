@@ -368,6 +368,9 @@ class TimeManager:
         # Time index
         self.time_index: int = 0
 
+        self.is_init: bool = True
+        """Flag detecting whether the current time corresponds to the initial time."""
+
         # Private attributes
         # Number of times the solution has been recomputed
         self._recomp_num: int = 0
@@ -454,14 +457,11 @@ class TimeManager:
     def increase_time(self) -> None:
         """Increase simulation time by the current time step."""
         self.time += self.dt
+        self.is_init = False
 
     def increase_time_index(self) -> None:
         """Increase time index counter by one."""
         self.time_index += 1
-
-    def is_init(self) -> bool:
-        """Check whether time is equal to initial simulation time."""
-        return np.isclose(self.time, self.time_init)
 
     def _adaptation_based_on_iterations(self, iterations: Optional[int]) -> None:
         """Provided convergence, adapt time step based on the number of iterations.
@@ -698,6 +698,9 @@ class TimeManager:
         """Load previous visited history for resuming, and cut-off afterward
         history.
 
+        NOTE: It is implicitly assumed that the first entry of the history
+        corresponds to the initial solution.
+
         Parameters:
             time_index: reference index addressing the currently stored history.
                 By default, the latest accessible time and dt is retrieved.
@@ -714,6 +717,8 @@ class TimeManager:
 
         self.time = self.time_history[time_index]
         self.dt = self.dt_history[time_index]
+        if time_index != 0 and len(self.time_history) != 1:
+            self.is_init = False
 
         self.time_history = self.time_history[:time_index]
         self.dt_history = self.dt_history[:time_index]
