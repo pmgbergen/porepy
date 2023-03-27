@@ -639,21 +639,40 @@ class TestTimeControl:
         time_manager.increase_time_index()
         assert time_manager.time_index == (time_index + 1)
 
-    def test_io_history(self):
-        """Check I/O functionality."""
+    def test_io_time_information(self):
+        """Check I/O functionality. Checks if writing and loading of time information
+        in the form of the evolution of time and dt is performed correctly. Also test
+        whether a single time and dt is picked correctly from loaded histories and the
+        latter are cut-off accordingly.
+
+        """
+        # Imitate a time manager iterating through some consecutive time steps.
         time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1, constant_dt=True)
         for i in range(10):
-            time_manager.write("times.json")
+            time_manager.write_time_information("times.json")
             time_manager.increase_time_index()
             time_manager.increase_time()
 
+        # Check if the history is generated correctly.
+        assert np.all(np.isclose(time_manager.time_history, np.linspace(0, 0.9, 10)))
+        assert np.all(np.isclose(time_manager.dt_history, 10 * [0.1]))
+
+        # Check if entirely fetched history of time and dt is loaded correctly.
         new_time_manager = pp.TimeManager(
             schedule=[0, 1], dt_init=0.1, constant_dt=True
         )
-        new_time_manager.load("times.json")
+        new_time_manager.load_time_information("times.json")
+        assert np.all(
+            np.isclose(new_time_manager.time_history, np.linspace(0, 0.9, 10))
+        )
+        assert np.all(np.isclose(new_time_manager.dt_history, 10 * [0.1]))
+
+        # Check if single-chosen time and dt are picked correctly.
         new_time_manager.set_from_history(5)
         assert np.isclose(new_time_manager.time, 0.5)
         assert np.isclose(new_time_manager.dt, 0.1)
+
+        # Check if history has been cut-off correctly.
         assert np.all(
             np.isclose(
                 np.array(new_time_manager.time_history),
@@ -666,4 +685,5 @@ class TestTimeControl:
                 np.array([0.1, 0.1, 0.1, 0.1, 0.1]),
             )
         )
+        # Remove temporary file.
         Path("times.json").unlink()
