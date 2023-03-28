@@ -361,8 +361,8 @@ class DisplacementJumpAperture(DimensionReduction):
                 # Projection from parents to intersections via the mortar grid. This is
                 # a convoluted operation: Map from the trace (only defined on the
                 # parents) to the full set of subdomains. Project first to the mortars
-                # and then to the lower-dimensional subdomains. The resulting compound projection is used
-                # to map apertures and to count the number of neighbors.
+                # and then to the lower-dimensional subdomains. The resulting compound
+                # projection is used  to map apertures and to count the number of neighbors.
                 parent_cells_to_intersection_cells = (
                     mortar_projection.mortar_to_secondary_avg
                     @ mortar_projection.primary_to_mortar_avg
