@@ -255,6 +255,7 @@ class Exporter:
 
             # Strategy: Find all vtu files attached to the mdg pvd file. Utilize the
             # hardcoded format in self._export_mdg_pvd().
+            # Use the ET package from the standard library to parse the XML-file.
             tree_mdg_pvd = ET.parse(pvd_file)
             for path in tree_mdg_pvd.iter("DataSet"):
                 data = path.attrib
@@ -271,6 +272,7 @@ class Exporter:
 
             # Collect all timesteps first listed in the pvd file, and sort them.
             timesteps = []
+            # Use the ET package from the standard library to parse the XML-file.
             tree_pvd = ET.parse(pvd_file)
             for path in tree_pvd.iter("DataSet"):
                 data = path.attrib
