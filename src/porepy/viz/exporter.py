@@ -479,10 +479,10 @@ class Exporter:
                 _keys = list(keys)
 
             # Make keys unique
-            _keys = list(set(_keys))
+            unique_keys = list(set(_keys))
 
             # 4th step: Transfer data. Consider each key separately.
-            for key in _keys:
+            for key in unique_keys:
 
                 # Only continue if the key is present in the data
                 # IMPLEMENTATION NOTE: To also consider node data, add an else below.
