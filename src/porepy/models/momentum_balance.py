@@ -724,23 +724,20 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # Zero for displacement and initial bc values for Biot
         super().initial_condition()
 
-        if (hasattr(self, "time_manager") and self.time_manager.is_init) or not hasattr(
-            self, "time_manager"
-        ):
-            # Contact as initial guess. Ensure traction is consistent with zero jump, which
-            # follows from the default zeros set for all variables, specifically interface
-            # displacement, by super method.
-            num_frac_cells = sum(
-                sd.num_cells for sd in self.mdg.subdomains(dim=self.nd - 1)
-            )
-            traction_vals = np.zeros((self.nd, num_frac_cells))
-            traction_vals[-1] = self.solid.convert_units(-1, "Pa")
-            self.equation_system.set_variable_values(
-                traction_vals.ravel("F"),
-                [self.contact_traction_variable],
-                to_state=True,
-                to_iterate=True,
-            )
+        # Contact as initial guess. Ensure traction is consistent with zero jump, which
+        # follows from the default zeros set for all variables, specifically interface
+        # displacement, by super method.
+        num_frac_cells = sum(
+            sd.num_cells for sd in self.mdg.subdomains(dim=self.nd - 1)
+        )
+        traction_vals = np.zeros((self.nd, num_frac_cells))
+        traction_vals[-1] = self.solid.convert_units(-1, "Pa")
+        self.equation_system.set_variable_values(
+            traction_vals.ravel("F"),
+            [self.contact_traction_variable],
+            to_state=True,
+            to_iterate=True,
+        )
 
     def set_discretization_parameters(self) -> None:
         """Set discretization parameters for the simulation."""
