@@ -306,12 +306,12 @@ class Exporter:
                 subdomain_vtu_files.append(root / Path(vtu_file))
 
         # Import from vtu
-        self.import_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
-        self.import_from_vtu(interface_vtu_files, keys, are_subdomain_data=False)
+        self.import_state_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
+        self.import_state_from_vtu(interface_vtu_files, keys, are_subdomain_data=False)
 
         return time_index
 
-    def import_from_vtu(
+    def import_state_from_vtu(
         self,
         vtu_files: Union[Path, list[Path]],
         keys: Optional[Union[str, list[str]]] = None,

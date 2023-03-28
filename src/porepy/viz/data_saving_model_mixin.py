@@ -159,7 +159,8 @@ class DataSavingMixin:
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through pp.STATES.
-            keyword arguments: cf. Exporter.import_from_vtu().
+            keyword arguments: see documentation of
+                :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
 
         Raises:
             ValueError: if incompatible file type provided.
@@ -176,7 +177,7 @@ class DataSavingMixin:
             raise ValueError
 
         # Load states and read time index, connecting data and time history
-        self.exporter.import_from_vtu(vtu_files, keys, **kwargs)
+        self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
 
         # Load time and time step size
         self.time_manager.load_time_information(times_file)

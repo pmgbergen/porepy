@@ -292,7 +292,7 @@ def test_single_subdomains(setup, subdomain):
 
 
 @pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
-def test_import_from_vtu_single_subdomains(setup, subdomain):
+def test_import_state_from_vtu_single_subdomains(setup, subdomain):
     # Test of the import routine of the Exporter for single subdomains. Consistent
     # with test_single_subdomains.
 
@@ -313,7 +313,7 @@ def test_import_from_vtu_single_subdomains(setup, subdomain):
     keys = ["dummy_scalar", "dummy_vector"]
 
     # Import data
-    save.import_from_vtu(
+    save.import_state_from_vtu(
         vtu_files=f"{subdomain.ref_vtu_file}",
         keys=keys,
         automatic=False,
@@ -470,7 +470,7 @@ def test_import_from_pvd_mdg(setup, case):
 
 
 @pytest.mark.parametrize("addendum", ["", "nontrivial_data_"])
-def test_import_from_vtu_mdg(setup, addendum):
+def test_import_state_from_vtu_mdg(setup, addendum):
     # Test of the import routine of the Exporter for 2d mixed-dimensional grids.
     # Consistent with test_mdg.
 
@@ -492,7 +492,7 @@ def test_import_from_vtu_mdg(setup, addendum):
     keys = ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"]
 
     # Import data
-    save.import_from_vtu(
+    save.import_state_from_vtu(
         vtu_files=[
             f"{setup.folder_reference}/mdg_{addendum}grid_2.vtu",
             f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu",
