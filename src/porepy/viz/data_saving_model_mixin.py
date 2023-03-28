@@ -167,13 +167,10 @@ class DataSavingMixin:
 
         """
         # Sanity check
-        if (
-            not (
-                isinstance(vtu_files, list)
-                and all([vtu_file.suffix == ".vtu" for vtu_file in vtu_files])
-            )
-            and not vtu_files.suffix == ".vtu"
-        ):
+        if not (
+            isinstance(vtu_files, list)
+            and all([vtu_file.suffix == ".vtu" for vtu_file in vtu_files])
+        ) and not (isinstance(vtu_files, Path) and vtu_files.suffix == ".vtu"):
             raise ValueError
 
         # Load states and read time index, connecting data and time history
