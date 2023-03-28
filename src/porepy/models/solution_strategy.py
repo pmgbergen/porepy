@@ -218,7 +218,7 @@ class SolutionStrategy(abc.ABC):
 
         # Overwrite states from file if restart is enabled.
         if self.restart_options.get("restart", False):
-            if "pvd_file" in self.restart_options:
+            if self.restart_options.get("pvd_file", None) is not None:
                 pvd_file = self.restart_options["pvd_file"]
                 is_mdg_pvd = self.restart_options.get("is_mdg_pvd", False)
                 times_file = self.restart_options.get("times_file", None)
