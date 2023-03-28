@@ -327,7 +327,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 ]
 
                 # Define the combined set of subdomains of this dimension and the
-                # parents. Sort this according to the MixedDimensionalGrids order of
+                # parents. Sort this according to the MixedDimensionalGrid's order of
                 # the subdomains.
                 parent_and_this_dim_subdomains = self.mdg.sort_subdomains(
                     subdomains_of_dim + parent_subdomains
@@ -350,7 +350,7 @@ class DisplacementJumpAperture(DimensionReduction):
 
                 # The apertures on the lower-dimensional subdomains are the mean
                 # apertures from the higher-dimensional neighbors. This requires both a
-                # projection of the actual apertures counting the number of
+                # projection of the actual apertures and counting the number of
                 # higher-dimensional neighbors.
 
                 # Define a trace operator. This is needed to go from the cell-based
@@ -361,7 +361,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 # Projection from parents to intersections via the mortar grid. This is
                 # a convoluted operation: Map from the trace (only defined on the
                 # parents) to the full set of subdomains. Project first to the mortars
-                # and then to the lower-dimensional subdomains. This projection is used
+                # and then to the lower-dimensional subdomains. The resulting compound projection is used
                 # to map apertures and to count the number of neighbors.
                 parent_cells_to_intersection_cells = (
                     mortar_projection.mortar_to_secondary_avg
