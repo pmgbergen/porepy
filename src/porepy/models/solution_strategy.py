@@ -10,6 +10,7 @@ import abc
 import logging
 import time
 import warnings
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 import numpy as np
@@ -56,8 +57,12 @@ class SolutionStrategy(abc.ABC):
     strategy of a specific model (i.e. a subclass of this class).
 
     """
+    load_data_from_vtu: Callable[[Path, int, Optional[Path]], None]
+    """Load data from vtu to initialize the states, only applicable in restart mode.
+    :class:`~porepy.viz.exporter.Exporter`.
 
-    load_data_from_pvd: Callable[[dict], None]
+    """
+    load_data_from_pvd: Callable[[Path, bool, Optional[Path]], None]
     """Load data from pvd to initialize the states, only applicable in restart mode.
     :class:`~porepy.viz.exporter.Exporter`.
 
