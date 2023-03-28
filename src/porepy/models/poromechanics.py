@@ -190,6 +190,16 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
 
         self.update_time_dependent_ad_arrays(initial=True)
 
+    def reset_state_from_file(self) -> None:
+        """Reset states but through a restart from file.
+
+        Add treatment of boundary conditions to the standard reset of states from file.
+
+        """
+        super().reset_state_from_file()
+
+        self.update_time_dependent_ad_arrays(initial=True)
+
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()
         # Update the mechanical boundary conditions to both the state and iterate.
