@@ -43,9 +43,6 @@ DataInput = Union[
 SubdomainData = Dict[Tuple[pp.Grid, str], np.ndarray]
 InterfaceData = Dict[Tuple[pp.MortarGrid, str], np.ndarray]
 
-# Data structures allowed to define paths
-PathLike = Union[str, Path]
-
 
 class Exporter:
     """Class for convering internal grid and data structures to meshio format, allowing
@@ -221,7 +218,7 @@ class Exporter:
 
     def import_from_pvd(
         self,
-        pvd_file: PathLike,
+        pvd_file: Path,
         is_mdg_pvd: bool = False,
         keys: Optional[Union[str, list[str]]] = None,
     ) -> int:
@@ -316,7 +313,7 @@ class Exporter:
 
     def import_from_vtu(
         self,
-        vtu_files: Union[PathLike, list[PathLike]],
+        vtu_files: Union[Path, list[Path]],
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> None:
@@ -689,7 +686,7 @@ class Exporter:
         times: Optional[np.ndarray] = None,
         file_extension: Optional[Union[np.ndarray, list[int]]] = None,
         append: bool = False,
-        from_pvd_file: Optional[PathLike] = None,
+        from_pvd_file: Optional[Path] = None,
     ) -> None:
         """Interface function to export in PVD file the time loop information. The user
         should open only this file in ParaView.

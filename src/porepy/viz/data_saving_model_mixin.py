@@ -16,9 +16,6 @@ import numpy as np
 import porepy as pp
 from porepy.viz.exporter import DataInput
 
-# Data structures allowed to define paths
-PathLike = Union[str, Path]
-
 
 class DataSavingMixin:
     """Class for saving data from a simulation model.
@@ -149,9 +146,9 @@ class DataSavingMixin:
 
     def load_data_from_vtu(
         self,
-        vtu_files: Union[PathLike, list[PathLike]],
+        vtu_files: Union[Path, list[Path]],
         time_index: int,
-        times_file: Optional[PathLike] = None,
+        times_file: Optional[Path] = None,
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> None:
@@ -188,9 +185,9 @@ class DataSavingMixin:
 
     def load_data_from_pvd(
         self,
-        pvd_file: PathLike,
+        pvd_file: Path,
         is_mdg_pvd: bool = False,
-        times_file: Optional[PathLike] = None,
+        times_file: Optional[Path] = None,
         keys: Optional[Union[str, list[str]]] = None,
     ) -> None:
         """Initialize data in the model by reading from a pvd file.

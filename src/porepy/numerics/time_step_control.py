@@ -652,7 +652,7 @@ class TimeManager:
         return schedule.size == np.sum(in1d)
 
     # I/O
-    def write_time_information(self, path: Optional[Union[Path, str]] = None) -> None:
+    def write_time_information(self, path: Optional[Path] = None) -> None:
         """Keep track of history of time and time step size and store as json file
         storing lists the evolution of both as lists.
 
@@ -686,10 +686,10 @@ class TimeManager:
         json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
         out_file.close()
 
-    def load_time_information(self, path: Optional[Union[Path, str]] = None) -> None:
+    def load_time_information(self, path: Optional[Path] = None) -> None:
         """Keep track of history of time and time step size and store.
 
-        Mirrors self.write_time_information().
+        Mirrors :meth:`write_time_information`.
 
         Parameters:
             path: specified path for retrieving time and dt; if 'None' is provided, the
