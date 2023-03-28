@@ -170,9 +170,9 @@ class DataSavingMixin:
         if (
             not (
                 isinstance(vtu_files, list)
-                and all([Path(vtu_file).suffix == ".vtu" for vtu_file in vtu_files])
+                and all([vtu_file.suffix == ".vtu" for vtu_file in vtu_files])
             )
-            and not Path(vtu_files).suffix == ".vtu"
+            and not vtu_files.suffix == ".vtu"
         ):
             raise ValueError
 
@@ -207,7 +207,7 @@ class DataSavingMixin:
 
         """
         # Sanity check
-        if not Path(pvd_file).suffix == ".pvd":
+        if not pvd_file.suffix == ".pvd":
             raise ValueError
 
         # Import data and determine time index corresponding to the pvd file

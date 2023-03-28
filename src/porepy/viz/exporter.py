@@ -259,7 +259,7 @@ class Exporter:
                 restart_vtu_files.append(str(data["file"]))
 
             # Read the time_index from the end of the file.
-            time_index = int(Path(pvd_file).stem[-self._padding :])
+            time_index = int(pvd_file.stem[-self._padding :])
 
         else:
 
@@ -297,13 +297,13 @@ class Exporter:
         # it is uniquely identified as interface data. Make paths absolute.
         subdomain_vtu_files = []
         interface_vtu_files = []
-        root = Path(pvd_file).parent.resolve()
+        root = pvd_file.parent.resolve()
         for vtu_file in restart_vtu_files:
             str_vtu_file = str(vtu_file)
             if "mortar" in str_vtu_file:
-                interface_vtu_files.append(root / Path(vtu_file))
+                interface_vtu_files.append(root / vtu_file)
             else:
-                subdomain_vtu_files.append(root / Path(vtu_file))
+                subdomain_vtu_files.append(root / vtu_file)
 
         # Import from vtu
         self.import_state_from_vtu(subdomain_vtu_files, keys, are_subdomain_data=True)
@@ -392,7 +392,7 @@ class Exporter:
 
                 # Remove ending '.vtu' from vtu_file, and decompose into pieces
                 # separated by '_'.
-                vtu_file_pieces = Path(vtu_file).stem.split("_")
+                vtu_file_pieces = vtu_file.stem.split("_")
 
                 # If the last two are numbers, the first one denotes the dimension.
                 assert vtu_file_pieces[-1].isnumeric()
@@ -744,10 +744,10 @@ class Exporter:
             ]
 
         # Setup file name and check whether it already exists in storage
-        pvd_file: str = (
+        pvd_file: Path = Path(
             self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
         )
-        file_exists: bool = Path(pvd_file).exists()
+        file_exists: bool = pvd_file.exists()
 
         # Fix the footer - standard for vtu/pvd files.
         footer = "</Collection>\n" + "</VTKFile>"
