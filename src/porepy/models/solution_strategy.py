@@ -144,22 +144,23 @@ class SolutionStrategy(abc.ABC):
                 # Boolean flag controlling whether restart is active. Internally
                 # assumed to be False.
                 "pvd_file": None,
-                # Path to pvd file collecting either multiple time steps (generated
-                # through pp.Exporter.write_pvd()); or a pvd file associated to a single
-                # time step (generated through pp.Exporter._export_mdg_pvd()).
+                # Path to pvd file (given as pathlib.Path) collecting either multiple
+                # time steps (generated through pp.Exporter.write_pvd()); or a pvd file
+                # associated to a single time step (generated through
+                # pp.Exporter._export_mdg_pvd()).
                 "is_mdg_pvd": False,
                 # Boolean flag controlling whether prescribed pvd file is a mdg pvd
                 # file, i.e., created through Exporter._export_mdg_pvd(). Otherwise,
                 # it is assumed, the provided pvd file originates from
                 # Exporter.write_pvd(). If not provided, assumed to be False.
                 "vtu_files": None,
-                # Path(s) to vtu file(s), (alternative to pvd files which are preferred
-                # if present). Required if pvd_file is not specified.
+                # Path(s) to vtu file(s) (of type Path or list[Path]), (alternative
+                # to 'pvd_file' which is preferred if available and not 'None').
                 "times_file": None,
-                # Path to json file containing evolution of exported time steps and
-                # used time step size at that time. If 'None' a default value,
-                # defined in :class:`~porepy.numerics.time_step_control.TimeManager
-                # is internally used.
+                # Path to json file (of type pathlib.Path) containing evolution of
+                # exported time steps and used time step size at that time. If 'None'
+                # a default value is used internally, as defined in
+                # :class:`~porepy.numerics.time_step_control.TimeManager.
                 "time_index": -1,
                 # Index addressing history in times_file; only relevant if "vtu_files"
                 # is not 'None' or "is_mdg_pvd" is 'True'. The index corresponds to
@@ -169,6 +170,7 @@ class SolutionStrategy(abc.ABC):
         )
         """Restart options (template) for restart from pvd as expected restart routines
         within :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
+
         """
 
     def prepare_simulation(self) -> None:
