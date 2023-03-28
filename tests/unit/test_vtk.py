@@ -417,7 +417,7 @@ def test_import_from_pvd_mdg(setup, case):
     # )
     # Yet, then the simulation crashed, now it is restarted from pvd file, picking up
     # the latest available timestep.
-    pvd_file = f"{setup.folder_reference}/restart/previous_grid.pvd"
+    pvd_file = Path(f"{setup.folder_reference}/restart/previous_grid.pvd")
     if case == 0:
         # Test restart from conventional pvd file.
         time_index = save.import_from_pvd(
@@ -428,7 +428,7 @@ def test_import_from_pvd_mdg(setup, case):
     elif case == 1:
         # Test restart from
         time_index = save.import_from_pvd(
-            pvd_file=f"{setup.folder_reference}/restart/grid_000001.pvd",
+            pvd_file=Path(f"{setup.folder_reference}/restart/grid_000001.pvd"),
             is_mdg_pvd=True,
             keys=["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
         )
@@ -442,7 +442,7 @@ def test_import_from_pvd_mdg(setup, case):
     # To trick the test, copy the current pvd file to the temporary folder before
     # continuing writing it through appending the next time step.
     Path(f"{setup.folder}").mkdir(parents=True, exist_ok=True)
-    shutil.copy(pvd_file, f"{setup.folder}/{setup.file_name}.pvd")
+    shutil.copy(pvd_file, Path(f"{setup.folder}/{setup.file_name}.pvd"))
 
     # Imitate the initialization of a simulation, i.e., export the initial condition.
     save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], time_step=1)
@@ -494,9 +494,9 @@ def test_import_state_from_vtu_mdg(setup, addendum):
     # Import data
     save.import_state_from_vtu(
         vtu_files=[
-            f"{setup.folder_reference}/mdg_{addendum}grid_2.vtu",
-            f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu",
-            f"{setup.folder_reference}/mdg_{addendum}grid_mortar_1.vtu",
+            Path(f"{setup.folder_reference}/mdg_{addendum}grid_2.vtu"),
+            Path(f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu"),
+            Path(f"{setup.folder_reference}/mdg_{addendum}grid_mortar_1.vtu"),
         ],
         keys=keys,
     )
