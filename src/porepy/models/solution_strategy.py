@@ -187,6 +187,7 @@ class SolutionStrategy(abc.ABC):
         self.set_materials()
         self.create_variables()
         self.initial_condition()
+        self.reset_state_from_file()
         self.set_equations()
 
         self.set_discretization_parameters()
@@ -216,6 +217,12 @@ class SolutionStrategy(abc.ABC):
         vals = np.zeros(self.equation_system.num_dofs())
         self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
 
+    def reset_state_from_file(self) -> None:
+        """Reset states but through a restart from file.
+
+        Similar to :meth:`initial_condition`.
+
+        """
         # Overwrite states from file if restart is enabled.
         if self.restart_options.get("restart", False):
             if self.restart_options.get("pvd_file", None) is not None:
