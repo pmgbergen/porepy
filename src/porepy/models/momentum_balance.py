@@ -724,9 +724,9 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # Zero for displacement and initial bc values for Biot
         super().initial_condition()
 
-        if (
-            hasattr(self, "time_manager") and self.time_manager.is_init
-        ) or not hasattr(self, "time_manager"):
+        if (hasattr(self, "time_manager") and self.time_manager.is_init) or not hasattr(
+            self, "time_manager"
+        ):
             # Contact as initial guess. Ensure traction is consistent with zero jump, which
             # follows from the default zeros set for all variables, specifically interface
             # displacement, by super method.
