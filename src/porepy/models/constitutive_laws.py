@@ -2487,20 +2487,20 @@ class FracturedSolid:
         )
 
         gap = self.reference_fracture_gap(subdomains) + shear_dilation
-        gap.set_name("gap_with_shear_dilation")
+        gap.set_name("fracture_gap_with_shear_dilation")
         return gap
 
     def reference_fracture_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference gap [m].
+        """Reference fracture gap [m].
 
         Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
-            Cell-wise reference gap operator [m].
+            Cell-wise reference fracture gap operator [m].
 
         """
-        return Scalar(self.solid.fracture_gap(), "reference_gap")
+        return Scalar(self.solid.fracture_gap(), "reference_fracture_gap")
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction coefficient.
@@ -2633,7 +2633,7 @@ class BartonBandis:
             The decrease in fracture opening, as computed by the Barton-Bandis model.
 
         """
-        # The maximal possible closure of the fracture.
+        # The maximum possible closure of the fracture.
         maximum_closure = self.maximum_fracture_closure(subdomains)
 
         nd_vec_to_normal = self.normal_component(subdomains)
