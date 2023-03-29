@@ -2,6 +2,8 @@
 Geometric projections related to the tangential and normal spaces of a set of
 vectors.
 """
+from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np
