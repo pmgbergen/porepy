@@ -325,21 +325,53 @@ class DisplacementJumpAperture(DimensionReduction):
                 parent_subdomains = [
                     sd for sd in parent_subdomains if sd.dim == dim + 1
                 ]
-                # Create projection operator between the subdomains involved in the
-                # computation, i.e. the current dimension and the higher-dimensional
-                # neighbors.
-                mortar_projection = pp.ad.MortarProjections(
-                    self.mdg, subdomains_of_dim + parent_subdomains, interfaces_dim
+
+                # Define the combined set of subdomains of this dimension and the
+                # parents. Sort this according to the MixedDimensionalGrid's order of
+                # the subdomains.
+                parent_and_this_dim_subdomains = self.mdg.sort_subdomains(
+                    subdomains_of_dim + parent_subdomains
                 )
-                # Get the apertures of the higher-dimensional neighbors.
+
+                # Create projection operator between the subdomains involved in the
+                # computation, i.e. the current dimension and the parents.
+                mortar_projection = pp.ad.MortarProjections(
+                    self.mdg, parent_and_this_dim_subdomains, interfaces_dim
+                )
+                # Also create projections between the subdomains we act on.
+                parent_and_subdomain_projection = pp.ad.SubdomainProjections(
+                    parent_and_this_dim_subdomains
+                )
+
+                # Get the apertures of the higher-dimensional neighbors by calling this
+                # method on the parents. TODO: It should be possible to store the values
+                # from the aperture calculation on the previous dimension.
                 parent_apertures = self.aperture(parent_subdomains)
-                # Projection from parents to intersections via the mortar grid.
+
+                # The apertures on the lower-dimensional subdomains are the mean
+                # apertures from the higher-dimensional neighbors. This requires both a
+                # projection of the actual apertures and counting the number of
+                # higher-dimensional neighbors.
+
+                # Define a trace operator. This is needed to go from the cell-based
+                # apertures among the parents to the faces (which are accessible to the
+                # mortar projections).
                 trace = pp.ad.Trace(parent_subdomains)
+
+                # Projection from parents to intersections via the mortar grid. This is
+                # a convoluted operation: Map from the trace (only defined on the
+                # parents) to the full set of subdomains. Project first to the mortars
+                # and then to the lower-dimensional subdomains. The resulting compound
+                # projection is used  to map apertures and to count the number of neighbors.
                 parent_cells_to_intersection_cells = (
                     mortar_projection.mortar_to_secondary_avg
                     @ mortar_projection.primary_to_mortar_avg
+                    @ parent_and_subdomain_projection.face_prolongation(
+                        parent_subdomains
+                    )
                     @ trace.trace
                 )
+
                 # Average weights are the number of cells in the parent subdomains
                 # contributing to each intersection cells.
                 average_weights = np.ravel(
@@ -349,19 +381,20 @@ class DisplacementJumpAperture(DimensionReduction):
                 )
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
-                # Wrap as diagonal matrix.
-                average_mat = pp.wrap_as_ad_array(
+                # Wrap as a DenseArray
+                divide_by_num_neighbors = pp.wrap_as_ad_array(
                     average_weights, name="average_weights"
                 )
-                # Average apertures of the parent subdomains. The rightmost product is
-                # of matrix-vector type. The result is then elementwise averaged.
-                apertures_of_dim = average_mat * (
+
+                # Project apertures from the parents and divide by the number of
+                # higher-dimensional neighbors.
+                apertures_of_dim = divide_by_num_neighbors * (
                     parent_cells_to_intersection_cells @ parent_apertures
                 )
                 # Above matrix is defined on intersections and parents. Restrict to
                 # intersections.
                 intersection_subdomain_projection = pp.ad.SubdomainProjections(
-                    subdomains_of_dim + parent_subdomains
+                    parent_and_this_dim_subdomains
                 )
                 apertures_of_dim = (
                     intersection_subdomain_projection.cell_restriction(
@@ -369,10 +402,16 @@ class DisplacementJumpAperture(DimensionReduction):
                     )
                     @ apertures_of_dim
                 )
+                # Set a name for the apertures of this dimension
+                apertures_of_dim.set_name(f"Displacement_jump_aperture_dim_{dim}")
+
                 # Add to total aperture.
                 apertures += (
                     projection.cell_prolongation(subdomains_of_dim) @ apertures_of_dim
                 )
+
+        # Give the operator a name
+        apertures.set_name("Displacement_jump_apertures")
 
         return apertures
 
