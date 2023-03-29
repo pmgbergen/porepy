@@ -52,7 +52,7 @@ except:
 from porepy.utils.common_constants import *
 from porepy.utils.porepy_types import *
 
-from porepy.utils.tangential_normal_projection import TangentialNormalProjection
+from porepy.utils.tangential_normal_projection import TangentialNormalProjection, set_local_coordinate_projections
 
 from porepy.utils import permutations
 from porepy.utils.interpolation_tables import (

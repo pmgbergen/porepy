@@ -38,7 +38,7 @@ class ModelGeometry:
         self.nd: int = self.mdg.dim_max()
 
         # If fractures are present, it is advised to call
-        pp.contact_conditions.set_projections(self.mdg)
+        pp.set_local_coordinate_projections(self.mdg)
 
         self.set_well_network()
         if len(self.well_network.wells) > 0:
