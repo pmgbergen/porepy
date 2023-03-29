@@ -1,30 +1,46 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-kappa = 1e-5
+from thermo import (  # PRMIX,; FlashVL,
+    PR78MIX,
+    CEOSGas,
+    CEOSLiquid,
+    ChemicalConstantsPackage,
+    FlashVLN,
+)
+from thermo.interaction_parameters import IPDB
+
+COMPONENTS = ['water', 'CO2']
+MAX_LIQ_PHASES = 2
 
 
-def Theta(t):
-    return t / (t + 1)
+def _init_thermo() -> FlashVLN:
+    """Helper function to initiate the thermo flasher and the results data structure."""
+    constants, properties = ChemicalConstantsPackage.from_IDs(COMPONENTS)
+    kijs = IPDB.get_ip_asymmetric_matrix("ChemSep PR", constants.CASs, "kij")
+    eos_kwargs = {
+        "Pcs": constants.Pcs,
+        "Tcs": constants.Tcs,
+        "omegas": constants.omegas,
+        "kijs": kijs,
+    }
+
+    GAS = CEOSGas(
+        PR78MIX, eos_kwargs=eos_kwargs, HeatCapacityGases=properties.HeatCapacityGases
+    )
+    LIQs = [
+        CEOSLiquid(
+            PR78MIX,
+            eos_kwargs=eos_kwargs,
+            HeatCapacityGases=properties.HeatCapacityGases,
+        )
+        for _ in range(MAX_LIQ_PHASES)
+    ]
+    flasher = FlashVLN(constants, properties, liquids=LIQs, gas=GAS)
+
+    return flasher
 
 
-x = np.linspace(0, 1, 100)
-
-
-y = Theta(x / (kappa + 1)) * kappa
-
-plt.plot(x, y)
-
-plt.show()
-
-try:
-    raise RuntimeError("err")
-except Exception as err:
-    print(str(err))
-else:
-    print("else")
-finally:
-    print("finally")
-
-
-print("Done")
+flasher = _init_thermo()
+state= flasher.flash(V=0.5, U=-300, zs=[0.99, 0.1])
+print('done')

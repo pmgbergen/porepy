@@ -13,8 +13,8 @@ GAS = pp.composite.PR_Phase(ads, True, name="G")
 
 MIX.add([h2o, co2], [LIQ, GAS])
 
-temperature = 300
-pressure = 1e8 * 1e-6
+temperature = 442.8571428571429
+pressure = 18375510.204081632 * 1e-6
 
 # temperature = 588.8888888888889
 # pressure = 177410.61109663505 * 1e-6
