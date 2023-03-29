@@ -105,7 +105,7 @@ class DiagnosticsMixin:
             It is assumed that variables with the same name defined on different grids
             are semantically the same variable.
 
-        Args:
+        Parameters:
             grouping (optional): Supports gathering the data related to one equation /
                 variable from grids of interest. For this, pass a list of grid blocks.
                 Each grid block must be a list of grids. Pass `None` to treat all grids
@@ -262,7 +262,7 @@ class DiagnosticsMixin:
         Plotting the image requires seaborn. If not available, falls back to text
         printing. **kwargs are passed to Seaborn to modify image style.
 
-        Args:
+        Parameters:
             diagnostics_data: The return value of :meth:`~self.run_diagnostics`.
             key: The key of diagnostics entry to be plotted.
             **kwargs: Passed to Seaborn.
@@ -436,7 +436,7 @@ class DiagnosticsMixin:
         """Slices the Jacobian matrix into block based on provided equations and
         variables.
 
-        Args:
+        Parameters:
             mat: The full Jacobian matrix.
             equation_indices: The dictionary with keys - printed names of equations and
                 values - indices of these equations in the Jacobian. (Rows index).
