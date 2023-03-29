@@ -2467,7 +2467,7 @@ class FracturedSolid:
 
     """
 
-    def gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def fracture_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fracture gap [m].
 
         Parameters:
@@ -2486,11 +2486,11 @@ class FracturedSolid:
             self.tangential_component(subdomains) @ self.displacement_jump(subdomains)
         )
 
-        gap = self.reference_gap(subdomains) + shear_dilation
+        gap = self.reference_fracture_gap(subdomains) + shear_dilation
         gap.set_name("gap_with_shear_dilation")
         return gap
 
-    def reference_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def reference_fracture_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Reference gap [m].
 
         Parameters:
@@ -2500,7 +2500,7 @@ class FracturedSolid:
             Cell-wise reference gap operator [m].
 
         """
-        return Scalar(self.solid.gap(), "reference_gap")
+        return Scalar(self.solid.fracture_gap(), "reference_gap")
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction coefficient.
@@ -2634,7 +2634,7 @@ class BartonBandis:
 
         """
         # The maximal possible closure of the fracture.
-        maximal_closure = self.maximum_fracture_closure(subdomains)
+        maximum_closure = self.maximum_fracture_closure(subdomains)
 
         nd_vec_to_normal = self.normal_component(subdomains)
 
@@ -2649,12 +2649,12 @@ class BartonBandis:
         # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
         normal_stiffness = self.fracture_normal_stiffness(subdomains)
         # The openening is found from the 1983 paper (slightly rewritten to avoid
-        # dividing by 0 for maximal_closure = 0).
+        # dividing by 0 for maximum_closure = 0).
         # Units: Pa * m / Pa = m.
         opening_decrease = (
             normal_traction
-            * maximal_closure
-            / (normal_stiffness * maximal_closure + normal_traction)
+            * maximum_closure
+            / (normal_stiffness * maximum_closure + normal_traction)
         )
 
         opening_decrease.set_name("Barton-Bandis normal opening")
@@ -2662,7 +2662,7 @@ class BartonBandis:
         return opening_decrease
 
     def maximum_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """The maximal closure of a fracture [m].
+        """The maximum closure of a fracture [m].
 
         Used in the Barton-Bandis model for normal elastic fracture deformation.
 
@@ -2670,11 +2670,11 @@ class BartonBandis:
             subdomains: List of fracture subdomains.
 
         Returns:
-            The maximal allowed decrease in fracture opening.
+            The maximum allowed decrease in fracture opening.
 
         """
-        max_closure = self.solid.maximal_fracture_closure()
-        return Scalar(max_closure, "maximal_fracture_closure")
+        max_closure = self.solid.maximum_fracture_closure()
+        return Scalar(max_closure, "maximum_fracture_closure")
 
     def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The normal stiffness of a fracture [Pa*m^-1].
