@@ -1,12 +1,15 @@
-"""
-Module for creating simplex grids with fractures.
-"""
+"""The ``frac.simplex`` module contains various functionalities to create simplex grids
+with fractures."""
+from __future__ import annotations
+
 import logging
 import time
-from typing import Any, Dict, Tuple
+from typing import Any, Optional
 
 import meshio
 import numpy as np
+
+import porepy as pp
 
 from . import msh_2_grid
 from .gmsh_interface import PhysicalNames
@@ -14,7 +17,7 @@ from .gmsh_interface import PhysicalNames
 logger = logging.getLogger(__name__)
 
 
-def triangle_grid_embedded(file_name):
+def triangle_grid_embedded(file_name: str) -> list[list[pp.Grid]]:
     """Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
@@ -22,22 +25,20 @@ def triangle_grid_embedded(file_name):
     conforming along intersections between fractures.
 
     This function produces a set of grids for fractures and lower-dimensional
-    objects, but it does nothing to merge the grids. To create a MixedDimensionalGrid,
-    use the function fracs.meshing.dfn instead, with the option
-    conforming=True.
-
-    To set the mesh size, use parameters mesh_size_frac and mesh_size_min, to represent the
-    ideal and minimal mesh size sent to gmsh. For more details, see the gmsh
-    manual on how to set mesh sizes.
+    objects, but it does nothing to merge the grids. To create a
+    :class:`~porepy.grids.md_grid.MixedDimensionalGrid`,
+    use the function :clas:`~porepy.fracs.meshing.subdomains_to_mdg` instead.
 
     Parameters:
-        file_name (str, optional): Filename for communication with gmsh.
-            The config file for gmsh will be f_name.geo, with the grid output
-            to f_name.msh. Defaults to dfn_network.
+        file_name: Filename for communication with ``gmsh``.
+            The config file for ``gmsh`` will be ``f_name.geo``, with the grid output
+            to ``f_name.msh``.
 
     Returns:
-        list (length 3): For each dimension (2 -> 0), a list of all grids in
-            that dimension.
+        A nested list with length 3, where for each dimension 2 to 0 the respective
+        sub-list contains instances of :class:`~porepy.grids.grid.Grid` with that
+        dimension. If there are no grids of a specific dimension, the respective
+        sub-list is empty.
 
     """
 
@@ -58,7 +59,7 @@ def triangle_grid_embedded(file_name):
     g_1d, _ = msh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
 
-    grids = [g_2d, g_1d, g_0d]
+    grids: list[list[pp.Grid]] = [g_2d, g_1d, g_0d]  # type: ignore
 
     logger.info("\n")
     for g_set in grids:
@@ -80,18 +81,26 @@ def triangle_grid_embedded(file_name):
     return grids
 
 
-def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
+def triangle_grid_from_gmsh(
+    file_name: str, constraints: Optional[np.ndarray] = None, **kwargs
+) -> list[list[pp.Grid]]:
+    """Creates a nested list of grids dimensions ``{2, 1, 0}``, starting from meshes
+    created by ``gmsh``.
 
     Parameters:
-        file_name (str): Path to file of gmsh.msh specification.
-        constraints (np.array, optional): Index of fracture lines that are
-            constraints in the meshing, but should not have a lower-dimensional
-            mesh. Defaults to empty.
+        file_name: Path to a ``*.msh``=file containing ``gmsh`` specifications.
+        constraints: ``default=None``
+
+            Indices of fracture lines that are constraints in the meshing,
+            but should not have a lower-dimensional mesh.
+        **kwargs: Optional keyword arguments for
+            :func:`~porepy.fracs.msh_2_grid.create_1d_grids`
 
     Returns:
-        list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
-            specified dimension, the inner list will be empty.
+        A nested list with length 3, where for each dimension 2 to 0 the respective
+        sub-list contains instances of :class:`~porepy.grids.grid.Grid` with that
+        dimension. If there are no grids of a specific dimension, the respective
+        sub-list is empty.
 
     """
 
@@ -121,7 +130,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
         **kwargs,
     )
     g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
-    grids = [g_2d, g_1d, g_0d]
+    grids: list[list[pp.Grid]] = [g_2d, g_1d, g_0d]  # type: ignore
 
     logger.info(
         "Grid creation completed. Elapsed time " + str(time.time() - start_time)
@@ -145,18 +154,26 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
-def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
+def line_grid_from_gmsh(
+    file_name: str, constraints: Optional[np.ndarray] = None, **kwargs
+) -> list[list[pp.Grid]]:
+    """Creates a nested list of grids dimensions ``{1, 0}``, starting from meshes
+    created by ``gmsh``.
 
     Parameters:
-        file_name (str): Path to file of gmsh.msh specification.
-        constraints (np.array, optional): Index of fracture lines that are
-            constraints in the meshing, but should not have a lower-dimensional
-            mesh. Defaults to empty.
+        file_name: Path to a ``*.msh``=file containing ``gmsh`` specifications.
+        constraints: ``default=None``
+
+            Indices of fracture lines that are constraints in the meshing,
+            but should not have a lower-dimensional mesh.
+        **kwargs: Optional keyword arguments for
+            :func:`~porepy.fracs.msg_2_grid.create_1d_grids`
 
     Returns:
-        list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
-            specified dimension, the inner list will be empty.
+        A nested list with length 2, where for the dimensions 1 and 0 the respective
+        sub-list contains instances of :class:`~porepy.grids.grid.Grid` with that
+        dimension. If there are no grids of a specific dimension, the respective
+        sub-list is empty.
 
     """
 
@@ -183,7 +200,7 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
         **kwargs,
     )
     g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
-    grids = [g_1d, g_0d]
+    grids: list[list[pp.Grid]] = [g_1d, g_0d]  # type: ignore
 
     logger.info(
         "Grid creation completed. Elapsed time " + str(time.time() - start_time)
@@ -207,20 +224,28 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
-def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
-    mesh.
+def tetrahedral_grid_from_gmsh(
+    file_name: str, constraints: Optional[np.ndarray] = None, **kwargs
+) -> list[list[pp.Grid]]:
+    """Creates a nested list of grids dimensions ``{3, 2, 1, 0}``, starting from meshes
+    created by ``gmsh``.
 
     Parameters:
-        file_name (str): Path to file of gmsh.msh specification.
-        TODO: Line tag is unused. Maybe surface_tag replaces it?? Fix docs.
-            This documentation is copied from mesh_2_grid.create_2d_grids().
-        constraints (np.array, optional): Array with lists of lines that should not
-            become grids. The array items should match the INDEX in line_tag, see above.
+        file_name: Path to a ``*.msh``=file containing ``gmsh`` specifications.
+        constraints: ``default=None``
+
+            See argument ``constraints`` for
+            :func:`~porepy.fracs.msh_2_grid.create_2d_grids`
+        **kwargs: Currently supported keyword arguments are
+
+            - ``'verbose``: If greater than 0, additional information on grids is
+              logged.
 
     Returns:
-        list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
-            specified dimension, the inner list will be empty.
+        A nested list with length 4, where for dimensions 3 to 0 the respective
+        sub-list contains instances of :class:`~porepy.grids.grid.Grid` with that
+        dimension. If there are no grids of a specific dimension, the respective
+        sub-list is empty.
 
     """
 
@@ -250,7 +275,7 @@ def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
     g_1d, _ = msh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
 
-    grids = [g_3d, g_2d, g_1d, g_0d]
+    grids: list[list[pp.Grid]] = [g_3d, g_2d, g_1d, g_0d]  # type: ignore
 
     if verbose > 0:
         logger.info(
@@ -276,22 +301,28 @@ def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
 def _read_gmsh_file(
     file_name: str,
-) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[int, str]]:
-    """
-    Read a gmsh .msh file, and convert the result to a format that is compatible with
-    the porepy functionality for mesh processing.
+) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, np.ndarray], dict[int, str]]:
+    """Auxiliary function to read a ``*.msh``-file, and convert the result to a format
+    that is compatible with the porepy functionality for mesh processing.
 
-    Args:
-        file_name (str): Name of the file to be processed.
+    Parameters:
+        file_name: Name of the file to be processed.
 
     Returns:
-        pts (np.ndarray, npt x dim): Coordinates of all vertexes in the grid.
-        cells (dict): Mapping between cells of different shapes, and the index of
-            vertexes for the cells.
-        cell_info (dict): Mapping between cells of different shapes, and the tags of
-            each cell.
-        phys_names (TYPE): Mapping from gmsh tags to the physical names assigned in the
-            gmsh .geo file.
+        A 4-tuple containing
+
+        :obj:`~numpy.ndarray`: ``shape=(npt, dim)``
+            Coordinates of all vertices in the grid, where ``npt`` is the number of
+            vertices and ``dim`` the ambient dimension.
+        :obj:`dict`:
+            Mapping between cells of different shapes, and the indices of
+            vertices constituting the cell wrapped in a numpy array.
+        :obj:`dict`:
+            Mapping between cells of different shapes, and the ``gmsh`` tags of each
+            cell wrapped in a numpy array.
+        :obj:`dict`:
+            Mapping from ``gmsh`` tags to the physical names (strings) assigned in the
+            ``*.geo``-file.
 
     """
     mesh = meshio.read(file_name)
@@ -318,8 +349,8 @@ def _read_gmsh_file(
         # into a dictionary with the cell type as keys, and tags as values.
 
         # Initialize the dictionaries to be constructed
-        tmp_cells: Dict[str, Any] = {}
-        tmp_info: Dict[str, Any] = {}
+        tmp_cells: dict[str, Any] = {}
+        tmp_info: dict[str, Any] = {}
         keys = set([cb.type for cb in cells])
         for key in keys:
             tmp_cells[key] = []
