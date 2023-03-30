@@ -378,19 +378,19 @@ def dfm_3d_from_fab(
     return_domain: bool = False,
     **mesh_kwargs,
 ):
-    """
-    Create the grid bucket from a set of 3d fractures stored in a fab file and
-    domain.
+    """Create a mixed-dimensional grid from a set of 3d fractures stored in a fab file
+    and domain.
 
     Parameters:
-        file_name: name of the file
-        tol: (optional) tolerance for the methods
-        domain: (optional) the domain, otherwise a bounding box is considered
+        file_name: name of the file.
+        tol: (optional) tolerance for the methods.
+        domain: (optional) the domain, otherwise a bounding box is considered.
         return_domain: whether to return the domain.
-        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
+        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid.
 
     Return:
-        mdg: the mixed-dimensional grid
+        mdg: the mixed-dimensional grid.
+
     """
 
     network = network_3d_from_fab(file_name, return_all=False, tol=tol)

@@ -613,7 +613,7 @@ def set_projections(
 
     """
     if interfaces is None:
-        interfaces = mdg.interfaces()
+        interfaces = mdg.interfaces(dim=mdg.dim_max() - 1)
 
     # Information on the vector normal to the surface is not available directly
     # from the surface grid (it could be constructed from the surface geometry,
