@@ -25,18 +25,12 @@ class NewtonSolver:
         self.params = default_options
 
     def solve(self, model):
-        model.before_newton_loop()
+        model.before_nonlinear_loop()
 
         iteration_counter = 0
 
         is_converged = False
-        if hasattr(model, "dof_manager"):
-            # Old without ad
-            assert not model._use_ad
-            prev_sol = model.dof_manager.assemble_variable(from_iterate=False)
-        else:
-            # Old with ad or new.
-            prev_sol = model.equation_system.get_variable_values(from_iterate=False)
+        prev_sol = model.equation_system.get_variable_values(from_iterate=False)
 
         init_sol = prev_sol
         errors = []
@@ -50,11 +44,11 @@ class NewtonSolver:
             )
 
             # Re-discretize the nonlinear term
-            model.before_newton_iteration()
+            model.before_nonlinear_iteration()
 
             sol = self.iteration(model)
 
-            model.after_newton_iteration(sol)
+            model.after_nonlinear_iteration(sol)
 
             error_norm, is_converged, is_diverged = model.check_convergence(
                 sol, prev_sol, init_sol, self.params
@@ -63,19 +57,19 @@ class NewtonSolver:
             errors.append(error_norm)
 
             if is_diverged:
-                model.after_newton_failure(sol, errors, iteration_counter)
+                model.after_nonlinear_failure(sol, errors, iteration_counter)
             elif is_converged:
-                model.after_newton_convergence(sol, errors, iteration_counter)
+                model.after_nonlinear_convergence(sol, errors, iteration_counter)
 
             iteration_counter += 1
 
         if not is_converged:
-            model.after_newton_failure(sol, errors, iteration_counter)
+            model.after_nonlinear_failure(sol, errors, iteration_counter)
 
         return error_norm, is_converged, iteration_counter
 
     def iteration(self, model) -> np.ndarray:
-        """A single Newton iteration.
+        """A single nonlinear iteration.
 
         Right now, this is a single line, however, we keep it as a separate function
         to prepare for possible future introduction of more advanced schemes.

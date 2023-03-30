@@ -52,7 +52,6 @@ except:
 from porepy.utils.common_constants import *
 from porepy.utils.porepy_types import *
 
-from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
 from porepy.utils.interpolation_tables import (
@@ -107,6 +106,10 @@ from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 from porepy.grids import grid_extrusion
 from porepy.utils import grid_utils
 from porepy.utils import adtree
+from porepy.utils.tangential_normal_projection import (
+    TangentialNormalProjection,
+    set_local_coordinate_projections,
+)
 
 # Fractures
 from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
@@ -114,6 +117,7 @@ from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network import create_fracture_network
+
 
 # Wells
 from porepy.fracs.wells_3d import (
@@ -171,17 +175,7 @@ from porepy.numerics.fv.mass_matrix import MassMatrix
 from porepy.numerics.fv.mass_matrix import InvMassMatrix
 
 # Contact mechanics
-from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
-    PrimalContactCoupling,
-    DivUCoupling,
-    MatrixScalarToForceBalance,
-    FractureScalarToForceBalance,
-)
-from porepy.numerics.fracture_deformation.contact_conditions import (
-    ColoumbContact,
-    ContactTraction,
-)
-from porepy.numerics.fracture_deformation import contact_conditions, propagate_fracture
+from porepy.numerics.fracture_deformation import propagate_fracture
 from porepy.numerics.fracture_deformation.conforming_propagation import (
     ConformingFracturePropagation,
 )

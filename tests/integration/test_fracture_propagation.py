@@ -124,7 +124,7 @@ def test_pick_propagation_face_conforming_propagation(generate):
 
     # Get problem geometry and description
     mdg, targets, angles = generate()
-    pp.contact_conditions.set_projections(mdg)
+    pp.set_local_coordinate_projections(mdg)
 
     # Bookkeeping
     sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
@@ -481,7 +481,7 @@ class FaceSplittingHostGrid(unittest.TestCase):
 
         mdg.compute_geometry()
 
-        pp.contact_conditions.set_projections(mdg)
+        pp.set_local_coordinate_projections(mdg)
 
         return mdg
 
@@ -673,7 +673,7 @@ class PropagationCriteria(unittest.TestCase):
             mdg = setup_mdg.grid_2d_1d([4, 2], 0.25, 0.75)
         mdg.compute_geometry()
 
-        pp.contact_conditions.set_projections(mdg)
+        pp.set_local_coordinate_projections(mdg)
 
         # Model needs to know dimension
         self.model.nd = dim
