@@ -18,7 +18,7 @@ FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 def _validate_args_types(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
-    cell_arguments: dict,
+    meshing_args: dict,
     fracture_network: FractureNetwork,
     **kwargs,
 ):
@@ -26,10 +26,8 @@ def _validate_args_types(
     if not isinstance(grid_type, str):
         raise TypeError("grid_type must be str, not %r" % type(grid_type))
 
-    if not isinstance(cell_arguments, dict):
-        raise TypeError(
-            "cell_arguments must be dict[str], not %r" % type(cell_arguments)
-        )
+    if not isinstance(meshing_args, dict):
+        raise TypeError("meshing_args must be dict[str], not %r" % type(meshing_args))
 
     valid_fracture_network = isinstance(
         fracture_network, FractureNetwork2d
