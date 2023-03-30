@@ -10,6 +10,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.grids.standard_grids.utils import unit_domain
 
 
@@ -44,7 +45,7 @@ class ModelGeometry:
         self.set_well_network()
         if len(self.well_network.wells) > 0:
             # Compute intersections
-            assert isinstance(self.fracture_network, pp.FractureNetwork3d)
+            assert isinstance(self.fracture_network, FractureNetwork3d)
             pp.compute_well_fracture_intersections(
                 self.well_network, self.fracture_network
             )
