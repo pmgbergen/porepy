@@ -332,7 +332,7 @@ def test_without_fracture(biot_coefficient):
     fluid = pp.FluidConstants(constants={"compressibility": 0.5})
     solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
     params = {
-        "num_fracs": 0,
+        "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
         "uy_north": 0.001,
     }

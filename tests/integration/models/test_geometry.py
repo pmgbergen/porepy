@@ -31,7 +31,7 @@ num_fracs_list = [0, 1, 2, 3]
 def test_set_fracture_network(geometry_class, num_fracs):
     """Test the method set_fracture_network."""
     geometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.num_fracs = num_fracs
     geometry.set_fracture_network()
@@ -43,21 +43,18 @@ def test_set_geometry(geometry_class):
     """Test the method set_geometry."""
     geometry = geometry_class()
     # Testing with a single fracture should be sufficient here.
-    geometry.params = {"num_fracs": 1}
+    geometry.params = {"fracture_indices": [0]}
     geometry.units = pp.Units()
     geometry.set_geometry()
-    for attr in ["mdg", "domain", "nd", "fracture_network"]:
+    for attr in ["mdg", "domain", "nd", "fracture_network", "well_network"]:
         assert hasattr(geometry, attr)
-    # For now, the default is not to assign a well network. Assert to remind ourselves
-    # to add testing if default is changed.
-    assert not hasattr(geometry, "well_network")
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", num_fracs_list)
 def test_boundary_sides(geometry_class, num_fracs):
     geometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
 
@@ -98,7 +95,7 @@ def test_wrap_grid_attributes(
 
     """
     geometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
     nd: int = geometry.nd
@@ -175,8 +172,6 @@ def test_wrap_grid_attributes(
 
             assert wrapped_value.shape == (tot_size * dim,)
 
-
-
             # Counter for the current position in the wrapped attribute
             ind_cc = 0
 
@@ -206,7 +201,8 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
     """
     geometry = geometry_class()
     # Use two fractures, that should be enough to test the methods.
-    geometry.params = {"num_fracs": 2}
+    geometry.params = {"fracture_indices": [i for i in range(2)]}
+
     geometry.units = pp.Units()
     geometry.set_geometry()
     all_subdomains = geometry.mdg.subdomains()
@@ -246,7 +242,7 @@ def test_internal_boundary_normal_to_outwards(
 ) -> None:
     # Define the geometry
     geometry: pp.ModelGeometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
     dim = geometry.nd
@@ -324,7 +320,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     """
     # Define the geometry
     geometry: pp.ModelGeometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}  # type: ignore
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
     dim = geometry.nd
@@ -345,7 +341,6 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
         # Check the entry and exit.
         assert np.allclose(normals, 0)
         return
-
 
     # Convert the normals into a nd x num_faces array
     normals_reshaped = np.reshape(normals, (dim, -1), order="F")
@@ -433,7 +428,7 @@ def test_basis_normal_tangential_components(
     """
     geometry = geometry_class()
     # Use two fractures, that should be sufficient to test the method
-    geometry.params = {"num_fracs": 2}
+    geometry.params = {"fracture_indices": [i for i in range(2)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
     geometry.set_geometry()

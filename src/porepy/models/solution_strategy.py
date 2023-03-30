@@ -146,13 +146,12 @@ class SolutionStrategy(abc.ABC):
         self.initial_condition()
         self.set_equations()
         self.set_discretization_parameters()
+        self.discretize()
+        self._initialize_linear_solver()
 
         # Export initial condition
         self.initialize_data_saving()
         self.save_data_time_step()
-
-        self.discretize()
-        self._initialize_linear_solver()
 
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
