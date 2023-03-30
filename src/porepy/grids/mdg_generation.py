@@ -10,7 +10,6 @@ from typing import Literal, Union
 import numpy as np
 
 import porepy as pp
-import porepy.grids.standard_grids.utils as utils
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
@@ -74,23 +73,33 @@ def _validate_simplex_meshing_args_values(meshing_args):
         if not isinstance(cell_size_min, float):
             raise TypeError("cell_size_min must be float, not %r" % type(cell_size_min))
         if not cell_size_min > 0:
-            raise ValueError("cell_size_min must be strictly positive %r" % cell_size_min)
+            raise ValueError(
+                "cell_size_min must be strictly positive %r" % cell_size_min
+            )
 
     # validate cell_size_bound
     cell_size_bound_q = cell_size_bound is not None
     if cell_size_bound_q:
         if not isinstance(cell_size_bound, float):
-            raise TypeError("cell_size_bound must be float, not %r" % type(cell_size_bound))
+            raise TypeError(
+                "cell_size_bound must be float, not %r" % type(cell_size_bound)
+            )
         if not cell_size_bound > 0:
-            raise ValueError("cell_size_bound must be strictly positive %r" % cell_size_bound)
+            raise ValueError(
+                "cell_size_bound must be strictly positive %r" % cell_size_bound
+            )
 
     # validate cell_size_frac
     cell_size_frac_q = cell_size_frac is not None
     if cell_size_frac_q:
         if not isinstance(cell_size_frac, float):
-            raise TypeError("cell_size_frac must be float, not %r" % type(cell_size_frac))
+            raise TypeError(
+                "cell_size_frac must be float, not %r" % type(cell_size_frac)
+            )
         if not cell_size_frac > 0:
-            raise ValueError("cell_size_frac must be strictly positive %r" % cell_size_frac)
+            raise ValueError(
+                "cell_size_frac must be strictly positive %r" % cell_size_frac
+            )
 
     if not cell_size_q and not cell_size_min_q:
         raise ValueError("cell_size or cell_size_min must be provided.")
@@ -156,6 +165,7 @@ def _validate_cartesian_meshing_args_values(dimension, meshing_args):
         if not cell_size_q and not cell_size_z_q:
             raise ValueError("cell_size or cell_size_z must be provided.")
 
+
 def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
 
     # Common requirement among mesh types
@@ -178,9 +188,11 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         if not isinstance(x_pts, np.ndarray):
             raise TypeError("x_pts must be np.ndarray, not %r" % type(x_pts))
         x_range = np.array([np.min(x_pts), np.max(x_pts)])
-        box_x_range = np.array([domain.bounding_box["xmin"], domain.bounding_box["xmax"]])
+        box_x_range = np.array(
+            [domain.bounding_box["xmin"], domain.bounding_box["xmax"]]
+        )
         valid_range = np.isclose(x_range, box_x_range)
-        if not np.any(valid_range):
+        if not np.all(valid_range):
             raise ValueError("x_pts must contain boundary points %r" % x_pts)
 
     # validate cell_size_y
@@ -189,9 +201,11 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         if not isinstance(y_pts, np.ndarray):
             raise TypeError("y_pts must be np.ndarray, not %r" % type(y_pts))
         y_range = np.array([np.min(y_pts), np.max(y_pts)])
-        box_y_range = np.array([domain.bounding_box["ymin"], domain.bounding_box["ymax"]])
+        box_y_range = np.array(
+            [domain.bounding_box["ymin"], domain.bounding_box["ymax"]]
+        )
         valid_range = np.isclose(y_range, box_y_range)
-        if not np.any(valid_range):
+        if not np.all(valid_range):
             raise ValueError("y_pts must contain boundary points %r" % y_pts)
 
     # validate cell_size_z
@@ -200,9 +214,11 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         if not isinstance(z_pts, np.ndarray):
             raise TypeError("z_pts must be np.ndarray, not %r" % type(z_pts))
         z_range = np.array([np.min(z_pts), np.max(z_pts)])
-        box_z_range = np.array([domain.bounding_box["zmin"], domain.bounding_box["zmax"]])
+        box_z_range = np.array(
+            [domain.bounding_box["zmin"], domain.bounding_box["zmax"]]
+        )
         valid_range = np.isclose(z_range, box_z_range)
-        if not np.any(valid_range):
+        if not np.all(valid_range):
             raise ValueError("z_pts must contain boundary points %r" % z_pts)
 
 
@@ -256,8 +272,6 @@ def _validate_args(
         _validate_tensor_grid_meshing_args_values(domain, meshing_args)
 
 
-
-
 def _preprocess_simplex_args(meshing_args, kwargs, cell_function):
 
     # fetch signature
@@ -277,8 +291,6 @@ def _preprocess_simplex_args(meshing_args, kwargs, cell_function):
     extra_args_list = [
         kwargs.get(item[0], item[1].default) for item in defaults.items()
     ]
-
-
 
     # Removes duplicate keys in kwargs
     [kwargs.pop(item[0]) for item in defaults.items() if item[0] in kwargs]
