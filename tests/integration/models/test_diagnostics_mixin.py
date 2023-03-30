@@ -21,8 +21,8 @@ def setup() -> PoromechanicsWithDiagnostics:
     setup = PoromechanicsWithDiagnostics()
     # Common preprocessing is done to assemble the linear system.
     setup.prepare_simulation()
-    setup.before_newton_loop()
-    setup.before_newton_iteration()
+    setup.before_nonlinear_loop()
+    setup.before_nonlinear_iteration()
     setup.assemble_linear_system()
     return setup
 
