@@ -2576,18 +2576,47 @@ class BartonBandis:
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
     direction of a fracture. Specifically, the decrease in normal opening,
-    :math:`\Delta u_n` under a force :math:`\sigma_n` given as
+    :math:``\Delta u_n`` under a force :math:``\sigma_n`` given as
 
     .. math::
 
         \Delta u_n =  \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
 
-    Where :math:`\Delta u_n^{max}` is the maximum fracture closure and the material
-    constant :math:`K_n` is known as the fracture normal stiffness.
+    Where :math:``\Delta u_n^{max}`` is the maximum fracture closure and the material
+    constant :math:``K_n`` is known as the fracture normal stiffness.
 
-    The Barton-Bandis equation is defined in :meth:`elastic_normal_fracture_deformation`
-    while the two parameters :math:`\Delta u_n^{max}` and :math:`K_n` can be set by the
-    methods :meth:`maximum_fracture_closure` and :meth:`fracture_normal_stiffness`.
+    The Barton-Bandis equation is defined in
+    :meth:``elastic_normal_fracture_deformation`` while the two parameters
+    :math:``\Delta u_n^{max}`` and :math:``K_n`` can be set by the methods
+    :meth:``maximum_fracture_closure`` and :meth:``fracture_normal_stiffness``.
+
+    To include the Barton-Bandis equation in the model for fracture deformation, two
+    actions are needed: First, the ``BartonBandis`` mixin must be included in the model.
+    Second, the method ``fracture_gap`` from :class:``FracturedSolid`` must be extended
+    to include the Barton-Bandis effect. This can be achieved by the following
+    construction:
+
+    .. code:: Python
+
+        class FracturedSolidWithBartonBandis(pp.constitutive_laws.FracturedSolid):
+            def fracture_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+                # Get hold of the standard contribution (from fracture shear dilation)
+                shear_dilation = super().fracture_gap(subdomains)
+                # Get the Barton-Bandis effect
+                barton_bandis_closure = self.elastic_normal_fracture_deformation(
+                    subdomains
+                )
+                # Define the mechanical aperture in a stress-free state. What to set
+                # here is a modeling choice, but one natural option is to set the
+                # maximum fracture closure (the same as used in the Barton-Bandis
+                # equation). With this choice the Barton-Bandis model will give a
+                # fracture which is mechanically closed in the limit of high normal
+                # contact forces. The stress-free aperture should not be set lower than
+                # the maximum closure, since this may lead to a negative fracture gap.
+                stress_free_aperture = self.maximum_fracture_closure(subdomains)
+
+                return (stress_free_aperture - barton_bandis_closure + shear_dilation)
+
 
     """
 
@@ -2615,7 +2644,9 @@ class BartonBandis:
         """Barton-Bandis model for elastic normal deformation of a fracture.
 
         The model computes a *decrease* in the normal opening as a function of the
-        contact traction and material constants.
+        contact traction and material constants. See comments in the class documentation
+        for how to include the Barton-Bandis effect in the model for fracture
+        deformation.
 
         The implementation is based on the paper
 
