@@ -51,10 +51,9 @@ def test_parse_equations(
     Parameters:
         model_type: Type of model to test. Currently supported are "mass_balance" and
             "momentum_balance". To add a new model, add a new class in setup_utils.py.
-        equation_name (str): Name of the method to test.
-        domain_inds (list of int): Indices of the domains for which the method
-            should be called. Some methods are only defined for a subset of
-            domains.
+        equation_name: Name of the method to test.
+        domain_inds: Indices of the domains for which the method should be called.
+            Some methods are only defined for a subset of domains.
 
     """
     if only_codimension is not None:

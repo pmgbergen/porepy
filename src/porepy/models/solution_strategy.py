@@ -146,13 +146,12 @@ class SolutionStrategy(abc.ABC):
         self.initial_condition()
         self.set_equations()
         self.set_discretization_parameters()
+        self.discretize()
+        self._initialize_linear_solver()
 
         # Export initial condition
         self.initialize_data_saving()
         self.save_data_time_step()
-
-        self.discretize()
-        self._initialize_linear_solver()
 
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
@@ -204,11 +203,6 @@ class SolutionStrategy(abc.ABC):
             # This is where the constants (fluid, solid) are actually set as attributes
             setattr(self, name, const)
 
-    def before_newton_loop(self) -> None:
-        """Wrap for legacy reasons. Call :meth:`before_nonlinear_loop` instead."""
-        # TODO: Remove and call before_nonlinear_loop directly.
-        self.before_nonlinear_loop()
-
     def discretize(self) -> None:
         """Discretize all terms."""
         tic = time.time()
@@ -228,10 +222,6 @@ class SolutionStrategy(abc.ABC):
         """
         self._nonlinear_iteration = 0
 
-    def before_newton_iteration(self) -> None:
-        """Wrap for legacy reasons. Call :meth:`before_nonlinear_iteration` instead."""
-        self.before_nonlinear_iteration()
-
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
@@ -239,17 +229,6 @@ class SolutionStrategy(abc.ABC):
 
         """
         pass
-
-    def after_newton_iteration(self, solution_vector: np.ndarray):
-        """Wrap for legacy reasons. Call :meth:`after_nonlinear_iteration` instead.
-
-        Parameters:
-            solution_vector: The new solution state, as computed by the non-linear
-                solver.
-
-        """
-        # TODO: Remove and call after_nonlinear_iteration directly.
-        self.after_nonlinear_iteration(solution_vector)
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
@@ -266,20 +245,6 @@ class SolutionStrategy(abc.ABC):
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, to_iterate=True
         )
-
-    def after_newton_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Wrap for legacy reasons. Call :meth:`after_nonlinear_convergence` instead.
-
-        Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
-            errors: The error in the solution, as computed by the non-linear solver.
-            iteration_counter: The number of iterations performed by the non-linear
-                solver.
-
-        """
-        self.after_nonlinear_convergence(solution, errors, iteration_counter)
 
     def after_nonlinear_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -302,19 +267,6 @@ class SolutionStrategy(abc.ABC):
         self.convergence_status = True
         self.save_data_time_step()
 
-    def after_newton_failure(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called if the non-linear solver fails to converge.
-
-        Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
-            errors: The error in the solution, as computed by the non-linear solver.
-            iteration_counter: The number of iterations performed by the non-linear
-                solver.
-        """
-        self.after_nonlinear_failure(solution, errors, iteration_counter)
-
     def after_nonlinear_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -325,9 +277,10 @@ class SolutionStrategy(abc.ABC):
             errors: The error in the solution, as computed by the non-linear solver.
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
+
         """
         if self._is_nonlinear_problem():
-            raise ValueError("Newton iterations did not converge.")
+            raise ValueError("Nonlinear iterations did not converge.")
         else:
             raise ValueError("Tried solving singular matrix for the linear problem.")
 

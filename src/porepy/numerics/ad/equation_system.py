@@ -1460,16 +1460,13 @@ class EquationSystem:
                 for grid in img_info:
                     if grid in grids:
                         block_idx.append(img_info[grid])
-                # If indices not empty, concatenate and return
-                if block_idx:
+
+                if len(block_idx) > 0:
+                    # If indices not empty, concatenate and return.
                     block.update({name: np.concatenate(block_idx, dtype=int)})
-                # indices should by logic always be found, if not alert the user.
                 else:
-                    # TODO: Should this not be permissible, say, due to a filtering of
-                    # the grids? However, it may lead to errors downstream.
-                    raise TypeError(
-                        f"Equation-like item ({type(equ)}, {type(grids)}) yielded no rows."
-                    )
+                    # If indices empty, return empty array.
+                    block.update({name: np.array([], dtype=int)})
             return block
         else:
             # Getting an error here means the user has passed a type that is not
