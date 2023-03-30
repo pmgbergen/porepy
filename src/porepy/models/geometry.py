@@ -36,23 +36,68 @@ class ModelGeometry:
         self.set_fracture_network()
         self.set_md_grid()
         self.nd: int = self.mdg.dim_max()
+
         # If fractures are present, it is advised to call
-        pp.contact_conditions.set_projections(self.mdg)
+        pp.set_local_coordinate_projections(self.mdg)
+
+        self.set_well_network()
+        if len(self.well_network.wells) > 0:
+            # Compute intersections
+            assert isinstance(self.fracture_network, pp.FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            # Mesh fractures and add fracture + intersection grids to mixed-dimensional
+            # grid along with these grids' new interfaces to fractures.
+            self.well_network.mesh(self.mdg)
 
     def set_fracture_network(self) -> None:
         """Assign fracture network class."""
         self.fracture_network = pp.FractureNetwork2d()
 
+    def set_well_network(self) -> None:
+        """Assign well network class."""
+        self.well_network = pp.WellNetwork3d()
+
+    def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+        """Check if a subdomain is a well.
+
+        Parameters:
+            sd: Subdomain to check.
+
+        Returns:
+            True if the subdomain is a well, False otherwise.
+
+        """
+        if isinstance(grid, pp.Grid):
+            return getattr(grid, "well_num", -1) >= 0
+        elif isinstance(grid, pp.MortarGrid):
+            return False
+        else:
+            raise ValueError("Unknown grid type.")
+
     def mesh_arguments(self) -> dict:
         """Mesh arguments for md-grid creation.
 
         Returns:
-            mesh_args: Dictionary of meshing arguments compatible with
-                FractureNetwork.mesh() method.
+            Meshing arguments compatible with FractureNetwork.mesh() method.
 
         """
-        mesh_args: dict[str, float] = {}
+        mesh_args: dict[str, float] = {
+            "mesh_size_frac": self.mesh_size(),  # Mesh size for fractures
+            "mesh_size_min": self.mesh_size() / 2,  # Minimum mesh size
+            "mesh_size_bound": self.mesh_size(),  # Mesh size for boundary
+        }
         return mesh_args
+
+    def mesh_size(self) -> float:
+        """Mesh size for md-grid creation.
+
+        Returns:
+            mesh_size: Mesh size for the mixed-dimensional grid.
+
+        """
+        return 1
 
     def set_md_grid(self) -> None:
         """Create the mixed-dimensional grid.
@@ -62,9 +107,9 @@ class ModelGeometry:
         method is used.
 
         The method assigns the following attributes to self:
-            mdg (pp.MixedDimensionalGrid): The produced grid bucket.
-            box (dict): The bounding box of the domain, defined through minimum and
-                maximum values in each dimension.
+            mdg: The produced mixed-dimensional grid.
+            domain: The bounding box of the domain, defined through minimum and maximum
+                values in each dimension.
 
         """
 

@@ -2580,7 +2580,7 @@ class FractureNetwork3d(object):
         plane of the fracture.
 
         Parameters:
-            frac_num (int): Index of fracture.
+            frac_num: Index of fracture.
 
         Returns:
             np.ndarray (2xn_pt): 2d coordinates of the fracture vertexes.

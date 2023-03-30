@@ -295,7 +295,7 @@ def propagate_fractures(
         data_edge["cell_index_map"] = cell_map
 
         # Also update projection operators
-        pp.contact_conditions.set_projections(mdg, [intf_old])
+        pp.set_local_coordinate_projections(mdg, [intf_old])
 
 
 def _update_mortar_grid(
