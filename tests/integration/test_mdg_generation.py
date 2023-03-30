@@ -20,7 +20,7 @@ import porepy.grids.standard_grids.utils as utils
 class TestMDGridGeneration:
     """Test suit for verifying the md-grid generation of pp.create_mdg"""
 
-    def h_reference(self) -> float:
+    def cell_size(self) -> float:
         return 0.5
 
     def fracture_2d_data(self) -> List[np.array]:
@@ -56,8 +56,25 @@ class TestMDGridGeneration:
         return [domain_2d, domain_3d]
 
     # Extra mesh arguments
-    def extra_args_data_2d(self) -> List[dict]:
-        simplex_extra_args: dict[str] = {"mesh_size_bound": 1.0, "mesh_size_min": 0.1}
+    def higher_level_extra_args_data_2d(self) -> List[dict]:
+        simplex_extra_args: dict[str] = {
+            "cell_size_min": 0.5,
+            "cell_size_bound": 1.0,
+            "cell_size_frac": 0.5,
+        }
+        cartesian_extra_args: dict[str] = {"cell_size_x": 0.5, "cell_size_y": 0.5}
+        tensor_grid_extra_args: dict[str] = {
+            "x_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+            "y_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+        }
+        return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
+
+    def lower_level_extra_args_data_2d(self) -> List[dict]:
+        simplex_extra_args: dict[str] = {
+            "mesh_size_min": 0.5,
+            "mesh_size_bound": 1.0,
+            "mesh_size_frac": 0.5,
+        }
         cartesian_extra_args: dict[str] = {"nx": [10, 10], "physdims": [5, 5]}
         tensor_grid_extra_args: dict[str] = {
             "x": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
@@ -65,8 +82,30 @@ class TestMDGridGeneration:
         }
         return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
-    def extra_args_data_3d(self) -> List[dict]:
-        simplex_extra_args: dict[str] = {"mesh_size_bound": 1.0, "mesh_size_min": 0.1}
+    def higher_level_extra_args_data_3d(self) -> List[dict]:
+        simplex_extra_args: dict[str] = {
+            "cell_size_min": 0.5,
+            "cell_size_bound": 1.0,
+            "cell_size_frac": 0.5,
+        }
+        cartesian_extra_args: dict[str] = {
+            "cell_size_x": 0.5,
+            "cell_size_y": 0.5,
+            "cell_size_z": 0.5,
+        }
+        tensor_grid_extra_args: dict[str] = {
+            "x_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+            "y_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+            "z_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
+        }
+        return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
+
+    def lower_level_extra_args_data_3d(self) -> List[dict]:
+        simplex_extra_args: dict[str] = {
+            "mesh_size_min": 0.5,
+            "mesh_size_bound": 1.0,
+            "mesh_size_frac": 0.5,
+        }
         cartesian_extra_args: dict[str] = {"nx": [10, 10, 10], "physdims": [5, 5, 5]}
         tensor_grid_extra_args: dict[str] = {
             "x": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
@@ -112,16 +151,17 @@ class TestMDGridGeneration:
              along with a surrounding matrix defined by domain.
         """
         # common mesh argument
-        mesh_arguments: dict[str] = {"mesh_size": self.h_reference()}
+        meshing_args: dict[str] = {"cell_size": self.cell_size()}
 
         extra_arg_index = self.mdg_types().index(grid_type)
         extra_arguments = None
         if fracture_network.domain.dim == 2:
-            extra_arguments = self.extra_args_data_2d()[extra_arg_index]
+            extra_arguments = self.higher_level_extra_args_data_2d()[extra_arg_index]
         elif fracture_network.domain.dim == 3:
-            extra_arguments = self.extra_args_data_3d()[extra_arg_index]
+            extra_arguments = self.higher_level_extra_args_data_3d()[extra_arg_index]
+        meshing_args.update(extra_arguments.items())
         mdg = pp.create_mdg(
-            grid_type, mesh_arguments, fracture_network, **extra_arguments
+            grid_type, meshing_args, fracture_network, **extra_arguments
         )
         return mdg
 
@@ -139,16 +179,16 @@ class TestMDGridGeneration:
 
         lower_level_arguments = None
         if fracture_network.domain.dim == 2:
-            lower_level_arguments = self.extra_args_data_2d()[
+            lower_level_arguments = self.lower_level_extra_args_data_2d()[
                 self.mdg_types().index(grid_type)
             ]
         elif fracture_network.domain.dim == 3:
-            lower_level_arguments = self.extra_args_data_3d()[
+            lower_level_arguments = self.lower_level_extra_args_data_3d()[
                 self.mdg_types().index(grid_type)
             ]
 
         if grid_type == "simplex":
-            lower_level_arguments["mesh_size_frac"] = self.h_reference()
+            lower_level_arguments["mesh_size_frac"] = self.cell_size()
             utils.set_mesh_sizes(lower_level_arguments)
             mdg = fracture_network.mesh(lower_level_arguments)
             return mdg
@@ -202,7 +242,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
     def test_grid_type_inconsistencies(self):
 
         fracture_network = self.generate_network(0, [0, 1, 2])
-        mesh_arguments: dict[str] = {"mesh_size": self.h_reference()}
+        mesh_arguments: dict[str] = {"cell_size": self.cell_size()}
 
         with pytest.raises(TypeError) as error_message:
             grid_type = complex(1, 2)
@@ -219,50 +259,173 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             pp.create_mdg(grid_type, mesh_arguments, fracture_network)
         assert ref_msg in str(error_message.value)
 
-    def test_mesh_arguments_inconsistencies(self):
+    def test_simplex_meshing_args_inconsistencies(self):
 
         grid_type = "simplex"
         fracture_network = self.generate_network(0, [0, 1, 2])
 
+        # testing meshing_args type
         with pytest.raises(TypeError) as error_message:
-            mesh_arguments = [self.h_reference()]
-            ref_msg = str(
-                "mesh_arguments must be dict[str], not %r" % type(mesh_arguments)
-            )
-            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
+            meshing_args = [self.cell_size()]
+            ref_msg = str("meshing_args must be dict[str], not %r" % type(meshing_args))
+            pp.create_mdg(grid_type, meshing_args, fracture_network)
         assert ref_msg in str(error_message.value)
 
-        with pytest.raises(TypeError) as error_message:
-            mesh_size = complex(1, 2)
-            mesh_arguments: dict[str] = {"mesh_size": mesh_size}
-            ref_msg = str("mesh_size must be float, not %r" % type(mesh_size))
-            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
-        assert ref_msg in str(error_message.value)
+        # testing incompleteness in cell_sizes
+        cell_size_args = ["cell_size_min", "cell_size_bound", "cell_size_frac"]
+        meshing_args: dict[str] = {
+            "cell_size_min": 0.1,
+            "cell_size_bound": 0.1,
+            "cell_size_frac": 0.1,
+        }
+        for chunk in cell_size_args:
+            loc_meshing_args = {}
+            loc_meshing_args.update(meshing_args.items())
+            loc_meshing_args.pop(chunk)
+            with pytest.raises(ValueError) as error_message:
+                ref_msg = str("cell_size or " + chunk + " must be provided.")
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
 
-        with pytest.raises(ValueError) as error_message:
-            mesh_size = -1.0
-            mesh_arguments: dict[str] = {"mesh_size": mesh_size}
-            ref_msg = str("mesh_size must be strictly positive %r" % mesh_size)
-            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
-        assert ref_msg in str(error_message.value)
+        # testing types in cell_sizes
+        cell_size_args = [
+            "cell_size",
+            "cell_size_min",
+            "cell_size_bound",
+            "cell_size_frac",
+        ]
+        meshing_args: dict[str] = {
+            "cell_size": 0.1,
+            "cell_size_min": 0.1,
+            "cell_size_bound": 0.1,
+            "cell_size_frac": 0.1,
+        }
+        for chunk in cell_size_args:
+            with pytest.raises(TypeError) as error_message:
+                loc_meshing_args = {}
+                loc_meshing_args.update(meshing_args.items())
+                loc_meshing_args[chunk] = complex(1, 2)
+                ref_msg = str(chunk + " must be float, not %r" % type(complex(1, 2)))
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
 
+        # testing value error in cell_sizes
+        for chunk in cell_size_args:
+            with pytest.raises(ValueError) as error_message:
+                loc_meshing_args = {}
+                loc_meshing_args.update(meshing_args.items())
+                loc_meshing_args[chunk] = -1.0
+                ref_msg = str(chunk + " must be strictly positive %r" % -1.0)
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
+
+        # testing value error for dfn cases
         grid_type = "cartesian"
         fracture_network.domain = None
         with pytest.raises(ValueError) as error_message:
-            mesh_size = 0.1
-            mesh_arguments: dict[str] = {"mesh_size": mesh_size}
+            cell_size = 0.1
+            meshing_args: dict[str] = {"cell_size": cell_size}
             ref_msg = str(
                 "fracture_network without a domain is only supported for unstructured "
                 "simplex meshes, not for %r" % grid_type
             )
-            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
+            pp.create_mdg(grid_type, meshing_args, fracture_network)
         assert ref_msg in str(error_message.value)
+
+    def test_cartesian_meshing_args_inconsistencies(self):
+
+        grid_type = "cartesian"
+        fracture_network = self.generate_network(1, [0, 1, 2])
+
+        # testing incompleteness in cell_sizes
+        cell_size_args = ["cell_size_x", "cell_size_y", "cell_size_z"]
+        meshing_args: dict[str] = {
+            "cell_size_x": 0.1,
+            "cell_size_y": 0.1,
+            "cell_size_z": 0.1,
+        }
+        for chunk in cell_size_args:
+            loc_meshing_args = {}
+            loc_meshing_args.update(meshing_args.items())
+            loc_meshing_args.pop(chunk)
+            with pytest.raises(ValueError) as error_message:
+                ref_msg = str("cell_size or " + chunk + " must be provided.")
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
+
+        # testing types in cell_sizes
+        cell_size_args = ["cell_size", "cell_size_x", "cell_size_y", "cell_size_z"]
+        meshing_args: dict[str] = {
+            "cell_size": 0.1,
+            "cell_size_x": 0.1,
+            "cell_size_y": 0.1,
+            "cell_size_z": 0.1,
+        }
+        for chunk in cell_size_args:
+            with pytest.raises(TypeError) as error_message:
+                loc_meshing_args = {}
+                loc_meshing_args.update(meshing_args.items())
+                loc_meshing_args[chunk] = complex(1, 2)
+                ref_msg = str(chunk + " must be float, not %r" % type(complex(1, 2)))
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
+
+        # testing value error in cell_sizes
+        for chunk in cell_size_args:
+            with pytest.raises(ValueError) as error_message:
+                loc_meshing_args = {}
+                loc_meshing_args.update(meshing_args.items())
+                loc_meshing_args[chunk] = -1.0
+                ref_msg = str(chunk + " must be strictly positive %r" % -1.0)
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
+
+    def test_tensor_grid_meshing_args_inconsistencies(self):
+
+        grid_type = "tensor_grid"
+        fracture_network = self.generate_network(1, [0, 1, 2])
+
+        # # testing incompleteness
+        cell_size_args = ["x_pts", "y_pts", "z_pts"]
+        pts = np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
+        meshing_args: dict[str] = {"x_pts": pts, "y_pts": pts, "z_pts": pts}
+        for chunk in cell_size_args:
+            loc_meshing_args = {}
+            loc_meshing_args.update(meshing_args.items())
+            loc_meshing_args.pop(chunk)
+            with pytest.raises(ValueError) as error_message:
+                ref_msg = str("cell_size or " + chunk + " must be provided.")
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
+
+        # testing types of x_pts, y_pts and z_pts
+        for chunk in cell_size_args:
+            with pytest.raises(TypeError) as error_message:
+                loc_meshing_args = {}
+                loc_meshing_args.update(meshing_args.items())
+                loc_meshing_args[chunk] = complex(1, 2)
+                ref_msg = str(
+                    chunk + " must be np.ndarray, not %r" % type(complex(1, 2))
+                )
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
+
+        # testing value error in cell_sizes
+        for chunk in cell_size_args:
+            with pytest.raises(ValueError) as error_message:
+                loc_meshing_args = {}
+                loc_meshing_args.update(meshing_args.items())
+                pts = np.array([-1.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.1])
+                loc_meshing_args[chunk] = pts
+                ref_msg = str(chunk + " must contain boundary points.")
+                pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
+            assert ref_msg in str(error_message.value)
 
     def test_network_inconsistencies(self):
 
         grid_type = "simplex"
         fracture_network = self.generate_network(0, [0, 1, 2])
-        mesh_arguments: dict[str] = {"mesh_size": self.h_reference()}
+        mesh_arguments: dict[str] = {"cell_size": self.cell_size()}
 
         with pytest.raises(ValueError) as error_message:
             fracture_network.domain.dim = 0

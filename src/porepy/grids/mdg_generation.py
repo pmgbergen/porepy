@@ -156,6 +156,7 @@ def _validate_cartesian_meshing_args_values(dimension, meshing_args):
 
     if not cell_size_q and not cell_size_x_q:
         raise ValueError("cell_size or cell_size_x must be provided.")
+
     if not cell_size_q and not cell_size_y_q:
         raise ValueError("cell_size or cell_size_y must be provided.")
 
@@ -191,7 +192,7 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         )
         valid_range = np.isclose(x_range, box_x_range)
         if not np.all(valid_range):
-            raise ValueError("x_pts must contain boundary points %r" % x_pts)
+            raise ValueError("x_pts must contain boundary points.")
 
     # validate cell_size_y
     y_pts_q = y_pts is not None
@@ -204,7 +205,7 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         )
         valid_range = np.isclose(y_range, box_y_range)
         if not np.all(valid_range):
-            raise ValueError("y_pts must contain boundary points %r" % y_pts)
+            raise ValueError("y_pts must contain boundary points.")
 
     # validate cell_size_z
     z_pts_q = z_pts is not None
@@ -217,7 +218,17 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         )
         valid_range = np.isclose(z_range, box_z_range)
         if not np.all(valid_range):
-            raise ValueError("z_pts must contain boundary points %r" % z_pts)
+            raise ValueError("z_pts must contain boundary points.")
+
+    if not cell_size_q and not x_pts_q:
+        raise ValueError("cell_size or x_pts must be provided.")
+
+    if not cell_size_q and not y_pts_q:
+        raise ValueError("cell_size or y_pts must be provided.")
+
+    if domain.dim == 3:
+        if not cell_size_q and not z_pts_q:
+            raise ValueError("cell_size or z_pts must be provided.")
 
 
 def _retrieve_domain_instance(
