@@ -2592,7 +2592,11 @@ class BartonBandis:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
 
+    """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -2627,6 +2631,9 @@ class BartonBandis:
         Parameters:
             subdomains: List of fracture subdomains.
 
+        Raises:
+            ValueError: If the maximum fracture closure is negative.
+
         Returns:
             The decrease in fracture opening, as computed by the Barton-Bandis model.
 
@@ -2634,6 +2641,9 @@ class BartonBandis:
         # The maximum possible closure of the fracture.
         maximum_closure = self.maximum_fracture_closure(subdomains)
 
+        # If the maximum closure is zero, the Barton-Bandis model is not valid. In this
+        # case, we return an empty operator. If the maximum closure is negative, an
+        # error is raised.
         val = maximum_closure.evaluate(self.equation_system)
         if (
             (isinstance(val, (float, int)) and val == 0)
@@ -2728,6 +2738,11 @@ class FractureGap(BartonBandis, ShearDilation):
         Parameters:
             subdomains: List of subdomains where the gap is defined.
 
+        Raises:
+            ValueError: If the reference fracture gap is smaller than the maximum
+                fracture closure. This can lead to negative openings from the
+                Barton-Bandis model.
+
         Returns:
             Cell-wise fracture gap operator.
 
@@ -2742,14 +2757,16 @@ class FractureGap(BartonBandis, ShearDilation):
             - self.maximum_fracture_closure(subdomains)
         ).evaluate(self.equation_system)
 
-        if isinstance(val, (float, int)):
-            assert val >= 0
-        elif isinstance(val, np.ndarray):
-            assert np.all(val >= 0)
-        elif isinstance(val, pp.ad.AdArray):
-            assert np.all(val.val >= 0)
-        else:
-            raise ValueError("Unknown type for val")
+        if (
+            (isinstance(val, (float, int)) and val < 0)
+            or (isinstance(val, np.ndarray) and np.any(val < 0))
+            or (isinstance(val, pp.ad.AdArray) and np.any(val.val < 0))
+        ):
+            msg = (
+                "The reference fracture gap must be larger"
+                " than the maximum fracture closure."
+            )
+            raise ValueError(msg)
         gap.set_name("fracture_gap")
         return gap
 
