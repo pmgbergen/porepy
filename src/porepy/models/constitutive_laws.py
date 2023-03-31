@@ -2532,7 +2532,7 @@ class ShearDilation:
             subdomains: List of fracture subdomains.
 
         Returns:
-            Cell-wise dilation shear dilation.
+            Cell-wise shear dilation.
 
         """
         angle: pp.ad.Operator = self.dilation_angle(subdomains)
@@ -2572,7 +2572,7 @@ class BartonBandis:
 
         \Delta u_n =  \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
 
-    Where :math:``\Delta u_n^{max}`` is the maximum fracture closure and the material
+    where :math:``\Delta u_n^{max}`` is the maximum fracture closure and the material
     constant :math:``K_n`` is known as the fracture normal stiffness.
 
     The Barton-Bandis equation is defined in
@@ -2614,10 +2614,12 @@ class BartonBandis:
         for how to include the Barton-Bandis effect in the model for fracture
         deformation.
 
-        The returned value depends on the value of the parameter
-        maximum_fracture_closure: If this is set to zero, the Barton-Bandis model is
-        void, and the method returns zero. Otherwise, an operator which implements the
-        Barton-Bandis model is returned.
+        The returned value depends on the value of the solid constant
+        maximum_fracture_closure. If its value is zero, the Barton-Bandis model is
+        void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
+        division. Otherwise, an operator which implements the Barton-Bandis model is
+        returned. The special treatment ammounts to a continuous extension in the limit
+        of zero maximum fracture closure.
 
         The implementation is based on the paper
 
@@ -2638,12 +2640,12 @@ class BartonBandis:
             The decrease in fracture opening, as computed by the Barton-Bandis model.
 
         """
-        # The maximum possible closure of the fracture.
+        # The maximum closure of the fracture.
         maximum_closure = self.maximum_fracture_closure(subdomains)
 
-        # If the maximum closure is zero, the Barton-Bandis model is not valid. In this
-        # case, we return an empty operator. If the maximum closure is negative, an
-        # error is raised.
+        # If the maximum closure is zero, the Barton-Bandis model is not valid in the
+        # case of zero normal traction. In this case, we return an empty operator.
+        #  If the maximum closure is negative, an error is raised.
         val = maximum_closure.evaluate(self.equation_system)
         if (
             (isinstance(val, (float, int)) and val == 0)
