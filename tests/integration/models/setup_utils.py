@@ -544,7 +544,8 @@ granite_values = {
     "thermal_conductivity": 2.5,
     "thermal_expansion": 1e-5,
     "fracture_normal_stiffness": 1529,
-    "maximum_fracture_closure": 0.1683,
+    "maximum_fracture_closure": 1e-4,
+    "fracture_gap": 1e-4,
     "residual_aperture": 0.01,
 }
 # Cf. fluid.py
