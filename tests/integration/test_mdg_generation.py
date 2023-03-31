@@ -140,7 +140,7 @@ class TestMDGridGeneration:
         return network
 
     def high_level_mdg_generation(self, grid_type, fracture_network):
-        """Generates a mixed-dimensional grid.
+        """Generates a mixed-dimensional grid using pp.create_mdg
 
         Parameters:
             fracture_network Union[pp.FractureNetwork2d, pp.FractureNetwork3d]: selected
@@ -166,7 +166,10 @@ class TestMDGridGeneration:
         return mdg
 
     def low_level_mdg_generation(self, grid_type, fracture_network):
-        """Generates a mixed-dimensional grid.
+        """Generates a mixed-dimensional grid using lower level functions
+            - fracture_network.mesh
+            - pp.meshing.cart_grid
+            - pp.meshing.tensor_grid
 
         Parameters:
             fracture_network Union[pp.FractureNetwork2d, pp.FractureNetwork3d]: selected
@@ -227,17 +230,32 @@ class TestMDGridGeneration:
         "grid_type, domain_index, fracture_indices", test_parameters
     )
     def test_generation(self, grid_type, domain_index, fracture_indices) -> None:
-        """Test the generated mdg object."""
+        """The test's logic is about comparing one mdg generated with
+        pp.create_mdg and one mdg without, and finally compare them with a relaxed equality
+        Since the wrapper function pp.create_mdg is intended to manipulate the input and
+        internally call the generate for each different case.
+        In this test:
+        - high-level generation means the actual use of the function pp.create_mdg;
+        - lower-level generation means the generation of an mdg for each grid_type
+            by calling `fracture_network.mesh`, `pp.meshing.cart_grid` or
+            `pp.meshing.tensor_grid` directly those functions."""
 
+        # Generates a fracture_network that can be without fractures
         fracture_network = self.generate_network(domain_index, fracture_indices)
         h_mdg = self.high_level_mdg_generation(grid_type, fracture_network)
         l_mdg = self.low_level_mdg_generation(grid_type, fracture_network)
+
+        # Failing in equality could means that:
+        # - lower level signatures were changed without updates on the `create_mdg`;
+        # - `create_mdg` were updated without mapping signatures to the lower level.
         equality_q = self.mdg_equality(h_mdg, l_mdg)
         assert equality_q
 
 
 class TestGenerationInconsistencies(TestMDGridGeneration):
-    """Test suit for verifying function inconsistencies."""
+    """Test suit for verifying function inconsistencies.
+    Each TypeError and ValueError messages are being tested.
+    """
 
     def test_grid_type_inconsistencies(self):
 
