@@ -41,7 +41,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.LinearElasticSolid,
-    pp.constitutive_laws.FracturedSolid,
+    pp.constitutive_laws.FractureGap,
     pp.constitutive_laws.FrictionBound,
 ):
     """Class for the coupling of mass and momentum balance to obtain poromechanics
@@ -166,7 +166,6 @@ class BoundaryConditionsPoromechanics(
 
 
 class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
-
     time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
     """Method for time dependent boundary conditions for mechanics."""
 
@@ -249,7 +248,6 @@ class SolutionStrategyPoromechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-
             pp.initialize_data(
                 sd,
                 data,
