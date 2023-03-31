@@ -444,7 +444,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.LinearElasticSolid,
-    constitutive_laws.FracturedSolid,
+    constitutive_laws.FractureGap,
     constitutive_laws.FrictionBound,
     constitutive_laws.DimensionReduction,
 ):
