@@ -20,8 +20,22 @@ def _validate_args_types(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
     fracture_network: FractureNetwork,
-    **kwargs,
 ):
+    """Validates argument types.
+
+    Raises:
+        - TypeError: Raises type error messages if:
+            - grid_type is not ``str``
+            - meshing_args is not ``dict[str]``
+            - fracture_network is not ``FractureNetwork2d`` or ``FractureNetwork3d``
+
+    Parameters:
+        grid_type: Type of grid.
+        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        fracture_network: fracture network specification.
+
+    """
+
     if not isinstance(grid_type, str):
         raise TypeError("grid_type must be str, not %r" % type(grid_type))
 
@@ -39,6 +53,15 @@ def _validate_args_types(
 
 
 def _validate_grid_type_value(grid_type):
+    """Validates grid_type value.
+
+    Raises:
+        - ValueError: Raises value error messages if:
+            - grid_type is not a member of ['simplex', 'cartesian', 'tensor_grid']
+
+    Parameters:
+        grid_type: Type of grid.
+    """
     valid_type = grid_type in ["simplex", "cartesian", "tensor_grid"]
     if not valid_type:
         raise ValueError(
@@ -48,6 +71,28 @@ def _validate_grid_type_value(grid_type):
 
 
 def _validate_simplex_meshing_args_values(meshing_args):
+    """Validates items in meshing_args for simplex mdg.
+
+    Raises:
+        - TypeError: Raises type error messages if:
+            - cell_size is not ``float``
+            - cell_size_min is not ``float``
+            - cell_size_bound is not ``float``
+            - cell_size_frac is not ``float``
+            - constraints is not ``np.array``
+        - ValueError: Raises value error messages if:
+            - cell_size is not strictly positive
+            - cell_size_min is not strictly positive
+            - cell_size_bound is not strictly positive
+            - cell_size_frac is not strictly positive
+            - cell_size or cell_size_min are not provided
+            - cell_size or cell_size_bound are not provided
+            - cell_size or cell_size_frac are not provided
+
+    Parameters:
+        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+
+    """
     # Get expected arguments
     cell_size = meshing_args.get("cell_size", None)
     cell_size_min = meshing_args.get("cell_size_min", None)
@@ -113,6 +158,29 @@ def _validate_simplex_meshing_args_values(meshing_args):
 
 
 def _validate_cartesian_meshing_args_values(dimension, meshing_args):
+    """Validates items in meshing_args for cartesian mdg.
+
+    Raises:
+        - TypeError: Raises type error messages if:
+            - cell_size is not ``float``
+            - cell_size_x is not ``float``
+            - cell_size_y is not ``float``
+            - cell_size_z is not ``float``
+        - ValueError: Raises value error messages if:
+            - cell_size is not strictly positive
+            - cell_size_x is not strictly positive
+            - cell_size_y is not strictly positive
+            - cell_size_z is not strictly positive
+            - cell_size or cell_size_x are not provided
+            - cell_size or cell_size_y are not provided
+            - cell_size or cell_size_z are not provided
+
+    Parameters:
+        dimension: A ``int`` indicating the dimension of the domain.
+        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+
+    """
+
     # Common requirement among mesh types
     cell_size = meshing_args.get("cell_size", None)
     cell_size_x = meshing_args.get("cell_size_x", None)
@@ -163,6 +231,30 @@ def _validate_cartesian_meshing_args_values(dimension, meshing_args):
 
 
 def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
+    """Validates items in meshing_args for tensor_grid mdg.
+
+    Raises:
+        - TypeError: Raises type error messages if:
+            - cell_size is not ``float``
+            - x_pts is not ``np.ndarray``
+            - y_pts is not ``np.ndarray``
+            - z_pts is not ``np.ndarray``
+        - ValueError: Raises value error messages if:
+            - cell_size is not strictly positive
+            - x_pts does not contain boundary points
+            - y_pts does not contain boundary points
+            - z_pts does not contain boundary points
+            - cell_size or x_pts are not provided
+            - cell_size or y_pts are not provided
+            - cell_size or z_pts are not provided
+
+    Parameters:
+        domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
+           the domain.
+        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+
+    """
+
     # Common requirement among mesh types
     cell_size = meshing_args.get("cell_size", None)
     x_pts = meshing_args.get("x_pts", None)
@@ -230,18 +322,35 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
 def _retrieve_domain_instance(
     fracture_network: FractureNetwork,
 ) -> Union[pp.Domain, None]:
+    """Retrieve from fracture_network.
+
+     Raises:
+         - ValueError: Raises value error messages if:
+             - Inferred dimension is not 2 or 3
+
+     Parameters:
+         fracture_network: fracture network specification.
+
+    Returns:
+         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
+         the domain or an instance ``None``.
+
+    """
+
     # Needed to avoid mypy incompatible types in assignment
     if fracture_network.domain is not None:
-        omega: pp.Domain = fracture_network.domain
-        valid_dimension = omega.dim == 2 or omega.dim == 3
+        domain: pp.Domain = fracture_network.domain
+        valid_dimension = domain.dim == 2 or domain.dim == 3
         if not valid_dimension:
-            raise ValueError("Inferred dimension must be 2 or 3, not %r" % omega.dim)
-        return omega
+            raise ValueError("Inferred dimension must be 2 or 3, not %r" % domain.dim)
+        return domain
     else:
         return None
 
 
 def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
+    """Infer dimension from fracture_network type."""
+
     if isinstance(fracture_network, FractureNetwork2d):
         return 2
     elif isinstance(fracture_network, FractureNetwork3d):
@@ -252,8 +361,20 @@ def _validate_args(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
     fracture_network: FractureNetwork,
-    **kwargs,
 ):
+    """Validates grid_type, meshing_args and fracture_network types and values.
+
+    Raises:
+        - ValueError: Raises value error messages if:
+            - fracture_network without a domain is provided and grid_type != "simplex"
+
+    Parameters:
+        grid_type: Type of grid.
+        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        fracture_network: fracture network specification.
+
+    """
+
     _validate_args_types(grid_type, meshing_args, fracture_network)
     _validate_grid_type_value(grid_type)
 
@@ -274,14 +395,41 @@ def _validate_args(
         _validate_tensor_grid_meshing_args_values(domain, meshing_args)
 
 
-def _preprocess_simplex_args(meshing_args, kwargs, cell_function):
+def _preprocess_simplex_args(meshing_args, kwargs, mesh_function):
+    """Preprocess arguments for simplex mdg.
+
+    See Also:
+        - :method:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
+        - :method:`~porepy.fracs.fracture_network_2d.FractureNetwork3d.mesh`
+
+    Parameters:
+        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        kwargs: A ``dict`` with extra keys depending on each grid_type.
+        mesh_function: A callable mesh function of a fracture network specification.
+
+    Returns:
+            lower_level_args: An instance of mesh_args which contains arguments passed
+            on to mesh size control.
+            extra_args_list: A list with values of the following arguments:
+                - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`, It
+                contains: tol, do_snap, constraints, file_name, dfn, tags_to_transfer,
+                    remove_small_fractures, write_geo, finalize_gmsh, and clear_gmsh.
+                - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`, It
+                contains: dfn, file_name, constraints, write_geo, tags_to_transfer,
+                    finalize_gmsh, and clear_gmsh.
+            kwargs: It could contain the item offset: ``float``: Defaults to 0. Parameter that
+                quantifies a perturbation to nodes around the faces that are split.
+                    NOTE: this is only for visualization purposes.
+
+    """
+
     # The functions for meshing of 2d and 3d fracture networks have different
     # signatures, thus we need to allow for different arguments. First fetch the
     # signature of the function - this call gives dictionary of argument names and
     # default values (None if no default is provided). The values of this dictionary
     # are of type inspect.Parameter.
     defaults: dict[str, inspect.Parameter] = dict(
-        inspect.signature(cell_function).parameters.items()
+        inspect.signature(mesh_function).parameters.items()
     )
     # filter arguments processed in an alternative manner
     defaults.pop("self")
@@ -330,6 +478,23 @@ def _preprocess_simplex_args(meshing_args, kwargs, cell_function):
 
 
 def _preprocess_cartesian_args(domain, meshing_args, kwargs):
+    """Preprocess arguments for cartesian mdg.
+
+    See Also:
+        - :method:`~porepy.fracs.meshing.cart_grid`
+
+    Parameters:
+        domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
+            the domain.
+        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        kwargs: A ``dict`` with extra keys depending on each grid_type.
+
+    Returns:
+        nx_cells: Number of cells in each direction.
+        phys_dims: Physical dimensions in each direction. It is inferred from domain.
+        kwargs: It could contain the item offset: ``float``: Defaults to 0.
+    """
+
     xmin = domain.bounding_box["xmin"]
     xmax = domain.bounding_box["xmax"]
     ymin = domain.bounding_box["ymin"]
@@ -382,6 +547,24 @@ def _preprocess_cartesian_args(domain, meshing_args, kwargs):
 
 
 def _preprocess_tensor_grid_args(domain, meshing_args, kwargs):
+    """Preprocess arguments for tensor_grid mdg.
+
+    See Also:
+        - :method:`~porepy.fracs.meshing.cart_grid`
+
+    Parameters:
+        domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
+            the domain.
+        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        kwargs: A ``dict`` with extra keys depending on each grid_type.
+
+    Returns:
+        x_pts: A ``np.array`` with points in x-direction.
+        y_pts: A ``np.array`` with points in x-direction.
+        z_pts: A ``np.array`` with points in x-direction. It is ``None`` for 2D.
+        kwargs: It could contain the item offset: ``float``: Defaults to 0.
+    """
+
     x_pts = None
     y_pts = None
     z_pts = None
@@ -458,10 +641,15 @@ def create_mdg(
 
 
     Raises:
-        - ValueError: If ``fracture_network.domain.dim`` is not 2 or 3.
-            If
-        - TypeError: Mandatory arguments types inconsistent (see type hints in
-            signature).
+        - TypeError: If mandatory arguments types are invalid. See validator functions:
+            - _validate_args
+            - _validate_args_types
+        - ValueError: If invalid arguments values are provided. See validator functions:
+            - _validate_args
+            - _validate_grid_type_value
+            - _validate_simplex_meshing_args_values
+            - _validate_cartesian_meshing_args_values
+            - _validate_tensor_grid_meshing_args_values
 
     See Also:
         - :method:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
@@ -488,7 +676,7 @@ def create_mdg(
                     treated as constraints in meshing, but not added as separate
                     fracture grids (no splitting of nodes etc.). Useful to define
                     subregions of the domain (and assign e.g., sources, material
-                    properties, etc.)
+                    properties, etc.). Alternatively this data can be passed in **kwargs.
             if grid_type == "cartesian"
                 cell_size: ``float``: size in any direction. It is required, if one of
                     [cell_size_x, cell_size_y, cell_size_z] is not provided.
@@ -527,7 +715,7 @@ def create_mdg(
 
     """
 
-    _validate_args(grid_type, meshing_args, fracture_network, **kwargs)
+    _validate_args(grid_type, meshing_args, fracture_network)
 
     dim = _infer_dimension_from_network(fracture_network)
 
