@@ -86,7 +86,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     """
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Gap of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FracturedSolid`.
+    :class:`~porepy.models.constitutive_laws.FractureGap`.
 
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
