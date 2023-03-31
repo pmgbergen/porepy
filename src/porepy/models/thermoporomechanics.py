@@ -47,7 +47,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.LinearElasticSolid,
-    pp.constitutive_laws.FracturedSolid,
+    pp.constitutive_laws.FractureGap,
     pp.constitutive_laws.FrictionBound,
 ):
     """Class for the coupling of energy, mass and momentum balance to obtain
@@ -154,7 +154,6 @@ class SolutionStrategyThermoporomechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-
             pp.initialize_data(
                 sd,
                 data,

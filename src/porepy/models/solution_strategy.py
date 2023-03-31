@@ -327,11 +327,15 @@ class SolutionStrategy(abc.ABC):
             error: float = np.nan if diverged else 0.0
             return error, converged, diverged
         else:
-            # Simple but fairly robust convergence criterion.
-            # More advanced options are e.g. considering errors for each variable
-            # and/or each grid separately, possibly using _l2_norm_cell
-
-            # We normalize by the size of the solution vector
+            # First a simple check for nan values.
+            if np.any(np.isnan(solution)):
+                # If the solution contains nan values, we have diverged.
+                return np.nan, False, True
+            # Simple but fairly robust convergence criterion. More advanced options are
+            # e.g. considering errors for each variable and/or each grid separately,
+            # possibly using _l2_norm_cell
+            #
+            # We normalize by the size of the solution vector.
             # Enforce float to make mypy happy
             error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
             logger.info(f"Normalized residual norm: {error:.2e}")
