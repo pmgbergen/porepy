@@ -84,9 +84,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
-    gap: Callable[[list[pp.Grid]], pp.ad.Operator]
+    fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Gap of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FracturedSolid`.
+    :class:`~porepy.models.constitutive_laws.FractureGap`.
 
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -278,11 +278,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
         # The complimentarity condition
         equation: pp.ad.Operator = t_n + max_function(
-            pp.ad.Scalar(-1) * t_n
-            # EK: I will take care of typing of this term when we have a better name for
-            # the method.
+            pp.ad.Scalar(-1.0) * t_n
             - self.contact_mechanics_numerical_constant(subdomains)
-            * (u_n - self.gap(subdomains)),
+            * (u_n - self.fracture_gap(subdomains)),
             zeros_frac,
         )
         equation.set_name("normal_fracture_deformation_equation")
@@ -446,7 +444,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.LinearElasticSolid,
-    constitutive_laws.FracturedSolid,
+    constitutive_laws.FractureGap,
     constitutive_laws.FrictionBound,
     constitutive_laws.DimensionReduction,
 ):
@@ -777,7 +775,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # Conversion unnecessary for dimensionless parameters, but included as good
         # practice.
         val = self.solid.convert_units(1, "-")
-        return pp.ad.Scalar(val, name="c_num")
+        return pp.ad.Scalar(val, name="Contact_mechanics_numerical_constant")
 
     def _is_nonlinear_problem(self) -> bool:
         """

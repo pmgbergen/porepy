@@ -2438,10 +2438,68 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
         return pp.FourthOrderTensor(mu, lmbda)
 
 
-class FracturedSolid:
-    """Fractured rock properties.
+class FrictionBound:
+    """Friction bound for fracture deformation.
 
     This class is intended for use with fracture deformation models.
+    """
+
+    normal_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
+    """Operator giving the normal component of vectors. Normally defined in a mixin
+    instance of :class:`~porepy.models.models.ModelGeometry`.
+
+    """
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
+    def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction bound [m].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise friction bound operator [Pa].
+
+        """
+        t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
+            subdomains
+        )
+        bound: pp.ad.Operator = (
+            Scalar(-1.0) * self.friction_coefficient(subdomains) @ t_n
+        )
+        bound.set_name("friction_bound")
+        return bound
+
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction coefficient.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise friction coefficient operator.
+
+        """
+        return Scalar(
+            self.solid.friction_coefficient(),
+            "friction_coefficient",
+        )
+
+
+class ShearDilation:
+    """Class for calculating fracture dilation due to tangential shearing.
+
+    The main method of the class is :meth:`shear_dilation_gap`.
 
     """
 
@@ -2467,14 +2525,14 @@ class FracturedSolid:
 
     """
 
-    def gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fracture gap [m].
+    def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Shear dilation [m].
 
         Parameters:
-            subdomains: List of subdomains where the gap is defined.
+            subdomains: List of fracture subdomains.
 
         Returns:
-            Cell-wise fracture gap operator.
+            Cell-wise shear dilation.
 
         """
         angle: pp.ad.Operator = self.dilation_angle(subdomains)
@@ -2486,36 +2544,8 @@ class FracturedSolid:
             self.tangential_component(subdomains) @ self.displacement_jump(subdomains)
         )
 
-        gap = self.reference_gap(subdomains) + shear_dilation
-        gap.set_name("gap_with_shear_dilation")
-        return gap
-
-    def reference_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference gap [m].
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            Cell-wise reference gap operator [m].
-
-        """
-        return Scalar(self.solid.gap(), "reference_gap")
-
-    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction coefficient.
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            Cell-wise friction coefficient operator.
-
-        """
-        return Scalar(
-            self.solid.friction_coefficient(),
-            "friction_coefficient",
-        )
+        shear_dilation.set_name("shear_dilation")
+        return shear_dilation
 
     def dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Dilation angle [rad].
@@ -2530,64 +2560,25 @@ class FracturedSolid:
         return Scalar(self.solid.dilation_angle(), "dilation_angle")
 
 
-class FrictionBound:
-    """Friction bound for fracture deformation.
-
-    This class is intended for use with fracture deformation models.
-    """
-
-    normal_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
-    """Operator giving the normal component of vectors. Normally defined in a mixin
-    instance of :class:`~porepy.models.models.ModelGeometry`.
-
-    """
-    friction_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Friction coefficient. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FracturedSolid`.
-
-    """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-
-    def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction bound [m].
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            Cell-wise friction bound operator [Pa].
-
-        """
-        t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
-            subdomains
-        )
-        bound: pp.ad.Operator = Scalar(-1) * self.friction_coefficient(subdomains) @ t_n
-        bound.set_name("friction_bound")
-        return bound
-
-
 class BartonBandis:
     """Implementation of the Barton-Bandis model for elastic fracture normal
     deformation.
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
     direction of a fracture. Specifically, the decrease in normal opening,
-    :math:`\Delta u_n` under a force :math:`\sigma_n` given as
+    :math:``\Delta u_n`` under a force :math:``\sigma_n`` given as
 
     .. math::
 
         \Delta u_n =  \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
 
-    Where :math:`\Delta u_n^{max}` is the maximum fracture closure and the material
-    constant :math:`K_n` is known as the fracture normal stiffness.
+    where :math:``\Delta u_n^{max}`` is the maximum fracture closure and the material
+    constant :math:``K_n`` is known as the fracture normal stiffness.
 
-    The Barton-Bandis equation is defined in :meth:`elastic_normal_fracture_deformation`
-    while the two parameters :math:`\Delta u_n^{max}` and :math:`K_n` can be set by the
-    methods :meth:`maximum_fracture_closure` and :meth:`fracture_normal_stiffness`.
+    The Barton-Bandis equation is defined in
+    :meth:``elastic_normal_fracture_deformation`` while the two parameters
+    :math:``\Delta u_n^{max}`` and :math:``K_n`` can be set by the methods
+    :meth:``maximum_fracture_closure`` and :meth:``fracture_normal_stiffness``.
 
     """
 
@@ -2601,7 +2592,11 @@ class BartonBandis:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
 
+    """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -2615,7 +2610,16 @@ class BartonBandis:
         """Barton-Bandis model for elastic normal deformation of a fracture.
 
         The model computes a *decrease* in the normal opening as a function of the
-        contact traction and material constants.
+        contact traction and material constants. See comments in the class documentation
+        for how to include the Barton-Bandis effect in the model for fracture
+        deformation.
+
+        The returned value depends on the value of the solid constant
+        maximum_fracture_closure. If its value is zero, the Barton-Bandis model is
+        void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
+        division. Otherwise, an operator which implements the Barton-Bandis model is
+        returned. The special treatment ammounts to a continuous extension in the limit
+        of zero maximum fracture closure.
 
         The implementation is based on the paper
 
@@ -2629,12 +2633,34 @@ class BartonBandis:
         Parameters:
             subdomains: List of fracture subdomains.
 
+        Raises:
+            ValueError: If the maximum fracture closure is negative.
+
         Returns:
             The decrease in fracture opening, as computed by the Barton-Bandis model.
 
         """
-        # The maximal possible closure of the fracture.
-        maximal_closure = self.maximum_fracture_closure(subdomains)
+        # The maximum closure of the fracture.
+        maximum_closure = self.maximum_fracture_closure(subdomains)
+
+        # If the maximum closure is zero, the Barton-Bandis model is not valid in the
+        # case of zero normal traction. In this case, we return an empty operator.
+        #  If the maximum closure is negative, an error is raised.
+        val = maximum_closure.evaluate(self.equation_system)
+        if (
+            (isinstance(val, (float, int)) and val == 0)
+            or (isinstance(val, np.ndarray) and np.any(val == 0))
+            or isinstance(val, pp.ad.AdArray)
+            and np.any(val.val == 0)
+        ):
+            return Scalar(0)
+        elif (
+            (isinstance(val, (float, int)) and val < 0)
+            or (isinstance(val, np.ndarray) and np.any(val < 0))
+            or isinstance(val, pp.ad.AdArray)
+            and np.any(val.val < 0)
+        ):
+            raise ValueError("The maximum closure must be non-negative.")
 
         nd_vec_to_normal = self.normal_component(subdomains)
 
@@ -2648,21 +2674,21 @@ class BartonBandis:
 
         # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
         normal_stiffness = self.fracture_normal_stiffness(subdomains)
-        # The openening is found from the 1983 paper (slightly rewritten to avoid
-        # dividing by 0 for maximal_closure = 0).
+
+        # The openening is found from the 1983 paper.
         # Units: Pa * m / Pa = m.
         opening_decrease = (
             normal_traction
-            * maximal_closure
-            / (normal_stiffness * maximal_closure + normal_traction)
+            * maximum_closure
+            / (normal_stiffness * maximum_closure + normal_traction)
         )
 
-        opening_decrease.set_name("Barton-Bandis normal opening")
+        opening_decrease.set_name("Barton-Bandis_closure")
 
         return opening_decrease
 
     def maximum_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """The maximal closure of a fracture [m].
+        """The maximum closure of a fracture [m].
 
         Used in the Barton-Bandis model for normal elastic fracture deformation.
 
@@ -2670,11 +2696,11 @@ class BartonBandis:
             subdomains: List of fracture subdomains.
 
         Returns:
-            The maximal allowed decrease in fracture opening.
+            The maximum allowed decrease in fracture opening.
 
         """
-        max_closure = self.solid.maximal_fracture_closure()
-        return Scalar(max_closure, "maximal_fracture_closure")
+        max_closure = self.solid.maximum_fracture_closure()
+        return Scalar(max_closure, "maximum_fracture_closure")
 
     def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The normal stiffness of a fracture [Pa*m^-1].
@@ -2691,6 +2717,72 @@ class BartonBandis:
 
         normal_stiffness = self.solid.fracture_normal_stiffness()
         return Scalar(normal_stiffness, "fracture_normal_stiffness")
+
+
+class FractureGap(BartonBandis, ShearDilation):
+    """Class for calculating the fracture gap.
+
+    The main method of the class, :meth:``fracture_gap`` incorporates the effect of
+    both shear dilation and the Barton-Bandis effect.
+
+    """
+
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
+    def fracture_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fracture gap [m].
+
+        Parameters:
+            subdomains: List of subdomains where the gap is defined.
+
+        Raises:
+            ValueError: If the reference fracture gap is smaller than the maximum
+                fracture closure. This can lead to negative openings from the
+                Barton-Bandis model.
+
+        Returns:
+            Cell-wise fracture gap operator.
+
+        """
+        barton_bandis_closure = self.elastic_normal_fracture_deformation(subdomains)
+
+        dilation = self.shear_dilation_gap(subdomains)
+
+        gap = self.reference_fracture_gap(subdomains) + dilation - barton_bandis_closure
+        val = (
+            self.reference_fracture_gap(subdomains)
+            - self.maximum_fracture_closure(subdomains)
+        ).evaluate(self.equation_system)
+
+        if (
+            (isinstance(val, (float, int)) and val < 0)
+            or (isinstance(val, np.ndarray) and np.any(val < 0))
+            or (isinstance(val, pp.ad.AdArray) and np.any(val.val < 0))
+        ):
+            msg = (
+                "The reference fracture gap must be larger"
+                " than the maximum fracture closure."
+            )
+            raise ValueError(msg)
+        gap.set_name("fracture_gap")
+        return gap
+
+    def reference_fracture_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference fracture gap [m].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise reference fracture gap operator [m].
+
+        """
+        return Scalar(self.solid.fracture_gap(), "reference_fracture_gap")
 
 
 class BiotCoefficient:
