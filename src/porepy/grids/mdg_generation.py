@@ -22,12 +22,12 @@ def _validate_args_types(
     fracture_network: FractureNetwork,
 ):
     """Validates argument types.
-    
+
     Parameters:
         grid_type: Type of grid.
         meshing_args: A ``dict`` with meshing keys depending on each grid_type.
         fracture_network: fracture network specification.
-        
+
     Raises:
         - TypeError: Raises type error messages if:
             - grid_type is not ``str``
@@ -54,10 +54,10 @@ def _validate_args_types(
 
 def _validate_grid_type_value(grid_type):
     """Validates grid_type value.
-            
+
     Parameters:
         grid_type: Type of grid.
-        
+
     Raises:
         - ValueError: Raises value error messages if:
             - grid_type is not a member of ['simplex', 'cartesian', 'tensor_grid']
@@ -73,7 +73,7 @@ def _validate_grid_type_value(grid_type):
 
 def _validate_simplex_meshing_args_values(meshing_args):
     """Validates items in meshing_args for simplex mdg.
-    
+
     Parameters:
         meshing_args: A ``dict`` with meshing keys depending on each grid_type.
 
@@ -238,7 +238,7 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
            the domain.
         meshing_args: A ``dict`` with meshing keys depending on each grid_type.
-        
+
     Raises:
         - TypeError: Raises type error messages if:
             - cell_size is not ``float``
@@ -351,14 +351,14 @@ def _retrieve_domain_instance(
 
 def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
     """Infer dimension from fracture_network type.
-    
+
     Parameters:
         fracture_network: fracture network specification.
-    
+
     Returns:
-        An ``int`` equal 2 if the fracture network is FractureNetwork2d and 3 if the fracture 
-        network is FractureNetwork3d.
-        
+        An ``int`` equal 2 if the fracture network is FractureNetwork2d and 3 if the
+        fracture network is FractureNetwork3d.
+
     """
 
     if isinstance(fracture_network, FractureNetwork2d):
@@ -378,7 +378,7 @@ def _validate_args(
         grid_type: Type of grid.
         meshing_args: A ``dict`` with meshing keys depending on each grid_type.
         fracture_network: fracture network specification.
-        
+
     Raises:
         - ValueError: Raises value error messages if:
             - fracture_network without a domain is provided and grid_type != "simplex"
@@ -503,7 +503,7 @@ def _preprocess_cartesian_args(domain, meshing_args, kwargs):
         nx_cells: Number of cells in each direction.
         phys_dims: Physical dimensions in each direction. It is inferred from domain.
         kwargs: It could contain the item offset: ``float``: Defaults to 0.
-        
+
     """
 
     xmin = domain.bounding_box["xmin"]
@@ -574,7 +574,7 @@ def _preprocess_tensor_grid_args(domain, meshing_args, kwargs):
         y_pts: An ``np.array`` with points in y-direction.
         z_pts: An ``np.array`` with points in z-direction. It is ``None`` for 2D.
         kwargs: It could contain the item offset: ``float``: Defaults to 0.
-        
+
     """
 
     x_pts = None
@@ -720,7 +720,7 @@ def create_mdg(
             - _validate_simplex_meshing_args_values
             - _validate_cartesian_meshing_args_values
             - _validate_tensor_grid_meshing_args_values
-            
+
     Returns:
         Mixed dimensional grid object.
 
