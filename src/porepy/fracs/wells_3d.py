@@ -1,10 +1,11 @@
 """
 Module for well representation in :class:`~Well` and :class:`~WellNetworks`.
 
-A well is a polyline of at least ``num_segments = 1 `` segment defined through a list of
+A well is a polyline of at least ``num_segments = 1`` segment defined through a list of
 ``num_points = num_segments + 1`` points. Wells are connected in a network.
 
-After defining and meshing a fracture network, the wells may be added to the ``mdg`` by
+After defining and meshing a fracture network, the wells may be added to the
+mixed-dimensional grid by
 
     .. code:: python3
 
@@ -55,31 +56,31 @@ class Well:
         tags: Optional[dict] = None,
     ) -> None:
 
-        self.pts = np.asarray(points, dtype=float)
+        self.pts: np.ndarray = np.asarray(points, dtype=float)
         """``shape = (3, num_points)``
 
-        Endpoints of each of the num_points-1 line segments of the new well."""
-        self.orig_pts = self.pts.copy()
+        Endpoints of each of the ``num_points - 1`` line segments of the new well."""
+        self.orig_pts: np.ndarray = self.pts.copy()
         """``shape = (nd, num_points)``
 
         Original endpoints of the well. Copy kept in case the well geometry is modified.
 
         """
 
-        self.dim = 1
+        self.dim: int = 1
         # Set well index
         if index is None:
-            self.index = -1
+            self.index: int = -1
         else:
             self.index = index
         # Initialize tag dictionary.
         if tags is None:
-            self.tags = {}
+            self.tags: dict = {}
             """Dictionary of tags, e.g., to identify different types of points.
 
-            In particular, tags["intersecting_fractures"] has length ``num_points`` and
-            will be used to identify which fracture(s) intersects each of the points in
-            points.
+            In particular, ``tags["intersecting_fractures"]`` has length ``num_points``
+            and will be used to identify which fracture(s) intersects each of the 
+            points in ``points``.
 
             """
         else:
@@ -155,8 +156,8 @@ class Well:
             ind: ``default=None``
 
                 Index. If ``ind`` is not specified, the point is appended at the end of
-                ``self.pts``. Otherwise, it is inserted between the old points
-                 ``ind`` and ``ind + 1``.
+                ``self.pts``. Otherwise, it is inserted between the old points ``ind``
+                 and ``ind + 1``.
         """
         if ind is None:
             self.pts = np.hstack((self.pts, point))
@@ -177,10 +178,10 @@ class Well:
             segment_ind: ``default=None``
 
              Indices defining the segment, i.e., indices of the endpoints of
-             the segment. If None, the mesh size for the entire well is returned.
+             the segment. If ``None``, the mesh size for the entire well is returned.
 
         Returns:
-            ``None`` if the method not overriden, otherwise it should return a
+            ``None`` if the method is not overridden, otherwise it should return a
             ``float`` with the corresponding mesh size.
 
         """
@@ -235,15 +236,15 @@ class WellNetwork3d:
         parameters: Optional[dict] = None,
     ) -> None:
 
-        self.well_dim = 1
-        self.wells = wells if wells is not None else []
+        self.well_dim: int = 1
+        self.wells: list[Well] = wells if wells is not None else []
         """List of wells in the network."""
 
         for i, w in enumerate(self.wells):
             w.index = i
 
         if parameters is None:
-            self.parameters = {}
+            self.parameters: dict = {}
             """Dictionary of parameters, e.g. for the meshing process."""
         else:
             self.parameters = parameters
@@ -252,7 +253,7 @@ class WellNetwork3d:
             self.domain: pp.Domain = domain
             """Domain specification."""
 
-        self.tol = tol
+        self.tol: float = tol
         """Geometric tolerance used in computations."""
 
         # Assign an empty tag dictionary
@@ -314,20 +315,22 @@ class WellNetwork3d:
         Example topology for well intersecting two fractures, terminating at the
         lowermost
 
-                     |
-        sd_well_0    |
-                     |
-                     * e(sd_isec_0, sd_well_0)
-        sd_isec_0    . * e(sd_isec_0, sd_frac_0)  ___________ sd_frac_0 (2d)
-                     * e(sd_isec_0, sd_well_1)
-                     |
-        sd_well_1    |
-                     |
-                     * e(sd_isec_1, sd_well_1)
-        sd_isec_1    . * e(sd_isec_1, sd_frac_1)  ____________ sd_frac_1 (2d)
+        .. code:: python3
 
-        Note that all edge grids (*) are zero-dimensional, and that those
-        connected with the fracture have co-dimension 2!
+                         |
+            sd_well_0    |
+                         |
+                         * e(sd_isec_0, sd_well_0)
+            sd_isec_0    . * e(sd_isec_0, sd_frac_0)  ___________ sd_frac_0 (2d)
+                         * e(sd_isec_0, sd_well_1)
+                         |
+            sd_well_1    |
+                         |
+                         * e(sd_isec_1, sd_well_1)
+            sd_isec_1    . * e(sd_isec_1, sd_frac_1)  ___________ sd_frac_1 (2d)
+
+        Note that all edge grids ``*`` are zero-dimensional, and that those
+        connected with the fracture have co-dimension 2.
 
         Each point defining the well polyline is assumed to have a tag list
         stored in ``well.tags["intersecting_fractures"]``. An empty tag means the point
@@ -335,17 +338,17 @@ class WellNetwork3d:
         identifies an intersection with the fracture with ``g.frac_num = i``.
         If the list contains multiple tags, the interpretation would be an
         intersection between the well and a fracture intersection line or point.
-        This is not implemented. Points not corresponding to a fracture
-        intersection, but merely representing a kink in the polyline, will
-        not be represented by a zero-dimensional grid. Instead, the two neighbouring
-        segments are joined and a single *piecewise* linear grid is produced.
+        This is not implemented. Points not corresponding to a fracture intersection,
+        but merely representing a kink in the polyline, will not be represented by a
+        zero-dimensional grid. Instead, the two neighbouring segments are joined and a
+        single *piecewise* linear grid is produced.
 
-        This function may be split/restructured in the future. One possibility
-        is to let gmsh do the actual meshing as done in the FractureNetwork
-        classes. For now, this simplified approach is deemed sufficient.
+        This function may be split/restructured in the future. One possibility is to
+        let Gmsh do the actual meshing as done in the ``FractureNetwork`` classes. For
+        now, this simplified approach is deemed sufficient.
 
         Parameters:
-            mdg: Mixed-dimensioal grid.
+            mdg: Mixed-dimensional grid.
 
         """
         # Will be added as g.well_num for the well grids.
@@ -464,23 +467,25 @@ class WellNetwork3d:
 def compute_well_fracture_intersections(
     well_network: WellNetwork3d, fracture_network: FractureNetwork3d
 ) -> None:
-    """Compute intersections and store tags identifying which fracture
-    and well segments each intersection corresponds.
+    """Compute well-fracture intersections.
+
+    Store tags identifying which fracture and well segments each intersection
+    corresponds.
+
+    Note:
+        A new set of points will be computed for each well, with original points
+        and new intersection points. Note that original points may also correspond
+        to an intersection with a fracture. Each well's tags are updated with the list
+        "intersecting_fractures", with one list for each point in the new set. The
+        entries of the inner list are the indices of the fractures intersecting the
+        well at the corresponding point. Multiple fractures may intersect in any
+        given point, but this might require special treatment elsewhere.
+        The tags are crucial to the meshing of the well network.
 
     Parameters:
         well_network: Network of wells. Dimension 2 or 3 must match that of the
             fracture network.
-        fracture_network: Network of fractures.
-
-
-    A new set of points will be computed for each well, with original points
-    and new intersection points. Note that original points may also correspond
-    to an intersection with a fracture. Each well's tags are updated with the list
-    "intersecting_fractures", with one list for each point in the new set. The
-    entries of the inner list are the indices of the fractures intersecting the
-    well at the corresponding point. Multiple fractures may intersect in any
-    given point, but this might require special treatment elsewhere.
-    The tags are crucial to the meshing of the well network.
+        fracture_network: Three-dimensional fracture network.
     """
 
     for well in well_network.wells:
@@ -657,7 +662,7 @@ def _argsort_points_along_line_segment(
     Parameters:
         seg: ``shape=(3, num_points)``
 
-        Coordinates of the points to be sorted, assumed to lie on a straight line.
+            Coordinates of the points to be sorted, assumed to lie on a straight line.
 
     Returns:
         Tuple with two elements.
@@ -666,7 +671,7 @@ def _argsort_points_along_line_segment(
 
             Indices of the sorting.
 
-        :obj:`numpy.ndarray``: ``shape=(3, num_points)``
+        :obj:`numpy.ndarray`: ``shape=(3, num_points)``
 
             Sorted points.
 
@@ -693,23 +698,23 @@ def _intersection_segment_fracture(
 ) -> tuple[np.ndarray, list[np.ndarray]]:
     """Compute intersection between a single line segment and fracture.
 
-    Computes intersection point. If no intersection exists (distance > 0), no updates
-    are done to points or tags. If the intersection is internal (distance between
-    intersection and both endpoints > 0), the point is appended to segment_points and a
-    tag appended to tags. If the intersection is on one of the existing points, that
-    point's tag is updated, unless ignore_endpoint_tag tag is True (see below).
+    If no intersection exists (distance > 0), no updates are done to ``points`` or
+    ``tags``. If the intersection is internal (distance between intersection and both
+    endpoints > 0), the point is appended to ``segment_points`` and a tag appended to
+    ``tags``. If the intersection is on one of the existing points, that
+    point's tag is updated, unless ``ignore_endpoint_tag`` tag is ``True`` (see below).
 
     Parameters:
         segment_points: ``shape=(3, num_points)``
 
             Coordinates of the points on the line segment, sorted as
-            [start, end, *any interior points].
+            ``[start, end, *any interior points]``.
         fracture: The plane fracture to be checked for intersections with the line
             segment.
         tags: ``len = num_points``
 
-            Identifies fractures (by fracture.index) intersecting at each of the points
-            in segment_points.
+            Identify fractures (by ``fracture.index``) intersecting at each of the
+            points in ``segment_points``.
         ignore_endpoint_tag: Whether to update the tag of the second endpoint. To be
             used when looping over a polyline. The last endpoint of this segment will be
             treated as the first endpoint of the next segment.
@@ -719,6 +724,8 @@ def _intersection_segment_fracture(
             segment and the fracture.
 
     Returns:
+        Tuple with two elements.
+
         :obj:`~numpy.ndarray`: ``shape=(3, num_points)``
 
             Updated coordinates of the points on the line segment, sorted as
