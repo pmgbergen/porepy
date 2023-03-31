@@ -110,11 +110,11 @@ def _add_mixin(mixin, parent):
             None,
         ),
         (
-            _add_mixin(pp.constitutive_laws.BartonBandis, setup_utils.MomentumBalance),
+            setup_utils.MomentumBalance,
             "elastic_normal_fracture_deformation",
             # (-normal_traction) * maximum_closure /
             #    (normal_stiffness * maximum_closure + (-normal_traction))
-            (1 * 0.1683) / (1529 * 0.1683 + 1),
+            (1 * 1e-4) / (1529 * 1e-4 + 1),
             1,
         ),
         (
