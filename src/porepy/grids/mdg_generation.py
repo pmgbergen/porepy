@@ -455,7 +455,8 @@ def create_mdg(
     Raises:
         - ValueError: If ``fracture_network.domain.dim`` is not 2 or 3.
             If
-        - TypeError: Mandatory arguments types inconsistent (see type hints in signature).
+        - TypeError: Mandatory arguments types inconsistent (see type hints in
+            signature).
 
     See Also:
         - :method:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
@@ -470,18 +471,19 @@ def create_mdg(
             Instance of Literal["simplex", "cartesian", "tensor_grid"].
         meshing_args: A ``dict`` with meshing keys depending on each grid_type:
             if grid_type == "simplex"
-                cell_size: ``float``: Overall minimum cell size. It is required, if one of
-                    [cell_size_min, cell_size_frac, cell_size_bound] is not provided.
+                cell_size: ``float``: Overall minimum cell size. It is required, if one
+                    of [cell_size_min, cell_size_frac, cell_size_bound] is not provided.
                 cell_size_min: ``float``: minimum cell size. If not provided, cell_size
                     will be used for completeness.
                 cell_size_frac: ``float``: size at the fracture. If not provided,
                     cell_size will be used for completeness.
-                cell_size_bound: ``float``: boundary cell size. If not provided, cell_size
-                    will be used for completeness.
+                cell_size_bound: ``float``: boundary cell size. If not provided,
+                    cell_size will be used for completeness.
                 constraints: ``np.ndarray``: Index list of the fractures that should be
-                    treated as constraints in meshing, but not added as separate fracture
-                    grids (no splitting of nodes etc.). Useful to define subregions of
-                    the domain (and assign e.g., sources, material properties, etc.)
+                    treated as constraints in meshing, but not added as separate
+                    fracture grids (no splitting of nodes etc.). Useful to define
+                    subregions of the domain (and assign e.g., sources, material
+                    properties, etc.)
             if grid_type == "cartesian"
                 cell_size: ``float``: size in any direction. It is required, if one of
                     [cell_size_x, cell_size_y, cell_size_z] is not provided.
@@ -511,8 +513,8 @@ def create_mdg(
                 :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
                 :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`
             if grid_type == "simplex" or "tensor_grid":
-                offset: ``float``: Defaults to 0. Parameter that quantifies a perturbation
-                    to nodes around the faces that are split.
+                offset: ``float``: Defaults to 0. Parameter that quantifies a
+                    perturbation to nodes around the faces that are split.
                     NOTE: this is only for visualization purposes.
 
     Returns:
