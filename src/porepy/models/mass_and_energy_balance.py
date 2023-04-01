@@ -89,7 +89,13 @@ class SolutionStrategyFluidMassAndEnergy(
 
     """
 
-    pass
+    # def set_nonlinear_discretizations(self) -> None:
+    #     """Collect discretizations for nonlinear terms."""
+    #     # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
+    #     # balance does not have any.
+    #     mass.ConstitutiveLawsSinglePhaseFlow.set_nonlinear_discretizations(self)
+    #     # Nonlinear discretizations for the energy balance subproblem.
+    #     energy.ConstitutiveLawsEnergyBalance.set_nonlinear_discretizations(self)
 
 
 class MassAndEnergyBalance(  # type: ignore

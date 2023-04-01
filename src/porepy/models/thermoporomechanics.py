@@ -16,6 +16,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep, ppV2):
 
 """
 from __future__ import annotations
+from typing import Callable, Union
 
 import porepy as pp
 
@@ -143,8 +144,20 @@ class SolutionStrategyThermoporomechanics(
     should be aware of this and take method resolution order into account when defining
     new methods.
 
-    TODO: More targeted (re-)discretization. See parent classes and other combined
-    models.
+    """
+
+    darcy_flux_discretization: Callable[
+        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
+    ]
+    """Discretization of the Darcy flux. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
+
+    """
+    fourier_flux_discretization: Callable[
+        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
+    ]
+    """Discretization of the Fourier flux. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FouriersLaw`.
 
     """
 
@@ -162,6 +175,23 @@ class SolutionStrategyThermoporomechanics(
                     "biot_alpha": self.solid.biot_coefficient(),  # TODO: Rename in Biot
                 },
             )
+
+    def set_nonlinear_discretizations(self) -> None:
+        """Collect discretizations for nonlinear terms."""
+        # Super calls method in mass and energy balance. Momentum balance has no
+        # nonlinear discretizations.
+        super().set_nonlinear_discretizations()
+        # Aperture changes render permeability variable. This requires a re-discretization
+        # of the diffusive flux in subdomains where the aperture changes.
+        subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+        self.add_nonlinear_discretization(
+            self.darcy_flux_discretization(subdomains).flux,
+        )
+        # Aperture and porosity changes render thermal conductivity variable. This
+        # requires a re-discretization of the diffusive flux.
+        self.add_nonlinear_discretization(
+            self.fourier_flux_discretization(self.mdg.subdomains()).flux,
+        )
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

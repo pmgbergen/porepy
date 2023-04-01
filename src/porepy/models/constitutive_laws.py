@@ -1628,6 +1628,12 @@ class AdvectiveFlux:
     """Well flux variables on interfaces. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
+    add_nonlinear_discretization: Callable[[pp.ad.Discretization], None]
+    """Add a discretization to the model's list of discretizations to be updated at each
+    nonlinear iteration. Normally defined in a mixin instance of
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
 
     def advective_flux(
         self,
@@ -1658,12 +1664,15 @@ class AdvectiveFlux:
             Operator representing the advective flux.
 
         """
+        # The upwind discretization is non-linear (i.e. depends on solution state).
+        # Append to list of discretizations to be updated at each nonlinear iteration.
+        # self.add_nonlinear_discretization(discr)
+
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=1
         )
-
         flux: pp.ad.Operator = (
             darcy_flux * (discr.upwind @ advected_entity)
             - discr.bound_transport_dir @ (darcy_flux * bc_values)
@@ -1702,6 +1711,9 @@ class AdvectiveFlux:
             Operator representing the advective flux on the interfaces.
 
         """
+        # The upwind discretization is non-linear (i.e. depends on solution state).
+        # Append to list of discretizations to be updated at each nonlinear iteration.
+        # self.add_nonlinear_discretization(discr)
         # If no interfaces are given, make sure to proceed with a non-empty subdomain
         # list if relevant.
         subdomains = self.interfaces_to_subdomains(interfaces)
@@ -1826,6 +1838,12 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     """Function that returns a perturbation from reference state. Normally provided by
     a mixin of instance :class:`~porepy.models.VariableMixin`.
     """
+    enthalpy_keyword: str
+    """Keyword used to identify the enthalpy flux discretization. Normally"
+     set by an instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
+
+    """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid enthalpy [J*kg^-1*m^-nd].
@@ -1845,6 +1863,32 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
         enthalpy.set_name("fluid_enthalpy")
         return enthalpy
+
+    def enthalpy_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
+        """Discretization of the fluid enthalpy.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Discretization of the fluid enthalpy flux.
+
+        """
+        return pp.ad.UpwindAd(self.enthalpy_keyword, subdomains)
+
+    def interface_enthalpy_discretization(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.UpwindCouplingAd:
+        """Discretization of the interface enthalpy.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Discretization for the interface enthalpy flux.
+
+        """
+        return pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
 
     def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Solid enthalpy [J*kg^-1*m^-nd].
