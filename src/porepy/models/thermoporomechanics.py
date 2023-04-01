@@ -16,6 +16,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep, ppV2):
 
 """
 from __future__ import annotations
+
 from typing import Callable, Union
 
 import porepy as pp
