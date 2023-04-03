@@ -629,7 +629,7 @@ def create_mdg(
     fracture_network: FractureNetwork,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
-    """Creates a mixed dimensional grid.
+    """Creates a mixed-dimensional grid.
 
     Examples:
 
