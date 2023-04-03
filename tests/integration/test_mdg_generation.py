@@ -148,7 +148,7 @@ class TestMDGridGeneration:
 
         Returns:
             pp.MixedDimensionalGrid: Container of grids and its topological relationship
-             along with a surrounding matrix defined by domain.
+            along with a surrounding matrix defined by domain.
         """
         # common mesh argument
         meshing_args: dict[str] = {"cell_size": self.cell_size()}
