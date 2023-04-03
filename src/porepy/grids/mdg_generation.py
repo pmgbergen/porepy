@@ -30,7 +30,7 @@ def _validate_args_types(
 
     Raises:
         - TypeError: Raises type error messages if:
-            - grid_type is not ``str``
+            - ``grid_type`` is not ``str``.
             - meshing_args is not ``dict[str]``
             - fracture_network is not ``FractureNetwork2d`` or ``FractureNetwork3d``
 
