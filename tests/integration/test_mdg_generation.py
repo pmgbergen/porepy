@@ -253,7 +253,7 @@ class TestMDGridGeneration:
 
 
 class TestGenerationInconsistencies(TestMDGridGeneration):
-    """Test suit for verifying function inconsistencies.
+    """Test suite for verifying function inconsistencies.
     Each TypeError and ValueError messages are being tested.
     """
 
