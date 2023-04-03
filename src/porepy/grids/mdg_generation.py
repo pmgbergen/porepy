@@ -294,7 +294,7 @@ def _validate_tensor_grid_meshing_args_values(domain: pp.Domain, meshing_args: d
             )
 
     # validate cell_size_z
-    z_pts_q: bool = z_pts is not None
+    z_pts_q: bool = z_pts is not None and domain.dim == 3
     if z_pts_q:
         if not isinstance(z_pts, np.ndarray):
             raise TypeError("z_pts must be np.ndarray, not %r" % type(z_pts))
@@ -583,7 +583,9 @@ def _preprocess_tensor_grid_args(
 
     x_pts = meshing_args.get("x_pts", x_pts)
     y_pts = meshing_args.get("y_pts", y_pts)
-    z_pts = meshing_args.get("z_pts", z_pts)
+
+    if domain.dim == 3:
+        z_pts = meshing_args.get("z_pts", z_pts)
 
     # remove duplicate keys
     [kwargs.pop(item[0]) for item in meshing_args.items() if item[0] in kwargs]
