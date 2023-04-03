@@ -650,7 +650,7 @@ In terms of meshing arguments, we provide two ways of creating mixed-dimensional
                 cell_size_boundary: ``float``: target mesh size close to the external boundaries (can be seen as a far-field value). If not provided,
                     cell_size will be used for completeness.
             if grid_type == "cartesian"
-                cell_size: ``float``: size in any direction. It is required, if one of
+                cell_size: ``float``: side length of the grid elements (squares in 2d and cubes 3d). If ``cell_size_x``, ``cell_size_y``, or ``cell_size_z`` is given, ``cell_size`` will be overwritten in that particular direction.
                     [cell_size_x, cell_size_y, cell_size_z] is not provided.
                 cell_size_x: ``float``: size in x-direction. If cell_size_x is provided,
                     it overwrites cell_size in the x-direction.
