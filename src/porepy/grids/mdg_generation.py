@@ -5,7 +5,7 @@ different lower-level mdg generation.
 from __future__ import annotations
 
 import inspect
-from typing import Literal, Union
+from typing import Callable, Literal, Union, get_args
 
 import numpy as np
 
@@ -42,9 +42,9 @@ def _validate_args_types(
     if not isinstance(meshing_args, dict):
         raise TypeError("meshing_args must be dict[str], not %r" % type(meshing_args))
 
-    valid_fracture_network = isinstance(
-        fracture_network, FractureNetwork2d
-    ) or isinstance(fracture_network, FractureNetwork3d)
+    valid_fracture_network: bool = isinstance(
+        fracture_network, get_args(FractureNetwork)
+    )
     if not valid_fracture_network:
         raise TypeError(
             "fracture_network must be FractureNetwork2d or FractureNetwork3d, not %r"
@@ -52,7 +52,9 @@ def _validate_args_types(
         )
 
 
-def _validate_grid_type_value(grid_type):
+def _validate_grid_type_value(
+    grid_type: Literal["simplex", "cartesian", "tensor_grid"]
+):
     """Validates grid_type value.
 
     Parameters:
@@ -63,7 +65,7 @@ def _validate_grid_type_value(grid_type):
             - grid_type is not a member of ['simplex', 'cartesian', 'tensor_grid']
 
     """
-    valid_type = grid_type in ["simplex", "cartesian", "tensor_grid"]
+    valid_type: bool = grid_type in ["simplex", "cartesian", "tensor_grid"]
     if not valid_type:
         raise ValueError(
             "grid_type must be in ['simplex', 'cartesian', 'tensor_grid'] not %r"
@@ -71,38 +73,40 @@ def _validate_grid_type_value(grid_type):
         )
 
 
-def _validate_simplex_meshing_args_values(meshing_args):
+def _validate_simplex_meshing_args_values(meshing_args: dict):
     """Validates items in meshing_args for simplex mdg.
 
     Parameters:
-        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        meshing_args: A dictionary with meshing keys depending on each grid_type.
 
     Raises:
         - TypeError: Raises type error messages if:
             - cell_size is not ``float``
             - cell_size_min is not ``float``
-            - cell_size_bound is not ``float``
-            - cell_size_frac is not ``float``
-            - constraints is not ``np.array``
+            - cell_size_boundary is not ``float``
+            - cell_size_fracture is not ``float``
         - ValueError: Raises value error messages if:
             - cell_size is not strictly positive
             - cell_size_min is not strictly positive
-            - cell_size_bound is not strictly positive
-            - cell_size_frac is not strictly positive
+            - cell_size_boundary is not strictly positive
+            - cell_size_fracture is not strictly positive
             - cell_size or cell_size_min are not provided
-            - cell_size or cell_size_bound are not provided
-            - cell_size or cell_size_frac are not provided
+            - cell_size or cell_size_boundary are not provided
+            - cell_size or cell_size_fracture are not provided
 
     """
     # Get expected arguments
-    cell_size = meshing_args.get("cell_size", None)
-    cell_size_min = meshing_args.get("cell_size_min", None)
-    cell_size_bound = meshing_args.get("cell_size_bound", None)
-    cell_size_frac = meshing_args.get("cell_size_frac", None)
-    constraints = meshing_args.get("constraints", None)
+    cell_size: Union[float, None] = meshing_args.get("cell_size", None)
+    cell_size_min: Union[float, None] = meshing_args.get("cell_size_min", cell_size)
+    cell_size_boundary: Union[float, None] = meshing_args.get(
+        "cell_size_boundary", cell_size
+    )
+    cell_size_fracture: Union[float, None] = meshing_args.get(
+        "cell_size_fracture", cell_size
+    )
 
     # validate cell_size
-    cell_size_q = cell_size is not None
+    cell_size_q: bool = cell_size is not None
     if cell_size_q:
         if not isinstance(cell_size, float):
             raise TypeError("cell_size must be float, not %r" % type(cell_size))
@@ -110,7 +114,7 @@ def _validate_simplex_meshing_args_values(meshing_args):
             raise ValueError("cell_size must be strictly positive %r" % cell_size)
 
     # validate cell_size_min
-    cell_size_min_q = cell_size_min is not None
+    cell_size_min_q: bool = cell_size_min is not None
     if cell_size_min_q:
         if not isinstance(cell_size_min, float):
             raise TypeError("cell_size_min must be float, not %r" % type(cell_size_min))
@@ -118,52 +122,44 @@ def _validate_simplex_meshing_args_values(meshing_args):
             raise ValueError(
                 "cell_size_min must be strictly positive %r" % cell_size_min
             )
-
-    # validate cell_size_bound
-    cell_size_bound_q = cell_size_bound is not None
-    if cell_size_bound_q:
-        if not isinstance(cell_size_bound, float):
-            raise TypeError(
-                "cell_size_bound must be float, not %r" % type(cell_size_bound)
-            )
-        if not cell_size_bound > 0:
-            raise ValueError(
-                "cell_size_bound must be strictly positive %r" % cell_size_bound
-            )
-
-    # validate cell_size_frac
-    cell_size_frac_q = cell_size_frac is not None
-    if cell_size_frac_q:
-        if not isinstance(cell_size_frac, float):
-            raise TypeError(
-                "cell_size_frac must be float, not %r" % type(cell_size_frac)
-            )
-        if not cell_size_frac > 0:
-            raise ValueError(
-                "cell_size_frac must be strictly positive %r" % cell_size_frac
-            )
-
-    if not cell_size_q and not cell_size_min_q:
+    else:
         raise ValueError("cell_size or cell_size_min must be provided.")
 
-    if not cell_size_q and not cell_size_bound_q:
-        raise ValueError("cell_size or cell_size_bound must be provided.")
+    # validate cell_size_boundary
+    cell_size_boundary_q: bool = cell_size_boundary is not None
+    if cell_size_boundary_q:
+        if not isinstance(cell_size_boundary, float):
+            raise TypeError(
+                "cell_size_boundary must be float, not %r" % type(cell_size_boundary)
+            )
+        if not cell_size_boundary > 0:
+            raise ValueError(
+                "cell_size_boundary must be strictly positive %r" % cell_size_boundary
+            )
+    else:
+        raise ValueError("cell_size or cell_size_boundary must be provided.")
 
-    if not cell_size_q and not cell_size_frac_q:
-        raise ValueError("cell_size or cell_size_frac must be provided.")
+    # validate cell_size_fracture
+    cell_size_fracture_q: bool = cell_size_fracture is not None
+    if cell_size_fracture_q:
+        if not isinstance(cell_size_fracture, float):
+            raise TypeError(
+                "cell_size_fracture must be float, not %r" % type(cell_size_fracture)
+            )
+        if not cell_size_fracture > 0:
+            raise ValueError(
+                "cell_size_fracture must be strictly positive %r" % cell_size_fracture
+            )
+    else:
+        raise ValueError("cell_size or cell_size_fracture must be provided.")
 
-    constraints_q = constraints is not None
-    if constraints_q:
-        if not isinstance(constraints, np.ndarray):
-            raise TypeError("constraints must be np.array, not %r" % type(constraints))
 
-
-def _validate_cartesian_meshing_args_values(dimension, meshing_args):
+def _validate_cartesian_meshing_args_values(dimension: int, meshing_args: dict):
     """Validates items in meshing_args for cartesian mdg.
 
     Parameters:
-        dimension: A ``int`` indicating the dimension of the domain.
-        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        dimension: The dimension of the domain.
+        meshing_args: A dictionary with meshing keys depending on each grid_type.
 
     Raises:
         - TypeError: Raises type error messages if:
@@ -183,13 +179,13 @@ def _validate_cartesian_meshing_args_values(dimension, meshing_args):
     """
 
     # Common requirement among mesh types
-    cell_size = meshing_args.get("cell_size", None)
-    cell_size_x = meshing_args.get("cell_size_x", None)
-    cell_size_y = meshing_args.get("cell_size_y", None)
-    cell_size_z = meshing_args.get("cell_size_z", None)
+    cell_size: Union[float, None] = meshing_args.get("cell_size", None)
+    cell_size_x: Union[float, None] = meshing_args.get("cell_size_x", cell_size)
+    cell_size_y: Union[float, None] = meshing_args.get("cell_size_y", cell_size)
+    cell_size_z: Union[float, None] = meshing_args.get("cell_size_z", cell_size)
 
     # validate cell_size
-    cell_size_q = cell_size is not None
+    cell_size_q: bool = cell_size is not None
     if cell_size_q:
         if not isinstance(cell_size, float):
             raise TypeError("cell_size must be float, not %r" % type(cell_size))
@@ -197,47 +193,44 @@ def _validate_cartesian_meshing_args_values(dimension, meshing_args):
             raise ValueError("cell_size must be strictly positive %r" % cell_size)
 
     # validate cell_size_x
-    cell_size_x_q = cell_size_x is not None
+    cell_size_x_q: bool = cell_size_x is not None
     if cell_size_x_q:
         if not isinstance(cell_size_x, float):
             raise TypeError("cell_size_x must be float, not %r" % type(cell_size_x))
         if not cell_size_x > 0:
             raise ValueError("cell_size_x must be strictly positive %r" % cell_size_x)
+    else:
+        raise ValueError("cell_size or cell_size_x must be provided.")
 
     # validate cell_size_y
-    cell_size_y_q = cell_size_y is not None
+    cell_size_y_q: bool = cell_size_y is not None
     if cell_size_y_q:
         if not isinstance(cell_size_y, float):
             raise TypeError("cell_size_y must be float, not %r" % type(cell_size_y))
         if not cell_size_y > 0:
             raise ValueError("cell_size_y must be strictly positive %r" % cell_size_y)
+    else:
+        raise ValueError("cell_size or cell_size_y must be provided.")
 
     # validate cell_size_z
-    cell_size_z_q = cell_size_z is not None
+    cell_size_z_q: bool = cell_size_z is not None
     if cell_size_z_q:
         if not isinstance(cell_size_z, float):
             raise TypeError("cell_size_z must be float, not %r" % type(cell_size_z))
         if not cell_size_z > 0:
             raise ValueError("cell_size_z must be strictly positive %r" % cell_size_z)
-
-    if not cell_size_q and not cell_size_x_q:
-        raise ValueError("cell_size or cell_size_x must be provided.")
-
-    if not cell_size_q and not cell_size_y_q:
-        raise ValueError("cell_size or cell_size_y must be provided.")
-
-    if dimension == 3:
-        if not cell_size_q and not cell_size_z_q:
+    else:
+        if dimension == 3:
             raise ValueError("cell_size or cell_size_z must be provided.")
 
 
-def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
+def _validate_tensor_grid_meshing_args_values(domain: pp.Domain, meshing_args: dict):
     """Validates items in meshing_args for tensor_grid mdg.
 
     Parameters:
         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
            the domain.
-        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        meshing_args: A dictionary with meshing keys depending on each grid_type.
 
     Raises:
         - TypeError: Raises type error messages if:
@@ -247,9 +240,9 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
             - z_pts is not ``np.ndarray``
         - ValueError: Raises value error messages if:
             - cell_size is not strictly positive
-            - x_pts does not contain boundary points
-            - y_pts does not contain boundary points
-            - z_pts does not contain boundary points
+            - The points np.min(x_pts) and np.max(x_pts) are not on the boundary.
+            - The points np.min(y_pts) and np.max(y_pts) are not on the boundary.
+            - The points np.min(z_pts) and np.max(z_pts) are not on the boundary.
             - cell_size or x_pts are not provided
             - cell_size or y_pts are not provided
             - cell_size or z_pts are not provided if dimension == 3
@@ -257,13 +250,13 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
     """
 
     # Common requirement among mesh types
-    cell_size = meshing_args.get("cell_size", None)
-    x_pts = meshing_args.get("x_pts", None)
-    y_pts = meshing_args.get("y_pts", None)
-    z_pts = meshing_args.get("z_pts", None)
+    cell_size: Union[float, None] = meshing_args.get("cell_size", None)
+    x_pts: Union[np.ndarray, None] = meshing_args.get("x_pts", None)
+    y_pts: Union[np.ndarray, None] = meshing_args.get("y_pts", None)
+    z_pts: Union[np.ndarray, None] = meshing_args.get("z_pts", None)
 
     # validate cell_size
-    cell_size_q = cell_size is not None
+    cell_size_q: bool = cell_size is not None
     if cell_size_q:
         if not isinstance(cell_size, float):
             raise TypeError("cell_size must be float, not %r" % type(cell_size))
@@ -271,7 +264,7 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
             raise ValueError("cell_size must be strictly positive %r" % cell_size)
 
     # validate cell_size_x
-    x_pts_q = x_pts is not None
+    x_pts_q: bool = x_pts is not None
     if x_pts_q:
         if not isinstance(x_pts, np.ndarray):
             raise TypeError("x_pts must be np.ndarray, not %r" % type(x_pts))
@@ -281,10 +274,12 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         )
         valid_range = np.isclose(x_range, box_x_range)
         if not np.all(valid_range):
-            raise ValueError("x_pts must contain boundary points.")
+            raise ValueError(
+                "The points np.min(x_pts), np.max(x_pts) must be on the boundary."
+            )
 
     # validate cell_size_y
-    y_pts_q = y_pts is not None
+    y_pts_q: bool = y_pts is not None
     if y_pts_q:
         if not isinstance(y_pts, np.ndarray):
             raise TypeError("y_pts must be np.ndarray, not %r" % type(y_pts))
@@ -294,10 +289,12 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         )
         valid_range = np.isclose(y_range, box_y_range)
         if not np.all(valid_range):
-            raise ValueError("y_pts must contain boundary points.")
+            raise ValueError(
+                "The points np.min(y_pts), np.max(y_pts) must be on the boundary."
+            )
 
     # validate cell_size_z
-    z_pts_q = z_pts is not None
+    z_pts_q: bool = z_pts is not None
     if z_pts_q:
         if not isinstance(z_pts, np.ndarray):
             raise TypeError("z_pts must be np.ndarray, not %r" % type(z_pts))
@@ -307,7 +304,9 @@ def _validate_tensor_grid_meshing_args_values(domain, meshing_args):
         )
         valid_range = np.isclose(z_range, box_z_range)
         if not np.all(valid_range):
-            raise ValueError("z_pts must contain boundary points.")
+            raise ValueError(
+                "The points np.min(z_pts), np.max(z_pts) must be on the boundary."
+            )
 
     if not cell_size_q and not x_pts_q:
         raise ValueError("cell_size or x_pts must be provided.")
@@ -356,7 +355,7 @@ def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
         fracture_network: fracture network specification.
 
     Returns:
-        An ``int`` equal 2 if the fracture network is FractureNetwork2d and 3 if the
+        Dimension equal to 2 if the fracture network is FractureNetwork2d and 3 if the
         fracture network is FractureNetwork3d.
 
     """
@@ -401,11 +400,15 @@ def _validate_args(
         dimension = _infer_dimension_from_network(fracture_network)
         _validate_cartesian_meshing_args_values(dimension, meshing_args)
     elif grid_type == "tensor_grid":
-        domain = fracture_network.domain
-        _validate_tensor_grid_meshing_args_values(domain, meshing_args)
+        if fracture_network.domain is not None:
+            _validate_tensor_grid_meshing_args_values(
+                fracture_network.domain, meshing_args
+            )
 
 
-def _preprocess_simplex_args(meshing_args, kwargs, mesh_function):
+def _preprocess_simplex_args(
+    meshing_args: dict, kwargs: dict, mesh_function: Callable
+) -> tuple:
     """Preprocess arguments for simplex mdg.
 
     See Also:
@@ -413,23 +416,23 @@ def _preprocess_simplex_args(meshing_args, kwargs, mesh_function):
         - :method:`~porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh`
 
     Parameters:
-        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
-        kwargs: A ``dict`` with extra keys depending on each grid_type.
+        meshing_args: A dictionary with meshing keys depending on each grid_type.
+        kwargs: A dictionary with extra keys depending on each grid_type.
         mesh_function: A callable mesh function of a fracture network specification.
 
     Returns:
-            lower_level_args: An instance of mesh_args which contains arguments passed
-            on to mesh size control.
-            extra_args_list: A list with values of the following arguments:
-                - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`, it
-                contains: tol, do_snap, constraints, file_name, dfn, tags_to_transfer,
-                    remove_small_fractures, write_geo, finalize_gmsh, and clear_gmsh.
-                - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`, it
-                contains: dfn, file_name, constraints, write_geo, tags_to_transfer,
-                    finalize_gmsh, and clear_gmsh.
-            kwargs: It could contain the item offset: ``float``: Defaults to 0. Parameter that
-                quantifies a perturbation to nodes around the faces that are split.
-                    NOTE: this is only for visualization purposes.
+        lower_level_args: An instance of mesh_args which contains arguments passed
+        on to mesh size control.
+        extra_args_list: A list with values of the following arguments:
+            - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`, It
+            contains: tol, do_snap, constraints, file_name, dfn, tags_to_transfer,
+                remove_small_fractures, write_geo, finalize_gmsh, and clear_gmsh.
+            - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`, It
+            contains: dfn, file_name, constraints, write_geo, tags_to_transfer,
+                finalize_gmsh, and clear_gmsh.
+        kwargs: It could contain the item offset: ``float``: Defaults to 0. Parameter that
+            quantifies a perturbation to nodes around the faces that are split.
+                NOTE: this is only for visualization purposes.
 
     """
 
@@ -446,48 +449,33 @@ def _preprocess_simplex_args(meshing_args, kwargs, mesh_function):
     defaults.pop("mesh_args")
     defaults.pop("kwargs")
 
-    # If the user has provided constrains update kwargs.
-    constraints = meshing_args.get("constraints", None)
-    if constraints is not None:
-        kwargs.update([("constraints", constraints)])
-
     # transfer defaults
     # The values of the dictionary are of type inspect.Parameter, which has a
     # default attribute that we access.
-    extra_args_list = [kwargs.get(key, val.default) for (key, val) in defaults.items()]
+    extra_args_list: list = [
+        kwargs.get(key, val.default) for (key, val) in defaults.items()
+    ]
 
     # remove duplicate keys
     [kwargs.pop(key) for key in defaults if key in kwargs]
 
-    cell_size = meshing_args.get("cell_size", None)
-    cell_size_min = meshing_args.get("cell_size_min", None)
-    cell_size_bound = meshing_args.get("cell_size_bound", None)
-    cell_size_frac = meshing_args.get("cell_size_frac", None)
-
     # translating quantities to lower level signature
-    lower_level_args = {}
-    # First set all cell sizes to cell_size
-    if cell_size is not None:
-        lower_level_args["mesh_size_min"] = cell_size
-        lower_level_args["mesh_size_bound"] = cell_size
-        lower_level_args["mesh_size_frac"] = cell_size
-
-    # If provided overwrites with cell_size_min
-    if cell_size_min is not None:
-        lower_level_args["mesh_size_min"] = cell_size_min
-
-    # If provided overwrites with cell_size_bound
-    if cell_size_bound is not None:
-        lower_level_args["mesh_size_bound"] = cell_size_bound
-
-    # If provided overwrites with cell_size_frac
-    if cell_size_frac is not None:
-        lower_level_args["mesh_size_frac"] = cell_size_frac
+    lower_level_args: dict = {}
+    cell_size: Union[float, None] = meshing_args.get("cell_size", None)
+    lower_level_args["mesh_size_min"] = meshing_args.get("cell_size_min", cell_size)
+    lower_level_args["mesh_size_bound"] = meshing_args.get(
+        "cell_size_boundary", cell_size
+    )
+    lower_level_args["mesh_size_frac"] = meshing_args.get(
+        "cell_size_fracture", cell_size
+    )
 
     return (lower_level_args, extra_args_list, kwargs)
 
 
-def _preprocess_cartesian_args(domain, meshing_args, kwargs):
+def _preprocess_cartesian_args(
+    domain: pp.Domain, meshing_args: dict, kwargs: dict
+) -> tuple:
     """Preprocess arguments for cartesian mdg.
 
     See Also:
@@ -496,8 +484,8 @@ def _preprocess_cartesian_args(domain, meshing_args, kwargs):
     Parameters:
         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
             the domain.
-        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
-        kwargs: A ``dict`` with extra keys depending on each grid_type.
+        meshing_args: A dictionary with meshing keys depending on each grid_type.
+        kwargs: A dictionary with extra keys depending on each grid_type.
 
     Returns:
         nx_cells: Number of cells in each direction.
@@ -506,49 +494,38 @@ def _preprocess_cartesian_args(domain, meshing_args, kwargs):
 
     """
 
-    xmin = domain.bounding_box["xmin"]
-    xmax = domain.bounding_box["xmax"]
-    ymin = domain.bounding_box["ymin"]
-    ymax = domain.bounding_box["ymax"]
+    xmin: float = domain.bounding_box["xmin"]
+    xmax: float = domain.bounding_box["xmax"]
+    ymin: float = domain.bounding_box["ymin"]
+    ymax: float = domain.bounding_box["ymax"]
 
-    phys_dims = [xmax, ymax]
+    phys_dims: list[float] = [xmax, ymax]
     if domain.dim == 3:
-        zmax = domain.bounding_box["zmax"]
-        phys_dims = [xmax, ymax, zmax]
+        phys_dims = [xmax, ymax, domain.bounding_box["zmax"]]
 
-    cell_size = meshing_args.get("cell_size", None)
-    cell_size_x = meshing_args.get("cell_size_x", None)
-    cell_size_y = meshing_args.get("cell_size_y", None)
-    cell_size_z = meshing_args.get("cell_size_z", None)
+    cell_size: Union[float, None] = meshing_args.get("cell_size", None)
+    cell_size_x: Union[float, None] = meshing_args.get("cell_size_x", cell_size)
+    cell_size_y: Union[float, None] = meshing_args.get("cell_size_y", cell_size)
+    cell_size_z: Union[float, None] = meshing_args.get("cell_size_z", cell_size)
 
     # If provided compute all the information from cell_size
-    nx_cells = [None for i in range(domain.dim)]
-    if cell_size is not None:
-        n_x = round((xmax - xmin) / cell_size)
-        n_y = round((ymax - ymin) / cell_size)
-        nx_cells = [n_x, n_y]
-
-        if domain.dim == 3:
-            zmin = domain.bounding_box["zmin"]
-            zmax = domain.bounding_box["zmax"]
-            n_z = round((zmax - zmin) / cell_size)
-            nx_cells = [n_x, n_y, n_z]
+    nx_cells: list[int] = [-1 for i in range(domain.dim)]
 
     # if provided overwrite information in x-direction
     if cell_size_x is not None:
-        n_x = round((xmax - xmin) / cell_size_x)
+        n_x: int = round((xmax - xmin) / cell_size_x)
         nx_cells[0] = n_x
 
     # if provided overwrite information in y-direction
     if cell_size_y is not None:
-        n_y = round((ymax - ymin) / cell_size_y)
+        n_y: int = round((ymax - ymin) / cell_size_y)
         nx_cells[1] = n_y
 
     # if provided overwrite information in z-direction
     if cell_size_z is not None and domain.dim == 3:
-        zmin = domain.bounding_box["zmin"]
-        zmax = domain.bounding_box["zmax"]
-        n_z = round((zmax - zmin) / cell_size_z)
+        zmin: float = domain.bounding_box["zmin"]
+        zmax: float = domain.bounding_box["zmax"]
+        n_z: int = round((zmax - zmin) / cell_size_z)
         nx_cells[2] = n_z
 
     # Remove duplicate keys
@@ -557,7 +534,9 @@ def _preprocess_cartesian_args(domain, meshing_args, kwargs):
     return (nx_cells, phys_dims, kwargs)
 
 
-def _preprocess_tensor_grid_args(domain, meshing_args, kwargs):
+def _preprocess_tensor_grid_args(
+    domain: pp.Domain, meshing_args: dict, kwargs: dict
+) -> tuple:
     """Preprocess arguments for tensor_grid mdg.
 
     See Also:
@@ -566,56 +545,45 @@ def _preprocess_tensor_grid_args(domain, meshing_args, kwargs):
     Parameters:
         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
             the domain.
-        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
-        kwargs: A ``dict`` with extra keys depending on each grid_type.
+        meshing_args: A dictionary with meshing keys depending on each grid_type.
+        kwargs: A dictionary with extra keys depending on each grid_type.
 
     Returns:
-        x_pts: An ``np.array`` with points in x-direction.
-        y_pts: An ``np.array`` with points in y-direction.
-        z_pts: An ``np.array`` with points in z-direction. It is ``None`` for 2D.
+        x_pts: An ``np.ndarray`` with points in x-direction.
+        y_pts: An ``np.ndarray`` with points in y-direction.
+        z_pts: An ``np.ndarray`` with points in z-direction. It is ``None`` for 2D.
         kwargs: It could contain the item offset: ``float``: Defaults to 0.
 
     """
 
-    x_pts = None
-    y_pts = None
-    z_pts = None
+    x_pts: Union[np.ndarray, None] = None
+    y_pts: Union[np.ndarray, None] = None
+    z_pts: Union[np.ndarray, None] = None
 
-    xmin = domain.bounding_box["xmin"]
-    xmax = domain.bounding_box["xmax"]
-    ymin = domain.bounding_box["ymin"]
-    ymax = domain.bounding_box["ymax"]
+    xmin: float = domain.bounding_box["xmin"]
+    xmax: float = domain.bounding_box["xmax"]
+    ymin: float = domain.bounding_box["ymin"]
+    ymax: float = domain.bounding_box["ymax"]
 
-    cell_size = meshing_args.get("cell_size", None)
-    user_x_pts = meshing_args.get("x_pts", None)
-    user_y_pts = meshing_args.get("y_pts", None)
-    user_z_pts = meshing_args.get("z_pts", None)
+    cell_size: Union[float, None] = meshing_args.get("cell_size", None)
 
     # If provided compute all the information from cell_size
     if cell_size is not None:
-        n_x = round((xmax - xmin) / cell_size) + 1
-        n_y = round((ymax - ymin) / cell_size) + 1
+        n_x: int = round((xmax - xmin) / cell_size) + 1
+        n_y: int = round((ymax - ymin) / cell_size) + 1
 
         x_pts = np.linspace(xmin, xmax, num=n_x)
         y_pts = np.linspace(ymin, ymax, num=n_y)
 
         if domain.dim == 3:
-            zmin = domain.bounding_box["zmin"]
-            zmax = domain.bounding_box["zmax"]
-            n_z = round((zmax - zmin) / cell_size) + 1
+            zmin: float = domain.bounding_box["zmin"]
+            zmax: float = domain.bounding_box["zmax"]
+            n_z: int = round((zmax - zmin) / cell_size) + 1
             z_pts = np.linspace(zmin, zmax, num=n_z)
 
-    # if provided overwrite information in x-direction
-    if user_x_pts is not None:
-        x_pts = user_x_pts
-
-    # if provided overwrite information in y-direction
-    if user_y_pts is not None:
-        y_pts = user_y_pts
-
-    # if provided overwrite information in z-direction
-    if user_z_pts is not None and domain.dim == 3:
-        z_pts = user_z_pts
+    x_pts = meshing_args.get("x_pts", x_pts)
+    y_pts = meshing_args.get("y_pts", y_pts)
+    z_pts = meshing_args.get("z_pts", z_pts)
 
     # remove duplicate keys
     [kwargs.pop(item[0]) for item in meshing_args.items() if item[0] in kwargs]
@@ -628,7 +596,7 @@ def create_mdg(
     meshing_args: dict,
     fracture_network: FractureNetwork,
     **kwargs,
-) -> pp.MixedDimensionalGrid:
+) -> Union[pp.MixedDimensionalGrid, None]:
     """Creates a mixed-dimensional grid.
 
     Examples:
@@ -661,21 +629,16 @@ def create_mdg(
         grid_type: Type of grid. Use ``simplex`` for unstructured triangular and
             tetrahedral grids, ``cartesian`` for structured, uniform Cartesian grids,
             and ``tensor_grid`` for structured, non-uniform Cartesian grids.
-        meshing_args: A ``dict`` with meshing keys depending on each grid_type:
+        meshing_args: A dictionary with meshing keys depending on each grid_type:
             if grid_type == "simplex"
                 cell_size: ``float``: Overall minimum cell size. It is required, if one
-                    of [cell_size_min, cell_size_frac, cell_size_bound] is not provided.
+                    of [cell_size_min, cell_size_fracture, cell_size_boundary] is not provided.
                 cell_size_min: ``float``: minimum cell size. If not provided, cell_size
                     will be used for completeness.
-                cell_size_frac: ``float``: size at the fracture. If not provided,
+                cell_size_fracture: ``float``: size at the fracture. If not provided,
                     cell_size will be used for completeness.
-                cell_size_bound: ``float``: boundary cell size. If not provided,
+                cell_size_boundary: ``float``: boundary cell size. If not provided,
                     cell_size will be used for completeness.
-                constraints: ``np.ndarray``: Index list of the fractures that should be
-                    treated as constraints in meshing, but not added as separate
-                    fracture grids (no splitting of nodes etc.). Useful to define
-                    subregions of the domain (and assign e.g., sources, material
-                    properties, etc.). Alternatively this data can be passed in **kwargs.
             if grid_type == "cartesian"
                 cell_size: ``float``: size in any direction. It is required, if one of
                     [cell_size_x, cell_size_y, cell_size_z] is not provided.
@@ -688,20 +651,23 @@ def create_mdg(
             if grid_type == "tensor_grid"
                 cell_size: ``float``: size in all directions. It is required, if one of
                     [x_pts, y_pts, z_pts] is not provided.
-                x_pts: ``np.array``: points in x-direction including boundary points.
+                x_pts: ``np.ndarray``: points in x-direction including boundary points.
                     If x_pts is provided, it overwrites the information computed from
                     cell_size in the x-direction.
-                y_pts: ``np.array``: points in y-direction including boundary points.
+                y_pts: ``np.ndarray``: points in y-direction including boundary points.
                     If y_pts is provided, it overwrites the information computed from
                     cell_size in the y-direction.
-                z_pts: ``np.array``: points in z-direction including boundary points.
+                z_pts: ``np.ndarray``: points in z-direction including boundary points.
                     If z_pts is provided, it overwrites the information computed from
                     cell_size in the z-direction.
-        fracture_network: fracture network specification. Instance of
-            :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d` or
-            :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
+        fracture_network: fracture network specification.
         **kwargs: A ``dict`` with extra meshing keys associated with each grid_type:
             if grid_type == "simplex" see signature for the `mesh` function in:
+                constraints: ``np.ndarray``: Index list of the fractures that should be
+                treated as constraints in meshing, but not added as separate fracture
+                grids (no splitting of nodes etc.). Useful to define subregions of the
+                domain (and assign e.g., sources, material properties, etc.).
+                dfn: ``bool``: Directive for generating a DFN mesh. Active if True.
                 :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
                 :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`
             if grid_type == "simplex" or "tensor_grid":
@@ -727,10 +693,15 @@ def create_mdg(
 
     _validate_args(grid_type, meshing_args, fracture_network)
 
-    dim = _infer_dimension_from_network(fracture_network)
+    mdg: Union[pp.MixedDimensionalGrid, None] = None
 
     # Unstructured cases
     if grid_type == "simplex":
+        dim: int = _infer_dimension_from_network(fracture_network)
+
+        # Elegant solutions can be implemented to made this part more compact.
+        # However while running mypy on this file, large type hints for
+        # FractureNetwork2d.mesh and FractureNetwork3d.mesh are need.
         if dim == 2:
             # preprocess user's arguments provided in kwargs
             (lower_level_args, extra_args, kwargs) = _preprocess_simplex_args(
@@ -738,7 +709,6 @@ def create_mdg(
             )
             # perform the actual meshing
             mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
-
         elif dim == 3:
             # preprocess user's arguments provided in kwargs
             (lower_level_args, extra_args, kwargs) = _preprocess_simplex_args(
@@ -747,7 +717,7 @@ def create_mdg(
             # perform the actual meshing
             mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
 
-    domain = _retrieve_domain_instance(fracture_network)
+    domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
     if domain is not None:
         # Structured cases
         if grid_type == "cartesian":

@@ -18,12 +18,14 @@ import porepy.grids.standard_grids.utils as utils
 
 
 class TestMDGridGeneration:
-    """Test suit for verifying the md-grid generation of pp.create_mdg"""
+    """Test suite for verifying the md-grid generation of pp.create_mdg"""
 
     def cell_size(self) -> float:
+        """Common cell_size for all tests"""
         return 0.5
 
     def fracture_2d_data(self) -> list[np.ndarray]:
+        """Fracture points for 2d cases"""
         data: List[np.array] = [
             np.array([[0.0, 2.0], [0.0, 0.0]]),
             np.array([[1.0, 1.0], [0.0, 1.0]]),
@@ -32,6 +34,7 @@ class TestMDGridGeneration:
         return data
 
     def fracture_3d_data(self) -> List[np.array]:
+        """Fracture points for 3d cases"""
         data: List[np.array] = [
             np.array(
                 [[2.0, 3.0, 3.0, 2.0], [2.0, 2.0, 2.0, 2.0], [0.0, 0.0, 1.0, 1.0]]
@@ -46,6 +49,7 @@ class TestMDGridGeneration:
         return data
 
     def mdg_types(self):
+        """Supported mdg types"""
         return ["simplex", "cartesian", "tensor_grid"]
 
     def domains(self):
@@ -59,8 +63,8 @@ class TestMDGridGeneration:
     def higher_level_extra_args_data_2d(self) -> List[dict]:
         simplex_extra_args: dict[str] = {
             "cell_size_min": 0.5,
-            "cell_size_bound": 1.0,
-            "cell_size_frac": 0.5,
+            "cell_size_boundary": 1.0,
+            "cell_size_fracture": 0.5,
         }
         cartesian_extra_args: dict[str] = {"cell_size_x": 0.5, "cell_size_y": 0.5}
         tensor_grid_extra_args: dict[str] = {
@@ -85,8 +89,8 @@ class TestMDGridGeneration:
     def higher_level_extra_args_data_3d(self) -> List[dict]:
         simplex_extra_args: dict[str] = {
             "cell_size_min": 0.5,
-            "cell_size_bound": 1.0,
-            "cell_size_frac": 0.5,
+            "cell_size_boundary": 1.0,
+            "cell_size_fracture": 0.5,
         }
         cartesian_extra_args: dict[str] = {
             "cell_size_x": 0.5,
@@ -208,6 +212,9 @@ class TestMDGridGeneration:
 
     def mdg_equality(self, h_mdg, l_mdg) -> bool:
         """Relaxed mdg equality"""
+
+        # This comparison includes information about dimension, involved grids and their
+        # topological information
         equality_q = h_mdg.__repr__() == l_mdg.__repr__()
         return equality_q
 
@@ -230,15 +237,16 @@ class TestMDGridGeneration:
         "grid_type, domain_index, fracture_indices", test_parameters
     )
     def test_generation(self, grid_type, domain_index, fracture_indices) -> None:
-        """The test's logic is about comparing one mdg generated with
-        pp.create_mdg and one mdg without, and finally compare them with a relaxed equality
-        Since the wrapper function pp.create_mdg is intended to manipulate the input and
-        internally call the generate for each different case.
-        In this test:
+        """Test logic compares a mdg generated using pp.create_mdg with one not generated
+        with pp.create_mdg.
+        The function pp.create_mdg encapsulates the generation of an mdg by
+        utilizing the input provided by the user and calling internal functions
+        `fracture_network.mesh`, `pp.meshing.cart_grid` or `pp.meshing.tensor_grid`.
+        So, in this test:
         - high-level generation means the actual use of the function pp.create_mdg;
         - lower-level generation means the generation of an mdg for each grid_type
             by calling `fracture_network.mesh`, `pp.meshing.cart_grid` or
-            `pp.meshing.tensor_grid` directly those functions."""
+            `pp.meshing.tensor_grid`."""
 
         # Generates a fracture_network that can be without fractures
         fracture_network = self.generate_network(domain_index, fracture_indices)
@@ -290,11 +298,11 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         assert ref_msg in str(error_message.value)
 
         # testing incompleteness in cell_sizes
-        cell_size_args = ["cell_size_min", "cell_size_bound", "cell_size_frac"]
+        cell_size_args = ["cell_size_min", "cell_size_boundary", "cell_size_fracture"]
         meshing_args: dict[str] = {
             "cell_size_min": 0.1,
-            "cell_size_bound": 0.1,
-            "cell_size_frac": 0.1,
+            "cell_size_boundary": 0.1,
+            "cell_size_fracture": 0.1,
         }
         for chunk in cell_size_args:
             loc_meshing_args = {}
@@ -309,14 +317,14 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         cell_size_args = [
             "cell_size",
             "cell_size_min",
-            "cell_size_bound",
-            "cell_size_frac",
+            "cell_size_boundary",
+            "cell_size_fracture",
         ]
         meshing_args: dict[str] = {
             "cell_size": 0.1,
             "cell_size_min": 0.1,
-            "cell_size_bound": 0.1,
-            "cell_size_frac": 0.1,
+            "cell_size_boundary": 0.1,
+            "cell_size_fracture": 0.1,
         }
         for chunk in cell_size_args:
             with pytest.raises(TypeError) as error_message:
@@ -435,7 +443,15 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
                 loc_meshing_args.update(meshing_args.items())
                 pts = np.array([-1.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.1])
                 loc_meshing_args[chunk] = pts
-                ref_msg = str(chunk + " must contain boundary points.")
+                ref_msg = str(
+                    "The points np.min("
+                    + chunk
+                    + "), "
+                    + "np.max("
+                    + chunk
+                    + ")"
+                    + " must be on the boundary."
+                )
                 pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
             assert ref_msg in str(error_message.value)
 
