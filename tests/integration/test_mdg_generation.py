@@ -23,7 +23,7 @@ class TestMDGridGeneration:
     def cell_size(self) -> float:
         return 0.5
 
-    def fracture_2d_data(self) -> List[np.array]:
+    def fracture_2d_data(self) -> list[np.ndarray]:
         data: List[np.array] = [
             np.array([[0.0, 2.0], [0.0, 0.0]]),
             np.array([[1.0, 1.0], [0.0, 1.0]]),
