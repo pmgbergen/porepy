@@ -661,7 +661,6 @@ def create_mdg(
         grid_type: Type of grid. Use ``simplex`` for unstructured triangular and
             tetrahedral grids, ``cartesian`` for structured, uniform Cartesian grids,
             and ``tensor_grid`` for structured, non-uniform Cartesian grids.
-            Instance of Literal["simplex", "cartesian", "tensor_grid"].
         meshing_args: A ``dict`` with meshing keys depending on each grid_type:
             if grid_type == "simplex"
                 cell_size: ``float``: Overall minimum cell size. It is required, if one
