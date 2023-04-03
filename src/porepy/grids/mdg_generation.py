@@ -637,7 +637,7 @@ def create_mdg(
                     of [cell_size_min, cell_size_fracture, cell_size_boundary] is not provided.
                 cell_size_min: ``float``: minimum cell size. If not provided, cell_size
                     will be used for completeness.
-                cell_size_fracture: ``float``: size at the fracture. If not provided,
+                cell_size_fracture: ``float``: target mesh size close to the fracture. If not provided,
                     cell_size will be used for completeness.
                 cell_size_boundary: ``float``: boundary cell size. If not provided,
                     cell_size will be used for completeness.
