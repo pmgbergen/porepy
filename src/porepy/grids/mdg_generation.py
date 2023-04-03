@@ -421,7 +421,7 @@ def _preprocess_simplex_args(meshing_args, kwargs, mesh_function):
             lower_level_args: An instance of mesh_args which contains arguments passed
             on to mesh size control.
             extra_args_list: A list with values of the following arguments:
-                - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`, It
+                - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`, it
                 contains: tol, do_snap, constraints, file_name, dfn, tags_to_transfer,
                     remove_small_fractures, write_geo, finalize_gmsh, and clear_gmsh.
                 - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`, It
