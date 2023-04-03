@@ -100,7 +100,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
     """
 
-    def set_equations(self):
+    def set_equations(self) -> None:
         """Set equations for the subdomains and interfaces.
 
         The following equations are set:
@@ -136,15 +136,14 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
         self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
 
-    def momentum_balance_equation(self, subdomains: list[pp.Grid]):
+    def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Momentum balance equation in the matrix.
 
         Inertial term is not included.
 
         Parameters:
             subdomains: List of subdomains where the force balance is defined. Only
-            known usage
-                is for the matrix domain(s).
+                known usage is for the matrix domain(s).
 
         Returns:
             Operator for the force balance equation in the matrix.
@@ -159,7 +158,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         equation.set_name("momentum_balance_equation")
         return equation
 
-    def inertia(self, subdomains: list[pp.Grid]):
+    def inertia(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Inertial term [m^2/s].
 
         Added here for completeness, but not used in the current implementation. Be
@@ -238,7 +237,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         force_balance_eq.set_name("interface_force_balance_equation")
         return force_balance_eq
 
-    def normal_fracture_deformation_equation(self, subdomains: list[pp.Grid]):
+    def normal_fracture_deformation_equation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         """Equation for the normal component of the fracture deformation.
 
         This constraint equation enforces non-penetration of opposing fracture
@@ -424,7 +425,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
 
-    def body_force(self, subdomains: list[pp.Grid]):
+    def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Body force integrated over the subdomain cells.
 
         FIXME: See FluidMassBalanceEquations.fluid_source.
@@ -450,7 +451,7 @@ class ConstitutiveLawsMomentumBalance(
 ):
     """Class for constitutive equations for momentum balance equations."""
 
-    def stress(self, subdomains: list[pp.Grid]):
+    def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Stress operator.
 
         Parameters:
@@ -516,7 +517,7 @@ class VariablesMomentumBalance:
 
     """
 
-    def create_variables(self):
+    def create_variables(self) -> None:
         """Set variables for the subdomains and interfaces.
 
         The following variables are set:
@@ -545,7 +546,7 @@ class VariablesMomentumBalance:
             tags={"si_units": "Pa"},
         )
 
-    def displacement(self, subdomains: list[pp.Grid]):
+    def displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
         """Displacement in the matrix.
 
         Parameters:
@@ -567,7 +568,7 @@ class VariablesMomentumBalance:
 
         return self.equation_system.md_variable(self.displacement_variable, subdomains)
 
-    def interface_displacement(self, interfaces: list[pp.MortarGrid]):
+    def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Variable:
         """Displacement on fracture-matrix interfaces.
 
         Parameters:
@@ -592,7 +593,7 @@ class VariablesMomentumBalance:
             self.interface_displacement_variable, interfaces
         )
 
-    def contact_traction(self, subdomains: list[pp.Grid]):
+    def contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
         """Fracture contact traction.
 
         Parameters:
@@ -803,7 +804,7 @@ class BoundaryConditionsMomentumBalance:
             sd: Subdomain grid.
 
         Returns:
-            bc: Boundary condition representation. Dirichlet on all global boundaries,
+            Boundary condition representation. Dirichlet on all global boundaries,
             Dirichlet also on fracture faces.
 
         """
