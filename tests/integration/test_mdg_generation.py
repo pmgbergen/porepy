@@ -8,13 +8,17 @@ Functionalities being tested:
 * Generation of meshes with dimension {2,3}
 
 """
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import pytest
 
 import porepy as pp
 import porepy.grids.standard_grids.utils as utils
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
+
+FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
 class TestMDGridGeneration:
@@ -53,6 +57,7 @@ class TestMDGridGeneration:
         return ["simplex", "cartesian", "tensor_grid"]
 
     def domains(self):
+        """Domain list"""
         domain_2d = pp.Domain({"xmin": 0, "xmax": 5, "ymin": 0, "ymax": 5})
         domain_3d = pp.Domain(
             {"xmin": 0, "xmax": 5, "ymin": 0, "ymax": 5, "zmin": 0, "zmax": 5}
@@ -61,6 +66,7 @@ class TestMDGridGeneration:
 
     # Extra mesh arguments
     def higher_level_extra_args_data_2d(self) -> List[dict]:
+        """Admissible keys in pp.create_mdg for 2d cases"""
         simplex_extra_args: dict[str] = {
             "cell_size_min": 0.5,
             "cell_size_boundary": 1.0,
@@ -74,6 +80,7 @@ class TestMDGridGeneration:
         return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
     def lower_level_extra_args_data_2d(self) -> List[dict]:
+        """Admissible keys for 2d cases"""
         simplex_extra_args: dict[str] = {
             "mesh_size_min": 0.5,
             "mesh_size_bound": 1.0,
@@ -87,6 +94,7 @@ class TestMDGridGeneration:
         return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
     def higher_level_extra_args_data_3d(self) -> List[dict]:
+        """Admissible keys in pp.create_mdg for 3d cases"""
         simplex_extra_args: dict[str] = {
             "cell_size_min": 0.5,
             "cell_size_boundary": 1.0,
@@ -105,6 +113,7 @@ class TestMDGridGeneration:
         return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
     def lower_level_extra_args_data_3d(self) -> List[dict]:
+        """Admissible keys for 3d cases"""
         simplex_extra_args: dict[str] = {
             "mesh_size_min": 0.5,
             "mesh_size_bound": 1.0,
@@ -119,8 +128,12 @@ class TestMDGridGeneration:
 
         return [simplex_extra_args, cartesian_extra_args, tensor_grid_extra_args]
 
-    def generate_network(self, domain_index, fracture_indices: List[int]):
-        """Construct fracture network.
+    def generate_network(
+        self, domain_index: int, fracture_indices: List[int]
+    ) -> FractureNetwork:
+        """Construct fracture network:
+            - FractureNetwork2d
+            - FractureNetwork3d
 
         Parameters:
             domain_index (int): index of computational domain
@@ -131,13 +144,17 @@ class TestMDGridGeneration:
             geometrical information
         """
 
-        disjoint_fractures = None
+        disjoint_fractures: list = None
         domain: pp.Domain = self.domains()[domain_index]
         if domain.dim == 2:
+            # Collect fracture points (the geometry of each fracture)
             geometry = [self.fracture_2d_data()[id] for id in fracture_indices]
+            # Build a disjoint set of LineFractures
             disjoint_fractures = list(map(pp.LineFracture, geometry))
         elif domain.dim == 3:
+            # Collect fracture points (the geometry of each fracture)
             geometry = [self.fracture_3d_data()[id] for id in fracture_indices]
+            # Build a disjoint set of PlaneFracture
             disjoint_fractures = list(map(pp.PlaneFracture, geometry))
 
         network = pp.create_fracture_network(disjoint_fractures, domain)
@@ -157,13 +174,16 @@ class TestMDGridGeneration:
         # common mesh argument
         meshing_args: dict[str] = {"cell_size": self.cell_size()}
 
-        extra_arg_index = self.mdg_types().index(grid_type)
-        extra_arguments = None
+        # Collect extra arguments for the test
+        extra_arg_index: int = self.mdg_types().index(grid_type)
+        extra_arguments: Union[dict, None] = None
         if fracture_network.domain.dim == 2:
             extra_arguments = self.higher_level_extra_args_data_2d()[extra_arg_index]
         elif fracture_network.domain.dim == 3:
             extra_arguments = self.higher_level_extra_args_data_3d()[extra_arg_index]
         meshing_args.update(extra_arguments.items())
+
+        # call high level function
         mdg = pp.create_mdg(
             grid_type, meshing_args, fracture_network, **extra_arguments
         )
