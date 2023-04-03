@@ -33,7 +33,7 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-from tests.functional.setups.manu_flow_incomp_frac import (
+from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompSaveData,
     ManuIncompUtils,
     SingleEmbeddedVerticalFracture,
