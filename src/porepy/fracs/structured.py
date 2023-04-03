@@ -399,27 +399,42 @@ def _create_lower_dim_grids_2d(g_2d, fracs, nx):
 
 
 def _create_embedded_2d_grid(loc_coord, glob_id):
-    """
-    Create a 2d grid that is embedded in a 3d grid.
-    """
+    """Create a 2d grid that is embedded in a 3d grid."""
+
+    # Center the points around the origin
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     loc_coord -= loc_center
+
     # Check that the points indeed form a line
     assert pp.geometry_property_checks.points_are_planar(loc_coord)
-    # Find the tangent of the line
-    # Projection matrix
+
+    # Map the points to a true 2d plane
     rot = pp.map_geometry.project_plane_matrix(loc_coord)
     loc_coord_2d = rot.dot(loc_coord)
-    # The points are now 2d along two of the coordinate axis, but we
-    # don't know which yet. Find this.
-    sum_coord = np.sum(np.abs(loc_coord_2d), axis=1)
+    # The points are now 2d along two of the coordinate axis, but we don't know which
+    # yet. Find this by identifying the coordinate axis which is numerical zero. This
+    # requires a scaling with the fracture size to avoid numerical issues. Find the size
+    # of the fracture by first finding the bounding box of the points.
+    bounding_box: dict[str, float] = pp.domain.bounding_box_of_point_cloud(loc_coord)
+    # The bounding box has keys 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'. The list
+    # comprehension below loops over the min and max values of each coordinate and finds
+    # the largest difference.
+    fracture_size = np.max(
+        [bounding_box[f"{s}max"] - bounding_box[f"{s}min"] for s in "xyz"]
+    )
+    # Compute the sum of the coordinates, scaled by the fracture size. Exactly two of
+    # the coordinates should be non-zerozero.
+    sum_coord = np.sum(np.abs(loc_coord_2d), axis=1) / fracture_size
     active_dimension = np.logical_not(np.isclose(sum_coord, 0))
     # Check that we are indeed in 2d
     assert np.sum(active_dimension) == 2
+
     # Sort nodes, and create grid
     coord_2d = loc_coord_2d[active_dimension]
+    # Sort the indexes first by the first coordinate, then by the second
     sort_ind = np.lexsort((coord_2d[0], coord_2d[1]))
     sorted_coord = coord_2d[:, sort_ind]
+    # EK: I have no idea what the next line does.
     sorted_coord = np.round(sorted_coord * 1e10) / 1e10
     unique_x = np.unique(sorted_coord[0])
     unique_y = np.unique(sorted_coord[1])
@@ -431,8 +446,8 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     nodes = np.zeros(g.nodes.shape)
     nodes[active_dimension] = g.nodes[0:2]
     g.nodes = nodes
-    # Project back again to 3d coordinates
 
+    # Project back again to 3d coordinates
     irot = rot.transpose()
     g.nodes = irot.dot(g.nodes)
     g.nodes += loc_center
