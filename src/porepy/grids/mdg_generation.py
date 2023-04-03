@@ -690,7 +690,7 @@ In terms of meshing arguments, we provide two ways of creating mixed-dimensional
             - :meth:`~_validate_args`
             - _validate_args_types
         - ValueError: If invalid arguments values are provided. See validator functions:
-            - _validate_args
+            - :meth:`~_validate_args`
             - :meth:`~_validate_grid_type_value`
             - :meth:`~_validate_simplex_meshing_args_values`
             - :meth:`~_validate_cartesian_meshing_args_values`
