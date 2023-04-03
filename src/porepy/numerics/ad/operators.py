@@ -707,10 +707,10 @@ class Operator:
         # derivatives represented). Then parse the operator by traversing its
         # tree-representation, and parse and combine individual operators.
 
-        prev_vals = system_manager.get_variable_values(from_iterate=False)
+        prev_vals = system_manager.get_variable_values(solution_index=0)
 
         if state is None:
-            state = system_manager.get_variable_values(from_iterate=True)
+            state = system_manager.get_variable_values(iterate_index=0)
 
         # Initialize Ad variables with the current iterates
 
@@ -1237,8 +1237,8 @@ class TimeDependentDenseArray(DenseArray):
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
     dictionaries associated with subdomains and interfaces.
     The array values are stored
-    in ``data[pp.STATE][pp.ITERATE][self._name]`` for the current time and
-    ``data[pp.STATE][self._name]`` for the previous time.
+    in ``data['stored_iterates'][self._name][0]`` for the current time and
+    ``data['stored_solutions'][self._name][0]`` for the previous time.
 
     The array can be differentiated in time using ``pp.ad.dt()``.
 
@@ -1247,7 +1247,8 @@ class TimeDependentDenseArray(DenseArray):
     however, this is pending an update to the model classes.
 
     Parameters:
-        name: Name of the variable. Should correspond to items in data[pp.STATE].
+        name: Name of the variable. Should correspond to items in
+            ``data['stored_solutions']``.
         subdomains: Subdomains on which the array is defined. Defaults to None.
         interfaces: Interfaces on which the array is defined. Defaults to None.
             Exactly one of subdomains and interfaces must be non-empty.
@@ -1255,9 +1256,9 @@ class TimeDependentDenseArray(DenseArray):
             previous time step.
 
     Attributes:
-        previous_timestep: If True, the array will be evaluated using data[pp.STATE]
-            (data being the data dictionaries for subdomains and interfaces), if False,
-            data[pp.STATE][pp.ITERATE] is used.
+        previous_timestep: If True, the array will be evaluated using
+            ``data['stored_solutions']`` (data being the data dictionaries for
+            subdomains and interfaces), if False, ``data['stored_iterates']`` is used.
 
     Raises:
         ValueError: If either none of, or both of, subdomains and interfaces are empty.
@@ -1303,10 +1304,10 @@ class TimeDependentDenseArray(DenseArray):
             self._is_interface_array = True
 
         self.prev_time: bool = previous_timestep
-        """If True, the array will be evaluated using ``data[pp.STATE]``
+        """If True, the array will be evaluated using ``data['stored_solutions']``
         (data being the data dictionaries for subdomains and interfaces).
 
-        If False, ``data[pp.STATE][pp.ITERATE]`` is used.
+        If False, ``data['stored_iterates']`` is used.
 
         """
 
@@ -1331,9 +1332,9 @@ class TimeDependentDenseArray(DenseArray):
         """Convert this array into numerical values.
 
         The numerical values will be picked from the representation of the array in
-        ``data[pp.STATE][pp.ITERATE]`` (where data is the data dictionary of the subdomains
+        ``data['stored_iterates']`` (where data is the data dictionary of the subdomains
         or interfaces of this Array), or, if ``self.prev_time = True``,
-        from ``data[pp.STATE]``.
+        from ``data['stored_solutions']``.
 
         Parameters:
             mdg: Mixed-dimensional grid.
@@ -1353,9 +1354,9 @@ class TimeDependentDenseArray(DenseArray):
                 data = mdg.subdomain_data(g)
 
             if self.prev_time:
-                vals.append(data[pp.STATE][self._name])
+                vals.append(data['stored_solutions'][self._name][0])
             else:
-                vals.append(data[pp.STATE][pp.ITERATE][self._name])
+                vals.append(data['stored_iterates'][self._name][0])
 
         if len(vals) > 0:
             # Normal case: concatenate the values from all grids
@@ -1508,7 +1509,8 @@ class Variable(Operator):
             # This is a mortar grid. Assume that there are only cell dofs
             return self.domain.num_cells * self._cells
         else:
-            # We now know the domain is a grid by logic, make an assertion to appease mypy
+            # We now know the domain is a grid by logic, make an assertion to appease
+            # mypy
             return (
                 self.domain.num_cells * self._cells
                 + self.domain.num_faces * self._faces
@@ -1624,11 +1626,10 @@ class MixedDimensionalVariable(Variable):
 
         ### PRIVATE
 
-        # Flag to identify variables merged over no subdomains. This requires special treatment
-        # in various parts of the code.
-        # A use case is variables that are only defined on subdomains of codimension >= 1
-        # (e.g., contact traction variable), assigned to a problem where the grid happened
-        # not to have any fractures.
+        # Flag to identify variables merged over no subdomains. This requires special
+        # treatment in various parts of the code. A use case is variables that are only
+        # defined on subdomains of codimension >= 1 (e.g., contact traction variable),
+        # assigned to a problem where the grid happened not to have any fractures.
         self._no_variables = len(variables) == 0
 
         # Take the name from the first variable.
@@ -1648,8 +1649,9 @@ class MixedDimensionalVariable(Variable):
     def copy_common_sub_tags(self) -> None:
         """Copy any shared tags from the sub variables to this variable.
 
-        Only tags with identical values are copied. Thus, the md variable can "trust" that
-        its tags are consistent with all sub variables.
+        Only tags with identical values are copied. Thus, the md variable can "trust"
+        that its tags are consistent with all sub variables.
+        
         """
         self._tags = {}
         # If there are no sub variables, there is nothing to do.

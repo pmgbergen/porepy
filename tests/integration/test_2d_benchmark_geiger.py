@@ -4,7 +4,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 import tests.common.flow_benchmark_2d_geiger_setup as setup
-
+from porepy.params.data import set_time_dependent_value
 
 class TestVEMOnBenchmark(unittest.TestCase):
     def solve(self, kf, description, is_coarse=False):
@@ -44,13 +44,18 @@ class TestVEMOnBenchmark(unittest.TestCase):
         assembler.distribute_variable(p)
 
         for sd, sd_data in mdg.subdomains(return_data=True):
-            sd_data[pp.STATE]["darcy_flux"] = sd_data[pp.STATE]["pressure"][
-                : sd.num_faces
+            darcy_flux_values = sd_data['stored_solutions']["pressure"][0][
+                :sd.num_faces
             ]
-            sd_data[pp.STATE]["pressure"] = sd_data[pp.STATE]["pressure"][
-                sd.num_faces :
-            ]
+            sd_data = set_time_dependent_value(
+            name='darcy_flux', values=darcy_flux_values, data=sd_data, solution_index=0
+            )
 
+            pressure_values = sd_data['stored_solutions']["pressure"][0][sd.num_faces:]
+            sd_data = set_time_dependent_value(
+            name='pressure', values=pressure_values, data=sd_data, solution_index=0
+            )            
+            
     def test_vem_blocking(self):
         kf = 1e-4
         self.solve(kf, "blocking")

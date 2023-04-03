@@ -93,8 +93,8 @@ def _get_ad_array(
         eq_system.create_variables("foo", subdomains=[g])
         var = eq_system.variables[0]
         d = mdg.subdomain_data(g)
-        d[pp.STATE]["foo"] = variable_val
-        d[pp.STATE][pp.ITERATE]["foo"] = variable_val
+        d['stored_solutions']["foo"][0] = variable_val
+        d['stored_iterates']["foo"][0] = variable_val
         mat = pp.ad.SparseArray(jac)
 
         return mat @ var, eq_system

@@ -364,7 +364,7 @@ class TestDFN(unittest.TestCase):
         assembler.distribute_variable(x)
         for sd, data in mdg.subdomains(return_data=True):
             discr = data["discretization"]["flow"]["flux"]
-            data["pressure"] = discr.extract_pressure(sd, data[pp.STATE]["flow"], data)
+            data["pressure"] = discr.extract_pressure(sd, data['stored_solutions']["flow"][0], data)
 
         for sd, data in mdg.subdomains(return_data=True):
 
@@ -457,7 +457,7 @@ class TestDFN(unittest.TestCase):
                 else:
                     raise ValueError
 
-            self.assertTrue(np.allclose(d[pp.STATE]["flow"], known))
+            self.assertTrue(np.allclose(d['stored_solutions']["flow"][0], known))
 
 
 # ------------------------- HELP FUNCTIONS --------------------------------#
