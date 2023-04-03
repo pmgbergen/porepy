@@ -37,7 +37,7 @@ import pytest
 
 import porepy as pp
 from tests.functional.utils.convergence_analysis import ConvergenceAnalysis
-from tests.functional.setups.manu_flow_comp_frac import (
+from tests.functional.setups.manu_flow_comp_2d_frac import (
     ManuCompFlowSetup,
     manu_comp_fluid,
     manu_comp_solid,
