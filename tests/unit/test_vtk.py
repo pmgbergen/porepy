@@ -268,8 +268,8 @@ def test_mdg(setup):
         pp.set_state(
             sd_data,
             {
-                "dummy_scalar": np.ones(sd.num_cells) * sd.dim,
-                "dummy_vector": np.ones((3, sd.num_cells)) * sd.dim,
+                "dummy_scalar": {0: np.ones(sd.num_cells) * sd.dim},
+                "dummy_vector": {0: np.ones((3, sd.num_cells)) * sd.dim},
             },
         )
 
@@ -277,8 +277,8 @@ def test_mdg(setup):
         pp.set_state(
             intf_data,
             {
-                "dummy_scalar": np.zeros(intf.num_cells),
-                "unique_dummy_scalar": np.zeros(intf.num_cells),
+                "dummy_scalar": {0: np.zeros(intf.num_cells)},
+                "unique_dummy_scalar": {0: np.zeros(intf.num_cells)},
             },
         )
 
@@ -362,8 +362,8 @@ def test_mdg_data_selection(setup):
         pp.set_state(
             sd_data,
             {
-                "dummy_scalar": np.ones(sd.num_cells) * sd.dim,
-                "dummy_vector": np.ones((3, sd.num_cells)) * sd.dim,
+                "dummy_scalar": {0: np.ones(sd.num_cells) * sd.dim},
+                "dummy_vector": {0: np.ones((3, sd.num_cells)) * sd.dim},
             },
         )
 
@@ -371,8 +371,8 @@ def test_mdg_data_selection(setup):
         pp.set_state(
             intf_data,
             {
-                "dummy_scalar": np.zeros(intf.num_cells),
-                "unique_dummy_scalar": np.zeros(intf.num_cells),
+                "dummy_scalar": {0: np.zeros(intf.num_cells)},
+                "unique_dummy_scalar": {0: np.zeros(intf.num_cells)},
             },
         )
 

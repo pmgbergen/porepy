@@ -3,7 +3,7 @@
 The tests focus on various assembly methods:
     * test_variable_creation: Test that variable creation from a EquationSystem works.
     * test_variable_tags: Tagging of variables, used for filtering in an EquationSystem.
-    * test_get_set_methods: Get and set methods for variables.
+    * test_set_get_methods: Get and set methods for variables.
     * test_projection_matrix: Projection from a global vector to one defined on a subset
         of variables.
     * test_parse_variable_like, test_parse_single_equation, test_parse_equations:
@@ -289,7 +289,7 @@ class EquationSystemSetup:
             self.name_intf_top_variable,
         ]
         sys_man.set_variable_values(
-            global_vals, variables=all_variables, to_iterate=True, to_state=True
+            global_vals, variables=all_variables, iterate_index=0, solution_index=0
         )
         self.initial_values = global_vals
 
@@ -516,15 +516,16 @@ def test_set_get_methods(
 
     The test is performed for a number of different combinations of variables.
 
-    Values are assigned to the STATE or ITERATE storage, and then retrieved.
-    NOTE: Setting to STATE has not been parametrized, since this would double the number
-    of tests, and since the asymmetry between the get and set methods (set can set to
-    STATE and/or ITERATE, get can only get from one of them) requires some special
-    handling in the test; see below.
+    Values are assigned to 'stored_iterates' or 'stored_solutions', and then retrieved.
+    NOTE: Setting to 'stored_solutions' has not been parametrized, since this would
+    double the number of tests, and since the asymmetry between the get and set methods
+    (set can set to 'stored_solutions' and/or 'stored_iterates', get can only get from
+    one of them) requires some special handling in the test; see below.
 
     Both setting and adding values are tested.
 
     """
+
     sys_man = setup.sys_man
 
     np.random.seed(42)
@@ -535,14 +536,17 @@ def test_set_get_methods(
     # Indices of the active variables in this test configuration. Note that inds is
     # ordered according to variables, whereas the variable states to be returned later
     # are ordered according to the global ordering of unknowns.
+
     inds = sys_man.dofs_of(variables)
 
     # First generate random values, set them, and then retrieve them.
     vals = np.random.rand(inds.size)
 
-    # Set values to ITERATE if specified, but not to state.
-    sys_man.set_variable_values(vals, variables, to_iterate=iterate, to_state=False)
-    retrieved_vals = sys_man.get_variable_values(variables, from_iterate=True)
+    # Set values to 'stored_iterates' if specified, but not to 'stored_solutions'.
+    if iterate:
+        sys_man.set_variable_values(vals, variables, iterate_index=0)
+
+    retrieved_vals = sys_man.get_variable_values(variables, iterate_index=0)
     # Iterate may or may not have been updated; if not, it should have the default
     # value of 0.0
     if iterate:
@@ -555,21 +559,29 @@ def test_set_get_methods(
         # the global ordering.
         assert np.allclose(setup.initial_values[np.sort(inds)], retrieved_vals)
     # State should not have been updated
-    retrieved_vals_state = sys_man.get_variable_values(variables, from_iterate=False)
+    retrieved_vals_state = sys_man.get_variable_values(variables, solution_index=0)
     assert np.allclose(setup.initial_values[np.sort(inds)], retrieved_vals_state)
 
     # Set values again, this time also to the state.
-    sys_man.set_variable_values(vals, variables, to_iterate=iterate, to_state=True)
+    if iterate:
+        sys_man.set_variable_values(vals, variables, iterate_index=0, solution_index=0)
+    else:
+        sys_man.set_variable_values(vals, variables, solution_index=0)
     # Retrieve only values from state; iterate should be the same as before (and the
     # additive mode is checked below).
-    retrieved_vals_state = sys_man.get_variable_values(variables, from_iterate=False)
+
+    retrieved_vals_state = sys_man.get_variable_values(variables, solution_index=0)
+
     assert np.allclose(vals, retrieved_vals_state)
 
     # Set new values without setting additive to True. This should overwrite the old
     # values.
     new_vals = np.random.rand(inds.size)
-    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, to_state=False)
-    retrieved_vals2 = sys_man.get_variable_values(variables, from_iterate=iterate)
+    if iterate:
+        sys_man.set_variable_values(new_vals, variables, iterate_index=0)
+        retrieved_vals2 = sys_man.get_variable_values(variables, iterate_index=0)
+    if not iterate:
+        retrieved_vals2 = sys_man.get_variable_values(variables, solution_index=0)
     # Iterate has either been updated, or it still has the initial value
     if iterate:
         assert np.allclose(new_vals, retrieved_vals2)
@@ -578,16 +590,23 @@ def test_set_get_methods(
         assert np.allclose(vals, retrieved_vals2)
 
     # Set values to state. This should overwrite the old values.
-    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, to_state=True)
-    retrieved_vals_state_2 = sys_man.get_variable_values(variables, from_iterate=False)
+    if iterate:
+        sys_man.set_variable_values(
+            new_vals, variables, iterate_index=0, solution_index=0
+        )
+    else:
+        sys_man.set_variable_values(new_vals, variables, solution_index=0)
+    retrieved_vals_state_2 = sys_man.get_variable_values(variables, solution_index=0)
     assert np.allclose(new_vals, retrieved_vals_state_2)
 
     # Set the values again, this time with additive=True. This should double the
     # retrieved values.
-    sys_man.set_variable_values(
-        new_vals, variables, to_iterate=iterate, to_state=False, additive=True
-    )
-    retrieved_vals3 = sys_man.get_variable_values(variables, from_iterate=iterate)
+    if iterate:
+        sys_man.set_variable_values(new_vals, variables, iterate_index=0, additive=True)
+        retrieved_vals3 = sys_man.get_variable_values(variables, iterate_index=0)
+    elif not iterate:
+        retrieved_vals3 = sys_man.get_variable_values(variables, solution_index=0)
+
     if iterate:
         assert np.allclose(2 * new_vals, retrieved_vals3)
     else:
@@ -595,11 +614,71 @@ def test_set_get_methods(
         assert np.allclose(new_vals, retrieved_vals3)
 
     # And finally set to state, with additive=True. This should double the retrieved
-    sys_man.set_variable_values(
-        new_vals, variables, to_iterate=iterate, to_state=True, additive=True
-    )
-    retrieved_vals_state_3 = sys_man.get_variable_values(variables, from_iterate=False)
+    if iterate:
+        sys_man.set_variable_values(
+            new_vals, variables, iterate_index=0, solution_index=0, additive=True
+        )
+    else:
+        sys_man.set_variable_values(
+            new_vals, variables, solution_index=0, additive=True
+        )
+    retrieved_vals_state_3 = sys_man.get_variable_values(variables, solution_index=0)
     assert np.allclose(2 * new_vals, retrieved_vals_state_3)
+
+    # Test storage of multiple values of solutions and iterates from here and down.
+    # In practice this means testing shift_variable_values, which could perhaps be its
+    # own test, but its intended use is only together with set_variable_values and it
+    # is therefore put here.
+
+    # Building a few solution vectors and defining the desired solution indices
+    vals0 = vals
+    vals1 = vals0 * 2
+    vals2 = vals0 * 3
+
+    solution_indices = np.array([0, 1, 2])
+    vals_mat = np.array([vals0, vals1, vals2])
+
+    # Test setting values at several indices and then gathering them
+    for i in solution_indices:
+        val = vals_mat[i].copy()
+        sys_man.set_variable_values(values=val, variables=variables, solution_index=i)
+
+    retrieved_ind_vals0 = sys_man.get_variable_values(variables, solution_index=0)
+    retrieved_ind_vals1 = sys_man.get_variable_values(variables, solution_index=1)
+    retrieved_ind_vals2 = sys_man.get_variable_values(variables, solution_index=2)
+
+    assert np.allclose(vals0, retrieved_ind_vals0)
+    assert np.allclose(vals1, retrieved_ind_vals1)
+    assert np.allclose(vals2, retrieved_ind_vals2)
+
+    # Test functionality that shifts values to prepare setting of the most recent
+    # solution values.
+    sys_man.shift_solution_values()
+
+    retrieved_shift_ind_vals0 = sys_man.get_variable_values(variables, solution_index=0)
+    retrieved_shift_ind_vals1 = sys_man.get_variable_values(variables, solution_index=1)
+    retrieved_shift_ind_vals2 = sys_man.get_variable_values(variables, solution_index=2)
+
+    # The expected result is that key 0 and 1 has the same values, and key 2 have the
+    # values that were at key 1 before the values were shifted.
+    assert np.allclose(vals0, retrieved_shift_ind_vals0)
+    assert np.allclose(vals0, retrieved_shift_ind_vals1)
+    assert np.allclose(vals1, retrieved_shift_ind_vals2)
+
+    # Test additive = True to make sure only the most recently stored values are added
+    # to.
+    sys_man.set_variable_values(
+        values=vals0, variables=variables, solution_index=0, additive=True
+    )
+
+    retrieved_shift_ind_vals0 = sys_man.get_variable_values(variables, solution_index=0)
+    retrieved_shift_ind_vals1 = sys_man.get_variable_values(variables, solution_index=1)
+    retrieved_shift_ind_vals2 = sys_man.get_variable_values(variables, solution_index=2)
+
+    # Since additive = True, the values of key 0 should be twice the size of what it was
+    assert np.allclose(vals0 * 2, retrieved_shift_ind_vals0)
+    assert np.allclose(vals0, retrieved_shift_ind_vals1)
+    assert np.allclose(vals1, retrieved_shift_ind_vals2)
 
 
 @pytest.mark.parametrize(

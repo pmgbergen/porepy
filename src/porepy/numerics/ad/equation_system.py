@@ -427,12 +427,6 @@ class EquationSystem:
                     assert isinstance(grid, pp.MortarGrid)  # mypy
                     data = self.mdg.interface_data(grid)
 
-                # Prepare data dictionary if this was not done already.
-                if pp.STATE not in data:
-                    data[pp.STATE] = dict()
-                if pp.ITERATE not in data[pp.STATE]:
-                    data[pp.STATE][pp.ITERATE] = dict()
-
                 # Prepare indexed storage of values in data dictionary if not already prepared
                 if "stored_solutions" not in data:
                     data["stored_solutions"] = dict()
@@ -546,9 +540,8 @@ class EquationSystem:
     def get_variable_values(
         self,
         variables: Optional[VariableList] = None,
-        from_iterate: bool = False,
-        solution_index: int = 0,
-        iterate_index: int = 0,
+        solution_index: Optional[int] = None,
+        iterate_index: Optional[int] = None,
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
@@ -557,9 +550,7 @@ class EquationSystem:
         Parameters:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
-            from_iterate (optional): flag to return a stored iterate, instead it will
-                return a stored solution value (default)
-            solution_index: Specified by user if they want to gather variable values    
+            solution_index: Specified by user if they want to gather variable values
                 from a specific time-step. Value 0 (default) provides the most recent
                 time-step. A value of 1 will give the values of one time-step back in
                 time.
@@ -572,10 +563,18 @@ class EquationSystem:
                 :meth:`num_dofs`.
 
         Raises:
+            ValueError: If neither of solution_index and iterate_index has been
+            assigned a non-None value.
             KeyError: If no values are stored for the VariableType input.
             ValueError: If unknown VariableType arguments are passed.
 
         """
+        if solution_index is None and iterate_index is None:
+            raise ValueError(
+                "At least one of solution_index and iterate_index needs to be different"
+                " from None"
+            )
+
         variables = self._parse_variable_type(variables)
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
@@ -592,21 +591,19 @@ class EquationSystem:
                     data = self.mdg.interface_data(grid)
                 # Extract a copy of requested values.
                 try:
-                    if from_iterate:
+                    if iterate_index is not None:
                         values.append(
                             data["stored_iterates"][name][iterate_index].copy()
                         )
 
-                    else:
+                    elif solution_index is not None:
                         values.append(
                             data["stored_solutions"][name][solution_index].copy()
                         )
 
                 except KeyError:
                     raise KeyError(
-                        f"No values stored for variable {name}, "
-                        f"from_iterate={from_iterate}"
-                        f"\non grid {grid}."
+                        f"No values stored for variable {name}, " f"\non grid {grid}."
                     )
 
         # If there are matching blocks, concatenate and return.
@@ -658,11 +655,6 @@ class EquationSystem:
             ValueError: If unknown VariableType arguments are passed.
 
         """
-        if solution_index is None and iterate_index is None:
-            raise ValueError(
-                "At least one of solution_index and iterate_index needs to be different"
-                " from None"
-            )
 
         # Start of dissection.
         dof_start = 0
@@ -679,28 +671,25 @@ class EquationSystem:
                     variable_number=variable_number, values=values, dof_start=dof_start
                 )
 
-                # Data dict will have pp.STATE and pp.ITERATE entries already created
-                # during create_variables. If an error is returned here, a variable has
-                # been created in a non-standard way.
-                # Store new values as requested.
+                # Data dict will have ``'stored_solutions'`` and ``'stored_iterates'``
+                # entries already created during create_variables. If an error is
+                # returned here, a variable has been created in a non-standard way.
+                # Store new values as
+                # requested.
                 if additive:
                     if iterate_index is not None:
-                        data[pp.STATE][pp.ITERATE][name] += local_vec
                         data["stored_iterates"][name][iterate_index] += local_vec
 
                     if solution_index is not None:
-                        data[pp.STATE][name] += local_vec
                         data["stored_solutions"][name][solution_index] += local_vec
 
                 else:
                     if iterate_index is not None:
                         # The copy is critcial here.
-                        data[pp.STATE][pp.ITERATE][name] = local_vec.copy()
                         data["stored_iterates"][name][iterate_index] = local_vec.copy()
 
                     if solution_index is not None:
                         # The copy is critcial here.
-                        data[pp.STATE][name] = local_vec.copy()
                         data["stored_solutions"][name][
                             solution_index
                         ] = local_vec.copy()
@@ -719,16 +708,15 @@ class EquationSystem:
     ) -> None:
         """Method for shifting stored solution values in data sub-dictionary
 
-        For details of the value shifting see :meth:`_shift_variable_values` and :meth:`_shift_dictionary`.
+        For details of the value shifting see :meth:`_shift_variable_values` and
+        :meth:`_shift_dictionary`.
 
         Parameters:
             variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns
-                will be set.
-
+                requested. If None (default), the global vector of unknowns will be set.
 
         """
-        self._shift_variable_values(location='stored_solutions', variables=variables)
+        self._shift_variable_values(location="stored_solutions", variables=variables)
 
     def shift_iterate_values(
         self,
@@ -736,15 +724,15 @@ class EquationSystem:
     ) -> None:
         """Method for shifting stored iterate values in data sub-dictionary.
 
-        For details of the value shifting see :meth:`_shift_variable_values` and :meth:`_shift_dictionary`.
+        For details of the value shifting see :meth:`_shift_variable_values` and
+        :meth:`_shift_dictionary`.
 
         Parameters:
             variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns
-                will be set.
+                requested. If None (default), the global vector of unknowns will be set.
 
         """
-        self._shift_variable_values(location='stored_iterates', variables=variables)
+        self._shift_variable_values(location="stored_iterates", variables=variables)
 
     def _shift_variable_values(
         self,
@@ -752,7 +740,7 @@ class EquationSystem:
         variables: Optional[VariableList] = None,
     ) -> None:
         """Method for shifting values in data dictionary
-        
+
         Solution and iterate values are stored with storage indices as keys in the data
         dictionary for the subdomain in question. For each time-step/iteration, these
         values are shifted such that the most recent variable value later can be placed
@@ -764,8 +752,7 @@ class EquationSystem:
             location: Should be "stored_solutions" or "stored_iterates" depending on
                 which one of solutions/iterates that are to be shifted.
             variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns
-                will be set.
+                requested. If None (default), the global vector of unknowns will be set.
 
         Raises:
             ValueError: If unknown VariableType arguments are passed.
@@ -780,9 +767,7 @@ class EquationSystem:
                 data = self._get_data(grid=grid)
 
                 # Shift new values as requested.
-                self._shift_dictionary(
-                    data=data, name=name, location=location
-                )
+                self._shift_dictionary(data=data, name=name, location=location)
 
     def _shift_dictionary(
         self,
@@ -792,13 +777,14 @@ class EquationSystem:
     ) -> None:
         """Method for shifting values of data sub-dictionary.
 
-        The values in ``data[location][name]`` are shifted. For details see :meth:`_shift_variable_values`.
+        The values in ``data[location][name]`` are shifted. For details see
+        :meth:`_shift_variable_values`.
 
         Parameters:
             data: Data dictionary corresponding to the subdomain and variable in
                 question
             name: Name of the variable whose values are to be shifted
-            location: Should be either 'stored_solutions' or 'stored_iterates'
+            location: Should be either ``'stored_solutions'`` or ``'stored_iterates'``
                 depending on whether it is a time-step that is to be stored or if it is
                 an iterate.
 
@@ -850,7 +836,7 @@ class EquationSystem:
         grid: pp.GridLike,
     ) -> dict:
         """Method for gathering data dictionary for a given subdomain or interface grid.
-        
+
         Parameters:
             grid: Subdomain/Interface whose data dictionary the user is interested in.
 
@@ -1604,8 +1590,8 @@ class EquationSystem:
 
             variables (optional): VariableType input specifying the subspace in
                 column-sense. If not provided (None), all variables will be included.
-            state (optional): State vector to assemble from. By default, the stored
-                ``pp.ITERATE`` or ``pp.STATE`` are used, in that order.
+            state (optional): State vector to assemble from. By default, the
+                ``'stored_iterates'`` or ``'stored_solutions'`` are used, in that order.
 
         Returns:
             Tuple with two elements

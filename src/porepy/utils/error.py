@@ -52,9 +52,8 @@ def grid_error(
         # Get states
         data = mdg.subdomain_data(g)
         data_ref = mdg_ref.subdomain_data(g_ref)
-        states = data[pp.STATE]
-        states_ref = data_ref[pp.STATE]
-
+        states = data['stored_solutions']
+        states_ref = data_ref['stored_solutions']
         node_number = data["node_number"]
 
         # Initialize errors

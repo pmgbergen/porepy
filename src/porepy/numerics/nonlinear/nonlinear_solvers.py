@@ -30,7 +30,7 @@ class NewtonSolver:
         iteration_counter = 0
 
         is_converged = False
-        prev_sol = model.equation_system.get_variable_values(from_iterate=False)
+        prev_sol = model.equation_system.get_variable_values(solution_index=0)
 
         init_sol = prev_sol
         errors = []
