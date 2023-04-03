@@ -446,7 +446,7 @@ def _preprocess_simplex_args(meshing_args, kwargs, mesh_function):
     defaults.pop("mesh_args")
     defaults.pop("kwargs")
 
-    # If user provide constrains update kwargs
+    # If the user has provided constrains update kwargs.
     constraints = meshing_args.get("constraints", None)
     if constraints is not None:
         kwargs.update([("constraints", constraints)])
