@@ -245,7 +245,7 @@ class TestMDGridGeneration:
         h_mdg = self.high_level_mdg_generation(grid_type, fracture_network)
         l_mdg = self.low_level_mdg_generation(grid_type, fracture_network)
 
-        # Failing in equality could means that:
+        # Failing in equality could mean that:
         # - lower level signatures were changed without updates on the `create_mdg`;
         # - `create_mdg` were updated without mapping signatures to the lower level.
         equality_q = self.mdg_equality(h_mdg, l_mdg)
