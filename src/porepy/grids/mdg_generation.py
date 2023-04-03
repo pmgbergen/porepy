@@ -688,7 +688,7 @@ In terms of meshing arguments, we provide two ways of creating mixed-dimensional
     Raises:
         - TypeError: If mandatory arguments types are invalid. See validator functions:
             - :meth:`~_validate_args`
-            - _validate_args_types
+            - :meth:`~_validate_args_types`
         - ValueError: If invalid arguments values are provided. See validator functions:
             - :meth:`~_validate_args`
             - :meth:`~_validate_grid_type_value`
