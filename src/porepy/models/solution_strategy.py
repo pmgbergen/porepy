@@ -171,7 +171,7 @@ class SolutionStrategy(abc.ABC):
     def initial_condition(self) -> None:
         """Set the initial condition for the problem."""
         vals = np.zeros(self.equation_system.num_dofs())
-        self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
+        self.equation_system.set_variable_values(vals, iterate_index=0, solution_index=0)
 
     def set_materials(self):
         """Set material parameters.
@@ -243,7 +243,7 @@ class SolutionStrategy(abc.ABC):
         """
         self._nonlinear_iteration += 1
         self.equation_system.set_variable_values(
-            values=solution_vector, additive=True, to_iterate=True
+            values=solution_vector, additive=True, iterate_index=0
         )
 
     def after_nonlinear_convergence(
@@ -260,9 +260,9 @@ class SolutionStrategy(abc.ABC):
                 solver.
 
         """
-        solution = self.equation_system.get_variable_values(from_iterate=True)
+        solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
-            values=solution, to_state=True, additive=False
+            values=solution, solution_index=0, additive=False
         )
         self.convergence_status = True
         self.save_data_time_step()

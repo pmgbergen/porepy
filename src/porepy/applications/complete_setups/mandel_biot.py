@@ -1466,12 +1466,12 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         u_name = self.displacement_variable
 
         # Set initial pressure
-        data[pp.STATE][p_name] = self.exact_sol.pressure(sd, 0)
-        data[pp.STATE][pp.ITERATE][p_name] = self.exact_sol.pressure(sd, 0)
+        data["stored_solutions"][p_name][0] = self.exact_sol.pressure(sd, 0)
+        data["stored_iterates"][p_name][0] = self.exact_sol.pressure(sd, 0)
 
         # Set initial displacement
-        data[pp.STATE][u_name] = self.exact_sol.displacement(sd, 0)
-        data[pp.STATE][pp.ITERATE][u_name] = self.exact_sol.displacement(sd, 0)
+        data["stored_solutions"][u_name][0] = self.exact_sol.displacement(sd, 0)
+        data["stored_iterates"][u_name][0] = self.exact_sol.displacement(sd, 0)
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""

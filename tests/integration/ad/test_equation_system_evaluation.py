@@ -25,8 +25,8 @@ def setup():
     eq_system.create_variables(var_name, subdomains=[g_1, g_2])
 
     for sd, d in mdg.subdomains(return_data=True):
-        d[pp.STATE] = {var_name: np.ones([sd.num_cells])}
-        d[pp.STATE][pp.ITERATE] = {var_name: 2 * np.ones([sd.num_cells])}
+        d['stored_solutions'] = {var_name: {0: np.ones([sd.num_cells])}}
+        d['stored_iterates'] = {var_name: {0: 2 * np.ones([sd.num_cells])}}
 
     return eq_system
 
@@ -57,14 +57,14 @@ def test_evaluate_variables():
         assert np.allclose(val.val, 2)
 
         # Now create the variable at the previous iterate. This should also give the
-        # value in pp.ITERATE, but it should not yield an AdArray.
+        # value in 'stored_iterates', but it should not yield an AdArray.
         var_prev_iter = var.previous_iteration()
         val_prev_iter = var_prev_iter.evaluate(eq_system)
         assert isinstance(val_prev_iter, np.ndarray)
         assert np.allclose(val_prev_iter, 2)
 
         # Create the variable at the previous time step. This should give the value in
-        # pp.STATE.
+        # 'stored_solutions'.
         var_prev_timestep = var.previous_timestep()
         val_prev_timestep = var_prev_timestep.evaluate(eq_system)
         assert isinstance(val_prev_timestep, np.ndarray)
