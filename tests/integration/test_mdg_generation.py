@@ -177,7 +177,7 @@ class TestMDGridGeneration:
 
         Returns:
             pp.MixedDimensionalGrid: Container of grids and its topological relationship
-             along with a surrounding matrix defined by domain.
+            along with a surrounding matrix defined by domain.
         """
 
         lower_level_arguments = None
