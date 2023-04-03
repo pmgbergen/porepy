@@ -28,7 +28,7 @@ class TestMDGridGeneration:
         """Common cell_size for all tests"""
         return 0.5
 
-    def fracture_2d_data(self) -> list[np.ndarray]:
+    def fracture_2d_data(self) -> List[np.ndarray]:
         """Fracture points for 2d cases"""
         data: List[np.array] = [
             np.array([[0.0, 2.0], [0.0, 0.0]]),
