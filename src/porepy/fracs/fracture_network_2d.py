@@ -740,16 +740,40 @@ class FractureNetwork2d:
                 and therefore deleted.
 
         """
-        if domain is not None:
+
+        # Get min/max point of the domain. If no domain is given, a bounding box
+        # using the `self.tol` will be imposed outside the fracture set
+        if domain is None:
+            # Sanity check
+            if len(self.fractures) == 0:
+                raise ValueError("No fractures given. Domain cannot be imposed.")
+            # Loop through the fracture list and retrieve the pts
+            x_pts = []
+            y_pts = []
+            for frac in self.fractures:
+                # Append all start/end-points in the x-direction
+                x_pts.append(frac.pts[0][0])
+                x_pts.append(frac.pts[0][1])
+                # Append all start/end-points in the y-direction
+                y_pts.append(frac.pts[1][0])
+                y_pts.append(frac.pts[1][1])
+            # Get min/max points
+            x_min = np.min(np.asarray(x_pts)) - self.tol
+            x_max = np.max(np.asarray(x_pts)) + self.tol
+            y_min = np.min(np.asarray(y_pts)) - self.tol
+            y_max = np.max(np.asarray(y_pts)) + self.tol
+        else:
             # First create lines that define the domain
             x_min = domain.bounding_box["xmin"]
             x_max = domain.bounding_box["xmax"]
             y_min = domain.bounding_box["ymin"]
             y_max = domain.bounding_box["ymax"]
-            dom_p: np.ndarray = np.array(
-                [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
-            )
-            dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+
+        # Create the domain lines
+        dom_p: np.ndarray = np.array(
+            [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
+        )
+        dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
 
         # Constrain the edges to the domain
         p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(
