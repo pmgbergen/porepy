@@ -7,6 +7,7 @@ by :meth:`porepy.models.solution_strategy.SolutionStrategy.rediscretize`  called
 beginning of a nonlinear iteration.
 
 """
+from __future__ import annotations
 
 import copy
 import numpy as np
@@ -82,6 +83,8 @@ class BCs(setup_utils.BoundaryConditionsMassAndEnergyDirNorthSouth):
         return pp.wrap_as_ad_array(np.hstack(vals), name="bc_values_darcy")
 
 
+# No need to test momentum balance, as it contains no discretizations that need
+# rediscretization.
 model_classes = [
     setup_utils._add_mixin(BCs, setup_utils.MassBalance),
     setup_utils._add_mixin(BCs, setup_utils.MassAndEnergyBalance),
