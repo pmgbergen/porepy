@@ -25,7 +25,7 @@ def _validate_args_types(
 
     Parameters:
         grid_type: Type of grid.
-        meshing_args: A ``dict`` with meshing keys depending on each grid_type.
+        meshing_args: A dictionary with meshing keywords depending on each ``grid_type``.
         fracture_network: fracture network specification.
 
     Raises:
