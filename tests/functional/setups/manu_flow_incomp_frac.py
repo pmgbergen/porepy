@@ -15,7 +15,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -341,11 +341,27 @@ class ManuIncompExactSolution:
             for q in self.q_matrix
         ]
 
-        # Face-centered Darcy fluxes
+        # Computation of the fluxes in the middle region results in NaN on faces that
+        # are outside the middle region. We therefore need to first evaluate the middle
+        # region and then the other regions, so that NaN faces outside the middle
+        # region can be overwritten accordingly.
         fn = sd_matrix.face_normals
         q_fc = np.zeros(sd_matrix.num_faces)
-        for (q, idx) in zip(q_fun, face_idx):
-            q_fc += (q[0](fc[0], fc[1]) * fn[0] + q[1](fc[0], fc[1]) * fn[1]) * idx
+
+        q_fun_sorted = q_fun.copy()
+        q_fun_sorted.pop(1)
+        q_fun_sorted.insert(0, q_fun[1])
+
+        face_idx_sorted = face_idx.copy()
+        face_idx_sorted.pop(1)
+        face_idx_sorted.insert(0, face_idx[1])
+
+        # Perform evaluations using the sorted list of exact Darcy velocities
+        for q, idx in zip(q_fun_sorted, face_idx_sorted):
+            q_fc[idx] = (
+                    q[0](fc[0][idx], fc[1][idx]) * fn[0][idx]
+                    + q[1](fc[0][idx], fc[1][idx]) * fn[1][idx]
+            )
 
         # We need to correct the values of the exact Darcy fluxes at the internal
         # boundaries since they evaluate to NaN due to a division by zero.
@@ -616,24 +632,36 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
     fracture_network: pp.FractureNetwork2d
     """Fracture network. Set in :meth:`set_fracture_network`."""
 
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
+        """Set grid type."""
+        return self.params.get("grid_type", "cartesian")
+
     def set_fracture_network(self) -> None:
         """Create fracture network.
 
         Note:
-            Two horizontal fractures at :math:`y = 0.25` and :math:`y = 0.75` are
-            included in the fracture network to force the grid to conform to certain
-            regions of the domain. Note, however, that these fractures will not be
-            part of the mixed-dimensional grid.
+            For simplicial grids, two horizontal fractures at :math:`y = 0.25` and
+            :math:`y = 0.75` are included in the fracture network to force the grid
+            to conform to certain regions of the domain. Note, however, that these
+            fractures will not be part of the mixed-dimensional grid.
 
         """
         # Unit square domain
         domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+        self.domain = domain
 
-        fractures = [
-            pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
-            pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
-            pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
-        ]
+        if self.grid_type() == "simplex":
+            fractures = [
+                pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
+                pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
+                pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
+            ]
+        elif self.grid_type() == "cartesian":
+            fractures = [
+                pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
+            ]
+        else:
+            raise NotImplementedError()
 
         # Create fracture network
         network_2d = pp.FractureNetwork2d(fractures, domain)
@@ -641,19 +669,23 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
 
     def mesh_arguments(self) -> dict:
         """Define mesh arguments for meshing."""
-        return self.params.get(
-            "mesh_arguments", {"mesh_size_bound": 0.1, "mesh_size_frac": 0.1}
-        )
+        return self.params.get("mesh_arguments", {"cell_size": 0.125})
 
     def set_md_grid(self) -> None:
-        """Create mixed-dimensional grid. Ignore fractures 1 and 2."""
-        self.mdg = self.fracture_network.mesh(
-            self.mesh_arguments(), constraints=np.array([1, 2])
-        )
-        domain = self.fracture_network.domain
-        if domain is not None and domain.is_boxed:
-            self.domain: pp.Domain = domain
-
+        """Create mixed-dimensional grid."""
+        if self.grid_type() == "simplex":
+            self.mdg = pp.create_mdg(
+                grid_type=self.grid_type(),
+                meshing_args=self.mesh_arguments(),
+                fracture_network=self.fracture_network,
+                **{"constraints": np.array([1, 2])},
+            )
+        else:
+            self.mdg = pp.create_mdg(
+                grid_type=self.grid_type(),
+                meshing_args=self.mesh_arguments(),
+                fracture_network=self.fracture_network,
+            )
 
 # -----> Boundary conditions
 class ManuIncompBoundaryConditions:
