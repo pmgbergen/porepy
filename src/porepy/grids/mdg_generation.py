@@ -32,7 +32,7 @@ def _validate_args_types(
         - TypeError: Raises type error messages if:
             - ``grid_type`` is not ``str``.
             - ``meshing_args`` is not ``dict``.
-            - fracture_network is not ``FractureNetwork2d`` or ``FractureNetwork3d``
+            - fracture_network is not an instance of :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d` or :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
 
     """
 
