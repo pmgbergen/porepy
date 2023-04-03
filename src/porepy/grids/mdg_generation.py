@@ -431,8 +431,8 @@ def _preprocess_simplex_args(
             contains: dfn, file_name, constraints, write_geo, tags_to_transfer,
                 finalize_gmsh, and clear_gmsh.
         kwargs: It could contain the item offset: ``float``: Defaults to 0. Parameter that
-            quantifies a perturbation to nodes around the faces that are split.
-                NOTE: this is only for visualization purposes.
+            quantifies a perturbation to nodes around the faces that are split. This is
+            only for visualization purposes.
 
     """
 
@@ -713,7 +713,9 @@ def create_mdg(
             # the method impose_external_boundary will generate an UnboundLocalError:
             # "local variable 'dom_p' referenced before assignment".
             if _retrieve_domain_instance(fracture_network) is None:
-                raise ValueError("Inconsistency in FractureNetwork2d for DFN generation")
+                raise ValueError(
+                    "Inconsistency in FractureNetwork2d for DFN generation"
+                )
 
             # perform the actual meshing
             mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
