@@ -1628,12 +1628,6 @@ class AdvectiveFlux:
     """Well flux variables on interfaces. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
-    add_nonlinear_discretization: Callable[[pp.ad.Discretization], None]
-    """Add a discretization to the model's list of discretizations to be updated at each
-    nonlinear iteration. Normally defined in a mixin instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     def advective_flux(
         self,
@@ -1664,10 +1658,6 @@ class AdvectiveFlux:
             Operator representing the advective flux.
 
         """
-        # The upwind discretization is non-linear (i.e. depends on solution state).
-        # Append to list of discretizations to be updated at each nonlinear iteration.
-        # self.add_nonlinear_discretization(discr)
-
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         mortar_projection = pp.ad.MortarProjections(
@@ -1711,9 +1701,6 @@ class AdvectiveFlux:
             Operator representing the advective flux on the interfaces.
 
         """
-        # The upwind discretization is non-linear (i.e. depends on solution state).
-        # Append to list of discretizations to be updated at each nonlinear iteration.
-        # self.add_nonlinear_discretization(discr)
         # If no interfaces are given, make sure to proceed with a non-empty subdomain
         # list if relevant.
         subdomains = self.interfaces_to_subdomains(interfaces)
@@ -1723,8 +1710,6 @@ class AdvectiveFlux:
         trace = pp.ad.Trace(subdomains)
         # Project the two advected entities to the interface and multiply with upstream
         # weights and the interface Darcy flux.
-        # IMPLEMENTATION NOTE: If we ever implement other discretizations than upwind,
-        # we may need to change the below definition.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
             discr.upwind_primary
             @ mortar_projection.primary_to_mortar_avg

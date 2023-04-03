@@ -252,8 +252,8 @@ class SolutionStrategy(abc.ABC):
     def set_nonlinear_discretizations(self) -> None:
         """Set the list of nonlinear discretizations.
 
-        This method is called before the discretization is performed. It is
-        intended to be used to set the list of nonlinear discretizations.
+        This method is called before the discretization is performed. It is intended to
+        be used to set the list of nonlinear discretizations.
 
         """
         pass
