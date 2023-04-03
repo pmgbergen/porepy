@@ -424,7 +424,7 @@ def _preprocess_simplex_args(meshing_args, kwargs, mesh_function):
                 - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`, it
                 contains: tol, do_snap, constraints, file_name, dfn, tags_to_transfer,
                     remove_small_fractures, write_geo, finalize_gmsh, and clear_gmsh.
-                - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`, It
+                - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`, it
                 contains: dfn, file_name, constraints, write_geo, tags_to_transfer,
                     finalize_gmsh, and clear_gmsh.
             kwargs: It could contain the item offset: ``float``: Defaults to 0. Parameter that
