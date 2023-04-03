@@ -67,13 +67,13 @@ class TestMDGridGeneration:
     # Extra mesh arguments
     def higher_level_extra_args_data_2d(self) -> List[dict]:
         """Admissible keys in pp.create_mdg for 2d cases"""
-        simplex_extra_args: dict[str] = {
+        simplex_extra_args: dict = {
             "cell_size_min": 0.5,
             "cell_size_boundary": 1.0,
             "cell_size_fracture": 0.5,
         }
-        cartesian_extra_args: dict[str] = {"cell_size_x": 0.5, "cell_size_y": 0.5}
-        tensor_grid_extra_args: dict[str] = {
+        cartesian_extra_args: dict = {"cell_size_x": 0.5, "cell_size_y": 0.5}
+        tensor_grid_extra_args: dict = {
             "x_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
             "y_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
         }
@@ -81,13 +81,13 @@ class TestMDGridGeneration:
 
     def lower_level_extra_args_data_2d(self) -> List[dict]:
         """Admissible keys for 2d cases"""
-        simplex_extra_args: dict[str] = {
+        simplex_extra_args: dict = {
             "mesh_size_min": 0.5,
             "mesh_size_bound": 1.0,
             "mesh_size_frac": 0.5,
         }
-        cartesian_extra_args: dict[str] = {"nx": [10, 10], "physdims": [5, 5]}
-        tensor_grid_extra_args: dict[str] = {
+        cartesian_extra_args: dict = {"nx": [10, 10], "physdims": [5, 5]}
+        tensor_grid_extra_args: dict = {
             "x": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
             "y": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
         }
@@ -95,17 +95,17 @@ class TestMDGridGeneration:
 
     def higher_level_extra_args_data_3d(self) -> List[dict]:
         """Admissible keys in pp.create_mdg for 3d cases"""
-        simplex_extra_args: dict[str] = {
+        simplex_extra_args: dict = {
             "cell_size_min": 0.5,
             "cell_size_boundary": 1.0,
             "cell_size_fracture": 0.5,
         }
-        cartesian_extra_args: dict[str] = {
+        cartesian_extra_args: dict = {
             "cell_size_x": 0.5,
             "cell_size_y": 0.5,
             "cell_size_z": 0.5,
         }
-        tensor_grid_extra_args: dict[str] = {
+        tensor_grid_extra_args: dict = {
             "x_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
             "y_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
             "z_pts": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
@@ -114,13 +114,13 @@ class TestMDGridGeneration:
 
     def lower_level_extra_args_data_3d(self) -> List[dict]:
         """Admissible keys for 3d cases"""
-        simplex_extra_args: dict[str] = {
+        simplex_extra_args: dict = {
             "mesh_size_min": 0.5,
             "mesh_size_bound": 1.0,
             "mesh_size_frac": 0.5,
         }
-        cartesian_extra_args: dict[str] = {"nx": [10, 10, 10], "physdims": [5, 5, 5]}
-        tensor_grid_extra_args: dict[str] = {
+        cartesian_extra_args: dict = {"nx": [10, 10, 10], "physdims": [5, 5, 5]}
+        tensor_grid_extra_args: dict = {
             "x": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
             "y": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
             "z": np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]),
@@ -172,7 +172,7 @@ class TestMDGridGeneration:
             along with a surrounding matrix defined by domain.
         """
         # common mesh argument
-        meshing_args: dict[str] = {"cell_size": self.cell_size()}
+        meshing_args: dict = {"cell_size": self.cell_size()}
 
         # Collect extra arguments for the test
         extra_arg_index: int = self.mdg_types().index(grid_type)
@@ -288,7 +288,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
     def test_grid_type_inconsistencies(self):
 
         fracture_network = self.generate_network(0, [0, 1, 2])
-        mesh_arguments: dict[str] = {"cell_size": self.cell_size()}
+        mesh_arguments: dict = {"cell_size": self.cell_size()}
 
         with pytest.raises(TypeError) as error_message:
             grid_type = complex(1, 2)
@@ -313,13 +313,13 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         # testing meshing_args type
         with pytest.raises(TypeError) as error_message:
             meshing_args = [self.cell_size()]
-            ref_msg = str("meshing_args must be dict[str], not %r" % type(meshing_args))
+            ref_msg = str("meshing_args must be dict, not %r" % type(meshing_args))
             pp.create_mdg(grid_type, meshing_args, fracture_network)
         assert ref_msg in str(error_message.value)
 
         # testing incompleteness in cell_sizes
         cell_size_args = ["cell_size_min", "cell_size_boundary", "cell_size_fracture"]
-        meshing_args: dict[str] = {
+        meshing_args: dict = {
             "cell_size_min": 0.1,
             "cell_size_boundary": 0.1,
             "cell_size_fracture": 0.1,
@@ -340,7 +340,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             "cell_size_boundary",
             "cell_size_fracture",
         ]
-        meshing_args: dict[str] = {
+        meshing_args: dict = {
             "cell_size": 0.1,
             "cell_size_min": 0.1,
             "cell_size_boundary": 0.1,
@@ -370,7 +370,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         fracture_network.domain = None
         with pytest.raises(ValueError) as error_message:
             cell_size = 0.1
-            meshing_args: dict[str] = {"cell_size": cell_size}
+            meshing_args: dict = {"cell_size": cell_size}
             ref_msg = str(
                 "fracture_network without a domain is only supported for unstructured "
                 "simplex meshes, not for %r" % grid_type
@@ -385,7 +385,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
 
         # testing incompleteness in cell_sizes
         cell_size_args = ["cell_size_x", "cell_size_y", "cell_size_z"]
-        meshing_args: dict[str] = {
+        meshing_args: dict = {
             "cell_size_x": 0.1,
             "cell_size_y": 0.1,
             "cell_size_z": 0.1,
@@ -401,7 +401,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
 
         # testing types in cell_sizes
         cell_size_args = ["cell_size", "cell_size_x", "cell_size_y", "cell_size_z"]
-        meshing_args: dict[str] = {
+        meshing_args: dict = {
             "cell_size": 0.1,
             "cell_size_x": 0.1,
             "cell_size_y": 0.1,
@@ -434,7 +434,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         # # testing incompleteness
         cell_size_args = ["x_pts", "y_pts", "z_pts"]
         pts = np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
-        meshing_args: dict[str] = {"x_pts": pts, "y_pts": pts, "z_pts": pts}
+        meshing_args: dict = {"x_pts": pts, "y_pts": pts, "z_pts": pts}
         for chunk in cell_size_args:
             loc_meshing_args = {}
             loc_meshing_args.update(meshing_args.items())
@@ -479,7 +479,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
 
         grid_type = "simplex"
         fracture_network = self.generate_network(0, [0, 1, 2])
-        mesh_arguments: dict[str] = {"cell_size": self.cell_size()}
+        mesh_arguments: dict = {"cell_size": self.cell_size()}
 
         with pytest.raises(ValueError) as error_message:
             fracture_network.domain.dim = 0
