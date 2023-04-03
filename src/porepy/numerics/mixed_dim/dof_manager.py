@@ -9,6 +9,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.params.data import set_time_dependent_value
 
 csc_or_csr_matrix = TypeVar("csc_or_csr_matrix", sps.csc_matrix, sps.csr_matrix)
 
@@ -325,8 +326,8 @@ class DofManager:
         Parameters:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
-            from_iterate (optional): flag to return values stored as ITERATE,
-                instead of STATE (default).
+            from_iterate (optional): flag to return iterate values, instead of the
+                stored solution values (default).
 
         Returns:
             the respective (sub) vector in numerical format.
@@ -351,9 +352,9 @@ class DofManager:
             # extract a copy of requested values
             try:
                 if from_iterate:
-                    values.append(data[pp.STATE][pp.ITERATE][name].copy())
+                    values.append(data['stored_iterates'][name][0].copy())
                 else:
-                    values.append(data[pp.STATE][name].copy())
+                    values.append(data['stored_solutions'][name][0].copy())
             except KeyError:
                 raise KeyError(
                     f"No values stored for variable {name}, "
@@ -501,12 +502,13 @@ class DofManager:
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))
 
-        # Loop over grid-variable combinations and update data in pp.STATE or pp.ITERATE
-        for g, var in itertools.product(grids, variables):
+        # Loop over grid-variable combinations and update data in 'stored_iterates' and 'stored_solutions'.
+        for g, var in itertools.product(grids, variables): 
             if (g, var) not in self.block_dof:
                 continue
 
             dof_ind = self.grid_and_variable_to_dofs(g, var)
+            vals = values[dof_ind]
 
             if isinstance(g, pp.MortarGrid):
                 # This is really an edge
@@ -514,27 +516,10 @@ class DofManager:
             else:
                 data = self.mdg.subdomain_data(g)
 
-            if pp.STATE not in data:
-                data[pp.STATE] = {}
-            if to_iterate and pp.ITERATE not in data[pp.STATE]:
-                data[pp.STATE][pp.ITERATE] = {}
-
-            vals = values[dof_ind]
-            if additive:
-                if to_iterate:
-                    data[pp.STATE][pp.ITERATE][var] = (
-                        data[pp.STATE][pp.ITERATE][var] + vals
-                    )
-                else:
-                    data[pp.STATE][var] = data[pp.STATE][var] + vals
-            else:
-                if to_iterate:
-                    # Make a copy of the array to avoid nasty bugs
-                    # Not sure if this can happen in practice, but better safe than
-                    # sorry.
-                    data[pp.STATE][pp.ITERATE][var] = vals.copy()
-                else:
-                    data[pp.STATE][var] = vals.copy()
+            if not to_iterate:
+                data = set_time_dependent_value(name=var, values=vals, data=data, solution_index=0, additive=additive)
+            if to_iterate:
+                data = set_time_dependent_value(name=var, values=vals, data=data, iterate_index=0, additive=additive)
 
     def assemble_variable(
         self,
@@ -553,12 +538,12 @@ class DofManager:
                 assembled. If not provided, all variables found in self.block_dof
                 will be cosidered.
             from_iterate (bool, optional): If True, assemble from iterates, and not the
-                state itself. Set this to True inside a non-linear scheme (Newton), False
+                solution itself. Set this to True inside a non-linear scheme (Newton), False
                 at the end of a time step.
 
         Returns:
             np.ndarray: Vector, size equal to self.num_dofs(). Values taken from the
-                state for those indices corresponding to an active grid-variable
+                solution for those indices corresponding to an active grid-variable
                 combination. Other values are set to zero.
 
         """
@@ -584,9 +569,9 @@ class DofManager:
 
             if from_iterate:
                 # Use copy to avoid nasty bugs.
-                values[dof_ind] = data[pp.STATE][pp.ITERATE][var].copy()
+                values[dof_ind] = data['stored_iterates'][var][0].copy()
             else:
-                values[dof_ind] = data[pp.STATE][var].copy()
+                values[dof_ind] = data['stored_solutions'][var][0].copy()
 
         return values
 

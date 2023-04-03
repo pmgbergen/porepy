@@ -27,7 +27,7 @@ def test_get_variable_values() -> None:
     # Note, that the for loop is only over a single grid.
     for sd, data in mdg.subdomains(return_data=True):
         data[pp.PRIMARY_VARIABLES] = {"test_var": {"cells": 1}}
-        pp.set_state(data, {"test_var": np.full(sd.num_cells, 0.0)})
+        pp.set_state(data, {"test_var": {0: np.full(sd.num_cells, 0.0)}})
     dof_manager = pp.DofManager(mdg)
 
     variable_values = dof_manager.get_variable_values()
