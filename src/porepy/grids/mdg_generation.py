@@ -721,7 +721,7 @@ def create_mdg(
             - _validate_tensor_grid_meshing_args_values
 
     Returns:
-        Mixed dimensional grid object.
+        Mixed-dimensional grid object.
 
     """
 
