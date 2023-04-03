@@ -649,7 +649,7 @@ def create_mdg(
 
             # Generate a mixed-dimensional grid (MDG)
             meshing_args = {"cell_size": 0.1}
-            mdg = pp.create_mdg("simplex",meshing_args,fracture_network)
+            mdg = pp.create_mdg("simplex", meshing_args, fracture_network)
 
     See Also:
         - :method:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
