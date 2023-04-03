@@ -32,10 +32,10 @@ def subdomains_to_mdg(
     time_tot: Optional[float] = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
-    """Convert a list of grids to a full MixedDimensionalGrid.
+    """Convert a list of grids to a full :class:~`porepy.MixedDimensionalGrid`.
 
     The list can come from several mesh constructors, both simplex and
-    structured approaches uses this in 2D and 3D.
+    structured approaches uses this in 2d and 3d.
 
     The function can not be used on an arbitrary set of grids; they should
     contain information to glue grids together. This will be included for grids
@@ -43,16 +43,15 @@ def subdomains_to_mdg(
     do not directly use this function unless you are knowledgeable about how it
     works.
 
-    Args:
+    Parameters:
         subdomains: Subdomains to enter into the Mixed-dimensional grid.
             Sorted per dimension.
-        time_tot (optional): Start time for full mesh construction. Used for
-            logging. Defaults to None, in which case no information on total
-            time consumption is logged.
+        time_tot: Start time for full mesh construction. Used for logging. Defaults to
+            ``None``, in which case no information on total time consumption is logged.
         **kwargs: Passed on to subfunctions.
 
     Returns:
-        MixedDimensionalGrid: Final mixed-dimensional grid.
+        mdg: Final mixed-dimensional grid.
 
     """
 
@@ -97,34 +96,34 @@ def subdomains_to_mdg(
 def cart_grid(
     fracs: list[np.ndarray], nx: np.ndarray, **kwargs
 ) -> pp.MixedDimensionalGrid:
-    """
-    Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
+    """Create a cartesian fractured :class:~`porepy.MixedDimensionalGrid` in 2 or 3
+    dimensions.
 
-    Args:
-        fracs: One list item for each fracture. Each item consist of a
-            (nd x npt) array describing fracture vertices, where npt is 2 for
-            2d domains, 4 for 3d domains. The fractures have to be
-            rectangles(3D) or straight lines(2D) that align with the axis.
-            The fractures may be intersecting.The fractures will snap to the
-            closest grid faces.
-        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
-    **kwargs:
-        physdims (np.ndarray): Physical dimensions in each direction.
-            Defaults to same as nx, that is, cells of unit size.
-            May also contain fracture tags, options for gridding, etc.
+    Parameters:
+        fracs: One list item for each fracture. Each item consists of an array of shape
+            ``(nd, num_points)`` describing fracture vertices, where ``num_points`` is 2 for
+            2d domains, 4 for 3d domains. The fractures have to be rectangles (3d) or
+            straight lines (2d) that align with the axis. The fractures may be
+            intersecting. The fractures will snap to the closest grid faces.
+        nx: Number of cells in each direction. Should be 2d or 3d.
+        **kwargs:
+            - physdims (:obj:~`numpyp.ndarray`): Physical dimensions in each direction.
+                Defaults to same as ``nx``, that is, cells of unit size. May also
+                contain fracture tags, options for gridding, etc.
 
     Returns:
-        MixedDimensionalGrid: A complete mixed-dimensional grid where all
-        fractures are represented as lower dim grids. The higher dim fracture
-        faces are split in two, and on the edges of the MixedDimensionalGrid
-        graph the mapping from lower dim cells to higher dim faces are stored
-        as 'face_cells'. Each face is given boolean tags depending on the type:
-        domain_boundary_faces: All faces that lie on the domain boundary
-        (i.e. should be given a boundary condition).fracture_faces: All faces
-        that are split (i.e. has a connection to a lower dim grid). tip_faces:
-        A boundary face that is not on the domain boundary, nor coupled to a
-        lower dimensional domain. The union of the above three is the tag
-        boundary_faces.
+        mdg: A complete mixed-dimensional grid where all fractures are represented as
+            lower dim grids. The higher dim fracture faces are split in two, and on the
+            edges of the MixedDimensionalGrid graph the mapping from lower dim cells to
+            higher dim faces are stored as 'face_cells'. Each face is given boolean tags
+            depending on the type:
+            - ``domain_boundary_faces``: All faces that lie on the domain boundary
+                (i.e. should be given a boundary condition).
+            - ``fracture_faces``: All faces that are split (i.e. has a connection to a
+                lower dim grid).
+            - ``tip_faces``: A boundary face that is neither on the domain boundary, nor
+                coupled to a lower dimensional domain.
+            The union of the above three is the tag ``boundary_faces``.
 
     Examples:
 
@@ -154,35 +153,42 @@ def cart_grid(
 
 
 def tensor_grid(
-    fracs: list[np.ndarray], x: np.ndarray, y=None, z=None, **kwargs
+    fracs: list[np.ndarray],
+    x: np.ndarray,
+    y: Optional[np.ndarray] = None,
+    z: Optional[np.ndarray] = None,
+    **kwargs,
 ) -> pp.MixedDimensionalGrid:
-    """
-    Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
+    """Create a cartesian fractured :class:~`porepy.MixedDimensionalGrid` in 2 or 3
+    dimensions.
 
-    Args:
-    fracs (list of np.ndarray): One list item for each fracture. Each item
-        consist of a (nd x npt) array describing fracture vertices, where npt is 2
-        for 2d domains, 4 for 3d domains. The fractures has to be rectangles(3D) or
-        straight lines(2D) that alignes with the axis. The fractures may be intersecting.
-        The fractures will snap to closest grid faces.
-    x (np.ndarray): Node coordinates in x-direction
-    y (np.ndarray): Node coordinates in y-direction.
-    z (np.ndarray): Node coordinates in z-direction.
-    **kwargs: May contain fracture tags, options for gridding, etc.
+    Note: If only the ``x`` coordinate is passed, an error will be raised, as fractured
+        tensor grids are not implemented in 1d.
+
+    Parameters:
+        fracs: One list item for each fracture. Each item consists of an array of shape
+            ``(nd, num_points)`` describing fracture vertices, where ``num_points`` is 2 for
+            2d  domains, 4 for 3d domains. The fractures have to be rectangles(3d) or
+            straight lines(2d) that align with the axis. The fractures may be
+            intersecting. The fractures will snap to closest grid faces
+        x: Node coordinates in x-direction.
+        y: Node coordinates in y-direction.
+        z: Node coordinates in z-direction.
+        **kwargs: May contain fracture tags, options for gridding, etc.
 
     Returns:
-    MixedDimensionalGrid: A complete bucket where all fractures are represented as
-        lower dim grids. The higher dim fracture faces are split in two,
-        and on the edges of the MixedDimensionalGrid graph the mapping from lower dim
-        cells to higher dim faces are stored as 'face_cells'. Each face is
-        given boolean tags depending on the type:
-           domain_boundary_faces: All faces that lie on the domain boundary
-               (i.e. should be given a boundary condition).
-           fracture_faces: All faces that are split (i.e. has a connection to a
-               lower dim grid).
-           tip_faces: A boundary face that is not on the domain boundary, nor
-               coupled to a lower domentional domain.
-        The union of the above three is the tag boundary_faces.
+        mdg: A complete bucket where all fractures are represented as
+            lower dim grids. The higher dim fracture faces are split in two,
+            and on the edges of the MixedDimensionalGrid graph the mapping from lower
+            dim cells to higher dim faces are stored as 'face_cells'. Each face is given
+            boolean tags depending on the type:
+            - ``domain_boundary_faces``: All faces that lie on the domain boundary
+                (i.e., should be given a boundary condition).
+            - ``fracture_faces``: All faces that are split (i.e., has a connection to a
+                lower dim grid).
+            - ``tip_faces``: A boundary face that is not on the domain boundary, nor
+                coupled to a lower domentional domain.
+            The union of the above three is the tag ``boundary_faces``.
 
     Examples
         >>> frac1 = np.array([[1, 4], [2, 2]])
@@ -203,24 +209,23 @@ def tensor_grid(
 
 
 def _tag_faces(grids, check_highest_dim=True):
-    """
-        Tag faces of grids. Three different tags are given to different types of
-        faces:
-            NONE: None of the below (i.e. an internal face)
-            DOMAIN_BOUNDARY: All faces that lie on the domain boundary
-                (i.e. should be given a boundary condition).
-            FRACTURE: All faces that are split (i.e. has a connection to a
-                lower dim grid).
-            TIP: A boundary face that is not on the domain boundary, nor
-                coupled to a lower domentional domain.
+    """Tag faces of grids.
 
-        Parameters:
-            grids (list): List of grids to be tagged. Sorted per dimension.
-            check_highest_dim (boolean, default=True): If true, we require there is
-                a single mesh in the highest dimension. The test is useful, but
-                should be waived for dfn meshes.
-            tag_tip_node (bool, default=True): If True, nodes in the highest-dimensional grid
-    are tagged
+    Three different tags are given to different types of faces:
+        - ``NONE``: None of the below (i.e., an internal face).
+        - ``DOMAIN_BOUNDARY``: All faces that lie on the domain boundary (i.e., should
+            be given a boundary condition).
+        - ``FRACTURE``: All faces that are split (i.e., has a connection to a lower dim
+            grid).
+        - ``TIP``: A boundary face that is neither on the domain boundary, nor coupled
+            to a lower domentional domain.
+
+    Parameters:
+        grids: List of grids to be tagged. Sorted per dimension.
+        check_highest_dim: If ``True``, we require there is a single mesh in the highest
+            dimension. The test is useful, but should be waived for dfn meshes.
+        tag_tip_node: If ``True``, nodes in the highest-dimensional grid are tagged.
+
     """
 
     # Assume only one grid of highest dimension
@@ -313,13 +318,13 @@ def _tag_faces(grids, check_highest_dim=True):
                 g.tags["tip_nodes"] = is_tip_node
 
                 if g.dim == g_h.dim - 1:
-                    # For co-dimension 1, we also register those nodes in the host grid which
-                    # are correspond to the tip of a fracture. We use a slightly wider
-                    # definition of a fracture tip in this context: Nodes that are on the
-                    # domain boundary, but also part of a tip face (on the fracture) which
-                    # extends into the domain are also considered to be tip nodes. Filtering
-                    # away these will be simple, using the domain_boundary_nodes tag, if
-                    # necessary.
+                    # For co-dimension 1, we also register those nodes in the host grid
+                    # which correspond to the tip of a fracture. We use a slightly wider
+                    # definition of a fracture tip in this context: Nodes that are on
+                    # the domain boundary, but also part of a tip face (on the fracture)
+                    # which extends into the domain are also considered to be tip nodes.
+                    # Filtering away these will be simple, using the
+                    # domain_boundary_nodes tag, if necessary.
                     nodes_on_fracture_tip = np.unique(
                         nodes_glb.reshape((n_per_face, bnd_faces_l.size), order="F")[
                             :, is_tip_face
@@ -344,7 +349,8 @@ def _tag_faces(grids, check_highest_dim=True):
         )
         tip_tag = np.zeros(g_h.num_nodes, dtype=bool)
         tip_tag[local_true_tip] = True
-        # Tag nodes that are on the tip of a fracture, and not involved in other fractures
+        # Tag nodes that are on the tip of a fracture, and not involved in other
+        # fractures.
         g_h.tags["node_is_fracture_tip"] = tip_tag
 
         on_any_tip = np.where(np.bincount(global_node_as_fracture_tip) > 0)[0]
@@ -353,14 +359,13 @@ def _tag_faces(grids, check_highest_dim=True):
         )
         tip_of_a_fracture = np.zeros_like(tip_tag)
         tip_of_a_fracture[local_any_tip] = True
-        # Tag nodes that are on the tip of a fracture, independent of whether it is
+        # Tag nodes that are on the tip of a fracture, independent of whether they are
+        # actually tips of a fracture.
         g_h.tags["node_is_tip_of_some_fracture"] = tip_of_a_fracture
 
 
 def _nodes_per_face(g):
-    """
-    Returns the number of nodes per face for a given grid
-    """
+    """Return the number of nodes per face for a given grid."""
     if ("TensorGrid" in g.name or "CartGrid" in g.name) and g.dim == 3:
         n_per_face = 4
     elif "TetrahedralGrid" in g.name:
@@ -380,11 +385,10 @@ def _nodes_per_face(g):
 
 def _assemble_mdg(
     subdomains, **kwargs
-) -> tuple[pp.MixedDimensionalGrid, dict[tuple[pp.Grid, pp.Grid], sps.spmatrix]]:
-    """
-    Create a MixedDimensionalGrid from a list of grids.
+) -> tuple[MixedDimensionalGrid, dict[tuple[pp.Grid, pp.Grid], sps.spmatrix]]:
+    """Create a :class:~`porepy.MixedDimensionalGrid` from a list of grids.
 
-    Args:
+    Parameters:
         subdomains: A list of lists of grids. Each element in the list is a
             list of all grids of a the same dimension. It is assumed that the
             grids are sorted from high dimensional grids to low dimensional
@@ -393,14 +397,12 @@ def _assemble_mdg(
             dimensional grid.
 
     Returns:
-        MixedDimensionalGrid:
-            A MixedDimensionalGrid class where the mapping face_cells are given
-            to each edge. face_cells maps from lower-dim cells to higher-dim
-            faces.
-        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a
-            face-cell map. The first item represents two neighboring
-            subdomains. The second item is a mapping between faces in the high
-            dimension subdomain and cells in the low dimension subdomain.
+        mdg: A mixed-dimensional grid, where the mapping ``face_cells`` are given to
+            each edge. ``face_cells`` maps from lower-dim cells to higher-dim faces.
+        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a face-cell map.
+            The first item represents two neighboring subdomains. The second item is a
+            mapping between faces in the high dimension subdomain and cells in the low
+            dimension subdomain.
 
     """
 
@@ -532,16 +534,14 @@ def create_interfaces(
     mdg: pp.MixedDimensionalGrid,
     sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
 ):
+    """Create interfaces for a given :class:~`porepy.MixedDimensionalGrid``.
 
-    """
-    Create interfaces for a given MixedDimensionalGrid.
-
-    Args:
+    Parameters:
         mdg: The mixed-dimensional grid where the interfaces are built.
-        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a
-            face-cell map. The first item represents two neighboring
-            subdomains. The second item is a mapping between faces in the high
-            dimension subdomain and cells in the low dimension subdomain.
+        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a face-cell map.
+            The first item represents  two neighboring subdomains. The second item is a
+            mapping between faces in the high dimension subdomain and cells in the low
+            dimension subdomain.
 
     """
 
@@ -560,7 +560,7 @@ def create_interfaces(
             # a T-intersection, or both ends of an L-intersection).
             raise ValueError(
                 """Found low-dimensional cell which corresponds to
-                             too many high-dimensional faces."""
+                    too many high-dimensional faces."""
             )
 
         # If all cells are found twice, create two mortar grids
