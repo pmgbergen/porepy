@@ -18,7 +18,7 @@ import porepy.grids.standard_grids.utils as utils
 
 
 class TestMDGridGeneration:
-    """Test suit for verifying the md-grid generation of pp.create_mdg"""
+    """Test suite for verifying the md-grid generation of pp.create_mdg"""
 
     def cell_size(self) -> float:
         return 0.5
