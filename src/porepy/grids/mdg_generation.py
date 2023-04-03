@@ -687,7 +687,7 @@ def create_mdg(
                 cell_size_z: ``float``: size in z-direction. If cell_size_z is provided,
                     it overwrites cell_size in the z-direction.
             if grid_type == "tensor_grid"
-                cell_size: ``float``: size in any direction. It is required, if one of
+                cell_size: ``float``: size in all directions. It is required, if one of
                     [x_pts, y_pts, z_pts] is not provided.
                 x_pts: ``np.array``: points in x-direction including boundary points.
                     If x_pts is provided, it overwrites the information computed from
