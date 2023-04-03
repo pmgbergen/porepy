@@ -684,7 +684,7 @@ def create_mdg(
         - ValueError: If invalid arguments values are provided. See validator functions:
             - _validate_args
             - :meth:`~_validate_grid_type_value`
-            - _validate_simplex_meshing_args_values
+            - :meth:`~_validate_simplex_meshing_args_values`
             - :meth:`~_validate_cartesian_meshing_args_values`
             - :meth:`~_validate_tensor_grid_meshing_args_values`
 
