@@ -11,9 +11,9 @@ consitutive relationship:
 
 .. math:
 
-    \rho(p) = \rho_0 \exp{c_f (p - p_0)},
+    \\rho(p) = \\rho_0 \\exp{c_f (p - p_0)},
 
-where :math:`\rho` and :math:`p` are the density and pressure, :math:`\rho_0` and
+where :math:`\\rho` and :math:`p` are the density and pressure, :math:`\\rho_0` and
 :math:`p_0` are the density and pressure at reference states, and :math:`c_f` is the
 fluid compressibility.
 
@@ -370,13 +370,27 @@ class ManuCompExactSolution:
             for q in self.q_matrix
         ]
 
-        # Face-centered Darcy fluxes
+        # Computation of the fluxes in the middle region results in NaN on faces that
+        # are outside the middle region. We therefore need to first evaluate the middle
+        # region and then the other regions, so that NaN faces outside the middle
+        # region can be overwritten accordingly.
         fn = sd_matrix.face_normals
         q_fc = np.zeros(sd_matrix.num_faces)
-        for (q, idx) in zip(q_fun, face_idx):
-            q_fc += (
-                q[0](fc[0], fc[1], time) * fn[0] + q[1](fc[0], fc[1], time) * fn[1]
-            ) * idx
+
+        q_fun_sorted = q_fun.copy()
+        q_fun_sorted.pop(1)
+        q_fun_sorted.insert(0, q_fun[1])
+
+        face_idx_sorted = face_idx.copy()
+        face_idx_sorted.pop(1)
+        face_idx_sorted.insert(0, face_idx[1])
+
+        # Perform evaluations using the sorted list of exact Darcy velocities
+        for q, idx in zip(q_fun_sorted, face_idx_sorted):
+            q_fc[idx] = (
+                    q[0](fc[0][idx], fc[1][idx], time) * fn[0][idx]
+                    + q[1](fc[0][idx], fc[1][idx], time) * fn[1][idx]
+            )
 
         # We need to correct the values of the exact Darcy fluxes at the internal
         # boundaries since they evaluate to NaN due to a division by zero (this
