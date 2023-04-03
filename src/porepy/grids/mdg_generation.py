@@ -639,7 +639,7 @@ def create_mdg(
                     will be used for completeness.
                 cell_size_fracture: ``float``: target mesh size close to the fracture. If not provided,
                     cell_size will be used for completeness.
-                cell_size_boundary: ``float``: boundary cell size. If not provided,
+                cell_size_boundary: ``float``: target mesh size close to the external boundaries (can be seen as a far-field value). If not provided,
                     cell_size will be used for completeness.
             if grid_type == "cartesian"
                 cell_size: ``float``: size in any direction. It is required, if one of
