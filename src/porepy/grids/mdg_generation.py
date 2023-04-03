@@ -601,6 +601,14 @@ def create_mdg(
 ) -> Union[pp.MixedDimensionalGrid, None]:
     """Creates a mixed-dimensional grid.
 
+Note:
+
+In terms of meshing arguments, we provide two ways of creating mixed-dimensional grids.
+    
+    (1) By providing `meshing_args` with the key ``cell_size``, where ``cell_size`` represents a target cell size and works for all types of grids.
+    
+    (2) By providing `meshing_args` with tailored keys. The keywords will vary depending on the type of grid and are meant to provide more flexibility in the meshing process, see e.g., the **Parameters** section below.
+
     Examples:
 
         .. code:: python3
