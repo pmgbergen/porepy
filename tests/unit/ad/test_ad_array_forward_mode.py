@@ -71,7 +71,7 @@ def _get_ad_array(
     #
     #  If this is confusing, it may be helpful to recall that an AdArray can represent
     #  any state, not only primary variables (e.g., a pp.ad.Variable). The main
-    #  motivation for using a more complex value is that the Jacbian matrix of primary
+    #  motivation for using a more complex value is that the Jacobian matrix of primary
     #  variables are identity matrices, thus compound expressions give higher chances of
     #  uncovering errors.
 

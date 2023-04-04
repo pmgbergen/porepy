@@ -9,7 +9,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.params.data import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 csc_or_csr_matrix = TypeVar("csc_or_csr_matrix", sps.csc_matrix, sps.csr_matrix)
 
@@ -23,7 +23,7 @@ class DofManager:
     """Class to keep track of degrees of freedom in a mixed-dimensional grid with
     several variables.
 
-    This class should be used for setting the state of variables, and to get
+    This class should be used for setting the solution value of variables, and to get
     indices of the degrees of freedom for grids and variables.
 
     Attributes:
@@ -490,9 +490,9 @@ class DofManager:
                 distributed. If not provided, all variables found in self.block_dof
                 will be considered.
             additive (bool, optional): If True, the variables are added to the current
-                state or iterate, instead of overwrite the existing value.
-            to_iterate (bool, optional): If True, distribute to iterates, and not the
-                state itself. Set to True inside a non-linear scheme (Newton), False
+                solution or iterate, instead of overwriting the existing value.
+            to_iterate (bool, optional): If True, distribute to iterate, and not the
+                solution itself. Set to True inside a non-linear scheme (Newton), False
                 at the end of a time step.
 
         """
@@ -527,7 +527,7 @@ class DofManager:
         variables: Optional[list[str]] = None,
         from_iterate: bool = False,
     ) -> np.ndarray:
-        """Assemble a vector from the variable state stored in nodes and edges in
+        """Assemble a vector from the variable solution stored in nodes and edges in
         the MixedDimensionalGrid.
 
         Parameters:

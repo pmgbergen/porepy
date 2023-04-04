@@ -52,15 +52,16 @@ grid), consider:
     pp.initialize_default_data(grid, d, keyword, specified_parameters)
 
 
-Also contains a function for setting the state. The state is all data associated with
-the previous time step or iteration, and is stored in data['stored_solutions']. The
-solution of a variable is stored in
+Also contains a function for setting the solution. The solution is all data associated
+with the previous time step or iteration, and is stored in ``data['stored_solutions']``.
+The solution of a variable is stored in
 
-data['stored_solutions'][variable_name],
+``data['stored_solutions'][variable_name][solution_index]``,
 
 whereas data such as BC values are stored similarly to in the Parameters class, in
 
-data['stored_solutions'][keyword]["bc_values"].
+``data['stored_solutions'][keyword]["bc_values"]``.
+
 """
 from __future__ import annotations
 
@@ -330,19 +331,20 @@ def initialize_data(
 
 
 def set_state(data: dict, state: Optional[dict] = None) -> dict:
-    """Initialize or update a state dictionary.
+    """Initialize or update a solution dictionary.
 
-    The initialization consists of adding a state dictionary in the proper field of the
-    data dictionary. If there is a state dictionary in data, the new state is added
-    using the update method of dictionaries.
+    The initialization consists of adding a solution dictionary in the proper field of
+    the data dictionary. If there is a solution dictionary already present in data, the
+    new solution is added using the update method of dictionaries.
 
     Args:
         data (dict): Outer data dictionary, to which the parameters will be added.
-        state (dict, Optional): A dictionary with the state, set to an empty dictionary if
-            not provided.
+        state (dict, Optional): A dictionary with the solution, set to an empty
+            dictionary if not provided.
 
     Returns:
         dict: The filled dictionary.
+
     """
     state = state or {}
     if 'stored_solutions' in data:
@@ -355,14 +357,12 @@ def set_state(data: dict, state: Optional[dict] = None) -> dict:
 def set_iterate(data: dict, iterate: Optional[dict] = None) -> dict:
     """Initialize or update an iterate dictionary.
 
-    Same as set_state for subfield ``'stored_iterates'`` Also checks whether
-    ``'stored_solutions'`` field is set, and adds it if not, see set_state.
+    Same as set_state for subfield ``'stored_iterates'``.
 
     Args:
         data (dict): Outer data dictionary, to which the parameters will be added.
-        iterate (dict, Optional): A dictionary with the state, sateet to an empty
-        dictionary if
-            not provided.
+        iterate (dict, Optional): A dictionary with the iterates, set to an empty
+            dictionary if not provided.
 
     Returns:
         dict: The filled dictionary.
@@ -373,65 +373,6 @@ def set_iterate(data: dict, iterate: Optional[dict] = None) -> dict:
     else:
         data['stored_iterates'] = iterate
     return data
-
-def set_time_dependent_value(
-        name: str, 
-        values: np.ndarray,
-        data: dict,
-        solution_index: Optional[int] = None,
-        iterate_index: Optional[int] = None, 
-        additive: bool = False
-) -> dict:
-    """Sets values to ``'stored_solutions'`` and/or ``'stored_iterates'`` in data
-    dictionary.
-    
-    Parameters:
-        name: Name of the variable/quantity that is to be assigned values.
-        values: The values that are set to the sub-dictionary of data that corresponds
-            to the variable/quantity name.
-        data: Data dictionary corresponding to the subdomain and variable in question
-        solution_index (optional): Determines the key of where ``values`` are to be
-            stored in ``data['stored_solutions'][name]``. 0 means it is the most recent
-            set of values, 1 means the one time step back in time, 2 is two time steps
-            back, and so on.
-        iterate_index (optional): Determines the key of where ``values`` are to be
-            stored in ``data['stored_iterates'][name]``. 0 means it is the most recent
-            set of values, 1 means the values one iteration back in time, 2 is two
-            iterations back, and so on.
-        additive: Flag to decice whether the values already stored in the data
-            dictionary should be added to or overwritten.
-
-    """
-    if not additive:
-        if solution_index is not None:
-            if 'stored_solutions' not in data:
-                data['stored_solutions'] = dict()
-            if name not in data['stored_solutions']:
-                data['stored_solutions'][name] = dict()
-            data['stored_solutions'][name][solution_index] = values.copy()
-
-        if iterate_index is not None:
-            if 'stored_iterates' not in data:
-                data['stored_iterates'] = dict()
-            if name not in data['stored_iterates']:
-                data['stored_iterates'][name] = dict()
-            data['stored_iterates'][name][iterate_index] = values.copy()
-    else:
-        if solution_index is not None:
-            if 'stored_solutions' not in data:
-                data['stored_solutions'] = dict()
-            if name not in data['stored_solutions']:
-                data['stored_solutions'][name] = dict()
-            data['stored_solutions'][name][solution_index] += values
-
-        if iterate_index is not None:
-            if 'stored_iterates' not in data:
-                data['stored_iterates'] = dict()
-            if name not in data['stored_iterates']:
-                data['stored_iterates'][name] = dict()
-            data['stored_iterates'][name][iterate_index] += values      
-    return data
-
 
 def modify_variable(variable, new_value) -> None:
     """Changes the value (not id) of the stored parameter.

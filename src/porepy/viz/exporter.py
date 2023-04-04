@@ -15,7 +15,7 @@ import numpy as np
 from deepdiff import DeepDiff
 
 import porepy as pp
-from porepy.params.data import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 # Object type to store data to export.
 Field = namedtuple("Field", ["name", "values"])
@@ -47,7 +47,7 @@ InterfaceData = Dict[Tuple[pp.MortarGrid, str], np.ndarray]
 class Exporter:
     """Class for exporting and importing data and grid to and from vtu format.
 
-    The Exporter allows for various ways to express which state variables,
+    The Exporter allows for various ways to express which solution variables,
     on which grids, and which extra data should be exported. A thorough
     demonstration is available as a dedicated tutorial. Check out
     tutorials/exporter.ipynb.
@@ -90,11 +90,11 @@ class Exporter:
     Examples:
         # Here, merely a brief demonstration of the use of Exporter is presented.
 
-        # If you need to export the state with key "pressure" on a single grid:
+        # If you need to export the solution with key "pressure" on a single grid:
         save = Exporter(g, "solution", folder_name="results")
         save.write_vtu(["pressure"])
 
-        # In a time loop, if you need to export states with keys "pressure" and
+        # In a time loop, if you need to export solutions with keys "pressure" and
         # "displacement" stored in a mixed-dimensional grid, do:
 
         save = Exporter(mdg, "solution", folder_name="results")
@@ -221,7 +221,7 @@ class Exporter:
     def import_from_vtu(
         self, keys: Union[str, list[str]], file_names: Union[str, list[str]], **kwargs
     ) -> None:
-        """Import state variables from vtu file. It is assumed that the vtu file was
+        """Import solution variables from vtu file. It is assumed that the vtu file was
         created using PorePy, e.g., that the file names follow PorePy conventions,
         the mixed-dimensional grid is split in the usual way etc.
 
@@ -862,7 +862,7 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no state in the subdomain data with given
+                ValueError: if there exists no solution in the subdomain data with given
                     key.
 
             """
@@ -880,7 +880,7 @@ class Exporter:
                 subdomains: list[pp.Grid] = data_pt[0]
                 key = data_pt[1]
 
-                # Loop over grids and fetch the states corresponding to the key
+                # Loop over grids and fetch the solutions corresponding to the key
                 for sd in subdomains:
 
                     # Fetch the data dictionary containing the data value
@@ -889,7 +889,7 @@ class Exporter:
                     # Make sure the data exists.
                     if not ('stored_solutions' in sd_data and key in sd_data['stored_solutions']):
                         raise ValueError(
-                            f"""No state with prescribed key {key}
+                            f"""No solution with prescribed key {key}
                             available on selected subdomains."""
                         )
 
@@ -929,7 +929,7 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no state in the interface data with given
+                ValueError: if there exists no solution in the interface data with given
                     key.
 
             """
@@ -947,7 +947,7 @@ class Exporter:
                 interfaces: list[pp.MortarGrid] = data_pt[0]
                 key = data_pt[1]
 
-                # Loop over interfaces and fetch the states corresponding to the key
+                # Loop over interfaces and fetch the solutions corresponding to the key
                 for intf in interfaces:
 
                     # Fetch the data dictionary containing the data value
@@ -956,7 +956,7 @@ class Exporter:
                     # Make sure the data exists.
                     if not ('stored_solutions' in intf_data and key in intf_data['stored_solutions']):
                         raise ValueError(
-                            f"""No state with prescribed key {key}
+                            f"""No solution with prescribed key {key}
                             available on selected interfaces."""
                         )
 
@@ -992,7 +992,7 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no state in the interface data with given
+                ValueError: if there exists no solution in the interface data with given
                     key.
 
             """
@@ -1043,7 +1043,7 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no state in the interface data with given
+                ValueError: if there exists no solution in the interface data with given
                     key.
 
             """

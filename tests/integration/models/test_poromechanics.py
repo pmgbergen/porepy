@@ -452,7 +452,7 @@ def test_positive_p_frac_positive_opening():
 
 
 def test_pull_south_positive_reference_pressure():
-    """Compare with and without nonzero reference (and initial) state."""
+    """Compare with and without nonzero reference (and initial) solution."""
     setup_ref = create_fractured_setup({}, {}, 0)
     setup_ref.subtract_p_frac = False
     setup_ref.params["uy_south"] = -0.001

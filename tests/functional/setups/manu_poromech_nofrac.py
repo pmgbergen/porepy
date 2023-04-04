@@ -75,7 +75,7 @@ import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
-from porepy.params.data import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 
 # PorePy typings
