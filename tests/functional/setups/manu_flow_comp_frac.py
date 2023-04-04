@@ -39,7 +39,7 @@ from tests.functional.setups.manu_flow_incomp_frac import (
     SingleEmbeddedVerticalFracture,
 )
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 # PorePy typings
 number = pp.number
@@ -761,7 +761,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         # Sources
         matrix_source = self.exact_sol.matrix_source(sd_matrix, t)
 
-        data_matrix = set_time_dependent_value(
+        set_solution_values(
             name="external_sources",
             values=matrix_source,
             data=data_matrix,
@@ -770,7 +770,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
         frac_source = self.exact_sol.fracture_source(sd_frac, t)
 
-        data_frac = set_time_dependent_value(
+        set_solution_values(
             name="external_sources",
             values=frac_source,
             data=data_frac,
@@ -780,13 +780,13 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         # Boundary conditions for the elliptic discretization
         matrix_pressure_boundary = self.exact_sol.matrix_boundary_pressure(sd_matrix, t)
 
-        data_matrix = set_time_dependent_value(
+        set_solution_values(
             name="darcy_bc_values",
             values=matrix_pressure_boundary,
             data=data_matrix,
             solution_index=0,
         )
-        data_frac = set_time_dependent_value(
+        set_solution_values(
             name="darcy_bc_values",
             values=np.zeros(sd_frac.num_faces),
             data=data_frac,
@@ -798,14 +798,14 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         viscosity = self.fluid.viscosity()
         matrix_mobrho = matrix_density_boundary / viscosity
 
-        data_matrix = set_time_dependent_value(
+        set_solution_values(
             name="mobrho_bc_values",
             values=matrix_mobrho,
             data=data_matrix,
             solution_index=0,
         )
 
-        data_frac = set_time_dependent_value(
+        set_solution_values(
             name="mobrho_bc_values",
             values=np.zeros(sd_frac.num_faces),
             data=data_frac,

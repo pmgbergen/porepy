@@ -75,7 +75,7 @@ import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.building_blocks.verification_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 
 # PorePy typings
@@ -787,13 +787,13 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
         # Mechanics source
         mech_source = self.exact_sol.mechanics_source(sd=sd, time=t)
-        data = set_time_dependent_value(
+        set_solution_values(
             name="source_mechanics", values=mech_source, data=data, solution_index=0
         )
 
         # Flow source
         flow_source = self.exact_sol.flow_source(sd=sd, time=t)
-        data = set_time_dependent_value(
+        set_solution_values(
             name="source_flow", values=flow_source, data=data, solution_index=0
         )
 
