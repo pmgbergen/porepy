@@ -558,7 +558,7 @@ class PropagationCriteria(unittest.TestCase):
         d_j = self.mdg.interface_data(intf)
         trace = np.abs(pp.fvutils.vector_divergence(self.sd_primary)).T
         u_j = intf.primary_to_mortar_avg(nd=self.nd) * trace * u_h
-        pp.set_iterate(d_j, {self.model.mortar_displacement_variable: u_j})
+        pp.set_iterate(d_j, {self.model.mortar_displacement_variable: {0: u_j}})
 
         # Parameters used by the propagation class
         for g, d in self.mdg.subdomains(return_data=True):
@@ -796,7 +796,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         )
         d = set_time_dependent_value(
             name=self.cv2, values=val_it, data=d, iterate_index=0
-        )  
+        )
 
         for g in g_1d:
             d = mdg.subdomain_data(g)
@@ -815,7 +815,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             )
             d = set_time_dependent_value(
                 name=self.cv1, values=val_it, data=d, iterate_index=0
-            ) 
+            )
 
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
 
@@ -825,7 +825,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             #     self.mv: cell_val_mortar[g],
             #     pp.ITERATE: {self.mv: np.array(2 * cell_val_mortar[g])},
             # }
-            
+
             val_sol = cell_val_mortar[g]
             val_it = 2 * cell_val_mortar[g]
 
@@ -834,7 +834,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             )
             d = set_time_dependent_value(
                 name=self.mv, values=val_it, data=d, iterate_index=0
-            ) 
+            )
 
         # Define assembler, thereby a dof ordering
         dof_manager = pp.DofManager(mdg)
@@ -915,13 +915,16 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 #     dof_manager.grid_and_variable_to_dofs(g, self.cv1)
                 # ]
                 # d[pp.STATE][pp.ITERATE][self.cv1] = val_1d_iterate_prev[g]
-                
+
                 d = set_time_dependent_value(
-                    name=self.cv1, values=val_1d_prev[g], data=d, 
-                    solution_index=0)                
+                    name=self.cv1, values=val_1d_prev[g], data=d, solution_index=0
+                )
                 d = set_time_dependent_value(
-                    name=self.cv1, values=val_1d_iterate_prev[g], data=d, 
-                    iterate_index=0)
+                    name=self.cv1,
+                    values=val_1d_iterate_prev[g],
+                    data=d,
+                    iterate_index=0,
+                )
 
                 ## Check mortar grid - see 1d case above for comments
                 intf = mdg.subdomain_pair_to_interface((g_2d, g))
