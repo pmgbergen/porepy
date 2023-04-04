@@ -15,7 +15,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
 """
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Union
 
 import numpy as np
 
@@ -232,7 +232,13 @@ class SolutionStrategyPoromechanics(
     This class has a diamond structure inheritance. The user should be aware of this
     and take method resolution order into account when defining new methods.
 
-    TODO: More targeted (re-)discretization.
+    """
+
+    darcy_flux_discretization: Callable[
+        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
+    ]
+    """Discretization of the Darcy flux. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
 
@@ -260,6 +266,18 @@ class SolutionStrategyPoromechanics(
     def _is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""
         return True
+
+    def set_nonlinear_discretizations(self) -> None:
+        """Collect discretizations for nonlinear terms."""
+        # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
+        # balance does not have any.
+        super().set_nonlinear_discretizations()
+        # Aperture changes render permeability variable. This requires a re-discretization
+        # of the diffusive flux in subdomains where the aperture changes.
+        subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+        self.add_nonlinear_discretization(
+            self.darcy_flux_discretization(subdomains).flux,
+        )
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

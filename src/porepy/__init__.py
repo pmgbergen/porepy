@@ -211,6 +211,7 @@ from porepy.models.material_constants import (
 
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
+from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
 
