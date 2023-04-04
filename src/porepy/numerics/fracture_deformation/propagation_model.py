@@ -26,6 +26,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 
 class FracturePropagation(abc.ABC):
@@ -168,15 +169,20 @@ class FracturePropagation(abc.ABC):
                 # New values for the new dofs.
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
-                # Loop over stored solutions.
-                for ind, sol in data[pp.SOLUTIONS][var].items():
-                    sol = mapping * sol
-                    sol[new_ind] = new_vals
+                # Loop over stored solutions. Loop on keys to avoid bad practice of
+                # changing looped quantity using items method.
+                for ind in data[pp.SOLUTIONS][var].keys():
+                    values = data[pp.SOLUTIONS][var][ind]
+                    values = mapping * values
+                    values[new_ind] = new_vals
+                    set_time_dependent_value(var, values, data, solution_index=ind)
 
                 # Repeat for iterate:
-                for iterate in data[pp.ITERATES][var].values():
-                    iterate = mapping * iterate
-                    iterate[new_ind] = new_vals
+                for ind in data[pp.ITERATES][var].keys():
+                    values = data[pp.ITERATES][var][ind]
+                    values = mapping * values
+                    values[new_ind] = new_vals
+                    set_time_dependent_value(var, values, data, iterate_index=ind)
 
         for intf, data in self.mdg.interfaces(return_data=True):
 
@@ -202,15 +208,20 @@ class FracturePropagation(abc.ABC):
                 # New values for the new dofs.
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
-                # Loop over stored solutions (one or more indexed by time).
-                for sol in data[pp.SOLUTIONS][var].values():
-                    sol = mapping * sol
-                    sol[new_ind] = new_vals
+                # Loop over stored solutions (one or more indexed by time). Loop on keys
+                # to avoid bad practice of changing looped quantity using items method.
+                for ind in data[pp.SOLUTIONS][var].keys():
+                    values = data[pp.SOLUTIONS][var][ind]
+                    values = mapping * values
+                    values[new_ind] = new_vals
+                    set_time_dependent_value(var, values, data, solution_index=ind)
 
-                # Repeat for iterate
-                for iterate in data[pp.ITERATES][var].values():
-                    iterate = mapping * iterate
-                    iterate[new_ind] = new_vals
+                # Repeat for iterate.
+                for ind in data[pp.ITERATES][var].keys():
+                    values = data[pp.ITERATES][var][ind]
+                    values = mapping * values
+                    values[new_ind] = new_vals
+                    set_time_dependent_value(var, values, data, iterate_index=ind)
 
         # Update the assembler's counting of dofs
         self.assembler.update_dof_count()
