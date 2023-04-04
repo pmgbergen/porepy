@@ -673,7 +673,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         # Internal sources are inherit from parent class
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        # External sources are retrieved from 'stored_solutions' and wrapped as an
+        # External sources are retrieved from SOLUTIONS and wrapped as an
         # AdArray
         external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
@@ -761,37 +761,55 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         matrix_source = self.exact_sol.matrix_source(sd_matrix, t)
 
         data_matrix = set_time_dependent_value(
-            name='external_sources', values=matrix_source, data=data_matrix, solution_index=0
-            )
+            name="external_sources",
+            values=matrix_source,
+            data=data_matrix,
+            solution_index=0,
+        )
 
         frac_source = self.exact_sol.fracture_source(sd_frac, t)
 
         data_frac = set_time_dependent_value(
-            name='external_sources', values=frac_source, data=data_frac, solution_index=0
-            )
+            name="external_sources",
+            values=frac_source,
+            data=data_frac,
+            solution_index=0,
+        )
 
         # Boundary conditions for the elliptic discretization
         matrix_pressure_boundary = self.exact_sol.matrix_boundary_pressure(sd_matrix, t)
 
         data_matrix = set_time_dependent_value(
-            name='darcy_bc_values', values=matrix_pressure_boundary, data=data_matrix,solution_index=0
-            )
+            name="darcy_bc_values",
+            values=matrix_pressure_boundary,
+            data=data_matrix,
+            solution_index=0,
+        )
         data_frac = set_time_dependent_value(
-            name='darcy_bc_values', values=np.zeros(sd_frac.num_faces), data=data_frac,solution_index=0
-            )      
-        
+            name="darcy_bc_values",
+            values=np.zeros(sd_frac.num_faces),
+            data=data_frac,
+            solution_index=0,
+        )
+
         # Boundary conditions for the upwind discretization
         matrix_density_boundary = self.exact_sol.matrix_boundary_density(sd_matrix, t)
         viscosity = self.fluid.viscosity()
         matrix_mobrho = matrix_density_boundary / viscosity
 
         data_matrix = set_time_dependent_value(
-            name='mobrho_bc_values', values=matrix_mobrho, data=data_matrix,solution_index=0
-            ) 
+            name="mobrho_bc_values",
+            values=matrix_mobrho,
+            data=data_matrix,
+            solution_index=0,
+        )
 
         data_frac = set_time_dependent_value(
-            name='mobrho_bc_values', values=np.zeros(sd_frac.num_faces), data=data_frac,solution_index=0
-            )   
+            name="mobrho_bc_values",
+            values=np.zeros(sd_frac.num_faces),
+            data=data_frac,
+            solution_index=0,
+        )
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""

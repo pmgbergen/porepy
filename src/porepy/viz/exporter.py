@@ -387,7 +387,9 @@ class Exporter:
                             values = _from_vector_format(
                                 value[offset : offset + sd.num_cells], sd
                             )
-                            sd_data = set_time_dependent_value(name=key, values=values, data=sd_data, solution_index=0)
+                            sd_data = set_time_dependent_value(
+                                name=key, values=values, data=sd_data, solution_index=0
+                            )
 
                             offset += sd.num_cells
                     else:
@@ -397,7 +399,12 @@ class Exporter:
                             values = _from_vector_format(
                                 value[offset : offset + intf.num_cells], intf
                             )
-                            intf_data = set_time_dependent_value(name=key, values=values, data=intf_data, solution_index=0)    
+                            intf_data = set_time_dependent_value(
+                                name=key,
+                                values=values,
+                                data=intf_data,
+                                solution_index=0,
+                            )
 
                             offset += intf.num_cells
 
@@ -778,7 +785,7 @@ class Exporter:
 
             Parameters:
                 data_pt: data identifier via the associated key used in
-                    ``'stored_solutions'``. 
+                    ``'stored_solutions'``.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
 
@@ -806,10 +813,13 @@ class Exporter:
                     grid_data: dict,
                     export_data: dict,
                 ) -> bool:
-                    if 'stored_solutions' in grid_data and key in grid_data['stored_solutions']:
+                    if (
+                        "stored_solutions" in grid_data
+                        and key in grid_data["stored_solutions"]
+                    ):
                         # Fetch data and convert to vectorial format if needed
                         value: np.ndarray = _to_vector_format(
-                            grid_data['stored_solutions'][key][0], grid
+                            grid_data["stored_solutions"][key][0], grid
                         )
 
                         # Add data point in correct format to the collection
@@ -853,7 +863,7 @@ class Exporter:
             This routine explicitly checks only for subdomain data.
 
             Parameters:
-                data_pt: data iendtifier via the key used in 'stored_solutions' and
+                data_pt: data identifier via the key used in 'stored_solutions' and
                     a specific subdomain.
                 subdomain_data: container for subdomain data
                 interface_data: container for interface data
@@ -887,14 +897,17 @@ class Exporter:
                     sd_data = self._mdg.subdomain_data(sd)
 
                     # Make sure the data exists.
-                    if not ('stored_solutions' in sd_data and key in sd_data['stored_solutions']):
+                    if not (
+                        "stored_solutions" in sd_data
+                        and key in sd_data["stored_solutions"]
+                    ):
                         raise ValueError(
                             f"""No solution with prescribed key {key}
                             available on selected subdomains."""
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _to_vector_format(sd_data['stored_solutions'][key][0], sd)
+                    value = _to_vector_format(sd_data["stored_solutions"][key][0], sd)
 
                     # Add data point in correct format to collection
                     subdomain_data[(sd, key)] = value
@@ -954,14 +967,19 @@ class Exporter:
                     intf_data = self._mdg.interface_data(intf)
 
                     # Make sure the data exists.
-                    if not ('stored_solutions' in intf_data and key in intf_data['stored_solutions']):
+                    if not (
+                        "stored_solutions" in intf_data
+                        and key in intf_data["stored_solutions"]
+                    ):
                         raise ValueError(
                             f"""No solution with prescribed key {key}
                             available on selected interfaces."""
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _to_vector_format(intf_data['stored_solutions'][key][0], intf)
+                    value = _to_vector_format(
+                        intf_data["stored_solutions"][key][0], intf
+                    )
 
                     # Add data point in correct format to collection
                     interface_data[(intf, key)] = value

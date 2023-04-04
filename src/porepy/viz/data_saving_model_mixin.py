@@ -65,7 +65,9 @@ class DataSavingMixin:
         data = []
         variables = self.equation_system.variables
         for var in variables:
-            scaled_values = self.equation_system.get_variable_values(variables=[var], solution_index=0)
+            scaled_values = self.equation_system.get_variable_values(
+                variables=[var], solution_index=0
+            )
             units = var.tags["si_units"]
             values = self.fluid.convert_units(scaled_values, units, to_si=True)
             data.append((var.domain, var.name, values))

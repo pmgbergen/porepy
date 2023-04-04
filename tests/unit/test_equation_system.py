@@ -682,10 +682,10 @@ def test_set_get_methods(
 
     # Test to set value at a non-zero storage index
     sys_man.set_variable_values(values=vals2 * 2, variables=variables, solution_index=2)
-    
+
     retrieved_set_ind_vals2 = sys_man.get_variable_values(variables, solution_index=2)
 
-    assert np.allclose(retrieved_set_ind_vals2, vals2 * 2)   
+    assert np.allclose(retrieved_set_ind_vals2, vals2 * 2)
 
 
 @pytest.mark.parametrize(
