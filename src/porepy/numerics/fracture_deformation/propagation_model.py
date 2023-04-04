@@ -111,44 +111,43 @@ class FracturePropagation(abc.ABC):
 
     def _map_variables(self, x: np.ndarray) -> np.ndarray:
         """
-        Map variables from old to new grids in d[pp.STATE] and d[pp.STATE][pp.ITERATE].
+        Map variables from old to new grids in d[pp.SOLUTIONS] and d[pp.ITERATES].
         Also call update of self.assembler.update_dof_count and update the current
         solution vector accordingly.
 
-        Newly created DOFs are assigned values by _initialize_new_variable_values,
-        which for now returns zeros, but can be tailored for specific variables
-        etc.
+        Newly created DOFs are assigned values by _initialize_new_variable_values, which
+        for now returns zeros, but can be tailored for specific variables etc.
 
-        Parameters
-        ------
-        x: np.ndarray
-            Solution vector, or other vector to be mapped.
+        Assumes only one stored solution vector, i.e. solution indexes = iterate indexes
+        = [0].
 
-        Raises
-        ------
-        NotImplementedError
-            DESCRIPTION.
+        Parameters:
+            x: Solution vector, or other vector to be mapped.
 
-        Returns
-        -------
-        None.
+        Raises:
+            NotImplementedError
+
+        Returns:
+            Mapped solution vector.
 
         """
         # Obtain old solution vector. The values are extracted in the first two loops
         # and mapped and updated in the last two, after update_dof_count has been called.
         for sd, data in self.mdg.subdomains(return_data=True):
 
-            # First check if cells and faces have been updated, by checking if index maps are
-            # available. If this is not the case, there is no need to map variables.
+            # First check if cells and faces have been updated, by checking if index
+            # maps are available. If this is not the case, there is no need to map
+            # variables.
             if not ("cell_index_map" in data and "face_index_map" in data):
                 continue
 
             cell_map: sps.spmatrix = data["cell_index_map"]
 
-            data[pp.STATE]["old_solution"] = {}
+            # Make temporary storage for old solution.
+            data["old_solution"] = {}
             for var, dofs in data[pp.PRIMARY_VARIABLES].items():
-                # Copy old solution vector values
-                data[pp.STATE]["old_solution"][var] = x[
+                # Copy old solution vector values and store for next outer loop.
+                data["old_solution"][var] = x[
                     self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)
                 ]
 
@@ -166,19 +165,18 @@ class FracturePropagation(abc.ABC):
 
                 # Map old solution
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                data[pp.STATE][var] = mapping * data[pp.STATE][var]
-
-                # Initialize new values
+                # New values for the new dofs.
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
-                data[pp.STATE][var][new_ind] = new_vals
+                # Loop over stored solutions.
+                for ind, sol in data[pp.SOLUTIONS][var].items():
+                    sol = mapping * sol
+                    sol[new_ind] = new_vals
 
                 # Repeat for iterate:
-                if var in data[pp.STATE][pp.ITERATE].keys():
-                    data[pp.STATE][pp.ITERATE][var] = (
-                        mapping * data[pp.STATE][pp.ITERATE][var]
-                    )
-                    data[pp.STATE][pp.ITERATE][var][new_ind] = new_vals
+                if iterate in data[pp.ITERATES][var].values():
+                    iterate = mapping * iterate
+                    iterate[new_ind] = new_vals
 
         for intf, data in self.mdg.interfaces(return_data=True):
 
@@ -187,12 +185,12 @@ class FracturePropagation(abc.ABC):
                 # No need to do anything
                 continue
 
-            data[pp.STATE]["old_solution"] = {}
+            data["old_solution"] = {}
             cell_map = data["cell_index_map"]
 
             for var, dofs in data[pp.PRIMARY_VARIABLES].items():
-                # Copy old solution vector values
-                data[pp.STATE]["old_solution"][var] = x[
+                # Copy old solution vector values.
+                data["old_solution"][var] = x[
                     self.assembler._dof_manager.grid_and_variable_to_dofs(intf, var)
                 ]
 
@@ -201,26 +199,24 @@ class FracturePropagation(abc.ABC):
 
                 # Map old solution
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                data[pp.STATE][var] = mapping * data[pp.STATE][var]
-
-                # Initialize new values
+                # New values for the new dofs.
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
-                data[pp.STATE][var][new_ind] = new_vals
+                # Loop over stored solutions (one or more indexed by time).
+                for sol in data[pp.SOLUTIONS][var].values():
+                    sol = mapping * sol
+                    sol[new_ind] = new_vals
 
                 # Repeat for iterate
-                if var in data[pp.STATE][pp.ITERATE].keys():
-                    data[pp.STATE][pp.ITERATE][var] = (
-                        mapping * data[pp.STATE][pp.ITERATE][var]
-                    )
-                    data[pp.STATE][pp.ITERATE][var][new_ind] = new_vals
+                for iterate in data[pp.ITERATES][var].values():
+                    iterate = mapping * iterate
+                    iterate[new_ind] = new_vals
 
         # Update the assembler's counting of dofs
         self.assembler.update_dof_count()
 
         x_new = np.zeros(self.assembler.num_dof())
-        # For each grid-variable pair, map old solution and initialize for new
-        # DOFs.
+        # For each grid-variable pair, map old solution and initialize for new DOFs.
         for sd, data in self.mdg.subdomains(return_data=True):
             # Check if there has been updates to this grid.
             if not ("cell_index_map" in data and "face_index_map" in data):
@@ -232,23 +228,25 @@ class FracturePropagation(abc.ABC):
                 # Update consist of two parts: First map the old solution to the new
                 # grid, second populate newly formed cells.
 
-                # Mapping of old variables
+                # Mapping of old variables.
                 cell_dof = dofs.get("cells")
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
                 x_new[
                     self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)
-                ] = (mapping * data[pp.STATE]["old_solution"][var])
+                ] = (mapping * data["old_solution"][var])
 
-                # Index of newly formed variables
+                # Index of newly formed variables.
                 new_ind = self._new_dof_inds(mapping)
-                # Values of newly formed variables
+                # Values of newly formed variables.
                 new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
-                # Update newly formed variables
+                # Update newly formed variables.
                 x_new[
                     self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)[
                         new_ind
                     ]
                 ] = new_vals
+            # Purge temporary storage of old solution.
+            del data["old_solution"]
 
         for intf, data in self.mdg.interfaces(return_data=True):
             # Same procedure as for subdomains, see above for comments
@@ -262,7 +260,7 @@ class FracturePropagation(abc.ABC):
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
                 x_new[
                     self.assembler._dof_manager.grid_and_variable_to_dofs(intf, var)
-                ] = (mapping * data[pp.STATE]["old_solution"][var])
+                ] = (mapping * data["old_solution"][var])
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
                 x_new[
@@ -270,6 +268,8 @@ class FracturePropagation(abc.ABC):
                         new_ind
                     ]
                 ] = new_vals
+
+            del data["old_solution"]
 
         # Store the mapped solution vector
         return x_new
