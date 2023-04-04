@@ -5,6 +5,7 @@ Created on Sun Nov  5 11:17:04 2017
 
 @author: eke001
 """
+from typing import Any, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -15,13 +16,25 @@ from porepy.utils import tags
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 
-def merge_grids(grids, intersections, tol=1e-4):
-    """Main method of module, merge all grids"""
+def merge_grids(
+    grids: list[list[list[pp.Grid]]], intersections, tol: float = 1e-4
+) -> list[list[pp.Grid]]:
+    """Main method of module, merge all grids.
+
+    Parameters:
+        grids: Nested list of grids to be merged. Outer: One per fracture, middle:
+            dimension, inner: grids within the dimension.
+        intersections:
+        tol: Tolerances for
+
+    Returns:
+        grid_list_by_dim: Merged grids, sorted by dimension.
+    """
     list_of_grids, global_ind_offset = init_global_ind(grids)
     grids_1d = process_intersections(
         grids, intersections, global_ind_offset, list_of_grids, tol
     )
-    grid_list_by_dim = [[], [], []]
+    grid_list_by_dim: list[list[pp.Grid]] = [[], [], []]
 
     grid_list_by_dim[1] = grids_1d
 
@@ -31,21 +44,21 @@ def merge_grids(grids, intersections, tol=1e-4):
     return grid_list_by_dim
 
 
-def init_global_ind(gl):
+def init_global_ind(gl: list[list[list[pp.Grid]]]) -> tuple[list[pp.Grid], int]:
     """Initialize a global indexing of nodes to a set of local grids.
 
     Parameters:
-        gl (triple list): Outer: One per fracture, middle: dimension, inner:
-            grids within the dimension.
+        gl: Outer: One per fracture, middle: dimension, inner: grids within the
+            dimension.
 
     Returns:
-        list (Grid): Single list representation of all grids. Fractures and
+        list_of_grids: Single list representation of all grids. Fractures and
             dimensions will be mixed up.
-        int: Global number of nodes.
+        global_ind_offset: Global number of nodes.
 
     """
 
-    list_of_grids = []
+    list_of_grids: list[pp.Grid] = []
 
     # The global point index is for the moment set within each fracture
     # (everybody start at 0). Adjust this.
@@ -67,9 +80,26 @@ def init_global_ind(gl):
     return list_of_grids, global_ind_offset
 
 
-def process_intersections(grids, intersections, global_ind_offset, list_of_grids, tol):
-    """Loop over all intersections, combined two and two grids."""
+def process_intersections(
+    grids: list[list[list[pp.Grid]]],
+    intersections,
+    global_ind_offset,
+    list_of_grids,
+    tol: float,
+):
+    """Loop over all intersections, combined two and two grids.
 
+    Parameters:
+        grids: _description_
+        intersections: _description_
+        global_ind_offset: _description_
+        list_of_grids: _description_
+        tol: _description_
+
+    Returns:
+        grid_1d_list:
+
+    """
     # All connections will be hit upon twice, one from each intersecting fracture.
     # Keep track of which connections have been treated, and can be skipped.
     num_frac = len(grids)
@@ -114,7 +144,32 @@ def process_intersections(grids, intersections, global_ind_offset, list_of_grids
     return grid_1d_list
 
 
-def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
+def combine_grids(
+    g: pp.Grid,
+    g_1d: pp.TensorGrid,
+    h: pp.Grid,
+    h_1d: pp.TensorGrid,
+    global_ind_offset: int,
+    list_of_grids,
+    tol: float = 1e-4,
+):
+    """_summary_
+
+
+
+    Parameters:
+        g: _description_
+        g_1d: 1d tensor grid.
+        h: _description_
+        h_1d: 1d tensor grid.
+        global_ind_offset: Offset for the global point index of the new grid.
+        list_of_grids: _description_
+        tol: Tolerance for when two nodes are merged into one.
+
+    Returns:
+        _description_
+
+    """
 
     (
         combined_1d,
@@ -157,36 +212,36 @@ def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
     return combined_1d, global_ind_offset
 
 
-def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
+def merge_1d_grids(
+    g: pp.TensorGrid, h: pp.TensorGrid, global_ind_offset: int = 0, tol: float = 1e-4
+):
     """Merge two 1d grids with non-matching nodes to a single grid.
 
     The grids should have common start and endpoints. They can be into 3d space
-    in a genreal way.
+    in a general way.
 
     The function is primarily intended for merging non-conforming DFN grids.
 
     Parameters:
         g: 1d tensor grid.
-        h: 1d tensor grid
-        glob_ind_offset (int, defaults to 0): Off set for the global point
-            index of the new grid.
-        tol (double, defaults to 1e-4): Tolerance for when two nodes are merged
-            into one.
+        h: 1d tensor grid.
+        glob_ind_offset: Offset for the global point index of the new grid.
+        tol: Tolerance for when two nodes are merged into one.
 
     Returns:
         TensorGrid: New tensor grid, containing the combined node definition.
-        int: New global ind offset, increased by the number of cells in the
-            combined grid.
-        np.array (int): Indices of common nodes (after sorting) of g and the
-            new grid.
-        np.array (int): Indices of common nodes (after sorting) of h and the
-            new grid.
-        np.array (int): Permutation indices that sort the node coordinates of
-            g. The common indices between g and the new grid are found as
-            new_grid.nodes[:, g_in_combined] = g.nodes[:, sorted]
-        np.array (int): Permutation indices that sort the node coordinates of
-            h. The common indices between h and the new grid are found as
-            new_grid.nodes[:, h_in_combined] = h.nodes[:, sorted]
+        int: New global ind offset, increased by the number of cells in the combined
+            grid.
+        :obj:~`numpy.ndarray`: ``(dtype=int)`` Indices of common nodes (after sorting)
+            of ``g`` and the new grid.
+        :obj:~`numpy.ndarray`: ``(dtype=int)`` Indices of common nodes (after sorting)
+            of ``h`` and the new grid.
+        :obj:~`numpy.ndarray`: ``(dtype=int)`` Permutation indices that sort the node
+            coordinates of g. The common indices between ``g`` and the new grid are
+            found as ``new_grid.nodes[:, g_in_combined] = g.nodes[:, sorted]``
+        :obj:~`numpy.ndarray`: ``(dtype=int)`` Permutation indices that sort the node
+            coordinates of ``h``. The common indices between h and the new grid are
+            found as ``new_grid.nodes[:, h_in_combined] = h.nodes[:, sorted]``
 
     """
 
@@ -251,16 +306,18 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     )
 
 
-def update_global_point_ind(grid_list, old_ind, new_ind):
+def update_global_point_ind(
+    grid_list: list[pp.Grid], old_ind: np.ndarray, new_ind: np.ndarray
+):
     """Update global point indices in a list of grids.
 
     The method replaces indices in the attribute global_point_ind in the grid.
     The update is done in place.
 
     Parameters:
-        grid_list (list of grids): Grids to be updated.
-        old_ind (np.array): Old global indices, to be replaced.
-        new_ind (np.array): New indices.
+        grid_list: Grids to be updated.
+        old_ind: Old global indices, to be replaced.
+        new_ind: New indices.
 
     """
     for g in grid_list:
@@ -269,7 +326,13 @@ def update_global_point_ind(grid_list, old_ind, new_ind):
 
 
 def update_nodes(
-    g, g_1d, new_grid_1d, this_in_combined, sort_ind, global_ind_offset, list_of_grids
+    g: pp.Grid,
+    g_1d: pp.Grid,
+    new_grid_1d: pp.Grid,
+    this_in_combined: np.ndarray,
+    sort_ind: np.ndarray,
+    global_ind_offset: int,
+    list_of_grids: list[Any],
 ):
     """Update a 2d grid to conform to a new grid along a 1d line.
 
@@ -278,18 +341,25 @@ def update_nodes(
     in the 2d grid.
 
     Parameters:
-        g (grid, dim==2): Main grid to update. Has faces along a fracture.
-        g_1d (grid, dim==1): Original line grid along the fracture.
-        new_grid_1d (grid, dim==1): New line grid, formed by merging two
-            coinciding, but non-matching grids along a fracture.
-        this_in_combined (np.ndarray): Which nodes in the new grid are also in
+        g: Main grid to update. Has faces along a fracture. 2d grid.
+        g_1d: Original line grid along the fracture. 1d grid.
+        new_grid_1d: New line grid, formed by merging two
+            coinciding, but non-matching grids along a fracture. 1d grid.
+        this_in_combined: Which nodes in the new grid are also in
             the old one, as returned by merge_1d_grids().
-        sort_ind (np.ndarray): Sorting indices of the coordinates of the old
-            grid, as returned by merge_1d_grids().
-        list_of_grids (list): Grids for all dimensions.
+        sort_ind: Sorting indices of the coordinates of the old
+            grid, as returned by ``merge_1d_grids()``.
+        TODO: ``sort_ind`` is not used by the function. Should it be here?
+        global_ind_offset: Offset for the global point index of the new grid.
+        list_of_grids: Grids for all dimensions.
+
+    TODO: Check that the types are correct. I assumed everything from tests, previous
+    documentation and similar functions.
 
     Returns:
-
+        new_nodes:
+        delete_faces:
+        global_ind_offset:
 
     """
     nodes_per_face = 2
@@ -371,8 +441,12 @@ def update_nodes(
 
 
 def update_face_nodes(
-    g, delete_faces, num_new_faces, new_node_offset, nodes_per_face=None
-):
+    g: pp.Grid,
+    delete_faces: np.ndarray,
+    num_new_faces: int,
+    new_node_offset: int,
+    nodes_per_face: Optional[int] = None,
+) -> np.ndarray:
     """Update face-node map by deleting and inserting new faces.
 
     The method deletes specified faces, adds new ones towards the end. It does
@@ -381,16 +455,16 @@ def update_face_nodes(
     The code assumes a constant number of nodes per face.
 
     Parameters:
-        g (grid): Grid to have its faces modified. Should have fields
-            face_nodes and num_faces.
-        delete_faces (np.array): Index of faces to be deleted.
-        num_new_faces (int): Number of new faces to create.
-        new_node_offset (int): Offset index of the new nodes.
-        nodes_per_face (int, optional): Number of nodes per face, assumed equal
-            for all faces. Defaults to g.dim, that is, simplex grids
+        g: Grid to have its faces modified. Should have fields ``face_nodes`` and
+            ``num_faces``.
+        delete_faces: Index of faces to be deleted.
+        num_new_faces: Number of new faces to create.
+        new_node_offset: Offset index of the new nodes.
+        nodes_per_face: Number of nodes per face, assumed equal for all faces. Defaults
+            to ``g.dim``, that is, simplex grids.
 
     Returns:
-        np.array: Index of the new faces.
+        :obj:~`numpyp.ndarray`: Index of the new faces.
 
     """
 
@@ -428,16 +502,22 @@ def update_face_nodes(
 
 
 def update_cell_faces(
-    g, delete_faces, new_faces, in_combined, fn_orig, node_coord_orig, tol=1e-4
-):
+    g: pp.Grid,
+    delete_faces: np.ndarray,
+    new_faces: np.ndarray,
+    in_combined: np.ndarray,
+    fn_orig: np.ndarray,
+    node_coord_orig: np.ndarray,
+    tol: float = 1e-4,
+) -> None:
     """Replace faces in a cell-face map.
 
-    If faces have been refined (or otherwise modified), it is necessary to
-    update the cell-face relation as well. This function does so, while taking
-    care that the (implicit) mapping between cells and nodes is ordered so that
-    geometry computation still works.
+    If faces have been refined (or otherwise modified), it is necessary to update the
+    cell-face relation as well. This function does so, while taking care that the
+    (implicit) mapping between cells and nodes is ordered so that geometry computation
+    still works.
 
-    The changes of g.cell_faces are done in-place.
+    The changes of ``g.cell_faces are`` done in-place.
 
     It is assumed that the new faces that replace an old are ordered along the
     common line. E.g. if a face with node coordinates (0, 0) and (3, 0) is
@@ -451,28 +531,19 @@ def update_cell_faces(
     It is also tacitly assumed that each cell has at most one face deleted.
     Changing this may not be difficult, but has not been prioritized so far.
 
-    The function has been tested in 2d only, reliability in 3d is unknown,
-    but doubtful.
+    The function has been tested in 2d only, reliability in 3d is unknown, but doubtful.
 
     Parameters:
-        g (grid): To be updated.
-        delete_faces (np.ndarray): Faces to be deleted, as found in
-            g.cell_faces
-        new_faces (np.ndarray): Index of new faces, as found in g.face_nodes
-        in_combined (np.ndarray): Map between old and new faces.
-            delete_faces[i] is replaced by
-            new_faces[in_combined[i]:in_combined[i+1]].
-        fn_orig (np.ndarray): Face-node relation of the orginial grid, before
-            update of faces.
-        node_coord_orig (np.ndarray): Node coordinates of orginal grid,
-            before update of nodes.
-        tol (double, defaults to 1e-4): Small tolerance, used to compare
-            coordinates of points.
+        g (grid): Grid to be updated.
+        delete_faces: Faces to be deleted, as found in ``g.cell_faces``.
+        new_faces: Index of new faces, as found in g.face_nodes
+        in_combined: Map between old and new faces. `` delete_faces[i]`` is replaced by
+            ``new_faces[in_combined[i]:in_combined[i+1]]``.
+        fn_orig: Face-node relation of the orginial grid, before update of faces.
+        node_coord_orig: Node coordinates of orginal grid, before update of nodes.
+        tol: Small tolerance, used to compare coordinates of points.
 
     """
-
-    #
-
     nodes_per_face = g.dim
 
     cell_faces = g.cell_faces
@@ -627,7 +698,11 @@ def update_cell_faces(
     g.cell_faces = sps.csc_matrix((data, ind, indptr_new))
 
 
-def update_face_tags(g, delete_faces, new_faces):
+def update_face_tags(
+    g: pp.Grid,
+    delete_faces: Union[np.ndarray, list[int]],
+    new_faces: Union[np.ndarray, list[list[int]]],
+):
     """Update the face tags of a cell.
 
     Delete tags for old faces, and add new tags for their replacements.
@@ -635,11 +710,15 @@ def update_face_tags(g, delete_faces, new_faces):
     If the grid has no face tags, no change is done
 
     Parameters:
-        g (grid): To be modified
-        delete_faces (np.array or list): Faces to be deleted.
-        new_faces (list of list): For each item in delete_faces, a list of new
-            replacement faces.
+        g: To be modified
+        delete_faces: Faces to be deleted.
+        new_faces: For each item in ``delete_faces``, a list of new replacement faces.
 
+    TODO: Are the types correct? I followed the previous documentation and function
+        references.
+
+    TODO: Is everything here correct? The values of the inner lists of ``new_faces`` are
+    never accessed. See the ``test_update_tag_two_to_many_wrong_values`` test.
     """
     keys = tags.standard_face_tags()
     for key in keys:
