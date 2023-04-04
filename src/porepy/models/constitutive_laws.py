@@ -426,8 +426,8 @@ class FluidDensityFromPressure:
 
     """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from reference state. Normally provided by
-    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """Function that returns a perturbation from the reference solution. Normally
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
 
@@ -505,8 +505,8 @@ class FluidDensityFromTemperature:
 
     """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from reference state. Normally provided by
-    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """Function that returns a perturbation from the reference solution. Normally 
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
 
@@ -569,8 +569,8 @@ class FluidDensityFromPressureAndTemperature(
 
     """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from reference state. Normally provided by
-    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """Function that returns a perturbation from the reference solution. Normally 
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
 
@@ -1823,8 +1823,9 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     """
 
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from reference state. Normally provided by
-    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """Function that returns a perturbation from the reference solution. Normally 
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
+
     """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -2805,8 +2806,9 @@ class PoroMechanicsPorosity:
 
     """
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from reference state. Normally provided by
-    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """Function that returns a perturbation from the reference solution. Normally 
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
+
     """
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Biot coefficient. Normally defined in a mixin instance of
@@ -3082,8 +3084,8 @@ class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
     """
 
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from reference state. Normally provided by
-    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """Function that returns a perturbation from the reference solution. Normally 
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
 
@@ -3113,8 +3115,8 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     """Add thermal effects to matrix porosity."""
 
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from reference state. Normally provided by
-    a mixin of instance :class:`~porepy.models.VariableMixin`.
+    """Function that returns a perturbation from the reference solution. Normally 
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
     solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]

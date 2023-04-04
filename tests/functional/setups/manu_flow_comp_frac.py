@@ -39,7 +39,7 @@ from tests.functional.setups.manu_flow_incomp_frac import (
     SingleEmbeddedVerticalFracture,
 )
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
-from porepy.params.data import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 # PorePy typings
 number = pp.number
