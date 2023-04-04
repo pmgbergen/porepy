@@ -4,7 +4,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 import tests.common.flow_benchmark_2d_geiger_setup as setup
-from porepy.params.data import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 class TestVEMOnBenchmark(unittest.TestCase):
     def solve(self, kf, description, is_coarse=False):

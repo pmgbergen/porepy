@@ -233,12 +233,11 @@ class SolutionStrategy(abc.ABC):
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
 
-        Possible usage is to distribute information on the new trial state, visualize
+        Possible usage is to distribute information on the new trial solution, visualize
         the current approximation etc.
 
         Parameters:
-            solution_vector: The new solution state, as computed by the non-linear
-                solver.
+            solution_vector: The new solution, as computed by the non-linear solver.
 
         """
         self._nonlinear_iteration += 1
@@ -254,7 +253,7 @@ class SolutionStrategy(abc.ABC):
         Possible usage is to distribute information on the solution, visualization, etc.
 
         Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
+            solution: The new solution, as computed by the non-linear solver.
             errors: The error in the solution, as computed by the non-linear solver.
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
@@ -273,7 +272,7 @@ class SolutionStrategy(abc.ABC):
         """Method to be called if the non-linear solver fails to converge.
 
         Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
+            solution: The new solution, as computed by the non-linear solver.
             errors: The error in the solution, as computed by the non-linear solver.
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
@@ -363,7 +362,7 @@ class SolutionStrategy(abc.ABC):
     def assemble_linear_system(self) -> None:
         """Assemble the linearized system and store it in :attr:`linear_system`.
 
-        The linear system is defined by the current state of the model.
+        The linear system is defined by the current solution of the model.
 
         """
         t_0 = time.time()
@@ -443,9 +442,10 @@ class SolutionStrategy(abc.ABC):
         """Update the time dependent arrays for the mechanics boundary conditions.
 
         Parameters:
-            initial: If True, the array generating method is called for both state and
-                iterate. If False, the array generating method is called only for the
-                iterate, and the state is updated by copying the iterate.
+            initial: If True, the array generating method is called for both the
+                solutions and the iterates. If False, the array generating method is
+                called only for the iterate, and the solution is updated by copying the
+                iterate.
 
         """
         pass

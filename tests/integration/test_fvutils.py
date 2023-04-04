@@ -152,7 +152,7 @@ class TestFvutils(unittest.TestCase):
             np.array([[0, 0, 0, 3], [5, 0, 0, 0], [1, 0, 0, 0], [3, 0, 0, 0]])
         )
         vector_source = sps.csc_matrix((g.num_faces, g.num_cells * g.dim))
-
+        
         bc_val = np.array([1, 2, 3, 4])
         specified_parameters = {"bc_values": bc_val}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)

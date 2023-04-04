@@ -94,8 +94,8 @@ def test_save_img():
 
 
 def _initialize_mdg(mdg_):
-    """Initializes mdg with an arbitrary state.
-    The state contains one scalar and one vector variable at cell centres."""
+    """Initializes mdg with an arbitrary solution.
+    The solution contains one scalar and one vector variable at cell centres."""
 
     for sd, data in mdg_.subdomains(return_data=True):
         if sd.dim in (mdg_.dim_max(), mdg_.dim_max() - 1):

@@ -263,7 +263,7 @@ class EquationSystemSetup:
             self.name_intf_top_variable, dof_info={"cells": 2}, interfaces=[intf_top]
         )
 
-        # Set state and iterate for the variables.
+        # Set the solution and iterate values for the variables.
         # The assigned numbers are not important, the comparisons below will be between
         # an assembled matrix for the full and for a reduced system, and similar for
         # the right hand side vector.
@@ -534,8 +534,8 @@ def test_set_get_methods(
         setup, as_str, on_interface, on_subdomain, single_grid, full_grid
     )
     # Indices of the active variables in this test configuration. Note that inds is
-    # ordered according to variables, whereas the variable states to be returned later
-    # are ordered according to the global ordering of unknowns.
+    # ordered according to variables, whereas the variable solutions to be returned
+    # later are ordered according to the global ordering of unknowns.
 
     inds = sys_man.dofs_of(variables)
 
@@ -552,22 +552,22 @@ def test_set_get_methods(
     if iterate:
         assert np.allclose(vals, retrieved_vals)
     else:
-        # This was fetched from state, which still has the intial values.
+        # This was fetched from stored solutions, which still has the intial values.
         # To restrict to the variables of interest (those present in 'varables'),
         # we consider a restricted set of indices, as defined by 'inds', however, we
         # also need to do a sort, since get_variable_values returns the values in
         # the global ordering.
         assert np.allclose(setup.initial_values[np.sort(inds)], retrieved_vals)
-    # State should not have been updated
+    # The solution should not have been updated
     retrieved_vals_state = sys_man.get_variable_values(variables, solution_index=0)
     assert np.allclose(setup.initial_values[np.sort(inds)], retrieved_vals_state)
 
-    # Set values again, this time also to the state.
+    # Set values again, this time also to the solution.
     if iterate:
         sys_man.set_variable_values(vals, variables, iterate_index=0, solution_index=0)
     else:
         sys_man.set_variable_values(vals, variables, solution_index=0)
-    # Retrieve only values from state; iterate should be the same as before (and the
+    # Retrieve only values from solutions; iterate should be the same as before (and the
     # additive mode is checked below).
 
     retrieved_vals_state = sys_man.get_variable_values(variables, solution_index=0)
@@ -586,10 +586,10 @@ def test_set_get_methods(
     if iterate:
         assert np.allclose(new_vals, retrieved_vals2)
     else:
-        # This was fetched from state, which still has vals
+        # This was fetched from the stored solutions, which still has vals
         assert np.allclose(vals, retrieved_vals2)
 
-    # Set values to state. This should overwrite the old values.
+    # Set values to solutions. This should overwrite the old values.
     if iterate:
         sys_man.set_variable_values(
             new_vals, variables, iterate_index=0, solution_index=0
@@ -610,10 +610,11 @@ def test_set_get_methods(
     if iterate:
         assert np.allclose(2 * new_vals, retrieved_vals3)
     else:
-        # This was fetched from state, which still has new_vals
+        # This was fetched from stored solutions, which still has new_vals
         assert np.allclose(new_vals, retrieved_vals3)
 
-    # And finally set to state, with additive=True. This should double the retrieved
+    # And finally set to stored solutions, with additive=True. This should double the
+    # retrieved
     if iterate:
         sys_man.set_variable_values(
             new_vals, variables, iterate_index=0, solution_index=0, additive=True
@@ -625,10 +626,9 @@ def test_set_get_methods(
     retrieved_vals_state_3 = sys_man.get_variable_values(variables, solution_index=0)
     assert np.allclose(2 * new_vals, retrieved_vals_state_3)
 
-    # Test storage of multiple values of solutions and iterates from here and down.
-    # In practice this means testing shift_variable_values, which could perhaps be its
-    # own test, but its intended use is only together with set_variable_values and it
-    # is therefore put here.
+    # Test storage of multiple values of solutions and iterates from here and down. In
+    # practice this means checking the functionality of shifting dictionary values and
+    # then set the most recent solution/iterate value works as expected.
 
     # Building a few solution vectors and defining the desired solution indices
     vals0 = vals
@@ -679,6 +679,13 @@ def test_set_get_methods(
     assert np.allclose(vals0 * 2, retrieved_shift_ind_vals0)
     assert np.allclose(vals0, retrieved_shift_ind_vals1)
     assert np.allclose(vals1, retrieved_shift_ind_vals2)
+
+    # Test to set value at a non-zero storage index
+    sys_man.set_variable_values(values=vals2 * 2, variables=variables, solution_index=2)
+    
+    retrieved_set_ind_vals2 = sys_man.get_variable_values(variables, solution_index=2)
+
+    assert np.allclose(retrieved_set_ind_vals2, vals2 * 2)   
 
 
 @pytest.mark.parametrize(

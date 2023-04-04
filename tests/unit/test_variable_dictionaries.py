@@ -1,4 +1,5 @@
-""" Tests for variable storage in the data fields "state" and "iterate".
+""" Tests for variable storage in the data fields "stored_solutions" and
+"stored_iterates".
 """
 from typing import Dict
 
@@ -14,7 +15,7 @@ def empty_dict() -> Dict:
 
 class TestState:
     def test_add_empty_state(self, empty_dict):
-        """Add an empty state dictionary"""
+        """Add an empty 'stored_solutions' dictionary"""
         d = empty_dict
         pp.set_state(d)
         assert 'stored_solutions' in d
@@ -26,7 +27,7 @@ class TestState:
         assert 'stored_iterates' in d
 
     def test_add_state_twice(self, empty_dict):
-        """Add two state dictionaries.
+        """Add two solutions dictionaries.
 
         The existing foo value should be overwritten, while bar should be kept.
         """
@@ -42,7 +43,7 @@ class TestState:
             assert d['stored_solutions'][key][0] == val
 
     def test_add_iterate_twice_and_state(self, empty_dict):
-        """Add two state dictionaries.
+        """Add two solutions dictionaries.
 
         The existing foo value should be overwritten, while bar should be kept.
         Setting values in 'stored_solutions' should not affect the iterate values.
