@@ -10,6 +10,7 @@ Contents:
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 
 def setup():
@@ -25,8 +26,11 @@ def setup():
     eq_system.create_variables(var_name, subdomains=[g_1, g_2])
 
     for sd, d in mdg.subdomains(return_data=True):
-        d['stored_solutions'] = {var_name: {0: np.ones([sd.num_cells])}}
-        d['stored_iterates'] = {var_name: {0: 2 * np.ones([sd.num_cells])}}
+        vals_sol = np.ones([sd.num_cells])
+        vals_it = 2 * np.ones([sd.num_cells])
+
+        d = set_time_dependent_value(name=var_name, values=vals_sol, data=d, solution_index=0)
+        d = set_time_dependent_value(name=var_name, values=vals_it, data=d, iterate_index=0)
 
     return eq_system
 

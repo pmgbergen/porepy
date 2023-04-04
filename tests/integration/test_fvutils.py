@@ -5,6 +5,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.fv import fvutils
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 
 class TestFvutils(unittest.TestCase):
@@ -152,18 +153,18 @@ class TestFvutils(unittest.TestCase):
             np.array([[0, 0, 0, 3], [5, 0, 0, 0], [1, 0, 0, 0], [3, 0, 0, 0]])
         )
         vector_source = sps.csc_matrix((g.num_faces, g.num_cells * g.dim))
-        
+
         bc_val = np.array([1, 2, 3, 4])
         specified_parameters = {"bc_values": bc_val}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        data['stored_solutions'] = {}
+        vals = np.array([3.14])
+        data = set_time_dependent_value(name='pressure', values=vals, data=data, solution_index=0)
+
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         matrix_dictionary["flux"] = flux
         matrix_dictionary["bound_flux"] = bound_flux
         matrix_dictionary["vector_source"] = vector_source
-
-        data['stored_solutions']["pressure"] = {}
-        data['stored_solutions']["pressure"][0] = np.array([3.14])
+        
         fvutils.compute_darcy_flux(g, data=data)
 
         dis = data[pp.PARAMETERS]["flow"]["darcy_flux"]
