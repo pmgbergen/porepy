@@ -12,7 +12,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from tests import test_grids, test_utils
-from porepy.params.data import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 
 class TestImmersedFracture(unittest.TestCase):

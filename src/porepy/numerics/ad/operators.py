@@ -279,7 +279,7 @@ class Operator:
 
         # The parsing strategy depends on the operator at hand:
         # 1) If the operator is a Variable, it will be represented according to its
-        #    state.
+        #    stored solution value.
         # 2) If the operator is a leaf in the tree-representation of the operator,
         #    parsing is left to the operator itself.
         # 3) If the operator is formed by combining other operators lower in the tree,
@@ -290,10 +290,10 @@ class Operator:
         if isinstance(op, pp.ad.Variable) or isinstance(op, Variable):
             # Case 1: Variable
 
-            # How to access the array of (Ad representation of) states depends on whether
-            # this is a single or combined variable; see self.__init__, definition of
-            # self._variable_ids.
-            # TODO: no difference between merged or no mixed-dimensional variables!?
+            # How to access the array of (Ad representation of) solutions depends on
+            # whether this is a single or combined variable; see self.__init__,
+            # definition of self._variable_ids. TODO: no difference between merged or no
+            # mixed-dimensional variables!?
             if isinstance(op, pp.ad.MixedDimensionalVariable) or isinstance(
                 op, MixedDimensionalVariable
             ):
@@ -642,15 +642,15 @@ class Operator:
         system_manager: pp.ad.EquationSystem | pp.DofManager,
         state: Optional[np.ndarray] = None,
     ):  # TODO ensure the operator always returns an AD array
-        """Evaluate the residual and Jacobian matrix for a given state.
+        """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
             system_manager: Used to represent the problem. Will be used
                 to parse the sub-operators that combine to form this operator.
-            state (optional): State vector for which the residual and its
-                derivatives should be formed. If not provided, the state will be pulled from
-                the previous iterate (if this exists), or alternatively from the state
-                at the previous time step.
+            state (optional): Solution vector for which the residual and its
+                derivatives should be formed. If not provided, the solution will be
+                pulled from the previous iterate (if this exists), or alternatively from
+                the solution at the previous time step.
 
         Returns:
             A representation of the residual and Jacobian in form of an AD Array.
@@ -703,8 +703,8 @@ class Operator:
         self._prev_iter_ids = prev_iter_ids
 
         # Parsing in two stages: First make a forward Ad-representation of the variable
-        # state (this must be done jointly for all variables of the operator to get all
-        # derivatives represented). Then parse the operator by traversing its
+        # solution (this must be done jointly for all variables of the operator to get
+        # all derivatives represented). Then parse the operator by traversing its
         # tree-representation, and parse and combine individual operators.
 
         prev_vals = system_manager.get_variable_values(solution_index=0)
@@ -737,7 +737,7 @@ class Operator:
         for var_id, dof in zip(self._variable_ids, self._variable_dofs):
             ncol = state.size
             nrow = np.unique(dof).size
-            # Restriction matrix from full state (in Forward Ad) to the specific
+            # Restriction matrix from full solution (in Forward Ad) to the specific
             # variable.
             R = sps.coo_matrix(
                 (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
@@ -781,9 +781,10 @@ class Operator:
             key=lambda var: var.id,
         )
 
-        # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and their
-        # indices according to the DofManager. This is needed to access the state of
-        # a variable when parsing the operator to numerical values using forward Ad.
+        # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and
+        # their indices according to the DofManager. This is needed to access the
+        # solution of a variable when parsing the operator to numerical values using
+        # forward Ad.
 
         # For each variable, get the global index
         inds = []
@@ -1422,7 +1423,7 @@ class Variable(Operator):
     For combinations of variables on different subdomains, see :class:`MergedVariable`.
 
     Conversion of the variable into numerical value should be done with respect to the
-    state of an array; see :meth:`Operator.evaluate`. Therefore, the variable does not
+    value of an array; see :meth:`Operator.evaluate`. Therefore, the variable does not
     implement the method :meth:`Operator.parse`.
 
     A variable is associated with either a grid or an interface. Therefore it is assumed
@@ -1458,10 +1459,14 @@ class Variable(Operator):
         ### PUBLIC
 
         self.prev_time: bool = previous_timestep
-        """Flag indicating if the variable represents the state at the previous time step."""
+        """Flag indicating if the variable represents the solution at the previous time step.
+        
+        """
 
         self.prev_iter: bool = previous_iteration
-        """Flag indicating if the variable represents the state at the previous iteration."""
+        """Flag indicating if the variable represents the solution at the previous iteration.
+        
+        """
 
         self.id: int = next(Variable._ids)
         """ID counter. Used to identify variables during operator parsing."""
@@ -1611,10 +1616,16 @@ class MixedDimensionalVariable(Variable):
         """ID counter. Used to identify variables during operator parsing."""
 
         self.prev_time: bool = False
-        """Flag indicating if the variable represents the state at the previous time step."""
+        """Flag indicating if the variable represents the solution at the previous time
+        step.
+        
+        """
 
         self.prev_iter: bool = False
-        """Flag indicating if the variable represents the state at the previous iteration."""
+        """Flag indicating if the variable represents the solution at the previous
+        iteration.
+        
+        """
 
         self.original_variable: MixedDimensionalVariable
         """The original variable, if this variable is a copy of another variable.

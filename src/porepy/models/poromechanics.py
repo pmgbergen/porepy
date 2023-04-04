@@ -22,7 +22,7 @@ import numpy as np
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
-from porepy.params.data import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 
 class ConstitutiveLawsPoromechanics(
@@ -215,7 +215,6 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
             else:
                 # Copy old values from iterate to the solution.
                 vals = data['stored_iterates'][self.bc_values_mechanics_key][0]
-
                 data = set_time_dependent_value(name=self.bc_values_mechanics_key, values=vals, data=data, solution_index=0)
 
             vals = self.time_dependent_bc_values_mechanics([sd])
