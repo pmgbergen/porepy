@@ -21,6 +21,8 @@ from . import setup_utils
 class RediscretizationTest:
     """Class to short-circuit the solution strategy to a single iteration.
 
+    The class is used as a mixin which partially replaces the SolutionStrategy class.
+
     Relevant parts of simulation flow:
     1. Discretize the problem
     2. Assemble the linear system
@@ -39,6 +41,8 @@ class RediscretizationTest:
         if self._nonlinear_iteration > 1:
             return 0.0, True, False
         else:
+            # Call to super is okay here, since the full model used in the tests is
+            # known to have a method of this name.
             return super().check_convergence(*args, **kwargs)
 
     def rediscretize(self):
@@ -48,14 +52,15 @@ class RediscretizationTest:
             return super().rediscretize()
 
     def assemble_linear_system(self) -> None:
-        """Store the linear system for later comparison."""
+        """Store all assembled linear system for later comparison."""
         super().assemble_linear_system()
         if not hasattr(self, "stored_linear_system"):
             self.stored_linear_system = []
         self.stored_linear_system.append(copy.deepcopy(self.linear_system))
 
 
-# Non-trivial solution achieved through BCs.
+# Non-trivial solution achieved through BCs. All target models involved fluid flow, so
+# a single BC class is sufficient.
 class BCs(setup_utils.BoundaryConditionsMassAndEnergyDirNorthSouth):
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for Darcy flux.
@@ -103,14 +108,19 @@ def test_targeted_rediscretization(model_class):
         # Make flow problem non-linear:
         "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})},
     }
-
-    rediscretization_model = setup_utils._add_mixin(RediscretizationTest, model_class)
-    model_full = rediscretization_model(params_full)
+    # Finalize the model class by adding the rediscretization mixin
+    rediscretization_model_class = setup_utils._add_mixin(
+        RediscretizationTest, model_class
+    )
+    # A model object with full rediscretization
+    model_full = rediscretization_model_class(params_full)
     pp.run_time_dependent_model(model_full, params_full)
+
+    # A model object with targeted rediscretization
     params_targeted = params_full.copy()
     params_targeted["full_rediscretization"] = False
     # Set up the model
-    model_targeted = rediscretization_model(params_targeted)
+    model_targeted = rediscretization_model_class(params_targeted)
     pp.run_time_dependent_model(model_targeted, params_targeted)
 
     # Check that the linear systems are the same
@@ -119,7 +129,9 @@ def test_targeted_rediscretization(model_class):
     for i in range(len(model_full.stored_linear_system)):
         A_full, b_full = model_full.stored_linear_system[i]
         A_targeted, b_targeted = model_targeted.stored_linear_system[i]
-        assert np.allclose(A_full.data, A_targeted.data)
+
+        # Convert to dense array to ensure the matrices are identical
+        assert np.allclose(A_full.A, A_targeted.A)
         assert np.allclose(b_full, b_targeted)
 
     # Check that the discretization matrix changes between iterations. Without this
