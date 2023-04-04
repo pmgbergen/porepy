@@ -340,7 +340,7 @@ def determine_mesh_size(
 
 
 def obtain_interdim_mappings(
-    lg: pp.Grid, fn: sps.csc_matrix, n_per_face: int
+    lg: pp.Grid, fn: sps.spmatrix, n_per_face: int
 ) -> tuple[np.ndarray, np.ndarray]:
     """Finds mappings between faces in higher dimension and cells in the lower
     dimension

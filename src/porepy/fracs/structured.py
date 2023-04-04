@@ -1,7 +1,7 @@
-"""
-Module for creating fractured cartesian grids in 2- and 3-dimensions.
+"""Module for creating fractured cartesian grids in 2 and 3 dimensions.
 
 The functions in this module can be accessed through the meshing wrapper module.
+
 """
 from __future__ import annotations
 
@@ -18,35 +18,38 @@ from .gmsh_interface import Tags
 
 def _cart_grid_3d(
     fracs: list[np.ndarray], nx: np.ndarray, physdims: Optional[np.ndarray] = None
-) -> list[pp.Grid]:
-    """
-    Create grids for a domain with possibly intersecting fractures in 3d.
+) -> list[list[pp.Grid]]:
+    """Creates grids for a domain with possibly intersecting fractures in 3D.
 
     Based on rectangles describing the individual fractures, the method
-    constructs grids in 3d (the whole domain), 2d (one for each individual
-    fracture), 1d (along fracture intersections), and 0d (intersections of
+    constructs grids in 3D (the whole domain), 2D (one for each individual
+    fracture), 1D (along fracture intersections), and 0d (intersections of
     intersections).
 
-    Parameters
-    ----------
-    fracs (list of np.ndarray, each 3x4): Vertexes in the rectangle for each
-        fracture. The vertices must be sorted and aligned to the axis.
-        The fractures will snap to the closest grid faces.
-    nx (np.ndarray): Number of cells in each direction. Should be 3D.
-    physdims (np.ndarray): Physical dimensions in each direction.
-        Defaults to same as nx, that is, cells of unit size.
+    Example:
 
-    Returns
-    -------
-    list (length 4): For each dimension (3 -> 0), a list of all grids in
-        that dimension.
+        >>> frac1 = np.array([[1, 1, 4, 4], [1, 4, 4, 1], [2, 2, 2, 2]])
+        >>> frac2 = np.array([[2, 2, 2, 2], [1, 1, 4, 4], [1, 4, 4, 1]])
+        >>> fracs = [frac1, frac2]
+        >>> grid_list = _cart_grid_3d(fracs, [5, 5, 5])
 
-    Examples
-    --------
-    frac1 = np.array([[1, 1, 4, 4], [1, 4, 4, 1], [2, 2, 2, 2]])
-    frac2 = np.array([[2, 2, 2, 2], [1, 1, 4, 4], [1, 4, 4, 1]])
-    fracs = [frac1, frac2]
-    grid_list = _cart_grid_3d(fracs, [5, 5, 5])
+    Parameters:
+        fracs: A list of arrays with ``shape=(3, 4)``,
+            representing vertices of the rectangle for each fracture.
+            The vertices must be sorted and aligned to the axis.
+            The fractures will snap to the closest grid faces.
+        nx: ``shape=(3,)``
+
+            Number of cells in each dimension.
+        physdims: ``shape=(3,), default=None``
+
+            Physical dimensions in each direction.
+            Defaults to same as nx, that is, cells of unit size.
+
+    Returns:
+        A nested list of length 4, where for each dimension 3 to 0 the respective
+        sub-list contains all grids in that dimension.
+
     """
 
     nx = np.asarray(nx)
@@ -72,26 +75,26 @@ def _tensor_grid_3d(
     constructs grids in 3d (whole domain), 2d (individual fracture),  1d, and 0d
     (fracture intersections).
 
-    Parameters
-    ----------
-    fracs (list of np.ndarray, each 3x4): Vertexes of the fractures for each
-        fracture. The fracture lines must align to the coordinate axis.
-        The fractures will snap to the closest grid nodes.
-    x (np.ndarray): Node coordinates in x-direction
-    y (np.ndarray): Node coordinates in y-direction.
-    z (np.ndarray): Node coordinates in z-direction.
+    Example:
 
-    Returns
-    -------
-    list (length 3): For each dimension (3 -> 0), a list of all grids in
-        that dimension.
+        >>> frac1 = np.array([[1, 4, 4, 1], [2, 2, 2, 2], [0, 0, 5, 5]])
+        >>> frac2 = np.array([[2, 2, 2, 2], [1, 4, 4, 1], [0, 0, 5, 5]])
+        >>> fracs = [frac1, frac2]
+        >>> mdg = _tensor_grid_3d(fracs, np.arange(5), np.arange(5), np.arange(5))
 
-    Examples
-    --------
-    frac1 = np.array([[1, 4, 4, 1], [2, 2, 2, 2], [0, 0, 5, 5]])
-    frac2 = np.array([[2, 2, 2, 2], [1, 4, 4, 1], [0, 0, 5, 5]])
-    fracs = [frac1, frac2]
-    mdg = _tensor_grid_3d(fracs, np.arange(5), np.arange(5), np.arange(5))
+    Parameters:
+        fracs: A list of arrays with ``shape=(3, 4)``, representing the vertices of the
+            fractures for each fracture.
+            The fracture lines must align to the coordinate axis.
+            The fractures will snap to the closest grid nodes.
+        x: Node coordinates in x-direction
+        y: Node coordinates in y-direction.
+        z: Node coordinates in z-direction.
+
+    Returns:
+        A nested list of length 4, where for each dimension 3 to 0 the respective
+        sub-list contains all grids in that dimension.
+
     """
 
     nx = np.asarray((x.size - 1, y.size - 1, z.size - 1))
@@ -100,34 +103,39 @@ def _tensor_grid_3d(
     return _create_lower_dim_grids_3d(g_3d, fracs, nx)
 
 
-def _cart_grid_2d(fracs, nx, physdims=None):
-    """
-    Create grids for a domain with possibly intersecting fractures in 2d.
+def _cart_grid_2d(
+    fracs: list[np.ndarray], nx: np.ndarray, physdims: Optional[np.ndarray] = None
+) -> list[list[pp.Grid]]:
+    """Creates grids for a domain with possibly intersecting fractures in 2D.
 
     Based on lines describing the individual fractures, the method
-    constructs grids in 2d (whole domain), 1d (individual fracture), and 0d
+    constructs grids in 2D (whole domain), 1D (individual fracture), and 0D
     (fracture intersections).
 
-    Parameters
-    ----------
-    fracs (list of np.ndarray, each 2x2): Vertexes of the line for each
-        fracture. The fracture lines must align to the coordinate axis.
-        The fractures will snap to the closest grid nodes.
-    nx (np.ndarray): Number of cells in each direction. Should be 2D.
-    physdims (np.ndarray): Physical dimensions in each direction.
-        Defaults to same as nx, that is, cells of unit size.
+    Example:
 
-    Returns
-    -------
-    list (length 3): For each dimension (2 -> 0), a list of all grids in
-        that dimension.
+        >>> frac1 = np.array([[1, 4], [2, 2]])
+        >>> frac2 = np.array([[2, 2], [1, 4]])
+        >>> fracs = [frac1, frac2]
+        >>> mdg = cart_grid_2d(fracs, [5, 5])
 
-    Examples
-    --------
-    frac1 = np.array([[1, 4], [2, 2]])
-    frac2 = np.array([[2, 2], [1, 4]])
-    fracs = [frac1, frac2]
-    mdg = cart_grid_2d(fracs, [5, 5])
+    Parameters:
+        fracs: A list of arrays with ``shape=(2, 2)``, representing the vertices of the
+            line for each fracture.
+            The fracture lines must align to the coordinate axis.
+            The fractures will snap to the closest grid nodes.
+        nx: ``shape=(2,)``
+
+            Number of cells in each direction.
+        physdims: ``shape=(2,), default=None``
+
+            Physical dimensions in each direction.
+            Defaults to same as nx, that is, cells of unit size.
+
+    Returns:
+        A nested list of length 3, where for each dimension 2 to 0 the respective
+        sub-list contains all grids in that dimension.
+
     """
     nx = np.asarray(nx)
     if physdims is None:
@@ -144,44 +152,72 @@ def _cart_grid_2d(fracs, nx, physdims=None):
 def _tensor_grid_2d(
     fracs: list[np.ndarray], x: np.ndarray, y: np.ndarray
 ) -> list[list[pp.Grid]]:
-    """
-    Create a grids for a domain with possibly intersecting fractures in 2d.
+    """Creates a grid for a domain with possibly intersecting fractures in 2D.
 
     Based on lines describing the individual fractures, the method
-    constructs grids in 2d (whole domain), 1d (individual fracture), and 0d
+    constructs grids in 2D (whole domain), 1D (individual fracture), and 0D
     (fracture intersections).
 
-    Parameters
-    ----------
-    fracs (list of np.ndarray, each 2x2): Vertexes of the line for each
-        fracture. The fracture lines must align to the coordinate axis.
-        The fractures will snap to the closest grid nodes.
-    x (np.ndarray): Node coordinates in x-direction
-    y (np.ndarray): Node coordinates in y-direction.
+    Example:
 
-    Returns
-    -------
-    list (length 3): For each dimension (2 -> 0), a list of all grids in
-        that dimension.
+        >>> frac1 = np.array([[1, 4], [2, 2]])
+        >>> frac2 = np.array([[2, 2], [1, 4]])
+        >>> fracs = [frac1, frac2]
+        >>> mdg = _tensor_grid_2d(fracs, np.arange(5), np.arange(5))
 
-    Examples
-    --------
-    frac1 = np.array([[1, 4], [2, 2]])
-    frac2 = np.array([[2, 2], [1, 4]])
-    fracs = [frac1, frac2]
-    mdg = _tensor_grid_2d(fracs, np.arange(5), np.arange(5))
+    Parameters:
+        fracs: A list of arrays with ``shape=(2, 2)``, representing the vertices of the
+            line for each fracture.
+            The fracture lines must align to the coordinate axis.
+            The fractures will snap to the closest grid nodes.
+        x: Node coordinates in x-direction
+        y: Node coordinates in y-direction.
+
+    Returns:
+        A nested list of length 3, where for each dimension 2 to 0 the respective
+        sub-list contains all grids in that dimension.
+
     """
     nx = np.asarray((x.size - 1, y.size - 1))
     g_2d = pp.TensorGrid(x, y)
     return _create_lower_dim_grids_2d(g_2d, fracs, nx)
 
 
-def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
+def _create_lower_dim_grids_3d(
+    g_3d: pp.Grid,
+    fracs: list[np.ndarray],
+    nx: np.ndarray,
+    physdims: Optional[np.ndarray] = None,
+) -> list[list[pp.Grid]]:
+    """Auxiliary function to create a fractured domain in 3D.
+
+    Creates nested lists of grids, where the first list contains the highest-dimensional
+    grid, followed by list containing grids of lower dimension in descending order.
+
+    Parameters:
+        g_3d: The highest-dimensional grid.
+        fracs: A list of arrays with ``shape=(3, 4)``, representing the vertices of the
+            fractures for each fracture.
+            The fracture lines must align to the coordinate axis.
+            The fractures will snap to the closest grid nodes.
+        nx: ``shape=(3,)``
+
+            Number of cells in each dimension.
+        physdims: ``shape=(3,), default=None``
+
+            Physical dimensions in each direction.
+            Defaults to same as nx, that is, cells of unit size.
+
+    Returns:
+        A nested list of length 4, where for each dimension 3 to 0 the respective
+        sub-list contains all grids in that dimension.
+
+    """
     g_3d.global_point_ind = np.arange(g_3d.num_nodes)
     g_3d.compute_geometry()
-    g_2d = []
-    g_1d = []
-    g_0d = []
+    g_2d: list[pp.Grid] = []
+    g_1d: list[pp.Grid] = []
+    g_0d: list[pp.Grid] = []
     # We set the tolerance for finding points in a plane. This can be any
     # small number, that is smaller than .25 of the cell sizes.
     if physdims is None:
@@ -303,7 +339,7 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
     # TODO: Constraints have not been implemented for structured DFM grids.
     # Simply pass nothing for now, not sure how do deal with this, or if it at all is
     # meaningful.
-    edge_tags, _, _ = network._classify_edges(poly, [])
+    edge_tags, _, _ = network._classify_edges(poly, np.array([]))
 
     auxiliary_points, edge_tags = network._on_domain_boundary(edges, edge_tags)
     bound_and_aux = np.array(
@@ -352,15 +388,37 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
         g.global_point_ind = np.asarray(node)
         g_0d.append(g)
 
-    grids = [[g_3d], g_2d, g_1d, g_0d]
+    grids: list[list[pp.Grid]] = [[g_3d], g_2d, g_1d, g_0d]
     return grids
 
 
-def _create_lower_dim_grids_2d(g_2d, fracs, nx):
+def _create_lower_dim_grids_2d(
+    g_2d: pp.Grid, fracs: list[np.ndarray], nx: np.ndarray
+) -> list[list[pp.Grid]]:
+    """Auxiliary function to create a fractured domain in 2D.
+
+    Creates nested lists of grids, where the first list contains the highest-dimensional
+    grid, followed by list containing grids of lower dimension in descending order.
+
+    Parameters:
+        g_2d: The highest-dimensional grid.
+        fracs: A list of arrays with ``shape=(2, 2)``, representing the vertices of the
+            line for each fracture.
+            The fracture lines must align to the coordinate axis.
+            The fractures will snap to the closest grid nodes.
+        nx: ``shape=(2,)``
+
+            Number of cells in each dimension.
+
+    Returns:
+        A nested list of length 3, where for each dimension 2 to 0 the respective
+        sub-list contains all grids in that dimension.
+
+    """
     g_2d.global_point_ind = np.arange(g_2d.num_nodes)
     g_2d.compute_geometry()
-    g_1d = []
-    g_0d = []
+    g_1d: list[pp.Grid] = []
+    g_0d: list[pp.Grid] = []
 
     # 1D grids:
     shared_nodes = np.zeros(g_2d.num_nodes)
@@ -385,13 +443,25 @@ def _create_lower_dim_grids_2d(g_2d, fracs, nx):
             g.global_point_ind = np.asarray(global_node)
             g_0d.append(g)
 
-    grids = [[g_2d], g_1d, g_0d]
+    grids: list[list[pp.Grid]] = [[g_2d], g_1d, g_0d]
     return grids
 
 
-def _create_embedded_2d_grid(loc_coord, glob_id):
-    """
-    Create a 2d grid that is embedded in a 3d grid.
+def _create_embedded_2d_grid(loc_coord: np.ndarray, glob_id: np.ndarray) -> pp.Grid:
+    """Creates a 2D grid that is embedded in a 3D grid.
+
+    Parameters:
+        loc_coords: ``shape=(2, np)``
+
+            A cloud of 2D-points (column-wise) constituting the 2D Grid.
+        glob_id: ``shape=(np,)``
+
+            The global indexation of the passed ``np`` points, to be stored in the
+            resulting grid.
+
+    Returns:
+        A 2D-grid based on above the specifications.
+
     """
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     loc_coord -= loc_center
@@ -433,11 +503,30 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     return g
 
 
-def _find_nodes_on_line(g, nx, s_pt, e_pt):
-    """
-    We have the start and end point of the fracture. From this we find the
-    start and end node and use the structure of the cartesian grid to find
-    the intermediate nodes.
+def _find_nodes_on_line(
+    g: pp.Grid, nx: np.ndarray, s_pt: np.ndarray, e_pt: np.ndarray
+) -> np.ndarray:
+    """Find the nodes in a grid lying on a line specified by a start- and end-node.
+
+    This function assumes a Cartesian structure on grid ``g``.
+
+    Parameters:
+        g: A Cartesian grid.
+        nx: ``shape=(nd,)``
+
+            An array containing the number of cells in each dimension, up to the
+            dimension of the grid ``g`` (``nd``).
+        s_pt: ``shape=(nd, 1)``
+
+            The starting point of the line in dimension ``nd``.
+        e_pt: ``shape=(nd, 1)``
+
+            The end point of the line in dimension ``nd``.
+
+    Returns:
+        An array of points in ``g``, lying on the line defined by starting and
+        end point.
+
     """
     s_node = np.argmin(pp.distances.point_pointset(s_pt, g.nodes))
     e_node = np.argmin(pp.distances.point_pointset(e_pt, g.nodes))
@@ -459,10 +548,10 @@ def _find_nodes_on_line(g, nx, s_pt, e_pt):
     elif np.all(np.isclose(s_pt[[0, 2]], e_pt[[0, 2]])):
         # y-line
         nodes = np.arange(s_node, e_node + 1, nx[0] + 1, dtype=int)
-
     elif nx.size == 3 and np.all(np.isclose(s_pt[0:2], e_pt[0:2])):
         # is z-line
         nodes = np.arange(s_node, e_node + 1, (nx[0] + 1) * (nx[1] + 1), dtype=int)
     else:
         raise RuntimeError("Something went wrong. Found a diagonal intersection")
+
     return nodes
