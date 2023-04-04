@@ -52,15 +52,14 @@ class RediscretizationTest:
             return super().rediscretize()
 
     def assemble_linear_system(self) -> None:
-        """Store all assembled linear system for later comparison."""
+        """Store all assembled linear systems for later comparison."""
         super().assemble_linear_system()
         if not hasattr(self, "stored_linear_system"):
             self.stored_linear_system = []
         self.stored_linear_system.append(copy.deepcopy(self.linear_system))
 
 
-# Non-trivial solution achieved through BCs. All target models involved fluid flow, so
-# a single BC class is sufficient.
+# Non-trivial solution achieved through BCs.
 class BCs(setup_utils.BoundaryConditionsMassAndEnergyDirNorthSouth):
     def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for Darcy flux.
@@ -108,29 +107,29 @@ def test_targeted_rediscretization(model_class):
         # Make flow problem non-linear:
         "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})},
     }
-    # Finalize the model class by adding the rediscretization mixin
+    # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = setup_utils._add_mixin(
         RediscretizationTest, model_class
     )
-    # A model object with full rediscretization
+    # A model object with full rediscretization.
     model_full = rediscretization_model_class(params_full)
     pp.run_time_dependent_model(model_full, params_full)
 
-    # A model object with targeted rediscretization
+    # A model object with targeted rediscretization.
     params_targeted = params_full.copy()
     params_targeted["full_rediscretization"] = False
-    # Set up the model
+    # Set up the model.
     model_targeted = rediscretization_model_class(params_targeted)
     pp.run_time_dependent_model(model_targeted, params_targeted)
 
-    # Check that the linear systems are the same
+    # Check that the linear systems are the same.
     assert len(model_full.stored_linear_system) == 2
     assert len(model_targeted.stored_linear_system) == 2
     for i in range(len(model_full.stored_linear_system)):
         A_full, b_full = model_full.stored_linear_system[i]
         A_targeted, b_targeted = model_targeted.stored_linear_system[i]
 
-        # Convert to dense array to ensure the matrices are identical
+        # Convert to dense array to ensure the matrices are identical.
         assert np.allclose(A_full.A, A_targeted.A)
         assert np.allclose(b_full, b_targeted)
 
