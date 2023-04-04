@@ -758,13 +758,8 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     ) -> pp.ad.Scalar:
         """Numerical constant for the contact problem.
 
-        The numerical constant is a cell-wise scalar, but we return a matrix to allow
-        for automatic differentiation and left multiplication.
-
         Not sure about method location, but it is a property of the contact problem, and
         more solution strategy than material property or constitutive law.
-
-        TODO: We need a more descritive name for this method.
 
         Parameters:
             subdomains: List of subdomains. Only the first is used.
@@ -773,9 +768,22 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             c_num: Numerical constant, as scalar.
 
         """
-        # Conversion unnecessary for dimensionless parameters, but included as good
-        # practice.
-        val = self.solid.convert_units(1, "-")
+        # The constant works as a scaling factor in the comparison between tractions and
+        # displacement jumps across fractures. We therefore take it as proportional to
+        # the shear modulus and the residual aperture, where the latter is a measure of
+        # the displacement jump.
+        # The values returned from self.solid are already scaled, so there is no need
+        # for further scaling.
+        shear_modulus = self.solid.shear_modulus()
+        aperture = self.solid.residual_aperture()
+
+        # EK: The scaling factor should not be too large, otherwise the contact problem
+        # may be discretized wrongly. I therefore introduce a safety factor here; its
+        # value is somewhat arbitrary.
+        safety_factor = 1e-1
+
+        val = safety_factor * shear_modulus * aperture
+
         return pp.ad.Scalar(val, name="Contact_mechanics_numerical_constant")
 
     def _is_nonlinear_problem(self) -> bool:
