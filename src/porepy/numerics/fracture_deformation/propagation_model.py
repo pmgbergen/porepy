@@ -174,7 +174,7 @@ class FracturePropagation(abc.ABC):
                     sol[new_ind] = new_vals
 
                 # Repeat for iterate:
-                if iterate in data[pp.ITERATES][var].values():
+                for iterate in data[pp.ITERATES][var].values():
                     iterate = mapping * iterate
                     iterate[new_ind] = new_vals
 

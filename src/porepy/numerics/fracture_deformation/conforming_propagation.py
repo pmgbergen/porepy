@@ -40,6 +40,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 from .propagation_model import FracturePropagation
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 logger = logging.getLogger(__name__)
 
@@ -565,7 +566,7 @@ class ConformingFracturePropagation(FracturePropagation):
         vals = np.zeros(sd_primary.num_cells)
         cells = np.unique(sd_primary.cell_faces[faces_primary].nonzero()[1])
         vals[cells] = 1
-        data_primary['stored_solutions']["neighbor_cells"][0] = vals
+        data_primary = set_time_dependent_value(name='neighbor_cells', values=vals, data=data_primary, solution_index=0)
 
     def _tip_bases(
         self,
