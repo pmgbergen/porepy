@@ -18,6 +18,7 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 _operations = pp.ad.operators.Operator.Operations
 
@@ -199,14 +200,20 @@ def test_time_dependent_array():
     # Some boilerplate is needed to define these.
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
     for sd, sd_data in mdg.subdomains(return_data=True):
-        sd_data['stored_solutions'] = {"foo": {0: np.zeros(sd.num_cells)}}
-        sd_data['stored_iterates'] = {"foo": {0: sd.dim * np.ones(sd.num_cells)}}    
+        vals_sol = np.zeros(sd.num_cells)
+        sd_data = set_time_dependent_value(name='foo', values=vals_sol, data=sd_data, solution_index=0)
+
+        vals_it = sd.dim * np.ones(sd.num_cells)
+        sd_data = set_time_dependent_value(name='foo', values=vals_it, data=sd_data, iterate_index=0)
     
     for intf, intf_data in mdg.interfaces(return_data=True):
         # Create an empty primary variable list
-        intf_data['stored_solutions'] = {"bar": {0: np.arange(intf.num_cells)}}
-        intf_data['stored_iterates'] = {"bar": {0: np.ones(intf.num_cells)}}
-        
+        vals_sol = np.arange(intf.num_cells)
+        sd_data = set_time_dependent_value(name='bar', values=vals_sol, data=intf_data, solution_index=0)
+
+        vals_it = np.ones(intf.num_cells)
+        sd_data = set_time_dependent_value(name='bar', values=vals_it, data=intf_data, iterate_index=0)
+
     # We make three arrays: One defined on a single subdomain, one on all subdomains of
     # mdg and one on an interface.
     sd_array_top = pp.ad.TimeDependentDenseArray(
@@ -405,12 +412,8 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
 
-        data['stored_solutions'] = {var: {0: val_state}}
-        data['stored_iterates'] = {var: {0: val_iterate}}
-
-        # Initiate data dict for var2 as well
-        data['stored_iterates'][var2] = {}
-        data['stored_solutions'][var2] = {}
+        data = set_time_dependent_value(name=var, values=val_state, data=data, solution_index=0)
+        data = set_time_dependent_value(name=var, values=val_iterate, data=data, iterate_index=0)
 
         state_map[sd] = val_state
         iterate_map[sd] = val_iterate
@@ -420,8 +423,10 @@ def test_ad_variable_evaluation():
             data[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
             val_state = np.random.rand(sd.num_cells)
             val_iterate = np.random.rand(sd.num_cells)
-            data['stored_solutions'][var2][0] = val_state
-            data['stored_iterates'][var2][0] = val_iterate
+
+            data = set_time_dependent_value(name=var2, values=val_state, data=data, solution_index=0)
+            data = set_time_dependent_value(name=var2, values=val_iterate, data=data, iterate_index=0)
+
             state_map_2[sd] = val_state
             iterate_map_2[sd] = val_iterate
 
@@ -436,8 +441,9 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(intf.num_cells * num_dofs)
         val_iterate = np.random.rand(intf.num_cells * num_dofs)
 
-        data['stored_solutions'] = {mortar_var: {0: val_state}} 
-        data['stored_iterates'] = {mortar_var: {0: val_iterate}}
+        data = set_time_dependent_value(name=mortar_var, values=val_state, data=data, solution_index=0)
+        data = set_time_dependent_value(name=mortar_var, values=val_iterate, data=data, iterate_index=0)
+
         state_map[intf] = val_state
         iterate_map[intf] = val_iterate
 
@@ -555,9 +561,8 @@ def test_variable_combinations(grids, variables):
         for var in variables:
             data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
 
-            data['stored_solutions'] = {}
-            data['stored_solutions'][var] = {}
-            data['stored_solutions'][var][0] = np.random.rand(sd.num_cells)
+            vals = np.random.rand(sd.num_cells)
+            data = set_time_dependent_value(name=var, values=vals, data=data, solution_index=0)
 
     # Ad boilerplate
     eq_system = pp.ad.EquationSystem(mdg)
@@ -639,26 +644,35 @@ def test_time_differentiation():
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
     for sd, sd_data in mdg.subdomains(return_data=True):
         if sd.dim == mdg.dim_max():
-            sd_data['stored_solutions'] = {
-                "foo": {0: -np.ones(sd.num_cells)},
-                "bar": {0: 2 * np.ones(sd.num_cells)}}
+            vals_sol_foo = -np.ones(sd.num_cells)
+            vals_sol_bar = 2 * np.ones(sd.num_cells) 
+
+            sd_data = set_time_dependent_value(name='foo', values=vals_sol_foo, data=sd_data, solution_index=0)
+            sd_data = set_time_dependent_value(name='bar', values=vals_sol_bar, data=sd_data, solution_index=0)
             
-            sd_data['stored_iterates'] = {
-                    "foo": {0: 3 * np.ones(sd.num_cells)},
-                    "bar": {0: np.ones(sd.num_cells)}
-                }
+            vals_it_foo = 3 * np.ones(sd.num_cells)
+            vals_it_bar = np.ones(sd.num_cells)
+
+            sd_data = set_time_dependent_value(name='foo', values=vals_it_foo, data=sd_data, iterate_index=0)
+            sd_data = set_time_dependent_value(name='bar', values=vals_it_bar, data=sd_data, iterate_index=0)
+        
         else:
-            sd_data['stored_solutions'] = {"foo": {0: np.zeros(sd.num_cells)}}
-            sd_data['stored_iterates'] = {"foo": {0: np.ones(sd.num_cells)}}
+            vals_sol_foo = np.zeros(sd.num_cells)
+            vals_it_foo = np.ones(sd.num_cells)
+
+            sd_data = set_time_dependent_value(name='foo', values=vals_sol_foo, data=sd_data, solution_index=0)
+            sd_data = set_time_dependent_value(name='foo', values=vals_it_foo, data=sd_data, iterate_index=0)
 
     for intf, intf_data in mdg.interfaces(return_data=True):
         # Create an empty primary variable list
         intf_data[pp.PRIMARY_VARIABLES] = {}
         # Set a numpy array in state, to be represented as a time-dependent array.
-        intf_data['stored_solutions'] = {
-            "foobar": {0: np.ones(intf.num_cells)}}
-        intf_data['stored_iterates'] = {"foobar": {0: 2 * np.ones(intf.num_cells)}}
+        vals_sol = np.ones(intf.num_cells)
+        vals_it = 2 * np.ones(intf.num_cells)
 
+        intf_data = set_time_dependent_value(name='foobar', values=vals_sol, data=intf_data, solution_index=0)
+        intf_data = set_time_dependent_value(name='foobar', values=vals_it, data=intf_data, iterate_index=0)
+    
     eq_system = pp.ad.EquationSystem(mdg)
     eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
     # The time step, represented as a scalar.
