@@ -213,18 +213,22 @@ def get_variables(
     """
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
     u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
-    u_vals = setup.equation_system.get_variable_values(variables=u_var, solution_index=0).reshape(
-        setup.nd, -1, order="F"
-    )
+    u_vals = setup.equation_system.get_variable_values(
+        variables=u_var, solution_index=0
+    ).reshape(setup.nd, -1, order="F")
 
     p_var = setup.equation_system.get_variables(
         [setup.pressure_variable], setup.mdg.subdomains()
     )
-    p_vals = setup.equation_system.get_variable_values(variables=p_var, solution_index=0)
+    p_vals = setup.equation_system.get_variable_values(
+        variables=p_var, solution_index=0
+    )
     p_var = setup.equation_system.get_variables(
         [setup.pressure_variable], setup.mdg.subdomains(dim=setup.nd - 1)
     )
-    p_frac = setup.equation_system.get_variable_values(variables=p_var, solution_index=0)
+    p_frac = setup.equation_system.get_variable_values(
+        variables=p_var, solution_index=0
+    )
     # Fracture
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
     jump = (
@@ -259,7 +263,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
             directions. The values are used to infer sign of displacement solution.
 
     """
-    
+
     setup = create_fractured_setup(solid_vals, {}, north_displacement)
     pp.run_time_dependent_model(setup, {})
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)

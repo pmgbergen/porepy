@@ -83,7 +83,7 @@ class TestImmersedFracture(unittest.TestCase):
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
         for g, d in mdg.nodes():
-            p = d['stored_solutions']["pressure"][0]
+            p = d["stored_solutions"]["pressure"][0]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def _solve(self, mdg, method, key):
@@ -104,14 +104,14 @@ class TestImmersedFracture(unittest.TestCase):
         self._solve(mdg, method, key)
         for sd, data in mdg.subdomains(return_data=True):
 
-            darcy_flux_values = data['stored_solutions']["pressure"][0][:sd.num_faces]
+            darcy_flux_values = data["stored_solutions"]["pressure"][0][: sd.num_faces]
             data = set_time_dependent_value(
-            name='darcy_flux', values=darcy_flux_values, data=data, solution_index=0
+                name="darcy_flux", values=darcy_flux_values, data=data, solution_index=0
             )
 
-            pressure_values = data['stored_solutions']["pressure"][0][sd.num_faces:]
+            pressure_values = data["stored_solutions"]["pressure"][0][sd.num_faces :]
             data = set_time_dependent_value(
-            name='pressure', values=pressure_values, data=data, solution_index=0
+                name="pressure", values=pressure_values, data=data, solution_index=0
             )
 
     def run_RT0(self, mdg):
@@ -119,14 +119,14 @@ class TestImmersedFracture(unittest.TestCase):
         method = pp.RT0(key)
         self._solve(mdg, method, key)
         for sd, data in mdg.subdomains(return_data=True):
-            darcy_flux_values = data['stored_solutions']["pressure"][0][:sd.num_faces]
+            darcy_flux_values = data["stored_solutions"]["pressure"][0][: sd.num_faces]
             data = set_time_dependent_value(
-            name='darcy_flux', values=darcy_flux_values, data=data, solution_index=0
+                name="darcy_flux", values=darcy_flux_values, data=data, solution_index=0
             )
 
-            pressure_values = data['stored_solutions']["pressure"][0][sd.num_faces:]
+            pressure_values = data["stored_solutions"]["pressure"][0][sd.num_faces :]
             data = set_time_dependent_value(
-            name='pressure', values=pressure_values, data=data, solution_index=0
+                name="pressure", values=pressure_values, data=data, solution_index=0
             )
 
     def test_mpfa_blocking_fracture(self):
@@ -137,7 +137,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_mpfa(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data['stored_solutions']["pressure"][0]
+        p = data["stored_solutions"]["pressure"][0]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
 
     def test_mvem_blocking_fracture(self):
@@ -148,7 +148,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_vem(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data['stored_solutions']["pressure"][0]
+        p = data["stored_solutions"]["pressure"][0]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
 
     def test_rt0_blocking_fracture(self):
@@ -159,7 +159,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_RT0(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data['stored_solutions']["pressure"][0]
+        p = data["stored_solutions"]["pressure"][0]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
 
     def test_mpfa_flip_normal(self):
@@ -170,14 +170,14 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_mpfa(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data['stored_solutions']["pressure"][0]
+        p = data["stored_solutions"]["pressure"][0]
         mdg = self.create_grid()
         self.set_params(mdg, kn=1e4, kf=1e3)
 
         self.run_mpfa(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p_flipped = data['stored_solutions']["pressure"][0]
+        p_flipped = data["stored_solutions"]["pressure"][0]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
@@ -189,7 +189,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_vem(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data['stored_solutions']["pressure"][0]
+        p = data["stored_solutions"]["pressure"][0]
 
         mdg = self.create_grid()
         self.set_params(mdg, kn=1e4, kf=1e3)
@@ -197,7 +197,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_vem(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p_flipped = data['stored_solutions']["pressure"][0]
+        p_flipped = data["stored_solutions"]["pressure"][0]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
@@ -209,7 +209,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_RT0(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data['stored_solutions']["pressure"][0]
+        p = data["stored_solutions"]["pressure"][0]
 
         mdg = self.create_grid()
         self.set_params(mdg, kn=1e4, kf=1e3)
@@ -217,7 +217,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_RT0(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p_flipped = data['stored_solutions']["pressure"][0]
+        p_flipped = data["stored_solutions"]["pressure"][0]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
