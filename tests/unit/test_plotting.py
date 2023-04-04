@@ -8,6 +8,7 @@ import pytest
 
 import porepy as pp
 from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
+from porepy.numerics.ad.equation_system import set_time_dependent_value
 
 plt = pytest.importorskip("matplotlib.pyplot")
 
@@ -99,15 +100,17 @@ def _initialize_mdg(mdg_):
 
     for sd, data in mdg_.subdomains(return_data=True):
         if sd.dim in (mdg_.dim_max(), mdg_.dim_max() - 1):
-            data['stored_solutions'] = {
-                SCALAR_VARIABLE: {0: np.ones(sd.num_cells)},
-                VECTOR_VARIABLE_CELL: {0: np.ones((mdg_.dim_max(), sd.num_cells)).ravel(
-                    order="F"
-                )},
-                VECTOR_VARIABLE_FACE: {0: np.ones((mdg_.dim_max(), sd.num_faces)).ravel(
-                    order="F"
-                )},
-            }
+            variables = np.array([SCALAR_VARIABLE, 
+                                  VECTOR_VARIABLE_CELL, 
+                                  VECTOR_VARIABLE_FACE])
+
+            vals_scalar = np.ones(sd.num_cells)
+            vals_vect_cell = np.ones((mdg_.dim_max(), sd.num_cells)).ravel(order="F")
+            vals_vect_face = np.ones((mdg_.dim_max(), sd.num_faces)).ravel(order="F")
+            values = np.array([vals_scalar, vals_vect_cell, vals_vect_face])
+
+            for i in range(len(variables)):
+                data = set_time_dependent_value(name=variables[i], values=values[i], data=data, solution_index=0)
 
         else:
             data['stored_solutions'] = {}
