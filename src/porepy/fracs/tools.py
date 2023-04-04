@@ -1,42 +1,73 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-""" Technical tools used in treatment of fractures.
+"""This module contains technical tools used in the treatment of fractures.
 
 This can be thought of as a module for backend utility functions, as opposed to
-the frontend functions found in utils.
+the frontend functions found in :mod:`~porepy.fracs.utils`.
 
 """
+from __future__ import annotations
+
 import warnings
+from typing import Optional
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
 
-def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
-    """
-    Set the preferred mesh size for geometrical points as specified by
-    gmsh.
-    Parameters:
-        pts (float array): The points which will be passed to Gmsh. Array size
-            2 x n_pts.
-        pts_on_boundary (logical array): Indicates which (True) of the pts are
-            constitute the domain boundary (corners). Only relevant if
-            mesh_size_bound is defined as a kw (see below).
-        lines (integer array): Definition and tags of the boundary and fracture
-            lines. Size 4 x n_points, two first are pointers to pts and two
-            last are line tags.
-    The mesh size is determined through the three parameters (all passed
-    as kwargs):
-        mesh_size_frac: Ideal mesh size. Will be added to all points that are
-            sufficiently far away from other points.
-        mesh_size_min: Minimal mesh size; we will make no attempts to enforce
-            even smaller mesh sizes upon Gmsh.
-        mesh_size_bound: Boundary mesh size. Will be added to the points
+def determine_mesh_size(
+    pts: np.ndarray,
+    pts_on_boundary: Optional[np.ndarray] = None,
+    lines: Optional[np.ndarray] = None,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Sets the preferred mesh size for geometrical points as specified by gmsh.
 
-            defining the boundary. If included, pts_on_boundary is mandatory.
+    This function assumes a 2D mesh given by points ``pts``.
 
     See the gmsh manual for further details.
+
+    Parameters:
+        pts: ``dtype=float, shape=(2, np)``
+
+            The points which will be passed to gmsh, where ``np`` is the number of
+            points.
+        pts_on_boundary: ``dtype=bool``
+
+            A boolean array, indicates which of the pts are constitute the domain
+            boundary (corners). Only relevant if ``mesh_size_bound`` is passed as a
+            keyword argument.
+        lines: ``dtype=int, shape=(4, np)``
+
+            Definition and tags of the boundary and fracture lines. Per column (point),
+            the first two elements are indices of points in ``pts``, the last two are
+            numerical line tags (enumeration).
+        **kwargs: The mesh size is determined by the following keywords
+
+
+            - ``'mesh_size_frac'``: Ideal mesh size. Will be added to all points which
+              are sufficiently far away from other points.
+            - ``'mesh_size_min'``: Minimal mesh size. No attempts are made to enforce
+              even smaller mesh sizes using gmsh.
+            - ``'mesh_size_bound'``: Boundary mesh size. Will be added to the points
+              defining the boundary. If used, the argument ``pts_on_boundary`` is
+              mandatory.
+
+    Returns:
+        A 3-tuple containing
+
+        :obj:`~numpy.ndarray`: ``shape=(1, np_mod)``
+
+            An array containing per point (from resulting array below) the minimal
+            distance to points which are connected by a line.
+        :obj:`~numpy.ndarray`: ``shape=(2, np_mod)``
+
+            A modified array of ``np_mod`` points, corresponding to the
+            mesh size defined by the arguments (analogous to argument ``pts``).
+        :obj:`~numpy.ndarray`: A modified array of lines with the same structure as
+            the argument ``lines``.
 
     """
     num_pts = pts.shape[1]
@@ -50,7 +81,9 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
         vals[pts_on_boundary] = val_bound
     if val_min is None:
         val_min = 1e-8 * val
-    # Compute the lenght of each pair of points (fractures + domain boundary)
+    # Compute the length of each pair of points (fractures + domain boundary)
+    # TODO VL: lines is optional in the signature, which is not covered by this code
+    # Mypy also complains about the attempted indexing of the optional arrays
     pts_id = lines[:2, :]
     dist = np.linalg.norm(pts[:, pts_id[0, :]] - pts[:, pts_id[1, :]], axis=0)
     dist_pts = np.tile(np.inf, pts.shape[1])
@@ -65,7 +98,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     num_pts = pts.shape[1]
 
     # Data structures for storing information on extra points.
-    # IMPLEMENTATION NOTE, EK: These variables are gradally appended during iterations.
+    # IMPLEMENTATION NOTE, EK: These variables are gradually appended during iterations.
     # This is somewhat costly (estimated to ~10% of the total runtime) for large
     # sets of lines. However, there turned out to be a lot of special cases to cover,
     # so I ended with not trying to implement the necessary changes.
@@ -230,7 +263,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             new_lines = np.c_[new_lines, np.vstack((pts_frac_id, other_info))]
 
     # Consider extra points related to the input value, if the fracture is long
-    # and, beacuse of val, needs additional points we increase the number of
+    # and, because of val, needs additional points we increase the number of
     # lines.
     # Make bounding boxes for the new segments.
     x_min_new = np.minimum(pts[0, new_lines[0]], pts[0, new_lines[1]])
@@ -306,20 +339,27 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     return dist_pts, pts, lines
 
 
-def obtain_interdim_mappings(lg, fn, n_per_face):
-    """
-    Find mappings between faces in higher dimension and cells in the lower
+def obtain_interdim_mappings(
+    lg: pp.Grid, fn: sps.csc_matrix, n_per_face: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Finds mappings between faces in higher dimension and cells in the lower
     dimension
 
     Parameters:
-        lg (pp.Grid): Lower dimensional grid.
-        fn (pp.Grid): Higher dimensional face-node relation.
-        n_per_face (int): Number of nodes per face in the higher-dimensional grid.
+        lg: Lower dimensional grid.
+        fn: Face-node map of the higher-dimensional grid
+            (see :data:`~porepy.grids.grid.Grid.face_nodes`).
+        n_per_face: Number of nodes per face in the higher-dimensional grid.
 
     Returns:
-        np.array: Index of faces in the higher-dimensional grid that correspond
-            to a cell in the lower-dimensional grid.
-        np.array: Index of the corresponding cells in the lower-dimensional grid.
+        A 2-tuple containing
+
+        :obj:`~numpy.ndarray`:
+            An array containing indices of faces in the higher-dimensional grid that
+            correspond to a cell in the lower-dimensional grid.
+            The indexing is based on **all** cells in the lower-dimensional grid.
+        :obj:`~numpy.array`:
+            Indices of the corresponding cells in the lower-dimensional grid.
 
     """
     if lg.dim > 0:
