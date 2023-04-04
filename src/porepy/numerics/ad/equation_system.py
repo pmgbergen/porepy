@@ -1979,3 +1979,63 @@ class EquationSystem:
             s += "\n\t".join(eq_names) + "\n"
 
         return s
+
+# Utility functions
+
+def set_time_dependent_value(
+        name: str, 
+        values: np.ndarray,
+        data: dict,
+        solution_index: Optional[int] = None,
+        iterate_index: Optional[int] = None, 
+        additive: bool = False
+) -> dict:
+    """Utility function for setting values to ``'stored_solutions'`` and/or
+    ``'stored_iterates'`` in data dictionary.
+    
+    Parameters:
+        name: Name of the variable/quantity that is to be assigned values.
+        values: The values that are set to the sub-dictionary of data that corresponds
+            to the variable/quantity name.
+        data: Data dictionary corresponding to the subdomain and variable in question
+        solution_index (optional): Determines the key of where ``values`` are to be
+            stored in ``data['stored_solutions'][name]``. 0 means it is the most recent
+            set of values, 1 means the one time step back in time, 2 is two time steps
+            back, and so on.
+        iterate_index (optional): Determines the key of where ``values`` are to be
+            stored in ``data['stored_iterates'][name]``. 0 means it is the most recent
+            set of values, 1 means the values one iteration back in time, 2 is two
+            iterations back, and so on.
+        additive: Flag to decide whether the values already stored in the data
+            dictionary should be added to or overwritten.
+
+    """
+    if not additive:
+        if solution_index is not None:
+            if 'stored_solutions' not in data:
+                data['stored_solutions'] = dict()
+            if name not in data['stored_solutions']:
+                data['stored_solutions'][name] = dict()
+            data['stored_solutions'][name][solution_index] = values.copy()
+
+        if iterate_index is not None:
+            if 'stored_iterates' not in data:
+                data['stored_iterates'] = dict()
+            if name not in data['stored_iterates']:
+                data['stored_iterates'][name] = dict()
+            data['stored_iterates'][name][iterate_index] = values.copy()
+    else:
+        if solution_index is not None:
+            if 'stored_solutions' not in data:
+                data['stored_solutions'] = dict()
+            if name not in data['stored_solutions']:
+                data['stored_solutions'][name] = dict()
+            data['stored_solutions'][name][solution_index] += values
+
+        if iterate_index is not None:
+            if 'stored_iterates' not in data:
+                data['stored_iterates'] = dict()
+            if name not in data['stored_iterates']:
+                data['stored_iterates'][name] = dict()
+            data['stored_iterates'][name][iterate_index] += values      
+    return data
