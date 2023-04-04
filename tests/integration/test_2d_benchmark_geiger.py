@@ -4,7 +4,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 import tests.common.flow_benchmark_2d_geiger_setup as setup
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 
 class TestVEMOnBenchmark(unittest.TestCase):
@@ -48,7 +48,7 @@ class TestVEMOnBenchmark(unittest.TestCase):
             darcy_flux_values = sd_data["stored_solutions"]["pressure"][0][
                 : sd.num_faces
             ]
-            sd_data = set_time_dependent_value(
+            set_solution_values(
                 name="darcy_flux",
                 values=darcy_flux_values,
                 data=sd_data,
@@ -56,7 +56,7 @@ class TestVEMOnBenchmark(unittest.TestCase):
             )
 
             pressure_values = sd_data["stored_solutions"]["pressure"][0][sd.num_faces :]
-            sd_data = set_time_dependent_value(
+            set_solution_values(
                 name="pressure", values=pressure_values, data=sd_data, solution_index=0
             )
 

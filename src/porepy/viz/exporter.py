@@ -15,7 +15,7 @@ import numpy as np
 from deepdiff import DeepDiff
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 # Object type to store data to export.
 Field = namedtuple("Field", ["name", "values"])
@@ -387,7 +387,7 @@ class Exporter:
                             values = _from_vector_format(
                                 value[offset : offset + sd.num_cells], sd
                             )
-                            sd_data = set_time_dependent_value(
+                            set_solution_values(
                                 name=key, values=values, data=sd_data, solution_index=0
                             )
 
@@ -399,7 +399,7 @@ class Exporter:
                             values = _from_vector_format(
                                 value[offset : offset + intf.num_cells], intf
                             )
-                            intf_data = set_time_dependent_value(
+                            set_solution_values(
                                 name=key,
                                 values=values,
                                 data=intf_data,

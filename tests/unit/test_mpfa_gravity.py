@@ -7,7 +7,7 @@ import sympy
 from scipy.sparse.linalg import spsolve
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 
 class _SolutionHomogeneousDomainFlowWithGravity(object):
@@ -628,7 +628,7 @@ class TiltedGrids(unittest.TestCase):
         self.assertTrue(np.allclose(p_x[0], p_x[2]))
         self.assertTrue(np.allclose(p_x[1], p_x[3]))
 
-        data = set_time_dependent_value(
+        set_solution_values(
             name="pressure", values=p_x, data=data, solution_index=0
         )
         pp.fvutils.compute_darcy_flux(g, data=data)

@@ -25,7 +25,7 @@ import porepy as pp
 from tests.integration import setup_mixed_dimensional_grids as setup_mdg
 from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
 from tests.test_utils import compare_arrays
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 ## Below follows tests of the picking of high-dimensional faces to split, when using
 #  the ConformingPropagation strategy.
@@ -783,18 +783,13 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         d = mdg.subdomain_data(g_2d)
         d[pp.PRIMARY_VARIABLES] = {self.cv2: {"cells": 1}}
 
-        # d[pp.STATE] = {
-        #     self.cv2: cell_val_2d,
-        #     pp.ITERATE: {self.cv2: np.array(2 * cell_val_2d)},
-        # }
-
         val_sol = cell_val_2d
         val_it = 2 * cell_val_2d
 
-        d = set_time_dependent_value(
+        set_solution_values(
             name=self.cv2, values=val_sol, data=d, solution_index=0
         )
-        d = set_time_dependent_value(
+        set_solution_values(
             name=self.cv2, values=val_it, data=d, iterate_index=0
         )
 
@@ -802,18 +797,13 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             d = mdg.subdomain_data(g)
             d[pp.PRIMARY_VARIABLES] = {self.cv1: {"cells": var_sz_1d}}
 
-            # d[pp.STATE] = {
-            #     self.cv1: cell_val_1d[g],
-            #     pp.ITERATE: {self.cv1: np.array(2 * cell_val_1d[g])},
-            # }
-
             val_sol = cell_val_1d[g]
             val_it = 2 * cell_val_1d[g]
 
-            d = set_time_dependent_value(
+            set_solution_values(
                 name=self.cv1, values=val_sol, data=d, solution_index=0
             )
-            d = set_time_dependent_value(
+            set_solution_values(
                 name=self.cv1, values=val_it, data=d, iterate_index=0
             )
 
@@ -821,18 +811,14 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
             d = mdg.interface_data(intf)
             d[pp.PRIMARY_VARIABLES] = {self.mv: {"cells": var_sz_mortar}}
-            # d[pp.STATE] = {
-            #     self.mv: cell_val_mortar[g],
-            #     pp.ITERATE: {self.mv: np.array(2 * cell_val_mortar[g])},
-            # }
 
             val_sol = cell_val_mortar[g]
             val_it = 2 * cell_val_mortar[g]
 
-            d = set_time_dependent_value(
+            set_solution_values(
                 name=self.mv, values=val_sol, data=d, solution_index=0
             )
-            d = set_time_dependent_value(
+            set_solution_values(
                 name=self.mv, values=val_it, data=d, iterate_index=0
             )
 
@@ -873,7 +859,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                     == cell_val_2d
                 )
             )
-            # Also check that pp.STATE and ITERATE has been correctly updated
+            # Also check that pp.SOLUTIONS and ITERATES has been correctly updated
             d = mdg.subdomain_data(g_2d)
             self.assertTrue(np.all(d[pp.SOLUTIONS][self.cv2][0] == cell_val_2d))
             self.assertTrue(np.all(d[pp.ITERATES][self.cv2][0] == 2 * cell_val_2d))
@@ -894,7 +880,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 truth_iterate = np.r_[val_1d_iterate_prev[g], extended_1d]
                 self.assertTrue(np.allclose(x_1d, truth_1d))
 
-                # Also check that pp.STATE and ITERATE has been correctly updated
+                # Also check that pp.SOLUTIONS and ITERATE has been correctly updated
                 d = mdg.subdomain_data(g)
                 self.assertTrue(np.all(d[pp.SOLUTIONS][self.cv1][0] == truth_1d))
                 self.assertTrue(np.all(d[pp.ITERATES][self.cv1][0] == truth_iterate))
@@ -911,15 +897,10 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 ]
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
 
-                # d[pp.STATE][self.cv1] = x_new[
-                #     dof_manager.grid_and_variable_to_dofs(g, self.cv1)
-                # ]
-                # d[pp.STATE][pp.ITERATE][self.cv1] = val_1d_iterate_prev[g]
-
-                d = set_time_dependent_value(
+                set_solution_values(
                     name=self.cv1, values=val_1d_prev[g], data=d, solution_index=0
                 )
-                d = set_time_dependent_value(
+                set_solution_values(
                     name=self.cv1,
                     values=val_1d_iterate_prev[g],
                     data=d,
