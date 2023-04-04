@@ -579,8 +579,12 @@ def compare_scaled_primary_variables(
     """
     for var_name, var_unit in zip(variable_names, variable_units):
         # Obtain scaled values.
-        scaled_values_0 = setup_0.equation_system.get_variable_values(variables=[var_name], solution_index=0)
-        scaled_values_1 = setup_1.equation_system.get_variable_values(variables=[var_name], solution_index=0)
+        scaled_values_0 = setup_0.equation_system.get_variable_values(
+            variables=[var_name], solution_index=0
+        )
+        scaled_values_1 = setup_1.equation_system.get_variable_values(
+            variables=[var_name], solution_index=0
+        )
         # Convert back to SI units.
         values_0 = setup_0.fluid.convert_units(scaled_values_0, var_unit, to_si=True)
         values_1 = setup_1.fluid.convert_units(scaled_values_1, var_unit, to_si=True)

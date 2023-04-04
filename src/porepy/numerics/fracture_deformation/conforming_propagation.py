@@ -199,7 +199,7 @@ class ConformingFracturePropagation(FracturePropagation):
         parameters_primary: dict[str, Any] = data_primary[pp.PARAMETERS][
             self.mechanics_parameter_key  # type: ignore
         ]
-        u_j: np.ndarray = data_intf['stored_iterates'][
+        u_j: np.ndarray = data_intf["stored_iterates"][
             self.mortar_displacement_variable  # type: ignore
         ][0]
 
@@ -566,7 +566,9 @@ class ConformingFracturePropagation(FracturePropagation):
         vals = np.zeros(sd_primary.num_cells)
         cells = np.unique(sd_primary.cell_faces[faces_primary].nonzero()[1])
         vals[cells] = 1
-        data_primary = set_time_dependent_value(name='neighbor_cells', values=vals, data=data_primary, solution_index=0)
+        data_primary = set_time_dependent_value(
+            name="neighbor_cells", values=vals, data=data_primary, solution_index=0
+        )
 
     def _tip_bases(
         self,

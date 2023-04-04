@@ -352,9 +352,9 @@ class DofManager:
             # extract a copy of requested values
             try:
                 if from_iterate:
-                    values.append(data['stored_iterates'][name][0].copy())
+                    values.append(data["stored_iterates"][name][0].copy())
                 else:
-                    values.append(data['stored_solutions'][name][0].copy())
+                    values.append(data["stored_solutions"][name][0].copy())
             except KeyError:
                 raise KeyError(
                     f"No values stored for variable {name}, "
@@ -502,8 +502,9 @@ class DofManager:
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))
 
-        # Loop over grid-variable combinations and update data in 'stored_iterates' and 'stored_solutions'.
-        for g, var in itertools.product(grids, variables): 
+        # Loop over grid-variable combinations and update data in 'stored_iterates' and
+        # 'stored_solutions'.
+        for g, var in itertools.product(grids, variables):
             if (g, var) not in self.block_dof:
                 continue
 
@@ -517,9 +518,17 @@ class DofManager:
                 data = self.mdg.subdomain_data(g)
 
             if not to_iterate:
-                data = set_time_dependent_value(name=var, values=vals, data=data, solution_index=0, additive=additive)
+                data = set_time_dependent_value(
+                    name=var,
+                    values=vals,
+                    data=data,
+                    solution_index=0,
+                    additive=additive,
+                )
             if to_iterate:
-                data = set_time_dependent_value(name=var, values=vals, data=data, iterate_index=0, additive=additive)
+                data = set_time_dependent_value(
+                    name=var, values=vals, data=data, iterate_index=0, additive=additive
+                )
 
     def assemble_variable(
         self,
@@ -569,9 +578,9 @@ class DofManager:
 
             if from_iterate:
                 # Use copy to avoid nasty bugs.
-                values[dof_ind] = data['stored_iterates'][var][0].copy()
+                values[dof_ind] = data["stored_iterates"][var][0].copy()
             else:
-                values[dof_ind] = data['stored_solutions'][var][0].copy()
+                values[dof_ind] = data["stored_solutions"][var][0].copy()
 
         return values
 

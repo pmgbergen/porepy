@@ -171,7 +171,9 @@ class SolutionStrategy(abc.ABC):
     def initial_condition(self) -> None:
         """Set the initial condition for the problem."""
         vals = np.zeros(self.equation_system.num_dofs())
-        self.equation_system.set_variable_values(vals, iterate_index=0, solution_index=0)
+        self.equation_system.set_variable_values(
+            vals, iterate_index=0, solution_index=0
+        )
 
     def set_materials(self):
         """Set material parameters.

@@ -5,6 +5,7 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.vem import hybrid
 
+
 def make_dictionary(g, perm, bc, bc_val=None):
     if bc_val is None:
         bc_val = np.zeros(g.num_faces)
@@ -250,7 +251,7 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     def test_dual_hybrid_vem_2d_ani_simplex(self):
-       
+
         g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
         kxx = np.square(g.cell_centers[1, :]) + 1

@@ -201,18 +201,26 @@ def test_time_dependent_array():
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
     for sd, sd_data in mdg.subdomains(return_data=True):
         vals_sol = np.zeros(sd.num_cells)
-        sd_data = set_time_dependent_value(name='foo', values=vals_sol, data=sd_data, solution_index=0)
+        sd_data = set_time_dependent_value(
+            name="foo", values=vals_sol, data=sd_data, solution_index=0
+        )
 
         vals_it = sd.dim * np.ones(sd.num_cells)
-        sd_data = set_time_dependent_value(name='foo', values=vals_it, data=sd_data, iterate_index=0)
-    
+        sd_data = set_time_dependent_value(
+            name="foo", values=vals_it, data=sd_data, iterate_index=0
+        )
+
     for intf, intf_data in mdg.interfaces(return_data=True):
         # Create an empty primary variable list
         vals_sol = np.arange(intf.num_cells)
-        sd_data = set_time_dependent_value(name='bar', values=vals_sol, data=intf_data, solution_index=0)
+        sd_data = set_time_dependent_value(
+            name="bar", values=vals_sol, data=intf_data, solution_index=0
+        )
 
         vals_it = np.ones(intf.num_cells)
-        sd_data = set_time_dependent_value(name='bar', values=vals_it, data=intf_data, iterate_index=0)
+        sd_data = set_time_dependent_value(
+            name="bar", values=vals_it, data=intf_data, iterate_index=0
+        )
 
     # We make three arrays: One defined on a single subdomain, one on all subdomains of
     # mdg and one on an interface.
@@ -412,8 +420,12 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
 
-        data = set_time_dependent_value(name=var, values=val_state, data=data, solution_index=0)
-        data = set_time_dependent_value(name=var, values=val_iterate, data=data, iterate_index=0)
+        data = set_time_dependent_value(
+            name=var, values=val_state, data=data, solution_index=0
+        )
+        data = set_time_dependent_value(
+            name=var, values=val_iterate, data=data, iterate_index=0
+        )
 
         state_map[sd] = val_state
         iterate_map[sd] = val_iterate
@@ -424,8 +436,12 @@ def test_ad_variable_evaluation():
             val_state = np.random.rand(sd.num_cells)
             val_iterate = np.random.rand(sd.num_cells)
 
-            data = set_time_dependent_value(name=var2, values=val_state, data=data, solution_index=0)
-            data = set_time_dependent_value(name=var2, values=val_iterate, data=data, iterate_index=0)
+            data = set_time_dependent_value(
+                name=var2, values=val_state, data=data, solution_index=0
+            )
+            data = set_time_dependent_value(
+                name=var2, values=val_iterate, data=data, iterate_index=0
+            )
 
             state_map_2[sd] = val_state
             iterate_map_2[sd] = val_iterate
@@ -441,8 +457,12 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(intf.num_cells * num_dofs)
         val_iterate = np.random.rand(intf.num_cells * num_dofs)
 
-        data = set_time_dependent_value(name=mortar_var, values=val_state, data=data, solution_index=0)
-        data = set_time_dependent_value(name=mortar_var, values=val_iterate, data=data, iterate_index=0)
+        data = set_time_dependent_value(
+            name=mortar_var, values=val_state, data=data, solution_index=0
+        )
+        data = set_time_dependent_value(
+            name=mortar_var, values=val_iterate, data=data, iterate_index=0
+        )
 
         state_map[intf] = val_state
         iterate_map[intf] = val_iterate
@@ -562,7 +582,9 @@ def test_variable_combinations(grids, variables):
             data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
 
             vals = np.random.rand(sd.num_cells)
-            data = set_time_dependent_value(name=var, values=vals, data=data, solution_index=0)
+            data = set_time_dependent_value(
+                name=var, values=vals, data=data, solution_index=0
+            )
 
     # Ad boilerplate
     eq_system = pp.ad.EquationSystem(mdg)
@@ -586,7 +608,7 @@ def test_variable_combinations(grids, variables):
             if sd == var.domain:
                 expr = var.evaluate(eq_system)
                 # Check that the size of the variable is correct
-                assert np.allclose(expr.val, data['stored_solutions'][var.name][0])
+                assert np.allclose(expr.val, data["stored_solutions"][var.name][0])
                 # Check that the Jacobian matrix has the right number of columns
                 assert expr.jac.shape[1] == eq_system.num_dofs()
 
@@ -595,7 +617,9 @@ def test_variable_combinations(grids, variables):
         expr = var.evaluate(eq_system)
         vals = []
         for sub_var in var.sub_vars:
-            vals.append(mdg.subdomain_data(sub_var.domain)['stored_solutions'][sub_var.name][0])
+            vals.append(
+                mdg.subdomain_data(sub_var.domain)["stored_solutions"][sub_var.name][0]
+            )
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
         assert expr.jac.shape[1] == eq_system.num_dofs()
@@ -645,23 +669,35 @@ def test_time_differentiation():
     for sd, sd_data in mdg.subdomains(return_data=True):
         if sd.dim == mdg.dim_max():
             vals_sol_foo = -np.ones(sd.num_cells)
-            vals_sol_bar = 2 * np.ones(sd.num_cells) 
+            vals_sol_bar = 2 * np.ones(sd.num_cells)
 
-            sd_data = set_time_dependent_value(name='foo', values=vals_sol_foo, data=sd_data, solution_index=0)
-            sd_data = set_time_dependent_value(name='bar', values=vals_sol_bar, data=sd_data, solution_index=0)
-            
+            sd_data = set_time_dependent_value(
+                name="foo", values=vals_sol_foo, data=sd_data, solution_index=0
+            )
+            sd_data = set_time_dependent_value(
+                name="bar", values=vals_sol_bar, data=sd_data, solution_index=0
+            )
+
             vals_it_foo = 3 * np.ones(sd.num_cells)
             vals_it_bar = np.ones(sd.num_cells)
 
-            sd_data = set_time_dependent_value(name='foo', values=vals_it_foo, data=sd_data, iterate_index=0)
-            sd_data = set_time_dependent_value(name='bar', values=vals_it_bar, data=sd_data, iterate_index=0)
-        
+            sd_data = set_time_dependent_value(
+                name="foo", values=vals_it_foo, data=sd_data, iterate_index=0
+            )
+            sd_data = set_time_dependent_value(
+                name="bar", values=vals_it_bar, data=sd_data, iterate_index=0
+            )
+
         else:
             vals_sol_foo = np.zeros(sd.num_cells)
             vals_it_foo = np.ones(sd.num_cells)
 
-            sd_data = set_time_dependent_value(name='foo', values=vals_sol_foo, data=sd_data, solution_index=0)
-            sd_data = set_time_dependent_value(name='foo', values=vals_it_foo, data=sd_data, iterate_index=0)
+            sd_data = set_time_dependent_value(
+                name="foo", values=vals_sol_foo, data=sd_data, solution_index=0
+            )
+            sd_data = set_time_dependent_value(
+                name="foo", values=vals_it_foo, data=sd_data, iterate_index=0
+            )
 
     for intf, intf_data in mdg.interfaces(return_data=True):
         # Create an empty primary variable list
@@ -670,9 +706,13 @@ def test_time_differentiation():
         vals_sol = np.ones(intf.num_cells)
         vals_it = 2 * np.ones(intf.num_cells)
 
-        intf_data = set_time_dependent_value(name='foobar', values=vals_sol, data=intf_data, solution_index=0)
-        intf_data = set_time_dependent_value(name='foobar', values=vals_it, data=intf_data, iterate_index=0)
-    
+        intf_data = set_time_dependent_value(
+            name="foobar", values=vals_sol, data=intf_data, solution_index=0
+        )
+        intf_data = set_time_dependent_value(
+            name="foobar", values=vals_it, data=intf_data, iterate_index=0
+        )
+
     eq_system = pp.ad.EquationSystem(mdg)
     eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
     # The time step, represented as a scalar.

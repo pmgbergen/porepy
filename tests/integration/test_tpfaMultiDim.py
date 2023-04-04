@@ -50,7 +50,7 @@ def check_pressures(mdg):
     the tpfa half transmissibilities are computed.
     """
     for sd, data in mdg.subdomains(return_data=True):
-        pressure = data['stored_solutions']["pressure"][0]
+        pressure = data["stored_solutions"]["pressure"][0]
         pressure_analytic = sd.cell_centers[1]
         p_diff = pressure - pressure_analytic
         if np.max(np.abs(p_diff)) >= 2e-2:

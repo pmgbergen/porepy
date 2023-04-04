@@ -1355,9 +1355,9 @@ class TimeDependentDenseArray(DenseArray):
                 data = mdg.subdomain_data(g)
 
             if self.prev_time:
-                vals.append(data['stored_solutions'][self._name][0])
+                vals.append(data["stored_solutions"][self._name][0])
             else:
-                vals.append(data['stored_iterates'][self._name][0])
+                vals.append(data["stored_iterates"][self._name][0])
 
         if len(vals) > 0:
             # Normal case: concatenate the values from all grids
@@ -1662,7 +1662,7 @@ class MixedDimensionalVariable(Variable):
 
         Only tags with identical values are copied. Thus, the md variable can "trust"
         that its tags are consistent with all sub variables.
-        
+
         """
         self._tags = {}
         # If there are no sub variables, there is nothing to do.

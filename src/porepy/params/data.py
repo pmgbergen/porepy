@@ -53,14 +53,14 @@ grid), consider:
 
 
 Also contains a function for setting the solution. The solution is all data associated
-with the previous time step or iteration, and is stored in ``data['stored_solutions']``.
+with the previous time step or iteration, and is stored in ``data[pp.SOLUTIONS]``.
 The solution of a variable is stored in
 
-``data['stored_solutions'][variable_name][solution_index]``,
+``data[pp.SOLUTIONS][variable_name][solution_index]``,
 
 whereas data such as BC values are stored similarly to in the Parameters class, in
 
-``data['stored_solutions'][keyword]["bc_values"]``.
+``data[pp.SOLUTIONS][keyword]["bc_values"]``.
 
 """
 from __future__ import annotations
@@ -347,17 +347,17 @@ def set_state(data: dict, state: Optional[dict] = None) -> dict:
 
     """
     state = state or {}
-    if 'stored_solutions' in data:
-        data['stored_solutions'].update(state)
+    if pp.SOLUTIONS in data:
+        data[pp.SOLUTIONS].update(state)
     else:
-        data['stored_solutions'] = state
+        data[pp.SOLUTIONS] = state
     return data
 
 
 def set_iterate(data: dict, iterate: Optional[dict] = None) -> dict:
     """Initialize or update an iterate dictionary.
 
-    Same as set_state for subfield ``'stored_iterates'``.
+    Same as set_state for subfield ``pp.ITERATES``.
 
     Args:
         data (dict): Outer data dictionary, to which the parameters will be added.
@@ -368,11 +368,12 @@ def set_iterate(data: dict, iterate: Optional[dict] = None) -> dict:
         dict: The filled dictionary.
     """
     iterate = iterate or {}
-    if 'stored_iterates' in data:
-        data['stored_iterates'].update(iterate)
+    if pp.ITERATES in data:
+        data[pp.ITERATES].update(iterate)
     else:
-        data['stored_iterates'] = iterate
+        data[pp.ITERATES] = iterate
     return data
+
 
 def modify_variable(variable, new_value) -> None:
     """Changes the value (not id) of the stored parameter.
