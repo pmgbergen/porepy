@@ -628,7 +628,9 @@ class TiltedGrids(unittest.TestCase):
         self.assertTrue(np.allclose(p_x[0], p_x[2]))
         self.assertTrue(np.allclose(p_x[1], p_x[3]))
 
-        data = set_time_dependent_value(name='pressure', values=p_x, data=data, solution_index=0)
+        data = set_time_dependent_value(
+            name="pressure", values=p_x, data=data, solution_index=0
+        )
         pp.fvutils.compute_darcy_flux(g, data=data)
 
 

@@ -29,8 +29,12 @@ def setup():
         vals_sol = np.ones([sd.num_cells])
         vals_it = 2 * np.ones([sd.num_cells])
 
-        d = set_time_dependent_value(name=var_name, values=vals_sol, data=d, solution_index=0)
-        d = set_time_dependent_value(name=var_name, values=vals_it, data=d, iterate_index=0)
+        d = set_time_dependent_value(
+            name=var_name, values=vals_sol, data=d, solution_index=0
+        )
+        d = set_time_dependent_value(
+            name=var_name, values=vals_it, data=d, iterate_index=0
+        )
 
     return eq_system
 

@@ -211,16 +211,31 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
         for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
             if initial:
                 vals = self.time_dependent_bc_values_mechanics([sd])
-                data = set_time_dependent_value(name=self.bc_values_mechanics_key, values=vals, data=data, solution_index=0)
+                data = set_time_dependent_value(
+                    name=self.bc_values_mechanics_key,
+                    values=vals,
+                    data=data,
+                    solution_index=0,
+                )
             else:
                 # Copy old values from iterate to the solution.
-                vals = data['stored_iterates'][self.bc_values_mechanics_key][0]
-                data = set_time_dependent_value(name=self.bc_values_mechanics_key, values=vals, data=data, solution_index=0)
+                vals = data["stored_iterates"][self.bc_values_mechanics_key][0]
+                data = set_time_dependent_value(
+                    name=self.bc_values_mechanics_key,
+                    values=vals,
+                    data=data,
+                    solution_index=0,
+                )
 
             vals = self.time_dependent_bc_values_mechanics([sd])
-            data = set_time_dependent_value(name=self.bc_values_mechanics_key, values=vals, data=data, iterate_index=0)
+            data = set_time_dependent_value(
+                name=self.bc_values_mechanics_key,
+                values=vals,
+                data=data,
+                iterate_index=0,
+            )
 
-        
+
 class SolutionStrategyPoromechanics(
     SolutionStrategyTimeDependentBCs,
     mass.SolutionStrategySinglePhaseFlow,

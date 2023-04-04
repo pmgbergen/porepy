@@ -429,16 +429,16 @@ class EquationSystem:
 
                 # Prepare indexed storage of values in data dictionary if not already prepared
                 if "stored_solutions" not in data:
-                    data["stored_solutions"] = dict()
+                    data["stored_solutions"] = {}
 
                 if name not in data["stored_solutions"]:
-                    data["stored_solutions"][name] = dict()
+                    data["stored_solutions"][name] = {}
 
                 if "stored_iterates" not in data:
-                    data["stored_iterates"] = dict()
+                    data["stored_iterates"] = {}
 
                 if name not in data["stored_iterates"]:
-                    data["stored_iterates"][name] = dict()
+                    data["stored_iterates"][name] = {}
 
                 # Create grid variable.
                 new_variable = Variable(name, dof_info, domain=grid, tags=tags)
@@ -592,14 +592,10 @@ class EquationSystem:
                 # Extract a copy of requested values.
                 try:
                     if iterate_index is not None:
-                        values.append(
-                            data["stored_iterates"][name][iterate_index].copy()
-                        )
+                        values.append(data[pp.ITERATES][name][iterate_index].copy())
 
                     elif solution_index is not None:
-                        values.append(
-                            data["stored_solutions"][name][solution_index].copy()
-                        )
+                        values.append(data[pp.SOLUTIONS][name][solution_index].copy())
 
                 except KeyError:
                     raise KeyError(
@@ -671,28 +667,26 @@ class EquationSystem:
                     variable_number=variable_number, values=values, dof_start=dof_start
                 )
 
-                # Data dict will have ``'stored_solutions'`` and ``'stored_iterates'``
+                # Data dict will have ``pp.SOLUTIONS`` and ``pp.ITERATES``
                 # entries already created during create_variables. If an error is
                 # returned here, a variable has been created in a non-standard way.
                 # Store new values as
                 # requested.
                 if additive:
                     if iterate_index is not None:
-                        data["stored_iterates"][name][iterate_index] += local_vec
+                        data[pp.ITERATES][name][iterate_index] += local_vec
 
                     if solution_index is not None:
-                        data["stored_solutions"][name][solution_index] += local_vec
+                        data[pp.SOLUTIONS][name][solution_index] += local_vec
 
                 else:
                     if iterate_index is not None:
                         # The copy is critcial here.
-                        data["stored_iterates"][name][iterate_index] = local_vec.copy()
+                        data[pp.ITERATES][name][iterate_index] = local_vec.copy()
 
                     if solution_index is not None:
                         # The copy is critcial here.
-                        data["stored_solutions"][name][
-                            solution_index
-                        ] = local_vec.copy()
+                        data[pp.SOLUTIONS][name][solution_index] = local_vec.copy()
 
                 # Move dissection forward.
                 dof_start = dof_end
@@ -716,7 +710,7 @@ class EquationSystem:
                 requested. If None (default), the global vector of unknowns will be set.
 
         """
-        self._shift_variable_values(location="stored_solutions", variables=variables)
+        self._shift_variable_values(location=pp.SOLUTIONS, variables=variables)
 
     def shift_iterate_values(
         self,
@@ -732,7 +726,7 @@ class EquationSystem:
                 requested. If None (default), the global vector of unknowns will be set.
 
         """
-        self._shift_variable_values(location="stored_iterates", variables=variables)
+        self._shift_variable_values(location=pp.ITERATES, variables=variables)
 
     def _shift_variable_values(
         self,
@@ -749,7 +743,7 @@ class EquationSystem:
         2, and so on. The value at the highest key is discarded.
 
         Parameters:
-            location: Should be "stored_solutions" or "stored_iterates" depending on
+            location: Should be pp.SOLUTIONS or pp.ITERATES depending on
                 which one of solutions/iterates that are to be shifted.
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns will be set.
@@ -784,7 +778,7 @@ class EquationSystem:
             data: Data dictionary corresponding to the subdomain and variable in
                 question
             name: Name of the variable whose values are to be shifted
-            location: Should be either ``'stored_solutions'`` or ``'stored_iterates'``
+            location: Should be either ``pp.SOLUTIONS`` or ``pp.ITERATES``
                 depending on whether it is a time-step that is to be stored or if it is
                 an iterate.
 
@@ -1980,19 +1974,21 @@ class EquationSystem:
 
         return s
 
+
 # Utility functions
 
+
 def set_time_dependent_value(
-        name: str, 
-        values: np.ndarray,
-        data: dict,
-        solution_index: Optional[int] = None,
-        iterate_index: Optional[int] = None, 
-        additive: bool = False
+    name: str,
+    values: np.ndarray,
+    data: dict,
+    solution_index: Optional[int] = None,
+    iterate_index: Optional[int] = None,
+    additive: bool = False,
 ) -> dict:
     """Utility function for setting values to ``'stored_solutions'`` and/or
     ``'stored_iterates'`` in data dictionary.
-    
+
     Parameters:
         name: Name of the variable/quantity that is to be assigned values.
         values: The values that are set to the sub-dictionary of data that corresponds
@@ -2012,30 +2008,30 @@ def set_time_dependent_value(
     """
     if not additive:
         if solution_index is not None:
-            if 'stored_solutions' not in data:
-                data['stored_solutions'] = dict()
-            if name not in data['stored_solutions']:
-                data['stored_solutions'][name] = dict()
-            data['stored_solutions'][name][solution_index] = values.copy()
+            if "stored_solutions" not in data:
+                data["stored_solutions"] = {}
+            if name not in data["stored_solutions"]:
+                data["stored_solutions"][name] = {}
+            data["stored_solutions"][name][solution_index] = values.copy()
 
         if iterate_index is not None:
-            if 'stored_iterates' not in data:
-                data['stored_iterates'] = dict()
-            if name not in data['stored_iterates']:
-                data['stored_iterates'][name] = dict()
-            data['stored_iterates'][name][iterate_index] = values.copy()
+            if "stored_iterates" not in data:
+                data["stored_iterates"] = {}
+            if name not in data["stored_iterates"]:
+                data["stored_iterates"][name] = {}
+            data["stored_iterates"][name][iterate_index] = values.copy()
     else:
         if solution_index is not None:
-            if 'stored_solutions' not in data:
-                data['stored_solutions'] = dict()
-            if name not in data['stored_solutions']:
-                data['stored_solutions'][name] = dict()
-            data['stored_solutions'][name][solution_index] += values
+            if "stored_solutions" not in data:
+                data["stored_solutions"] = {}
+            if name not in data["stored_solutions"]:
+                data["stored_solutions"][name] = {}
+            data["stored_solutions"][name][solution_index] += values
 
         if iterate_index is not None:
-            if 'stored_iterates' not in data:
-                data['stored_iterates'] = dict()
-            if name not in data['stored_iterates']:
-                data['stored_iterates'][name] = dict()
-            data['stored_iterates'][name][iterate_index] += values      
+            if "stored_iterates" not in data:
+                data["stored_iterates"] = {}
+            if name not in data["stored_iterates"]:
+                data["stored_iterates"][name] = {}
+            data["stored_iterates"][name][iterate_index] += values
     return data

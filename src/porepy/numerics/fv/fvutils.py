@@ -1535,9 +1535,9 @@ def compute_darcy_flux(
 
     def extract_variable(d, var):
         if from_iterate:
-            return d['stored_iterates'][var][0]
+            return d["stored_iterates"][var][0]
         else:
-            return d['stored_solutions'][var][0]
+            return d["stored_solutions"][var][0]
 
     def calculate_flux(param_dict, mat_dict, d):
         # Calculate the flux. First contributions from pressure and boundary conditions
