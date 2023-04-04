@@ -5,7 +5,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.fv import fvutils
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 
 class TestFvutils(unittest.TestCase):
@@ -158,7 +158,7 @@ class TestFvutils(unittest.TestCase):
         specified_parameters = {"bc_values": bc_val}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         vals = np.array([3.14])
-        data = set_time_dependent_value(
+        set_solution_values(
             name="pressure", values=vals, data=data, solution_index=0
         )
 

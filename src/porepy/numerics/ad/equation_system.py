@@ -667,7 +667,7 @@ class EquationSystem:
                     variable_number=variable_number, values=values, dof_start=dof_start
                 )
 
-                # Data dict will have ``pp.SOLUTIONS`` and ``pp.ITERATES``
+                # Data dict will have ``pp.TIME_STEP_SOLUTION`` and ``pp.ITERATES``
                 # entries already created during create_variables. If an error is
                 # returned here, a variable has been created in a non-standard way.
                 # Store new values as
@@ -1978,7 +1978,7 @@ class EquationSystem:
 # Utility functions
 
 
-def set_time_dependent_value(
+def set_solution_values(
     name: str,
     values: np.ndarray,
     data: dict,
@@ -2034,4 +2034,3 @@ def set_time_dependent_value(
             if name not in data["stored_iterates"]:
                 data["stored_iterates"][name] = {}
             data["stored_iterates"][name][iterate_index] += values
-    return data
