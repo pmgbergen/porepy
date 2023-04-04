@@ -10,7 +10,7 @@ Contents:
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 
 def setup():
@@ -29,10 +29,10 @@ def setup():
         vals_sol = np.ones([sd.num_cells])
         vals_it = 2 * np.ones([sd.num_cells])
 
-        d = set_time_dependent_value(
+        set_solution_values(
             name=var_name, values=vals_sol, data=d, solution_index=0
         )
-        d = set_time_dependent_value(
+        set_solution_values(
             name=var_name, values=vals_it, data=d, iterate_index=0
         )
 

@@ -12,7 +12,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from tests import test_grids, test_utils
-from porepy.numerics.ad.equation_system import set_time_dependent_value
+from porepy.numerics.ad.equation_system import set_solution_values
 
 
 class TestImmersedFracture(unittest.TestCase):
@@ -105,12 +105,12 @@ class TestImmersedFracture(unittest.TestCase):
         for sd, data in mdg.subdomains(return_data=True):
 
             darcy_flux_values = data["stored_solutions"]["pressure"][0][: sd.num_faces]
-            data = set_time_dependent_value(
+            set_solution_values(
                 name="darcy_flux", values=darcy_flux_values, data=data, solution_index=0
             )
 
             pressure_values = data["stored_solutions"]["pressure"][0][sd.num_faces :]
-            data = set_time_dependent_value(
+            set_solution_values(
                 name="pressure", values=pressure_values, data=data, solution_index=0
             )
 
@@ -120,12 +120,12 @@ class TestImmersedFracture(unittest.TestCase):
         self._solve(mdg, method, key)
         for sd, data in mdg.subdomains(return_data=True):
             darcy_flux_values = data["stored_solutions"]["pressure"][0][: sd.num_faces]
-            data = set_time_dependent_value(
+            set_solution_values(
                 name="darcy_flux", values=darcy_flux_values, data=data, solution_index=0
             )
 
             pressure_values = data["stored_solutions"]["pressure"][0][sd.num_faces :]
-            data = set_time_dependent_value(
+            set_solution_values(
                 name="pressure", values=pressure_values, data=data, solution_index=0
             )
 
