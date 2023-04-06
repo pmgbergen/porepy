@@ -28,20 +28,22 @@ def split_fractures(
         This function modifies the input arguments since they are passed by reference.
 
     Example:
-        >>> import numpy as np
-        >>> from gridding.fractured import meshing, split_grid
-        >>> from viz.exporter import export_vtk
-        >>>
-        >>> f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
-        >>> f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
-        >>> f_set = [f_1, f_2]
-        >>> domain = {'xmin': -2, 'xmax': 2,
-                'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax': 2}
-        >>> mdg = meshing.create_grid(f_set, domain)
-        >>> [g.compute_geometry() for g,_ in mdg]
-        >>>
-        >>> split_grid.split_fractures(mdg, offset=0.1)
-        >>> export_vtk(mdg, "grid")
+
+        .. code:: python3
+
+        import numpy as np
+        from gridding.fractured import meshing, split_grid
+        from viz.exporter import export_vtk
+
+        f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
+        f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
+        f_set = [f_1, f_2]
+        domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax': 2}
+        mdg = meshing.create_grid(f_set, domain)
+        [g.compute_geometry() for g,_ in mdg]
+
+        split_grid.split_fractures(mdg, offset=0.1)
+        export_vtk(mdg, "grid")
 
     Parameters:
         mdg: A mixed-dimensional grid
@@ -129,9 +131,9 @@ def split_faces(gh: pp.Grid, face_cells: list[sps.spmatrix]) -> list[sps.spmatri
 
     This function will add an extra face to each fracture face. Note that the original
     and new fracture face will share the same nodes. However, the ``cell_faces``
-    connectivity is updated such that the fractures are
-    internal boundaries (cells on left side of fractures are not
-    connected to cells on right side of fracture and vise versa).
+    connectivity is updated such that the fractures are internal boundaries (cells on
+    left side of fractures are not connected to cells on right side of fracture and
+    vise versa).
 
     The ``face_cells`` are updated such that the copy of a face also map to the same
     lower-dim cell.
@@ -188,22 +190,25 @@ def split_specific_faces(
     secondary_ind: int,
     non_planar: bool = False,
 ):
-    """Splits specified faces by area for a pair constituted of a primary grid and
-    respective face-cell relation.
+    """Splits specified faces by area.
 
-    Split only the faces specified by ``faces`` (higher-dimensional), corresponding
-    to new ``cells`` (lower-dimensional).
+    The splitting is done for a pair constituted of a primary grid and respective
+    face-cell relation. Split only the faces specified by ``faces`` (
+    higher-dimensional), corresponding to new ``cells`` (lower-dimensional).
 
-    Example:
-        If ``gl_ind`` identifies a lower-dimensional grid ``gl`` in ``face_cell_list``,
-        then the respective face-cell mapping is given by
+    Warning:
+        The purpose of this function is not clear. A list of face-cell mappings is
+        given, but only single sets of faces and cells. Following code comments its
+        implementation is not finished. Use it with care!
 
-        >>> intf = mdg.subdomain_pair_to_interface((gh, gl))
-        >>> face_cell_list[gl_ind] = mdg.interface_data(intf, 'face_cells')
+    Examples:
 
-    TODO: VL: The purpose of this function is not clear. A list of face-cell mappings
-    is given, but only single sets of faces and cells.
-    Following code comments its implementation is not finished.
+        .. code:: python3
+
+        # If ``gl_ind`` identifies a lower-dimensional grid ``gl`` in
+        # ``face_cell_list``, then the respective face-cell mapping is given by:
+        intf = mdg.subdomain_pair_to_interface((gh, gl))
+        face_cell_list[gl_ind] = mdg.interface_data(intf, 'face_cells')
 
     Parameters:
         sd_primary: The primary, higher-dimensional grid.
@@ -692,7 +697,7 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
     #    unsplit nodes.
     # 4. Duplicate split nodes in the coordinate array.
 
-    # Bookeeping etc.
+    # Bookkeeping etc.
     cell_node = g.cell_nodes().tocsr()
     face_node = g.face_nodes.tocsc()
     cell_face = g.cell_faces
@@ -785,7 +790,7 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         remove_ind[block_inds][outside] = 1
 
         # The end of this column group becomes the start of the next one.
-        col_group_start = col_group_end
+        col_group_start = col_group_end  # type: ignore[assignment]
 
     # Remove all data outside the main blocks.
     sorted_data[remove_ind] = 0
@@ -817,7 +822,7 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         # Store this node index
         node_of_subcluster.append(ind)
         # Start of next search interval.
-        search_start = ind
+        search_start = ind  # type: ignore[assignment]
 
     node_of_component = np.array(node_of_subcluster)
 
@@ -860,7 +865,10 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
             face_node, loc_faces, return_array_ind=True
         )
         # Indices in the sparse storage that should be increased
-        incr_ind = data_ind[loc_nodes == nodes[ni]]
+        # We have to ignore the type below, since `data_ind` can be an array OR a
+        # slice. And of course, mypy complains that the union of such objects is
+        # non-indexable
+        incr_ind = data_ind[loc_nodes == nodes[ni]]  # type: ignore[index]
         # Increase the node index according to previous encounters.
         new_node_ind[incr_ind] += node_occ[ni]
         # Take note of this iteration
@@ -921,7 +929,7 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
         That method will invoke the present if a perturbation is requested.
 
     Parameters:
-        g:The grid for which the nodes are duplicated.
+        g: The grid for which the nodes are duplicated.
         nodes: The nodes to be duplicated.
         offset: A number defining how far from the original node the duplications should
             be placed.
@@ -932,11 +940,10 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
     """
     node_count = 0
 
-    # We wish to convert the sparse csc matrix to a sparse
-    # csr matrix to easily add rows. However, the conversion sorts the
-    # indices, which will change the node order when we convert back. We
-    # therefore find the inverse sorting of the nodes of each face.
-    # After we have performed the row operations we will map the nodes
+    # We wish to convert the sparse csc matrix to a sparse csr matrix to easily add
+    # rows. However, the conversion sorts the indices, which will change the node
+    # order when we convert back. We therefore find the inverse sorting of the nodes
+    # of each face. After we have performed the row operations we will map the nodes
     # back to their original position.
     _, iv = _sort_sub_list(g.face_nodes.indices, g.face_nodes.indptr)
 
@@ -1034,16 +1041,27 @@ def _sort_sub_list(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Auxiliary function to convert mesh-element mappings in an order-preserving way.
 
-    E.g., face-node maps in csc format, which need a conversion to csr.
+    E.g., face-node maps in CSC format, which needs conversion to CSR.
 
-    TODO: VL: Please check if this is properly documented.
+    Todo:
+        Check whether the **Returns** is properly documented. Currently, it should
+        only be consider a fair guess (at best).
 
     Parameters:
-        indices: An array of indices in the csr/csc format of sparse matrices.
-        indptr: The respective ``indptr`` data of a sparse matrix.
+        indices: An array of indices in the CSC/CSR format of sparse matrices.
+        indptr: CSC/CSR format index pointer array.
 
     Returns:
-        A 2-tuple containing the sorted indices and respective values (?).
+        A tuple with two-elements.
+
+        :obj:`numpy.ndarray`: ``dtype=int``
+
+            Sorted indices.
+
+        :obj:`numpy.ndarray`: ``dtype=int``
+
+            Value of the sorted indices.
+
     """
     ix = np.zeros(indices.size, dtype=int)
     for i in range(indptr.size - 1):
