@@ -79,7 +79,7 @@ class Well:
             """Dictionary of tags, e.g., to identify different types of points.
 
             In particular, ``tags["intersecting_fractures"]`` has length ``num_points``
-            and will be used to identify which fracture(s) intersects each of the 
+            and will be used to identify which fracture(s) intersects each of the
             points in ``points``.
 
             """

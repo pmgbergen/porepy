@@ -899,8 +899,7 @@ def _split_fracture_extension(
         intf_list.append(intf)
 
     # We split all the faces that are connected to faces_h
-    # The new faces will share the same nodes and properties (normals,
-    # etc.)
+    # The new faces will share the same nodes and properties (normals, etc.)
     face_cell_list = pp.fracs.split_grid.split_specific_faces(
         sd_primary, face_cell_list, faces_h, cells_l, sd_secondary_ind, non_planar
     )

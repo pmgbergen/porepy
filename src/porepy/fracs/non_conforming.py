@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Sun Nov  5 11:17:04 2017
+Module containing functionality related to non-matching grids.
+"""
 
-@author: eke001
-"""
+
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -146,16 +144,14 @@ def process_intersections(
 
 def combine_grids(
     g: pp.Grid,
-    g_1d: pp.TensorGrid,
+    g_1d: pp.Grid,
     h: pp.Grid,
-    h_1d: pp.TensorGrid,
+    h_1d: pp.Grid,
     global_ind_offset: int,
     list_of_grids,
     tol: float = 1e-4,
 ):
     """_summary_
-
-
 
     Parameters:
         g: _description_
@@ -213,7 +209,7 @@ def combine_grids(
 
 
 def merge_1d_grids(
-    g: pp.TensorGrid, h: pp.TensorGrid, global_ind_offset: int = 0, tol: float = 1e-4
+    g: pp.Grid, h: pp.Grid, global_ind_offset: int = 0, tol: float = 1e-4
 ):
     """Merge two 1d grids with non-matching nodes to a single grid.
 
