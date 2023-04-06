@@ -13,6 +13,7 @@ import numpy as np
 import porepy as pp
 from porepy.fracs import structured
 from porepy.fracs.utils import pts_edges_to_linefractures
+
 from tests import test_utils
 
 # Named tuple used to identify intersections of fractures by their parent fractures
@@ -34,7 +35,6 @@ class TestDFMMeshGeneration(unittest.TestCase):
         expected_num_1d_grids=0,
         expected_num_0d_grids=0,
     ):
-
         if fractures is None:
             fractures = []
         if isect_line is None:
@@ -1205,11 +1205,15 @@ class TestStructuredGrids(unittest.TestCase):
     def test_tripple_x_intersection_3d(self):
         """
         Create a cartesian grid in the unit cube, and insert three fractures.
+
+        On purpose, the fracture planes do not coincide with the grid lines, so that the
+        meshing will have to move the fractures before generating the mesh.
+
         """
 
-        f1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
-        f2 = np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-        f3 = np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+        f1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.4, 0.4, 0.4, 0.4]])
+        f2 = np.array([[0.6, 0.6, 0.6, 0.6], [0, 1, 1, 0], [0, 0, 1, 1]])
+        f3 = np.array([[0, 1, 1, 0], [0.3, 0.3, 0.3, 0.3], [0, 0, 1, 1]])
         f_set = [f1, f2, f3]
 
         mdgs = [pp.meshing.cart_grid(f_set, [2, 2, 2], physdims=[1, 1, 1])]

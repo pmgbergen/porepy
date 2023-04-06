@@ -225,6 +225,10 @@ def _create_lower_dim_grids_3d(
     else:
         tol = 0.1 * physdims / nx
 
+    # Store a representation of the snapped fractures. This is needed for
+    # identifying fracture intersections below.
+    snapped_fractures = []
+
     # Create 2D grids
     for fi, f in enumerate(fracs):
         assert np.all(f.shape == (3, 4)), "fractures must have shape [3,4]"
@@ -234,6 +238,7 @@ def _create_lower_dim_grids_3d(
         assert (
             is_xy_frac + is_xz_frac + is_yz_frac == 1
         ), "Fracture must align to x-, y- or z-axis"
+
         # snap to grid
         if physdims is None:
             f_s = g_3d.nodes[
@@ -251,6 +256,7 @@ def _create_lower_dim_grids_3d(
                 * physdims[:, np.newaxis]
                 / nx[:, np.newaxis]
             )
+        snapped_fractures.append(f_s)
 
         if is_xy_frac:
             flat_dim = [2]
@@ -297,9 +303,12 @@ def _create_lower_dim_grids_3d(
     # fracture planes. We could maybe avoid this by doing something similar
     # as for the 2D-case, and count the number of faces belonging to each edge,
     # but we use the FractureNetwork class for now.
+    # We need to use the snapped fractures to be sure the identified intersections are
+    # resolved in the grid.
     frac_list = []
-    for f in fracs:
+    for f in snapped_fractures:
         frac_list.append(pp.PlaneFracture(f))
+
     # Combine the fractures into a network
     network = pp.create_fracture_network(frac_list)
     # Impose domain boundary. For the moment, the network should be immersed in
