@@ -113,6 +113,7 @@ class SolutionStrategy(abc.ABC):
         The tuple contains the sparse matrix and the right hand side residual vector.
 
         """
+        self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
         self.exporter: pp.Exporter
         """Exporter for visualization."""
 
@@ -148,6 +149,7 @@ class SolutionStrategy(abc.ABC):
         self.set_discretization_parameters()
         self.discretize()
         self._initialize_linear_solver()
+        self.set_nonlinear_discretizations()
 
         # Export initial condition
         self.initialize_data_saving()
@@ -203,11 +205,6 @@ class SolutionStrategy(abc.ABC):
             # This is where the constants (fluid, solid) are actually set as attributes
             setattr(self, name, const)
 
-    def before_newton_loop(self) -> None:
-        """Wrap for legacy reasons. Call :meth:`before_nonlinear_loop` instead."""
-        # TODO: Remove and call before_nonlinear_loop directly.
-        self.before_nonlinear_loop()
-
     def discretize(self) -> None:
         """Discretize all terms."""
         tic = time.time()
@@ -218,6 +215,49 @@ class SolutionStrategy(abc.ABC):
         self.equation_system.discretize()
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
+    def rediscretize(self) -> None:
+        """Discretize nonlinear terms."""
+        tic = time.time()
+        # Uniquify to save computational time, then discretize.
+        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+            self.nonlinear_discretizations
+        )
+        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+        logger.info(
+            "Re-discretized nonlinear terms in {} seconds".format(time.time() - tic)
+        )
+
+    @property
+    def nonlinear_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:
+        """List of nonlinear discretizations in the equation system. The discretizations
+        are recomputed  in :meth:`before_nonlinear_iteration`.
+
+        """
+        return self._nonlinear_discretizations
+
+    def add_nonlinear_discretization(
+        self, discretization: pp.ad._ad_utils.MergedOperator
+    ) -> None:
+        """Add an entry to the list of nonlinear discretizations.
+
+        Parameters:
+            discretization: The nonlinear discretization to be added.
+
+        """
+        # This guardrail is very weak. However, the discretization list is uniquified
+        # before discretization, so it should not be a problem.
+        if discretization not in self._nonlinear_discretizations:
+            self._nonlinear_discretizations.append(discretization)
+
+    def set_nonlinear_discretizations(self) -> None:
+        """Set the list of nonlinear discretizations.
+
+        This method is called before the discretization is performed. It is intended to
+        be used to set the list of nonlinear discretizations.
+
+        """
+        pass
+
     def before_nonlinear_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
@@ -227,28 +267,17 @@ class SolutionStrategy(abc.ABC):
         """
         self._nonlinear_iteration = 0
 
-    def before_newton_iteration(self) -> None:
-        """Wrap for legacy reasons. Call :meth:`before_nonlinear_iteration` instead."""
-        self.before_nonlinear_iteration()
-
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
         Possible usage is to update non-linear parameters, discretizations etc.
 
         """
-        pass
-
-    def after_newton_iteration(self, solution_vector: np.ndarray):
-        """Wrap for legacy reasons. Call :meth:`after_nonlinear_iteration` instead.
-
-        Parameters:
-            solution_vector: The new solution state, as computed by the non-linear
-                solver.
-
-        """
-        # TODO: Remove and call after_nonlinear_iteration directly.
-        self.after_nonlinear_iteration(solution_vector)
+        # Update parameters before re-discretizing.
+        self.set_discretization_parameters()
+        # Re-discretize nonlinear terms. If none have been added to
+        # self.nonlinear_discretizations, this will be a no-op.
+        self.rediscretize()
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
@@ -265,20 +294,6 @@ class SolutionStrategy(abc.ABC):
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, to_iterate=True
         )
-
-    def after_newton_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Wrap for legacy reasons. Call :meth:`after_nonlinear_convergence` instead.
-
-        Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
-            errors: The error in the solution, as computed by the non-linear solver.
-            iteration_counter: The number of iterations performed by the non-linear
-                solver.
-
-        """
-        self.after_nonlinear_convergence(solution, errors, iteration_counter)
 
     def after_nonlinear_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -301,19 +316,6 @@ class SolutionStrategy(abc.ABC):
         self.convergence_status = True
         self.save_data_time_step()
 
-    def after_newton_failure(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called if the non-linear solver fails to converge.
-
-        Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
-            errors: The error in the solution, as computed by the non-linear solver.
-            iteration_counter: The number of iterations performed by the non-linear
-                solver.
-        """
-        self.after_nonlinear_failure(solution, errors, iteration_counter)
-
     def after_nonlinear_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -324,9 +326,10 @@ class SolutionStrategy(abc.ABC):
             errors: The error in the solution, as computed by the non-linear solver.
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
+
         """
         if self._is_nonlinear_problem():
-            raise ValueError("Newton iterations did not converge.")
+            raise ValueError("Nonlinear iterations did not converge.")
         else:
             raise ValueError("Tried solving singular matrix for the linear problem.")
 
@@ -373,11 +376,15 @@ class SolutionStrategy(abc.ABC):
             error: float = np.nan if diverged else 0.0
             return error, converged, diverged
         else:
-            # Simple but fairly robust convergence criterion.
-            # More advanced options are e.g. considering errors for each variable
-            # and/or each grid separately, possibly using _l2_norm_cell
-
-            # We normalize by the size of the solution vector
+            # First a simple check for nan values.
+            if np.any(np.isnan(solution)):
+                # If the solution contains nan values, we have diverged.
+                return np.nan, False, True
+            # Simple but fairly robust convergence criterion. More advanced options are
+            # e.g. considering errors for each variable and/or each grid separately,
+            # possibly using _l2_norm_cell
+            #
+            # We normalize by the size of the solution vector.
             # Enforce float to make mypy happy
             error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
             logger.info(f"Normalized residual norm: {error:.2e}")

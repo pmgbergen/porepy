@@ -39,8 +39,6 @@ __all__ = [
     "GradPAd",
     "DivUAd",
     "BiotStabilizationAd",
-    "ColoumbContactAd",
-    "ContactTractionAd",
     "MpfaAd",
     "TpfaAd",
     "MassMatrixAd",
@@ -198,89 +196,6 @@ class BiotStabilizationAd(Discretization):
         self.stabilization: MergedOperator
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
-
-
-class ColoumbContactAd(Discretization):
-    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
-        self.interfaces = interfaces
-
-        # Special treatment is needed to cover the case when the edge list happens to
-        # be empty.
-        if len(interfaces) > 0:
-            dim = list(set([intf.dim for intf in interfaces]))
-            # FIXME: No access to subdomains
-            low_dim_subdomains: list[pp.Grid] = []
-            if not len(dim) == 1:
-                raise ValueError(
-                    "Expected unique dimension of subdomains with contact problems"
-                )
-        else:
-            # The assigned dimension value should never be used for anything, so we
-            # set a negative value to indicate this (not sure how the parameter is used)
-            # in the real contact discretization.
-            dim = [-1]
-            low_dim_subdomains = []
-
-        self._discretization = pp.ColoumbContact(
-            keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
-        )
-        self._name = "Coloumb contact"
-        self.keyword = keyword
-
-        self.traction: MergedOperator
-        self.displacement: MergedOperator
-        self.rhs: MergedOperator
-        wrap_discretization(
-            self,
-            self._discretization,
-            interfaces=interfaces,
-            mat_dict_grids=low_dim_subdomains,
-        )
-
-
-class ContactTractionAd(Discretization):
-    def __init__(
-        self,
-        keyword: str,
-        interfaces: list[pp.MortarGrid],
-        low_dim_subdomains: list[pp.Grid],
-    ) -> None:
-        """Contact traction discretization.
-
-        Parameters:
-            keyword: Parameter key.
-            interfaces: Fracture-matrix interfaces.
-            low_dim_subdomains: Fracture subdomains.
-
-        """
-        self.interfaces = interfaces
-
-        # Special treatment is needed to cover the case when the edge list happens to
-        # be empty.
-        if len(interfaces) > 0:
-            dim = list(set([intf.dim for intf in interfaces]))
-        else:
-            # The assigned dimension value should never be used for anything, so we
-            # set a negative value to indicate this (not sure how the parameter is used)
-            # in the real contact discretization.
-            dim = [-1]
-
-        self._discretization = pp.ContactTraction(
-            keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
-        )
-        self._name = "Simple ad contact"
-        self.keyword = keyword
-
-        self.normal: MergedOperator
-        self.tangential: MergedOperator
-        self.traction_scaling: MergedOperator
-
-        wrap_discretization(
-            self,
-            self._discretization,
-            interfaces=interfaces,
-            mat_dict_grids=low_dim_subdomains,
-        )
 
 
 ## Flow related

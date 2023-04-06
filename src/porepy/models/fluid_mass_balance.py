@@ -343,6 +343,8 @@ class ConstitutiveLawsSinglePhaseFlow(
 
     """
 
+    pass
+
 
 class BoundaryConditionsSinglePhaseFlow:
     """Boundary conditions for single-phase flow."""
@@ -637,6 +639,18 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
     """
+    mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
+    """Discretization of the fluid mobility. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FluidMobility`.
+
+    """
+    interface_mobility_discretization: Callable[
+        [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
+    ]
+    """Discretization of the fluid mobility on internal boundaries. Normally provided
+    by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
+
+    """
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -764,6 +778,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         dictionary for use in upstream weighting.
 
         """
+        # Update parameters *before* the discretization matrices are re-computed.
         for sd, data in self.mdg.subdomains(return_data=True):
             vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
@@ -775,8 +790,17 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             vals = self.well_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
-        # FIXME: Targeted rediscretization of upwind.
-        self.discretize()
+        super().before_nonlinear_iteration()
+
+    def set_nonlinear_discretizations(self) -> None:
+        """Collect discretizations for nonlinear terms."""
+        super().set_nonlinear_discretizations()
+        self.add_nonlinear_discretization(
+            self.mobility_discretization(self.mdg.subdomains()).upwind,
+        )
+        self.add_nonlinear_discretization(
+            self.interface_mobility_discretization(self.mdg.interfaces()).flux,
+        )
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

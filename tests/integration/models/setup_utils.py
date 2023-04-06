@@ -536,6 +536,26 @@ def domains_from_method_name(
     return domains
 
 
+def _add_mixin(mixin, parent):
+    """Helper method to dynamically construct a class by adding a mixin.
+
+    Multiple mixins can be added by nested calls to this method.
+
+    Reference:
+        https://www.geeksforgeeks.org/create-classes-dynamically-in-python/
+
+    """
+    parent_name = parent.__name__
+    mixin_name = mixin.__name__
+    name = f"Combined_{mixin_name}_{parent_name}"
+    # IMPLEMENTATION NOTE: The last curly bracket can be used to add code to the created
+    # class (empty brackets is equivalent to a ``pass``). In principle, we could add
+    # this as an extra parameter to this function, but at the moment it is unclear why
+    # such an addition could not be made in the mixin class instead.
+    cls = type(name, (mixin, parent), {})
+    return cls
+
+
 # TODO: Move. Check all values.
 granite_values = {
     "biot_coefficient": 0.8,
@@ -548,7 +568,8 @@ granite_values = {
     "thermal_conductivity": 2.5,
     "thermal_expansion": 1e-5,
     "fracture_normal_stiffness": 1529,
-    "maximal_fracture_closure": 0.1683,
+    "maximum_fracture_closure": 1e-4,
+    "fracture_gap": 1e-4,
     "residual_aperture": 0.01,
 }
 # Cf. fluid.py

@@ -491,7 +491,7 @@ class GridSequenceFactory(abc.ABC):
         self._gmsh.write(out_file_name)  # Write the result to '.msh' file
 
         mdg = pp.fracture_importer.dfm_from_gmsh(out_file_name, self.dim)
-        pp.contact_conditions.set_projections(mdg)
+        pp.set_local_coordinate_projections(mdg)
         return mdg
 
     def _generate_unstructured(self, counter: int) -> pp.MixedDimensionalGrid:

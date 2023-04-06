@@ -51,7 +51,7 @@ from . import setup_utils
         ("momentum_balance", "bulk_modulus", None),
         # Reference gap, friction coefficient and friction bound are only meaningful for
         # a fracture of co-dimension 1.
-        ("momentum_balance", "reference_gap", 1),
+        ("momentum_balance", "reference_fracture_gap", 1),
         ("momentum_balance", "friction_coefficient", 1),
         ("momentum_balance", "friction_bound", 1),
         # Energy balance
