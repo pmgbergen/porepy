@@ -19,8 +19,8 @@ import porepy as pp
 
 def determine_mesh_size(
     pts: np.ndarray,
+    lines: np.ndarray,
     pts_on_boundary: Optional[np.ndarray] = None,
-    lines: Optional[np.ndarray] = None,
     **kwargs,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Sets the preferred mesh size for geometrical points as specified by gmsh.
@@ -34,16 +34,17 @@ def determine_mesh_size(
 
             The points which will be passed to gmsh, where ``np`` is the number of
             points.
-        pts_on_boundary: ``dtype=bool``
-
-            A boolean array, indicates which of the pts are constitute the domain
-            boundary (corners). Only relevant if ``mesh_size_bound`` is passed as a
-            keyword argument.
         lines: ``dtype=int, shape=(4, np)``
 
             Definition and tags of the boundary and fracture lines. Per column (point),
             the first two elements are indices of points in ``pts``, the last two are
             numerical line tags (enumeration).
+        pts_on_boundary: ``dtype=bool``
+
+            A boolean array, indicates which of the pts are constitute the domain
+            boundary (corners). Only relevant if ``mesh_size_bound`` is passed as a
+            keyword argument.
+
         **kwargs: The mesh size is determined by the following keywords
 
 
@@ -75,15 +76,13 @@ def determine_mesh_size(
     val_bound = kwargs.get("mesh_size_bound", None)
     val_min = kwargs.get("mesh_size_min", None)
     tol = kwargs.get("tol", 1e-5)
-    # One value for each point to distinguish betwee val and val_bound.
+    # One value for each point to distinguish between val and val_bound.
     vals = val * np.ones(num_pts)
     if val_bound is not None:
         vals[pts_on_boundary] = val_bound
     if val_min is None:
         val_min = 1e-8 * val
     # Compute the length of each pair of points (fractures + domain boundary)
-    # TODO VL: lines is optional in the signature, which is not covered by this code
-    # Mypy also complains about the attempted indexing of the optional arrays
     pts_id = lines[:2, :]
     dist = np.linalg.norm(pts[:, pts_id[0, :]] - pts[:, pts_id[1, :]], axis=0)
     dist_pts = np.tile(np.inf, pts.shape[1])
@@ -334,7 +333,7 @@ def determine_mesh_size(
             line_list.append([seg[0], pt_id, seg[2], seg[3]])
             line_list.append([pt_id, seg[1], seg[2], seg[3]])
 
-    lines = np.array(line_list, dtype=np.int).T
+    lines = np.array(line_list, dtype=np.int32).T
 
     return dist_pts, pts, lines
 

@@ -755,8 +755,8 @@ class FractureNetwork2d:
 
         mesh_size, pts_split, lines = tools.determine_mesh_size(
             p,
-            boundary_pt_ind,
             lines,
+            boundary_pt_ind,
             mesh_size_frac=mesh_size_frac,
             mesh_size_bound=mesh_size_bound,
             mesh_size_min=mesh_size_min,
