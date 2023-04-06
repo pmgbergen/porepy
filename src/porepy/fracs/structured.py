@@ -11,11 +11,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 from . import msh_2_grid
 from .gmsh_interface import Tags
-from porepy.fracs.fracture_network_2d import FractureNetwork2d
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
 def _cart_grid_3d(

@@ -4,7 +4,7 @@ Module for converting gmsh output file to our grid structure.
 """
 from __future__ import annotations
 
-from typing import Optional, Union, overload, Literal
+from typing import Optional
 
 import numpy as np
 
@@ -343,8 +343,8 @@ def create_0d_grids(
 
     Parameters:
         pts: ``(shape=(num_points, 3))`` Global point set from gmsh
-        cells: Should have a key ``'vertex'``, which maps to a :obj:~`numpy.ndarray` with indices
-            of the points that form point grids.
+        cells: Should have a key ``'vertex'``, which maps to a :obj:~`numpy.ndarray`
+            with indices of the points that form point grids.
         phys_names: mapping from the gmsh tags assigned to physical entities
             to the physical name of that tag.
         cell_info Should have a key ``'vertex'``, that contains the
