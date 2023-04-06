@@ -14,6 +14,8 @@ import porepy as pp
 
 from . import msh_2_grid
 from .gmsh_interface import Tags
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
 def _cart_grid_3d(
@@ -310,7 +312,7 @@ def _create_lower_dim_grids_3d(
         frac_list.append(pp.PlaneFracture(f))
 
     # Combine the fractures into a network
-    network = pp.create_fracture_network(frac_list)
+    network = FractureNetwork3d(fractures=frac_list)
     # Impose domain boundary. For the moment, the network should be immersed in
     # the domain, or else gmsh will complain.
     if physdims is None:

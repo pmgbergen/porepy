@@ -7,6 +7,7 @@ from typing import Any, Callable
 import numpy as np
 
 import porepy as pp
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
 
 
 class RectangularDomainThreeFractures(pp.ModelGeometry):
@@ -33,9 +34,8 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
             pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
             pp.LineFracture(np.array([[0.3, 0.7], [0.3, 0.7]]) * ls),
         ]
-        self.fracture_network = pp.create_fracture_network(
-            fractures[:num_fracs], domain
-        )
+        used_fractures = [fractures[i] for i in fracture_indices]
+        self.fracture_network = pp.create_fracture_network(used_fractures, domain)
 
     def mesh_arguments(self) -> dict:
         # Divide by length scale:
@@ -47,7 +47,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
             return super().set_md_grid()
 
         # Not implemented for 3d. Assert for safety and mypy.
-        assert self.fracture_network.domain.dim == 2
+        assert isinstance(self.fracture_network, FractureNetwork2d)
 
         # Length scale:
         ls = 1 / self.units.m
@@ -90,17 +90,14 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         box = {"xmin": 0, "xmax": ls, "ymin": 0, "ymax": ls, "zmin": 0, "zmax": ls}
         domain = pp.Domain(box)
         pts = []
-        if num_fracs > 0:
-            # The three fractures are defined by pertubations of the coordinate arrays.
-            coords_a = [0.5, 0.5, 0.5, 0.5]
-            coords_b = [0, 0, 1, 1]
-            coords_c = [0, 1, 1, 0]
-            pts.append(np.array([coords_a, coords_b, coords_c]) * ls)
-        if num_fracs > 1:
-            pts.append(np.array([coords_b, coords_a, coords_c]) * ls)
-        if num_fracs > 2:
-            pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
-        fractures = [pp.PlaneFracture(p) for p in pts]
+        # The three fractures are defined by pertubations of the coordinate arrays.
+        coords_a = [0.5, 0.5, 0.5, 0.5]
+        coords_b = [0, 0, 1, 1]
+        coords_c = [0, 1, 1, 0]
+        pts.append(np.array([coords_a, coords_b, coords_c]) * ls)
+        pts.append(np.array([coords_b, coords_a, coords_c]) * ls)
+        pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
+        fractures = [pp.PlaneFracture(pts[i]) for i in fracture_indices]
         self.fracture_network = pp.create_fracture_network(fractures, domain)
 
     def mesh_arguments(self) -> dict:
