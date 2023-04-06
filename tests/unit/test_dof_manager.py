@@ -6,8 +6,6 @@ the ``get_variable_values`` function, which was not working correctly.
 """
 
 import numpy as np
-import pytest
-
 import porepy as pp
 
 
@@ -19,7 +17,7 @@ def test_get_variable_values() -> None:
     """
     # Create an mdg without fractures.
     domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
-    fracture_network = pp.FractureNetwork2d(domain=domain)
+    fracture_network = pp.create_fracture_network(domain=domain)
     mdg = fracture_network.mesh(
         mesh_args={"mesh_size_frac": 0.1, "mesh_size_bound": 0.1, "mesh_size_min": 0.1}
     )
