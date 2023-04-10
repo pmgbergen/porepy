@@ -27,7 +27,7 @@ import pytest
 
 from tests.functional.utils.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
-    ManuIncompFlowSetup,
+    ManuIncompFlowSetup2d,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
@@ -72,7 +72,7 @@ def actual_l2_errors(material_constants: dict) -> dict[str, float]:
     }
 
     # Run simulation
-    setup = ManuIncompFlowSetup(params)
+    setup = ManuIncompFlowSetup2d(params)
     pp.run_stationary_model(setup, params)
 
     # Collect errors to facilitate comparison afterwards
@@ -170,7 +170,7 @@ def actual_ooc(material_constants: dict) -> list[dict[str, float]]:
             "mesh_arguments": {"cell_size": 0.125},
         }
         conv_analysis = ConvergenceAnalysis(
-            model_class=ManuIncompFlowSetup,
+            model_class=ManuIncompFlowSetup2d,
             model_params=params,
             levels=4,
             spatial_rate=2,
@@ -210,7 +210,7 @@ def desired_ooc() -> list[dict[str, float]]:
 
 
 # ----> Now, we write the actual test
-@pytest.mark.skip(reason="slow")
+#@pytest.mark.skip(reason="slow")
 @pytest.mark.parametrize(
     "var",
     ["matrix_pressure", "matrix_flux", "frac_pressure", "frac_flux", "intf_flux"],

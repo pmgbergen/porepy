@@ -38,7 +38,7 @@ import pytest
 import porepy as pp
 from tests.functional.utils.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_flow_comp_2d_frac import (
-    ManuCompFlowSetup,
+    ManuCompFlowSetup2d,
     manu_comp_fluid,
     manu_comp_solid,
 )
@@ -84,7 +84,7 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
     }
 
     # Run simulation
-    setup = ManuCompFlowSetup(params)
+    setup = ManuCompFlowSetup2d(params)
     pp.run_time_dependent_model(setup, params)
 
     # Collect errors to facilitate comparison afterwards
@@ -210,7 +210,7 @@ def actual_ooc(material_constants: dict) -> list[dict[str, float]]:
             "mesh_arguments": {"cell_size": 0.125},
         }
         conv_analysis = ConvergenceAnalysis(
-            model_class=ManuCompFlowSetup,
+            model_class=ManuCompFlowSetup2d,
             model_params=params,
             levels=4,
             in_space=True,
