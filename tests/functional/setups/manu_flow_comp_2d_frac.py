@@ -36,7 +36,7 @@ import porepy as pp
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompSaveData,
     ManuIncompUtils,
-    SingleEmbeddedVerticalFracture,
+    SingleEmbeddedVerticalLineFracture,
 )
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -79,7 +79,7 @@ class ManuCompDataSaving(VerificationDataSaving):
 
     """
 
-    exact_sol: ManuCompExactSolution
+    exact_sol: ManuCompressibleExactSolution2d
     """Exact solution object."""
 
     interface_darcy_flux: Callable[
@@ -115,7 +115,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         sd_matrix: pp.Grid = self.mdg.subdomains()[0]
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
-        exact_sol: ManuCompExactSolution = self.exact_sol
+        exact_sol: ManuCompressibleExactSolution2d = self.exact_sol
         t: number = self.time_manager.time
 
         # Collect data
@@ -198,7 +198,7 @@ class ManuCompDataSaving(VerificationDataSaving):
 
 
 # -----> Exact solution
-class ManuCompExactSolution:
+class ManuCompressibleExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
@@ -646,7 +646,7 @@ class ManuCompBoundaryConditions:
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition types for the elliptic discretization."""
-        if sd.dim == 2:  # Dirichlet for the matrix
+        if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
@@ -655,7 +655,7 @@ class ManuCompBoundaryConditions:
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition types for the upwind discretization."""
-        if sd.dim == 2:  # Dirichlet for the matrix
+        if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
@@ -702,7 +702,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
 
 
 # -----> Solution strategy
-class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
     """Modified solution strategy for the verification setup."""
 
     mdg: pp.MixedDimensionalGrid
@@ -714,7 +714,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
     """
 
-    exact_sol: ManuCompExactSolution
+    exact_sol: ManuCompressibleExactSolution2d
     """Exact solution object."""
 
     fluid: pp.FluidConstants
@@ -736,7 +736,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         """Constructor of the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuCompExactSolution
+        self.exact_sol: ManuCompressibleExactSolution2d
         """Exact solution object."""
 
         self.results: list[ManuCompSaveData] = []
@@ -756,7 +756,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         assert self.solid.normal_permeability() == 0.5
 
         # Instantiate exact solution object
-        self.exact_sol = ManuCompExactSolution(self)
+        self.exact_sol = ManuCompressibleExactSolution2d(self)
 
     def before_nonlinear_loop(self) -> None:
         """Update values of external sources and boundary conditions."""
@@ -796,11 +796,11 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
 
 # -----> Mixer
-class ManuCompFlowSetup(  # type: ignore[misc]
-    SingleEmbeddedVerticalFracture,
+class ManuCompFlowSetup2d(  # type: ignore[misc]
+    SingleEmbeddedVerticalLineFracture,
     ManuCompBalanceEquation,
     ManuCompBoundaryConditions,
-    ManuCompSolutionStrategy,
+    ManuCompSolutionStrategy2d,
     ManuIncompUtils,
     ManuCompDataSaving,
     pp.fluid_mass_balance.SinglePhaseFlow,
