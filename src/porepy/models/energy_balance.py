@@ -143,6 +143,19 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
+    enthalpy_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
+    """Discretization of the enthalpy flux. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.EnthalpyFromTemperature`.
+
+    """
+    interface_enthalpy_discretization: Callable[
+        [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
+    ]
+    """Discretization of the enthalpy flux on internal boundaries. Normally
+    provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.EnthalpyFromTemperature`.
+
+    """
 
     def set_equations(self):
         """Set the equations for the energy balance problem.
@@ -278,9 +291,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the enthalpy flux.
 
         """
-        # Only one option for discretization currently. Refactor (method
-        # enthalpy_flux_discretization) if more options are added.
-        discr = pp.ad.UpwindAd(self.enthalpy_keyword, subdomains)
+        discr = self.enthalpy_discretization(subdomains)
         flux = self.advective_flux(
             subdomains,
             self.fluid_enthalpy(subdomains)
@@ -306,7 +317,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
-        discr = pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
+        discr = self.interface_enthalpy_discretization(interfaces)
         flux = self.interface_advective_flux(
             interfaces,
             self.fluid_enthalpy(subdomains)
@@ -721,6 +732,19 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
     """
+    enthalpy_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
+    """Discretization of the enthalpy flux. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.EnthalpyFromTemperature`.
+
+    """
+    interface_enthalpy_discretization: Callable[
+        [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
+    ]
+    """Discretization of the enthalpy flux on internal boundaries. Normally
+    provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.EnthalpyFromTemperature`.
+
+    """
 
     def __init__(self, params: Optional[dict] = None) -> None:
         # Generic solution strategy initialization in pp.SolutionStrategy and specific
@@ -828,14 +852,26 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         in upstream weighting.
 
         """
-        super().before_nonlinear_iteration()
-        for _, data in self.mdg.subdomains(return_data=True) + self.mdg.interfaces(
-            return_data=True
-        ):
-            vals = data[pp.PARAMETERS][self.mobility_keyword]["darcy_flux"]
+        # Update parameters *before* the discretization matrices are re-computed.
+        for sd, data in self.mdg.subdomains(return_data=True):
+            vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
-        # TODO: Targeted rediscretization.
-        self.set_discretization_parameters()
+        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
+            vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
+            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
+        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
+            vals = self.well_flux([intf]).evaluate(self.equation_system).val
+            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
-        self.discretize()
+        super().before_nonlinear_iteration()
+
+    def set_nonlinear_discretizations(self) -> None:
+        """Collect discretizations for nonlinear terms."""
+        super().set_nonlinear_discretizations()
+        self.add_nonlinear_discretization(
+            self.enthalpy_discretization(self.mdg.subdomains()).upwind,
+        )
+        self.add_nonlinear_discretization(
+            self.interface_enthalpy_discretization(self.mdg.interfaces()).flux,
+        )
