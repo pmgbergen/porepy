@@ -742,12 +742,12 @@ class FractureNetwork2d:
         """
 
         # Get min/max point of the domain. If no domain is given, a bounding box
-        # using the `self.tol` will be imposed outside the fracture set
+        # based on `self.tol` will be imposed outside the fracture set
         if domain is None:
             # Sanity check
             if len(self.fractures) == 0:
-                raise ValueError("No fractures given. Domain cannot be imposed.")
-            # Loop through the fracture list and retrieve the pts
+                raise ValueError("No fractures given, domain cannot be imposed.")
+            # Loop through the fracture list and retrieve the points
             x_pts = []
             y_pts = []
             for frac in self.fractures:
@@ -758,21 +758,19 @@ class FractureNetwork2d:
                 y_pts.append(frac.pts[1][0])
                 y_pts.append(frac.pts[1][1])
             # Get min/max points
-            x_min = np.min(np.asarray(x_pts)) - self.tol
-            x_max = np.max(np.asarray(x_pts)) + self.tol
-            y_min = np.min(np.asarray(y_pts)) - self.tol
-            y_max = np.max(np.asarray(y_pts)) + self.tol
+            x_min = np.min(np.asarray(x_pts)) - 10 * self.tol
+            x_max = np.max(np.asarray(x_pts)) + 10 * self.tol
+            y_min = np.min(np.asarray(y_pts)) - 10 * self.tol
+            y_max = np.max(np.asarray(y_pts)) + 10 * self.tol
         else:
-            # First create lines that define the domain
+            # If the domain is given, we know the min/max points
             x_min = domain.bounding_box["xmin"]
             x_max = domain.bounding_box["xmax"]
             y_min = domain.bounding_box["ymin"]
             y_max = domain.bounding_box["ymax"]
 
         # Create the domain lines
-        dom_p: np.ndarray = np.array(
-            [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
-        )
+        dom_p = np.array([[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]])
         dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
 
         # Constrain the edges to the domain
