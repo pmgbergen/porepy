@@ -1663,7 +1663,6 @@ class AdvectiveFlux:
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=1
         )
-
         flux: pp.ad.Operator = (
             darcy_flux * (discr.upwind @ advected_entity)
             - discr.bound_transport_dir @ (darcy_flux * bc_values)
@@ -1711,8 +1710,6 @@ class AdvectiveFlux:
         trace = pp.ad.Trace(subdomains)
         # Project the two advected entities to the interface and multiply with upstream
         # weights and the interface Darcy flux.
-        # IMPLEMENTATION NOTE: If we ever implement other discretizations than upwind,
-        # we may need to change the below definition.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
             discr.upwind_primary
             @ mortar_projection.primary_to_mortar_avg
@@ -1826,6 +1823,12 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     """Function that returns a perturbation from reference state. Normally provided by
     a mixin of instance :class:`~porepy.models.VariableMixin`.
     """
+    enthalpy_keyword: str
+    """Keyword used to identify the enthalpy flux discretization. Normally"
+     set by an instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
+
+    """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid enthalpy [J*kg^-1*m^-nd].
@@ -1845,6 +1848,32 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
         enthalpy.set_name("fluid_enthalpy")
         return enthalpy
+
+    def enthalpy_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
+        """Discretization of the fluid enthalpy.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Discretization of the fluid enthalpy flux.
+
+        """
+        return pp.ad.UpwindAd(self.enthalpy_keyword, subdomains)
+
+    def interface_enthalpy_discretization(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.UpwindCouplingAd:
+        """Discretization of the interface enthalpy.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Discretization for the interface enthalpy flux.
+
+        """
+        return pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
 
     def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Solid enthalpy [J*kg^-1*m^-nd].
