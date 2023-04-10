@@ -15,26 +15,6 @@ import porepy.models.constitutive_laws as c_l
 from . import setup_utils
 
 
-def _add_mixin(mixin, parent):
-    """Helper method to dynamically construct a class by adding a mixin.
-
-    Multiple mixins can be added by nested calls to this method.
-
-    Reference:
-        https://www.geeksforgeeks.org/create-classes-dynamically-in-python/
-
-    """
-    parent_name = parent.__name__
-    mixin_name = mixin.__name__
-    name = f"Combined_{mixin_name}_{parent_name}"
-    # IMPLEMENTATION NOTE: The last curly bracket can be used to add code to the created
-    # class (empty brackets is equivalent to a ``pass``). In principle, we could add
-    # this as an extra parameter to this function, but at the moment it is unclear why
-    # such an addition could not be made in the mixin class instead.
-    cls = type(name, (mixin, parent), {})
-    return cls
-
-
 @pytest.mark.parametrize(
     "model, method_name, expected, dimension",
     [
@@ -120,7 +100,7 @@ def _add_mixin(mixin, parent):
         (
             # Tets permeability for the matrix domain. Should give the matrix
             # permeability
-            _add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
+            setup_utils._add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
             "permeability",
             1e-20,
             2,
@@ -129,7 +109,7 @@ def _add_mixin(mixin, parent):
             # Test the permeability for a fracture domain. This should be computed
             # by the cubic law (i.e., aperture squared by 12, an aditional aperture
             # scaling to get the transmissivity is taken care of elsewhere).
-            _add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
+            setup_utils._add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
             "permeability",
             0.01**2 / 12,
             1,
@@ -137,14 +117,34 @@ def _add_mixin(mixin, parent):
         (
             # Test the permeability for an intersection. The reasoning is the same as
             # for the 1-d domain.
-            _add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
+            setup_utils._add_mixin(c_l.CubicLawPermeability, setup_utils.MassBalance),
             "permeability",
             0.01**2 / 12,
             0,
         ),
     ],
 )
-def test_evaluated_values(model, method_name, expected, dimension):
+def test_evaluated_values(
+    model: Type[Poromechanics]
+    | Type[Thermoporomechanics]
+    | Type[MassAndEnergyBalance]
+    | Type[MomentumBalance]
+    | Type[_],
+    method_name: Literal[
+        "fluid_density",
+        "thermal_conductivity",
+        "solid_enthalpy",
+        "fluid_enthalpy",
+        "matrix_porosity",
+        "bulk_modulus",
+        "shear_modulus",
+        "youngs_modulus",
+        "elastic_normal_fracture_deformation",
+        "permeability",
+    ],
+    expected: Any | float | Literal[2370, 12540],
+    dimension: Literal[2, 1, 0] | None,
+):
     """Test that the value of the parsed operator is as expected.
 
     Parameters:

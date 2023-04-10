@@ -95,6 +95,7 @@ from porepy.params.fluid import Water, UnitFluid
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.grids.md_grid import MixedDimensionalGrid
+from porepy.grids.mdg_generation import create_mdg
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
@@ -210,6 +211,7 @@ from porepy.models.material_constants import (
 
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
+from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
 
