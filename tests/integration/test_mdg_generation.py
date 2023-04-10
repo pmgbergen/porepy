@@ -569,7 +569,7 @@ class TestMDGridGenerationWithoutDomains:
         """Check if a mdg is correctly created when domain=None and dfn=True in 3d.
 
         Parameters:
-            fracs_idx: Index to access the items of ``line_fractures``.
+            fracs_idx: Index to access the items of ``plane_fractures``.
             plane_fractures: List (of length 2) of lists of plane fractures. The first
                 item of the list corresponds to a list containing a single vertical
                 plane fracture. The second item of the list corresponds to a list
