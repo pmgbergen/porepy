@@ -104,7 +104,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
     """
 
-    exact_sol: ManuIncompExactSolution
+    exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
     interface_darcy_flux: Callable[
@@ -139,7 +139,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         sd_matrix: pp.Grid = self.mdg.subdomains()[0]
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
-        exact_sol: ManuIncompExactSolution = self.exact_sol
+        exact_sol: ManuIncompExactSolution2d = self.exact_sol
 
         # Collect data
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
@@ -220,7 +220,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
 
 # -----> Exact solution
-class ManuIncompExactSolution:
+class ManuIncompExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self):
@@ -623,7 +623,7 @@ class ManuIncompUtils(VerificationUtils):
 
 
 # -----> Geometry
-class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
+class SingleEmbeddedVerticalLineFracture(pp.ModelGeometry):
     """Generate fracture network and mixed-dimensional grid."""
 
     params: dict
@@ -687,6 +687,7 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
                 fracture_network=self.fracture_network,
             )
 
+
 # -----> Boundary conditions
 class ManuIncompBoundaryConditions:
     """Set boundary conditions for the simulation model."""
@@ -694,12 +695,15 @@ class ManuIncompBoundaryConditions:
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility function to access the domain boundary sides."""
 
-    exact_sol: ManuIncompExactSolution
+    exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition type."""
-        if sd.dim == 2:  # Dirichlet for the matrix
+        if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
@@ -712,7 +716,7 @@ class ManuIncompBoundaryConditions:
         for sd in subdomains:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             val_loc = np.zeros(sd.num_faces)
-            if sd.dim == 2:
+            if sd.dim == self.mdg.dim_max():
                 exact_bc = self.exact_sol.boundary_values(sd_matrix=sd)
                 val_loc[boundary_faces] = exact_bc[boundary_faces]
             values.append(val_loc)
@@ -723,7 +727,7 @@ class ManuIncompBoundaryConditions:
 class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
-    exact_sol: ManuIncompExactSolution
+    exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -742,7 +746,7 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         # Retrieve external (integrated) sources from the exact solution.
         values = []
         for sd in subdomains:
-            if sd.dim == 2:
+            if sd.dim == self.mdg.dim_max():
                 values.append(self.exact_sol.matrix_source(sd_matrix=sd))
             else:
                 values.append(self.exact_sol.fracture_source(sd_frac=sd))
@@ -756,13 +760,15 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
 
 
 # -----> Solution strategy
-class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+class ManuIncompSolutionStrategy2d(
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
+):
     """Modified solution strategy for the verification setup."""
 
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    exact_sol: ManuIncompExactSolution
+    exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
     fluid: pp.FluidConstants
@@ -785,7 +791,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
         super().__init__(params)
 
-        self.exact_sol: ManuIncompExactSolution
+        self.exact_sol: ManuIncompExactSolution2d
         """Exact solution object."""
 
         self.results: list[ManuIncompSaveData] = []
@@ -804,7 +810,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
         assert self.solid.normal_permeability() == 0.5
 
         # Instantiate exact solution object after materials have been set
-        self.exact_sol = ManuIncompExactSolution()
+        self.exact_sol = ManuIncompExactSolution2d()
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
@@ -821,11 +827,11 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
 
 # -----> Mixer
-class ManuIncompFlowSetup(  # type: ignore[misc]
-    SingleEmbeddedVerticalFracture,
+class ManuIncompFlowSetup2d(  # type: ignore[misc]
+    SingleEmbeddedVerticalLineFracture,
     ManuIncompBalanceEquation,
     ManuIncompBoundaryConditions,
-    ManuIncompSolutionStrategy,
+    ManuIncompSolutionStrategy2d,
     ManuIncompUtils,
     ManuIncompDataSaving,
     pp.fluid_mass_balance.SinglePhaseFlow,
