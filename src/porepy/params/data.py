@@ -46,16 +46,20 @@ For most instances, a convenient way to set up the parameters is:
     data = pp.initialize_default_data(grid, {}, keyword, specified_parameters)
 
 This will assign val_i to the specified parameters pm_i and default parameters to other
-required parameters. If the data directory already exists as d (e.g. in the mixed-dimensional
-grid), consider:
+required parameters. If the data directory already exists as d (e.g. in the
+mixed-dimensional grid), consider:
 
     pp.initialize_default_data(grid, d, keyword, specified_parameters)
 
 
-Also contains a function for setting the solution. The solution is all data associated
-with the previous time step or iteration, and is stored in
+Also contains functions for setting the time step and iterate solutions. The time step
+solution is all data associated with the previous time step, and is stored in
 ``data[pp.TIME_STEP_SOLUTIONS]``.
-The solution of a variable is stored in
+Similarly, iterate solutions contains data associated with the previous iterates and is
+stored in
+``data[pp.ITERATE_SOLUTIONS]``.
+
+The time step solution of a specific variable is stored in
 
 ``data[pp.TIME_STEP_SOLUTIONS][variable_name][solution_index]``,
 
@@ -332,11 +336,11 @@ def initialize_data(
 
 
 def set_state(data: dict, state: Optional[dict] = None) -> dict:
-    """Initialize or update a solution dictionary.
+    """Initialize or update a time step solution dictionary.
 
-    The initialization consists of adding a solution dictionary in the proper field of
-    the data dictionary. If there is a solution dictionary already present in data, the
-    new solution is added using the update method of dictionaries.
+    The initialization consists of adding a time step solution dictionary in the proper
+    field of the data dictionary. If there is such a dictionary already present in
+    data, the new solution is added using the update method of dictionaries.
 
     Args:
         data (dict): Outer data dictionary, to which the parameters will be added.

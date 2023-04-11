@@ -235,7 +235,7 @@ class SolutionStrategy(abc.ABC):
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
 
-        Possible usage is to distribute information on the new trial solution, visualize
+        Possible usage is to distribute information on the new trial state, visualize
         the current approximation etc.
 
         Parameters:
@@ -364,7 +364,7 @@ class SolutionStrategy(abc.ABC):
     def assemble_linear_system(self) -> None:
         """Assemble the linearized system and store it in :attr:`linear_system`.
 
-        The linear system is defined by the current solution of the model.
+        The linear system is defined by the current state of the model.
 
         """
         t_0 = time.time()
@@ -445,9 +445,9 @@ class SolutionStrategy(abc.ABC):
 
         Parameters:
             initial: If True, the array generating method is called for both the
-                solutions and the iterates. If False, the array generating method is
-                called only for the iterate, and the solution is updated by copying the
-                iterate.
+                stored time steps and the stored iterates. If False, the array
+                generating method is called only for the iterate, and the solution is
+                updated by copying the iterate.
 
         """
         pass

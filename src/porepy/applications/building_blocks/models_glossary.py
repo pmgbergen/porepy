@@ -522,7 +522,8 @@ class Glossary:
 
     perturbation_from_reference: Entry = Entry(
         type="Callable[[str, list[pp.Grid]], pp.ad.Operator]",
-        docstring="Function that returns a perturbation from the reference solution. Normally provided by a mixin of instance :class:`~porepy.models.VariableMixin`.",
+        docstring="Function that returns a perturbation from reference state. Normally"
+        "provided by a mixin of instance :class:`~porepy.models.VariableMixin`.",
         name="perturbation_from_reference",
     )
 

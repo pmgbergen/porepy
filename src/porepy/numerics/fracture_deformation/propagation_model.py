@@ -120,8 +120,8 @@ class FracturePropagation(abc.ABC):
         Newly created DOFs are assigned values by _initialize_new_variable_values, which
         for now returns zeros, but can be tailored for specific variables etc.
 
-        Assumes only one stored solution vector, i.e. solution indexes = iterate indexes
-        = [0].
+        Assumes only one stored time step vector, i.e.:
+        solution indexes = iterate indexes = [0].
 
         Parameters:
             x: Solution vector, or other vector to be mapped.
@@ -170,7 +170,7 @@ class FracturePropagation(abc.ABC):
                 # New values for the new dofs.
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
-                # Loop over stored solutions. Loop on keys to avoid bad practice of
+                # Loop over stored time steps. Loop on keys to avoid bad practice of
                 # changing looped quantity using items method.
                 for ind in data[pp.TIME_STEP_SOLUTIONS][var].keys():
                     values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
@@ -209,8 +209,9 @@ class FracturePropagation(abc.ABC):
                 # New values for the new dofs.
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
-                # Loop over stored solutions (one or more indexed by time). Loop on keys
-                # to avoid bad practice of changing looped quantity using items method.
+                # Loop over stored time steps (one or more indexed by time). Loop on
+                # keys to avoid bad practice of changing looped quantity using items
+                # method.
                 for ind in data[pp.TIME_STEP_SOLUTIONS][var].keys():
                     values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
                     values = mapping * values
