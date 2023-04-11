@@ -201,14 +201,10 @@ def test_time_dependent_array():
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
     for sd, sd_data in mdg.subdomains(return_data=True):
         vals_sol = np.zeros(sd.num_cells)
-        set_solution_values(
-            name="foo", values=vals_sol, data=sd_data, solution_index=0
-        )
+        set_solution_values(name="foo", values=vals_sol, data=sd_data, solution_index=0)
 
         vals_it = sd.dim * np.ones(sd.num_cells)
-        set_solution_values(
-            name="foo", values=vals_it, data=sd_data, iterate_index=0
-        )
+        set_solution_values(name="foo", values=vals_it, data=sd_data, iterate_index=0)
 
     for intf, intf_data in mdg.interfaces(return_data=True):
         # Create an empty primary variable list
@@ -218,9 +214,7 @@ def test_time_dependent_array():
         )
 
         vals_it = np.ones(intf.num_cells)
-        set_solution_values(
-            name="bar", values=vals_it, data=intf_data, iterate_index=0
-        )
+        set_solution_values(name="bar", values=vals_it, data=intf_data, iterate_index=0)
 
     # We make three arrays: One defined on a single subdomain, one on all subdomains of
     # mdg and one on an interface.
@@ -420,12 +414,8 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
 
-        set_solution_values(
-            name=var, values=val_state, data=data, solution_index=0
-        )
-        set_solution_values(
-            name=var, values=val_iterate, data=data, iterate_index=0
-        )
+        set_solution_values(name=var, values=val_state, data=data, solution_index=0)
+        set_solution_values(name=var, values=val_iterate, data=data, iterate_index=0)
 
         state_map[sd] = val_state
         iterate_map[sd] = val_iterate
@@ -582,9 +572,7 @@ def test_variable_combinations(grids, variables):
             data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
 
             vals = np.random.rand(sd.num_cells)
-            set_solution_values(
-                name=var, values=vals, data=data, solution_index=0
-            )
+            set_solution_values(name=var, values=vals, data=data, solution_index=0)
 
     # Ad boilerplate
     eq_system = pp.ad.EquationSystem(mdg)
@@ -608,7 +596,7 @@ def test_variable_combinations(grids, variables):
             if sd == var.domain:
                 expr = var.evaluate(eq_system)
                 # Check that the size of the variable is correct
-                assert np.allclose(expr.val, data["stored_solutions"][var.name][0])
+                assert np.allclose(expr.val, data[pp.TIME_STEP_SOLUTIONS][var.name][0])
                 # Check that the Jacobian matrix has the right number of columns
                 assert expr.jac.shape[1] == eq_system.num_dofs()
 
@@ -618,7 +606,9 @@ def test_variable_combinations(grids, variables):
         vals = []
         for sub_var in var.sub_vars:
             vals.append(
-                mdg.subdomain_data(sub_var.domain)["stored_solutions"][sub_var.name][0]
+                mdg.subdomain_data(sub_var.domain)[pp.TIME_STEP_SOLUTIONS][
+                    sub_var.name
+                ][0]
             )
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))

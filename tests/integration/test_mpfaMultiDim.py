@@ -50,7 +50,7 @@ class TestMpfaMultiDim(unittest.TestCase):
         assembler = test_utils.setup_flow_assembler(mdg, mpfa, key)
         test_utils.solve_and_distribute_pressure(mdg, assembler)
         for sd, data in mdg.subdomains(return_data=True):
-            pressure = data["stored_solutions"]["pressure"][0]
+            pressure = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
             pressure_analytic = sd.cell_centers[1]
             p_diff = pressure - pressure_analytic
             self.assertTrue(np.max(np.abs(p_diff)) < 0.05)

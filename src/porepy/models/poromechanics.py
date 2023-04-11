@@ -161,7 +161,7 @@ class BoundaryConditionsPoromechanics(
         :meth:`~porepy.models.poromechanics.SolutionStrategyPoromechanics.
         initial_condition` and :meth:`~porepy.models.poromechanics.
         SolutionStrategyPoromechanics.before_nonlinear_loop` to update the boundary
-        conditions in `data['stored_solutions']` and `data['stored_iterates']`.
+        conditions in `data[pp.TIME_STEP_SOLUTIONS]` and `data[pp.ITERATE_SOLUTIONS]`.
 
     """
 
@@ -219,7 +219,7 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
                 )
             else:
                 # Copy old values from iterate to the solution.
-                vals = data["stored_iterates"][self.bc_values_mechanics_key][0]
+                vals = data[pp.ITERATE_SOLUTIONS][self.bc_values_mechanics_key][0]
                 set_solution_values(
                     name=self.bc_values_mechanics_key,
                     values=vals,

@@ -352,9 +352,9 @@ class DofManager:
             # extract a copy of requested values
             try:
                 if from_iterate:
-                    values.append(data["stored_iterates"][name][0].copy())
+                    values.append(data[pp.ITERATE_SOLUTIONS][name][0].copy())
                 else:
-                    values.append(data["stored_solutions"][name][0].copy())
+                    values.append(data[pp.TIME_STEP_SOLUTIONS][name][0].copy())
             except KeyError:
                 raise KeyError(
                     f"No values stored for variable {name}, "
@@ -502,8 +502,8 @@ class DofManager:
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))
 
-        # Loop over grid-variable combinations and update data in 'stored_iterates' and
-        # 'stored_solutions'.
+        # Loop over grid-variable combinations and update data in pp.ITERATE_SOLUTIONS
+        # and pp.TIME_STEP_SOLUTIONS.
         for g, var in itertools.product(grids, variables):
             if (g, var) not in self.block_dof:
                 continue
@@ -578,9 +578,9 @@ class DofManager:
 
             if from_iterate:
                 # Use copy to avoid nasty bugs.
-                values[dof_ind] = data["stored_iterates"][var][0].copy()
+                values[dof_ind] = data[pp.ITERATE_SOLUTIONS][var][0].copy()
             else:
-                values[dof_ind] = data["stored_solutions"][var][0].copy()
+                values[dof_ind] = data[pp.TIME_STEP_SOLUTIONS][var][0].copy()
 
         return values
 

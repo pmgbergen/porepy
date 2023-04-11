@@ -158,9 +158,7 @@ class TestFvutils(unittest.TestCase):
         specified_parameters = {"bc_values": bc_val}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         vals = np.array([3.14])
-        set_solution_values(
-            name="pressure", values=vals, data=data, solution_index=0
-        )
+        set_solution_values(name="pressure", values=vals, data=data, solution_index=0)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         matrix_dictionary["flux"] = flux
@@ -171,7 +169,9 @@ class TestFvutils(unittest.TestCase):
 
         dis = data[pp.PARAMETERS]["flow"]["darcy_flux"]
 
-        dis_true = flux * data["stored_solutions"]["pressure"][0] + bound_flux * bc_val
+        dis_true = (
+            flux * data[pp.TIME_STEP_SOLUTIONS]["pressure"][0] + bound_flux * bc_val
+        )
         self.assertTrue(np.allclose(dis, dis_true))
 
 

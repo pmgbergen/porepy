@@ -729,8 +729,8 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         data = self.mdg.subdomain_data(sd)
         vertical_load = self.applied_load()  # scaled [Pa]
         initial_p = vertical_load * np.ones(sd.num_cells)
-        data["stored_solutions"][self.pressure_variable][0] = initial_p
-        data["stored_iterates"][self.pressure_variable][0] = initial_p
+        data[pp.TIME_STEP_SOLUTIONS][self.pressure_variable][0] = initial_p
+        data[pp.ITERATE_SOLUTIONS][self.pressure_variable][0] = initial_p
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
