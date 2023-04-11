@@ -731,15 +731,6 @@ def create_mdg(
                 meshing_args, kwargs, FractureNetwork2d.mesh
             )
 
-            # TODO: Remove this ValueError when issue #846 is fixed:
-            # If one tries to generate an mdg with FractureNetwork2d and domain = None,
-            # the method impose_external_boundary will generate an UnboundLocalError:
-            # "local variable 'dom_p' referenced before assignment".
-            if _retrieve_domain_instance(fracture_network) is None:
-                raise ValueError(
-                    "Inconsistency in FractureNetwork2d for DFN generation"
-                )
-
             # perform the actual meshing
             mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
         elif dim == 3:
