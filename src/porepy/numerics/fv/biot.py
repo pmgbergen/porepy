@@ -1393,7 +1393,7 @@ class DivU(Discretization):
         )
 
         # Time part
-        d_cell = sd_data["stored_solutions"][self.variable][0]
+        d_cell = sd_data[pp.TIME_STEP_SOLUTIONS][self.variable][0]
 
         div_u = matrix_dictionary[self.div_u_matrix_key]
         rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
@@ -1450,7 +1450,7 @@ class DivU(Discretization):
         biot_alpha = sd_data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
         bound_div_u = matrix_dictionary[self.bound_div_u_matrix_key]
 
-        u_bound_previous = intf_data["stored_solutions"][self.mortar_variable][0]
+        u_bound_previous = intf_data[pp.TIME_STEP_SOLUTIONS][self.mortar_variable][0]
 
         if bound_div_u.shape[1] != proj.shape[0]:
             raise ValueError(
@@ -1516,7 +1516,8 @@ class DivU(Discretization):
         )[0]
         # Project the previous solution to the secondary grid
         previous_displacement_jump_global_coord = (
-            jump_on_secondary * intf_data["stored_solutions"][self.mortar_variable][0]
+            jump_on_secondary
+            * intf_data[pp.TIME_STEP_SOLUTIONS][self.mortar_variable][0]
         )
         # Rotated displacement jumps. These are in the local coordinates, on
         # the lower-dimensional grid
@@ -1524,8 +1525,8 @@ class DivU(Discretization):
             normal_component * previous_displacement_jump_global_coord
         )
         # The same procedure is applied to the unknown displacements, by assembling the
-        # jump operator, projection and normal component extraction in the coupling matrix.
-        # Finally, we integrate over the cell volume.
+        # jump operator, projection and normal component extraction in the coupling
+        # matrix. Finally, we integrate over the cell volume.
         vol = sps.dia_matrix((sd.cell_volumes, 0), shape=(sd.num_cells, sd.num_cells))
         cc[self_ind, 2] += (
             sps.diags(biot_alpha) * vol * normal_component * jump_on_secondary
@@ -1650,7 +1651,7 @@ class BiotStabilization(Discretization):
         # The stabilization is the pressure contribution to the div u part of the
         # fluid mass conservation, thus needs a right-hand side in the implicit Euler
         # discretization.
-        pressure_0 = sd_data["stored_solutions"][self.variable][0]
+        pressure_0 = sd_data[pp.TIME_STEP_SOLUTIONS][self.variable][0]
         A_stability = matrix_dictionary[self.stabilization_matrix_key]
         rhs_time = A_stability * pressure_0
 
