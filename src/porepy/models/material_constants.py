@@ -295,7 +295,7 @@ class SolidConstants(MaterialConstants):
             "fracture_normal_stiffness": 1,
             "friction_coefficient": 1,
             "lame_lambda": 1,
-            "maximal_fracture_closure": 0,
+            "maximum_fracture_closure": 0,
             "normal_permeability": 1,
             "permeability": 1,
             "porosity": 0.1,
@@ -426,7 +426,7 @@ class SolidConstants(MaterialConstants):
         """
         return self.convert_units(self.constants["lame_lambda"], "Pa")
 
-    def gap(self) -> number:
+    def fracture_gap(self) -> number:
         """Fracture gap [m].
 
         Returns:
@@ -493,8 +493,8 @@ class SolidConstants(MaterialConstants):
             self.constants["fracture_normal_stiffness"], "Pa*m^-1"
         )
 
-    def maximal_fracture_closure(self) -> number:
-        """The maximal closure of a fracture [m].
+    def maximum_fracture_closure(self) -> number:
+        """The maximum closure of a fracture [m].
 
         Intended use is in Barton-Bandis-type models for elastic fracture deformation.
 
@@ -502,4 +502,4 @@ class SolidConstants(MaterialConstants):
             The maximal closure of a fracture.
 
         """
-        return self.convert_units(self.constants["maximal_fracture_closure"], "m")
+        return self.convert_units(self.constants["maximum_fracture_closure"], "m")

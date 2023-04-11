@@ -344,15 +344,15 @@ class Glossary:
     friction_coefficient: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Friction coefficient. Normally defined in a mixin instance of"
-        " :class:`~porepy.models.constitutive_laws.FracturedSolid`.",
+        " :class:`~porepy.models.constitutive_laws.FractureGap`.",
         name="friction_coefficient",
     )
 
-    gap: Entry = Entry(
+    fracture_gap: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Gap of a fracture. Normally provided by a mixin instance of"
-        " :class:`~porepy.models.constitutive_laws.FracturedSolid`.",
-        name="gap",
+        " :class:`~porepy.models.constitutive_laws.FractureGap`.",
+        name="fracture_gap",
     )
 
     local_coordinates: Entry = Entry(
