@@ -785,7 +785,7 @@ class Exporter:
 
             Parameters:
                 data_pt: data identifier via the associated key used in
-                    ``'stored_solutions'``.
+                    ``pp.TIME_STEP_SOLUTIONS``.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
 
@@ -814,12 +814,12 @@ class Exporter:
                     export_data: dict,
                 ) -> bool:
                     if (
-                        "stored_solutions" in grid_data
-                        and key in grid_data["stored_solutions"]
+                        pp.TIME_STEP_SOLUTIONS in grid_data
+                        and key in grid_data[pp.TIME_STEP_SOLUTIONS]
                     ):
                         # Fetch data and convert to vectorial format if needed
                         value: np.ndarray = _to_vector_format(
-                            grid_data["stored_solutions"][key][0], grid
+                            grid_data[pp.TIME_STEP_SOLUTIONS][key][0], grid
                         )
 
                         # Add data point in correct format to the collection
@@ -863,7 +863,7 @@ class Exporter:
             This routine explicitly checks only for subdomain data.
 
             Parameters:
-                data_pt: data identifier via the key used in 'stored_solutions' and
+                data_pt: data identifier via the key used in pp.TIME_STEP_SOLUTIONS and
                     a specific subdomain.
                 subdomain_data: container for subdomain data
                 interface_data: container for interface data
@@ -898,8 +898,8 @@ class Exporter:
 
                     # Make sure the data exists.
                     if not (
-                        "stored_solutions" in sd_data
-                        and key in sd_data["stored_solutions"]
+                        pp.TIME_STEP_SOLUTIONS in sd_data
+                        and key in sd_data[pp.TIME_STEP_SOLUTIONS]
                     ):
                         raise ValueError(
                             f"""No solution with prescribed key {key}
@@ -907,7 +907,9 @@ class Exporter:
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _to_vector_format(sd_data["stored_solutions"][key][0], sd)
+                    value = _to_vector_format(
+                        sd_data[pp.TIME_STEP_SOLUTIONS][key][0], sd
+                    )
 
                     # Add data point in correct format to collection
                     subdomain_data[(sd, key)] = value
@@ -934,7 +936,7 @@ class Exporter:
 
             Parameters:
                 data_pt: data identifier combining to be addressed interfaces and
-                    a key present in 'stored_solutions'.
+                    a key present in pp.TIME_STEP_SOLUTIONS.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
 
@@ -968,8 +970,8 @@ class Exporter:
 
                     # Make sure the data exists.
                     if not (
-                        "stored_solutions" in intf_data
-                        and key in intf_data["stored_solutions"]
+                        pp.TIME_STEP_SOLUTIONS in intf_data
+                        and key in intf_data[pp.TIME_STEP_SOLUTIONS]
                     ):
                         raise ValueError(
                             f"""No solution with prescribed key {key}
@@ -978,7 +980,7 @@ class Exporter:
 
                     # Fetch data and convert to vectorial format if suitable
                     value = _to_vector_format(
-                        intf_data["stored_solutions"][key][0], intf
+                        intf_data[pp.TIME_STEP_SOLUTIONS][key][0], intf
                     )
 
                     # Add data point in correct format to collection

@@ -516,10 +516,13 @@ def test_set_get_methods(
 
     The test is performed for a number of different combinations of variables.
 
-    Values are assigned to 'stored_iterates' or 'stored_solutions', and then retrieved.
-    NOTE: Setting to 'stored_solutions' has not been parametrized, since this would
-    double the number of tests, and since the asymmetry between the get and set methods
-    (set can set to 'stored_solutions' and/or 'stored_iterates', get can only get from
+    Values are assigned to pp.ITERATE_SOLUTIONS or pp.TIME_STEP_SOLUTIONS, and then
+    retrieved.
+
+    NOTE: Setting to pp.TIME_STEP_SOLUTIONS has not been parametrized, since
+    this would double the number of tests, and since the asymmetry between the get and
+    set methods (set can set to pp.TIME_STEP_SOLUTIONS and/or pp.ITERATE_SOLUTIONS, get
+    can only get from
     one of them) requires some special handling in the test; see below.
 
     Both setting and adding values are tested.
@@ -542,7 +545,7 @@ def test_set_get_methods(
     # First generate random values, set them, and then retrieve them.
     vals = np.random.rand(inds.size)
 
-    # Set values to 'stored_iterates' if specified, but not to 'stored_solutions'.
+    # Set values to pp.ITERATE_SOLUTIONS if specified, but not to pp.TIME_STEP_SOLUTIONS.
     if iterate:
         sys_man.set_variable_values(vals, variables, iterate_index=0)
 
@@ -653,7 +656,7 @@ def test_set_get_methods(
 
     # Test functionality that shifts values to prepare setting of the most recent
     # solution values.
-    sys_man.shift_solution_values()
+    sys_man.shift_time_step_values()
 
     retrieved_shift_ind_vals0 = sys_man.get_variable_values(variables, solution_index=0)
     retrieved_shift_ind_vals1 = sys_man.get_variable_values(variables, solution_index=1)

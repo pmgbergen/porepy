@@ -52,7 +52,8 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         for sd, data in mdg.subdomains(return_data=True):
             self.assertTrue(
                 np.allclose(
-                    data["stored_solutions"]["pressure"][0], xmax - sd.cell_centers[0]
+                    data[pp.TIME_STEP_SOLUTIONS]["pressure"][0],
+                    xmax - sd.cell_centers[0],
                 )
             )
 
@@ -67,12 +68,12 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
             self.assertTrue(
                 np.allclose(
-                    data["stored_solutions"]["mortar_flux"][0] / primary_area, 1
+                    data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0] / primary_area, 1
                 )
             )
             self.assertTrue(
                 np.allclose(
-                    data["stored_solutions"]["mortar_flux"][0] / secondary_area, 1
+                    data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0] / secondary_area, 1
                 )
             )
 
@@ -293,7 +294,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         for sd, data in mdg.subdomains(return_data=True):
             ap, _, _ = analytic_p(sd.cell_centers)
             self.assertTrue(
-                np.max(np.abs(data["stored_solutions"][key_p][0] - ap)) < 5e-2
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_p][0] - ap)) < 5e-2
             )
 
         # test mortar solution
@@ -319,10 +320,12 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                 d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
             self.assertTrue(
-                np.max(np.abs(data["stored_solutions"][key_m][0] - left_flux)) < 5e-2
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_m][0] - left_flux))
+                < 5e-2
             )
             self.assertTrue(
-                np.max(np.abs(data["stored_solutions"][key_m][0] - right_flux)) < 5e-2
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_m][0] - right_flux))
+                < 5e-2
             )
 
     def generate_2d_grid(self, n, xmax, ymax):

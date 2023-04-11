@@ -35,8 +35,8 @@ PARAMETERS = "parameters"
 DISCRETIZATION_MATRICES = "discretization_matrices"
 
 # Used in data dictionary to store the system state, e.g. primary variables.
-SOLUTIONS = "stored_solutions"
-ITERATES = "stored_iterates"
+TIME_STEP_SOLUTIONS = "time_step_solutions"
+ITERATE_SOLUTIONS = "iterate_solutions"
 
 """ Units """
 # SI Prefixes

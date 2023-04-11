@@ -29,12 +29,8 @@ def setup():
         vals_sol = np.ones([sd.num_cells])
         vals_it = 2 * np.ones([sd.num_cells])
 
-        set_solution_values(
-            name=var_name, values=vals_sol, data=d, solution_index=0
-        )
-        set_solution_values(
-            name=var_name, values=vals_it, data=d, iterate_index=0
-        )
+        set_solution_values(name=var_name, values=vals_sol, data=d, solution_index=0)
+        set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=0)
 
     return eq_system
 
@@ -65,14 +61,14 @@ def test_evaluate_variables():
         assert np.allclose(val.val, 2)
 
         # Now create the variable at the previous iterate. This should also give the
-        # value in 'stored_iterates', but it should not yield an AdArray.
+        # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
         var_prev_iter = var.previous_iteration()
         val_prev_iter = var_prev_iter.evaluate(eq_system)
         assert isinstance(val_prev_iter, np.ndarray)
         assert np.allclose(val_prev_iter, 2)
 
-        # Create the variable at the previous time step. This should give the value in
-        # 'stored_solutions'.
+        # Create the variable at the previous time step. This should give the most
+        # recent value in pp.TIME_STEP_SOLUTIONS.
         var_prev_timestep = var.previous_timestep()
         val_prev_timestep = var_prev_timestep.evaluate(eq_system)
         assert isinstance(val_prev_timestep, np.ndarray)

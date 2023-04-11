@@ -671,7 +671,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         # good code practice
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        # External sources are retrieved from 'stored_solutions' and wrapped as an
+        # External sources are retrieved from pp.TIME_STEP_SOLUTIONS and wrapped as an
         # AdArray
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_flow",

@@ -45,7 +45,7 @@ class TestVEMOnBenchmark(unittest.TestCase):
         assembler.distribute_variable(p)
 
         for sd, sd_data in mdg.subdomains(return_data=True):
-            darcy_flux_values = sd_data["stored_solutions"]["pressure"][0][
+            darcy_flux_values = sd_data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 : sd.num_faces
             ]
             set_solution_values(
@@ -55,7 +55,9 @@ class TestVEMOnBenchmark(unittest.TestCase):
                 solution_index=0,
             )
 
-            pressure_values = sd_data["stored_solutions"]["pressure"][0][sd.num_faces :]
+            pressure_values = sd_data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
+                sd.num_faces :
+            ]
             set_solution_values(
                 name="pressure", values=pressure_values, data=sd_data, solution_index=0
             )
