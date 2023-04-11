@@ -49,7 +49,7 @@ def grid_error(
         g, g_ref = grids[i], grids_ref[i]
         mapping = mdg.subdomain_data(g)["coarse_fine_cell_mapping"]
 
-        # Get solutions
+        # Get time step solutions
         data = mdg.subdomain_data(g)
         data_ref = mdg_ref.subdomain_data(g_ref)
         solutions = data[pp.TIME_STEP_SOLUTIONS]
@@ -93,7 +93,7 @@ def grid_error(
             if np.any(norm_ref < 1e-10):
                 logger.info(
                     f"Relative error not reportable. "
-                    f"Norm of reference solution is {norm_ref}. "
+                    f"Norm of reference state is {norm_ref}. "
                     f"Reporting absolute error"
                 )
                 error = absolute_error

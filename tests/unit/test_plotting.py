@@ -52,7 +52,8 @@ def test_plot_grid_mdg(mdg, vector_variable):
     "vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
 )
 def test_plot_grid_simple_grid(mdg, vector_variable):
-    """Tests that no error is raised if we plot a single dimension grid and provide variable arrays.
+    """Tests that no error is raised if we plot a single dimension grid and provide
+    variable arrays.
     This use case requires the user to reshape the vector array to the shape (3 x n).
     The redundant dimensions are filled with zeros."""
     grid, data = mdg.subdomains(return_data=True)[0]
@@ -95,8 +96,9 @@ def test_save_img():
 
 
 def _initialize_mdg(mdg_):
-    """Initializes mdg with an arbitrary solution.
-    The solution contains one scalar and one vector variable at cell centres."""
+    """Initializes mdg with an arbitrary state.
+
+    The state contains one scalar and one vector variable at cell centres."""
 
     for sd, data in mdg_.subdomains(return_data=True):
         if sd.dim in (mdg_.dim_max(), mdg_.dim_max() - 1):
@@ -107,6 +109,7 @@ def _initialize_mdg(mdg_):
             vals_scalar = np.ones(sd.num_cells)
             vals_vect_cell = np.ones((mdg_.dim_max(), sd.num_cells)).ravel(order="F")
             vals_vect_face = np.ones((mdg_.dim_max(), sd.num_faces)).ravel(order="F")
+
             values = np.array([vals_scalar, vals_vect_cell, vals_vect_face])
 
             for i in range(len(variables)):
