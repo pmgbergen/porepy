@@ -556,7 +556,8 @@ class ManuPoroMechExactSolution:
         # Flatten array
         source_mech_flat: np.ndarray = np.asarray(source_mech).ravel("F")
 
-        return source_mech_flat
+        # Invert sign according to sign convention.
+        return -source_mech_flat
 
     def flow_source(self, sd: pp.Grid, time: float) -> np.ndarray:
         """Compute exact source term for the fluid mass balance equation.
