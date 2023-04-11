@@ -15,7 +15,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
 """
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Union
 
 import numpy as np
 
@@ -42,7 +42,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.LinearElasticSolid,
-    pp.constitutive_laws.FracturedSolid,
+    pp.constitutive_laws.FractureGap,
     pp.constitutive_laws.FrictionBound,
 ):
     """Class for the coupling of mass and momentum balance to obtain poromechanics
@@ -167,7 +167,6 @@ class BoundaryConditionsPoromechanics(
 
 
 class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
-
     time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
     """Method for time dependent boundary conditions for mechanics."""
 
@@ -249,7 +248,13 @@ class SolutionStrategyPoromechanics(
     This class has a diamond structure inheritance. The user should be aware of this
     and take method resolution order into account when defining new methods.
 
-    TODO: More targeted (re-)discretization.
+    """
+
+    darcy_flux_discretization: Callable[
+        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
+    ]
+    """Discretization of the Darcy flux. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
 
@@ -265,7 +270,6 @@ class SolutionStrategyPoromechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-
             pp.initialize_data(
                 sd,
                 data,
@@ -278,6 +282,18 @@ class SolutionStrategyPoromechanics(
     def _is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""
         return True
+
+    def set_nonlinear_discretizations(self) -> None:
+        """Collect discretizations for nonlinear terms."""
+        # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
+        # balance does not have any.
+        super().set_nonlinear_discretizations()
+        # Aperture changes render permeability variable. This requires a re-discretization
+        # of the diffusive flux in subdomains where the aperture changes.
+        subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+        self.add_nonlinear_discretization(
+            self.darcy_flux_discretization(subdomains).flux,
+        )
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
