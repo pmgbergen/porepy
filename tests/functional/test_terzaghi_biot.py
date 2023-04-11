@@ -19,10 +19,15 @@ We consider three functional tests:
 
 """
 
+import sys
+
 import numpy as np
 
 import porepy as pp
-from porepy.applications.complete_setups.terzaghi_biot import (
+
+sys.path.append("../..")  # go to the examples level folder
+
+from examples.terzaghi_biot import (
     PseudoOneDimensionalColumn,
     TerzaghiDataSaving,
     TerzaghiPoromechanicsBoundaryConditions,
