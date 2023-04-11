@@ -438,7 +438,6 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     sorted_coord = np.round(sorted_coord * 1e10) / 1e10
     unique_x = np.unique(sorted_coord[0])
     unique_y = np.unique(sorted_coord[1])
-    # assert unique_x.size == unique_y.size
     g = pp.TensorGrid(unique_x, unique_y)
     assert np.all(g.nodes[0:2] - sorted_coord == 0)
 
