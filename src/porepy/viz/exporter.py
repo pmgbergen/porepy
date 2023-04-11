@@ -47,7 +47,7 @@ InterfaceData = Dict[Tuple[pp.MortarGrid, str], np.ndarray]
 class Exporter:
     """Class for exporting and importing data and grid to and from vtu format.
 
-    The Exporter allows for various ways to express which solution variables,
+    The Exporter allows for various ways to express which state variables,
     on which grids, and which extra data should be exported. A thorough
     demonstration is available as a dedicated tutorial. Check out
     tutorials/exporter.ipynb.
@@ -221,7 +221,7 @@ class Exporter:
     def import_from_vtu(
         self, keys: Union[str, list[str]], file_names: Union[str, list[str]], **kwargs
     ) -> None:
-        """Import solution variables from vtu file. It is assumed that the vtu file was
+        """Import state variables from vtu file. It is assumed that the vtu file was
         created using PorePy, e.g., that the file names follow PorePy conventions,
         the mixed-dimensional grid is split in the usual way etc.
 
@@ -863,8 +863,8 @@ class Exporter:
             This routine explicitly checks only for subdomain data.
 
             Parameters:
-                data_pt: data identifier via the key used in pp.TIME_STEP_SOLUTIONS and
-                    a specific subdomain.
+                data_pt: data identifier via the key used in ``pp.TIME_STEP_SOLUTIONS``
+                    and a specific subdomain.
                 subdomain_data: container for subdomain data
                 interface_data: container for interface data
 
@@ -872,8 +872,8 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no solution in the subdomain data with given
-                    key.
+                ValueError: if there exists no time step solutions in the subdomain
+                    data with given key.
 
             """
 
@@ -890,7 +890,8 @@ class Exporter:
                 subdomains: list[pp.Grid] = data_pt[0]
                 key = data_pt[1]
 
-                # Loop over grids and fetch the solutions corresponding to the key
+                # Loop over grids and fetch the time step solutions corresponding to the
+                # key
                 for sd in subdomains:
 
                     # Fetch the data dictionary containing the data value
@@ -902,7 +903,7 @@ class Exporter:
                         and key in sd_data[pp.TIME_STEP_SOLUTIONS]
                     ):
                         raise ValueError(
-                            f"""No solution with prescribed key {key}
+                            f"""No time step solution with prescribed key {key}
                             available on selected subdomains."""
                         )
 
@@ -944,8 +945,8 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no solution in the interface data with given
-                    key.
+                ValueError: if there exists no time step solutions in the interface data
+                    with given key.
 
             """
 
@@ -962,7 +963,8 @@ class Exporter:
                 interfaces: list[pp.MortarGrid] = data_pt[0]
                 key = data_pt[1]
 
-                # Loop over interfaces and fetch the solutions corresponding to the key
+                # Loop over interfaces and fetch the time step solutions corresponding
+                # to the key
                 for intf in interfaces:
 
                     # Fetch the data dictionary containing the data value
@@ -974,7 +976,7 @@ class Exporter:
                         and key in intf_data[pp.TIME_STEP_SOLUTIONS]
                     ):
                         raise ValueError(
-                            f"""No solution with prescribed key {key}
+                            f"""No time step solution with prescribed key {key}
                             available on selected interfaces."""
                         )
 
@@ -1012,8 +1014,8 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no solution in the interface data with given
-                    key.
+                ValueError: if there exists no time step solutions in the interface data
+                    with given key.
 
             """
 
@@ -1063,8 +1065,8 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no solution in the interface data with given
-                    key.
+                ValueError: if there exists no time step solutions in the interface data
+                    with given key.
 
             """
 

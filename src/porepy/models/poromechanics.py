@@ -100,7 +100,7 @@ class BoundaryConditionsMechanicsTimeDependent(
     momentum.BoundaryConditionsMomentumBalance,
 ):
     bc_values_mechanics_key: str
-    """Key for mechanical boundary conditions in the solution and iterate dictionaries.
+    """Key for mechanical boundary conditions in the time step and iterate dictionaries.
 
     """
 
@@ -173,7 +173,7 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
 
     @property
     def bc_values_mechanics_key(self) -> str:
-        """Key for mechanical boundary conditions in the solution and iterate
+        """Key for mechanical boundary conditions in the time step and iterate
         dictionaries.
 
         """
@@ -193,16 +193,18 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
 
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()
-        # Update the mechanical boundary conditions to both the solution and iterate.
+        # Update the mechanical boundary conditions to both the time step and iterate
+        # solution.
         self.update_time_dependent_ad_arrays(initial=False)
 
     def update_time_dependent_ad_arrays(self, initial: bool) -> None:
         """Update the time dependent arrays for the mechanics boundary conditions.
 
         Parameters:
-            initial: If True, the array generating method is called for both solution
-                and iterate. If False, the array generating method is called only for
-                the iterate, and the solution is updated by copying the iterate.
+            initial: If True, the array generating method is called for both time step
+                and iterate solution. If False, the array generating method is called
+                only for the iterate solution, and the time step solution is updated by
+                copying the iterate solution.
 
         """
         # Call super in case class is combined with other classes implementing this

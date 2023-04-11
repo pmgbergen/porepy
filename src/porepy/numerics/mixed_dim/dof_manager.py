@@ -23,8 +23,8 @@ class DofManager:
     """Class to keep track of degrees of freedom in a mixed-dimensional grid with
     several variables.
 
-    This class should be used for setting the solution value of variables, and to get
-    indices of the degrees of freedom for grids and variables.
+    This class should be used for setting the state of variables, and to get indices of
+    the degrees of freedom for grids and variables.
 
     Attributes:
         block_dof: Is a dictionary with keys that are either
@@ -117,7 +117,8 @@ class DofManager:
             variables: VariableType input for which the indices are requested.
 
         Returns:
-            an order-preserving array of indices of DOFs belonging to the VariableType input.
+            an order-preserving array of indices of DOFs belonging to the VariableType
+            input.
 
         Raises:
             ValueError: if unknown VariableType arguments are passed.
@@ -163,23 +164,22 @@ class DofManager:
         return_str: bool = False,
     ) -> dict | str:
         """Get the range of indices in the global system of variables
-        associated with combinations of nodes / edges (in the MixedDimensionalGrid sense)
-        and variables.
+        associated with combinations of nodes / edges (in the MixedDimensionalGrid
+        sense) and variables.
 
-        This function is intended mainly for inquiries into the ordering of blocks
-        in systems with multiple variables and/or grids. The results can be returned
-        as variables or a string. Both options come with options for sorting of
-        the output.
+        This function is intended mainly for inquiries into the ordering of blocks in
+        systems with multiple variables and/or grids. The results can be returned as
+        variables or a string. Both options come with options for sorting of the output.
 
         Parameters:
-            grids (pp.Grid or pp.MixedDimensionalGrid edge): List of grids, edges (in the
-                MixedDimensionalGrid) or combinations of the two. If not provided, all
-            grids and edges that are assigned variables will be considered.
+            grids (pp.Grid or pp.MixedDimensionalGrid edge): List of grids, edges (in
+                the MixedDimensionalGrid) or combinations of the two. If not provided,
+                all grids and edges that are assigned variables will be considered.
             variables (str): Name of variables. If not provided, all variables assigned
                 to at least one grid or variable will be considered).
-            sort_by (str): Should take one of the values 'grids', 'variables' or an empty
-                str (default). If either grids or variables is specified, the return
-                 argument will be sorted according to the corresponding type.
+            sort_by (str): Should take one of the values 'grids', 'variables' or an
+                empty str (default). If either grids or variables is specified, the
+                return argument will be sorted according to the corresponding type.
             return_str (bool): If True, information will be returned as a string instead
                 of as variables.
 
@@ -327,7 +327,7 @@ class DofManager:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
             from_iterate (optional): flag to return iterate values, instead of the
-                stored solution values (default).
+                stored time step values (default).
 
         Returns:
             the respective (sub) vector in numerical format.
@@ -381,7 +381,8 @@ class DofManager:
             variable (str): Name of variable.
 
         Returns:
-            tuple(int, int): Start and end of the block for this grid-variable combination.
+            tuple(int, int): Start and end of the block for this grid-variable
+                combination.
             The end index is the start of the next block.
 
         """
@@ -424,8 +425,8 @@ class DofManager:
                 active variable.
             return_projection (bool, optional): Return the projection matrix from for
                 selecting only the requested variables. Default to False.
-            matrix_format (csc_or_csr_matrix, optional): Format of the projection matrix.
-                Default to sps.csr_matrix.
+            matrix_format (csc_or_csr_matrix, optional): Format of the projection
+                matrix. Default to sps.csr_matrix.
 
         """
         if not isinstance(var, list):
@@ -490,10 +491,11 @@ class DofManager:
                 distributed. If not provided, all variables found in self.block_dof
                 will be considered.
             additive (bool, optional): If True, the variables are added to the current
-                solution or iterate, instead of overwriting the existing value.
+                time step or iterate solution, instead of overwriting the existing
+                value.
             to_iterate (bool, optional): If True, distribute to iterate, and not the
-                solution itself. Set to True inside a non-linear scheme (Newton), False
-                at the end of a time step.
+                time step solution itself. Set to True inside a non-linear scheme
+                (Newton), False at the end of a time step.
 
         """
         if grids is None:
@@ -536,7 +538,7 @@ class DofManager:
         variables: Optional[list[str]] = None,
         from_iterate: bool = False,
     ) -> np.ndarray:
-        """Assemble a vector from the variable solution stored in nodes and edges in
+        """Assemble a vector from the variable state stored in nodes and edges in
         the MixedDimensionalGrid.
 
         Parameters:
@@ -547,8 +549,8 @@ class DofManager:
                 assembled. If not provided, all variables found in self.block_dof
                 will be cosidered.
             from_iterate (bool, optional): If True, assemble from iterates, and not the
-                solution itself. Set this to True inside a non-linear scheme (Newton), False
-                at the end of a time step.
+                time step solution itself. Set this to True inside a non-linear scheme
+                (Newton), False at the end of a time step.
 
         Returns:
             np.ndarray: Vector, size equal to self.num_dofs(). Values taken from the
