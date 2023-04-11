@@ -99,6 +99,11 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
 
     """
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
+
+    """
 
     def set_equations(self) -> None:
         """Set equations for the subdomains and interfaces.
