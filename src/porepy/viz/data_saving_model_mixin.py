@@ -41,7 +41,7 @@ class DataSavingMixin:
     """Number of spatial dimensions for the simulation."""
 
     def save_data_time_step(self) -> None:
-        """Export the model solution at a given time step."""
+        """Export the model state at a given time step."""
         if not self.suppress_export:
             self.exporter.write_vtu(
                 self.data_to_export(),

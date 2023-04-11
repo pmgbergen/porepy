@@ -21,13 +21,13 @@ class TestState:
         assert pp.TIME_STEP_SOLUTIONS in d
 
     def test_add_empty_iterate(self, empty_dict):
-        """Add an empty iterate dictionary"""
+        """Add an empty pp.ITERATE_SOLUTIONS dictionary"""
         d = empty_dict
         pp.set_iterate(d)
         assert pp.ITERATE_SOLUTIONS in d
 
     def test_add_state_twice(self, empty_dict):
-        """Add two solutions dictionaries.
+        """Add two pp.TIME_STEP_SOLUTIONS dictionaries.
 
         The existing foo value should be overwritten, while bar should be kept.
         """
@@ -43,7 +43,7 @@ class TestState:
             assert d[pp.TIME_STEP_SOLUTIONS][key][0] == val
 
     def test_add_iterate_twice_and_state(self, empty_dict):
-        """Add two solutions dictionaries.
+        """Add two pp.ITERATE_SOLUTIONS dictionaries.
 
         The existing foo value should be overwritten, while bar should be kept.
         Setting values in pp.TIME_STEP_SOLUTIONS should not affect the iterate values.

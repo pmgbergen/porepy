@@ -708,7 +708,7 @@ class EquationSystem:
         self,
         variables: Optional[VariableList] = None,
     ) -> None:
-        """Method for shifting stored solution values in data sub-dictionary
+        """Method for shifting stored time step values in data sub-dictionary
 
         For details of the value shifting see :meth:`_shift_variable_values` and
         :meth:`_shift_dictionary`.
@@ -745,7 +745,7 @@ class EquationSystem:
     ) -> None:
         """Method for shifting values in data dictionary
 
-        Solution and iterate values are stored with storage indices as keys in the data
+        Time step and iterate values are stored with storage indices as keys in the data
         dictionary for the subdomain in question. For each time-step/iteration, these
         values are shifted such that the most recent variable value later can be placed
         at index 0. The previous time-step/iterate values are moved to a "one number
@@ -1988,6 +1988,7 @@ class EquationSystem:
 
 
 # Utility functions
+
 
 def set_solution_values(
     name: str,

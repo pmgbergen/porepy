@@ -886,7 +886,8 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 # The propagation model will assign the value 42 to new cells also in
                 # the next step. To be sure values from the first propagation are mapped
                 # correctly, we alter the true value (add 1), and update this both in
-                # the solution vector, state and previous iterate
+                # the solution vector, time step solutions and previous iterate
+                # solutions
                 x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = np.r_[
                     val_1d_prev[g], extended_1d + 1
                 ]
