@@ -151,7 +151,10 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
         """
         accumulation = self.inertia(subdomains)
-        stress = self.stress(subdomains)
+        # By the convention of positive tensile stress, the balance equation is
+        # acceleration - stress = body_force. The balance_equation method will *add* the
+        # surface term (stress), so we need to multiply by -1.
+        stress = pp.ad.Scalar(-1) * self.stress(subdomains)
         body_force = self.body_force(subdomains)
         equation = self.balance_equation(
             subdomains, accumulation, stress, body_force, dim=self.nd
