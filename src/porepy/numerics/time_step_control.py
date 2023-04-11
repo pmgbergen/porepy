@@ -62,9 +62,10 @@ Algorithm Workflow in Pseudocode:
         IF number of recomputing attempts has not been exhausted THEN
             IF dt is equal to dt_min THEN
                 RAISE Error // since recomputation will not have any effect
-            ENDIF SUBTRACT dt from current time // we have to "go back in time" DECREASE
-            dt // multiply by recomputation factor < 1 INCREASE counter that keeps track
-            of number of recomputing attempts
+            ENDIF
+            SUBTRACT dt from current time // we have to "go back in time"
+            DECREASE dt // multiply by recomputation factor < 1
+            INCREASE counter that keeps track of number of recomputing attempts
         ELSE
             RAISE Error // maximum number of recomputing attempts has been exhausted
         ENDIF
@@ -160,22 +161,34 @@ class TimeManager:
     Example:
         # The following is an example on how to initialize a time-stepping object
         time_manager = pp.TimeManager(
-            schedule=[0, 10], dt_init=0.5, dt_min_max=(0.1, 2), iter_max=10,
-            iter_optimal_range=(3, 8), iter_relax_factors=(0.9, 1.1), recomp_factor=0.1,
-            recomp_max=5, print_info=True
-        ) # To inspect the attributes of the object print(time_manager)
+            schedule=[0, 10],
+            dt_init=0.5,
+            dt_min_max=(0.1, 2),
+            iter_max=10,
+            iter_optimal_range=(3, 8),
+            iter_relax_factors=(0.9, 1.1),
+            recomp_factor=0.1,
+            recomp_max=5,
+            print_info=True
+        )
+        # To inspect the attributes of the object
+        print(time_manager)
 
     Attributes:
-        dt (float): Time step. dt_init (float): Initial time step. dt_min_max
-        (tuple[Union[int, float], Union[int, float]]): Min and max time steps.
-        is_constant (bool): Constant time step flag. iter_max (int): Maximum number of
-        iterations. iter_optimal_range (tuple[int, int]): Optimal iteration range.
-        iter_relax_factors (tuple[float, float]): Relaxation factors. recomp_factor
-        (float): Recomputation factor. Strictly lower than one. recomp_max (int):
-        Maximum number of recomputation attempts. schedule (ArrayLike): List of
-        scheduled times including initial and final times. time (float): Current time.
-        time_final (float): Final simulation time. time_init (float): Initial simulation
-        time.
+        dt (float): Time step.
+        dt_init (float): Initial time step.
+        dt_min_max (tuple[Union[int, float], Union[int, float]]): Min and max time
+            steps.
+        is_constant (bool): Constant time step flag.
+        iter_max (int): Maximum number of iterations.
+        iter_optimal_range (tuple[int, int]): Optimal iteration range.
+        iter_relax_factors (tuple[float, float]): Relaxation factors.
+        recomp_factor (float): Recomputation factor. Strictly lower than one.
+        recomp_max (int): Maximum number of recomputation attempts.
+        schedule (ArrayLike): List of scheduled times including initial and final times.
+        time (float): Current time.
+        time_final (float): Final simulation time.
+        time_init (float): Initial simulation time.
 
     """
 
@@ -262,13 +275,13 @@ class TimeManager:
             elif iter_optimal_range[1] > iter_max:
                 msg = (
                     f"Upper endpoint '{iter_optimal_range[1]}' of optimal iteration "
-                    "range cannot be larger than maximum number of iterations"
+                    "range cannot be larger than maximum number of iterations "
                     f"'{iter_max}'."
                 )
                 raise ValueError(msg)
             elif iter_optimal_range[0] < 0:
                 msg = (
-                    f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration"
+                    f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration "
                     "range cannot be negative."
                 )
                 raise ValueError(msg)
