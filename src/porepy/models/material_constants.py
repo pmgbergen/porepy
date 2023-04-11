@@ -104,7 +104,7 @@ class MaterialConstants:
                 dimensionless value can be specified by setting units to "", "1" or "-".
             to_si: If True, the value is converted to SI units. If False, the value is
                 converted to the units specified by the user, which are the ones used in
-                the
+                the simulation.
 
         Returns:
             Value in the user specified units to be used in the simulation.
