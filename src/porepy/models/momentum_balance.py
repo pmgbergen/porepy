@@ -761,10 +761,11 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     def contact_mechanics_numerical_constant(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Scalar:
-        """Numerical constant for the contact problem.
+        """Numerical constant for the contact problem [Pa * m^-1].
 
-        Not sure about method location, but it is a property of the contact problem, and
-        more solution strategy than material property or constitutive law.
+        A physical interpretation of this constant is as an elastic modulus for the
+        fracture, as it appears as a scaling of displacement jumps when comparing to
+        contact tractions.
 
         Parameters:
             subdomains: List of subdomains. Only the first is used.
@@ -774,18 +775,26 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
         """
         # The constant works as a scaling factor in the comparison between tractions and
-        # displacement jumps across fractures. We therefore take it as proportional to
-        # the shear modulus.
-        # The values returned from self.solid are already scaled, so there is no need
-        # for further scaling.
-        shear_modulus = self.solid.shear_modulus()
+        # displacement jumps across fractures. In analogy with Hooke's law, the scaling
+        # constant is therefore proportional to the shear modulus and the inverse of a
+        # characteristic length of the fracture, where the latter has the interpretation
+        # of a gradient length.
 
-        # EK: The scaling factor should not be too large, otherwise the contact problem
+        shear_modulus = self.solid.shear_modulus()
+        characteristic_distance = (
+            self.solid.residual_aperture() + self.solid.fracture_gap()
+        )
+
+        # Physical interpretation (IS):
+        # As a crude way of making the fracture softer than the matrix, we scale by
+        # one order of magnitude.
+        # Alternative interpretation (EK):
+        # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
-        safety_factor = 1e-1
+        softening_factor = 1e-1
 
-        val = safety_factor * shear_modulus
+        val = softening_factor * shear_modulus / characteristic_distance
 
         return pp.ad.Scalar(val, name="Contact_mechanics_numerical_constant")
 
