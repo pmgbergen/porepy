@@ -199,7 +199,7 @@ class ConformingFracturePropagation(FracturePropagation):
         parameters_primary: dict[str, Any] = data_primary[pp.PARAMETERS][
             self.mechanics_parameter_key  # type: ignore
         ]
-        u_j: np.ndarray = data_intf["stored_iterates"][
+        u_j: np.ndarray = data_intf[pp.ITERATE_SOLUTIONS][
             self.mortar_displacement_variable  # type: ignore
         ][0]
 

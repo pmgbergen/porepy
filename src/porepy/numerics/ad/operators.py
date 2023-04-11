@@ -1238,8 +1238,8 @@ class TimeDependentDenseArray(DenseArray):
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
     dictionaries associated with subdomains and interfaces.
     The array values are stored
-    in ``data['stored_iterates'][self._name][0]`` for the current time and
-    ``data['stored_solutions'][self._name][0]`` for the previous time.
+    in ``data[pp.ITERATE_SOLUTIONS][self._name][0]`` for the current time and
+    ``data[pp.TIME_STEP_SOLUTIONS][self._name][0]`` for the previous time.
 
     The array can be differentiated in time using ``pp.ad.dt()``.
 
@@ -1249,7 +1249,7 @@ class TimeDependentDenseArray(DenseArray):
 
     Parameters:
         name: Name of the variable. Should correspond to items in
-            ``data['stored_solutions']``.
+            ``data[pp.TIME_STEP_SOLUTIONS]``.
         subdomains: Subdomains on which the array is defined. Defaults to None.
         interfaces: Interfaces on which the array is defined. Defaults to None.
             Exactly one of subdomains and interfaces must be non-empty.
@@ -1258,8 +1258,8 @@ class TimeDependentDenseArray(DenseArray):
 
     Attributes:
         previous_timestep: If True, the array will be evaluated using
-            ``data['stored_solutions']`` (data being the data dictionaries for
-            subdomains and interfaces), if False, ``data['stored_iterates']`` is used.
+            ``data[pp.TIME_STEP_SOLUTIONS]`` (data being the data dictionaries for
+            subdomains and interfaces), if False, ``data[pp.ITERATE_SOLUTIONS]`` is used.
 
     Raises:
         ValueError: If either none of, or both of, subdomains and interfaces are empty.
@@ -1305,10 +1305,10 @@ class TimeDependentDenseArray(DenseArray):
             self._is_interface_array = True
 
         self.prev_time: bool = previous_timestep
-        """If True, the array will be evaluated using ``data['stored_solutions']``
+        """If True, the array will be evaluated using ``data[pp.TIME_STEP_SOLUTIONS]``
         (data being the data dictionaries for subdomains and interfaces).
 
-        If False, ``data['stored_iterates']`` is used.
+        If False, ``data[pp.ITERATE_SOLUTIONS]`` is used.
 
         """
 
@@ -1333,9 +1333,10 @@ class TimeDependentDenseArray(DenseArray):
         """Convert this array into numerical values.
 
         The numerical values will be picked from the representation of the array in
-        ``data['stored_iterates']`` (where data is the data dictionary of the subdomains
+        ``data[pp.ITERATE_SOLUTIONS]`` (where data is the data dictionary of the
+        subdomains
         or interfaces of this Array), or, if ``self.prev_time = True``,
-        from ``data['stored_solutions']``.
+        from ``data[pp.TIME_STEP_SOLUTIONS]``.
 
         Parameters:
             mdg: Mixed-dimensional grid.
@@ -1355,9 +1356,9 @@ class TimeDependentDenseArray(DenseArray):
                 data = mdg.subdomain_data(g)
 
             if self.prev_time:
-                vals.append(data["stored_solutions"][self._name][0])
+                vals.append(data[pp.TIME_STEP_SOLUTIONS][self._name][0])
             else:
-                vals.append(data["stored_iterates"][self._name][0])
+                vals.append(data[pp.ITERATE_SOLUTIONS][self._name][0])
 
         if len(vals) > 0:
             # Normal case: concatenate the values from all grids

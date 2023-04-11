@@ -427,18 +427,19 @@ class EquationSystem:
                     assert isinstance(grid, pp.MortarGrid)  # mypy
                     data = self.mdg.interface_data(grid)
 
-                # Prepare indexed storage of values in data dictionary if not already prepared
-                if "stored_solutions" not in data:
-                    data["stored_solutions"] = {}
+                # Prepare indexed storage of values in data dictionary if not already
+                # prepared
+                if pp.TIME_STEP_SOLUTIONS not in data:
+                    data[pp.TIME_STEP_SOLUTIONS] = {}
 
-                if name not in data["stored_solutions"]:
-                    data["stored_solutions"][name] = {}
+                if name not in data[pp.TIME_STEP_SOLUTIONS]:
+                    data[pp.TIME_STEP_SOLUTIONS][name] = {}
 
-                if "stored_iterates" not in data:
-                    data["stored_iterates"] = {}
+                if pp.ITERATE_SOLUTIONS not in data:
+                    data[pp.ITERATE_SOLUTIONS] = {}
 
-                if name not in data["stored_iterates"]:
-                    data["stored_iterates"][name] = {}
+                if name not in data[pp.ITERATE_SOLUTIONS]:
+                    data[pp.ITERATE_SOLUTIONS][name] = {}
 
                 # Create grid variable.
                 new_variable = Variable(name, dof_info, domain=grid, tags=tags)
@@ -592,10 +593,14 @@ class EquationSystem:
                 # Extract a copy of requested values.
                 try:
                     if iterate_index is not None:
-                        values.append(data[pp.ITERATES][name][iterate_index].copy())
+                        values.append(
+                            data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
+                        )
 
                     elif solution_index is not None:
-                        values.append(data[pp.SOLUTIONS][name][solution_index].copy())
+                        values.append(
+                            data[pp.TIME_STEP_SOLUTIONS][name][solution_index].copy()
+                        )
 
                 except KeyError:
                     raise KeyError(
@@ -667,26 +672,29 @@ class EquationSystem:
                     variable_number=variable_number, values=values, dof_start=dof_start
                 )
 
-                # Data dict will have ``pp.TIME_STEP_SOLUTION`` and ``pp.ITERATES``
-                # entries already created during create_variables. If an error is
-                # returned here, a variable has been created in a non-standard way.
-                # Store new values as
-                # requested.
+                # Data dict will have ``pp.TIME_STEP_SOLUTIONS`` and
+                # ``pp.ITERATE_SOLUTIONS`` entries already created during
+                # create_variables. If an error is returned here, a variable has been
+                # created in a non-standard way. Store new values as requested.
                 if additive:
                     if iterate_index is not None:
-                        data[pp.ITERATES][name][iterate_index] += local_vec
+                        data[pp.ITERATE_SOLUTIONS][name][iterate_index] += local_vec
 
                     if solution_index is not None:
-                        data[pp.SOLUTIONS][name][solution_index] += local_vec
+                        data[pp.TIME_STEP_SOLUTIONS][name][solution_index] += local_vec
 
                 else:
                     if iterate_index is not None:
                         # The copy is critcial here.
-                        data[pp.ITERATES][name][iterate_index] = local_vec.copy()
+                        data[pp.ITERATE_SOLUTIONS][name][
+                            iterate_index
+                        ] = local_vec.copy()
 
                     if solution_index is not None:
                         # The copy is critcial here.
-                        data[pp.SOLUTIONS][name][solution_index] = local_vec.copy()
+                        data[pp.TIME_STEP_SOLUTIONS][name][
+                            solution_index
+                        ] = local_vec.copy()
 
                 # Move dissection forward.
                 dof_start = dof_end
@@ -696,7 +704,7 @@ class EquationSystem:
         # since we only require a vector of at least this size.
         assert dof_end == values.size
 
-    def shift_solution_values(
+    def shift_time_step_values(
         self,
         variables: Optional[VariableList] = None,
     ) -> None:
@@ -710,7 +718,9 @@ class EquationSystem:
                 requested. If None (default), the global vector of unknowns will be set.
 
         """
-        self._shift_variable_values(location=pp.SOLUTIONS, variables=variables)
+        self._shift_variable_values(
+            location=pp.TIME_STEP_SOLUTIONS, variables=variables
+        )
 
     def shift_iterate_values(
         self,
@@ -726,7 +736,7 @@ class EquationSystem:
                 requested. If None (default), the global vector of unknowns will be set.
 
         """
-        self._shift_variable_values(location=pp.ITERATES, variables=variables)
+        self._shift_variable_values(location=pp.ITERATE_SOLUTIONS, variables=variables)
 
     def _shift_variable_values(
         self,
@@ -743,8 +753,8 @@ class EquationSystem:
         2, and so on. The value at the highest key is discarded.
 
         Parameters:
-            location: Should be pp.SOLUTIONS or pp.ITERATES depending on
-                which one of solutions/iterates that are to be shifted.
+            location: Should be ``pp.TIME_STEP_SOLUTIONS`` or ``pp.ITERATE_SOLUTIONS``
+                depending on which one of solutions/iterates that are to be shifted.
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns will be set.
 
@@ -778,7 +788,8 @@ class EquationSystem:
             data: Data dictionary corresponding to the subdomain and variable in
                 question
             name: Name of the variable whose values are to be shifted
-            location: Should be either ``pp.SOLUTIONS`` or ``pp.ITERATES``
+            location: Should be either ``pp.TIME_STEP_SOLUTIONS`` or
+                ``pp.ITERATE_SOLUTIONS``
                 depending on whether it is a time-step that is to be stored or if it is
                 an iterate.
 
@@ -1585,7 +1596,8 @@ class EquationSystem:
             variables (optional): VariableType input specifying the subspace in
                 column-sense. If not provided (None), all variables will be included.
             state (optional): State vector to assemble from. By default, the
-                ``'stored_iterates'`` or ``'stored_solutions'`` are used, in that order.
+                ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS`` are used, in that
+                order.
 
         Returns:
             Tuple with two elements
@@ -1977,7 +1989,6 @@ class EquationSystem:
 
 # Utility functions
 
-
 def set_solution_values(
     name: str,
     values: np.ndarray,
@@ -1986,8 +1997,8 @@ def set_solution_values(
     iterate_index: Optional[int] = None,
     additive: bool = False,
 ) -> dict:
-    """Utility function for setting values to ``'stored_solutions'`` and/or
-    ``'stored_iterates'`` in data dictionary.
+    """Utility function for setting values to ``pp.TIME_STEP_SOLUTIONS`` and/or
+    ``pp.ITERATE_SOLUTIONS`` in data dictionary.
 
     Parameters:
         name: Name of the variable/quantity that is to be assigned values.
@@ -1995,42 +2006,42 @@ def set_solution_values(
             to the variable/quantity name.
         data: Data dictionary corresponding to the subdomain and variable in question
         solution_index (optional): Determines the key of where ``values`` are to be
-            stored in ``data['stored_solutions'][name]``. 0 means it is the most recent
-            set of values, 1 means the one time step back in time, 2 is two time steps
-            back, and so on.
+            stored in ``data[pp.TIME_STEP_SOLUTIONS][name]``. 0 means it is the most
+            recent set of values, 1 means the one time step back in time, 2 is two time
+            steps back, and so on.
         iterate_index (optional): Determines the key of where ``values`` are to be
-            stored in ``data['stored_iterates'][name]``. 0 means it is the most recent
-            set of values, 1 means the values one iteration back in time, 2 is two
-            iterations back, and so on.
+            stored in ``data[pp.ITERATE_SOLUTIONS][name]``. 0 means it is the most
+            recent set of values, 1 means the values one iteration back in time, 2 is
+            two iterations back, and so on.
         additive: Flag to decide whether the values already stored in the data
             dictionary should be added to or overwritten.
 
     """
     if not additive:
         if solution_index is not None:
-            if "stored_solutions" not in data:
-                data["stored_solutions"] = {}
-            if name not in data["stored_solutions"]:
-                data["stored_solutions"][name] = {}
-            data["stored_solutions"][name][solution_index] = values.copy()
+            if pp.TIME_STEP_SOLUTIONS not in data:
+                data[pp.TIME_STEP_SOLUTIONS] = {}
+            if name not in data[pp.TIME_STEP_SOLUTIONS]:
+                data[pp.TIME_STEP_SOLUTIONS][name] = {}
+            data[pp.TIME_STEP_SOLUTIONS][name][solution_index] = values.copy()
 
         if iterate_index is not None:
-            if "stored_iterates" not in data:
-                data["stored_iterates"] = {}
-            if name not in data["stored_iterates"]:
-                data["stored_iterates"][name] = {}
-            data["stored_iterates"][name][iterate_index] = values.copy()
+            if pp.ITERATE_SOLUTIONS not in data:
+                data[pp.ITERATE_SOLUTIONS] = {}
+            if name not in data[pp.ITERATE_SOLUTIONS]:
+                data[pp.ITERATE_SOLUTIONS][name] = {}
+            data[pp.ITERATE_SOLUTIONS][name][iterate_index] = values.copy()
     else:
         if solution_index is not None:
-            if "stored_solutions" not in data:
-                data["stored_solutions"] = {}
-            if name not in data["stored_solutions"]:
-                data["stored_solutions"][name] = {}
-            data["stored_solutions"][name][solution_index] += values
+            if pp.TIME_STEP_SOLUTIONS not in data:
+                data[pp.TIME_STEP_SOLUTIONS] = {}
+            if name not in data[pp.TIME_STEP_SOLUTIONS]:
+                data[pp.TIME_STEP_SOLUTIONS][name] = {}
+            data[pp.TIME_STEP_SOLUTIONS][name][solution_index] += values
 
         if iterate_index is not None:
-            if "stored_iterates" not in data:
-                data["stored_iterates"] = {}
-            if name not in data["stored_iterates"]:
-                data["stored_iterates"][name] = {}
-            data["stored_iterates"][name][iterate_index] += values
+            if pp.ITERATE_SOLUTIONS not in data:
+                data[pp.ITERATE_SOLUTIONS] = {}
+            if name not in data[pp.ITERATE_SOLUTIONS]:
+                data[pp.ITERATE_SOLUTIONS][name] = {}
+            data[pp.ITERATE_SOLUTIONS][name][iterate_index] += values

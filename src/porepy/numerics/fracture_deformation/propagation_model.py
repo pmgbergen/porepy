@@ -112,7 +112,8 @@ class FracturePropagation(abc.ABC):
 
     def _map_variables(self, x: np.ndarray) -> np.ndarray:
         """
-        Map variables from old to new grids in d[pp.SOLUTIONS] and d[pp.ITERATES].
+        Map variables from old to new grids in d[pp.TIME_STEP_SOLUTIONS] and
+        d[pp.ITERATE_SOLUTIONS].
         Also call update of self.assembler.update_dof_count and update the current
         solution vector accordingly.
 
@@ -171,15 +172,15 @@ class FracturePropagation(abc.ABC):
                 new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
                 # Loop over stored solutions. Loop on keys to avoid bad practice of
                 # changing looped quantity using items method.
-                for ind in data[pp.SOLUTIONS][var].keys():
-                    values = data[pp.SOLUTIONS][var][ind]
+                for ind in data[pp.TIME_STEP_SOLUTIONS][var].keys():
+                    values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
                     set_solution_values(var, values, data, solution_index=ind)
 
                 # Repeat for iterate:
-                for ind in data[pp.ITERATES][var].keys():
-                    values = data[pp.ITERATES][var][ind]
+                for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
+                    values = data[pp.ITERATE_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
                     set_solution_values(var, values, data, iterate_index=ind)
@@ -210,15 +211,15 @@ class FracturePropagation(abc.ABC):
                 new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
                 # Loop over stored solutions (one or more indexed by time). Loop on keys
                 # to avoid bad practice of changing looped quantity using items method.
-                for ind in data[pp.SOLUTIONS][var].keys():
-                    values = data[pp.SOLUTIONS][var][ind]
+                for ind in data[pp.TIME_STEP_SOLUTIONS][var].keys():
+                    values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
                     set_solution_values(var, values, data, solution_index=ind)
 
                 # Repeat for iterate.
-                for ind in data[pp.ITERATES][var].keys():
-                    values = data[pp.ITERATES][var][ind]
+                for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
+                    values = data[pp.ITERATE_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
                     set_solution_values(var, values, data, iterate_index=ind)
