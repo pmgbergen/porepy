@@ -188,8 +188,8 @@ class TestParameterInputs:
         larger than the upper endpoint of the optimal iteration range."""
         iter_optimal_range = (3, 2)
         msg = (
-            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration range "
-            f"cannot be larger than upper endpoint '{iter_optimal_range[1]}'."
+            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration "
+            f"range cannot be larger than upper endpoint '{iter_optimal_range[1]}'."
         )
         with pytest.raises(ValueError) as excinfo:
             pp.TimeManager(
@@ -206,8 +206,9 @@ class TestParameterInputs:
         iter_optimal_range = (2, 6)
         iter_max = 5
         msg = (
-            f"Upper endpoint '{iter_optimal_range[1]}' of optimal iteration range "
-            f"cannot be larger than maximum number of iterations '{iter_max}'."
+            f"Upper endpoint '{iter_optimal_range[1]}' of optimal iteration "
+            f"range cannot be larger than maximum number of iterations "
+            f"'{iter_max}'."
         )
         with pytest.raises(ValueError) as excinfo:
             pp.TimeManager(
@@ -222,8 +223,8 @@ class TestParameterInputs:
         """An error should be raised if the lower iteration range is less than zero."""
         iter_optimal_range = (-1, 2)
         msg = (
-            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration range "
-            "cannot be negative."
+            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration "
+            "range cannot be negative."
         )
         with pytest.raises(ValueError) as excinfo:
             pp.TimeManager(
@@ -278,8 +279,8 @@ class TestParameterInputs:
         """An error should be raised if dt_min * over_relax_factor > dt_max."""
         msg_dtmin_over = "Encountered dt_min * over_relax_factor > dt_max. "
         msg_osc = (
-            "The algorithm will behave erratically for such a combination of parameters. "
-            "See documentation of `dt_min_max` or `iter_relax_factors`."
+            "The algorithm will behave erratically for such a combination of "
+            "parameters. See documentation of `dt_min_max` or `iter_relax_factors`."
         )
         msg = msg_dtmin_over + msg_osc
         with pytest.raises(ValueError) as excinfo:
@@ -294,8 +295,8 @@ class TestParameterInputs:
         """An error should be raised if dt_max * under_relax_factor < dt_min."""
         msg_dtmax_under = "Encountered dt_max * under_relax_factor < dt_min. "
         msg_osc = (
-            "The algorithm will behave erratically for such a combination of parameters. "
-            "See documentation of `dt_min_max` or `iter_relax_factors`."
+            "The algorithm will behave erratically for such a combination of "
+            "parameters. See documentation of `dt_min_max` or `iter_relax_factors`."
         )
         msg = msg_dtmax_under + msg_osc
         with pytest.raises(ValueError) as excinfo:
@@ -394,7 +395,9 @@ class TestTimeControl:
         """A warning should be raised if iterations is given and time step is constant"""
         time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10, constant_dt=True)
         iterations = 1
-        msg = f"iterations '{iterations}' has no effect if time step is constant."
+        msg = msg = (
+            f"iterations '{iterations}' has no effect if time step is " "constant."
+        )
         with pytest.warns() as record:
             time_manager.compute_time_step(iterations=iterations)
         assert str(record[0].message) == msg
