@@ -202,7 +202,6 @@ class TimeManager:
         recomp_max: int = 10,
         print_info: bool = False,
     ) -> None:
-
         schedule = np.array(schedule)
         # Sanity checks for schedule
         if np.size(schedule) < 2:
@@ -220,17 +219,17 @@ class TimeManager:
                 "Initial time step cannot be larger than final simulation time."
             )
 
-        # If dt_min_max is not given, set dt_min=0.001*final_time and dt_max=0.1*final_time
+        # If dt_min_max is not given, set dt_min=0.001*final_time and
+        # dt_max=0.1*final_time
         dt_min_max_passed = dt_min_max  # store for later use
         if dt_min_max is None:
             dt_min_max = (0.001 * schedule[-1], 0.1 * schedule[-1])
 
-        # More sanity checks below. Note that all the remaining sanity checks (but one) are
-        # only needed when constant_dt = False. Thus, to save time when constant_dt = True,
-        # we use this rather ugly if-statement from below.
+        # More sanity checks below. Note that all the remaining sanity checks (but one)
+        # are only needed when constant_dt = False. Thus, to save time when constant_dt
+        # = True, we use this rather ugly if-statement from below.
 
         if not constant_dt:
-
             # Sanity checks for dt_min and dt_max
             msg_dtmin = "Initial time step cannot be smaller than minimum time step. "
             msg_dtmax = "Initial time step cannot be larger than maximum time step. "
@@ -253,7 +252,8 @@ class TimeManager:
                 else:
                     raise ValueError(msg_dtmax + msg_unset)
 
-            # NOTE: The above checks guarantee that minimum time step <= maximum time step
+            # NOTE: The above checks guarantee that minimum time step <= maximum time
+            # step.
 
             # Sanity checks for maximum number of iterations.
             # Note that iter_max = 1 is a possibility. This will imply that the solver
@@ -308,7 +308,6 @@ class TimeManager:
                 raise ValueError("Number of recomputation attempts must be > 0.")
 
         else:
-
             # If the time step is constant, check that the scheduled times and the time
             # step are compatible. See documentation of ``schedule``.
             sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
@@ -322,8 +321,9 @@ class TimeManager:
             )
             if not is_compatible:
                 msg = (
-                    "Mismatch between the time step and scheduled time. Make sure the two are "
-                    "compatible, or consider adjusting the tolerances of the sanity check."
+                    "Mismatch between the time step and scheduled time. Make sure the"
+                    " two are compatible, or consider adjusting the tolerances of the"
+                    " sanity check."
                 )
                 raise ValueError(msg)
 
@@ -338,9 +338,9 @@ class TimeManager:
         # Minimum and maximum allowable time steps
         self.dt_min_max = dt_min_max
 
-        # Maximum number of iterations
-        # TODO: This is really a property of the nonlinear solver. A full integration will
-        #  most likely required "pulling" this parameter from the solver side.
+        # Maximum number of iterations TODO: This is really a property of the nonlinear
+        # solver. A full integration will most likely required "pulling" this parameter
+        # from the solver side.
         self.iter_max = iter_max
 
         # Optimal iteration range
@@ -383,7 +383,6 @@ class TimeManager:
         self._iters: Union[int, None] = None
 
     def __repr__(self) -> str:
-
         s = "Time-stepping control object with attributes:\n"
         s += f"Initial and final simulation time = ({self.time_init}, {self.time_final})\n"
         s += f"Initial time step = {self.dt_init}\n"
@@ -405,12 +404,12 @@ class TimeManager:
 
         Parameters:
             iterations: Number of non-linear iterations. In time-dependent simulations,
-                this typically represents the number of iterations for a given time step.
-                A warning is raised if `iterations` is given when `recompute_solution = True`
-                or `constant_dt = True`.
-            recompute_solution: Whether the solution needs to be recomputed or not. If True,
-                then the time step is multiplied by `recomp_factor`. If False, then the time
-                step will be tuned accordingly.
+                this typically represents the number of iterations for a given time
+                step. A warning is raised if `iterations` is given when
+                `recompute_solution = True` or `constant_dt = True`.
+            recompute_solution: Whether the solution needs to be recomputed or not. If
+                True, then the time step is multiplied by `recomp_factor`. If False,
+                then the time step will be tuned accordingly.
 
         Returns:
             Next time step if time < final_time. None, otherwise.
@@ -475,8 +474,8 @@ class TimeManager:
             msg = "Time step cannot be adapted without 'iterations'."
             raise ValueError(msg)
 
-        # Sanity check: Make sure the given number of iterations is less or equal than the
-        # maximum number of iterations
+        # Sanity check: Make sure the given number of iterations is less or equal than
+        # the maximum number of iterations
         if iterations > self.iter_max:
             msg = (
                 f"The given number of iterations '{iterations}' is larger than the maximum "
@@ -489,16 +488,16 @@ class TimeManager:
         # Make sure to reset the recomputation counter
         self._recomp_num = 0
 
-        # Proceed to determine the next time step using the following criteria:
-        #     (C1) If the number of iterations is less than the lower endpoint of the optimal
-        #     iteration range `iter_low`, we can relax the time step by multiplying it by an
-        #     over-relaxation factor greater than 1, i.e., `over_relax_factor`.
+        # Proceed to determine the next time step using the following criteria: (C1) If
+        #     the number of iterations is less than the lower endpoint of the optimal
+        #     iteration range `iter_low`, we can relax the time step by multiplying it
+        #     by an over-relaxation factor greater than 1, i.e., `over_relax_factor`.
         #     (C2) If the number of iterations is greater than the upper endpoint of the
         #     optimal iteration range `iter_upp`, we have to decrease the time step by
         #     multiplying it by an under-relaxation factor smaller than 1, i.e.,
-        #     `under_relax_factor`.
-        #     (C3) If neither of these situations occur, then the number iterations lies
-        #     in the optimal iteration range, and the time step remains unchanged.
+        #     `under_relax_factor`. (C3) If neither of these situations occur, then the
+        #     number iterations lies in the optimal iteration range, and the time step
+        #     remains unchanged.
         if iterations <= self.iter_optimal_range[0]:  # (C1)
             self.dt = self.dt * self.iter_relax_factors[1]
             if self._print_info:
@@ -520,15 +519,14 @@ class TimeManager:
         """
 
         if self._recomp_num < self.recomp_max:
-
-            # If dt = dt_min, adaptation based on recomputation won't have any effect
-            # in the next iteration (any decrease in time step will be corrected to dt_min
-            # by self.correction_based_on_dt_min() in a subsequent correction step). Thus,
-            # to avoid pointless iterations, we raise an error.
+            # If dt = dt_min, adaptation based on recomputation won't have any effect in
+            # the next iteration (any decrease in time step will be corrected to dt_min
+            # by self.correction_based_on_dt_min() in a subsequent correction step).
+            # Thus, to avoid pointless iterations, we raise an error.
             if self.dt == self.dt_min_max[0]:
                 msg = (
-                    "Recomputation will not have any effect since the time step achieved its"
-                    f"minimum admissible value -> dt = dt_min = {self.dt}."
+                    "Recomputation will not have any effect since the time step "
+                    f"achieved its minimum admissible value -> dt = dt_min = {self.dt}."
                 )
                 raise ValueError(msg)
 
@@ -541,15 +539,16 @@ class TimeManager:
             #   (S1) Update simulation time since solution will be recomputed.
             #   (S2) Update time index since solution will be recomputed.
             #   (S3) Decrease time step multiplying it by the recomputing factor < 1.
-            #   (S4) Increase counter that keeps track of the number of times the solution
-            #        was recomputed.
+            #   (S4) Increase counter that keeps track of the number of times the
+            #        solution was recomputed.
 
             # Note that iterations is not really used here. So, as long as
-            # recompute_solution = True and recomputation_attempts < max_recomp_attempts,
-            # the method is entirely agnostic to the number of iterations passed. This
-            # design choice was made to give more flexibility, in the sense that we are
-            # not limiting the recomputation criteria to _only_ reaching the maximum
-            # number of iterations, even though that is the primary intended usage.
+            # recompute_solution = True and recomputation_attempts <
+            # max_recomp_attempts, the method is entirely agnostic to the number of
+            # iterations passed. This design choice was made to give more flexibility,
+            # in the sense that we are not limiting the recomputation criteria to _only_
+            # reaching the maximum number of iterations, even though that is the primary
+            # intended usage.
             self.time -= self.dt  # (S1)
             self.time_index -= 1  # (S2)
             self.dt *= self.recomp_factor  # (S3)
@@ -561,7 +560,8 @@ class TimeManager:
                 )
                 print(msg)
         else:
-            # The solution did not converge AND recomputation attempts have been exhausted
+            # The solution did not converge AND recomputation attempts have been
+            # exhausted.
             msg = (
                 f"Solution did not converge after {self.recomp_max} recomputing "
                 "attempts."
