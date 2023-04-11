@@ -14,13 +14,17 @@ We consider two functional tests:
 """
 from __future__ import annotations
 
+import sys
 from collections import namedtuple
 
 import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.complete_setups.mandel_biot import (
+
+sys.path.append("../..")  # go to the examples level folder
+
+from examples.mandel_biot import (
     MandelSaveData,
     MandelSetup,
     mandel_fluid_constants,
