@@ -441,7 +441,8 @@ class TestTimeControl:
 
     def test_recomputed_solutions(self):
         """Test behaviour of the algorithm when the solution should be recomputed. Note
-        that this should be independent of the number of iterations that the user passes"""
+        that this should be independent of the number of iterations that the user passes
+        """
         time_manager = pp.TimeManager([0, 100], 2, recomp_factor=0.5)
         time_manager.time = 5
         time_manager.time_index = 13
@@ -462,7 +463,8 @@ class TestTimeControl:
 
     def test_recomputed_solution_with_calculated_dt_less_than_dt_min(self):
         """Test when a solution is recomputed and the calculated time step is less than
-        the minimum allowable time step, the time step is indeed the minimum time step"""
+        the minimum allowable time step, the time step is indeed the minimum time step
+        """
         time_manager = pp.TimeManager([0, 100], 0.15, recomp_factor=0.5)
         # Emulate the scenario where the solution must be recomputed
         time_manager.time = 5
@@ -486,12 +488,12 @@ class TestTimeControl:
         """An error should be raised when adaption based on recomputation is attempted with
         dt = dt_min"""
         time_manager = pp.TimeManager(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
-        # For these parameters, we have time_manager.dt = time_manager.dt_init = time_manager.dt_min_max[0]
-        # Attempting a recomputation should raise an error
+        # For these parameters, we have time_manager.dt = time_manager.dt_init =
+        # time_manager.dt_min_max[0] Attempting a recomputation should raise an error
         with pytest.raises(ValueError) as excinfo:
             msg = (
-                "Recomputation will not have any effect since the time step achieved its"
-                f"minimum admissible value -> dt = dt_min = {time_manager.dt}."
+                "Recomputation will not have any effect since the time step "
+                f"achieved its minimum admissible value -> dt = dt_min = {time_manager.dt}."
             )
             time_manager.compute_time_step(iterations=5, recompute_solution=True)
         assert time_manager._recomp_sol and (msg in str(excinfo.value))
@@ -508,8 +510,8 @@ class TestTimeControl:
 
     @pytest.mark.parametrize("iterations", [11, 100])
     def test_warning_iteration_is_greater_than_max_iter(self, iterations):
-        """Test if a warning is raised when the number of iterations passed to the method is
-        greater than max_iter and the solution is not recomputed"""
+        """Test if a warning is raised when the number of iterations passed to the
+        method is greater than max_iter and the solution is not recomputed"""
         time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10)
         warn_msg = (
             f"The given number of iterations '{iterations}' is larger than the maximum "
@@ -525,8 +527,10 @@ class TestTimeControl:
 
     @pytest.mark.parametrize("iterations", [1, 3, 5])
     def test_decreasing_time_step(self, iterations):
-        """Test if the time step decreases after the number of iterations is less or equal
-        than the lower endpoint of the optimal iteration range by its corresponding factor"""
+        """Test if the time step decreases after the number of iterations is less or
+        equal than the lower endpoint of the optimal iteration range by its
+        corresponding factor.
+        """
         time_manager = pp.TimeManager(
             [0, 100],
             2,
@@ -539,9 +543,9 @@ class TestTimeControl:
 
     @pytest.mark.parametrize("iterations", [9, 11, 13])
     def test_increasing_time_step(self, iterations):
-        """Test if the time step is restricted after the number of iterations is greater or
-        equal than the upper endpoint of the optimal iteration range by its corresponding
-        factor"""
+        """Test if the time step is restricted after the number of iterations is greater
+        or equal than the upper endpoint of the optimal iteration range by its
+        corresponding factor."""
         time_manager = pp.TimeManager(
             [0, 100],
             2,
