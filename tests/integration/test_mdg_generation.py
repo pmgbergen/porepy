@@ -6,8 +6,11 @@ Functionalities being tested:
 * Generation with/without fractures
 * Generation of meshes with type {"simplex", "cartesian", "tensor_grid"}
 * Generation of meshes with dimension {2,3}
+* Generation of simplicial DFN meshes with dimension {2, 3}
 
 """
+from __future__ import annotations
+
 from typing import List, Union
 
 import numpy as np
@@ -498,3 +501,96 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             )
             pp.create_mdg(grid_type, mesh_arguments, complex(1, 2))
         assert ref_msg in str(error_message.value)
+
+
+class TestMDGridGenerationWithoutDomains:
+    """Tests whether mdgs are correctly created in the absence of domains.
+
+    The known usage for such cases is meshing of DFNs.
+
+    """
+
+    @pytest.fixture(scope="class")
+    def line_fractures(self) -> list[list[pp.LineFracture]]:
+        f1 = pp.LineFracture(np.array([[0.5, 0.5], [0.25, 0.75]]))
+        f2 = pp.LineFracture(np.array([[0.25, 0.75], [0.5, 0.5]]))
+        return [[f1], [f1, f2]]
+
+    @pytest.fixture(scope="class")
+    def plane_fractures(self) -> list[list[pp.PlaneFracture]]:
+        f1 = pp.PlaneFracture(
+            np.array([[0, 0, 0, 0], [-2, 2, 2, -2], [-2, -2, 2, 2]])
+        )
+        f2 = pp.PlaneFracture(
+            np.array([[-2, -2, 2, 2], [0, 0, 0, 0], [-2, 2, 2, -2]])
+        )
+        return [[f1], [f1, f2]]
+
+    @pytest.mark.parametrize("fracs_idx", [0, 1])
+    def test_mdg_no_domain_in_2d(
+            self,
+            fracs_idx: int,
+            line_fractures: list[list[pp.LineFracture]],
+    ) -> None:
+        """Check if a mdg is correctly created when domain=None and dfn=True in 2d.
+
+        Parameters:
+            fracs_idx: Index to access the items of ``line_fractures``.
+            line_fractures: List (of length 2) of lists of line fractures. The first
+                item of the list corresponds to a list containing a single vertical
+                fracture. The second item of the list corresponds to a list
+                containing two intersecting line fractures.
+
+        """
+        fn = pp.create_fracture_network(fractures=line_fractures[fracs_idx])
+        mdg = pp.create_mdg(
+            grid_type="simplex",
+            meshing_args={"cell_size": 0.125},
+            fracture_network=fn,
+            **{"dfn": True},
+        )
+        if fracs_idx == 0:  # the case of a single line fracture
+            assert mdg.dim_max() == 1
+            assert mdg.dim_min() == 1
+            assert mdg.num_subdomains() == 1
+            assert mdg.num_interfaces() == 0
+        else:  # the case of two intersecting line fractures
+            assert mdg.dim_max() == 1
+            assert mdg.dim_min() == 0
+            assert mdg.num_subdomains() == 3
+            assert mdg.num_interfaces() == 2
+
+    @pytest.mark.parametrize("fracs_idx", [0, 1])
+    def test_mdg_no_domain_in_3d(
+            self,
+            fracs_idx: int,
+            plane_fractures: list[list[pp.PlaneFracture]],
+    ) -> None:
+        """Check if a mdg is correctly created when domain=None and dfn=True in 3d.
+
+        Parameters:
+            fracs_idx: Index to access the items of ``plane_fractures``.
+            plane_fractures: List (of length 2) of lists of plane fractures. The first
+                item of the list corresponds to a list containing a single vertical
+                plane fracture. The second item of the list corresponds to a list
+                containing two intersecting plane fractures.
+
+        """
+        fn = pp.create_fracture_network(fractures=plane_fractures[fracs_idx])
+        fn.impose_external_boundary()
+        mdg = pp.create_mdg(
+            grid_type="simplex",
+            meshing_args={"cell_size": 2.0},
+            fracture_network=fn,
+            **{"dfn": True},
+        )
+        if fracs_idx == 0:  # the case of a single plane fracture
+            assert mdg.dim_max() == 2
+            assert mdg.dim_min() == 2
+            assert mdg.num_subdomains() == 1
+            assert mdg.num_interfaces() == 0
+        else:  # the case of two intersecting plane fractures
+            assert mdg.dim_max() == 2
+            assert mdg.dim_min() == 1
+            assert mdg.num_subdomains() == 3
+            assert mdg.num_interfaces() == 2
