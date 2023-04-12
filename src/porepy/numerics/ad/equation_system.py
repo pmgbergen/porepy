@@ -123,7 +123,6 @@ class EquationSystem:
     """
 
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
-
         ### PUBLIC
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
@@ -1405,7 +1404,6 @@ class EquationSystem:
         # Equations represented by dict with restriction to grids: get target row
         # indices.
         elif isinstance(equation, dict):
-
             block: dict[str, None | np.ndarray] = dict()
             for equ, grids in equation.items():
                 # equ is an identifier of the equation (either a string or an operator)
@@ -1997,7 +1995,7 @@ def set_solution_values(
     solution_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
     additive: bool = False,
-) -> dict:
+) -> None:
     """Utility function for setting values to ``pp.TIME_STEP_SOLUTIONS`` and/or
     ``pp.ITERATE_SOLUTIONS`` in data dictionary.
 
