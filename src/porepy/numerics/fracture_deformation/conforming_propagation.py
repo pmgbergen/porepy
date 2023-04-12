@@ -38,9 +38,9 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import set_solution_values
 
 from .propagation_model import FracturePropagation
-from porepy.numerics.ad.equation_system import set_solution_values
 
 logger = logging.getLogger(__name__)
 
