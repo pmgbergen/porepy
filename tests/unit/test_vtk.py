@@ -22,6 +22,7 @@ from deepdiff import DeepDiff
 
 import porepy as pp
 from porepy.fracs.utils import pts_edges_to_linefractures
+from porepy.numerics.ad.equation_system import set_solution_values
 
 # Globally store location of reference files
 folder_reference = (
@@ -265,21 +266,33 @@ def test_mdg(setup):
 
     # Define data
     for sd, sd_data in mdg.subdomains(return_data=True):
-        pp.set_state(
-            sd_data,
-            {
-                "dummy_scalar": {0: np.ones(sd.num_cells) * sd.dim},
-                "dummy_vector": {0: np.ones((3, sd.num_cells)) * sd.dim},
-            },
+        set_solution_values(
+            name="dummy_scalar",
+            values=np.ones(sd.num_cells) * sd.dim,
+            data=sd_data,
+            solution_index=0,
+        )
+
+        set_solution_values(
+            name="dummy_vector",
+            values=np.ones((3, sd.num_cells)) * sd.dim,
+            data=sd_data,
+            solution_index=0,
         )
 
     for intf, intf_data in mdg.interfaces(return_data=True):
-        pp.set_state(
-            intf_data,
-            {
-                "dummy_scalar": {0: np.zeros(intf.num_cells)},
-                "unique_dummy_scalar": {0: np.zeros(intf.num_cells)},
-            },
+        set_solution_values(
+            name="dummy_scalar",
+            values=np.zeros(intf.num_cells),
+            data=intf_data,
+            solution_index=0,
+        )
+
+        set_solution_values(
+            name="unique_dummy_scalar",
+            values=np.zeros(intf.num_cells),
+            data=intf_data,
+            solution_index=0,
         )
 
     # Export data
@@ -359,21 +372,33 @@ def test_mdg_data_selection(setup):
 
     # Define data
     for sd, sd_data in mdg.subdomains(return_data=True):
-        pp.set_state(
-            sd_data,
-            {
-                "dummy_scalar": {0: np.ones(sd.num_cells) * sd.dim},
-                "dummy_vector": {0: np.ones((3, sd.num_cells)) * sd.dim},
-            },
+        set_solution_values(
+            name="dummy_scalar",
+            values=np.ones(sd.num_cells) * sd.dim,
+            data=sd_data,
+            solution_index=0,
+        )
+
+        set_solution_values(
+            name="dummy_vector",
+            values=np.ones((3, sd.num_cells)) * sd.dim,
+            data=sd_data,
+            solution_index=0,
         )
 
     for intf, intf_data in mdg.interfaces(return_data=True):
-        pp.set_state(
-            intf_data,
-            {
-                "dummy_scalar": {0: np.zeros(intf.num_cells)},
-                "unique_dummy_scalar": {0: np.zeros(intf.num_cells)},
-            },
+        set_solution_values(
+            name="dummy_scalar",
+            values=np.zeros(intf.num_cells),
+            data=intf_data,
+            solution_index=0,
+        )
+
+        set_solution_values(
+            name="unique_dummy_scalar",
+            values=np.zeros(intf.num_cells),
+            data=intf_data,
+            solution_index=0,
         )
 
     # Fetch separate subdomains
