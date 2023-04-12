@@ -1463,13 +1463,13 @@ class Variable(Operator):
         self.prev_time: bool = previous_timestep
         """Flag indicating if the variable represents the state at the previous time
         step.
-        
+
         """
 
         self.prev_iter: bool = previous_iteration
         """Flag indicating if the variable represents the state at the previous
         iteration.
-        
+
         """
 
         self.id: int = next(Variable._ids)
@@ -1622,13 +1622,13 @@ class MixedDimensionalVariable(Variable):
         self.prev_time: bool = False
         """Flag indicating if the variable represents the state at the previous time
         step.
-        
+
         """
 
         self.prev_iter: bool = False
         """Flag indicating if the variable represents the state at the previous
         iteration.
-        
+
         """
 
         self.original_variable: MixedDimensionalVariable
