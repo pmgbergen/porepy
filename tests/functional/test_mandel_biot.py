@@ -22,7 +22,8 @@ import pytest
 
 import porepy as pp
 
-sys.path.append("../..")  # go to the examples level folder
+# Append the top PorePy folder to the path, to allow for imports of the examples folder
+sys.path.append("../..")
 
 from examples.mandel_biot import (
     MandelSaveData,
