@@ -22,7 +22,7 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-from porepy.applications.building_blocks.verification_utils import VerificationUtils
+from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
