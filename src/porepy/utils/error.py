@@ -79,11 +79,11 @@ def grid_error(
             # TODO: If scaling is used, consider that - or use the export-ready variables,
             #   'u_exp', 'p_exp', etc.
             sol = (
-                solutions[var].reshape((var_dof, -1), order="F").T
+                solutions[var][0].reshape((var_dof, -1), order="F").T
             )  # (num_cells x var_dof)
             mapped_sol: np.ndarray = mapping.dot(sol)  # (num_cells x variable_dof)
             sol_ref = (
-                solutions_ref[var].reshape((var_dof, -1), order="F").T
+                solutions_ref[var][0].reshape((var_dof, -1), order="F").T
             )  # (num_cells x var_dof)
 
             # axis=0 gives component-wise norm.
