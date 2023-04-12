@@ -139,7 +139,6 @@ def test_pick_propagation_face_conforming_propagation(generate):
 
     # Loop over all propagation steps
     for step_target, step_angle in zip(targets, angles):
-
         # Map for faces to be split for all fracture grids
         propagation_map = {}
 
@@ -147,7 +146,6 @@ def test_pick_propagation_face_conforming_propagation(generate):
         for sd_frac, data_frac in mdg.subdomains(
             dim=mdg.dim_max() - 1, return_data=True
         ):
-
             # Data dictionaries
             intf = mdg.subdomain_pair_to_interface((sd_primary, sd_frac))
             intf_data = mdg.interface_data(intf)
@@ -558,7 +556,12 @@ class PropagationCriteria(unittest.TestCase):
         d_j = self.mdg.interface_data(intf)
         trace = np.abs(pp.fvutils.vector_divergence(self.sd_primary)).T
         u_j = intf.primary_to_mortar_avg(nd=self.nd) * trace * u_h
-        pp.set_iterate(d_j, {self.model.mortar_displacement_variable: {0: u_j}})
+        set_solution_values(
+            name=self.model.mortar_displacement_variable,
+            values=u_j,
+            data=d_j,
+            iterate_index=0,
+        )
 
         # Parameters used by the propagation class
         for g, d in self.mdg.subdomains(return_data=True):
@@ -832,7 +835,6 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
         # Loop over all propagation steps
         for i, split in enumerate(split_faces):
-
             # Propagate the fracture. This will also generate mappings from old to new
             # cells
             pp.propagate_fracture.propagate_fractures(mdg, split)

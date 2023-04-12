@@ -152,7 +152,7 @@ class Parameters(Dict):
         if dictionaries is None:
             dictionaries = [{} for _ in range(len(keywords))]
 
-        for (i, key) in enumerate(keywords):
+        for i, key in enumerate(keywords):
             if key in self:
                 self[key].update(dictionaries[i])
             else:
@@ -189,7 +189,7 @@ class Parameters(Dict):
             values (list): List of new values (bool, scalars, arrays etc.).
         """
         for kw in self.keys():
-            for (p, v) in zip(parameters, values):
+            for p, v in zip(parameters, values):
                 if p in self[kw]:
                     self[kw][p] = v
 
@@ -208,7 +208,7 @@ class Parameters(Dict):
                 in particular that the type and length of the new and old values agree,
                 see modify_variable.
         """
-        for (p, v) in zip(parameters, values):
+        for p, v in zip(parameters, values):
             modify_variable(self[keyword][p], v)
 
     def expand_scalars(
@@ -332,51 +332,6 @@ def initialize_data(
         data[pp.PARAMETERS].update_dictionaries([keyword], [specified_parameters])
     else:
         data[pp.PARAMETERS] = pp.Parameters(grid, [keyword], [specified_parameters])
-    return data
-
-
-def set_state(data: dict, state: Optional[dict] = None) -> dict:
-    """Initialize or update a time step solution dictionary.
-
-    The initialization consists of adding a time step solution dictionary in the proper
-    field of the data dictionary. If there is such a dictionary already present in
-    data, the new solution is added using the update method of dictionaries.
-
-    Args:
-        data (dict): Outer data dictionary, to which the parameters will be added.
-        state (dict, Optional): A dictionary with the solution, set to an empty
-            dictionary if not provided.
-
-    Returns:
-        dict: The filled dictionary.
-
-    """
-    state = state or {}
-    if pp.TIME_STEP_SOLUTIONS in data:
-        data[pp.TIME_STEP_SOLUTIONS].update(state)
-    else:
-        data[pp.TIME_STEP_SOLUTIONS] = state
-    return data
-
-
-def set_iterate(data: dict, iterate: Optional[dict] = None) -> dict:
-    """Initialize or update an iterate dictionary.
-
-    Same as set_state for subfield ``pp.ITERATE_SOLUTIONS``.
-
-    Args:
-        data (dict): Outer data dictionary, to which the parameters will be added.
-        iterate (dict, Optional): A dictionary with the iterates, set to an empty
-            dictionary if not provided.
-
-    Returns:
-        dict: The filled dictionary.
-    """
-    iterate = iterate or {}
-    if pp.ITERATE_SOLUTIONS in data:
-        data[pp.ITERATE_SOLUTIONS].update(iterate)
-    else:
-        data[pp.ITERATE_SOLUTIONS] = iterate
     return data
 
 
