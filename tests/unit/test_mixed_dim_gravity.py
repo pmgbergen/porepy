@@ -251,7 +251,6 @@ class TestMixedDimGravity(unittest.TestCase):
             return
 
         for intf in mdg.interfaces():
-
             new_side_grids = {
                 s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
                 for s, g in intf.side_grids.items()
@@ -501,7 +500,6 @@ class TestMixedDimGravity(unittest.TestCase):
     # --3d section. See analogous methods/tests above for documentation --#
 
     def set_grids_3d(self, num_fracs=1):
-
         domain = pp.Domain(
             {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
         )
