@@ -293,8 +293,7 @@ class Operator:
             # How to access the array of (Ad representation of) states depends on
             # whether this is a single or combined variable; see self.__init__,
             # definition of self._variable_ids.
-            # TODO: no difference between merged or no
-            # mixed-dimensional variables!?
+            # TODO: no difference between merged or no mixed-dimensional variables!?
             if isinstance(op, pp.ad.MixedDimensionalVariable) or isinstance(
                 op, MixedDimensionalVariable
             ):
@@ -1518,8 +1517,8 @@ class Variable(Operator):
             # This is a mortar grid. Assume that there are only cell dofs
             return self.domain.num_cells * self._cells
         else:
-            # We now know the domain is a grid by logic, make an assertion to appease
-            # mypy
+            # We now know the domain is a subdomain grid by logic, make an assertion
+            # to appease mypy.
             return (
                 self.domain.num_cells * self._cells
                 + self.domain.num_faces * self._faces
@@ -1662,10 +1661,10 @@ class MixedDimensionalVariable(Variable):
         self.copy_common_sub_tags()
 
     def copy_common_sub_tags(self) -> None:
-        """Copy any shared tags from the sub variables to this variable.
+        """Copy any shared tags from the sub-variables to this variable.
 
         Only tags with identical values are copied. Thus, the md variable can "trust"
-        that its tags are consistent with all sub variables.
+        that its tags are consistent with all sub-variables.
 
         """
         self._tags = {}
