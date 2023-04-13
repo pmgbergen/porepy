@@ -499,8 +499,8 @@ class SolutionStrategy(abc.ABC):
         Parameters:
             initial: If True, the array generating method is called for both the
                 stored time steps and the stored iterates. If False, the array
-                generating method is called only for the iterate, and the solution is
-                updated by copying the iterate.
+                generating method is called only for the iterate, and the time
+                step solution is updated by copying the iterate.
 
         """
         pass

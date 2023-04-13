@@ -675,7 +675,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
         # External sources are retrieved from SOLUTIONS and wrapped as an
-        # AdArray
+        # AdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
             subdomains=self.mdg.subdomains(),
