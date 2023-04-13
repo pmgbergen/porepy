@@ -752,16 +752,17 @@ class Exporter:
         )
         file_exists: bool = pvd_file.exists()
 
-        # Fix the footer - standard for vtu/pvd files.
-        footer = "</Collection>\n" + "</VTKFile>"
-
         # Define the header - either copy paste from availble previous output, or define
         # hardcoded header.
         if file_exists and append:
+
+            # Strategy: Continue writing available pvd file by first copying all content
+            # until the restart time, here altogether defined as header.
+
             o_file = open(pvd_file if from_pvd_file is None else from_pvd_file, "r")
             # NOTE: It is strictly assumed that the considered pvd file is originating
             # from this very same method, i.e., it finishes with the final two lines:
-            # "</Collection>\n" + "</VTKFile>"
+            # "</Collection>\n" + "</VTKFile>" (see below)
             # Before appending new data, remove these last two lines from the pvd file.
             previous_content = o_file.readlines()
             o_file.close()
@@ -771,7 +772,7 @@ class Exporter:
 
         else:
 
-            # Define hardcoded header
+            # Start writing a new pvd file. Define hardcoded header.
             b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
             c = ' compressor="vtkZLibDataCompressor"'
             header = (
@@ -780,6 +781,10 @@ class Exporter:
                 + 'byte_order="%s"%s>\n' % (b, c)
                 + "<Collection>\n"
             )
+
+        # Fix the footer - standard for vtu/pvd files and compatible with the XML style
+        # of the header.
+        footer = "</Collection>\n" + "</VTKFile>"
 
         # Open the file and write the header to file
         o_file = open(pvd_file, "w")
