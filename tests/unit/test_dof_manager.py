@@ -32,9 +32,9 @@ def test_get_variable_values() -> None:
             name="test_var",
             values=np.full(sd.num_cells, 0.0),
             data=data,
-            solution_index=0,
+            time_step_index=0,
         )
     dof_manager = pp.DofManager(mdg)
 
-    variable_values = dof_manager.get_variable_values(solution_index=0)
+    variable_values = dof_manager.get_variable_values(time_step_index=0)
     assert np.all(variable_values == np.full(mdg.subdomains()[0].num_cells, 0.0))

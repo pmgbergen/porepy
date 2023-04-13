@@ -127,7 +127,7 @@ def test_linear_pressure(fluid_vals, solid_vals):
     for sd in setup.mdg.subdomains():
         var = setup.equation_system.get_variables(["pressure"], [sd])
         vals = setup.equation_system.get_variable_values(
-            variables=var, solution_index=0
+            variables=var, time_step_index=0
         )
         assert np.allclose(
             vals, 1 - sd.cell_centers[0] / setup.domain.bounding_box["xmax"]

@@ -540,24 +540,26 @@ class EquationSystem:
     def get_variable_values(
         self,
         variables: Optional[VariableList] = None,
-        solution_index: Optional[int] = None,
+        time_step_index: Optional[int] = None,
         iterate_index: Optional[int] = None,
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
         The gathered values will be the variable values corresponding to the storage
-        index specified by the user. The global order is preserved and independent of
-        the order of the argument.
+        index specified by the user. Note that if both ``time_step_index`` and
+        ``iterate_index`` is specified, only the iterate solution values will be
+        gathered. The global order is preserved and independent of the order of the
+        argument.
 
         Parameters:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
-            solution_index: Specified by user if they want to gather variable values
+            time_step_index: Specified by user if they want to gather variable values
                 from a specific time-step. Value 0 (default) provides the most recent
                 time-step. A value of 1 will give the values of one time-step back in
                 time.
             iterate_index: Specified by user if they want to gather a specific set of
-                iterate values. Similar to ``solution_index``, value 0 is the
+                iterate values. Similar to ``time_step_index``, value 0 is the
                 default value and gives the most recent iterate.
 
         Returns:
@@ -565,16 +567,16 @@ class EquationSystem:
                 :meth:`num_dofs`.
 
         Raises:
-            ValueError: If a non-None value has not been assigned to either
-            solution_index or iterate_index.
+            ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
+            assigned a non-None value.
             KeyError: If no values are stored for the VariableType input.
             ValueError: If unknown VariableType arguments are passed.
 
         """
-        if solution_index is None and iterate_index is None:
+        if time_step_index is None and iterate_index is None:
             raise ValueError(
-                "At least one of solution_index and iterate_index needs to be different"
-                " from None"
+                "Either time_step_index or iterate_index needs to be different from"
+                "None"
             )
 
         variables = self._parse_variable_type(variables)
@@ -598,9 +600,9 @@ class EquationSystem:
                             data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
                         )
 
-                    elif solution_index is not None:
+                    elif time_step_index is not None:
                         values.append(
-                            data[pp.TIME_STEP_SOLUTIONS][name][solution_index].copy()
+                            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
                         )
 
                 except KeyError:
@@ -619,7 +621,7 @@ class EquationSystem:
         self,
         values: np.ndarray,
         variables: Optional[VariableList] = None,
-        solution_index: Optional[int] = None,
+        time_step_index: Optional[int] = None,
         iterate_index: Optional[int] = None,
         additive: bool = False,
     ) -> None:
@@ -627,8 +629,8 @@ class EquationSystem:
 
         The order of values is assumed to fit the global order. Handles storing of both
         the time step and iterate solutions. ``values`` will be stored at the
-        ``solution_index``/``iterate_index`` of the user's choosing. Values can be set
-        to both the solution and iterate index at the same time.
+        ``time_step_index``/``iterate_index`` of the user's choosing. Values can be set
+        to both the time step and iterate index at the same time.
 
         Note:
             The vector is assumed to be of proper size and will be dissected according
@@ -642,7 +644,7 @@ class EquationSystem:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns will be
                 set.
-            solution_index: Several solutions might be stored in the data dictionary.
+            time_step_index: Several solutions might be stored in the data dictionary.
                 This parameter determines which one of these is to be overwritten/added
                 to (depends on ``additive``). If ``None``, the values will not be
                 stored to ``stored_solutions``.
@@ -654,9 +656,16 @@ class EquationSystem:
                 iterative procedures.
 
         Raises:
+            ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
+            assigned a non-None value.
             ValueError: If unknown VariableType arguments are passed.
 
         """
+        if time_step_index is None and iterate_index is None:
+            raise ValueError(
+                "At least one of time_step_index and iterate_index needs to be"
+                "different from None"
+            )
 
         # Start of dissection.
         dof_start = 0
@@ -683,8 +692,8 @@ class EquationSystem:
                     if iterate_index is not None:
                         data[pp.ITERATE_SOLUTIONS][name][iterate_index] += local_vec
 
-                    if solution_index is not None:
-                        data[pp.TIME_STEP_SOLUTIONS][name][solution_index] += local_vec
+                    if time_step_index is not None:
+                        data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += local_vec
 
                 else:
                     if iterate_index is not None:
@@ -693,10 +702,10 @@ class EquationSystem:
                             iterate_index
                         ] = local_vec.copy()
 
-                    if solution_index is not None:
+                    if time_step_index is not None:
                         # The copy is critcial here.
                         data[pp.TIME_STEP_SOLUTIONS][name][
-                            solution_index
+                            time_step_index
                         ] = local_vec.copy()
 
                 # Move dissection forward.
@@ -1933,7 +1942,7 @@ def set_solution_values(
     name: str,
     values: np.ndarray,
     data: dict,
-    solution_index: Optional[int] = None,
+    time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
     additive: bool = False,
 ) -> None:
@@ -1944,7 +1953,7 @@ def set_solution_values(
         name: Name of the quantity that is to be assigned values.
         values: The values that are set in the data dictionary.
         data: Data dictionary corresponding to the subdomain in question.
-        solution_index (optional): Determines the key of where ``values`` are to be
+        time_step_index (optional): Determines the key of where ``values`` are to be
             stored in ``data[pp.TIME_STEP_SOLUTIONS][name]``. 0 means it is the most
             recent set of values, 1 means the one time step back in time, 2 is two time
             steps back, and so on.
@@ -1955,14 +1964,24 @@ def set_solution_values(
         additive: Flag to decide whether the values already stored in the data
             dictionary should be added to or overwritten.
 
+    Raises:
+        ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
+        assigned a non-None value.
+
     """
+    if time_step_index is None and iterate_index is None:
+        raise ValueError(
+            "At least one of time_step_index and iterate_index needs to be"
+            "different from None"
+        )
+
     if not additive:
-        if solution_index is not None:
+        if time_step_index is not None:
             if pp.TIME_STEP_SOLUTIONS not in data:
                 data[pp.TIME_STEP_SOLUTIONS] = {}
             if name not in data[pp.TIME_STEP_SOLUTIONS]:
                 data[pp.TIME_STEP_SOLUTIONS][name] = {}
-            data[pp.TIME_STEP_SOLUTIONS][name][solution_index] = values.copy()
+            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] = values.copy()
 
         if iterate_index is not None:
             if pp.ITERATE_SOLUTIONS not in data:
@@ -1971,12 +1990,12 @@ def set_solution_values(
                 data[pp.ITERATE_SOLUTIONS][name] = {}
             data[pp.ITERATE_SOLUTIONS][name][iterate_index] = values.copy()
     else:
-        if solution_index is not None:
+        if time_step_index is not None:
             if pp.TIME_STEP_SOLUTIONS not in data:
                 data[pp.TIME_STEP_SOLUTIONS] = {}
             if name not in data[pp.TIME_STEP_SOLUTIONS]:
                 data[pp.TIME_STEP_SOLUTIONS][name] = {}
-            data[pp.TIME_STEP_SOLUTIONS][name][solution_index] += values
+            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += values
 
         if iterate_index is not None:
             if pp.ITERATE_SOLUTIONS not in data:

@@ -708,7 +708,7 @@ class Operator:
         # derivatives represented). Then parse the operator by traversing its
         # tree-representation, and parse and combine individual operators.
 
-        prev_vals = system_manager.get_variable_values(solution_index=0)
+        prev_vals = system_manager.get_variable_values(time_step_index=0)
 
         if state is None:
             state = system_manager.get_variable_values(iterate_index=0)

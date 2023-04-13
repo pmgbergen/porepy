@@ -76,7 +76,6 @@ def make_grid(grid, grid_dims, domain):
 
 class TestMPFAgravity(unittest.TestCase):
     def test_hydrostatic_pressure_1D(self):
-
         # Test mpfa_gravity in 1D grid
         # Solver uses TPFA + standard method
         # Should be exact for hydrostatic pressure
@@ -130,7 +129,6 @@ class TestMPFAgravity(unittest.TestCase):
         self.assertTrue(np.allclose(q, q_ex))
 
     def test_hydrostatic_pressure(self):
-
         # Test mpfa_gravity in 2D Cartesian
         # and triangular grids
         # Should be exact for hydrostatic pressure
@@ -148,7 +146,6 @@ class TestMPFAgravity(unittest.TestCase):
         an_sol = _SolutionHomogeneousDomainFlowWithGravity(p, x, y)
 
         for gr in grids:
-
             domain = np.array([1, 1])
             basedim = np.array([4, 4])
             pert = 0.5
@@ -628,7 +625,7 @@ class TiltedGrids(unittest.TestCase):
         self.assertTrue(np.allclose(p_x[0], p_x[2]))
         self.assertTrue(np.allclose(p_x[1], p_x[3]))
 
-        set_solution_values(name="pressure", values=p_x, data=data, solution_index=0)
+        set_solution_values(name="pressure", values=p_x, data=data, time_step_index=0)
         pp.fvutils.compute_darcy_flux(g, data=data)
 
 

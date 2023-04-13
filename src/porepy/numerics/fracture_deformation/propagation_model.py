@@ -121,7 +121,7 @@ class FracturePropagation(abc.ABC):
         for now returns zeros, but can be tailored for specific variables etc.
 
         Assumes only one stored time step vector, i.e.:
-        solution indexes = iterate indexes = [0].
+        time step indexes = iterate indexes = [0].
 
         Parameters:
             x: Solution vector, or other vector to be mapped.
@@ -136,7 +136,6 @@ class FracturePropagation(abc.ABC):
         # Obtain old solution vector. The values are extracted in the first two loops
         # and mapped and updated in the last two, after update_dof_count has been called.
         for sd, data in self.mdg.subdomains(return_data=True):
-
             # First check if cells and faces have been updated, by checking if index
             # maps are available. If this is not the case, there is no need to map
             # variables.
@@ -176,7 +175,7 @@ class FracturePropagation(abc.ABC):
                     values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
-                    set_solution_values(var, values, data, solution_index=ind)
+                    set_solution_values(var, values, data, time_step_index=ind)
 
                 # Repeat for iterate:
                 for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
@@ -186,7 +185,6 @@ class FracturePropagation(abc.ABC):
                     set_solution_values(var, values, data, iterate_index=ind)
 
         for intf, data in self.mdg.interfaces(return_data=True):
-
             # Check if the mortar grid geometry has been updated.
             if "cell_index_map" not in data:
                 # No need to do anything
@@ -216,7 +214,7 @@ class FracturePropagation(abc.ABC):
                     values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
-                    set_solution_values(var, values, data, solution_index=ind)
+                    set_solution_values(var, values, data, time_step_index=ind)
 
                 # Repeat for iterate.
                 for ind in data[pp.ITERATE_SOLUTIONS][var].keys():

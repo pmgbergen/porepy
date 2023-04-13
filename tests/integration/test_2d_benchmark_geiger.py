@@ -52,14 +52,14 @@ class TestVEMOnBenchmark(unittest.TestCase):
                 name="darcy_flux",
                 values=darcy_flux_values,
                 data=sd_data,
-                solution_index=0,
+                time_step_index=0,
             )
 
             pressure_values = sd_data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 sd.num_faces :
             ]
             set_solution_values(
-                name="pressure", values=pressure_values, data=sd_data, solution_index=0
+                name="pressure", values=pressure_values, data=sd_data, time_step_index=0
             )
 
     def test_vem_blocking(self):

@@ -55,20 +55,19 @@ class NonzeroFractureGapPoromechanics:
         self.equation_system.set_variable_values(
             self.fluid.pressure() * np.ones(self.mdg.num_subdomain_cells()),
             [self.pressure_variable],
-            solution_index=0,
+            time_step_index=0,
             iterate_index=0,
         )
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
-
             top_cells = sd.cell_centers[1] > 0.5
             vals = np.zeros((self.nd, sd.num_cells))
             vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.displacement_variable],
-                solution_index=0,
+                time_step_index=0,
                 iterate_index=0,
             )
             # Find mortar cells on the top boundary
@@ -93,7 +92,7 @@ class NonzeroFractureGapPoromechanics:
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.interface_displacement_variable],
-                solution_index=0,
+                time_step_index=0,
                 iterate_index=0,
             )
 
@@ -214,20 +213,20 @@ def get_variables(
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
     u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
     u_vals = setup.equation_system.get_variable_values(
-        variables=u_var, solution_index=0
+        variables=u_var, time_step_index=0
     ).reshape(setup.nd, -1, order="F")
 
     p_var = setup.equation_system.get_variables(
         [setup.pressure_variable], setup.mdg.subdomains()
     )
     p_vals = setup.equation_system.get_variable_values(
-        variables=p_var, solution_index=0
+        variables=p_var, time_step_index=0
     )
     p_var = setup.equation_system.get_variables(
         [setup.pressure_variable], setup.mdg.subdomains(dim=setup.nd - 1)
     )
     p_frac = setup.equation_system.get_variable_values(
-        variables=p_var, solution_index=0
+        variables=p_var, time_step_index=0
     )
     # Fracture
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
@@ -274,7 +273,6 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     bottom = sd_nd.cell_centers[1] < 0.5
     tol = 1e-10
     if np.isclose(north_displacement, 0.0):
-
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
         assert np.allclose(u_vals[0, top], 0)
@@ -334,7 +332,6 @@ def test_poromechanics_model_no_modification():
 
 @pytest.mark.parametrize("biot_coefficient", [0, 0.5])
 def test_without_fracture(biot_coefficient):
-
     fluid = pp.FluidConstants(constants={"compressibility": 0.5})
     solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
     params = {
@@ -416,7 +413,6 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-
     setup = create_fractured_setup({}, {}, -0.001)
     pp.run_time_dependent_model(setup, {})
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
@@ -432,7 +428,6 @@ def test_push_north_zero_opening():
 
 
 def test_positive_p_frac_positive_opening():
-
     setup = create_fractured_setup({}, {}, 0)
     setup.params["fracture_source_value"] = 0.001
     pp.run_time_dependent_model(setup, {})
