@@ -369,9 +369,6 @@ class TimeManager:
         # Time index
         self.time_index: int = 0
 
-        self.is_init: bool = True
-        """Flag detecting whether the current time corresponds to the initial time."""
-
         # Private attributes
         # Number of times the solution has been recomputed
         self._recomp_num: int = 0
@@ -458,7 +455,6 @@ class TimeManager:
     def increase_time(self) -> None:
         """Increase simulation time by the current time step."""
         self.time += self.dt
-        self.is_init = False
 
     def increase_time_index(self) -> None:
         """Increase time index counter by one."""
@@ -726,8 +722,6 @@ class TimeManager:
 
         self.time = self.time_history[time_index]
         self.dt = self.dt_history[time_index]
-        if time_index != 0 and len(self.time_history) != 1:
-            self.is_init = False
 
         self.time_history = self.time_history[:time_index]
         self.dt_history = self.dt_history[:time_index]
