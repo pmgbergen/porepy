@@ -514,16 +514,18 @@ def test_set_get_methods(
 ):
     """Test the set and get methods of the EquationSystem class.
 
-    The test is performed for a number of different combinations of variables.
+    The test is performed for a number of different combinations of variables. The set
+    and get methods are also tested together with the shift_time_step_values and
+    shift_iterate_values methods which are used for handling multiple stored solutions.
 
-    Values are assigned to pp.ITERATE_SOLUTIONS or pp.TIME_STEP_SOLUTIONS, and then
-    retrieved.
+    Values are assigned to ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS``, and
+    then retrieved.
 
-    NOTE: Setting to ``````pp.TIME_STEP_SOLUTIONS`` has not been parametrized, since
-    this would double the number of tests, and since the asymmetry between the get and
-    set methods (set can set to`````` pp.TIME_STEP_SOLUTIONS`` and/or
-    ``pp.ITERATE_SOLUTIONS,`` get can only get from one of them) requires some special
-    handling in the test; see below.
+    NOTE: Setting to ``pp.TIME_STEP_SOLUTIONS`` has not been parametrized, since this
+    would double the number of tests, and since the asymmetry between the get and set
+    methods (set can set to ``pp.TIME_STEP_SOLUTIONS`` and/or ``pp.ITERATE_SOLUTIONS,``
+    get can only get from one of them) requires some special handling in the test; see
+    below.
 
     Both setting and adding values are tested.
 
@@ -618,8 +620,7 @@ def test_set_get_methods(
         # This was fetched from stored time step solutions, which still has new_vals
         assert np.allclose(new_vals, retrieved_vals3)
 
-    # And finally set to time step solutions, with additive=True. This should double the
-    # retrieved
+    # Set to time step solutions, with additive=True. This should double the retrieved
     if iterate:
         sys_man.set_variable_values(
             new_vals, variables, iterate_index=0, solution_index=0, additive=True
@@ -632,8 +633,9 @@ def test_set_get_methods(
     assert np.allclose(2 * new_vals, retrieved_vals_state_3)
 
     # Test storage of multiple values of time step and iterate solutions from here and
-    # down. In practice this means checking the functionality of shifting dictionary
-    # values and then set the most recent time step/iterate value works as expected.
+    # down. In practice this means checking that the functionality of shifting
+    # dictionary values and then set the most recent time step/iterate value works as
+    # expected.
 
     # Building a few solution vectors and defining the desired solution indices
     vals0 = vals
@@ -680,17 +682,18 @@ def test_set_get_methods(
     retrieved_shift_ind_vals1 = sys_man.get_variable_values(variables, solution_index=1)
     retrieved_shift_ind_vals2 = sys_man.get_variable_values(variables, solution_index=2)
 
-    # Since additive = True, the values of key 0 should be twice the size of what it was
+    # Since additive = True, the values of key 0 should be twice the size of what they
+    # were.
     assert np.allclose(vals0 * 2, retrieved_shift_ind_vals0)
     assert np.allclose(vals0, retrieved_shift_ind_vals1)
     assert np.allclose(vals1, retrieved_shift_ind_vals2)
 
-    # Test to set value at a non-zero storage index
-    sys_man.set_variable_values(values=vals2 * 2, variables=variables, solution_index=2)
+    # Finally test setting and getting values at a non-zero storage index
+    sys_man.set_variable_values(values=vals2, variables=variables, solution_index=2)
 
     retrieved_set_ind_vals2 = sys_man.get_variable_values(variables, solution_index=2)
 
-    assert np.allclose(retrieved_set_ind_vals2, vals2 * 2)
+    assert np.allclose(retrieved_set_ind_vals2, vals2)
 
 
 @pytest.mark.parametrize(
@@ -732,7 +735,6 @@ def test_projection_matrix(setup, var_names):
 
 
 def test_set_remove_equations(setup):
-
     sys_man = setup.sys_man
 
     dof_info_subdomain = {"cells": 1}
