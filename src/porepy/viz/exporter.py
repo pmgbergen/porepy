@@ -717,6 +717,9 @@ class Exporter:
         # A pvd file mainly consists of three parts: header, main body, and footer.
         # The former and latter are hardcoded, while the main body contains the relevant
         # data (vtu files and time step) and is defined by traversing exported data.
+        # Comment on the latter: Meshio only takes over vtu files. pvd files need to be
+        # written in the following hardcoded manner. This has seemed to work for a while
+        # now. The hardcoded style is exploited in importing routines.
 
         if times is None:
             times = np.array(self._exported_timesteps)
