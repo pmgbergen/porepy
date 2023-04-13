@@ -217,7 +217,7 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
                     name=self.bc_values_mechanics_key,
                     values=vals,
                     data=data,
-                    solution_index=0,
+                    time_step_index=0,
                 )
             else:
                 # Copy old values from iterate to the solution.
@@ -226,7 +226,7 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
                     name=self.bc_values_mechanics_key,
                     values=vals,
                     data=data,
-                    solution_index=0,
+                    time_step_index=0,
                 )
 
             vals = self.time_dependent_bc_values_mechanics([sd])

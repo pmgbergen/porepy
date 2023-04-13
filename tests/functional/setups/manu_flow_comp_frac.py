@@ -328,7 +328,7 @@ class ManuCompExactSolution:
 
         # Cell-centered pressures
         p_cc = np.zeros(sd_matrix.num_cells)
-        for (p, idx) in zip(p_fun, cell_idx):
+        for p, idx in zip(p_fun, cell_idx):
             p_cc += p(cc[0], cc[1], time) * idx
 
         return p_cc
@@ -373,7 +373,7 @@ class ManuCompExactSolution:
         # Face-centered Darcy fluxes
         fn = sd_matrix.face_normals
         q_fc = np.zeros(sd_matrix.num_faces)
-        for (q, idx) in zip(q_fun, face_idx):
+        for q, idx in zip(q_fun, face_idx):
             q_fc += (
                 q[0](fc[0], fc[1], time) * fn[0] + q[1](fc[0], fc[1], time) * fn[1]
             ) * idx
@@ -428,7 +428,7 @@ class ManuCompExactSolution:
         # Integrated cell-centered sources
         vol = sd_matrix.cell_volumes
         f_cc = np.zeros(sd_matrix.num_cells)
-        for (f, idx) in zip(f_fun, cell_idx):
+        for f, idx in zip(f_fun, cell_idx):
             f_cc += f(cc[0], cc[1], time) * vol * idx
 
         return f_cc
@@ -576,7 +576,7 @@ class ManuCompExactSolution:
 
         # Boundary pressures
         p_bf = np.zeros(sd_matrix.num_faces)
-        for (p, idx) in zip(p_fun, face_idx):
+        for p, idx in zip(p_fun, face_idx):
             p_bf[bc_faces] += p(fc[0], fc[1], time)[bc_faces] * idx[bc_faces]
 
         return p_bf
@@ -611,7 +611,7 @@ class ManuCompExactSolution:
 
         # Boundary pressures
         rho_bf = np.zeros(sd_matrix.num_faces)
-        for (rho, idx) in zip(rho_fun, face_idx):
+        for rho, idx in zip(rho_fun, face_idx):
             rho_bf[bc_faces] += rho(fc[0], fc[1], time)[bc_faces] * idx[bc_faces]
 
         return rho_bf
@@ -764,7 +764,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
             name="external_sources",
             values=matrix_source,
             data=data_matrix,
-            solution_index=0,
+            time_step_index=0,
         )
 
         frac_source = self.exact_sol.fracture_source(sd_frac, t)
@@ -773,7 +773,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
             name="external_sources",
             values=frac_source,
             data=data_frac,
-            solution_index=0,
+            time_step_index=0,
         )
 
         # Boundary conditions for the elliptic discretization
@@ -783,13 +783,13 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
             name="darcy_bc_values",
             values=matrix_pressure_boundary,
             data=data_matrix,
-            solution_index=0,
+            time_step_index=0,
         )
         set_solution_values(
             name="darcy_bc_values",
             values=np.zeros(sd_frac.num_faces),
             data=data_frac,
-            solution_index=0,
+            time_step_index=0,
         )
 
         # Boundary conditions for the upwind discretization
@@ -801,14 +801,14 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
             name="mobrho_bc_values",
             values=matrix_mobrho,
             data=data_matrix,
-            solution_index=0,
+            time_step_index=0,
         )
 
         set_solution_values(
             name="mobrho_bc_values",
             values=np.zeros(sd_frac.num_faces),
             data=data_frac,
-            solution_index=0,
+            time_step_index=0,
         )
 
     def after_simulation(self) -> None:

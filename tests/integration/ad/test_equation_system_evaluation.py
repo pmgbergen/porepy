@@ -29,7 +29,7 @@ def setup():
         vals_sol = np.ones([sd.num_cells])
         vals_it = 2 * np.ones([sd.num_cells])
 
-        set_solution_values(name=var_name, values=vals_sol, data=d, solution_index=0)
+        set_solution_values(name=var_name, values=vals_sol, data=d, time_step_index=0)
         set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=0)
 
     return eq_system
@@ -54,7 +54,6 @@ def test_evaluate_variables():
     # In the below checks, the anticipated value of the variables is based on the
     # values assigned in the setup method.
     for var in [single_variable, md_variable]:
-
         # First evaluate the variable. This should give the iterate value.
         val = var.evaluate(eq_system)
         assert isinstance(val, pp.ad.AdArray)

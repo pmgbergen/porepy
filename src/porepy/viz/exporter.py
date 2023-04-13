@@ -280,7 +280,6 @@ class Exporter:
         # 2. Check whether the vtu file is compatible with the corresponding grids.
         # 3. Transfer data from vtu to the mixed-dimensional grid.
         for i, file_name in enumerate(file_names):
-
             # Read all data from vtu
             vtu_data = meshio.read(file_name)
 
@@ -352,7 +351,6 @@ class Exporter:
             assert np.all(np.isclose(meshio_geometry.pts, vtu_data.points))
 
             for i, connectivity in enumerate(meshio_geometry.connectivity):
-
                 # Make sure that the connectivity patterns are identical
                 assert (
                     DeepDiff(
@@ -367,11 +365,9 @@ class Exporter:
 
             # 3rd step: Transfer data. Consider each key separately.
             for key in keys:
-
                 # Only continue if the key is present in the data
                 # IMPLEMENTATION NOTE: To also consider node data, add an else below.
                 if key in vtu_data.cell_data:
-
                     # Data is stored in a list with each element storing data for one
                     # specific cell type (most relevant for polygonal and polyhedral
                     # grids). Accumulate the data again, assuming the same
@@ -388,7 +384,7 @@ class Exporter:
                                 value[offset : offset + sd.num_cells], sd
                             )
                             set_solution_values(
-                                name=key, values=values, data=sd_data, solution_index=0
+                                name=key, values=values, data=sd_data, time_step_index=0
                             )
 
                             offset += sd.num_cells
@@ -403,7 +399,7 @@ class Exporter:
                                 name=key,
                                 values=values,
                                 data=intf_data,
-                                solution_index=0,
+                                time_step_index=0,
                             )
 
                             offset += intf.num_cells
@@ -800,7 +796,6 @@ class Exporter:
 
             # Only continue in case data is of type str
             if isinstance(data_pt, str):
-
                 # Identify the key provided through the data.
                 key = data_pt
 
@@ -885,7 +880,6 @@ class Exporter:
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_subdomains_str:
-
                 # By construction, the components are a list of grids and a key.
                 subdomains: list[pp.Grid] = data_pt[0]
                 key = data_pt[1]
@@ -893,7 +887,6 @@ class Exporter:
                 # Loop over grids and fetch the time step solutions corresponding to the
                 # key
                 for sd in subdomains:
-
                     # Fetch the data dictionary containing the data value
                     sd_data = self._mdg.subdomain_data(sd)
 
@@ -958,7 +951,6 @@ class Exporter:
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_interfaces_str:
-
                 # By construction, the components are a list of interfaces and a key.
                 interfaces: list[pp.MortarGrid] = data_pt[0]
                 key = data_pt[1]
@@ -966,7 +958,6 @@ class Exporter:
                 # Loop over interfaces and fetch the time step solutions corresponding
                 # to the key
                 for intf in interfaces:
-
                     # Fetch the data dictionary containing the data value
                     intf_data = self._mdg.interface_data(intf)
 
@@ -1028,7 +1019,6 @@ class Exporter:
 
             # Convert data to unique format and update the subdomain data dictionary.
             if isinstance_tuple_subdomain_str_array:
-
                 # Interpret (sd, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 sd = data_pt[0]
                 key = data_pt[1]
@@ -1123,7 +1113,6 @@ class Exporter:
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_str_array:
-
                 # Fetch the correct grid. This option is only supported for
                 # mixed-dimensional grids containing a single subdomain.
                 subdomains = self._mdg.subdomains()
@@ -1181,13 +1170,11 @@ class Exporter:
         # are used. The final format uses (subdomain/interface,key) as key of
         # the dictionaries, and the value is given by the corresponding data.
         for data_pt in data:
-
             # Initialize tag storing whether the conversion process for data_pt is
             # successful.
             success = False
 
             for method in methods:
-
                 # Check whether data point of right type and convert to
                 # the unique data type.
                 subdomain_data, interface_data, success = method(
@@ -1248,7 +1235,6 @@ class Exporter:
 
         # Add mesh related, constant interface data by direct assignment.
         for intf, intf_data in self._mdg.interfaces(return_data=True, codim=1):
-
             # Construct empty arrays for all extra interface data
             self._constant_interface_data[(intf, "grid_dim")] = np.empty(0, dtype=int)
             self._constant_interface_data[(intf, "cell_id")] = np.empty(0, dtype=int)
@@ -1440,7 +1426,6 @@ class Exporter:
         # these here. The procedure is similar to the above, but the file names
         # incl. the relevant time step have to be adjusted.
         if self._export_constants_separately:
-
             # Constant subdomain data.
             for dim in self._dims:
                 if (
@@ -1585,7 +1570,7 @@ class Exporter:
 
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
-        for (cell_type, cell_block) in cell_to_nodes.items():
+        for cell_type, cell_block in cell_to_nodes.items():
             meshio_cells.append(meshio.CellBlock(cell_type, cell_block.astype(int)))
             meshio_cell_id.append(np.array(cell_id[cell_type]))
 
@@ -1666,7 +1651,6 @@ class Exporter:
 
         # Loop over all 2d grids
         for grid in grids:
-
             # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T * self._length_scale
@@ -1677,7 +1661,6 @@ class Exporter:
             # Loop over all available cell types and group cells of one type.
             g_cell_map = dict()
             for n in np.unique(num_nodes_per_cell):
-
                 # Define cell type; check if it coincides with a predefined cell type
                 cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
 
@@ -1696,7 +1679,6 @@ class Exporter:
             # Treat triangle, quad and polygonal cells differently
             # aiming for optimized performance.
             for n in np.unique(num_nodes_per_cell):
-
                 # Define the cell type
                 cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
 
@@ -1707,7 +1689,6 @@ class Exporter:
 
                 # Special case: Triangle cells, i.e., n=3.
                 if cell_type == "triangle":
-
                     # Triangles are simplices and have a trivial connectivity.
 
                     # Fetch triangle cells
@@ -1787,7 +1768,7 @@ class Exporter:
 
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
-        for (cell_type, cell_block) in cell_to_nodes.items():
+        for cell_type, cell_block in cell_to_nodes.items():
             # Meshio requires the keyword "polygon" for general polygons.
             # Thus, remove the number of nodes associated to polygons.
             cell_type_meshio_format = "polygon" if "polygon" in cell_type else cell_type
@@ -1821,7 +1802,6 @@ class Exporter:
         # Determine the cell types present among all grids.
         cell_types: set[str] = set()
         for grid in grids:
-
             # The number of faces per cell wil be later used to determining
             # the cell types
             num_faces_per_cell = np.unique(grid.cell_faces.getnnz(axis=0))
@@ -2055,7 +2035,6 @@ class Exporter:
 
             # Test each cell separately
             for i in numba.prange(cn_indices.shape[0]):
-
                 # Assume initially that the cell is a hex
                 is_hex = True
 
@@ -2092,7 +2071,6 @@ class Exporter:
 
                 # Check each side separately
                 for global_ind in [global_ind_0, global_ind_1, global_ind_2]:
-
                     # Fetch coordinates associated to the four nodes
                     coords = nodes[:, global_ind]
 
@@ -2150,7 +2128,6 @@ class Exporter:
 
         # Treat each 3d grid separately.
         for grid in grids:
-
             # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T * self._length_scale
@@ -2163,7 +2140,6 @@ class Exporter:
             g_cell_map = dict()
 
             for n in np.unique(num_nodes_per_cell):
-
                 cell_type = f"polyhedron{n}"
 
                 # Find all cells with n faces, and store for later use
@@ -2182,7 +2158,6 @@ class Exporter:
             # with array sizes (for polyhedra), treat each cell type
             # separately.
             for cell_type in g_cell_map.keys():
-
                 # The general strategy is to define the connectivity as cell-face-nodes
                 # information, where the faces are defined by nodes. Hence, this
                 # information is significantly larger than the info provided for
@@ -2222,7 +2197,7 @@ class Exporter:
         meshio_cell_id = list()
 
         # Store the cells in meshio format
-        for (cell_type, cell_block) in cell_to_faces.items():
+        for cell_type, cell_block in cell_to_faces.items():
             # Adapt the block number taking into account of previous cell types.
             meshio_cells.append(meshio.CellBlock(cell_type, cell_block))
             meshio_cell_id.append(np.array(cell_id[cell_type]))
@@ -2251,7 +2226,6 @@ class Exporter:
         # Split the data for each group of geometrically uniform cells
         # Utilize meshio_geom for this.
         for field in fields:
-
             # Although technically possible, as implemented, field.values should never
             # be None.
             assert field.values is not None

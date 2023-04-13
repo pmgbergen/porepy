@@ -312,7 +312,7 @@ class DofManager:
     def get_variable_values(
         self,
         variables=None,
-        solution_index: Optional[int] = None,
+        time_step_index: Optional[int] = None,
         iterate_index: Optional[int] = None,
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
@@ -328,27 +328,27 @@ class DofManager:
         Parameters:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
-            solution_index: Specified by user if they want to gather variable values
+            time_step_index: Specified by user if they want to gather variable values
                 from a specific time-step. Value 0 (default) provides the most recent
                 time-step. A value of 1 will give the values of one time-step back in
                 time.
             iterate_index: Specified by user if they want to gather a specific set of
-                iterate values. Similar to ``solution_index``, value 0 is the
+                iterate values. Similar to ``time_step_index``, value 0 is the
                 default value and gives the most recent iterate.
 
         Returns:
             the respective (sub) vector in numerical format.
 
         Raises:
-            ValueError: If neither of solution_index and iterate_index has been
+            ValueError: If neither of time_step_index and iterate_index has been
             assigned a non-None value.
             KeyError: if no values are stored for the VariableType input.
             ValueError: if unknown VariableType arguments are passed.
 
         """
-        if solution_index is None and iterate_index is None:
+        if time_step_index is None and iterate_index is None:
             raise ValueError(
-                "At least one of solution_index and iterate_index needs to be different"
+                "At least one of time_step_index and iterate_index needs to be different"
                 " from None"
             )
 
@@ -370,9 +370,9 @@ class DofManager:
                     values.append(
                         data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
                     )
-                elif solution_index is not None:
+                elif time_step_index is not None:
                     values.append(
-                        data[pp.TIME_STEP_SOLUTIONS][name][solution_index].copy()
+                        data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
                     )
             except KeyError:
                 raise KeyError(f"No values stored for variable {name} on grid {grid}.")
@@ -539,7 +539,7 @@ class DofManager:
                     name=var,
                     values=vals,
                     data=data,
-                    solution_index=0,
+                    time_step_index=0,
                     additive=additive,
                 )
             if to_iterate:

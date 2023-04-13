@@ -43,7 +43,7 @@ class LinearSolver:
         """
 
         setup.before_nonlinear_loop()
-        prev_sol = setup.equation_system.get_variable_values(solution_index=0)
+        prev_sol = setup.equation_system.get_variable_values(time_step_index=0)
 
         # For linear problems, the tolerance is irrelevant
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters

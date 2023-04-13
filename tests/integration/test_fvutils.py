@@ -158,7 +158,7 @@ class TestFvutils(unittest.TestCase):
         specified_parameters = {"bc_values": bc_val}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         vals = np.array([3.14])
-        set_solution_values(name="pressure", values=vals, data=data, solution_index=0)
+        set_solution_values(name="pressure", values=vals, data=data, time_step_index=0)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         matrix_dictionary["flux"] = flux
