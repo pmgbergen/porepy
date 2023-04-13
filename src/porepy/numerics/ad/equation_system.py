@@ -426,8 +426,8 @@ class EquationSystem:
                     assert isinstance(grid, pp.MortarGrid)  # mypy
                     data = self.mdg.interface_data(grid)
 
-                # Prepare storage structure for values in data dictionary if not already
-                # prepared
+                # Prepare storage structure for values in data dictionary if not
+                # already prepared.
                 if pp.TIME_STEP_SOLUTIONS not in data:
                     data[pp.TIME_STEP_SOLUTIONS] = {}
 
@@ -647,7 +647,7 @@ class EquationSystem:
             time_step_index: Several solutions might be stored in the data dictionary.
                 This parameter determines which one of these is to be overwritten/added
                 to (depends on ``additive``). If ``None``, the values will not be
-                stored to ``stored_solutions``.
+                stored to ``stored_time_steps``.
             iterate_index: Several iterates might be stored in the data dictionary. This
                 parameter determines which one of these is to be overwritten/added to
                 (depends on ``additive``). If ``None``, the values will not be stored
@@ -657,14 +657,14 @@ class EquationSystem:
 
         Raises:
             ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
-            assigned a non-None value.
+            assigned a value.
             ValueError: If unknown VariableType arguments are passed.
 
         """
         if time_step_index is None and iterate_index is None:
             raise ValueError(
                 "At least one of time_step_index and iterate_index needs to be"
-                "different from None"
+                "different from None."
             )
 
         # Start of dissection.
@@ -684,7 +684,7 @@ class EquationSystem:
                 # This will raise errors if indexation is out of range.
                 local_vec = values[dof_start:dof_end]
 
-                # Data dict will have ``pp.TIME_STEP_SOLUTIONS`` and
+                # The data dictionary will have ``pp.TIME_STEP_SOLUTIONS`` and
                 # ``pp.ITERATE_SOLUTIONS`` entries already created during
                 # create_variables. If an error is returned here, a variable has been
                 # created in a non-standard way. Store new values as requested.
@@ -720,13 +720,14 @@ class EquationSystem:
         self,
         variables: Optional[VariableList] = None,
     ) -> None:
-        """Method for shifting stored time step values in data sub-dictionary
+        """Method for shifting stored time step values in data sub-dictionary.
 
         For details of the value shifting see the method :meth:`_shift_variable_values`.
 
         Parameters:
             variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will be set.
+                requested. If None (default), the global vector of unknowns will
+                be shifted.
 
         """
         self._shift_variable_values(
@@ -743,7 +744,8 @@ class EquationSystem:
 
         Parameters:
             variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will be set.
+                requested. If None (default), the global vector of unknowns will
+                be shifted.
 
         """
         self._shift_variable_values(location=pp.ITERATE_SOLUTIONS, variables=variables)
@@ -755,18 +757,20 @@ class EquationSystem:
     ) -> None:
         """Method for shifting values in data dictionary.
 
-        Time step and iterate values are stored with storage indices as keys in the data
-        dictionary for the subdomain in question. For each time-step/iteration, these
-        values are shifted such that the most recent variable value later can be placed
-        at index 0. The previous time-step/iterate values are moved to a "one number
-        higher" key. Values of key 0 is moved to key 1, values of key 1 is moved to key
-        2, and so on. The value at the highest key is discarded.
+        Time step and iterate values are stored with storage indices as keys in
+        the data dictionary for the subdomain or interface in question. For each
+        time-step/iteration, these values are shifted such that the most recent
+        variable value later can be placed at index 0. The previous
+        time-step/iterate values have their index incremented by one. Values
+        of key 0 is moved to key 1, values of key 1 is moved to key 2, and so
+        on. The value at the highest key is discarded.
 
         Parameters:
             location: Should be ``pp.TIME_STEP_SOLUTIONS`` or ``pp.ITERATE_SOLUTIONS``
                 depending on which one of solutions/iterates that are to be shifted.
             variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will be set.
+                requested. If None (default), the global vector of unknowns will
+                be shifted.
 
         Raises:
             ValueError: If unknown VariableType arguments are passed.
@@ -792,7 +796,7 @@ class EquationSystem:
         """Method for gathering data dictionary for a given grid.
 
         Parameters:
-            grid: Subdomain/Interface whose data dictionary the user is interested in.
+            grid: Subdomain/interface whose data dictionary the user is interested in.
 
         Returns:
             Data dictionary corresponding to ``grid``.
@@ -1952,7 +1956,7 @@ def set_solution_values(
     Parameters:
         name: Name of the quantity that is to be assigned values.
         values: The values that are set in the data dictionary.
-        data: Data dictionary corresponding to the subdomain in question.
+        data: Data dictionary corresponding to the subdomain or interface in question.
         time_step_index (optional): Determines the key of where ``values`` are to be
             stored in ``data[pp.TIME_STEP_SOLUTIONS][name]``. 0 means it is the most
             recent set of values, 1 means the one time step back in time, 2 is two time
