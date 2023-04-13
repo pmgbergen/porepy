@@ -34,8 +34,8 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
-from porepy.applications.building_blocks.verification_utils import VerificationUtils
+from porepy.models.derived_models.biot import BiotPoromechanics
+from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
@@ -1249,23 +1249,22 @@ class MandelGeometry(pp.ModelGeometry):
         ls = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
-        self.fracture_network = pp.FractureNetwork2d(None, domain)
+        self.domain = domain
+        self.fracture_network = pp.create_fracture_network(None, domain)
 
     def mesh_arguments(self) -> dict:
         """Set mesh arguments."""
         ls = 1 / self.units.m  # length scaling
-        default_mesh_arguments = {
-            "mesh_size_frac": 2 * ls,
-            "mesh_size_bound": 2 * ls,
-        }
+        default_mesh_arguments = {"cell_size": 2 * ls}
         return self.params.get("mesh_arguments", default_mesh_arguments)
 
     def set_md_grid(self) -> None:
         """Set mixed-dimensional grid."""
-        self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-        domain = self.fracture_network.domain
-        if domain is not None and domain.is_boxed:
-            self.domain: pp.Domain = domain
+        self.mdg = pp.create_mdg(
+            grid_type="simplex",
+            meshing_args=self.mesh_arguments(),
+            fracture_network=self.fracture_network,
+        )
 
 
 # -----> Boundary conditions
