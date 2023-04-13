@@ -426,7 +426,7 @@ class EquationSystem:
                     assert isinstance(grid, pp.MortarGrid)  # mypy
                     data = self.mdg.interface_data(grid)
 
-                # Prepare indexed storage of values in data dictionary if not already
+                # Prepare storage structure for values in data dictionary if not already
                 # prepared
                 if pp.TIME_STEP_SOLUTIONS not in data:
                     data[pp.TIME_STEP_SOLUTIONS] = {}
@@ -545,7 +545,9 @@ class EquationSystem:
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
-        The global order is preserved and independent of the order of the argument.
+        The gathered values will be the variable values corresponding to the storage
+        index specified by the user. The global order is preserved and independent of
+        the order of the argument.
 
         Parameters:
             variables (optional): VariableType input for which the values are
@@ -563,8 +565,8 @@ class EquationSystem:
                 :meth:`num_dofs`.
 
         Raises:
-            ValueError: If neither of solution_index and iterate_index has been
-            assigned a non-None value.
+            ValueError: If a non-None value has not been assigned to either
+            solution_index or iterate_index.
             KeyError: If no values are stored for the VariableType input.
             ValueError: If unknown VariableType arguments are passed.
 
@@ -603,7 +605,7 @@ class EquationSystem:
 
                 except KeyError:
                     raise KeyError(
-                        f"No values stored for variable {name}, " f"\non grid {grid}."
+                        f"No values stored for variable {name} on grid {grid}."
                     )
 
         # If there are matching blocks, concatenate and return.
@@ -623,10 +625,10 @@ class EquationSystem:
     ) -> None:
         """Sets values for a (sub) vector of the global vector of unknowns.
 
-        The order of values is assumed to fit the global order. Handles storing of the
-        previous time-step values and previous iterates if this is wanted by the user.
-        ``values`` will be stored at the ``solution_index``/``iterate_index`` of the
-        user's choosing.
+        The order of values is assumed to fit the global order. Handles storing of both
+        the time step and iterate solutions. ``values`` will be stored at the
+        ``solution_index``/``iterate_index`` of the user's choosing. Values can be set
+        to both the solution and iterate index at the same time.
 
         Note:
             The vector is assumed to be of proper size and will be dissected according
@@ -667,9 +669,11 @@ class EquationSystem:
 
                 data = self._get_data(grid=grid)
 
-                local_vec, dof_start, dof_end = self._get_local_vector(
-                    variable_number=variable_number, values=values, dof_start=dof_start
-                )
+                num_dofs = int(self._variable_num_dofs[variable_number])
+                dof_end = dof_start + num_dofs
+                # Extract local vector.
+                # This will raise errors if indexation is out of range.
+                local_vec = values[dof_start:dof_end]
 
                 # Data dict will have ``pp.TIME_STEP_SOLUTIONS`` and
                 # ``pp.ITERATE_SOLUTIONS`` entries already created during
@@ -709,8 +713,7 @@ class EquationSystem:
     ) -> None:
         """Method for shifting stored time step values in data sub-dictionary
 
-        For details of the value shifting see :meth:`_shift_variable_values` and
-        :meth:`_shift_dictionary`.
+        For details of the value shifting see the method :meth:`_shift_variable_values`.
 
         Parameters:
             variables (optional): VariableType input for which the values are
@@ -727,8 +730,7 @@ class EquationSystem:
     ) -> None:
         """Method for shifting stored iterate values in data sub-dictionary.
 
-        For details of the value shifting see :meth:`_shift_variable_values` and
-        :meth:`_shift_dictionary`.
+        For details of the value shifting see the method :meth:`_shift_variable_values`.
 
         Parameters:
             variables (optional): VariableType input for which the values are
@@ -742,7 +744,7 @@ class EquationSystem:
         location: str,
         variables: Optional[VariableList] = None,
     ) -> None:
-        """Method for shifting values in data dictionary
+        """Method for shifting values in data dictionary.
 
         Time step and iterate values are stored with storage indices as keys in the data
         dictionary for the subdomain in question. For each time-step/iteration, these
@@ -769,77 +771,16 @@ class EquationSystem:
                 grid = variable.domain
                 data = self._get_data(grid=grid)
 
-                # Shift new values as requested.
-                self._shift_dictionary(data=data, name=name, location=location)
-
-    def _shift_dictionary(
-        self,
-        data: dict,
-        name: str,
-        location: str,
-    ) -> None:
-        """Method for shifting values of data sub-dictionary.
-
-        The values in ``data[location][name]`` are shifted. For details see
-        :meth:`_shift_variable_values`.
-
-        Parameters:
-            data: Data dictionary corresponding to the subdomain and variable in
-                question
-            name: Name of the variable whose values are to be shifted
-            location: Should be either ``pp.TIME_STEP_SOLUTIONS`` or
-                ``pp.ITERATE_SOLUTIONS``
-                depending on whether it is a time-step that is to be stored or if it is
-                an iterate.
-
-        """
-        num_stored = len(data[location][name])
-        for i in range(num_stored - 1, 0, -1):
-            data[location][name][i] = data[location][name][i - 1].copy()
-
-    def _get_local_vector(
-        self,
-        variable_number: int,
-        values: np.ndarray,
-        dof_start: int,
-    ) -> tuple[np.ndarray, int, int]:
-        """Extracts local solution vector from the global solution vector.
-
-        Parameters:
-            variable_number: Number of the variable in question.
-            values: The global solution vector
-            dof_start: Index of the first dof of a local solution vector within the
-                global solution vector.
-
-        Returns:
-            A 3-tuple containing
-
-            :obj:`~numpy.ndarray`:
-                The local solution vector.
-
-            :obj:~`int`:
-                Starting index of the degrees of freedom related to the variable.
-
-            :obj:~`int`:
-                Ending index of the degrees of freedom related to the variable in
-                question. The value corresponding to this index is not included in the
-                local solution vector returned from this method. That value is the first
-                value of the next variable's solution vector.
-
-        """
-        num_dofs = int(self._variable_num_dofs[variable_number])
-        dof_end = dof_start + num_dofs
-        # Extract local vector.
-        # This will raise errors if indexation is out of range.
-        local_vec = values[dof_start:dof_end]
-
-        return local_vec, dof_start, dof_end
+                # Shift old values as requested.
+                num_stored = len(data[location][name])
+                for i in range(num_stored - 1, 0, -1):
+                    data[location][name][i] = data[location][name][i - 1].copy()
 
     def _get_data(
         self,
         grid: pp.GridLike,
     ) -> dict:
-        """Method for gathering data dictionary for a given subdomain or interface grid.
+        """Method for gathering data dictionary for a given grid.
 
         Parameters:
             grid: Subdomain/Interface whose data dictionary the user is interested in.
@@ -2000,10 +1941,9 @@ def set_solution_values(
     ``pp.ITERATE_SOLUTIONS`` in data dictionary.
 
     Parameters:
-        name: Name of the variable/quantity that is to be assigned values.
-        values: The values that are set to the sub-dictionary of data that corresponds
-            to the variable/quantity name.
-        data: Data dictionary corresponding to the subdomain and variable in question
+        name: Name of the quantity that is to be assigned values.
+        values: The values that are set in the data dictionary.
+        data: Data dictionary corresponding to the subdomain in question.
         solution_index (optional): Determines the key of where ``values`` are to be
             stored in ``data[pp.TIME_STEP_SOLUTIONS][name]``. 0 means it is the most
             recent set of values, 1 means the one time step back in time, 2 is two time
