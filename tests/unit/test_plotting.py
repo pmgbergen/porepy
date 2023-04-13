@@ -114,7 +114,7 @@ def _initialize_mdg(mdg_):
 
             for i in range(len(variables)):
                 set_solution_values(
-                    name=variables[i], values=values[i], data=data, solution_index=0
+                    name=variables[i], values=values[i], data=data, time_step_index=0
                 )
 
         else:

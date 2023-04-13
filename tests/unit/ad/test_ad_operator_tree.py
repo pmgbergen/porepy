@@ -99,7 +99,7 @@ def test_copy_operator_tree():
     eq_system = pp.ad.EquationSystem(mdg)
     eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
     eq_system.set_variable_values(
-        np.zeros(eq_system.num_dofs()), iterate_index=0, solution_index=0
+        np.zeros(eq_system.num_dofs()), iterate_index=0, time_step_index=0
     )
 
     # In their initial state, all operators should have the same values
@@ -201,7 +201,9 @@ def test_time_dependent_array():
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
     for sd, sd_data in mdg.subdomains(return_data=True):
         vals_sol = np.zeros(sd.num_cells)
-        set_solution_values(name="foo", values=vals_sol, data=sd_data, solution_index=0)
+        set_solution_values(
+            name="foo", values=vals_sol, data=sd_data, time_step_index=0
+        )
 
         vals_it = sd.dim * np.ones(sd.num_cells)
         set_solution_values(name="foo", values=vals_it, data=sd_data, iterate_index=0)
@@ -210,7 +212,7 @@ def test_time_dependent_array():
         # Create an empty primary variable list
         vals_sol = np.arange(intf.num_cells)
         set_solution_values(
-            name="bar", values=vals_sol, data=intf_data, solution_index=0
+            name="bar", values=vals_sol, data=intf_data, time_step_index=0
         )
 
         vals_it = np.ones(intf.num_cells)
@@ -414,7 +416,7 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
 
-        set_solution_values(name=var, values=val_state, data=data, solution_index=0)
+        set_solution_values(name=var, values=val_state, data=data, time_step_index=0)
         set_solution_values(name=var, values=val_iterate, data=data, iterate_index=0)
 
         state_map[sd] = val_state
@@ -427,7 +429,7 @@ def test_ad_variable_evaluation():
             val_iterate = np.random.rand(sd.num_cells)
 
             set_solution_values(
-                name=var2, values=val_state, data=data, solution_index=0
+                name=var2, values=val_state, data=data, time_step_index=0
             )
             set_solution_values(
                 name=var2, values=val_iterate, data=data, iterate_index=0
@@ -448,7 +450,7 @@ def test_ad_variable_evaluation():
         val_iterate = np.random.rand(intf.num_cells * num_dofs)
 
         set_solution_values(
-            name=mortar_var, values=val_state, data=data, solution_index=0
+            name=mortar_var, values=val_state, data=data, time_step_index=0
         )
         set_solution_values(
             name=mortar_var, values=val_iterate, data=data, iterate_index=0
@@ -572,7 +574,7 @@ def test_variable_combinations(grids, variables):
             data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
 
             vals = np.random.rand(sd.num_cells)
-            set_solution_values(name=var, values=vals, data=data, solution_index=0)
+            set_solution_values(name=var, values=vals, data=data, time_step_index=0)
 
     # Ad boilerplate
     eq_system = pp.ad.EquationSystem(mdg)
@@ -581,7 +583,7 @@ def test_variable_combinations(grids, variables):
         eq_system.set_variable_values(
             np.random.rand(mdg.num_subdomain_cells()),
             [var],
-            solution_index=0,
+            time_step_index=0,
             iterate_index=0,
         )
     # Standard Ad variables
@@ -662,10 +664,10 @@ def test_time_differentiation():
             vals_sol_bar = 2 * np.ones(sd.num_cells)
 
             set_solution_values(
-                name="foo", values=vals_sol_foo, data=sd_data, solution_index=0
+                name="foo", values=vals_sol_foo, data=sd_data, time_step_index=0
             )
             set_solution_values(
-                name="bar", values=vals_sol_bar, data=sd_data, solution_index=0
+                name="bar", values=vals_sol_bar, data=sd_data, time_step_index=0
             )
 
             vals_it_foo = 3 * np.ones(sd.num_cells)
@@ -683,7 +685,7 @@ def test_time_differentiation():
             vals_it_foo = np.ones(sd.num_cells)
 
             set_solution_values(
-                name="foo", values=vals_sol_foo, data=sd_data, solution_index=0
+                name="foo", values=vals_sol_foo, data=sd_data, time_step_index=0
             )
             set_solution_values(
                 name="foo", values=vals_it_foo, data=sd_data, iterate_index=0
@@ -697,7 +699,7 @@ def test_time_differentiation():
         vals_it = 2 * np.ones(intf.num_cells)
 
         set_solution_values(
-            name="foobar", values=vals_sol, data=intf_data, solution_index=0
+            name="foobar", values=vals_sol, data=intf_data, time_step_index=0
         )
         set_solution_values(
             name="foobar", values=vals_it, data=intf_data, iterate_index=0

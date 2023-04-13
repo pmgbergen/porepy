@@ -789,7 +789,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         val_sol = cell_val_2d
         val_it = 2 * cell_val_2d
 
-        set_solution_values(name=self.cv2, values=val_sol, data=d, solution_index=0)
+        set_solution_values(name=self.cv2, values=val_sol, data=d, time_step_index=0)
         set_solution_values(name=self.cv2, values=val_it, data=d, iterate_index=0)
 
         for g in g_1d:
@@ -799,7 +799,9 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             val_sol = cell_val_1d[g]
             val_it = 2 * cell_val_1d[g]
 
-            set_solution_values(name=self.cv1, values=val_sol, data=d, solution_index=0)
+            set_solution_values(
+                name=self.cv1, values=val_sol, data=d, time_step_index=0
+            )
             set_solution_values(name=self.cv1, values=val_it, data=d, iterate_index=0)
 
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
@@ -810,7 +812,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             val_sol = cell_val_mortar[g]
             val_it = 2 * cell_val_mortar[g]
 
-            set_solution_values(name=self.mv, values=val_sol, data=d, solution_index=0)
+            set_solution_values(name=self.mv, values=val_sol, data=d, time_step_index=0)
             set_solution_values(name=self.mv, values=val_it, data=d, iterate_index=0)
 
         # Define assembler, thereby a dof ordering
@@ -899,7 +901,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
 
                 set_solution_values(
-                    name=self.cv1, values=val_1d_prev[g], data=d, solution_index=0
+                    name=self.cv1, values=val_1d_prev[g], data=d, time_step_index=0
                 )
                 set_solution_values(
                     name=self.cv1,

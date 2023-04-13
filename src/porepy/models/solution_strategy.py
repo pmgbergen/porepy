@@ -174,7 +174,7 @@ class SolutionStrategy(abc.ABC):
         """Set the initial condition for the problem."""
         vals = np.zeros(self.equation_system.num_dofs())
         self.equation_system.set_variable_values(
-            vals, iterate_index=0, solution_index=0
+            vals, iterate_index=0, time_step_index=0
         )
 
     def set_materials(self):
@@ -312,7 +312,7 @@ class SolutionStrategy(abc.ABC):
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
-            values=solution, solution_index=0, additive=False
+            values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
         self.save_data_time_step()

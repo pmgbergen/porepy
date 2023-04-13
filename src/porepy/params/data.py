@@ -61,7 +61,7 @@ stored in
 
 The time step solution of a specific variable is stored in
 
-``data[pp.TIME_STEP_SOLUTIONS][variable_name][solution_index]``,
+``data[pp.TIME_STEP_SOLUTIONS][variable_name][time_step_index]``,
 
 whereas data such as BC values are stored similarly to in the Parameters class, in
 

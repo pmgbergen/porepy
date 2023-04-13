@@ -567,7 +567,7 @@ class ConformingFracturePropagation(FracturePropagation):
         cells = np.unique(sd_primary.cell_faces[faces_primary].nonzero()[1])
         vals[cells] = 1
         set_solution_values(
-            name="neighbor_cells", values=vals, data=data_primary, solution_index=0
+            name="neighbor_cells", values=vals, data=data_primary, time_step_index=0
         )
 
     def _tip_bases(

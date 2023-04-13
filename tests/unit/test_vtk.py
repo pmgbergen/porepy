@@ -270,14 +270,14 @@ def test_mdg(setup):
             name="dummy_scalar",
             values=np.ones(sd.num_cells) * sd.dim,
             data=sd_data,
-            solution_index=0,
+            time_step_index=0,
         )
 
         set_solution_values(
             name="dummy_vector",
             values=np.ones((3, sd.num_cells)) * sd.dim,
             data=sd_data,
-            solution_index=0,
+            time_step_index=0,
         )
 
     for intf, intf_data in mdg.interfaces(return_data=True):
@@ -285,14 +285,14 @@ def test_mdg(setup):
             name="dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
-            solution_index=0,
+            time_step_index=0,
         )
 
         set_solution_values(
             name="unique_dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
-            solution_index=0,
+            time_step_index=0,
         )
 
     # Export data
@@ -376,14 +376,14 @@ def test_mdg_data_selection(setup):
             name="dummy_scalar",
             values=np.ones(sd.num_cells) * sd.dim,
             data=sd_data,
-            solution_index=0,
+            time_step_index=0,
         )
 
         set_solution_values(
             name="dummy_vector",
             values=np.ones((3, sd.num_cells)) * sd.dim,
             data=sd_data,
-            solution_index=0,
+            time_step_index=0,
         )
 
     for intf, intf_data in mdg.interfaces(return_data=True):
@@ -391,14 +391,14 @@ def test_mdg_data_selection(setup):
             name="dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
-            solution_index=0,
+            time_step_index=0,
         )
 
         set_solution_values(
             name="unique_dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
-            solution_index=0,
+            time_step_index=0,
         )
 
     # Fetch separate subdomains
