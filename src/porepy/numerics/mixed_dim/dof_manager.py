@@ -348,8 +348,8 @@ class DofManager:
         """
         if time_step_index is None and iterate_index is None:
             raise ValueError(
-                "At least one of time_step_index and iterate_index needs to be different"
-                " from None"
+                "At least one of time_step_index and iterate_index needs to be"
+                " different from None."
             )
 
         if variables is not None:
