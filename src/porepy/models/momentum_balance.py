@@ -730,6 +730,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         """
         # Zero for displacement and initial bc values for Biot
         super().initial_condition()
+
         # Contact as initial guess. Ensure traction is consistent with zero jump, which
         # follows from the default zeros set for all variables, specifically interface
         # displacement, by super method.
