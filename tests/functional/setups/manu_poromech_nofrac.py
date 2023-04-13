@@ -73,7 +73,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.building_blocks.verification_utils import VerificationUtils
+from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from porepy.numerics.ad.equation_system import set_solution_values
 
@@ -558,7 +558,8 @@ class ManuPoroMechExactSolution:
         # Flatten array
         source_mech_flat: np.ndarray = np.asarray(source_mech).ravel("F")
 
-        return source_mech_flat
+        # Invert sign according to sign convention.
+        return -source_mech_flat
 
     def flow_source(self, sd: pp.Grid, time: float) -> np.ndarray:
         """Compute exact source term for the fluid mass balance equation.
