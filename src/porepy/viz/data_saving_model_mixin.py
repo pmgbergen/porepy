@@ -2,13 +2,14 @@
 
 It is combined with a Model class and provides methods for saving data to file.
 
-We provide basic Exporter functionality, but the user is free to override
-and extend this class to suit their needs. This could include, e.g., saving
-data to a database, or to a file format other than vtu.
+We provide basic Exporter functionality, but the user is free to override and extend
+this class to suit their needs. This could include, e.g., saving data to a database,
+or to a file format other than vtu.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Union
+from pathlib import Path
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 
@@ -21,7 +22,6 @@ class DataSavingMixin:
 
     Contract with other classes:
         The model should/may call save_data_time_step() at the end of each time step.
-        The model should/may call finalize_save_data() at the end of the simulation.
 
     """
 
@@ -33,6 +33,8 @@ class DataSavingMixin:
     """Time manager for the simulation."""
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid for the simulation."""
+    restart_options: dict
+    """Dictionary of parameters for restarting from pvd."""
     units: pp.Units
     """Units for the simulation."""
     fluid: pp.FluidConstants
@@ -41,17 +43,17 @@ class DataSavingMixin:
     """Number of spatial dimensions for the simulation."""
 
     def save_data_time_step(self) -> None:
-        """Export the model state at a given time step."""
+        """Export the model state at a given time step, and log time."""
         if not self.suppress_export:
-            self.exporter.write_vtu(
-                self.data_to_export(),
-                time_dependent=True,
-            )
-
-    def finalize_data_saving(self) -> None:
-        """Export pvd file and finalize export."""
-        if not self.suppress_export:
-            self.exporter.write_pvd()
+            self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
+            if self.restart_options.get("restart", False):
+                # For a pvd file addressing all time steps (before and after restart
+                # time), resume based on restart input pvd file through append.
+                pvd_file = self.restart_options["pvd_file"]
+                self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
+            else:
+                self.exporter.write_pvd()
+            self.time_manager.write_time_information()
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
@@ -141,6 +143,77 @@ class DataSavingMixin:
             ),
             length_scale=self.units.m,
         )
+
+    def load_data_from_vtu(
+        self,
+        vtu_files: Union[Path, list[Path]],
+        time_index: int,
+        times_file: Optional[Path] = None,
+        keys: Optional[Union[str, list[str]]] = None,
+        **kwargs,
+    ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            vtu_files: path(s) to vtu file(s)
+            keys: keywords addressing cell data to be transferred. If 'None', the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through pp.STATES.
+            keyword arguments: see documentation of
+                :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
+
+        Raises:
+            ValueError: if incompatible file type provided.
+
+        """
+        # Sanity check
+        if not (
+            isinstance(vtu_files, list)
+            and all([vtu_file.suffix == ".vtu" for vtu_file in vtu_files])
+        ) and not (isinstance(vtu_files, Path) and vtu_files.suffix == ".vtu"):
+            raise ValueError
+
+        # Load states and read time index, connecting data and time history
+        self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
+
+        # Load time and time step size
+        self.time_manager.load_time_information(times_file)
+        self.time_manager.set_from_history(time_index)
+        self.exporter._time_step_counter = time_index
+
+    def load_data_from_pvd(
+        self,
+        pvd_file: Path,
+        is_mdg_pvd: bool = False,
+        times_file: Optional[Path] = None,
+        keys: Optional[Union[str, list[str]]] = None,
+    ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            pvd_file: path to pvd file with exported vtu files.
+            is_mdg_pvd: flag controlling whether pvd file is a mdg file, i.e., generated
+                with Exporter._export_mdg_pvd() or Exporter.write_pvd().
+            times_file: path to json file storing history of time and time step size.
+            keys: keywords addressing cell data to be transferred. If 'None', the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through pp.STATES.
+
+        Raises:
+            ValueError: if incompatible file type provided.
+
+        """
+        # Sanity check
+        if not pvd_file.suffix == ".pvd":
+            raise ValueError
+
+        # Import data and determine time index corresponding to the pvd file
+        time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
+
+        # Load time and time step size
+        self.time_manager.load_time_information(times_file)
+        self.time_manager.set_from_history(time_index)
+        self.exporter._time_step_counter = time_index
 
     @property
     def suppress_export(self) -> bool:
