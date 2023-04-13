@@ -1,0 +1,39 @@
+from __future__ import annotations
+from typing import Literal
+
+import numpy as np
+
+import porepy as pp
+
+
+def nd_cube_domain(dimension: Literal[2, 3], size=pp.number) -> pp.Domain:
+    """Return a domain extending from 0 to `size` in all dimensions.
+
+    Parameters:
+        dimension: The dimension of the domain.
+        size: The side length of the cube.
+
+    Returns:
+        Dimension-cube domain object.
+
+    """
+    assert dimension in np.arange(2, 4)
+    bbox: dict[str, pp.number] = {"xmin": 0, "xmax": size}
+    if dimension > 2:
+        bbox.update({"ymin": 0, "ymax": size})
+    if dimension > 3:
+        bbox.update({"zmin": 0, "zmax": size})
+    return pp.Domain(bbox)
+
+
+def unit_cube_domain(dimension: Literal[2, 3]) -> pp.Domain:
+    """Return a domain of unitary size extending from 0 to 1 in all dimensions.
+
+    Parameters:
+        dimension: The dimension of the domain.
+
+    Returns:
+        Unit dimension-cube domain object.
+
+    """
+    return nd_cube_domain(dimension, 1)
