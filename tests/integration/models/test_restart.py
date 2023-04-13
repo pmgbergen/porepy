@@ -110,6 +110,7 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # To verify the restart capabilities, perform five tests.
 
     # 1. Check whether the states have been correctly initialized at restart time.
+    # Visit all dimensions and the mortar grids for this.
     for i in ["1", "2"]:
         assert _compare_vtu_files(
             visualization_dir / Path(f"data_{i}_000001.vtu"),
@@ -121,6 +122,7 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     )
 
     # 2. Check whether the successive time step has been computed correctely.
+    # Visit all dimensions and the mortar grids for this.
     for i in ["1", "2"]:
         assert _compare_vtu_files(
             visualization_dir / Path(f"data_{i}_000002.vtu"),
