@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import copy
-from typing import Optional, Sequence, Union
+from typing import Literal, Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -32,12 +32,24 @@ class ModelGeometry:
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid."""
-        # Create fracture network and mixed-dimensional grid
+        # Create fracture network. Also sets the domain.
         self.set_fracture_network()
-        self.set_md_grid()
+        meshing_kwargs = self.params.get("meshing_kwargs", None)
+        if meshing_kwargs is None:
+            meshing_kwargs = {}
+        self.mdg = pp.create_mdg(
+            self.grid_type,
+            self.meshing_arguments,
+            self.fracture_network,
+            **meshing_kwargs,
+        )
+        # Set domain and ambient dimension.
+        domain = self.fracture_network.domain
+        if domain is not None and domain.is_boxed:
+            self.domain = domain
         self.nd: int = self.mdg.dim_max()
 
-        # If fractures are present, it is advised to call
+        # If fractures are present, it is advised to call.
         pp.set_local_coordinate_projections(self.mdg)
 
         self.set_well_network()
@@ -53,7 +65,9 @@ class ModelGeometry:
 
     def set_fracture_network(self) -> None:
         """Assign fracture network class."""
-        self.fracture_network = pp.FractureNetwork2d()
+        self.fracture_network = pp.create_fracture_network(
+            domain=pp.applications.md_grids.domains.nd_cube_domain(2, 1)
+        )
 
     def set_well_network(self) -> None:
         """Assign well network class."""
@@ -76,7 +90,20 @@ class ModelGeometry:
         else:
             raise ValueError("Unknown grid type.")
 
-    def mesh_arguments(self) -> dict:
+    @property
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
+        """Grid type for the mixed-dimensional grid.
+
+        Returns:
+            Grid type for the mixed-dimensional grid.
+
+        """
+        # TODO: Add retrieval from params? Same for meshing_arguments. Could also fetch
+        # directly from params in set_md_grid.
+        return "simplex"
+
+    @property
+    def meshing_arguments(self) -> dict:
         """Mesh arguments for md-grid creation.
 
         Returns:
@@ -98,42 +125,6 @@ class ModelGeometry:
 
         """
         return 1
-
-    def set_md_grid(self) -> None:
-        """Create the mixed-dimensional grid.
-
-        A unit square grid with no fractures is assigned by default if
-        self.fracture_network contains no fractures. Otherwise, the network's mesh
-        method is used.
-
-        The method assigns the following attributes to self:
-            mdg: The produced mixed-dimensional grid.
-            domain: The bounding box of the domain, defined through minimum and maximum
-                values in each dimension.
-
-        """
-
-        if self.fracture_network.num_frac() == 0:
-            # Length scale:
-            ls = 1 / self.units.m
-            # Mono-dimensional grid by default
-            phys_dims = np.array([1, 1]) * ls
-            n_cells = np.array([2, 2])
-            bounding_box = {
-                "xmin": 0,
-                "xmax": phys_dims[0] * ls,
-                "ymin": 0,
-                "ymax": phys_dims[1] * ls,
-            }
-            self.domain = pp.Domain(bounding_box)
-            g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
-            g.compute_geometry()
-            self.mdg = pp.meshing.subdomains_to_mdg([[g]])
-        else:
-            self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-            domain = self.fracture_network.domain
-            if domain is not None and domain.is_boxed:
-                self.domain = domain
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
