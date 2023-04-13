@@ -19,7 +19,6 @@ class TestImmersedFracture(unittest.TestCase):
     def create_grid(
         self, num_1d=3, pert_node=False, flip_normals=False, rotate_fracture=False
     ):
-
         generator = test_grids.SimplexGrid2dDomainOneImmersedFracture()
 
         mdg = generator.generate_grid(
@@ -32,7 +31,6 @@ class TestImmersedFracture(unittest.TestCase):
         return mdg
 
     def set_params(self, mdg, kn, kf):
-
         kw = "flow"
 
         for sd, data in mdg.subdomains(return_data=True):
@@ -103,19 +101,21 @@ class TestImmersedFracture(unittest.TestCase):
         method = pp.MVEM(key)
         self._solve(mdg, method, key)
         for sd, data in mdg.subdomains(return_data=True):
-
             darcy_flux_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 : sd.num_faces
             ]
             set_solution_values(
-                name="darcy_flux", values=darcy_flux_values, data=data, solution_index=0
+                name="darcy_flux",
+                values=darcy_flux_values,
+                data=data,
+                time_step_index=0,
             )
 
             pressure_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 sd.num_faces :
             ]
             set_solution_values(
-                name="pressure", values=pressure_values, data=data, solution_index=0
+                name="pressure", values=pressure_values, data=data, time_step_index=0
             )
 
     def run_RT0(self, mdg):
@@ -127,14 +127,17 @@ class TestImmersedFracture(unittest.TestCase):
                 : sd.num_faces
             ]
             set_solution_values(
-                name="darcy_flux", values=darcy_flux_values, data=data, solution_index=0
+                name="darcy_flux",
+                values=darcy_flux_values,
+                data=data,
+                time_step_index=0,
             )
 
             pressure_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 sd.num_faces :
             ]
             set_solution_values(
-                name="pressure", values=pressure_values, data=data, solution_index=0
+                name="pressure", values=pressure_values, data=data, time_step_index=0
             )
 
     def test_mpfa_blocking_fracture(self):

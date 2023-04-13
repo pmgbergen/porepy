@@ -788,13 +788,13 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         # Mechanics source
         mech_source = self.exact_sol.mechanics_source(sd=sd, time=t)
         set_solution_values(
-            name="source_mechanics", values=mech_source, data=data, solution_index=0
+            name="source_mechanics", values=mech_source, data=data, time_step_index=0
         )
 
         # Flow source
         flow_source = self.exact_sol.flow_source(sd=sd, time=t)
         set_solution_values(
-            name="source_flow", values=flow_source, data=data, solution_index=0
+            name="source_flow", values=flow_source, data=data, time_step_index=0
         )
 
     def after_simulation(self) -> None:
