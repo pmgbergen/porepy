@@ -2,6 +2,10 @@
 Geometric projections related to the tangential and normal spaces of a set of
 vectors.
 """
+from __future__ import annotations
+
+from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -262,3 +266,86 @@ class TangentialNormalProjection:
         for i in range(M.shape[-1]):
             M_inv[:, :, i] = np.linalg.inv(M[:, :, i])
         return M_inv
+
+
+def set_local_coordinate_projections(
+    mdg: pp.MixedDimensionalGrid, interfaces: Optional[list[pp.MortarGrid]] = None
+) -> None:
+    """Define a local coordinate system, and projection matrices, for all
+    grids of co-dimension 1.
+
+    Parameters:
+        mdg: Mixed-dimensional grid.
+        interfaces: List of MortarGrids. If not provided, all interfaces of co-dimension
+            1 will be considered.
+
+    The function adds one item to the data dictionary of all MixedDimensionalGrid edges
+    that neighbors a co-dimension 1 grid, defined as:
+        key: Literal["tangential_normal_projection"],
+        value: pp.TangentialNormalProjection object providing projection to the surface
+            of the lower-dimensional grid.
+
+    Note that grids of co-dimension 2 and higher are ignored in this construction,
+    as we do not plan to do contact mechanics on these objects.
+
+    It is assumed that the surface is planar.
+
+    """
+    if interfaces is None:
+        interfaces = mdg.interfaces(dim=mdg.dim_max() - 1)
+
+    # Information on the vector normal to the surface is not available directly
+    # from the surface grid (it could be constructed from the surface geometry,
+    # which spans the tangential plane). We instead get the normal vector from
+    # the adjacent higher dimensional grid.
+    # We therefore access the grids via the edges of the mixed-dimensional grid.
+    for intf in interfaces:
+        # Only consider edges where the lower-dimensional neighbor is of co-dimension 1
+        if not intf.dim == (mdg.dim_max() - 1):
+            continue
+
+        # Neighboring grids
+        sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+
+        # Find faces of the higher dimensional grid that coincide with the mortar
+        # grid. Go via the primary to mortar projection.
+        # Convert matrix to csr, then the relevant face indices are found from
+        # the (column) indices.
+        faces_on_surface = intf.primary_to_mortar_int().tocsr().indices
+
+        # Find out whether the boundary faces have outwards pointing normal vectors
+        # Negative sign implies that the normal vector points inwards.
+        sgn, _ = sd_primary.signs_and_cells_of_boundary_faces(faces_on_surface)
+
+        # Unit normal vector.
+        unit_normal = sd_primary.face_normals[: sd_primary.dim] / sd_primary.face_areas
+        # Ensure all normal vectors on the relevant surface points outwards.
+        unit_normal[:, faces_on_surface] *= sgn
+
+        # Now we need to pick out *one*  normal vector of the higher dimensional grid.
+
+        # which coincides with this mortar grid, so we kill off all entries for the
+        # "other" side:
+        unit_normal[:, intf._ind_face_on_other_side] = 0
+
+        # Project to the mortar and then to the fracture.
+        outwards_unit_vector_mortar = intf.primary_to_mortar_int().dot(unit_normal.T).T
+        normal_lower = (
+            intf.mortar_to_secondary_int().dot(outwards_unit_vector_mortar.T).T
+        )
+
+        # NOTE: The normal vector is based on the first cell in the mortar grid,
+        # and will be pointing from that cell towards the other side of the
+        # mortar grid. This defines the positive direction in the normal direction.
+        # Although a simpler implementation seems to be possible, going via the
+        # first element in faces_on_surface, there is no guarantee that this will
+        # give us a face on the positive (or negative) side, hence the more general
+        # approach is preferred.
+        #
+        # NOTE: The basis for the tangential direction is determined by the
+        # construction internally in TangentialNormalProjection.
+        projection = pp.TangentialNormalProjection(normal_lower)
+
+        d_l = mdg.subdomain_data(sd_secondary)
+        # Store the projection operator in the lower-dimensional data.
+        d_l["tangential_normal_projection"] = projection
