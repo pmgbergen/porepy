@@ -573,7 +573,7 @@ class EquationSystem:
         if time_step_index is None and iterate_index is None:
             raise ValueError(
                 "Either time_step_index or iterate_index needs to be different from"
-                "None"
+                " None"
             )
 
         if time_step_index is not None and iterate_index is not None:
