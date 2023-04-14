@@ -546,18 +546,15 @@ class EquationSystem:
         """Assembles an array containing values for the passed variable-like argument.
 
         The gathered values will be the variable values corresponding to the storage
-        index specified by the user. Note that if both ``time_step_index`` and
-        ``iterate_index`` is specified, only the iterate solution values will be
-        gathered. The global order is preserved and independent of the order of the
-        argument.
+        index specified by the user. The global order is preserved and independent of
+        the order of the argument.
 
         Parameters:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
             time_step_index: Specified by user if they want to gather variable values
-                from a specific time-step. Value 0 (default) provides the most recent
-                time-step. A value of 1 will give the values of one time-step back in
-                time.
+                from a specific time-step. Value 0 provides the most recent time-step. A
+                value of 1 will give the values of one time-step back in time.
             iterate_index: Specified by user if they want to gather a specific set of
                 iterate values. Similar to ``time_step_index``, value 0 is the
                 default value and gives the most recent iterate.
@@ -577,6 +574,12 @@ class EquationSystem:
             raise ValueError(
                 "Either time_step_index or iterate_index needs to be different from"
                 "None"
+            )
+
+        if time_step_index is not None and iterate_index is not None:
+            raise ValueError(
+                "Only one of time_step_index or iterate_index should be assigned a"
+                " value."
             )
 
         variables = self._parse_variable_type(variables)
@@ -627,10 +630,7 @@ class EquationSystem:
     ) -> None:
         """Sets values for a (sub) vector of the global vector of unknowns.
 
-        The order of values is assumed to fit the global order. Handles storing of both
-        the time step and iterate solutions. ``values`` will be stored at the
-        ``time_step_index``/``iterate_index`` of the user's choosing. Values can be set
-        to both the time step and iterate index at the same time.
+        The order of values is assumed to fit the global order.
 
         Note:
             The vector is assumed to be of proper size and will be dissected according
@@ -1995,15 +1995,7 @@ def set_solution_values(
             data[pp.ITERATE_SOLUTIONS][name][iterate_index] = values.copy()
     else:
         if time_step_index is not None:
-            if pp.TIME_STEP_SOLUTIONS not in data:
-                data[pp.TIME_STEP_SOLUTIONS] = {}
-            if name not in data[pp.TIME_STEP_SOLUTIONS]:
-                data[pp.TIME_STEP_SOLUTIONS][name] = {}
             data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += values
 
         if iterate_index is not None:
-            if pp.ITERATE_SOLUTIONS not in data:
-                data[pp.ITERATE_SOLUTIONS] = {}
-            if name not in data[pp.ITERATE_SOLUTIONS]:
-                data[pp.ITERATE_SOLUTIONS][name] = {}
             data[pp.ITERATE_SOLUTIONS][name][iterate_index] += values
