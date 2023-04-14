@@ -603,8 +603,17 @@ class TimeManager:
     def _correction_based_on_schedule(self) -> None:
         """Correct time step if time + dt > scheduled_time."""
         schedule_time = self.schedule[self._scheduled_idx]
-        if (self.time + self.dt) > schedule_time:
-            self.dt = schedule_time - self.time  # correct  time step
+        if self.time == schedule_time:
+            # Special treatment if current time is identical to scheduled time. This
+            # avoids the situation where the time step is corrected to zero, which
+            # would be the case using the general correction below.
+            self._scheduled_idx += 1
+            self.dt = np.minimum(
+                self.dt, self.schedule[self._scheduled_idx] - self.time
+            )
+
+        elif (self.time + self.dt) > schedule_time:
+            self.dt = schedule_time - self.time  # correct time step
 
             if self._scheduled_idx < len(self.schedule) - 1:
                 self._scheduled_idx += 1  # increase index to catch next scheduled time
