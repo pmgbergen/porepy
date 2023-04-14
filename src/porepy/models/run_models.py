@@ -69,7 +69,7 @@ def run_time_dependent_model(model, params: dict) -> None:
             )
         )
         solver.solve(model)
-        model.time_manager.compute_time_step()
+        model.time_manager.compute_time_step(model._nonlinear_iteration)
 
     model.after_simulation()
 
