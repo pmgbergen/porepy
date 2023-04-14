@@ -574,10 +574,10 @@ class SolutionStrategy(abc.ABC):
         """Update the time dependent arrays for the mechanics boundary conditions.
 
         Parameters:
-            initial: If True, the array generating method is called for both the
-                stored time steps and the stored iterates. If False, the array
-                generating method is called only for the iterate, and the time
-                step solution is updated by copying the iterate.
+            initial: If True, the array generating method is called for both the stored
+                time steps and the stored iterates. If False, the array generating
+                method is called only for the iterate, and the time step solution is
+                updated by copying the iterate.
 
         """
         pass
