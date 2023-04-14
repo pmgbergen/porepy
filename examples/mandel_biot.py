@@ -1376,7 +1376,6 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
 
 class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
-
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -1465,12 +1464,22 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         u_name = self.displacement_variable
 
         # Set initial pressure
-        data[pp.TIME_STEP_SOLUTIONS][p_name][0] = self.exact_sol.pressure(sd, 0)
-        data[pp.ITERATE_SOLUTIONS][p_name][0] = self.exact_sol.pressure(sd, 0)
+        pp.set_solution_values(
+            name=p_name,
+            values=self.exact_sol.pressure(sd, 0),
+            data=data,
+            iterate_index=0,
+            time_step_index=0,
+        )
 
         # Set initial displacement
-        data[pp.TIME_STEP_SOLUTIONS][u_name][0] = self.exact_sol.displacement(sd, 0)
-        data[pp.ITERATE_SOLUTIONS][u_name][0] = self.exact_sol.displacement(sd, 0)
+        pp.set_solution_values(
+            name=u_name,
+            values=self.exact_sol.displacement(sd, 0),
+            data=data,
+            iterate_index=0,
+            time_step_index=0,
+        )
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""

@@ -537,7 +537,6 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 class TerzaghiBoundaryConditionsMechanics(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
-
     bc_values_mechanics_key: str
     """Keyword for accessing the boundary values for the mechanical subproblem."""
 
@@ -729,8 +728,14 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         data = self.mdg.subdomain_data(sd)
         vertical_load = self.applied_load()  # scaled [Pa]
         initial_p = vertical_load * np.ones(sd.num_cells)
-        data[pp.TIME_STEP_SOLUTIONS][self.pressure_variable][0] = initial_p
-        data[pp.ITERATE_SOLUTIONS][self.pressure_variable][0] = initial_p
+
+        pp.set_solution_values(
+            name=self.pressure_variable,
+            values=initial_p,
+            data=data,
+            iterate_index=0,
+            time_step_index=0,
+        )
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
