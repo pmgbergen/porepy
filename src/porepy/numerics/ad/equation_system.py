@@ -566,6 +566,8 @@ class EquationSystem:
         Raises:
             ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
             assigned a non-None value.
+            ValueError: If both ``time_step_index`` and ``iterate_index`` have been
+            assigned a value.
             KeyError: If no values are stored for the VariableType input.
             ValueError: If unknown VariableType arguments are passed.
 
@@ -647,11 +649,11 @@ class EquationSystem:
             time_step_index: Several solutions might be stored in the data dictionary.
                 This parameter determines which one of these is to be overwritten/added
                 to (depends on ``additive``). If ``None``, the values will not be
-                stored to ``stored_time_steps``.
+                stored to ``pp.TIME_STEP_SOLUTIONS``.
             iterate_index: Several iterates might be stored in the data dictionary. This
                 parameter determines which one of these is to be overwritten/added to
                 (depends on ``additive``). If ``None``, the values will not be stored
-                to ``stored_iterates``.
+                to ``pp.ITERATE_SOLUTIONS``.
             additive (optional): Flag to write values additively. To be used in
                 iterative procedures.
 
@@ -1975,8 +1977,8 @@ def set_solution_values(
     """
     if time_step_index is None and iterate_index is None:
         raise ValueError(
-            "At least one of time_step_index and iterate_index needs to be"
-            "different from None"
+            "At least one of time_step_index and iterate_index needs to be different"
+            " from None"
         )
 
     if not additive:
