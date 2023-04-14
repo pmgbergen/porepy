@@ -249,9 +249,9 @@ class SolutionStrategy(abc.ABC):
                     time_index,
                     times_file,
                 )
-            vals = self.equation_system.get_variable_values()
+            vals = self.equation_system.get_variable_values(time_step_index=0)
             self.equation_system.set_variable_values(
-                vals, to_iterate=True, to_state=True
+                vals, iterate_index=0, time_step_index=0
             )
 
     def set_materials(self):
