@@ -52,8 +52,8 @@ mixed-dimensional grid), consider:
     pp.initialize_default_data(grid, d, keyword, specified_parameters)
 
 
-Also contains functions for setting the time step and iterate solutions. The time step
-solution is all data associated with the previous time step, and is stored in
+The time step solution is all data associated with the previous time step, and is
+stored in
 ``data[pp.TIME_STEP_SOLUTIONS]``.
 Similarly, iterate solutions contains data associated with the previous iterates and is
 stored in
