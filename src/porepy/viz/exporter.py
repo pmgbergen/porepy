@@ -751,11 +751,11 @@ class Exporter:
         pvd_file: Path = Path(
             self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
         )
-        zfile_exists: bool = pvd_file.exists()
+        file_exists: bool = pvd_file.exists()
 
         # Define the header - either copy paste from availble previous output, or define
         # hardcoded header.
-        if zfile_exists and append:
+        if file_exists and append:
             # Strategy: Continue writing available pvd file by first copying all content
             # until the restart time, here altogether defined as header.
 

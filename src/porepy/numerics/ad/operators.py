@@ -1517,8 +1517,6 @@ class Variable(Operator):
             # This is a mortar grid. Assume that there are only cell dofs
             return self.domain.num_cells * self._cells
         else:
-            # We now know the domain is a subdomain grid by logic, make an assertion
-            # to appease mypy.
             return (
                 self.domain.num_cells * self._cells
                 + self.domain.num_faces * self._faces
