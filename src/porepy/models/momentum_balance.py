@@ -742,8 +742,8 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         self.equation_system.set_variable_values(
             traction_vals.ravel("F"),
             [self.contact_traction_variable],
-            to_state=True,
-            to_iterate=True,
+            time_step_index=0,
+            iterate_index=0,
         )
 
     def set_discretization_parameters(self) -> None:

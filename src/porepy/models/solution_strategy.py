@@ -219,7 +219,9 @@ class SolutionStrategy(abc.ABC):
     def initial_condition(self) -> None:
         """Set the initial condition for the problem."""
         vals = np.zeros(self.equation_system.num_dofs())
-        self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
+        self.equation_system.set_variable_values(
+            vals, iterate_index=0, time_step_index=0
+        )
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
@@ -247,9 +249,9 @@ class SolutionStrategy(abc.ABC):
                     time_index,
                     times_file,
                 )
-            vals = self.equation_system.get_variable_values()
+            vals = self.equation_system.get_variable_values(time_step_index=0)
             self.equation_system.set_variable_values(
-                vals, to_iterate=True, to_state=True
+                vals, iterate_index=0, time_step_index=0
             )
 
     def set_materials(self):
@@ -363,13 +365,12 @@ class SolutionStrategy(abc.ABC):
         the current approximation etc.
 
         Parameters:
-            solution_vector: The new solution state, as computed by the non-linear
-                solver.
+            solution_vector: The new solution, as computed by the non-linear solver.
 
         """
         self._nonlinear_iteration += 1
         self.equation_system.set_variable_values(
-            values=solution_vector, additive=True, to_iterate=True
+            values=solution_vector, additive=True, iterate_index=0
         )
 
     def after_nonlinear_convergence(
@@ -380,15 +381,15 @@ class SolutionStrategy(abc.ABC):
         Possible usage is to distribute information on the solution, visualization, etc.
 
         Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
+            solution: The new solution, as computed by the non-linear solver.
             errors: The error in the solution, as computed by the non-linear solver.
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
 
         """
-        solution = self.equation_system.get_variable_values(from_iterate=True)
+        solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
-            values=solution, to_state=True, additive=False
+            values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
         self.save_data_time_step()
@@ -399,7 +400,7 @@ class SolutionStrategy(abc.ABC):
         """Method to be called if the non-linear solver fails to converge.
 
         Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
+            solution: The new solution, as computed by the non-linear solver.
             errors: The error in the solution, as computed by the non-linear solver.
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
@@ -573,9 +574,10 @@ class SolutionStrategy(abc.ABC):
         """Update the time dependent arrays for the mechanics boundary conditions.
 
         Parameters:
-            initial: If True, the array generating method is called for both state and
-                iterate. If False, the array generating method is called only for the
-                iterate, and the state is updated by copying the iterate.
+            initial: If True, the array generating method is called for both the stored
+                time steps and the stored iterates. If False, the array generating
+                method is called only for the iterate, and the time step solution is
+                updated by copying the iterate.
 
         """
         pass

@@ -44,12 +44,22 @@ class TestVEMOnBenchmark(unittest.TestCase):
         assembler.distribute_variable(p)
 
         for sd, sd_data in mdg.subdomains(return_data=True):
-            sd_data[pp.STATE]["darcy_flux"] = sd_data[pp.STATE]["pressure"][
+            darcy_flux_values = sd_data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 : sd.num_faces
             ]
-            sd_data[pp.STATE]["pressure"] = sd_data[pp.STATE]["pressure"][
+            pp.set_solution_values(
+                name="darcy_flux",
+                values=darcy_flux_values,
+                data=sd_data,
+                time_step_index=0,
+            )
+
+            pressure_values = sd_data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 sd.num_faces :
             ]
+            pp.set_solution_values(
+                name="pressure", values=pressure_values, data=sd_data, time_step_index=0
+            )
 
     def test_vem_blocking(self):
         kf = 1e-4

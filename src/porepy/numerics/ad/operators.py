@@ -279,7 +279,7 @@ class Operator:
 
         # The parsing strategy depends on the operator at hand:
         # 1) If the operator is a Variable, it will be represented according to its
-        #    state.
+        #    stored state.
         # 2) If the operator is a leaf in the tree-representation of the operator,
         #    parsing is left to the operator itself.
         # 3) If the operator is formed by combining other operators lower in the tree,
@@ -290,9 +290,9 @@ class Operator:
         if isinstance(op, pp.ad.Variable) or isinstance(op, Variable):
             # Case 1: Variable
 
-            # How to access the array of (Ad representation of) states depends on whether
-            # this is a single or combined variable; see self.__init__, definition of
-            # self._variable_ids.
+            # How to access the array of (Ad representation of) states depends on
+            # whether this is a single or combined variable; see self.__init__,
+            # definition of self._variable_ids.
             # TODO: no difference between merged or no mixed-dimensional variables!?
             if isinstance(op, pp.ad.MixedDimensionalVariable) or isinstance(
                 op, MixedDimensionalVariable
@@ -642,15 +642,15 @@ class Operator:
         system_manager: pp.ad.EquationSystem | pp.DofManager,
         state: Optional[np.ndarray] = None,
     ):  # TODO ensure the operator always returns an AD array
-        """Evaluate the residual and Jacobian matrix for a given state.
+        """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
             system_manager: Used to represent the problem. Will be used
                 to parse the sub-operators that combine to form this operator.
-            state (optional): State vector for which the residual and its
-                derivatives should be formed. If not provided, the state will be pulled from
-                the previous iterate (if this exists), or alternatively from the state
-                at the previous time step.
+            state (optional): Solution vector for which the residual and its
+                derivatives should be formed. If not provided, the solution will be
+                pulled from the previous iterate (if this exists), or alternatively from
+                the solution at the previous time step.
 
         Returns:
             A representation of the residual and Jacobian in form of an AD Array.
@@ -707,10 +707,10 @@ class Operator:
         # derivatives represented). Then parse the operator by traversing its
         # tree-representation, and parse and combine individual operators.
 
-        prev_vals = system_manager.get_variable_values(from_iterate=False)
+        prev_vals = system_manager.get_variable_values(time_step_index=0)
 
         if state is None:
-            state = system_manager.get_variable_values(from_iterate=True)
+            state = system_manager.get_variable_values(iterate_index=0)
 
         # Initialize Ad variables with the current iterates
 
@@ -781,9 +781,10 @@ class Operator:
             key=lambda var: var.id,
         )
 
-        # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and their
-        # indices according to the DofManager. This is needed to access the state of
-        # a variable when parsing the operator to numerical values using forward Ad.
+        # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and
+        # their indices according to the DofManager. This is needed to access the
+        # state of a variable when parsing the operator to numerical values using
+        # forward Ad.
 
         # For each variable, get the global index
         inds = []
@@ -1237,8 +1238,8 @@ class TimeDependentDenseArray(DenseArray):
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
     dictionaries associated with subdomains and interfaces.
     The array values are stored
-    in ``data[pp.STATE][pp.ITERATE][self._name]`` for the current time and
-    ``data[pp.STATE][self._name]`` for the previous time.
+    in ``data[pp.ITERATE_SOLUTIONS][self._name][0]`` for the current time and
+    ``data[pp.TIME_STEP_SOLUTIONS][self._name][0]`` for the previous time.
 
     The array can be differentiated in time using ``pp.ad.dt()``.
 
@@ -1247,7 +1248,8 @@ class TimeDependentDenseArray(DenseArray):
     however, this is pending an update to the model classes.
 
     Parameters:
-        name: Name of the variable. Should correspond to items in data[pp.STATE].
+        name: Name of the variable. Should correspond to items in
+            ``data[pp.TIME_STEP_SOLUTIONS]``.
         subdomains: Subdomains on which the array is defined. Defaults to None.
         interfaces: Interfaces on which the array is defined. Defaults to None.
             Exactly one of subdomains and interfaces must be non-empty.
@@ -1255,9 +1257,9 @@ class TimeDependentDenseArray(DenseArray):
             previous time step.
 
     Attributes:
-        previous_timestep: If True, the array will be evaluated using data[pp.STATE]
-            (data being the data dictionaries for subdomains and interfaces), if False,
-            data[pp.STATE][pp.ITERATE] is used.
+        previous_timestep: If True, the array will be evaluated using
+            ``data[pp.TIME_STEP_SOLUTIONS]`` (data being the data dictionaries for
+            subdomains and interfaces), if False, ``data[pp.ITERATE_SOLUTIONS]`` is used.
 
     Raises:
         ValueError: If either none of, or both of, subdomains and interfaces are empty.
@@ -1303,10 +1305,10 @@ class TimeDependentDenseArray(DenseArray):
             self._is_interface_array = True
 
         self.prev_time: bool = previous_timestep
-        """If True, the array will be evaluated using ``data[pp.STATE]``
+        """If True, the array will be evaluated using ``data[pp.TIME_STEP_SOLUTIONS]``
         (data being the data dictionaries for subdomains and interfaces).
 
-        If False, ``data[pp.STATE][pp.ITERATE]`` is used.
+        If False, ``data[pp.ITERATE_SOLUTIONS]`` is used.
 
         """
 
@@ -1331,9 +1333,10 @@ class TimeDependentDenseArray(DenseArray):
         """Convert this array into numerical values.
 
         The numerical values will be picked from the representation of the array in
-        ``data[pp.STATE][pp.ITERATE]`` (where data is the data dictionary of the subdomains
+        ``data[pp.ITERATE_SOLUTIONS]`` (where data is the data dictionary of the
+        subdomains
         or interfaces of this Array), or, if ``self.prev_time = True``,
-        from ``data[pp.STATE]``.
+        from ``data[pp.TIME_STEP_SOLUTIONS]``.
 
         Parameters:
             mdg: Mixed-dimensional grid.
@@ -1353,9 +1356,9 @@ class TimeDependentDenseArray(DenseArray):
                 data = mdg.subdomain_data(g)
 
             if self.prev_time:
-                vals.append(data[pp.STATE][self._name])
+                vals.append(data[pp.TIME_STEP_SOLUTIONS][self._name][0])
             else:
-                vals.append(data[pp.STATE][pp.ITERATE][self._name])
+                vals.append(data[pp.ITERATE_SOLUTIONS][self._name][0])
 
         if len(vals) > 0:
             # Normal case: concatenate the values from all grids
@@ -1457,10 +1460,16 @@ class Variable(Operator):
         ### PUBLIC
 
         self.prev_time: bool = previous_timestep
-        """Flag indicating if the variable represents the state at the previous time step."""
+        """Flag indicating if the variable represents the state at the previous time
+        step.
+
+        """
 
         self.prev_iter: bool = previous_iteration
-        """Flag indicating if the variable represents the state at the previous iteration."""
+        """Flag indicating if the variable represents the state at the previous
+        iteration.
+
+        """
 
         self.id: int = next(Variable._ids)
         """ID counter. Used to identify variables during operator parsing."""
@@ -1508,7 +1517,6 @@ class Variable(Operator):
             # This is a mortar grid. Assume that there are only cell dofs
             return self.domain.num_cells * self._cells
         else:
-            # We now know the domain is a grid by logic, make an assertion to appease mypy
             return (
                 self.domain.num_cells * self._cells
                 + self.domain.num_faces * self._faces
@@ -1609,10 +1617,16 @@ class MixedDimensionalVariable(Variable):
         """ID counter. Used to identify variables during operator parsing."""
 
         self.prev_time: bool = False
-        """Flag indicating if the variable represents the state at the previous time step."""
+        """Flag indicating if the variable represents the state at the previous time
+        step.
+
+        """
 
         self.prev_iter: bool = False
-        """Flag indicating if the variable represents the state at the previous iteration."""
+        """Flag indicating if the variable represents the state at the previous
+        iteration.
+
+        """
 
         self.original_variable: MixedDimensionalVariable
         """The original variable, if this variable is a copy of another variable.
@@ -1624,11 +1638,10 @@ class MixedDimensionalVariable(Variable):
 
         ### PRIVATE
 
-        # Flag to identify variables merged over no subdomains. This requires special treatment
-        # in various parts of the code.
-        # A use case is variables that are only defined on subdomains of codimension >= 1
-        # (e.g., contact traction variable), assigned to a problem where the grid happened
-        # not to have any fractures.
+        # Flag to identify variables merged over no subdomains. This requires special
+        # treatment in various parts of the code. A use case is variables that are only
+        # defined on subdomains of codimension >= 1 (e.g., contact traction variable),
+        # assigned to a problem where the grid happened not to have any fractures.
         self._no_variables = len(variables) == 0
 
         # Take the name from the first variable.
@@ -1646,10 +1659,11 @@ class MixedDimensionalVariable(Variable):
         self.copy_common_sub_tags()
 
     def copy_common_sub_tags(self) -> None:
-        """Copy any shared tags from the sub variables to this variable.
+        """Copy any shared tags from the sub-variables to this variable.
 
-        Only tags with identical values are copied. Thus, the md variable can "trust" that
-        its tags are consistent with all sub variables.
+        Only tags with identical values are copied. Thus, the md variable can "trust"
+        that its tags are consistent with all sub-variables.
+
         """
         self._tags = {}
         # If there are no sub variables, there is nothing to do.
