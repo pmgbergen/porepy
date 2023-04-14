@@ -85,8 +85,6 @@ from porepy.params.data import (
     Parameters,
     initialize_data,
     initialize_default_data,
-    set_state,
-    set_iterate,
 )
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 from porepy.params.fluid import Water, UnitFluid
@@ -192,6 +190,7 @@ from porepy.models.run_models import (
 from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_ad_array, wrap_as_ad_matrix
 from porepy.numerics.ad.equation_system import EquationSystem
+from porepy.numerics.ad.equation_system import set_solution_values
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager

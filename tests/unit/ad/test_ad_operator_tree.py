@@ -19,6 +19,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+
 _operations = pp.ad.operators.Operator.Operations
 
 operators = [
@@ -98,7 +99,7 @@ def test_copy_operator_tree():
     eq_system = pp.ad.EquationSystem(mdg)
     eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
     eq_system.set_variable_values(
-        np.zeros(eq_system.num_dofs()), to_iterate=True, to_state=True
+        np.zeros(eq_system.num_dofs()), iterate_index=0, time_step_index=0
     )
 
     # In their initial state, all operators should have the same values
@@ -199,16 +200,27 @@ def test_time_dependent_array():
     # Some boilerplate is needed to define these.
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
     for sd, sd_data in mdg.subdomains(return_data=True):
-        sd_data[pp.STATE] = {
-            "foo": np.zeros(sd.num_cells),
-            pp.ITERATE: {"foo": sd.dim * np.ones(sd.num_cells)},
-        }
+        vals_sol = np.zeros(sd.num_cells)
+        pp.set_solution_values(
+            name="foo", values=vals_sol, data=sd_data, time_step_index=0
+        )
+
+        vals_it = sd.dim * np.ones(sd.num_cells)
+        pp.set_solution_values(
+            name="foo", values=vals_it, data=sd_data, iterate_index=0
+        )
+
     for intf, intf_data in mdg.interfaces(return_data=True):
         # Create an empty primary variable list
-        intf_data[pp.STATE] = {
-            "bar": np.arange(intf.num_cells),
-            pp.ITERATE: {"bar": np.ones(intf.num_cells)},
-        }
+        vals_sol = np.arange(intf.num_cells)
+        pp.set_solution_values(
+            name="bar", values=vals_sol, data=intf_data, time_step_index=0
+        )
+
+        vals_it = np.ones(intf.num_cells)
+        pp.set_solution_values(
+            name="bar", values=vals_it, data=intf_data, iterate_index=0
+        )
 
     # We make three arrays: One defined on a single subdomain, one on all subdomains of
     # mdg and one on an interface.
@@ -408,7 +420,9 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
 
-        data[pp.STATE] = {var: val_state, pp.ITERATE: {var: val_iterate}}
+        pp.set_solution_values(name=var, values=val_state, data=data, time_step_index=0)
+        pp.set_solution_values(name=var, values=val_iterate, data=data, iterate_index=0)
+
         state_map[sd] = val_state
         iterate_map[sd] = val_iterate
 
@@ -417,8 +431,14 @@ def test_ad_variable_evaluation():
             data[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
             val_state = np.random.rand(sd.num_cells)
             val_iterate = np.random.rand(sd.num_cells)
-            data[pp.STATE][var2] = val_state
-            data[pp.STATE][pp.ITERATE][var2] = val_iterate
+
+            pp.set_solution_values(
+                name=var2, values=val_state, data=data, time_step_index=0
+            )
+            pp.set_solution_values(
+                name=var2, values=val_iterate, data=data, iterate_index=0
+            )
+
             state_map_2[sd] = val_state
             iterate_map_2[sd] = val_iterate
 
@@ -433,7 +453,13 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(intf.num_cells * num_dofs)
         val_iterate = np.random.rand(intf.num_cells * num_dofs)
 
-        data[pp.STATE] = {mortar_var: val_state, pp.ITERATE: {mortar_var: val_iterate}}
+        pp.set_solution_values(
+            name=mortar_var, values=val_state, data=data, time_step_index=0
+        )
+        pp.set_solution_values(
+            name=mortar_var, values=val_iterate, data=data, iterate_index=0
+        )
+
         state_map[intf] = val_state
         iterate_map[intf] = val_iterate
 
@@ -547,11 +573,12 @@ def test_variable_combinations(grids, variables):
     mdg = pp.MixedDimensionalGrid()
     mdg.add_subdomains(grids)
     for sd, data in mdg.subdomains(return_data=True):
-        data[pp.STATE] = {}
         data[pp.PRIMARY_VARIABLES] = {}
         for var in variables:
             data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
-            data[pp.STATE][var] = np.random.rand(sd.num_cells)
+
+            vals = np.random.rand(sd.num_cells)
+            pp.set_solution_values(name=var, values=vals, data=data, time_step_index=0)
 
     # Ad boilerplate
     eq_system = pp.ad.EquationSystem(mdg)
@@ -560,8 +587,8 @@ def test_variable_combinations(grids, variables):
         eq_system.set_variable_values(
             np.random.rand(mdg.num_subdomain_cells()),
             [var],
-            to_iterate=True,
-            to_state=True,
+            time_step_index=0,
+            iterate_index=0,
         )
     # Standard Ad variables
     ad_vars = eq_system.get_variables()
@@ -575,7 +602,7 @@ def test_variable_combinations(grids, variables):
             if sd == var.domain:
                 expr = var.evaluate(eq_system)
                 # Check that the size of the variable is correct
-                assert np.allclose(expr.val, data[pp.STATE][var.name])
+                assert np.allclose(expr.val, data[pp.TIME_STEP_SOLUTIONS][var.name][0])
                 # Check that the Jacobian matrix has the right number of columns
                 assert expr.jac.shape[1] == eq_system.num_dofs()
 
@@ -584,7 +611,11 @@ def test_variable_combinations(grids, variables):
         expr = var.evaluate(eq_system)
         vals = []
         for sub_var in var.sub_vars:
-            vals.append(mdg.subdomain_data(sub_var.domain)[pp.STATE][sub_var.name])
+            vals.append(
+                mdg.subdomain_data(sub_var.domain)[pp.TIME_STEP_SOLUTIONS][
+                    sub_var.name
+                ][0]
+            )
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
         assert expr.jac.shape[1] == eq_system.num_dofs()
@@ -633,28 +664,50 @@ def test_time_differentiation():
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
     for sd, sd_data in mdg.subdomains(return_data=True):
         if sd.dim == mdg.dim_max():
-            sd_data[pp.STATE] = {
-                "foo": -np.ones(sd.num_cells),
-                "bar": 2 * np.ones(sd.num_cells),
-                pp.ITERATE: {
-                    "foo": 3 * np.ones(sd.num_cells),
-                    "bar": np.ones(sd.num_cells),
-                },
-            }
+            vals_sol_foo = -np.ones(sd.num_cells)
+            vals_sol_bar = 2 * np.ones(sd.num_cells)
+
+            pp.set_solution_values(
+                name="foo", values=vals_sol_foo, data=sd_data, time_step_index=0
+            )
+            pp.set_solution_values(
+                name="bar", values=vals_sol_bar, data=sd_data, time_step_index=0
+            )
+
+            vals_it_foo = 3 * np.ones(sd.num_cells)
+            vals_it_bar = np.ones(sd.num_cells)
+
+            pp.set_solution_values(
+                name="foo", values=vals_it_foo, data=sd_data, iterate_index=0
+            )
+            pp.set_solution_values(
+                name="bar", values=vals_it_bar, data=sd_data, iterate_index=0
+            )
+
         else:
-            sd_data[pp.STATE] = {
-                "foo": np.zeros(sd.num_cells),
-                pp.ITERATE: {"foo": np.ones(sd.num_cells)},
-            }
+            vals_sol_foo = np.zeros(sd.num_cells)
+            vals_it_foo = np.ones(sd.num_cells)
+
+            pp.set_solution_values(
+                name="foo", values=vals_sol_foo, data=sd_data, time_step_index=0
+            )
+            pp.set_solution_values(
+                name="foo", values=vals_it_foo, data=sd_data, iterate_index=0
+            )
 
     for intf, intf_data in mdg.interfaces(return_data=True):
         # Create an empty primary variable list
         intf_data[pp.PRIMARY_VARIABLES] = {}
         # Set a numpy array in state, to be represented as a time-dependent array.
-        intf_data[pp.STATE] = {
-            "foobar": np.ones(intf.num_cells),
-            pp.ITERATE: {"foobar": 2 * np.ones(intf.num_cells)},
-        }
+        vals_sol = np.ones(intf.num_cells)
+        vals_it = 2 * np.ones(intf.num_cells)
+
+        pp.set_solution_values(
+            name="foobar", values=vals_sol, data=intf_data, time_step_index=0
+        )
+        pp.set_solution_values(
+            name="foobar", values=vals_it, data=intf_data, iterate_index=0
+        )
 
     eq_system = pp.ad.EquationSystem(mdg)
     eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())

@@ -88,11 +88,11 @@ class Exporter:
     Examples:
         # Here, merely a brief demonstration of the use of Exporter is presented.
 
-        # If you need to export the state with key "pressure" on a single grid:
+        # If you need to export the solution with key "pressure" on a single grid:
         save = Exporter(g, "solution", folder_name="results")
         save.write_vtu(["pressure"])
 
-        # In a time loop, if you need to export states with keys "pressure" and
+        # In a time loop, if you need to export solutions with keys "pressure" and
         # "displacement" stored in a mixed-dimensional grid, do:
 
         save = Exporter(mdg, "solution", folder_name="results")
@@ -249,7 +249,6 @@ class Exporter:
         # generated either through Exporter.write_pvd() or Exporter._export_mdg_pvd(),
         # respectively.
         if is_mdg_pvd:
-
             # Strategy: Find all vtu files attached to the mdg pvd file. Utilize the
             # hardcoded format in self._export_mdg_pvd().
             # Use the ET package from the standard library to parse the XML-file.
@@ -262,7 +261,6 @@ class Exporter:
             time_index = int(pvd_file.stem[-self._padding :])
 
         else:
-
             # Strategy: First, identify the latest time step, and second all files
             # corresponding to that time step. Utilize hardcoded format in
             # Exporter.write_pvd().
@@ -377,7 +375,6 @@ class Exporter:
         # 2. Check whether the vtu file is compatible with the corresponding grids.
         # 3. Transfer data from vtu to the mixed-dimensional grid.
         for i, vtu_file in enumerate(vtu_files):
-
             # Read all data from vtu
             vtu_data = meshio.read(vtu_file)
 
@@ -449,7 +446,6 @@ class Exporter:
             assert np.all(np.isclose(meshio_geometry.pts, vtu_data.points))
 
             for i, connectivity in enumerate(meshio_geometry.connectivity):
-
                 # Make sure that the connectivity patterns are identical
                 assert (
                     DeepDiff(
@@ -467,14 +463,14 @@ class Exporter:
                 _keys: list[str] = []
                 if is_subdomain_data:
                     for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
-                        if pp.STATE in sd_data:
-                            _keys += list(sd_data[pp.STATE].keys())
+                        if pp.TIME_STEP_SOLUTIONS in sd_data:
+                            _keys += list(sd_data[pp.TIME_STEP_SOLUTIONS].keys())
                 else:
                     for intf, intf_data in self._mdg.interfaces(
                         dim=dim, return_data=True
                     ):
-                        if pp.STATE in intf_data:
-                            _keys += list(intf_data[pp.STATE].keys())
+                        if pp.TIME_STEP_SOLUTIONS in intf_data:
+                            _keys += list(intf_data[pp.TIME_STEP_SOLUTIONS].keys())
             else:
                 _keys = list(keys)
 
@@ -483,11 +479,9 @@ class Exporter:
 
             # 4th step: Transfer data. Consider each key separately.
             for key in unique_keys:
-
                 # Only continue if the key is present in the data
                 # IMPLEMENTATION NOTE: To also consider node data, add an else below.
                 if key in vtu_data.cell_data:
-
                     # Data is stored in a list with each element storing data for one
                     # specific cell type (most relevant for polygonal and polyhedral
                     # grids). Accumulate the data again, assuming the same
@@ -500,22 +494,29 @@ class Exporter:
                         for sd, sd_data in self._mdg.subdomains(
                             dim=dim, return_data=True
                         ):
-                            if pp.STATE not in sd_data:
-                                sd_data[pp.STATE] = {}
-                            sd_data[pp.STATE][key] = _from_vector_format(
+                            values = _from_vector_format(
                                 value[offset : offset + sd.num_cells], sd
                             )
+                            pp.set_solution_values(
+                                name=key, values=values, data=sd_data, time_step_index=0
+                            )
+
                             offset += sd.num_cells
 
                     else:
                         for intf, intf_data in self._mdg.interfaces(
                             dim=dim, return_data=True, codim=1
                         ):
-                            if pp.STATE not in intf_data:
-                                intf_data[pp.STATE] = {}
-                            intf_data[pp.STATE][key] = _from_vector_format(
+                            values = _from_vector_format(
                                 value[offset : offset + intf.num_cells], intf
                             )
+                            pp.set_solution_values(
+                                name=key,
+                                values=values,
+                                data=intf_data,
+                                time_step_index=0,
+                            )
+
                             offset += intf.num_cells
 
     def add_constant_data(
@@ -755,7 +756,6 @@ class Exporter:
         # Define the header - either copy paste from availble previous output, or define
         # hardcoded header.
         if file_exists and append:
-
             # Strategy: Continue writing available pvd file by first copying all content
             # until the restart time, here altogether defined as header.
 
@@ -771,7 +771,6 @@ class Exporter:
             header: str = "".join(previous_content[: -2 - len(self._restart_files)])
 
         else:
-
             # Start writing a new pvd file. Define hardcoded header.
             b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
             c = ' compressor="vtkZLibDataCompressor"'
@@ -931,7 +930,8 @@ class Exporter:
             subdomains and interfaces identified by the key.
 
             Parameters:
-                data_pt: data identifier via the associated key used in pp.STATE.
+                data_pt: data identifier via the associated key used in
+                    ``pp.TIME_STEP_SOLUTIONS``.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
 
@@ -946,7 +946,6 @@ class Exporter:
 
             # Only continue in case data is of type str
             if isinstance(data_pt, str):
-
                 # Identify the key provided through the data.
                 key = data_pt
 
@@ -959,10 +958,13 @@ class Exporter:
                     grid_data: dict,
                     export_data: dict,
                 ) -> bool:
-                    if pp.STATE in grid_data and key in grid_data[pp.STATE]:
+                    if (
+                        pp.TIME_STEP_SOLUTIONS in grid_data
+                        and key in grid_data[pp.TIME_STEP_SOLUTIONS]
+                    ):
                         # Fetch data and convert to vectorial format if needed
                         value: np.ndarray = _to_vector_format(
-                            grid_data[pp.STATE][key], grid
+                            grid_data[pp.TIME_STEP_SOLUTIONS][key][0], grid
                         )
 
                         # Add data point in correct format to the collection
@@ -1006,8 +1008,8 @@ class Exporter:
             explicitly checks only for subdomain data.
 
             Parameters:
-                data_pt: data iendtifier via the key used in pp.STATE and a specific
-                    subdomain.
+                data_pt: data identifier via the key used in ``pp.TIME_STEP_SOLUTIONS``
+                    and a specific subdomain.
                 subdomain_data: container for subdomain data
                 interface_data: container for interface data
 
@@ -1015,8 +1017,8 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no state in the subdomain data with given
-                    key.
+                ValueError: if there exists no time step solutions in the subdomain
+                    data with given key.
 
             """
 
@@ -1028,26 +1030,30 @@ class Exporter:
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_subdomains_str:
-
                 # By construction, the components are a list of grids and a key.
                 subdomains: list[pp.Grid] = data_pt[0]
                 key = data_pt[1]
 
-                # Loop over grids and fetch the states corresponding to the key
+                # Loop over grids and fetch the time step solutions corresponding to the
+                # key
                 for sd in subdomains:
-
                     # Fetch the data dictionary containing the data value
                     sd_data = self._mdg.subdomain_data(sd)
 
                     # Make sure the data exists.
-                    if not (pp.STATE in sd_data and key in sd_data[pp.STATE]):
+                    if not (
+                        pp.TIME_STEP_SOLUTIONS in sd_data
+                        and key in sd_data[pp.TIME_STEP_SOLUTIONS]
+                    ):
                         raise ValueError(
-                            f"""No state with prescribed key {key} available on selected
-                            subdomains."""
+                            f"""No time step solution with prescribed key {key}
+                            available on selected subdomains."""
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _to_vector_format(sd_data[pp.STATE][key], sd)
+                    value = _to_vector_format(
+                        sd_data[pp.TIME_STEP_SOLUTIONS][key][0], sd
+                    )
 
                     # Add data point in correct format to collection
                     subdomain_data[(sd, key)] = value
@@ -1073,8 +1079,8 @@ class Exporter:
                 interfaces.
 
             Parameters:
-                data_pt: data identifier combining to be addressed interfaces and a key
-                    present in pp.STATE.
+                data_pt: data identifier combining to be addressed interfaces and
+                    a key present in pp.TIME_STEP_SOLUTIONS.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
 
@@ -1082,8 +1088,8 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no state in the interface data with given
-                    key.
+                ValueError: if there exists no time step solutions in the interface data
+                    with given key.
 
             """
 
@@ -1095,26 +1101,30 @@ class Exporter:
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_interfaces_str:
-
                 # By construction, the components are a list of interfaces and a key.
                 interfaces: list[pp.MortarGrid] = data_pt[0]
                 key = data_pt[1]
 
-                # Loop over interfaces and fetch the states corresponding to the key
+                # Loop over interfaces and fetch the time step solutions corresponding
+                # to the key
                 for intf in interfaces:
-
                     # Fetch the data dictionary containing the data value
                     intf_data = self._mdg.interface_data(intf)
 
                     # Make sure the data exists.
-                    if not (pp.STATE in intf_data and key in intf_data[pp.STATE]):
+                    if not (
+                        pp.TIME_STEP_SOLUTIONS in intf_data
+                        and key in intf_data[pp.TIME_STEP_SOLUTIONS]
+                    ):
                         raise ValueError(
-                            f"""No state with prescribed key {key} available on selected
-                            interfaces."""
+                            f"""No time step solution with prescribed key {key}
+                            available on selected interfaces."""
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _to_vector_format(intf_data[pp.STATE][key], intf)
+                    value = _to_vector_format(
+                        intf_data[pp.TIME_STEP_SOLUTIONS][key][0], intf
+                    )
 
                     # Add data point in correct format to collection
                     interface_data[(intf, key)] = value
@@ -1145,8 +1155,8 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no state in the interface data with given
-                    key.
+                ValueError: if there exists no time step solutions in the interface data
+                    with given key.
 
             """
 
@@ -1159,7 +1169,6 @@ class Exporter:
 
             # Convert data to unique format and update the subdomain data dictionary.
             if isinstance_tuple_subdomain_str_array:
-
                 # Interpret (sd, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 sd = data_pt[0]
                 key = data_pt[1]
@@ -1196,8 +1205,8 @@ class Exporter:
                 Updated data containers and flag of success.
 
             Raises:
-                ValueError: if there exists no state in the interface data with given
-                    key.
+                ValueError: if there exists no time step solutions in the interface data
+                    with given key.
 
             """
 
@@ -1254,7 +1263,6 @@ class Exporter:
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_str_array:
-
                 # Fetch the correct grid. This option is only supported for
                 # mixed-dimensional grids containing a single subdomain.
                 subdomains = self._mdg.subdomains()
@@ -1310,13 +1318,11 @@ class Exporter:
         # format uses (subdomain/interface,key) as key of the dictionaries, and the
         # value is given by the corresponding data.
         for data_pt in data:
-
             # Initialize tag storing whether the conversion process for data_pt is
             # successful.
             success = False
 
             for method in methods:
-
                 # Check whether data point of right type and convert to the unique data
                 # type.
                 subdomain_data, interface_data, success = method(
@@ -1376,7 +1382,6 @@ class Exporter:
 
         # Add mesh related, constant interface data by direct assignment.
         for intf, intf_data in self._mdg.interfaces(return_data=True, codim=1):
-
             # Construct empty arrays for all extra interface data
             self._constant_interface_data[(intf, "grid_dim")] = np.empty(0, dtype=int)
             self._constant_interface_data[(intf, "cell_id")] = np.empty(0, dtype=int)
@@ -1567,7 +1572,6 @@ class Exporter:
         # The procedure is similar to the above, but the file names incl. the relevant
         # time step have to be adjusted.
         if self._export_constants_separately:
-
             # Constant subdomain data.
             for dim in self._dims:
                 if (
@@ -1712,7 +1716,7 @@ class Exporter:
 
         # For each cell_type store the connectivity pattern cell_to_nodes for the
         # corresponding cells with ids from cell_id.
-        for (cell_type, cell_block) in cell_to_nodes.items():
+        for cell_type, cell_block in cell_to_nodes.items():
             meshio_cells.append(meshio.CellBlock(cell_type, cell_block.astype(int)))
             meshio_cell_id.append(np.array(cell_id[cell_type]))
 
@@ -1793,7 +1797,6 @@ class Exporter:
 
         # Loop over all 2d grids
         for grid in grids:
-
             # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T * self._length_scale
@@ -1804,7 +1807,6 @@ class Exporter:
             # Loop over all available cell types and group cells of one type.
             g_cell_map = dict()
             for n in np.unique(num_nodes_per_cell):
-
                 # Define cell type; check if it coincides with a predefined cell type
                 cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
 
@@ -1823,7 +1825,6 @@ class Exporter:
             # triangle, quad and polygonal cells differently aiming for optimized
             # performance.
             for n in np.unique(num_nodes_per_cell):
-
                 # Define the cell type
                 cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
 
@@ -1834,7 +1835,6 @@ class Exporter:
 
                 # Special case: Triangle cells, i.e., n=3.
                 if cell_type == "triangle":
-
                     # Triangles are simplices and have a trivial connectivity.
 
                     # Fetch triangle cells
@@ -1914,7 +1914,7 @@ class Exporter:
 
         # For each cell_type store the connectivity pattern cell_to_nodes for the
         # corresponding cells with ids from cell_id.
-        for (cell_type, cell_block) in cell_to_nodes.items():
+        for cell_type, cell_block in cell_to_nodes.items():
             # Meshio requires the keyword "polygon" for general polygons.
             # Thus, remove the number of nodes associated to polygons.
             cell_type_meshio_format = "polygon" if "polygon" in cell_type else cell_type
@@ -1948,7 +1948,6 @@ class Exporter:
         # Determine the cell types present among all grids.
         cell_types: set[str] = set()
         for grid in grids:
-
             # The number of faces per cell wil be later used to determining
             # the cell types
             num_faces_per_cell = np.unique(grid.cell_faces.getnnz(axis=0))
@@ -2178,7 +2177,6 @@ class Exporter:
 
             # Test each cell separately
             for i in numba.prange(cn_indices.shape[0]):
-
                 # Assume initially that the cell is a hex
                 is_hex = True
 
@@ -2215,7 +2213,6 @@ class Exporter:
 
                 # Check each side separately
                 for global_ind in [global_ind_0, global_ind_1, global_ind_2]:
-
                     # Fetch coordinates associated to the four nodes
                     coords = nodes[:, global_ind]
 
@@ -2273,7 +2270,6 @@ class Exporter:
 
         # Treat each 3d grid separately.
         for grid in grids:
-
             # Store scaled node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T * self._length_scale
@@ -2285,7 +2281,6 @@ class Exporter:
             g_cell_map = dict()
 
             for n in np.unique(num_nodes_per_cell):
-
                 cell_type = f"polyhedron{n}"
 
                 # Find all cells with n faces, and store for later use
@@ -2303,7 +2298,6 @@ class Exporter:
             # special and general cell types and to conform with array sizes (for
             # polyhedra), treat each cell type separately.
             for cell_type in g_cell_map.keys():
-
                 # The general strategy is to define the connectivity as cell-face-nodes
                 # information, where the faces are defined by nodes. Hence, this
                 # information is significantly larger than the info provided for tetra
@@ -2343,7 +2337,7 @@ class Exporter:
         meshio_cell_id = list()
 
         # Store the cells in meshio format
-        for (cell_type, cell_block) in cell_to_faces.items():
+        for cell_type, cell_block in cell_to_faces.items():
             # Adapt the block number taking into account of previous cell types.
             meshio_cells.append(meshio.CellBlock(cell_type, cell_block))
             meshio_cell_id.append(np.array(cell_id[cell_type]))
@@ -2372,7 +2366,6 @@ class Exporter:
         # Split the data for each group of geometrically uniform cells. Utilize
         # meshio_geom for this.
         for field in fields:
-
             # Although technically possible, as implemented, field.values should never
             # be None.
             assert field.values is not None

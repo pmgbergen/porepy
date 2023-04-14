@@ -162,7 +162,9 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         # Check that the temperature is linear.
         for sd in setup.mdg.subdomains():
             var = setup.equation_system.get_variables(["temperature"], [sd])
-            vals = setup.equation_system.get_variable_values(var)
+            vals = setup.equation_system.get_variable_values(
+                variables=var, time_step_index=0
+            )
             assert np.allclose(
                 vals,
                 1 - sd.cell_centers[0] / setup.domain.bounding_box["xmax"],
