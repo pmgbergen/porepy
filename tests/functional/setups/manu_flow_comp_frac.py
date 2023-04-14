@@ -760,7 +760,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         # Sources
         matrix_source = self.exact_sol.matrix_source(sd_matrix, t)
 
-        set_solution_values(
+        pp.set_solution_values(
             name="external_sources",
             values=matrix_source,
             data=data_matrix,
@@ -769,7 +769,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
         frac_source = self.exact_sol.fracture_source(sd_frac, t)
 
-        set_solution_values(
+        pp.set_solution_values(
             name="external_sources",
             values=frac_source,
             data=data_frac,
@@ -779,13 +779,13 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         # Boundary conditions for the elliptic discretization
         matrix_pressure_boundary = self.exact_sol.matrix_boundary_pressure(sd_matrix, t)
 
-        set_solution_values(
+        pp.set_solution_values(
             name="darcy_bc_values",
             values=matrix_pressure_boundary,
             data=data_matrix,
             time_step_index=0,
         )
-        set_solution_values(
+        pp.set_solution_values(
             name="darcy_bc_values",
             values=np.zeros(sd_frac.num_faces),
             data=data_frac,
@@ -797,14 +797,14 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         viscosity = self.fluid.viscosity()
         matrix_mobrho = matrix_density_boundary / viscosity
 
-        set_solution_values(
+        pp.set_solution_values(
             name="mobrho_bc_values",
             values=matrix_mobrho,
             data=data_matrix,
             time_step_index=0,
         )
 
-        set_solution_values(
+        pp.set_solution_values(
             name="mobrho_bc_values",
             values=np.zeros(sd_frac.num_faces),
             data=data_frac,

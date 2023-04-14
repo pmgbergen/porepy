@@ -26,7 +26,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import set_solution_values
 
 
 class FracturePropagation(abc.ABC):
@@ -175,14 +174,14 @@ class FracturePropagation(abc.ABC):
                     values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
-                    set_solution_values(var, values, data, time_step_index=ind)
+                    pp.set_solution_values(var, values, data, time_step_index=ind)
 
                 # Repeat for iterate:
                 for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
                     values = data[pp.ITERATE_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
-                    set_solution_values(var, values, data, iterate_index=ind)
+                    pp.set_solution_values(var, values, data, iterate_index=ind)
 
         for intf, data in self.mdg.interfaces(return_data=True):
             # Check if the mortar grid geometry has been updated.
@@ -214,14 +213,14 @@ class FracturePropagation(abc.ABC):
                     values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
-                    set_solution_values(var, values, data, time_step_index=ind)
+                    pp.set_solution_values(var, values, data, time_step_index=ind)
 
                 # Repeat for iterate.
                 for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
                     values = data[pp.ITERATE_SOLUTIONS][var][ind]
                     values = mapping * values
                     values[new_ind] = new_vals
-                    set_solution_values(var, values, data, iterate_index=ind)
+                    pp.set_solution_values(var, values, data, iterate_index=ind)
 
         # Update the assembler's counting of dofs
         self.assembler.update_dof_count()

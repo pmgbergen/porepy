@@ -5,7 +5,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.fv import fvutils
-from porepy.numerics.ad.equation_system import set_solution_values
 
 
 class TestFvutils(unittest.TestCase):
@@ -158,7 +157,9 @@ class TestFvutils(unittest.TestCase):
         specified_parameters = {"bc_values": bc_val}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         vals = np.array([3.14])
-        set_solution_values(name="pressure", values=vals, data=data, time_step_index=0)
+        pp.set_solution_values(
+            name="pressure", values=vals, data=data, time_step_index=0
+        )
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         matrix_dictionary["flux"] = flux
