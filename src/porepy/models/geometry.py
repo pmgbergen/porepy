@@ -31,7 +31,13 @@ class ModelGeometry:
     """Unit system."""
 
     def set_geometry(self) -> None:
-        """Define geometry and create a mixed-dimensional grid."""
+        """Define geometry and create a mixed-dimensional grid.
+
+        The default values provided in set_domain, set_fractures, grid_type and
+        meshing_arguments produce a 2d unit square domain with no fractures and a four
+        Cartesian cells.
+
+        """
         # Create the geometry through domain amd fracture set.
         self.set_domain()
         self.set_fractures()
@@ -128,8 +134,8 @@ class ModelGeometry:
             Meshing arguments compatible with pp.create_mdg() method.
 
         """
-        # Default value of one, scaled by the length unit.
-        mesh_args: dict[str, float] = {"cell_size": 1 / self.units.m}
+        # Default value of 1/2, scaled by the length unit.
+        mesh_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
         return mesh_args
 
     def subdomains_to_interfaces(
