@@ -1,5 +1,12 @@
 """
-Module containing functionality related to non-matching grids.
+.. warning:: 
+    This is old code and not longer maintained. Thus, documentation is missing and some
+    functions may result in unexpected behavior.
+
+.. deprecated::
+    All functionality provided by this module is deprecated and will be removed at an
+    unspecified point in the future.
+
 """
 
 
@@ -19,6 +26,14 @@ def merge_grids(
 ) -> list[list[pp.Grid]]:
     """Main method of module, merge all grids.
 
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
+
     Parameters:
         grids: Nested list of grids to be merged. Outer: One per fracture, middle:
             dimension, inner: grids within the dimension.
@@ -27,6 +42,7 @@ def merge_grids(
 
     Returns:
         grid_list_by_dim: Merged grids, sorted by dimension.
+
     """
     list_of_grids, global_ind_offset = init_global_ind(grids)
     grids_1d = process_intersections(
@@ -44,6 +60,14 @@ def merge_grids(
 
 def init_global_ind(gl: list[list[list[pp.Grid]]]) -> tuple[list[pp.Grid], int]:
     """Initialize a global indexing of nodes to a set of local grids.
+
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
 
     Parameters:
         gl: Outer: One per fracture, middle: dimension, inner: grids within the
@@ -87,6 +111,14 @@ def process_intersections(
 ):
     """Loop over all intersections, combined two and two grids.
 
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
+
     Parameters:
         grids: _description_
         intersections: _description_
@@ -107,13 +139,11 @@ def process_intersections(
 
     # Loop over all fractures
     for frac_ind, frac in enumerate(grids):
-
         # Pick out the 2d grid of this fracture
         g = grids[frac_ind][0][0]
 
         # Loop over all 1d grids in this fracture
         for ind_1d, g_1d in enumerate(frac[1]):
-
             # Find index and grid of the other fracture of this intersection
             other_frac_ind = intersections[frac_ind][ind_1d]
             h = grids[other_frac_ind][0][0]
@@ -153,6 +183,14 @@ def combine_grids(
 ):
     """_summary_
 
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
+
     Parameters:
         g: _description_
         g_1d: 1d tensor grid.
@@ -166,7 +204,6 @@ def combine_grids(
         _description_
 
     """
-
     (
         combined_1d,
         global_ind_offset,
@@ -212,6 +249,14 @@ def merge_1d_grids(
     g: pp.Grid, h: pp.Grid, global_ind_offset: int = 0, tol: float = 1e-4
 ):
     """Merge two 1d grids with non-matching nodes to a single grid.
+
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
 
     The grids should have common start and endpoints. They can be into 3d space
     in a general way.
@@ -307,6 +352,14 @@ def update_global_point_ind(
 ):
     """Update global point indices in a list of grids.
 
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
+
     The method replaces indices in the attribute global_point_ind in the grid.
     The update is done in place.
 
@@ -331,6 +384,14 @@ def update_nodes(
     list_of_grids: list[Any],
 ):
     """Update a 2d grid to conform to a new grid along a 1d line.
+
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
 
     Intended use: A 1d mesh that is embedded in a 2d mesh (along a fracture)
     has been updated / refined. This function then updates the node information
@@ -445,6 +506,14 @@ def update_face_nodes(
 ) -> np.ndarray:
     """Update face-node map by deleting and inserting new faces.
 
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
+
     The method deletes specified faces, adds new ones towards the end. It does
     nothing to adjust the face-node relation for remaining faces.
 
@@ -508,10 +577,18 @@ def update_cell_faces(
 ) -> None:
     """Replace faces in a cell-face map.
 
-    If faces have been refined (or otherwise modified), it is necessary to update the
-    cell-face relation as well. This function does so, while taking care that the
-    (implicit) mapping between cells and nodes is ordered so that geometry computation
-    still works.
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
+
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
+
+    If faces have been refined (or otherwise modified), it is necessary to
+    update the cell-face relation as well. This function does so, while taking
+    care that the (implicit) mapping between cells and nodes is ordered so that
+    geometry computation still works.
 
     The changes of ``g.cell_faces are`` done in-place.
 
@@ -620,10 +697,10 @@ def update_cell_faces(
         hit_cell.append(cell)
         # For this cell, find where in the cell-face map the fracture face is
         # placed.
-        tr = np.where(new_cf[cell] == cf[i])[0]
+        tr_array = np.where(new_cf[cell] == cf[i])[0]
         # There should be only one face on the fracture
-        assert tr.size == 1
-        tr = tr[0]
+        assert tr_array.size == 1
+        tr = tr_array[0]
 
         # Implementation note: If we ever get negative indices here, something
         # has gone wrong related to cf_2_f, see above.
@@ -701,9 +778,16 @@ def update_face_tags(
 ):
     """Update the face tags of a cell.
 
-    Delete tags for old faces, and add new tags for their replacements.
+    .. warning::
+        This is old code and not longer maintained. Thus, the documentation may be
+        incomplete and this function may show unexpected behavior.
 
-    If the grid has no face tags, no change is done
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
+
+    Delete tags for old faces, and add new tags for their replacements. If the grid has
+    no face tags, no change is done.
 
     Parameters:
         g: To be modified
