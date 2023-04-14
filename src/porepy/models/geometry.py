@@ -32,42 +32,64 @@ class ModelGeometry:
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid."""
-        # Create fracture network. Also sets the domain.
-        self.set_fracture_network()
+        # Create the geometry through domain amd fracture set.
+        self.set_domain()
+        self.set_fractures()
+        # Create a fracture network.
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+        # Create a mixed-dimensional grid.
         meshing_kwargs = self.params.get("meshing_kwargs", None)
         if meshing_kwargs is None:
             meshing_kwargs = {}
         self.mdg = pp.create_mdg(
-            self.grid_type,
-            self.meshing_arguments,
+            self.grid_type(),
+            self.meshing_arguments(),
             self.fracture_network,
             **meshing_kwargs,
         )
-        # Set domain and ambient dimension.
-        domain = self.fracture_network.domain
-        if domain is not None and domain.is_boxed:
-            self.domain = domain
         self.nd: int = self.mdg.dim_max()
 
-        # If fractures are present, it is advised to call.
+        # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
         self.set_well_network()
         if len(self.well_network.wells) > 0:
-            # Compute intersections
+            # Compute intersections.
             assert isinstance(self.fracture_network, pp.FractureNetwork3d)
             pp.compute_well_fracture_intersections(
                 self.well_network, self.fracture_network
             )
-            # Mesh fractures and add fracture + intersection grids to mixed-dimensional
+            # Mesh wells and add fracture + intersection grids to mixed-dimensional
             # grid along with these grids' new interfaces to fractures.
             self.well_network.mesh(self.mdg)
 
-    def set_fracture_network(self) -> None:
-        """Assign fracture network class."""
-        self.fracture_network = pp.create_fracture_network(
-            domain=pp.applications.md_grids.domains.nd_cube_domain(2, 1)
-        )
+    @property
+    def domain(self) -> pp.Domain:
+        """Domain of the problem."""
+        return self._domain
+
+    def set_domain(self) -> None:
+        """Set domain of the problem.
+
+        Defaults to a 2d unit square domain.
+        Override this method to define a geometry with a different domain.
+
+        """
+        size = 1 / self.units.m
+        self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, size)
+
+    @property
+    def fractures(self) -> list[pp.Fracture]:
+        """List of fractures in the fracture network."""
+        return self._fractures
+
+    def set_fractures(self) -> None:
+        """Set fractures in the fracture network.
+
+        Override this method to define a geometry with fractures.
+
+        """
+        self._fractures = []
 
     def set_well_network(self) -> None:
         """Assign well network class."""
@@ -90,7 +112,6 @@ class ModelGeometry:
         else:
             raise ValueError("Unknown grid type.")
 
-    @property
     def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         """Grid type for the mixed-dimensional grid.
 
@@ -98,33 +119,18 @@ class ModelGeometry:
             Grid type for the mixed-dimensional grid.
 
         """
-        # TODO: Add retrieval from params? Same for meshing_arguments. Could also fetch
-        # directly from params in set_md_grid.
-        return "simplex"
+        return self.params.get("grid_type", "cartesian")
 
-    @property
     def meshing_arguments(self) -> dict:
-        """Mesh arguments for md-grid creation.
+        """Meshing arguments for md-grid creation.
 
         Returns:
-            Meshing arguments compatible with FractureNetwork.mesh() method.
+            Meshing arguments compatible with pp.create_mdg() method.
 
         """
-        mesh_args: dict[str, float] = {
-            "mesh_size_frac": self.mesh_size(),  # Mesh size for fractures
-            "mesh_size_min": self.mesh_size() / 2,  # Minimum mesh size
-            "mesh_size_bound": self.mesh_size(),  # Mesh size for boundary
-        }
+        # Default value of one, scaled by the length unit.
+        mesh_args: dict[str, float] = {"cell_size": 1 / self.units.m}
         return mesh_args
-
-    def mesh_size(self) -> float:
-        """Mesh size for md-grid creation.
-
-        Returns:
-            mesh_size: Mesh size for the mixed-dimensional grid.
-
-        """
-        return 1
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
