@@ -755,7 +755,7 @@ class Exporter:
 
         # Define the header - either copy paste from availble previous output, or define
         # hardcoded header.
-        if file_exists and append:
+        if zfile_exists and append:
             # Strategy: Continue writing available pvd file by first copying all content
             # until the restart time, here altogether defined as header.
 
