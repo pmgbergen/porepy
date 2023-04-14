@@ -328,12 +328,11 @@ class DofManager:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
             time_step_index: Specified by user if they want to gather variable values
-                from a specific time-step. Value 0 (default) provides the most recent
-                time-step. A value of 1 will give the values of one time-step back in
-                time.
+                from a specific time-step. Value 0  provides the most recent time-step.
+                A value of 1 will give the values of one time-step back in time.
             iterate_index: Specified by user if they want to gather a specific set of
-                iterate values. Similar to ``time_step_index``, value 0 is the
-                default value and gives the most recent iterate.
+                iterate values. Similar to ``time_step_index``, value 0 is the default
+                value and gives the most recent iterate.
 
         Returns:
             the respective (sub) vector in numerical format.
