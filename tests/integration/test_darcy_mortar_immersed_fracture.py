@@ -12,7 +12,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 from tests import test_grids, test_utils
-from porepy.numerics.ad.equation_system import set_solution_values
 
 
 class TestImmersedFracture(unittest.TestCase):
@@ -104,7 +103,7 @@ class TestImmersedFracture(unittest.TestCase):
             darcy_flux_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 : sd.num_faces
             ]
-            set_solution_values(
+            pp.set_solution_values(
                 name="darcy_flux",
                 values=darcy_flux_values,
                 data=data,
@@ -114,7 +113,7 @@ class TestImmersedFracture(unittest.TestCase):
             pressure_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 sd.num_faces :
             ]
-            set_solution_values(
+            pp.set_solution_values(
                 name="pressure", values=pressure_values, data=data, time_step_index=0
             )
 
@@ -126,7 +125,7 @@ class TestImmersedFracture(unittest.TestCase):
             darcy_flux_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 : sd.num_faces
             ]
-            set_solution_values(
+            pp.set_solution_values(
                 name="darcy_flux",
                 values=darcy_flux_values,
                 data=data,
@@ -136,7 +135,7 @@ class TestImmersedFracture(unittest.TestCase):
             pressure_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
                 sd.num_faces :
             ]
-            set_solution_values(
+            pp.set_solution_values(
                 name="pressure", values=pressure_values, data=data, time_step_index=0
             )
 

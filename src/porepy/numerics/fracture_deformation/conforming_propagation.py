@@ -38,7 +38,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import set_solution_values
 
 from .propagation_model import FracturePropagation
 
@@ -566,7 +565,7 @@ class ConformingFracturePropagation(FracturePropagation):
         vals = np.zeros(sd_primary.num_cells)
         cells = np.unique(sd_primary.cell_faces[faces_primary].nonzero()[1])
         vals[cells] = 1
-        set_solution_values(
+        pp.set_solution_values(
             name="neighbor_cells", values=vals, data=data_primary, time_step_index=0
         )
 
