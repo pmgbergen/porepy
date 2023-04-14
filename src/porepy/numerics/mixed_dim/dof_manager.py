@@ -9,7 +9,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import set_solution_values
 
 csc_or_csr_matrix = TypeVar("csc_or_csr_matrix", sps.csc_matrix, sps.csr_matrix)
 
@@ -535,7 +534,7 @@ class DofManager:
                 data = self.mdg.subdomain_data(g)
 
             if not to_iterate:
-                set_solution_values(
+                pp.set_solution_values(
                     name=var,
                     values=vals,
                     data=data,
@@ -543,7 +542,7 @@ class DofManager:
                     additive=additive,
                 )
             if to_iterate:
-                set_solution_values(
+                pp.set_solution_values(
                     name=var, values=vals, data=data, iterate_index=0, additive=additive
                 )
 

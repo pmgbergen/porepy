@@ -25,7 +25,7 @@ import porepy as pp
 from tests.integration import setup_mixed_dimensional_grids as setup_mdg
 from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
 from tests.test_utils import compare_arrays
-from porepy.numerics.ad.equation_system import set_solution_values
+
 
 ## Below follows tests of the picking of high-dimensional faces to split, when using
 #  the ConformingPropagation strategy.
@@ -556,7 +556,7 @@ class PropagationCriteria(unittest.TestCase):
         d_j = self.mdg.interface_data(intf)
         trace = np.abs(pp.fvutils.vector_divergence(self.sd_primary)).T
         u_j = intf.primary_to_mortar_avg(nd=self.nd) * trace * u_h
-        set_solution_values(
+        pp.set_solution_values(
             name=self.model.mortar_displacement_variable,
             values=u_j,
             data=d_j,
@@ -789,8 +789,8 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         val_sol = cell_val_2d
         val_it = 2 * cell_val_2d
 
-        set_solution_values(name=self.cv2, values=val_sol, data=d, time_step_index=0)
-        set_solution_values(name=self.cv2, values=val_it, data=d, iterate_index=0)
+        pp.set_solution_values(name=self.cv2, values=val_sol, data=d, time_step_index=0)
+        pp.set_solution_values(name=self.cv2, values=val_it, data=d, iterate_index=0)
 
         for g in g_1d:
             d = mdg.subdomain_data(g)
@@ -799,10 +799,12 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             val_sol = cell_val_1d[g]
             val_it = 2 * cell_val_1d[g]
 
-            set_solution_values(
+            pp.set_solution_values(
                 name=self.cv1, values=val_sol, data=d, time_step_index=0
             )
-            set_solution_values(name=self.cv1, values=val_it, data=d, iterate_index=0)
+            pp.set_solution_values(
+                name=self.cv1, values=val_it, data=d, iterate_index=0
+            )
 
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
 
@@ -812,8 +814,10 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             val_sol = cell_val_mortar[g]
             val_it = 2 * cell_val_mortar[g]
 
-            set_solution_values(name=self.mv, values=val_sol, data=d, time_step_index=0)
-            set_solution_values(name=self.mv, values=val_it, data=d, iterate_index=0)
+            pp.set_solution_values(
+                name=self.mv, values=val_sol, data=d, time_step_index=0
+            )
+            pp.set_solution_values(name=self.mv, values=val_it, data=d, iterate_index=0)
 
         # Define assembler, thereby a dof ordering
         dof_manager = pp.DofManager(mdg)
@@ -900,10 +904,10 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 ]
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
 
-                set_solution_values(
+                pp.set_solution_values(
                     name=self.cv1, values=val_1d_prev[g], data=d, time_step_index=0
                 )
-                set_solution_values(
+                pp.set_solution_values(
                     name=self.cv1,
                     values=val_1d_iterate_prev[g],
                     data=d,

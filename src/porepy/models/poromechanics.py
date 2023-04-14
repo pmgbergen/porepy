@@ -22,7 +22,6 @@ import numpy as np
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
-from porepy.numerics.ad.equation_system import set_solution_values
 
 
 class ConstitutiveLawsPoromechanics(
@@ -213,7 +212,7 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
         for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
             if initial:
                 vals = self.time_dependent_bc_values_mechanics([sd])
-                set_solution_values(
+                pp.set_solution_values(
                     name=self.bc_values_mechanics_key,
                     values=vals,
                     data=data,
@@ -222,7 +221,7 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
             else:
                 # Copy old values from iterate to the solution.
                 vals = data[pp.ITERATE_SOLUTIONS][self.bc_values_mechanics_key][0]
-                set_solution_values(
+                pp.set_solution_values(
                     name=self.bc_values_mechanics_key,
                     values=vals,
                     data=data,
@@ -230,7 +229,7 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
                 )
 
             vals = self.time_dependent_bc_values_mechanics([sd])
-            set_solution_values(
+            pp.set_solution_values(
                 name=self.bc_values_mechanics_key,
                 values=vals,
                 data=data,

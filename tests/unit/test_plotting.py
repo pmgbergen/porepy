@@ -8,7 +8,7 @@ import pytest
 
 import porepy as pp
 from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
-from porepy.numerics.ad.equation_system import set_solution_values
+
 
 plt = pytest.importorskip("matplotlib.pyplot")
 
@@ -113,7 +113,7 @@ def _initialize_mdg(mdg_):
             values = np.array([vals_scalar, vals_vect_cell, vals_vect_face])
 
             for i in range(len(variables)):
-                set_solution_values(
+                pp.set_solution_values(
                     name=variables[i], values=values[i], data=data, time_step_index=0
                 )
 
