@@ -249,7 +249,6 @@ class Exporter:
         # generated either through Exporter.write_pvd() or Exporter._export_mdg_pvd(),
         # respectively.
         if is_mdg_pvd:
-
             # Strategy: Find all vtu files attached to the mdg pvd file. Utilize the
             # hardcoded format in self._export_mdg_pvd().
             # Use the ET package from the standard library to parse the XML-file.
@@ -262,7 +261,6 @@ class Exporter:
             time_index = int(pvd_file.stem[-self._padding :])
 
         else:
-
             # Strategy: First, identify the latest time step, and second all files
             # corresponding to that time step. Utilize hardcoded format in
             # Exporter.write_pvd().
@@ -376,7 +374,7 @@ class Exporter:
         # 1. Determine dimensionality and type of grid, addressed by the vtu file.
         # 2. Check whether the vtu file is compatible with the corresponding grids.
         # 3. Transfer data from vtu to the mixed-dimensional grid.
-        for i, file_name in enumerate(file_names):
+        for i, vtu_file in enumerate(vtu_files):
             # Read all data from vtu
             vtu_data = meshio.read(vtu_file)
 
@@ -460,8 +458,27 @@ class Exporter:
                     == {}
                 )
 
-            # 3rd step: Transfer data. Consider each key separately.
-            for key in keys:
+            # 3rd step. Fill-in keys.
+            if keys is None:
+                _keys: list[str] = []
+                if is_subdomain_data:
+                    for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
+                        if pp.TIME_STEP_SOLUTIONS in sd_data:
+                            _keys += list(sd_data[pp.TIME_STEP_SOLUTIONS].keys())
+                else:
+                    for intf, intf_data in self._mdg.interfaces(
+                        dim=dim, return_data=True
+                    ):
+                        if pp.TIME_STEP_SOLUTIONS in intf_data:
+                            _keys += list(intf_data[pp.TIME_STEP_SOLUTIONS].keys())
+            else:
+                _keys = list(keys)
+
+            # Make keys unique
+            unique_keys = list(set(_keys))
+
+            # 4th step: Transfer data. Consider each key separately.
+            for key in unique_keys:
                 # Only continue if the key is present in the data
                 # IMPLEMENTATION NOTE: To also consider node data, add an else below.
                 if key in vtu_data.cell_data:
@@ -739,7 +756,6 @@ class Exporter:
         # Define the header - either copy paste from availble previous output, or define
         # hardcoded header.
         if file_exists and append:
-
             # Strategy: Continue writing available pvd file by first copying all content
             # until the restart time, here altogether defined as header.
 
@@ -755,7 +771,6 @@ class Exporter:
             header: str = "".join(previous_content[: -2 - len(self._restart_files)])
 
         else:
-
             # Start writing a new pvd file. Define hardcoded header.
             b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
             c = ' compressor="vtkZLibDataCompressor"'
@@ -1308,8 +1323,8 @@ class Exporter:
             success = False
 
             for method in methods:
-                # Check whether data point of right type and convert to
-                # the unique data type.
+                # Check whether data point of right type and convert to the unique data
+                # type.
                 subdomain_data, interface_data, success = method(
                     data_pt, subdomain_data, interface_data
                 )
@@ -1699,8 +1714,8 @@ class Exporter:
         meshio_cells = list()
         meshio_cell_id = list()
 
-        # For each cell_type store the connectivity pattern cell_to_nodes for
-        # the corresponding cells with ids from cell_id.
+        # For each cell_type store the connectivity pattern cell_to_nodes for the
+        # corresponding cells with ids from cell_id.
         for cell_type, cell_block in cell_to_nodes.items():
             meshio_cells.append(meshio.CellBlock(cell_type, cell_block.astype(int)))
             meshio_cell_id.append(np.array(cell_id[cell_type]))
@@ -1897,8 +1912,8 @@ class Exporter:
         meshio_cells = list()
         meshio_cell_id = list()
 
-        # For each cell_type store the connectivity pattern cell_to_nodes for
-        # the corresponding cells with ids from cell_id.
+        # For each cell_type store the connectivity pattern cell_to_nodes for the
+        # corresponding cells with ids from cell_id.
         for cell_type, cell_block in cell_to_nodes.items():
             # Meshio requires the keyword "polygon" for general polygons.
             # Thus, remove the number of nodes associated to polygons.
