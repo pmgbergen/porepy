@@ -252,7 +252,6 @@ class TestMixedDimGravity(unittest.TestCase):
             return
 
         for intf in mdg.interfaces():
-
             new_side_grids = {
                 s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
                 for s, g in intf.side_grids.items()
@@ -287,13 +286,13 @@ class TestMixedDimGravity(unittest.TestCase):
     def verify_pressure(self, p_known: float = 0):
         """Verify that the pressure of all subdomains equals p_known."""
         for _, data in self.mdg.subdomains(return_data=True):
-            p = data[pp.STATE]["pressure"]
+            p = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
             self.assertTrue(np.allclose(p, p_known, rtol=1e-3, atol=1e-3))
 
     def verify_mortar_flux(self, u_known: float):
         """Verify that the mortar flux of all interfaces equals u_known."""
         for _, data in self.mdg.interfaces(return_data=True):
-            u = np.abs(data[pp.STATE]["mortar_flux"])
+            u = np.abs(data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0])
             self.assertTrue(np.allclose(u, u_known, rtol=1e-3, atol=1e-3))
 
     def verify_hydrostatic(self, angle=0, a=1e-1):
@@ -306,21 +305,25 @@ class TestMixedDimGravity(unittest.TestCase):
         """
         mdg = self.mdg
         sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
-        p_primary = mdg.subdomain_data(sd_primary)[pp.STATE]["pressure"]
+        p_primary = mdg.subdomain_data(sd_primary)[pp.TIME_STEP_SOLUTIONS]["pressure"][
+            0
+        ]
         # The cells above the fracture
         h = sd_primary.cell_centers[1]
         ind = h > 0.5
         p_known = -(a * ind + h) * np.cos(angle)
         self.assertTrue(np.allclose(p_primary, p_known, rtol=1e-3, atol=1e-3))
         sd_secondary = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
-        p_secondary = mdg.subdomain_data(sd_secondary)[pp.STATE]["pressure"]
+        p_secondary = mdg.subdomain_data(sd_secondary)[pp.TIME_STEP_SOLUTIONS][
+            "pressure"
+        ][0]
         # Half the additional jump is added to the fracture pressure
         h = sd_secondary.cell_centers[1]
         p_known = -(a / 2 + h) * np.cos(angle)
 
         self.assertTrue(np.allclose(p_secondary, p_known, rtol=1e-3, atol=1e-3))
         for _, data in self.mdg.interfaces(return_data=True):
-            lmbda = data[pp.STATE]["mortar_flux"]
+            lmbda = data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0]
             self.assertTrue(np.allclose(lmbda, 0, rtol=1e-3, atol=1e-3))
 
     def test_no_flow_neumann(self):
@@ -507,7 +510,6 @@ class TestMixedDimGravity(unittest.TestCase):
         )
         f3 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
-
         )
 
         if num_fracs == 0:
