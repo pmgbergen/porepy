@@ -518,19 +518,15 @@ class TestMDGridGenerationWithoutDomains:
 
     @pytest.fixture(scope="class")
     def plane_fractures(self) -> list[list[pp.PlaneFracture]]:
-        f1 = pp.PlaneFracture(
-            np.array([[0, 0, 0, 0], [-2, 2, 2, -2], [-2, -2, 2, 2]])
-        )
-        f2 = pp.PlaneFracture(
-            np.array([[-2, -2, 2, 2], [0, 0, 0, 0], [-2, 2, 2, -2]])
-        )
+        f1 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-2, 2, 2, -2], [-2, -2, 2, 2]]))
+        f2 = pp.PlaneFracture(np.array([[-2, -2, 2, 2], [0, 0, 0, 0], [-2, 2, 2, -2]]))
         return [[f1], [f1, f2]]
 
     @pytest.mark.parametrize("fracs_idx", [0, 1])
     def test_mdg_no_domain_in_2d(
-            self,
-            fracs_idx: int,
-            line_fractures: list[list[pp.LineFracture]],
+        self,
+        fracs_idx: int,
+        line_fractures: list[list[pp.LineFracture]],
     ) -> None:
         """Check if a mdg is correctly created when domain=None and dfn=True in 2d.
 
@@ -562,9 +558,9 @@ class TestMDGridGenerationWithoutDomains:
 
     @pytest.mark.parametrize("fracs_idx", [0, 1])
     def test_mdg_no_domain_in_3d(
-            self,
-            fracs_idx: int,
-            plane_fractures: list[list[pp.PlaneFracture]],
+        self,
+        fracs_idx: int,
+        plane_fractures: list[list[pp.PlaneFracture]],
     ) -> None:
         """Check if a mdg is correctly created when domain=None and dfn=True in 3d.
 

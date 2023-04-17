@@ -28,9 +28,7 @@ class TestCreateFractureNetwork:
 
     @pytest.fixture(scope="class")
     def plane_fracture(self):
-        return pp.PlaneFracture(
-            np.array([[0, 2, 2, 0], [0, 2, 2, 0], [-1, -1, 1, 1]])
-        )
+        return pp.PlaneFracture(np.array([[0, 2, 2, 0], [0, 2, 2, 0], [-1, -1, 1, 1]]))
 
     # -----> Test #1
     @pytest.mark.parametrize("fractures", [[], None])
@@ -52,9 +50,7 @@ class TestCreateFractureNetwork:
         return [fractures_1, fractures_2, fractures_3, fractures_4]
 
     @pytest.mark.parametrize("tst_idx", [0, 1, 2, 3])
-    def test_error_if_fractures_has_heterogeneous_types(
-            self, fractures_lists, tst_idx
-    ):
+    def test_error_if_fractures_has_heterogeneous_types(self, fractures_lists, tst_idx):
         """Check that a type error is raised if the list of fractures contain
         non-homogeneous types, e.g., it should be all PlaneFractures or
         LineFractures."""
@@ -131,7 +127,6 @@ class TestCreateFractureNetwork:
 
 
 class TestFractureNetwork2d(unittest.TestCase):
-
     def compare_dictionaries(self, a: dict[str, pp.number], b: dict[str, pp.number]):
         ka = list(a.keys())
         kb = list(b.keys())
@@ -258,21 +253,27 @@ class TestFractureNetwork2d(unittest.TestCase):
 
         # Add first to second, check domain
         together = network_1.add_network(network_2)
-        self.assertTrue(self.compare_dictionaries(
-            self.domain.bounding_box, together.domain.bounding_box)
+        self.assertTrue(
+            self.compare_dictionaries(
+                self.domain.bounding_box, together.domain.bounding_box
+            )
         )
 
         # Add second to first, check domain
         together = network_2.add_network(network_1)
-        self.assertTrue(self.compare_dictionaries(
-            self.domain.bounding_box, together.domain.bounding_box)
+        self.assertTrue(
+            self.compare_dictionaries(
+                self.domain.bounding_box, together.domain.bounding_box
+            )
         )
 
         # Assign domain, then add
         network_2.domain = self.domain
         together = network_1.add_network(network_2)
-        self.assertTrue(self.compare_dictionaries(
-            self.domain.bounding_box, together.domain.bounding_box)
+        self.assertTrue(
+            self.compare_dictionaries(
+                self.domain.bounding_box, together.domain.bounding_box
+            )
         )
 
         # Assign different domain, check that the sum has a combination of the
@@ -282,7 +283,8 @@ class TestFractureNetwork2d(unittest.TestCase):
         combined_domain = pp.Domain({"xmin": -1, "xmax": 5.0, "ymin": -1, "ymax": 5})
         self.assertTrue(
             self.compare_dictionaries(
-                combined_domain.bounding_box, together.domain.bounding_box)
+                combined_domain.bounding_box, together.domain.bounding_box
+            )
         )
 
     def test_add_networks_preserve_tags(self):
@@ -305,7 +307,9 @@ class TestFractureNetwork2d(unittest.TestCase):
         # Assign tags to network1
         tag1 = 2
         # Had to change this to ensure that edges still has ``dtype np.int8``
-        network_1._edges = np.vstack((network_1._edges, tag1 * np.ones(2, dtype=np.int8)))
+        network_1._edges = np.vstack(
+            (network_1._edges, tag1 * np.ones(2, dtype=np.int8))
+        )
         together = network_1.add_network(network_2)
         known_tags = np.array([tag1, tag1, tag2, tag2])
         self.assertTrue(np.all(together._edges[2] == known_tags))

@@ -730,6 +730,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         """
         # Zero for displacement and initial bc values for Biot
         super().initial_condition()
+
         # Contact as initial guess. Ensure traction is consistent with zero jump, which
         # follows from the default zeros set for all variables, specifically interface
         # displacement, by super method.
@@ -741,8 +742,8 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         self.equation_system.set_variable_values(
             traction_vals.ravel("F"),
             [self.contact_traction_variable],
-            to_state=True,
-            to_iterate=True,
+            time_step_index=0,
+            iterate_index=0,
         )
 
     def set_discretization_parameters(self) -> None:

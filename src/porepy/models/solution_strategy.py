@@ -10,6 +10,7 @@ import abc
 import logging
 import time
 import warnings
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 import numpy as np
@@ -46,11 +47,6 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
 
     """
-    finalize_data_saving: Callable[[], None]
-    """Finalize data saving. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
     create_variables: Callable[[], None]
     """Create variables. Normally provided by a mixin instance of a Variable class
     relevant to the model.
@@ -59,6 +55,16 @@ class SolutionStrategy(abc.ABC):
     set_equations: Callable[[], None]
     """Set the governing equations of the model. Normally provided by the solution
     strategy of a specific model (i.e. a subclass of this class).
+
+    """
+    load_data_from_vtu: Callable[[Path, int, Optional[Path]], None]
+    """Load data from vtu to initialize the states, only applicable in restart mode.
+    :class:`~porepy.viz.exporter.Exporter`.
+
+    """
+    load_data_from_pvd: Callable[[Path, bool, Optional[Path]], None]
+    """Load data from pvd to initialize the states, only applicable in restart mode.
+    :class:`~porepy.viz.exporter.Exporter`.
 
     """
 
@@ -132,12 +138,51 @@ class SolutionStrategy(abc.ABC):
         )
         """Time manager for the simulation."""
 
+        self.restart_options: dict = params.get(
+            "restart_options",
+            {
+                "restart": False,
+                # Boolean flag controlling whether restart is active. Internally
+                # assumed to be False.
+                "pvd_file": None,
+                # Path to pvd file (given as pathlib.Path) collecting either multiple
+                # time steps (generated through pp.Exporter.write_pvd()); or a pvd file
+                # associated to a single time step (generated through
+                # pp.Exporter._export_mdg_pvd()).
+                "is_mdg_pvd": False,
+                # Boolean flag controlling whether prescribed pvd file is a mdg pvd
+                # file, i.e., created through Exporter._export_mdg_pvd(). Otherwise,
+                # it is assumed, the provided pvd file originates from
+                # Exporter.write_pvd(). If not provided, assumed to be False.
+                "vtu_files": None,
+                # Path(s) to vtu file(s) (of type Path or list[Path]), (alternative
+                # to 'pvd_file' which is preferred if available and not 'None').
+                "times_file": None,
+                # Path to json file (of type pathlib.Path) containing evolution of
+                # exported time steps and used time step size at that time. If 'None'
+                # a default value is used internally, as defined in
+                # :class:`~porepy.numerics.time_step_control.TimeManager.
+                "time_index": -1,
+                # Index addressing history in times_file; only relevant if "vtu_files"
+                # is not 'None' or "is_mdg_pvd" is 'True'. The index corresponds to
+                # the single time step vtu/pvd files. If not provided, internally
+                # assumed to address the last time step in times_file.
+            },
+        )
+        """Restart options (template) for restart from pvd as expected restart routines
+        within :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
+
+        """
+
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the geometry of the problem. This is a method that must be implemented
         # in a ModelGeometry class.
         self.set_geometry()
-        # Exporter initialization must be done after grid creation.
+
+        # Exporter initialization must be done after grid creation,
+        # but prior to data initialization.
+        self.initialize_data_saving()
 
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
@@ -145,14 +190,15 @@ class SolutionStrategy(abc.ABC):
         self.set_materials()
         self.create_variables()
         self.initial_condition()
+        self.reset_state_from_file()
         self.set_equations()
+
         self.set_discretization_parameters()
         self.discretize()
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
         # Export initial condition
-        self.initialize_data_saving()
         self.save_data_time_step()
 
     def set_equation_system_manager(self) -> None:
@@ -173,7 +219,40 @@ class SolutionStrategy(abc.ABC):
     def initial_condition(self) -> None:
         """Set the initial condition for the problem."""
         vals = np.zeros(self.equation_system.num_dofs())
-        self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
+        self.equation_system.set_variable_values(
+            vals, iterate_index=0, time_step_index=0
+        )
+
+    def reset_state_from_file(self) -> None:
+        """Reset states but through a restart from file.
+
+        Similar to :meth:`initial_condition`.
+
+        """
+        # Overwrite states from file if restart is enabled.
+        if self.restart_options.get("restart", False):
+            if self.restart_options.get("pvd_file", None) is not None:
+                pvd_file = self.restart_options["pvd_file"]
+                is_mdg_pvd = self.restart_options.get("is_mdg_pvd", False)
+                times_file = self.restart_options.get("times_file", None)
+                self.load_data_from_pvd(
+                    pvd_file,
+                    is_mdg_pvd,
+                    times_file,
+                )
+            else:
+                vtu_files = self.restart_options["vtu_files"]
+                time_index = self.restart_options.get("time_index", -1)
+                times_file = self.restart_options.get("times_file", None)
+                self.load_data_from_vtu(
+                    vtu_files,
+                    time_index,
+                    times_file,
+                )
+            vals = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(
+                vals, iterate_index=0, time_step_index=0
+            )
 
     def set_materials(self):
         """Set material parameters.
@@ -286,13 +365,12 @@ class SolutionStrategy(abc.ABC):
         the current approximation etc.
 
         Parameters:
-            solution_vector: The new solution state, as computed by the non-linear
-                solver.
+            solution_vector: The new solution, as computed by the non-linear solver.
 
         """
         self._nonlinear_iteration += 1
         self.equation_system.set_variable_values(
-            values=solution_vector, additive=True, to_iterate=True
+            values=solution_vector, additive=True, iterate_index=0
         )
 
     def after_nonlinear_convergence(
@@ -303,15 +381,15 @@ class SolutionStrategy(abc.ABC):
         Possible usage is to distribute information on the solution, visualization, etc.
 
         Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
+            solution: The new solution, as computed by the non-linear solver.
             errors: The error in the solution, as computed by the non-linear solver.
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
 
         """
-        solution = self.equation_system.get_variable_values(from_iterate=True)
+        solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
-            values=solution, to_state=True, additive=False
+            values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
         self.save_data_time_step()
@@ -322,7 +400,7 @@ class SolutionStrategy(abc.ABC):
         """Method to be called if the non-linear solver fails to converge.
 
         Parameters:
-            solution: The new solution state, as computed by the non-linear solver.
+            solution: The new solution, as computed by the non-linear solver.
             errors: The error in the solution, as computed by the non-linear solver.
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
@@ -335,7 +413,7 @@ class SolutionStrategy(abc.ABC):
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
-        self.finalize_data_saving()
+        pass
 
     def check_convergence(
         self,
@@ -496,9 +574,10 @@ class SolutionStrategy(abc.ABC):
         """Update the time dependent arrays for the mechanics boundary conditions.
 
         Parameters:
-            initial: If True, the array generating method is called for both state and
-                iterate. If False, the array generating method is called only for the
-                iterate, and the state is updated by copying the iterate.
+            initial: If True, the array generating method is called for both the stored
+                time steps and the stored iterates. If False, the array generating
+                method is called only for the iterate, and the time step solution is
+                updated by copying the iterate.
 
         """
         pass
