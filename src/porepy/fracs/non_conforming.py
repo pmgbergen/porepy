@@ -1,5 +1,5 @@
 """
-.. warning:: 
+.. warning::
     This is old code and not longer maintained. Thus, documentation is missing and some
     functions may result in unexpected behavior.
 
