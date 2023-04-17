@@ -99,7 +99,7 @@ class BoundaryConditionsMechanicsTimeDependent(
     momentum.BoundaryConditionsMomentumBalance,
 ):
     bc_values_mechanics_key: str
-    """Key for the mechanical boundary conditions in the state and iterate dictionaries.
+    """Key for mechanical boundary conditions in the time step and iterate dictionaries.
 
     """
 
@@ -160,7 +160,7 @@ class BoundaryConditionsPoromechanics(
         :meth:`~porepy.models.poromechanics.SolutionStrategyPoromechanics.
         initial_condition` and :meth:`~porepy.models.poromechanics.
         SolutionStrategyPoromechanics.before_nonlinear_loop` to update the boundary
-        conditions in `data[pp.STATE]` and `data[pp.STATE][pp.ITERATE]`.
+        conditions in `data[pp.TIME_STEP_SOLUTIONS]` and `data[pp.ITERATE_SOLUTIONS]`.
 
     """
 
@@ -171,7 +171,7 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
 
     @property
     def bc_values_mechanics_key(self) -> str:
-        """Key for the mechanical boundary conditions in the state and iterate
+        """Key for mechanical boundary conditions in the time step and iterate
         dictionaries.
 
         """
@@ -189,37 +189,62 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
 
         self.update_time_dependent_ad_arrays(initial=True)
 
+    def reset_state_from_file(self) -> None:
+        """Reset states but through a restart from file.
+
+        Add treatment of boundary conditions to the standard reset of states from file.
+
+        """
+        super().reset_state_from_file()
+
+        self.update_time_dependent_ad_arrays(initial=True)
+
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()
-        # Update the mechanical boundary conditions to both the state and iterate.
+        # Update the mechanical boundary conditions to both the time step and iterate
+        # solution.
         self.update_time_dependent_ad_arrays(initial=False)
 
     def update_time_dependent_ad_arrays(self, initial: bool) -> None:
         """Update the time dependent arrays for the mechanics boundary conditions.
 
         Parameters:
-            initial: If True, the array generating method is called for both state and
-                iterate. If False, the array generating method is called only for the
-                iterate, and the state is updated by copying the iterate.
+            initial: If True, the array generating method is called for both time step
+                and iterate solution. If False, the array generating method is called
+                only for the iterate solution, and the time step solution is updated by
+                copying the iterate solution.
 
         """
         # Call super in case class is combined with other classes implementing this
         # method.
         super().update_time_dependent_ad_arrays(initial)
-        # Update the mechanical boundary conditions to both the state and iterate.
+        # Update the mechanical boundary conditions to both the solutions and iterates.
         for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
             if initial:
-                data[pp.STATE][
-                    self.bc_values_mechanics_key
-                ] = self.time_dependent_bc_values_mechanics([sd])
+                vals = self.time_dependent_bc_values_mechanics([sd])
+                pp.set_solution_values(
+                    name=self.bc_values_mechanics_key,
+                    values=vals,
+                    data=data,
+                    time_step_index=0,
+                )
             else:
-                # Copy old values from iterate to state.
-                data[pp.STATE][self.bc_values_mechanics_key] = data[pp.STATE][
-                    pp.ITERATE
-                ][self.bc_values_mechanics_key]
-            data[pp.STATE][pp.ITERATE][
-                self.bc_values_mechanics_key
-            ] = self.time_dependent_bc_values_mechanics([sd])
+                # Copy old values from iterate to the solution.
+                vals = data[pp.ITERATE_SOLUTIONS][self.bc_values_mechanics_key][0]
+                pp.set_solution_values(
+                    name=self.bc_values_mechanics_key,
+                    values=vals,
+                    data=data,
+                    time_step_index=0,
+                )
+
+            vals = self.time_dependent_bc_values_mechanics([sd])
+            pp.set_solution_values(
+                name=self.bc_values_mechanics_key,
+                values=vals,
+                data=data,
+                iterate_index=0,
+            )
 
 
 class SolutionStrategyPoromechanics(

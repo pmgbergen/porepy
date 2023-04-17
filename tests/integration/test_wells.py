@@ -197,7 +197,7 @@ def test_add_one_well_with_matrix() -> None:
         assert intf.num_sides() == 1
         assert intf.num_cells == 1
         assert np.allclose(intf.mortar_to_secondary_int().todense(), 1)
-        
+
         known = np.zeros(24)
         known[0] = 0.175
         known[3] = 0.29166667

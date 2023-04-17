@@ -56,7 +56,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     # Check that the pressure is linear
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
     var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
-    vals = setup.equation_system.get_variable_values(var)
+    vals = setup.equation_system.get_variable_values(variables=var, time_step_index=0)
     if np.isclose(north_displacement, 0):
         assert np.allclose(vals, 0)
     else:

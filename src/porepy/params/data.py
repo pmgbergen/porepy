@@ -46,21 +46,27 @@ For most instances, a convenient way to set up the parameters is:
     data = pp.initialize_default_data(grid, {}, keyword, specified_parameters)
 
 This will assign val_i to the specified parameters pm_i and default parameters to other
-required parameters. If the data directory already exists as d (e.g. in the mixed-dimensional
-grid), consider:
+required parameters. If the data directory already exists as d (e.g. in the
+mixed-dimensional grid), consider:
 
     pp.initialize_default_data(grid, d, keyword, specified_parameters)
 
 
-Also contains a function for setting the state. The state is all data associated with
-the previous time step or iteration, and is stored in data[pp.STATE]. The solution of a
-variable is stored in
+The time step solution is all data associated with the previous time step, and is
+stored in
+``data[pp.TIME_STEP_SOLUTIONS]``.
+Similarly, iterate solutions contains data associated with the previous iterates and is
+stored in
+``data[pp.ITERATE_SOLUTIONS]``.
 
-data[pp.STATE][variable_name],
+The time step solution of a specific variable is stored in
+
+``data[pp.TIME_STEP_SOLUTIONS][variable_name][time_step_index]``,
 
 whereas data such as BC values are stored similarly to in the Parameters class, in
 
-data[pp.STATE][keyword]["bc_values"].
+``data[pp.TIME_STEP_SOLUTIONS][keyword]["bc_values"]``.
+
 """
 from __future__ import annotations
 
@@ -146,7 +152,7 @@ class Parameters(Dict):
         if dictionaries is None:
             dictionaries = [{} for _ in range(len(keywords))]
 
-        for (i, key) in enumerate(keywords):
+        for i, key in enumerate(keywords):
             if key in self:
                 self[key].update(dictionaries[i])
             else:
@@ -183,7 +189,7 @@ class Parameters(Dict):
             values (list): List of new values (bool, scalars, arrays etc.).
         """
         for kw in self.keys():
-            for (p, v) in zip(parameters, values):
+            for p, v in zip(parameters, values):
                 if p in self[kw]:
                     self[kw][p] = v
 
@@ -202,7 +208,7 @@ class Parameters(Dict):
                 in particular that the type and length of the new and old values agree,
                 see modify_variable.
         """
-        for (p, v) in zip(parameters, values):
+        for p, v in zip(parameters, values):
             modify_variable(self[keyword][p], v)
 
     def expand_scalars(
@@ -326,53 +332,6 @@ def initialize_data(
         data[pp.PARAMETERS].update_dictionaries([keyword], [specified_parameters])
     else:
         data[pp.PARAMETERS] = pp.Parameters(grid, [keyword], [specified_parameters])
-    return data
-
-
-def set_state(data: dict, state: Optional[dict] = None) -> dict:
-    """Initialize or update a state dictionary.
-
-    The initialization consists of adding a state dictionary in the proper field of the
-    data dictionary. If there is a state dictionary in data, the new state is added
-    using the update method of dictionaries.
-
-    Args:
-        data (dict): Outer data dictionary, to which the parameters will be added.
-        state (dict, Optional): A dictionary with the state, set to an empty dictionary if
-            not provided.
-
-    Returns:
-        dict: The filled dictionary.
-    """
-    state = state or {}
-    if pp.STATE in data:
-        data[pp.STATE].update(state)
-    else:
-        data[pp.STATE] = state
-    return data
-
-
-def set_iterate(data: dict, iterate: Optional[dict] = None) -> dict:
-    """Initialize or update an iterate dictionary.
-
-    Same as set_state for subfield pp.ITERATE
-    Also checks whether pp.STATE field is set, and adds it if not, see set_state.
-
-    Args:
-        data (dict): Outer data dictionary, to which the parameters will be added.
-        iterate (dict, Optional): A dictionary with the state, set to an empty dictionary if
-            not provided.
-
-    Returns:
-        dict: The filled dictionary.
-    """
-    if pp.STATE not in data:
-        set_state(data)
-    iterate = iterate or {}
-    if pp.ITERATE in data[pp.STATE]:
-        data[pp.STATE][pp.ITERATE].update(iterate)
-    else:
-        data[pp.STATE][pp.ITERATE] = iterate
     return data
 
 

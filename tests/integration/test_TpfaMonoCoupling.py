@@ -51,7 +51,10 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         # test pressure
         for sd, data in mdg.subdomains(return_data=True):
             self.assertTrue(
-                np.allclose(data[pp.STATE]["pressure"], xmax - sd.cell_centers[0])
+                np.allclose(
+                    data[pp.TIME_STEP_SOLUTIONS]["pressure"][0],
+                    xmax - sd.cell_centers[0],
+                )
             )
 
         # test mortar solution
@@ -64,10 +67,14 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             secondary_area = secondary_to_m * g_secondary.face_areas
 
             self.assertTrue(
-                np.allclose(data[pp.STATE]["mortar_flux"] / primary_area, 1)
+                np.allclose(
+                    data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0] / primary_area, 1
+                )
             )
             self.assertTrue(
-                np.allclose(data[pp.STATE]["mortar_flux"] / secondary_area, 1)
+                np.allclose(
+                    data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0] / secondary_area, 1
+                )
             )
 
     def generate_grids(self, n, xmax, ymax, split):
@@ -286,7 +293,9 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         # test pressure
         for sd, data in mdg.subdomains(return_data=True):
             ap, _, _ = analytic_p(sd.cell_centers)
-            self.assertTrue(np.max(np.abs(data[pp.STATE][key_p] - ap)) < 5e-2)
+            self.assertTrue(
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_p][0] - ap)) < 5e-2
+            )
 
         # test mortar solution
         for intf, data in mdg.interfaces(return_data=True):
@@ -310,8 +319,14 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             right_flux = -right_to_m * (
                 d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
-            self.assertTrue(np.max(np.abs(data[pp.STATE][key_m] - left_flux)) < 5e-2)
-            self.assertTrue(np.max(np.abs(data[pp.STATE][key_m] - right_flux)) < 5e-2)
+            self.assertTrue(
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_m][0] - left_flux))
+                < 5e-2
+            )
+            self.assertTrue(
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_m][0] - right_flux))
+                < 5e-2
+            )
 
     def generate_2d_grid(self, n, xmax, ymax):
         g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
