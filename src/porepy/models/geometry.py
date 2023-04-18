@@ -10,7 +10,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
 from porepy.applications.md_grids.domains import nd_cube_domain
 
 
