@@ -22,7 +22,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
     params: dict
     """Parameters for the model."""
 
-    def set_fracture_network(self) -> None:
+    def set_fractures(self) -> None:
         # Length scale:
         ls = 1 / self.units.m
 
@@ -33,20 +33,18 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
             pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
             pp.LineFracture(np.array([[0.3, 0.7], [0.3, 0.7]]) * ls),
         ]
-        used_fractures = [fractures[i] for i in fracture_indices]
-        self.fracture_network = pp.FractureNetwork2d(used_fractures, domain)
+        self._fractures = [fractures[i] for i in fracture_indices]
 
     def meshing_arguments(self) -> dict:
         # Divide by length scale:
         h = 0.5 / self.units.m
         return {"mesh_size_frac": h, "mesh_size_bound": h}
 
-    def set_md_grid(self) -> None:
+    def set_domain(self) -> None:
         if not self.params.get("cartesian", False):
-            return super().set_md_grid()
-
-        # Not implemented for 3d. Assert for safety and mypy.
-        assert isinstance(self.fracture_network, pp.FractureNetwork2d)
+            self.params["grid_type"] = "simplex"
+        else:
+            self.params["grid_type"] = "cartesian"
 
         # Length scale:
         ls = 1 / self.units.m
@@ -54,15 +52,12 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
         phys_dims = np.array([2, 1]) * ls
         n_cells = np.array([8, 2])
         box = {"xmin": 0, "xmax": phys_dims[0], "ymin": 0, "ymax": phys_dims[1]}
-        self.domain = pp.Domain(box)
-        # Translate fracture network to cart_grid format
-        fracs = []
-        for f in self.fracture_network._edges.T:
-            fracs.append(self.fracture_network._pts[:, f])
-        self.mdg = pp.fracs.meshing.cart_grid(fracs, n_cells, physdims=phys_dims)
+        self._domain = pp.Domain(box)
 
 
-class OrthogonalFractures3d(pp.ModelGeometry):
+class OrthogonalFractures3d(
+    pp.applications.md_grids.mdg_library.CubeDomainOrthogonalFractures
+):
     """A 3d domain with up to three orthogonal fractures.
 
     The fractures have constant `x`, `y` and `z` coordinates equal to 0.5, respectively,
@@ -74,38 +69,13 @@ class OrthogonalFractures3d(pp.ModelGeometry):
     params: dict
     """Model parameters."""
 
-    def set_fracture_network(self) -> None:
-        """Set the fracture network.
-
-        The fractures are stored in self.fracture_network.
-
-        """
-        # Length scale:
-        ls = 1 / self.units.m
-
-        # Fracture number i has coordinate 0.5 in the i'th direction, and span [0, 1] in
-        # the other directions.
-        fracture_indices = self.params.get("fracture_indices", [0])
-        box = {"xmin": 0, "xmax": ls, "ymin": 0, "ymax": ls, "zmin": 0, "zmax": ls}
-        domain = pp.Domain(box)
-        pts = []
-        # The three fractures are defined by pertubations of the coordinate arrays.
-        coords_a = [0.5, 0.5, 0.5, 0.5]
-        coords_b = [0, 0, 1, 1]
-        coords_c = [0, 1, 1, 0]
-        pts.append(np.array([coords_a, coords_b, coords_c]) * ls)
-        pts.append(np.array([coords_b, coords_a, coords_c]) * ls)
-        pts.append(np.array([coords_b, coords_c, coords_a]) * ls)
-        fractures = [pp.PlaneFracture(pts[i]) for i in fracture_indices]
-        self.fracture_network = pp.FractureNetwork3d(fractures, domain)
-
     def meshing_arguments(self) -> dict:
         # Length scale:
         ls = 1 / self.units.m
         mesh_sizes = {
-            "mesh_size_frac": 0.5 * ls,
-            "mesh_size_bound": 0.5 * ls,
-            "mesh_size_min": 0.2 * ls,
+            "cell_size_fracture": 0.5 * ls,
+            "cell_size_boundary": 0.5 * ls,
+            "cell_size_min": 0.2 * ls,
         }
         return mesh_sizes
 
