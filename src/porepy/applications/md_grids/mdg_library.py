@@ -1,3 +1,10 @@
+"""This package is primarily envisioned as a library of mixed-dimensional grids
+for use in tests. Other usage should be covered by the model_geometries.
+TODO: Decide whether to keep or make mdgs on demand in the tests using domains,
+fracture_sets and create_mdg.
+
+"""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -76,16 +83,7 @@ def cube_with_orthogonal_fractures(
                 Fracture network. The fracture set is empty if fracture_indices == 0.
 
     """
-    frac_0 = pp.LineFracture(
-        np.array([[size / 2, size / 2, size / 2], [0, size, size]])
-    )
-    frac_1 = pp.LineFracture(
-        np.array([[0, size, size], [size / 2, size / 2, size / 2]])
-    )
-    frac_2 = pp.LineFracture(
-        np.array([[size / 2, size / 2, size / 2], [size, size, 0]])
-    )
-    all_fractures = [frac_0, frac_1, frac_2]
+    all_fractures = fracture_sets.orthogonal_fractures_3d()
     fractures = [all_fractures[i] for i in fracture_indices]
     domain = domains.nd_cube_domain(3, size)
     fracture_network = pp.FractureNetwork3d(fractures, domain)
