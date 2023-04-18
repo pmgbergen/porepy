@@ -11,6 +11,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from porepy.applications.md_grids.domains import nd_cube_domain
+
 
 class ModelGeometry:
     """This class provides geometry related methods and information for a simulation
@@ -23,12 +25,12 @@ class ModelGeometry:
     """Well network."""
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
-    domain: pp.Domain
-    """Box-shaped domain. Set by the method :meth:`set_md_grid`."""
     nd: int
     """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
     units: pp.Units
     """Unit system."""
+    params: dict
+    """Parameters for the model."""
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid.
@@ -82,7 +84,7 @@ class ModelGeometry:
 
         """
         size = 1 / self.units.m
-        self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, size)
+        self._domain = nd_cube_domain(2, size)
 
     @property
     def fractures(self) -> list[pp.Fracture]:
@@ -95,7 +97,7 @@ class ModelGeometry:
         Override this method to define a geometry with fractures.
 
         """
-        self._fractures = []
+        self._fractures: list[pp.Fracture] = []
 
     def set_well_network(self) -> None:
         """Assign well network class."""
