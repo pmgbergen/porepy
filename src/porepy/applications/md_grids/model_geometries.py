@@ -27,17 +27,15 @@ class SquareDomainOrthogonalFractures:
         # Scale by length unit.
         return self.params.get("domain_size", 1) / self.units.m
 
-    def set_fracture_network(self) -> None:
-        """Set the fracture network.
-
-        The fractures are assumed to be orthogonal to the domain boundaries.
-
-        """
+    def set_fractures(self) -> None:
+        """Assigns 0 to 2 fractures."""
         fracture_indices = self.params.get("fracture_indices", [0])
         all_fractures = fracture_sets.orthogonal_fractures_2d(self.domain_size)
-        fractures = [all_fractures[i] for i in fracture_indices]
-        domain = domains.nd_cube_domain(2, self.domain_size)
-        self.fracture_network = pp.FractureNetwork2d(fractures, domain)
+        self._fractures = [all_fractures[i] for i in fracture_indices]
+
+    def set_domain(self) -> None:
+        """Set the square domain."""
+        self._domain = domains.nd_cube_domain(2, self.domain_size)
 
 
 class CubeDomainOrthogonalFractures:
@@ -62,14 +60,12 @@ class CubeDomainOrthogonalFractures:
         # Scale by length unit.
         return self.params.get("domain_size", 1) / self.units.m
 
-    def set_fracture_network(self) -> None:
-        """Set the fracture network.
-
-        The fractures are assumed to be orthogonal to the domain boundaries.
-
-        """
+    def set_fractures(self) -> None:
+        """Assigns 0 to 3 fractures."""
         fracture_indices = self.params.get("fracture_indices", [0])
         all_fractures = fracture_sets.orthogonal_fractures_3d(self.domain_size)
-        fractures = [all_fractures[i] for i in fracture_indices]
-        domain = domains.nd_cube_domain(3, self.domain_size)
-        self.fracture_network = pp.FractureNetwork3d(fractures, domain)
+        self._fractures = [all_fractures[i] for i in fracture_indices]
+
+    def set_domain(self) -> None:
+        """Set the cube domain."""
+        self._domain = domains.nd_cube_domain(3, self.domain_size)
