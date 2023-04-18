@@ -639,7 +639,7 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
         network_2d = pp.FractureNetwork2d(fractures, domain)
         self.fracture_network = network_2d
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         """Define mesh arguments for meshing."""
         return self.params.get(
             "mesh_arguments", {"mesh_size_bound": 0.1, "mesh_size_frac": 0.1}
@@ -648,7 +648,7 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
     def set_md_grid(self) -> None:
         """Create mixed-dimensional grid. Ignore fractures 1 and 2."""
         self.mdg = self.fracture_network.mesh(
-            self.mesh_arguments(), constraints=np.array([1, 2])
+            self.meshing_arguments(), constraints=np.array([1, 2])
         )
         domain = self.fracture_network.domain
         if domain is not None and domain.is_boxed:

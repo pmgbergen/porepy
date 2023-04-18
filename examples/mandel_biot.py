@@ -1252,7 +1252,7 @@ class MandelGeometry(pp.ModelGeometry):
         self.domain = domain
         self.fracture_network = pp.create_fracture_network(None, domain)
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         """Set mesh arguments."""
         ls = 1 / self.units.m  # length scaling
         default_mesh_arguments = {"cell_size": 2 * ls}
@@ -1262,7 +1262,7 @@ class MandelGeometry(pp.ModelGeometry):
         """Set mixed-dimensional grid."""
         self.mdg = pp.create_mdg(
             grid_type="simplex",
-            meshing_args=self.mesh_arguments(),
+            meshing_args=self.meshing_arguments(),
             fracture_network=self.fracture_network,
         )
 
@@ -1376,7 +1376,6 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
 
 class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
-
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
