@@ -19,9 +19,9 @@ def nd_cube_domain(dimension: Literal[2, 3], size=pp.number) -> pp.Domain:
     """
     assert dimension in np.arange(2, 4)
     bbox: dict[str, pp.number] = {"xmin": 0, "xmax": size}
-    if dimension > 2:
+    if dimension > 1:
         bbox.update({"ymin": 0, "ymax": size})
-    if dimension > 3:
+    if dimension > 2:
         bbox.update({"zmin": 0, "zmax": size})
     return pp.Domain(bbox)
 
