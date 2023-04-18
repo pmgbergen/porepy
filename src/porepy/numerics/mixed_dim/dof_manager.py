@@ -22,8 +22,8 @@ class DofManager:
     """Class to keep track of degrees of freedom in a mixed-dimensional grid with
     several variables.
 
-    This class should be used for setting the state of variables, and to get
-    indices of the degrees of freedom for grids and variables.
+    This class should be used for setting the state of variables, and to get indices of
+    the degrees of freedom for grids and variables.
 
     Attributes:
         block_dof: Is a dictionary with keys that are either
@@ -85,7 +85,6 @@ class DofManager:
                 continue
 
             for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
-
                 # First count the number of dofs per variable. Note that the
                 # identifier here is a tuple of the edge and a variable str.
                 block_dof[(intf, local_var)] = block_dof_counter
@@ -116,7 +115,8 @@ class DofManager:
             variables: VariableType input for which the indices are requested.
 
         Returns:
-            an order-preserving array of indices of DOFs belonging to the VariableType input.
+            an order-preserving array of indices of DOFs belonging to the VariableType
+            input.
 
         Raises:
             ValueError: if unknown VariableType arguments are passed.
@@ -162,23 +162,22 @@ class DofManager:
         return_str: bool = False,
     ) -> dict | str:
         """Get the range of indices in the global system of variables
-        associated with combinations of nodes / edges (in the MixedDimensionalGrid sense)
-        and variables.
+        associated with combinations of nodes / edges (in the MixedDimensionalGrid
+        sense) and variables.
 
-        This function is intended mainly for inquiries into the ordering of blocks
-        in systems with multiple variables and/or grids. The results can be returned
-        as variables or a string. Both options come with options for sorting of
-        the output.
+        This function is intended mainly for inquiries into the ordering of blocks in
+        systems with multiple variables and/or grids. The results can be returned as
+        variables or a string. Both options come with options for sorting of the output.
 
         Parameters:
-            grids (pp.Grid or pp.MixedDimensionalGrid edge): List of grids, edges (in the
-                MixedDimensionalGrid) or combinations of the two. If not provided, all
-            grids and edges that are assigned variables will be considered.
+            grids (pp.Grid or pp.MixedDimensionalGrid edge): List of grids, edges (in
+                the MixedDimensionalGrid) or combinations of the two. If not provided,
+                all grids and edges that are assigned variables will be considered.
             variables (str): Name of variables. If not provided, all variables assigned
                 to at least one grid or variable will be considered).
-            sort_by (str): Should take one of the values 'grids', 'variables' or an empty
-                str (default). If either grids or variables is specified, the return
-                 argument will be sorted according to the corresponding type.
+            sort_by (str): Should take one of the values 'grids', 'variables' or an
+                empty str (default). If either grids or variables is specified, the
+                return argument will be sorted according to the corresponding type.
             return_str (bool): If True, information will be returned as a string instead
                 of as variables.
 
@@ -310,7 +309,10 @@ class DofManager:
         return inv_block_dof[block_ind]  # type: ignore
 
     def get_variable_values(
-        self, variables=None, from_iterate: bool = False
+        self,
+        variables=None,
+        time_step_index: Optional[int] = None,
+        iterate_index: Optional[int] = None,
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
@@ -325,17 +327,29 @@ class DofManager:
         Parameters:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
-            from_iterate (optional): flag to return values stored as ITERATE,
-                instead of STATE (default).
+            time_step_index: Specified by user if they want to gather variable values
+                from a specific time-step. Value 0  provides the most recent time-step.
+                A value of 1 will give the values of one time-step back in time.
+            iterate_index: Specified by user if they want to gather a specific set of
+                iterate values. Similar to ``time_step_index``, value 0 is the default
+                value and gives the most recent iterate.
 
         Returns:
             the respective (sub) vector in numerical format.
 
         Raises:
+            ValueError: If neither of time_step_index and iterate_index has been
+            assigned a non-None value.
             KeyError: if no values are stored for the VariableType input.
             ValueError: if unknown VariableType arguments are passed.
 
         """
+        if time_step_index is None and iterate_index is None:
+            raise ValueError(
+                "At least one of time_step_index and iterate_index needs to be"
+                " different from None."
+            )
+
         if variables is not None:
             raise NotImplementedError("Only None is supported as input for now")
         # storage for atomic blocks of the sub vector (identified by name-grid pairs)
@@ -350,16 +364,16 @@ class DofManager:
                 data = self.mdg.interface_data(grid)
             # extract a copy of requested values
             try:
-                if from_iterate:
-                    values.append(data[pp.STATE][pp.ITERATE][name].copy())
-                else:
-                    values.append(data[pp.STATE][name].copy())
+                if iterate_index is not None:
+                    values.append(
+                        data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
+                    )
+                elif time_step_index is not None:
+                    values.append(
+                        data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
+                    )
             except KeyError:
-                raise KeyError(
-                    f"No values stored for variable {name}, "
-                    f"from_iterate={from_iterate}"
-                    f"\non grid {grid}."
-                )
+                raise KeyError(f"No values stored for variable {name} on grid {grid}.")
 
         # if there are matching blocks, concatenate and return
         if values:
@@ -380,7 +394,8 @@ class DofManager:
             variable (str): Name of variable.
 
         Returns:
-            tuple(int, int): Start and end of the block for this grid-variable combination.
+            tuple(int, int): Start and end of the block for this grid-variable
+                combination.
             The end index is the start of the next block.
 
         """
@@ -423,8 +438,8 @@ class DofManager:
                 active variable.
             return_projection (bool, optional): Return the projection matrix from for
                 selecting only the requested variables. Default to False.
-            matrix_format (csc_or_csr_matrix, optional): Format of the projection matrix.
-                Default to sps.csr_matrix.
+            matrix_format (csc_or_csr_matrix, optional): Format of the projection
+                matrix. Default to sps.csr_matrix.
 
         """
         if not isinstance(var, list):
@@ -489,10 +504,11 @@ class DofManager:
                 distributed. If not provided, all variables found in self.block_dof
                 will be considered.
             additive (bool, optional): If True, the variables are added to the current
-                state or iterate, instead of overwrite the existing value.
-            to_iterate (bool, optional): If True, distribute to iterates, and not the
-                state itself. Set to True inside a non-linear scheme (Newton), False
-                at the end of a time step.
+                time step or iterate solution, instead of overwriting the existing
+                value.
+            to_iterate (bool, optional): If True, distribute to iterate, and not the
+                time step solution itself. Set to True inside a non-linear scheme
+                (Newton), False at the end of a time step.
 
         """
         if grids is None:
@@ -501,12 +517,14 @@ class DofManager:
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))
 
-        # Loop over grid-variable combinations and update data in pp.STATE or pp.ITERATE
+        # Loop over grid-variable combinations and update data in pp.ITERATE_SOLUTIONS
+        # and pp.TIME_STEP_SOLUTIONS.
         for g, var in itertools.product(grids, variables):
             if (g, var) not in self.block_dof:
                 continue
 
             dof_ind = self.grid_and_variable_to_dofs(g, var)
+            vals = values[dof_ind]
 
             if isinstance(g, pp.MortarGrid):
                 # This is really an edge
@@ -514,27 +532,18 @@ class DofManager:
             else:
                 data = self.mdg.subdomain_data(g)
 
-            if pp.STATE not in data:
-                data[pp.STATE] = {}
-            if to_iterate and pp.ITERATE not in data[pp.STATE]:
-                data[pp.STATE][pp.ITERATE] = {}
-
-            vals = values[dof_ind]
-            if additive:
-                if to_iterate:
-                    data[pp.STATE][pp.ITERATE][var] = (
-                        data[pp.STATE][pp.ITERATE][var] + vals
-                    )
-                else:
-                    data[pp.STATE][var] = data[pp.STATE][var] + vals
-            else:
-                if to_iterate:
-                    # Make a copy of the array to avoid nasty bugs
-                    # Not sure if this can happen in practice, but better safe than
-                    # sorry.
-                    data[pp.STATE][pp.ITERATE][var] = vals.copy()
-                else:
-                    data[pp.STATE][var] = vals.copy()
+            if not to_iterate:
+                pp.set_solution_values(
+                    name=var,
+                    values=vals,
+                    data=data,
+                    time_step_index=0,
+                    additive=additive,
+                )
+            if to_iterate:
+                pp.set_solution_values(
+                    name=var, values=vals, data=data, iterate_index=0, additive=additive
+                )
 
     def assemble_variable(
         self,
@@ -553,12 +562,12 @@ class DofManager:
                 assembled. If not provided, all variables found in self.block_dof
                 will be cosidered.
             from_iterate (bool, optional): If True, assemble from iterates, and not the
-                state itself. Set this to True inside a non-linear scheme (Newton), False
-                at the end of a time step.
+                time step solution itself. Set this to True inside a non-linear scheme
+                (Newton), False at the end of a time step.
 
         Returns:
             np.ndarray: Vector, size equal to self.num_dofs(). Values taken from the
-                state for those indices corresponding to an active grid-variable
+                solution for those indices corresponding to an active grid-variable
                 combination. Other values are set to zero.
 
         """
@@ -584,9 +593,9 @@ class DofManager:
 
             if from_iterate:
                 # Use copy to avoid nasty bugs.
-                values[dof_ind] = data[pp.STATE][pp.ITERATE][var].copy()
+                values[dof_ind] = data[pp.ITERATE_SOLUTIONS][var][0].copy()
             else:
-                values[dof_ind] = data[pp.STATE][var].copy()
+                values[dof_ind] = data[pp.TIME_STEP_SOLUTIONS][var][0].copy()
 
         return values
 
@@ -616,7 +625,6 @@ class DofManager:
         return s
 
     def __repr__(self) -> str:
-
         grid_likes = [key[0] for key in self.block_dof]
         unique_grids = list(set(grid_likes))
 

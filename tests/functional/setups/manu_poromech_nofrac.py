@@ -76,6 +76,7 @@ import porepy.models.poromechanics as poromechanics
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
+
 # PorePy typings
 number = pp.number
 grid = pp.GridLike
@@ -670,7 +671,8 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         # good code practice
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        # External sources are retrieved from STATE and wrapped as an AdArray
+        # External sources are retrieved from pp.TIME_STEP_SOLUTIONS and wrapped as an
+        # AdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_flow",
             subdomains=self.mdg.subdomains(),
@@ -785,11 +787,15 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
         # Mechanics source
         mech_source = self.exact_sol.mechanics_source(sd=sd, time=t)
-        data[pp.STATE]["source_mechanics"] = mech_source
+        pp.set_solution_values(
+            name="source_mechanics", values=mech_source, data=data, time_step_index=0
+        )
 
         # Flow source
         flow_source = self.exact_sol.flow_source(sd=sd, time=t)
-        data[pp.STATE]["source_flow"] = flow_source
+        pp.set_solution_values(
+            name="source_flow", values=flow_source, data=data, time_step_index=0
+        )
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""

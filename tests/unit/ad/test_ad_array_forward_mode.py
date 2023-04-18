@@ -71,7 +71,7 @@ def _get_ad_array(
     #
     #  If this is confusing, it may be helpful to recall that an AdArray can represent
     #  any state, not only primary variables (e.g., a pp.ad.Variable). The main
-    #  motivation for using a more complex value is that the Jacbian matrix of primary
+    #  motivation for using a more complex value is that the Jacobian matrix of primary
     #  variables are identity matrices, thus compound expressions give higher chances of
     #  uncovering errors.
 
@@ -93,8 +93,8 @@ def _get_ad_array(
         eq_system.create_variables("foo", subdomains=[g])
         var = eq_system.variables[0]
         d = mdg.subdomain_data(g)
-        d[pp.STATE]["foo"] = variable_val
-        d[pp.STATE][pp.ITERATE]["foo"] = variable_val
+        d[pp.TIME_STEP_SOLUTIONS]["foo"][0] = variable_val
+        d[pp.ITERATE_SOLUTIONS]["foo"][0] = variable_val
         mat = pp.ad.SparseArray(jac)
 
         return mat @ var, eq_system
