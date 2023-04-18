@@ -15,6 +15,7 @@ import pytest
 
 import porepy as pp
 
+
 from .setup_utils import (
     BoundaryConditionsMassAndEnergyDirNorthSouth,
     Poromechanics,
@@ -54,8 +55,8 @@ class NonzeroFractureGapPoromechanics:
         self.equation_system.set_variable_values(
             self.fluid.pressure() * np.ones(self.mdg.num_subdomain_cells()),
             [self.pressure_variable],
-            to_state=True,
-            to_iterate=True,
+            time_step_index=0,
+            iterate_index=0,
         )
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         # Initial displacement.
@@ -66,8 +67,8 @@ class NonzeroFractureGapPoromechanics:
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.displacement_variable],
-                to_state=True,
-                to_iterate=True,
+                time_step_index=0,
+                iterate_index=0,
             )
             # Find mortar cells on the top boundary
             intf = self.mdg.interfaces()[0]
@@ -91,8 +92,8 @@ class NonzeroFractureGapPoromechanics:
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.interface_displacement_variable],
-                to_state=True,
-                to_iterate=True,
+                time_step_index=0,
+                iterate_index=0,
             )
 
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
@@ -211,18 +212,22 @@ def get_variables(
     """
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
     u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
-    u_vals = setup.equation_system.get_variable_values(u_var).reshape(
-        setup.nd, -1, order="F"
-    )
+    u_vals = setup.equation_system.get_variable_values(
+        variables=u_var, time_step_index=0
+    ).reshape(setup.nd, -1, order="F")
 
     p_var = setup.equation_system.get_variables(
         [setup.pressure_variable], setup.mdg.subdomains()
     )
-    p_vals = setup.equation_system.get_variable_values(p_var)
+    p_vals = setup.equation_system.get_variable_values(
+        variables=p_var, time_step_index=0
+    )
     p_var = setup.equation_system.get_variables(
         [setup.pressure_variable], setup.mdg.subdomains(dim=setup.nd - 1)
     )
-    p_frac = setup.equation_system.get_variable_values(p_var)
+    p_frac = setup.equation_system.get_variable_values(
+        variables=p_var, time_step_index=0
+    )
     # Fracture
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
     jump = (
@@ -257,6 +262,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
             directions. The values are used to infer sign of displacement solution.
 
     """
+
     setup = create_fractured_setup(solid_vals, {}, north_displacement)
     pp.run_time_dependent_model(setup, {})
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
@@ -445,7 +451,7 @@ def test_positive_p_frac_positive_opening():
 
 
 def test_pull_south_positive_reference_pressure():
-    """Compare with and without nonzero reference (and initial) state."""
+    """Compare with and without nonzero reference (and initial) solution."""
     setup_ref = create_fractured_setup({}, {}, 0)
     setup_ref.subtract_p_frac = False
     setup_ref.params["uy_south"] = -0.001
