@@ -5,9 +5,10 @@ name: Pytest (all tests)
 # events for the main and develop branches
 on:
   workflow_dispatch:
-    schedule:
-      # Do a weekly run of the tests (repeats every Sunday at 00:01)
-      - cron: '1 0 * * 0'
+    # run jobs manually
+  schedule:
+    # Do a weekly run of the tests (repeats every Sunday at 00:01)
+    - cron: '1 0 * * 0'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
