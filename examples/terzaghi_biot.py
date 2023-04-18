@@ -45,10 +45,8 @@ import numpy as np
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.building_blocks.derived_models.biot import BiotPoromechanics
-from porepy.applications.building_blocks.verification_utils import VerificationUtils
-
-# from porepy.applications.complete_setups.setup_utils import VerificationUtils
+from porepy.models.derived_models.biot import BiotPoromechanics
+from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
@@ -511,33 +509,34 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
         height = self.params.get("height", 1.0)  # [m]
         return height * ls
 
+    def set_fracture_network(self) -> None:
+        """A fracture network without fractures."""
+
+        # Define the domain
+        domain = pp.Domain(
+            {"xmin": 0, "xmax": self.height(), "ymin": 0, "ymax": self.height()}
+        )
+        self.domain = domain
+
+        # Set the fracture network
+        self.fracture_network = pp.create_fracture_network(None, domain)
+
     def set_md_grid(self) -> None:
         """Create the mixed-dimensional grid based on two-dimensional Cartesian grid."""
-        height = self.height()  # scaled [m]
-        phys_dims = np.array([height, height])  # scaled [m]
-
-        num_cells = self.params.get("num_cells", 20)
-        n_cells = np.array([1, num_cells])
-
-        sd: pp.Grid = pp.CartGrid(n_cells, phys_dims)
-        sd.compute_geometry()
-
-        self.domain = pp.Domain(
-            {
-                "xmin": 0,
-                "xmax": phys_dims[0],
-                "ymin": 0,
-                "ymax": phys_dims[1],
-            }
+        self.mdg = pp.create_mdg(
+            grid_type="cartesian",
+            meshing_args={
+                "cell_size_x": self.height(),
+                "cell_size_y": self.height() / self.params.get("num_cells", 20),
+            },
+            fracture_network=self.fracture_network,
         )
-        self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
 
 
 # -----> Boundary conditions
 class TerzaghiBoundaryConditionsMechanics(
     poromechanics.BoundaryConditionsMechanicsTimeDependent,
 ):
-
     bc_values_mechanics_key: str
     """Keyword for accessing the boundary values for the mechanical subproblem."""
 
@@ -729,8 +728,14 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         data = self.mdg.subdomain_data(sd)
         vertical_load = self.applied_load()  # scaled [Pa]
         initial_p = vertical_load * np.ones(sd.num_cells)
-        data[pp.STATE][self.pressure_variable] = initial_p
-        data[pp.STATE][pp.ITERATE][self.pressure_variable] = initial_p
+
+        pp.set_solution_values(
+            name=self.pressure_variable,
+            values=initial_p,
+            data=data,
+            iterate_index=0,
+            time_step_index=0,
+        )
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
