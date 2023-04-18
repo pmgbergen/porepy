@@ -645,14 +645,14 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
         domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
         self.fracture_network = pp.FractureNetwork2d(domain=domain)
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         """Set mesh arguments."""
         default_mesh_arguments = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05}
         return self.params.get("mesh_arguments", default_mesh_arguments)
 
     def set_md_grid(self) -> None:
         """Set mixed-dimensional grid."""
-        self.mdg = self.fracture_network.mesh(self.mesh_arguments())
+        self.mdg = self.fracture_network.mesh(self.meshing_arguments())
         domain = self.fracture_network.domain
         if domain is not None and domain.is_boxed:
             self.domain = domain

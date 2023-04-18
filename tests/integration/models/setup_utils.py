@@ -36,7 +36,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
         used_fractures = [fractures[i] for i in fracture_indices]
         self.fracture_network = pp.FractureNetwork2d(used_fractures, domain)
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         # Divide by length scale:
         h = 0.5 / self.units.m
         return {"mesh_size_frac": h, "mesh_size_bound": h}
@@ -99,7 +99,7 @@ class OrthogonalFractures3d(pp.ModelGeometry):
         fractures = [pp.PlaneFracture(pts[i]) for i in fracture_indices]
         self.fracture_network = pp.FractureNetwork3d(fractures, domain)
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         # Length scale:
         ls = 1 / self.units.m
         mesh_sizes = {

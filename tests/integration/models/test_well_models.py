@@ -418,7 +418,7 @@ class Poromechanics(
     BoundaryConditionsWellSetup,
     pp.poromechanics.Poromechanics,
 ):
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         # Length scale:
         ls = 1 / self.units.m
         h = 0.5 * ls
@@ -447,7 +447,7 @@ class Thermoporomechanics(
     BoundaryConditionsWellSetup,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         # Length scale:
         ls = 1 / self.units.m
         h = 0.5 * ls
