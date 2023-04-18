@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from . import domains, fracture_sets
-
 import porepy as pp
+
+from . import domains, fracture_sets
 
 
 class SquareDomainOrthogonalFractures:
@@ -20,6 +20,8 @@ class SquareDomainOrthogonalFractures:
         - fracture_indices: List of indices of fractures to be included in the grid.
 
     """
+    units: pp.Units
+    """Units for the model geometry."""
 
     @property
     def domain_size(self) -> pp.number:
@@ -53,6 +55,8 @@ class CubeDomainOrthogonalFractures:
         - fracture_indices: List of indices of fractures to be included in the grid.
 
     """
+    units: pp.Units
+    """Units for the model geometry."""
 
     @property
     def domain_size(self) -> pp.number:
