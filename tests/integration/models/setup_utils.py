@@ -8,6 +8,10 @@ import numpy as np
 
 import porepy as pp
 
+from porepy.applications.md_grids.model_geometries import (
+    CubeDomainOrthogonalFractures,
+)
+
 
 class RectangularDomainThreeFractures(pp.ModelGeometry):
     """A rectangular domain with up to three fractures.
@@ -27,7 +31,6 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
         ls = 1 / self.units.m
 
         fracture_indices = self.params.get("fracture_indices", [0])
-        domain = pp.Domain({"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls})
         fractures = [
             pp.LineFracture(np.array([[0, 2], [0.5, 0.5]]) * ls),
             pp.LineFracture(np.array([[0.5, 0.5], [0, 1]]) * ls),
@@ -37,8 +40,17 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
     def meshing_arguments(self) -> dict:
         # Divide by length scale:
-        h = 0.5 / self.units.m
-        return {"mesh_size_frac": h, "mesh_size_bound": h}
+        ls = 1 / self.units.m
+        mesh_sizes = {
+            # Cartesian: 2 by 8 cells.
+            "cell_size_x": 0.25 * ls,
+            "cell_size_y": 0.5 * ls,
+            # Simplex. Whatever gmsh decides.
+            "cell_size_fracture": 0.5 * ls,
+            "cell_size_boundary": 0.5 * ls,
+            "cell_size_min": 0.2 * ls,
+        }
+        return mesh_sizes
 
     def set_domain(self) -> None:
         if not self.params.get("cartesian", False):
@@ -50,14 +62,11 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
         ls = 1 / self.units.m
         # Mono-dimensional grid by default
         phys_dims = np.array([2, 1]) * ls
-        n_cells = np.array([8, 2])
         box = {"xmin": 0, "xmax": phys_dims[0], "ymin": 0, "ymax": phys_dims[1]}
         self._domain = pp.Domain(box)
 
 
-class OrthogonalFractures3d(
-    pp.applications.md_grids.mdg_library.CubeDomainOrthogonalFractures
-):
+class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
     """A 3d domain with up to three orthogonal fractures.
 
     The fractures have constant `x`, `y` and `z` coordinates equal to 0.5, respectively,
@@ -73,6 +82,7 @@ class OrthogonalFractures3d(
         # Length scale:
         ls = 1 / self.units.m
         mesh_sizes = {
+            "cell_size": 0.5 * ls,
             "cell_size_fracture": 0.5 * ls,
             "cell_size_boundary": 0.5 * ls,
             "cell_size_min": 0.2 * ls,
@@ -101,7 +111,7 @@ class WellGeometryMixin:
             # Intersects no fractures. Internal well.
             pp.Well(np.array([[0.3, 0.3], [0.3, 0.3], [0.3, 0.4]])),
         ]
-        parameters = {"mesh_size": self.mesh_size()}
+        parameters = {"mesh_size": 0.2}
         self.well_network = pp.WellNetwork3d(
             wells[:num_wells], domain=self.domain, parameters=parameters
         )

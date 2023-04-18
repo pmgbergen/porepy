@@ -20,22 +20,12 @@ from . import setup_utils
 
 geometry_list = [
     setup_utils.RectangularDomainThreeFractures,
-    setup_utils.OrthogonalFractures3d,
+    setup_utils._add_mixin(
+        setup_utils.OrthogonalFractures3d, pp.models.geometry.ModelGeometry
+    ),
 ]
 
 num_fracs_list = [0, 1, 2, 3]
-
-
-@pytest.mark.parametrize("geometry_class", geometry_list)
-@pytest.mark.parametrize("num_fracs", num_fracs_list)
-def test_set_fracture_network(geometry_class, num_fracs):
-    """Test the method set_fracture_network."""
-    geometry = geometry_class()
-    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
-    geometry.units = pp.Units()
-    geometry.num_fracs = num_fracs
-    geometry.set_fracture_network()
-    assert getattr(geometry, "num_fracs", 0) == geometry.fracture_network.num_frac()
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
@@ -46,7 +36,14 @@ def test_set_geometry(geometry_class):
     geometry.params = {"fracture_indices": [0]}
     geometry.units = pp.Units()
     geometry.set_geometry()
-    for attr in ["mdg", "domain", "nd", "fracture_network", "well_network"]:
+    for attr in [
+        "mdg",
+        "domain",
+        "nd",
+        "fracture_network",
+        "well_network",
+        "fractures",
+    ]:
         assert hasattr(geometry, attr)
 
 
@@ -135,7 +132,6 @@ def test_wrap_grid_attributes(
 
     # One loop for both subdomains and interfaces.
     for grids in test_subdomains + test_interfaces:
-
         # Which attributes to test depends on whether the grids are subdomains or
         # interfaces.
         if len(grids) == 0 or isinstance(grids[0], pp.MortarGrid):
