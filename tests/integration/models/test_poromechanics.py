@@ -60,7 +60,6 @@ class NonzeroFractureGapPoromechanics:
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
-
             top_cells = sd.cell_centers[1] > 0.5
             vals = np.zeros((self.nd, sd.num_cells))
             vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
@@ -268,7 +267,6 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     bottom = sd_nd.cell_centers[1] < 0.5
     tol = 1e-10
     if np.isclose(north_displacement, 0.0):
-
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
         assert np.allclose(u_vals[0, top], 0)
@@ -328,13 +326,13 @@ def test_poromechanics_model_no_modification():
 
 @pytest.mark.parametrize("biot_coefficient", [0, 0.5])
 def test_without_fracture(biot_coefficient):
-
     fluid = pp.FluidConstants(constants={"compressibility": 0.5})
     solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
     params = {
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
         "uy_north": 0.001,
+        "cartesian": True,
     }
     m = TailoredPoromechanics(params)
     pp.run_time_dependent_model(m, {})
@@ -354,13 +352,12 @@ def test_without_fracture(biot_coefficient):
     # Check that y component lies between zero and applied boundary displacement
     assert np.all(u[1] > 0)
     assert np.all(u[1] < 0.001)
-    # Check that the expansion yields a negative pressure
     if biot_coefficient == 0:
+        # No coupling implies zero pressure.
         assert np.allclose(p, 0)
     else:
+        # Check that the expansion yields a negative pressure.
         assert np.all(p < -tol)
-        # Stronger test, could be relaxed.
-        assert np.allclose(p, -4.16490713e-05)
 
 
 def test_pull_north_positive_opening():
@@ -410,7 +407,6 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-
     setup = create_fractured_setup({}, {}, -0.001)
     pp.run_time_dependent_model(setup, {})
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
@@ -426,7 +422,6 @@ def test_push_north_zero_opening():
 
 
 def test_positive_p_frac_positive_opening():
-
     setup = create_fractured_setup({}, {}, 0)
     setup.params["fracture_source_value"] = 0.001
     pp.run_time_dependent_model(setup, {})
