@@ -235,6 +235,8 @@ def test_relative_l2_errors_cartesian_grid(
 def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """Retrieve actual order of convergence.
 
+    Cartesian and simplices for 2d. Cartesian only for 3d.
+
     Note:
         This is a spatio-temporal analysis, where the spatial step size is decreased
         by a factor of `2` and the temporal step size is decreased by a factor of `4`
@@ -336,8 +338,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     return [desired_ooc_2d, desired_ooc_3d]
 
 
-# ----> Now, we write the actual test
-# @pytest.mark.skip(reason="slow")
+# TODO: Add @pytest.mark.skipped after merging #856
 @pytest.mark.parametrize(
     "var",
     ["matrix_pressure", "matrix_flux", "frac_pressure", "frac_flux", "intf_flux"],
@@ -346,8 +347,8 @@ def desired_ooc() -> list[list[dict[str, float]]]:
 @pytest.mark.parametrize("dim_idx", [0, 1])
 def test_order_of_convergence(
         var: str,
-        grid_type_idx: int,
         dim_idx: int,
+        grid_type_idx: int,
         actual_ooc: list[list[dict[str, float]]],
         desired_ooc: list[list[dict[str, float]]],
 ) -> None:
@@ -364,10 +365,10 @@ def test_order_of_convergence(
             for simplices.
         dim_idx: Index to identify the dimensionality of the problem; `0` for 2d, and
             `1` for 3d.
-        actual_ooc: List of dictionaries containing the actual observed order of
-            convergence.
-        desired_ooc: List of dictionaries containing the desired observed order of
-            convergence.
+        actual_ooc: List of lists of dictionaries containing the actual observed
+            order of convergence.
+        desired_ooc: List of lists of dictionaries containing the desired observed
+            order of convergence.
 
     """
     # We require the order of convergence to always be larger than 1.0
@@ -382,7 +383,7 @@ def test_order_of_convergence(
             rtol=1e-3,  # allow for 0.1% of relative difference in OOC
         )
     else:  # Simplex
-        if dim_idx == 0:
+        if dim_idx == 0:  # no analysis for 3d and simplices
             assert np.isclose(
                 desired_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 actual_ooc[dim_idx][grid_type_idx]["ooc_" + var],
