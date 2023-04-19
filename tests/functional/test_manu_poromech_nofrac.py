@@ -91,7 +91,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
-        "mesh_arguments": {"cell_size": 0.2},
+        "mesh_arguments": {"cell_size": 0.25},
         "manufactured_solution": "nordbotten_2016",
         "time_manager": pp.TimeManager([0, 0.2, 0.6, 1.0], 0.2, True),
     }
@@ -127,46 +127,45 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
         List of lists of dictionaries containing the desired relative L2-errors.
 
     """
-    # Desired errors for 2d
     desired_errors_2d = [
         {  # t = 0.2 [s]
-            "error_pressure": 0.15098593103010602,
-            "error_flux": 0.11597623841954294,
-            "error_displacement": 0.24739859687431226,
-            "error_force": 0.11853688943430486,
+            'error_pressure': 0.25151427228540035,
+            'error_flux': 0.18937166702134517,
+            'error_displacement': 0.3956281463918882,
+            'error_force': 0.1637416678810283
         },
         {  # t = 0.6 [s]
-            "error_pressure": 0.12471030427177165,
-            "error_flux": 0.0626504209509876,
-            "error_displacement": 0.24720053356751834,
-            "error_force": 0.11855825904510121,
+            'error_pressure': 0.20290279871225786,
+            'error_flux': 0.10056084121234417,
+            'error_displacement': 0.39528317342334823,
+            'error_force': 0.1637838841316564
         },
         {  # t = 1.0 [s]
-            "error_pressure": 0.12213010360619284,
-            "error_flux": 0.05586062752817418,
-            "error_displacement": 0.24715982888869706,
-            "error_force": 0.11856259108113193,
+            'error_pressure': 0.19811215356951034,
+            'error_flux': 0.08909630991014847,
+            'error_displacement': 0.395212045815961,
+            'error_force': 0.16379246203974482
         },
     ]
-    # Desired errors for 3d
+
     desired_errors_3d = [
-        {  # t = 0.8 [s]
-            "error_pressure": 0.406923771369456,
-            "error_flux": 0.7436445077811259,
-            "error_displacement": 0.6213940675529699,
-            "error_force": 0.45405839464853665,
+        {  # t = 0.2 [s]
+            'error_pressure': 0.23464416339949817,
+            'error_flux': 0.14573171954165537,
+            'error_displacement': 0.44395391299204107,
+            'error_force': 0.22057090855970796,
         },
         {  # t = 0.6 [s]
-            "error_pressure": 0.2666474275157114,
-            "error_flux": 0.5763237759810539,
-            "error_displacement": 0.6206955457679396,
-            "error_force": 0.45344703005708564,
+            'error_pressure': 0.21400059478345512,
+            'error_flux': 0.10078528867796033,
+            'error_displacement': 0.44378245861976723,
+            'error_force': 0.2206023298079865,
         },
         {  # t = 1.0 [s]
-            "error_pressure": 0.2519528454134525,
-            "error_flux": 0.5603153988582463,
-            "error_displacement": 0.6205537003355597,
-            "error_force": 0.45332301850788265,
+            'error_pressure': 0.21212315258433265,
+            'error_flux': 0.09607668646680645,
+            'error_displacement': 0.4437474278712324,
+            'error_force': 0.2206087474332715,
         },
     ]
 
