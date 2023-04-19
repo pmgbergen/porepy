@@ -28,19 +28,19 @@ References:
 """
 from __future__ import annotations
 
+from copy import deepcopy
+
 import numpy as np
-import porepy as pp
 import pytest
 
-from tests.functional.utils.convergence_analysis import ConvergenceAnalysis
+import porepy as pp
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompFlowSetup2d,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
 from tests.functional.setups.manu_flow_incomp_frac_3d import ManuIncompFlowSetup3d
-
-from copy import deepcopy
+from tests.functional.utils.convergence_analysis import ConvergenceAnalysis
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
@@ -113,20 +113,20 @@ def desired_l2_errors() -> list[dict[str, float]]:
     """
     # Desired errors for 2d
     desired_errors_2d = {
-        'error_matrix_pressure': 0.060732124330406576,
-        'error_matrix_flux': 0.01828457897868048,
-        'error_frac_pressure': 4.984308951373194,
-        'error_frac_flux': 0.0019904878330327946,
-        'error_intf_flux': 3.1453166913070185,
+        "error_matrix_pressure": 0.060732124330406576,
+        "error_matrix_flux": 0.01828457897868048,
+        "error_frac_pressure": 4.984308951373194,
+        "error_frac_flux": 0.0019904878330327946,
+        "error_intf_flux": 3.1453166913070185,
     }
 
     # Desired error for 3d
     desired_errors_3d = {
-        'error_matrix_pressure': 1.3822466693314728,
-        'error_matrix_flux': 1.2603123149160123,
-        'error_frac_pressure': 6.272401337799361,
-        'error_frac_flux': 0.044759629637959035,
-        'error_intf_flux': 5.291360607983224
+        "error_matrix_pressure": 1.3822466693314728,
+        "error_matrix_flux": 1.2603123149160123,
+        "error_frac_pressure": 6.272401337799361,
+        "error_frac_flux": 0.044759629637959035,
+        "error_intf_flux": 5.291360607983224,
     }
 
     return [desired_errors_2d, desired_errors_3d]
@@ -138,10 +138,10 @@ def desired_l2_errors() -> list[dict[str, float]]:
     ["matrix_pressure", "matrix_flux", "frac_pressure", "frac_flux", "intf_flux"],
 )
 def test_relative_l2_errors_cartesian_grid(
-        dim_idx: int,
-        var: str,
-        actual_l2_errors: list[dict[str, float]],
-        desired_l2_errors: list[dict[str, float]],
+    dim_idx: int,
+    var: str,
+    actual_l2_errors: list[dict[str, float]],
+    desired_l2_errors: list[dict[str, float]],
 ) -> None:
     """Check L2-relative errors for primary and secondary variables.
 
@@ -249,28 +249,28 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     """
     desired_ooc_2d = [
         {  # Cartesian
-            'ooc_frac_flux': 1.3967607529647372,
-            'ooc_frac_pressure': 1.8534965991529369,
-            'ooc_intf_flux': 1.9986496319323037,
-            'ooc_matrix_flux': 1.660155297595291,
-            'ooc_matrix_pressure': 1.900941278698522
+            "ooc_frac_flux": 1.3967607529647372,
+            "ooc_frac_pressure": 1.8534965991529369,
+            "ooc_intf_flux": 1.9986496319323037,
+            "ooc_matrix_flux": 1.660155297595291,
+            "ooc_matrix_pressure": 1.900941278698522,
         },
         {  # simplex
-            'ooc_frac_flux': 1.300742223520386,
-            'ooc_frac_pressure': 1.9739463002335342,
-            'ooc_intf_flux': 2.0761838366094403,
-            'ooc_matrix_flux': 1.7348556672914186,
-            'ooc_matrix_pressure': 1.904889457326223,
-        }
+            "ooc_frac_flux": 1.300742223520386,
+            "ooc_frac_pressure": 1.9739463002335342,
+            "ooc_intf_flux": 2.0761838366094403,
+            "ooc_matrix_flux": 1.7348556672914186,
+            "ooc_matrix_pressure": 1.904889457326223,
+        },
     ]
 
     desired_ooc_3d = [
         {  # Cartesian
-            'ooc_frac_flux': 2.0540239290134323,
-            'ooc_frac_pressure': 2.01831767379812,
-            'ooc_intf_flux': 2.005622051446942,
-            'ooc_matrix_flux': 2.1319834447112367,
-            'ooc_matrix_pressure': 2.007165614273335
+            "ooc_frac_flux": 2.0540239290134323,
+            "ooc_frac_pressure": 2.01831767379812,
+            "ooc_intf_flux": 2.005622051446942,
+            "ooc_matrix_flux": 2.1319834447112367,
+            "ooc_matrix_pressure": 2.007165614273335,
         }
     ]
 
@@ -285,11 +285,11 @@ def desired_ooc() -> list[list[dict[str, float]]]:
 @pytest.mark.parametrize("grid_type_idx", [0, 1])
 @pytest.mark.parametrize("dim_idx", [0, 1])
 def test_order_of_convergence(
-        var: str,
-        dim_idx: int,
-        grid_type_idx: int,
-        actual_ooc: list[list[dict[str, float]]],
-        desired_ooc: list[list[dict[str, float]]],
+    var: str,
+    dim_idx: int,
+    grid_type_idx: int,
+    actual_ooc: list[list[dict[str, float]]],
+    desired_ooc: list[list[dict[str, float]]],
 ) -> None:
     """Test observed order of convergence.
 
@@ -327,4 +327,3 @@ def test_order_of_convergence(
                 atol=1e-1,  # allow for an absolute difference of 0.1 in OOC
                 rtol=5e-1,  # allow for 5% of relative difference in OOC
             )
-

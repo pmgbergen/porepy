@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Optional, Union, NamedTuple
+from typing import NamedTuple, Optional, Union
+
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
 from scipy import stats
 
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import numpy as np
 import porepy as pp
 
 
@@ -17,7 +18,7 @@ class PlotVar(NamedTuple):
     name: str
     """Name of the attribute to be accessed in a result data class, e.g.,
     `error_matrix_pressure`.
-    
+
     """
 
     label: str
@@ -233,11 +234,11 @@ class ConvergenceAnalysis:
         return convergence_results
 
     def order_of_convergence(
-            self,
-            list_of_results: list,
-            variables: Optional[list[str]] = None,
-            in_space=True,
-            in_time=False,
+        self,
+        list_of_results: list,
+        variables: Optional[list[str]] = None,
+        in_space=True,
+        in_time=False,
     ) -> dict[str, float]:
         """Compute order of convergence (OOC) for a given set of variables.
 
@@ -322,12 +323,12 @@ class ConvergenceAnalysis:
         return ooc_dict
 
     def plot_spatial_rates(
-            self,
-            list_of_results: list,
-            vars_to_plot: Optional[list[tuple[str, str]]] = None,
-            plot_first_order_line=False,
-            plot_second_order_line=False,
-            save_img=False,
+        self,
+        list_of_results: list,
+        vars_to_plot: Optional[list[tuple[str, str]]] = None,
+        plot_first_order_line=False,
+        plot_second_order_line=False,
+        save_img=False,
     ) -> None:
         """Convergence plot in space.
 
@@ -400,7 +401,7 @@ class ConvergenceAnalysis:
 
             # Data plot
             ax[0].plot(
-                self.log_space(1/mesh_sizes),
+                self.log_space(1 / mesh_sizes),
                 self.log_space(var.value),
                 linestyle="-",
                 linewidth=3,
@@ -408,8 +409,8 @@ class ConvergenceAnalysis:
                 markersize=6,
                 color=cmap.colors[idx],
             )
-            ax[0].set_xlabel(fr"$\log_{self.spatial_rate}$($1/h$)", fontsize=14)
-            ax[0].set_ylabel(fr"$\log_{self.spatial_rate}$(error)", fontsize=14)
+            ax[0].set_xlabel(rf"$\log_{self.spatial_rate}$($1/h$)", fontsize=14)
+            ax[0].set_ylabel(rf"$\log_{self.spatial_rate}$(error)", fontsize=14)
             ax[0].grid(True)
 
             # Legend plot
@@ -421,7 +422,7 @@ class ConvergenceAnalysis:
                 marker="o",
                 markersize=6,
                 color=cmap.colors[idx],
-                label=var.label
+                label=var.label,
             )
 
             # Add legend
@@ -448,10 +449,10 @@ class ConvergenceAnalysis:
 
     # -----> Auxiliary plotting methods
     def plot_first_order(
-            self,
-            data_axis,
-            legend_axis,
-            mesh_sizes: np.ndarray,
+        self,
+        data_axis,
+        legend_axis,
+        mesh_sizes: np.ndarray,
     ) -> None:
         """Plot first order line.
 
@@ -461,8 +462,8 @@ class ConvergenceAnalysis:
             mesh_sizes: Array containing the target mesh sizes.
 
         """
-        x0 = self.log_space(1/mesh_sizes[0])
-        x1 = self.log_space(1/mesh_sizes[-1])
+        x0 = self.log_space(1 / mesh_sizes[0])
+        x1 = self.log_space(1 / mesh_sizes[-1])
         y0 = -3  # this often requires tweaking
         y1 = y0 - (x1 - x0)
         data_axis.plot(
@@ -480,12 +481,7 @@ class ConvergenceAnalysis:
             label="First order",
         )
 
-    def plot_second_order(
-            self,
-            data_axis,
-            legend_axis,
-            mesh_sizes: np.ndarray
-    ) -> None:
+    def plot_second_order(self, data_axis, legend_axis, mesh_sizes: np.ndarray) -> None:
         """Plot second order line.
 
         Parameters:
@@ -494,8 +490,8 @@ class ConvergenceAnalysis:
             mesh_sizes: Array containing the target mesh sizes.
 
         """
-        x0 = self.log_space(1/mesh_sizes[0])
-        x1 = self.log_space(1/mesh_sizes[-1])
+        x0 = self.log_space(1 / mesh_sizes[0])
+        x1 = self.log_space(1 / mesh_sizes[-1])
         y0 = -2  # this requires tweaking
         y1 = y0 - 2 * (x1 - x0)
         data_axis.plot(
@@ -511,5 +507,3 @@ class ConvergenceAnalysis:
             linewidth=3,
             label="Second order",
         )
-
-
