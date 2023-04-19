@@ -218,7 +218,7 @@ class SolutionStrategy(abc.ABC):
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
-        
+
         For each solution index stored in ``self.time_step_indices`` and
         ``self.iterate_indices`` a zero initial value will be assigned.
 
@@ -236,23 +236,22 @@ class SolutionStrategy(abc.ABC):
     @property
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
-        
+
         Returns:
             An array of the indices of which time step solutions will be stored.
-            
+
         """
         return np.array([0])
-    
+
     @property
     def iterate_indices(self) -> np.ndarray:
         """Indices for storing iterate solutions.
-        
+
         Returns:
             An array of the indices of which iterate solutions will be stored.
-            
+
         """
         return np.array([0])
-    
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
