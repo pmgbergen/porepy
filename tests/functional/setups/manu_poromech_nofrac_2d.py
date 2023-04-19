@@ -76,7 +76,6 @@ import porepy.models.poromechanics as poromechanics
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
-
 # PorePy typings
 number = pp.number
 grid = pp.GridLike
