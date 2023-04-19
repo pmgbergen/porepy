@@ -64,7 +64,6 @@ from tests.functional.setups.manu_poromech_nofrac_2d import (
     ManuPoroMechSolutionStrategy2d,
 )
 
-
 # PorePy typings
 number = pp.number
 grid = pp.GridLike
@@ -166,7 +165,7 @@ class ManuPoroMechExactSolution3d:
                 0.5 * (grad_u[2][0] + trans_grad_u[2][0]),
                 0.5 * (grad_u[2][1] + trans_grad_u[2][1]),
                 0.5 * (grad_u[2][2] + trans_grad_u[2][2]),
-            ]
+            ],
         ]
 
         # Exact trace (in the linear algebra sense) of the strain
@@ -188,7 +187,7 @@ class ManuPoroMechExactSolution3d:
                 2 * lame_mu * epsilon[2][0],
                 2 * lame_mu * epsilon[2][1],
                 lame_lmbda * tr_epsilon + 2 * lame_mu * epsilon[2][2],
-            ]
+            ],
         ]
 
         # Exact poroelastic stress
