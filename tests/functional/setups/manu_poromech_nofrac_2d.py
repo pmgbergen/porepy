@@ -5,7 +5,7 @@ system (without fractures) using two-dimensional manufactured solutions.
 The implementation considers a compressible fluid, resulting in a coupled non-linear
 set of equations. The dependecy of the fluid density with the pressure is given by [1]:
 
-.. math:
+.. math::
 
     \\rho(p) =  \\rho_0 \\exp{c_f \\left(p - p_0\\right)},
 
@@ -13,13 +13,12 @@ where :math:`\\rho` and :math:`p` are the density and pressure, :math:`\\rho_0``
 :math:``p_0`` are the _reference_ density and pressure, and :math:`c_f` is the
 _constant_ fluid compressibility.
 
-We provide three different manufactured solutions, namely `parabolic`,
-`nordbotten2016` [2], and `varela2021` [2], which can be specified as a model
-parameter.
+We provide two different manufactured solutions, namely `parabolic` and `nordbotten2016`
+[2], which can be specified as a model parameter.
 
 Parabolic manufactured solution:
 
-.. math:
+.. math::
 
     p(x, y, t) = t x (1 - x) y (1- y),
 
@@ -29,23 +28,13 @@ Parabolic manufactured solution:
 
 Manufactured solution based on [2]:
 
-.. math:
+.. math::
 
     p(x, y, t) = t x (1 - x) \\sin{2 \\pi y},
 
     u_x(x, y, t) = p(x, y, t),
 
     u_y(x, y, t) = t * \\sin{2 \\pi x} \\sin{2 \\pi y}.
-
-Manufactured solutions based on [3]:
-
-.. math:
-
-    p(x, y, t) = t x (1 - x) y (1 - y) \\sin{\\pi x} \\sin{\\pi y},
-
-    u(x, y, t) = t x (1 - x) y (1 - y) \\sin{\\pi x},
-
-    u(x, y, t) = t x (1 - x) y (1 - y) \\cos{\\pi x}.
 
 References:
 
@@ -56,15 +45,11 @@ References:
     - [2] Nordbotten, J. M. (2016). Stable cell-centered finite volume discretization
       for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
 
-    - [3] Varela, J., Gasda, S. E., Keilegavlen, E., & Nordbotten, J. M. (2021). A
-      Finite-Volume-Based Module for Unsaturated Poroelasticity. Advanced Modeling
-      with the MATLAB Reservoir Simulation Toolbox.
-
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal
 
 import numpy as np
 import sympy as sym
@@ -141,7 +126,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
     """
 
-    exact_sol: ManuPoroMechExactSolution
+    exact_sol: ManuPoroMechExactSolution2d
     """Exact solution object."""
 
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
@@ -243,7 +228,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
 
 # -----> Exact solution
-class ManuPoroMechExactSolution:
+class ManuPoroMechExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
@@ -273,14 +258,8 @@ class ManuPoroMechExactSolution:
         elif manufactured_sol == "nordbotten_2016":
             p = t * x * (1 - x) * sym.sin(2 * pi * y)
             u = [p, t * sym.sin(2 * pi * x) * sym.sin(2 * pi * y)]
-        elif manufactured_sol == "varela_2021":
-            p = t * x * (1 - x) * y * (1 - y) * sym.sin(pi * x) * sym.sin(pi * y)
-            u = [
-                t * x * (1 - x) * y * (1 - y) * sym.sin(pi * x),
-                t * x * (1 - x) * y * (1 - y) * sym.cos(pi * x),
-            ]
         else:
-            NotImplementedError("Manufactured solution is not available.")
+            raise NotImplementedError("Manufactured solution is not available.")
 
         # Exact density
         rho = rho_0 * sym.exp(c_f * (p - p_0))
@@ -350,8 +329,8 @@ class ManuPoroMechExactSolution:
 
         # Mechanics source term
         source_mech = [
-            sym.diff(sigma_total[0][0], x) + sym.diff(sigma_total[1][0], y),
-            sym.diff(sigma_total[0][1], x) + sym.diff(sigma_total[1][1], y),
+            sym.diff(sigma_total[0][0], x) + sym.diff(sigma_total[0][1], y),
+            sym.diff(sigma_total[1][0], x) + sym.diff(sigma_total[1][1], y),
         ]
 
         # Public attributes
@@ -631,31 +610,34 @@ class ManuPoroMechUtils(VerificationUtils):
 
 
 # -----> Geometry
-class UnitSquareTriangleGrid(pp.ModelGeometry):
+# TODO: Update after merging #860
+class UnitSquareGrid(pp.ModelGeometry):
     """Class for setting up the geometry of the unit square domain."""
 
     params: dict
     """Simulation model parameters."""
 
-    fracture_network: pp.FractureNetwork2d
-    """Fracture network. Empty in this case."""
-
     def set_fracture_network(self) -> None:
         """Set fracture network. Unit square with no fractures."""
         domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
-        self.fracture_network = pp.FractureNetwork2d(domain=domain)
+        self.domain = domain
+        self.fracture_network = pp.create_fracture_network(domain=domain)
 
-    def mesh_arguments(self) -> dict:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
+        return self.params.get("grid_type", "cartesian")
+
+    def mesh_arguments(self) -> dict[str, float]:
         """Set mesh arguments."""
-        default_mesh_arguments = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05}
+        default_mesh_arguments = {"cell_size": 0.2}
         return self.params.get("mesh_arguments", default_mesh_arguments)
 
     def set_md_grid(self) -> None:
         """Set mixed-dimensional grid."""
-        self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-        domain = self.fracture_network.domain
-        if domain is not None and domain.is_boxed:
-            self.domain = domain
+        self.mdg = pp.create_mdg(
+            grid_type=self.grid_type(),
+            meshing_args=self.mesh_arguments(),
+            fracture_network=self.fracture_network,
+        )
 
 
 # -----> Balance equations
@@ -736,10 +718,10 @@ class ManuPoroMechEquations(
 
 
 # -----> Solution strategy
-class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+class ManuPoroMechSolutionStrategy2d(poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy for the verification setup."""
 
-    exact_sol: ManuPoroMechExactSolution
+    exact_sol: ManuPoroMechExactSolution2d
     """Exact solution object."""
 
     fluid: pp.FluidConstants
@@ -758,7 +740,7 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         """Constructor for the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuPoroMechExactSolution
+        self.exact_sol: ManuPoroMechExactSolution2d
         """Exact solution object."""
 
         self.results: list[ManuPoroMechSaveData] = []
@@ -775,7 +757,7 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         super().set_materials()
 
         # Instantiate exact solution object after materials have been set
-        self.exact_sol = ManuPoroMechExactSolution(self)
+        self.exact_sol = ManuPoroMechExactSolution2d(self)
 
     def before_nonlinear_loop(self) -> None:
         """Update values of external sources."""
@@ -803,10 +785,10 @@ class ManuPoroMechSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
 
 # -----> Mixer class
-class ManuPoroMechSetup(  # type: ignore[misc]
-    UnitSquareTriangleGrid,
+class ManuPoroMechSetup2d(  # type: ignore[misc]
+    UnitSquareGrid,
     ManuPoroMechEquations,
-    ManuPoroMechSolutionStrategy,
+    ManuPoroMechSolutionStrategy2d,
     ManuPoroMechUtils,
     ManuPoroMechDataSaving,
     poromechanics.Poromechanics,
