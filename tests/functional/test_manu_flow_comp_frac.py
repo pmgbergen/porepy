@@ -7,7 +7,7 @@ The manufactured solution for the compressible flow verification is obtained as 
 natural extension of the incompressible case, see [1]. The non-linearity is included
 via the dependency of the fluid density with the fluid pressure:
 
-.. math:
+.. math::
 
     \\rho(p) = \\rho_0 \\exp{(c_f (p - p_0))},
 
@@ -30,8 +30,8 @@ Tests:
 References:
 
     [1] Varela, J., Ahmed, E., Keilegavlen, E., Nordbotten, J. M., & Radu,
-    F. A. (2022). A posteriori error estimates for hierarchical mixed-dimensional
-    elliptic equations. Journal of Numerical Mathematics.
+      F. A. (2022). A posteriori error estimates for hierarchical mixed-dimensional
+      elliptic equations. Journal of Numerical Mathematics.
 
 """
 from __future__ import annotations
@@ -54,8 +54,9 @@ from copy import deepcopy
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
 @pytest.fixture(scope="module")
 def material_constants() -> dict:
-    """Set material constants. Use default values provided in the module where the
-    setup class is included.
+    """Set material constants.
+
+    Use default values provided in the module where the setup class is included.
 
     Returns:
         Dictionary containing the material constants with the `solid` and `fluid`
@@ -72,17 +73,16 @@ def material_constants() -> dict:
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
 def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
-    """Run verification setup and retrieve results for the scheduled times.
+    """Run verification setups and retrieve results for the scheduled times.
 
     Parameters:
         material_constants: Dictionary containing the material constant classes.
 
     Returns:
-        List of lists of dictionaries of actual relative L2-errors. The outer
-        list contains two items, the first contains the results for 2d and the second
-        contains the results for 3d. The inner lists contains three items each,
-        with the dictionary of results for the scheduled times, i.e., 0.2 [s],
-        0.8 [s], and 1.0 [s].
+        List of lists of dictionaries of actual relative errors. The outer list contains
+        two items, the first contains the results for 2d and the second contains the
+        results for 3d. The inner lists contain three items each, with the dictionary of
+        results for the scheduled times, i.e., 0.2 [s],  0.8 [s], and 1.0 [s].
 
     """
 
@@ -98,7 +98,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     errors: list[list[dict[str, float]]] = []
     # Loop through models, e.g., 2d and 3d
     for model in [ManuCompFlowSetup2d, ManuCompFlowSetup3d]:
-        setup = model(deepcopy(params))
+        setup = model(deepcopy(params))  # make deep copy of params to avoid nasty bugs
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
         # Loop through results, e.g., results for each scheduled time
@@ -195,21 +195,21 @@ def test_relative_l2_errors_cartesian_grid(
 
     Note:
         Tests should pass as long as the `desired_error` matches the `actual_error`,
-        up to absolute (1e-6) and relative (1e-5) tolerances. The values of such
+        up to absolute (1e-6) and relative (1e-5) tolerances. The values for such
         tolerances aim at keeping the test meaningful while minimizing the chances of
-        failure due to floating-point arithmetic close to machine precision.
+        failure due to floating-point arithmetic.
 
-        For this functional test, we are comparing errors for the pressure (for the
-        matrix and the fracture) and fluxes (for the matrix, the fracture, and on the
-        interface). The errors are measured using the discrete relative L2-error
-        norm. The desired errors were obtained by running the model using the
+        For this functional test, we are comparing errors for the pressure (in the
+        matrix and in the fracture) and fluxes (in the matrix, in the fracture,
+        and on the interfaces). The errors are measured using the discrete relative
+        L2-error norm. The desired errors were obtained by running the model using the
         physical constants from :meth:`˜material_constants` on a Cartesian grid with
         64 cells in 2d and 512 in 3d. We test the errors for three different times,
         namely: 0.2 [s], 0.8 [s], and 1.0 [s].
 
     Parameters:
         dim_idx: Dimension index acting on the outer list of `actual_l2_errors` and
-            `desired_l2_errors`. `0` refers to 2d, and `1` to 3d.
+            `desired_l2_errors`. `0` refers to 2d and `1` to 3d.
         var: Name of the variable to be tested.
         time_idx: Time index acting on the inner lists of 'actual_l2_errors' and
             'desired_l2_errors'. `0` refers to 0.2 [s], `1` to 0.8 [s], and `2` to
@@ -238,19 +238,19 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     Note:
         This is a spatio-temporal analysis, where the spatial step size is decreased
         by a factor of `2` and the temporal step size is decreased by a factor of `4`
-        between each run. We have to do this so that the temporal error does not
-        become predominant when the grid is refined, i.e., this is because MPFA is
-        quadratically convergent, whereas Backward Euler is only linearly convergent.
+        between each run. We have to do this so that the temporal error does not become
+        dominant when the grid is refined, i.e., since MPFA is quadratically convergent,
+        whereas Backward Euler is linearly convergent.
 
     Parameters:
         material_constants: Dictionary containing the material constants.
 
     Returns:
         List of lists of dictionaries containing the actual observed order of
-        convergence. The outer list contains two items, the first contains the
-        results for 2d and the second for 3d. Each inner list contains the
-        dictionaries with the observed order of convergence obtained with Cartesian
-        and simplicial grids (only for 2d).
+        convergence. The outer list contains two items, the first contains the results
+        for 2d and the second for 3d. Each inner list contains the dictionaries with
+        the observed order of convergence obtained with Cartesian and simplicial grids
+        (only for 2d).
 
     """
     ooc: list[list[dict[str, float]]] = []
@@ -354,7 +354,7 @@ def test_order_of_convergence(
     """Test observed order of convergence.
 
     Note:
-        We set more flexible tolerances for simplical grids compared to Cartesian
+        We set more flexible tolerances for simplicial grids compared to Cartesian
         grids. This is because we would like to allow for slight changes in the
         order of convergence if the meshes change, i.e., in newer versions of Gmsh.
 
@@ -371,7 +371,7 @@ def test_order_of_convergence(
 
     """
     # We require the order of convergence to always be larger than 1.0
-    if not (dim_idx == 1 and grid_type_idx == 1):  # no data for 3d and simplices
+    if not (dim_idx == 1 and grid_type_idx == 1):  # no analysis for 3d and simplices
         assert 1.0 < actual_ooc[dim_idx][grid_type_idx]["ooc_" + var]
 
     if grid_type_idx == 0:  # Cartesian
