@@ -160,7 +160,7 @@ class DataSavingMixin:
             vtu_files: path(s) to vtu file(s)
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords corresponding to primary
-                variables identified through pp.STATES.
+                variables identified through pp.TIME_STEP_SOLUTIONS.
             keyword arguments: see documentation of
                 :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
 
@@ -199,7 +199,7 @@ class DataSavingMixin:
             times_file: path to json file storing history of time and time step size.
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords corresponding to primary
-                variables identified through pp.STATES.
+                variables identified through pp.TIME_STEP_SOLUTIONS.
 
         Raises:
             ValueError: if incompatible file type provided.
