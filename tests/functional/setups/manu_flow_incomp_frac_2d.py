@@ -359,8 +359,8 @@ class ManuIncompExactSolution2d:
         # Perform evaluations using the sorted list of exact Darcy velocities
         for q, idx in zip(q_fun_sorted, face_idx_sorted):
             q_fc[idx] = (
-                    q[0](fc[0][idx], fc[1][idx]) * fn[0][idx]
-                    + q[1](fc[0][idx], fc[1][idx]) * fn[1][idx]
+                q[0](fc[0][idx], fc[1][idx]) * fn[0][idx]
+                + q[1](fc[0][idx], fc[1][idx]) * fn[1][idx]
             )
 
         # We need to correct the values of the exact Darcy fluxes at the internal

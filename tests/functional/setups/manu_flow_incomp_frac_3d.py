@@ -14,19 +14,17 @@ References:
 """
 from __future__ import annotations
 
-from typing import Callable, Literal
+from typing import Literal
 
 import numpy as np
 import sympy as sym
 
 import porepy as pp
 from porepy.grids.standard_grids.utils import unit_domain
-
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
-    ManuIncompSolutionStrategy2d,
     ManuIncompFlowSetup2d,
+    ManuIncompSolutionStrategy2d,
 )
-
 
 # PorePy typings
 number = pp.number
@@ -61,8 +59,7 @@ class ManuIncompExactSolution3d:
             ((x - 0.5) ** 2 + (y - 0.75) ** 2 + (z - 0.75) ** 2) ** 0.5,  # top back
         ]
         bubble_fun = (
-                1e6 *
-                (y - 0.25) ** 2 * (y - 0.75) ** 2 * (z - 0.25) ** 2 * (z - 0.75) ** 2
+            1e6 * (y - 0.25) ** 2 * (y - 0.75) ** 2 * (z - 0.25) ** 2 * (z - 0.75) ** 2
         )
 
         # Exact pressure in the matrix
@@ -241,9 +238,9 @@ class ManuIncompExactSolution3d:
         # Perform evaluations using the sorted list of exact Darcy velocities
         for q, idx in zip(q_fun_sorted, face_idx_sorted):
             q_fc[idx] = (
-                    q[0](fc[0][idx], fc[1][idx], fc[2][idx]) * fn[0][idx]
-                    + q[1](fc[0][idx], fc[1][idx], fc[2][idx]) * fn[1][idx]
-                    + q[2](fc[0][idx], fc[1][idx], fc[2][idx]) * fn[2][idx]
+                q[0](fc[0][idx], fc[1][idx], fc[2][idx]) * fn[0][idx]
+                + q[1](fc[0][idx], fc[1][idx], fc[2][idx]) * fn[1][idx]
+                + q[2](fc[0][idx], fc[1][idx], fc[2][idx]) * fn[2][idx]
             )
 
         # Now the only NaN faces should correspond to the internal boundaries, e.g.,
@@ -257,9 +254,9 @@ class ManuIncompExactSolution3d:
         # entirely sure why). Instead, we multiply by the face area and the face sign.
         frac_faces = np.where(sd_matrix.tags["fracture_faces"])[0]
         q_fc[frac_faces] = (
-                bubble_fun(fc[1][frac_faces], fc[2][frac_faces])
-                * sd_matrix.face_areas[frac_faces]
-                * sd_matrix.signs_and_cells_of_boundary_faces(frac_faces)[0]
+            bubble_fun(fc[1][frac_faces], fc[2][frac_faces])
+            * sd_matrix.face_areas[frac_faces]
+            * sd_matrix.signs_and_cells_of_boundary_faces(frac_faces)[0]
         )
 
         return q_fc
@@ -316,7 +313,10 @@ class ManuIncompExactSolution3d:
 
         return p_cc
 
-    def fracture_flux(self, sd_frac: pp.Grid,) -> np.ndarray:
+    def fracture_flux(
+        self,
+        sd_frac: pp.Grid,
+    ) -> np.ndarray:
         """Evaluate exact fracture Darcy flux at the face centers.
 
         Parameters:
@@ -341,10 +341,7 @@ class ManuIncompExactSolution3d:
         q_fun = [sym.lambdify((y, z), q, "numpy") for q in self.q_frac]
 
         # Evaluate at the face centers and scale with face normals
-        q_fc = (
-                q_fun[0](fc[1], fc[2]) * fn[1]
-                + q_fun[1](fc[1], fc[2]) * fn[2]
-        )
+        q_fc = q_fun[0](fc[1], fc[2]) * fn[1] + q_fun[1](fc[1], fc[2]) * fn[2]
 
         return q_fc
 

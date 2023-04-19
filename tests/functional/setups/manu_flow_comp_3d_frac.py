@@ -31,8 +31,8 @@ import sympy as sym
 
 import porepy as pp
 from tests.functional.setups.manu_flow_comp_2d_frac import (
-    ManuCompSolutionStrategy2d,
     ManuCompFlowSetup2d,
+    ManuCompSolutionStrategy2d,
 )
 from tests.functional.setups.manu_flow_incomp_frac_3d import (
     SingleEmbeddedVerticalPlaneFracture,
@@ -72,7 +72,7 @@ class ManuCompExactSolution3d:
             ((x - 0.5) ** 2 + (y - 0.75) ** 2 + (z - 0.75) ** 2) ** 0.5,  # top back
         ]
         bubble_fun = (
-            1e2 * (y - 0.25) ** 2 * (y - 0.75) ** 2 * (z - 0.25) ** 2 * (z - 0.75) ** 2
+            100 * (y - 0.25) ** 2 * (y - 0.75) ** 2 * (z - 0.25) ** 2 * (z - 0.75) ** 2
         )
 
         # Exact pressure in the matrix
@@ -308,9 +308,9 @@ class ManuCompExactSolution3d:
         # entirely sure why). Instead, we multiply by the face area and the face sign.
         frac_faces = np.where(sd_matrix.tags["fracture_faces"])[0]
         q_fc[frac_faces] = (
-                bubble_fun(fc[1][frac_faces], fc[2][frac_faces])
-                * sd_matrix.face_areas[frac_faces]
-                * sd_matrix.signs_and_cells_of_boundary_faces(frac_faces)[0]
+            bubble_fun(fc[1][frac_faces], fc[2][frac_faces])
+            * sd_matrix.face_areas[frac_faces]
+            * sd_matrix.signs_and_cells_of_boundary_faces(frac_faces)[0]
         )
 
         return q_fc
@@ -396,8 +396,7 @@ class ManuCompExactSolution3d:
 
         # Evaluate at the face centers and scale with face normals
         q_fc = (
-                q_fun[0](fc[1], fc[2], time) * fn[1]
-                + q_fun[1](fc[1], fc[2], time) * fn[2]
+            q_fun[0](fc[1], fc[2], time) * fn[1] + q_fun[1](fc[1], fc[2], time) * fn[2]
         )
 
         return q_fc
@@ -461,9 +460,9 @@ class ManuCompExactSolution3d:
         return lmbda_cc
 
     def matrix_boundary_pressure(
-            self,
-            sd_matrix: pp.Grid,
-            time: pp.number,
+        self,
+        sd_matrix: pp.Grid,
+        time: pp.number,
     ) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
@@ -497,7 +496,7 @@ class ManuCompExactSolution3d:
         return p_bf
 
     def matrix_boundary_density(
-            self, sd_matrix: pp.Grid, time: pp.number
+        self, sd_matrix: pp.Grid, time: pp.number
     ) -> np.ndarray:
         """Exact density at the boundary faces.
 

@@ -7,7 +7,7 @@ The exact solution was obtained by extending the solution from the incompressibl
 case [1].
 
 In particular, we have added a pressure-dependent density which obeys the following
-consitutive relationship:
+constitutive relationship:
 
 .. math:
 
@@ -27,7 +27,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 import sympy as sym
@@ -39,7 +39,6 @@ from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompUtils,
     SingleEmbeddedVerticalLineFracture,
 )
-
 
 # PorePy typings
 number = pp.number
@@ -389,8 +388,8 @@ class ManuCompressibleExactSolution2d:
         # Perform evaluations using the sorted list of exact Darcy velocities
         for q, idx in zip(q_fun_sorted, face_idx_sorted):
             q_fc[idx] = (
-                    q[0](fc[0][idx], fc[1][idx], time) * fn[0][idx]
-                    + q[1](fc[0][idx], fc[1][idx], time) * fn[1][idx]
+                q[0](fc[0][idx], fc[1][idx], time) * fn[0][idx]
+                + q[1](fc[0][idx], fc[1][idx], time) * fn[1][idx]
             )
 
         # We need to correct the values of the exact Darcy fluxes at the internal
