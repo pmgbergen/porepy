@@ -36,9 +36,9 @@ Manufactured solution based on [2]:
 
     u_x(x, y, z, t) = p(x, y, z, t),
 
-    u_y(x, y, z, t) = t * \\sin{2 \\pi x} \\cos{2 \\pi y} \\sin{2 * \\pi z},
+    u_y(x, y, z, t) = t \\sin{2 \\pi x} y (1 - y) \\sin{2 \\pi z},
 
-    u_z(x, y, z, t) = t * \\sin{2 \\pi y} \\sin{2 \\pi y} \\cos{2 * \\pi z}.
+    u_z(x, y, z, t) = t \\sin{2 \\pi y} \\sin{2 \\pi y} \\sin{2 \\pi z}.
 
 
 References:
@@ -99,11 +99,11 @@ class ManuPoroMechExactSolution3d:
             p = t * x * (1 - x) * y * (1 - y) * (1 - z)
             u = [p, p, p]
         elif manufactured_sol == "nordbotten_2016":
-            p = t * x * (1 - x) * sym.sin(2 * pi * y)
+            p = t * x * (1 - x) * sym.sin(2 * pi * y) * sym.sin(2 * pi * z)
             u = [
                 p,
-                t * sym.sin(2 * pi * x) * sym.cos(2 * pi * y) * sym.sin(2 * pi * z),
-                t * sym.sin(2 * pi * x) * sym.sin(2 * pi * y) * sym.cos(2 * pi * z),
+                t * sym.sin(2 * pi * x) * y * (1 - y) * sym.sin(2 * pi * z),
+                t * sym.sin(2 * pi * x) * sym.sin(2 * pi * y) * sym.sin(2 * pi * z),
             ]
         else:
             raise NotImplementedError("Manufactured solution is not available.")
@@ -195,7 +195,7 @@ class ManuPoroMechExactSolution3d:
         sigma_total = [
             [sigma_elas[0][0] - alpha * p, sigma_elas[0][1], sigma_elas[0][2]],
             [sigma_elas[1][0], sigma_elas[1][1] - alpha * p, sigma_elas[1][2]],
-            [sigma_elas[2][0], sigma_elas[2][1], sigma_elas[2][2] - alpha * p]
+            [sigma_elas[2][0], sigma_elas[2][1], sigma_elas[2][2] - alpha * p],
         ]
 
         # Mechanics source term
@@ -207,12 +207,12 @@ class ManuPoroMechExactSolution3d:
                 + sym.diff(sigma_total[0][2], z)
             ),
             (
-                sym.diff(sigma_total[0][1], x)
+                sym.diff(sigma_total[1][0], x)
                 + sym.diff(sigma_total[1][1], y)
                 + sym.diff(sigma_total[1][2], z)
             ),
             (
-                sym.diff(sigma_total[2][1], x)
+                sym.diff(sigma_total[2][0], x)
                 + sym.diff(sigma_total[2][1], y)
                 + sym.diff(sigma_total[2][2], z)
             ),
@@ -386,10 +386,10 @@ class ManuPoroMechExactSolution3d:
             + sigma_total_fun[0][1](fc[0], fc[1], fc[2], time) * fn[1]
             + sigma_total_fun[0][2](fc[0], fc[1], fc[2], time) * fn[2],
             # (sigma_yx * n_x + sigma_yy * n_y + sigma_yz * n_z) * face_area
-            sigma_total_fun[1][0](fc[0], fc[1], fc[2],  time) * fn[0]
+            sigma_total_fun[1][0](fc[0], fc[1], fc[2], time) * fn[0]
             + sigma_total_fun[1][1](fc[0], fc[1], fc[2], time) * fn[1]
             + sigma_total_fun[1][2](fc[0], fc[1], fc[2], time) * fn[2],
-            # (sigma_yx * n_x + sigma_yy * n_y + sigma_yz * n_z) * face_area
+            # (sigma_zx * n_x + sigma_zy * n_y + sigma_zz * n_z) * face_area
             sigma_total_fun[2][0](fc[0], fc[1], fc[2], time) * fn[0]
             + sigma_total_fun[2][1](fc[0], fc[1], fc[2], time) * fn[1]
             + sigma_total_fun[2][2](fc[0], fc[1], fc[2], time) * fn[2],
