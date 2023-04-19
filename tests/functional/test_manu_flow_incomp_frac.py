@@ -4,8 +4,9 @@ modeling the 2d and 3d, incompressible flow with a single, fully embedded vertic
 fracture.
 
 The 2d manufactured solution is given in Appendix D.1 from [1]. The 3d manufactured
-solution is based on a slightly modified version of the solution given in Appendix
-D.2 from [2] (the bubble function is scaled to obtain a better conditioned system).
+solution is based on a slightly modified version of the solution given in Appendix D.2
+from [1] (i.e., the bubble function is scaled to obtain a better conditioned system).
+
 
 Tests:
 
