@@ -541,17 +541,3 @@ class ManuPoroMechSetup3d(  # type: ignore[misc]
 
     """
 
-
-# #%% RUNNER
-# fluid = pp.FluidConstants({"compressibility": 0.02})
-# solid = pp.SolidConstants({"alpha_biot": 0.5})
-# material_constants = {"solid": solid, "fluid": fluid}
-# parameters = {
-#     "grid_type": "cartesian",
-#     "material_constants": material_constants,
-#     "mesh_arguments": {"cell_size": 0.2},
-#     "manufactured_solution": "nordbotten_2016",
-#     "time_manager": pp.TimeManager([0, 0.2, 0.6, 1.0], 0.2, True),
-# }
-# setup = ManuPoroMechSetup3d(params=parameters)
-# pp.run_time_dependent_model(setup, {})
