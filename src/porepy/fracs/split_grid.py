@@ -683,7 +683,7 @@ def duplicate_nodes(g, nodes, offset):
     sorted_data = dat_c2c[sort_ind]
 
     # Array to keep indices to remove
-    remove_ind = np.zeros(sorted_rows.size, dtype=np.bool)
+    remove_ind = np.zeros(sorted_rows.size, dtype=bool)
 
     # Array with the start of the blocks corresponding to each cluster.
     block_start = np.hstack((0, np.cumsum([sz_cell_clusters])))
