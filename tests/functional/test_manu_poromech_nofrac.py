@@ -247,7 +247,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models
-    for model_idx, model in enumerate([ManuPoroMechSetup2d]):
+    for model_idx, model in enumerate([ManuPoroMechSetup2d, ManuPoroMechSetup3d]):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type
         for grid_type in ["cartesian", "simplex"]:
@@ -280,8 +280,8 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                         levels=3,
                         in_space=True,
                         spatial_rate=2,
-                        in_time=False,
-                        temporal_rate=1,
+                        in_time=True,
+                        temporal_rate=4,
                     )
                 results = conv_analysis.run_analysis()
                 ooc_setup.append(conv_analysis.order_of_convergence(results))
@@ -301,18 +301,16 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     """
     desired_ooc_2d = [
         {  # Cartesian
-            'ooc_frac_flux': 1.9207078517903355,
-            'ooc_frac_pressure': 2.007469314704246,
-            'ooc_intf_flux': 1.9975718577542623,
-            'ooc_matrix_flux': 1.5071850357496581,
-            'ooc_matrix_pressure': 2.2739632526704496
+            'ooc_displacement': 1.9927774099628692,
+            'ooc_flux': 2.080879624446736,
+            'ooc_force': 1.5799927331903982,
+            'ooc_pressure': 2.0896371767100694,
         },
         {  # simplex
-            'ooc_frac_flux': 1.8757689483196147,
-            'ooc_frac_pressure': 2.076308534452869,
-            'ooc_intf_flux': 2.0755337518063057,
-            'ooc_matrix_flux': 1.6660162630966544,
-            'ooc_matrix_pressure': 2.367319458006446
+            'ooc_displacement': 2.0726579679829387,
+            'ooc_flux': 1.7226979320319313,
+            'ooc_force': 1.5685087063235608,
+            'ooc_pressure': 2.048681189725677,
         }
     ]
 
