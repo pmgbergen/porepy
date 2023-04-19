@@ -766,7 +766,7 @@ class ManuIncompSolutionStrategy3d(ManuIncompSolutionStrategy2d):
 
 
 # -----> Mixer
-class ManuIncompFlow3d(  # type: ignore[misc]
+class ManuIncompFlowSetup3d(  # type: ignore[misc]
     SingleEmbeddedVerticalPlaneFracture,
     ManuIncompSolutionStrategy3d,
     ManuIncompFlowSetup2d,
