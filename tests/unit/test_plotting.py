@@ -9,6 +9,7 @@ import pytest
 import porepy as pp
 from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 
+
 plt = pytest.importorskip("matplotlib.pyplot")
 
 
@@ -51,12 +52,13 @@ def test_plot_grid_mdg(mdg, vector_variable):
     "vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
 )
 def test_plot_grid_simple_grid(mdg, vector_variable):
-    """Tests that no error is raised if we plot a single dimension grid and provide variable arrays.
+    """Tests that no error is raised if we plot a single dimension grid and provide
+    variable arrays.
     This use case requires the user to reshape the vector array to the shape (3 x n).
     The redundant dimensions are filled with zeros."""
     grid, data = mdg.subdomains(return_data=True)[0]
-    scalar_data = data[pp.STATE][SCALAR_VARIABLE]
-    vector_data = data[pp.STATE][vector_variable].reshape(
+    scalar_data = data[pp.TIME_STEP_SOLUTIONS][SCALAR_VARIABLE][0]
+    vector_data = data[pp.TIME_STEP_SOLUTIONS][vector_variable][0].reshape(
         (mdg.dim_max(), -1), order="F"
     )
     vector_data = np.vstack(
@@ -95,18 +97,25 @@ def test_save_img():
 
 def _initialize_mdg(mdg_):
     """Initializes mdg with an arbitrary state.
+
     The state contains one scalar and one vector variable at cell centres."""
 
     for sd, data in mdg_.subdomains(return_data=True):
         if sd.dim in (mdg_.dim_max(), mdg_.dim_max() - 1):
-            data[pp.STATE] = {
-                SCALAR_VARIABLE: np.ones(sd.num_cells),
-                VECTOR_VARIABLE_CELL: np.ones((mdg_.dim_max(), sd.num_cells)).ravel(
-                    order="F"
-                ),
-                VECTOR_VARIABLE_FACE: np.ones((mdg_.dim_max(), sd.num_faces)).ravel(
-                    order="F"
-                ),
-            }
+            variables = np.array(
+                [SCALAR_VARIABLE, VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
+            )
+
+            vals_scalar = np.ones(sd.num_cells)
+            vals_vect_cell = np.ones((mdg_.dim_max(), sd.num_cells)).ravel(order="F")
+            vals_vect_face = np.ones((mdg_.dim_max(), sd.num_faces)).ravel(order="F")
+
+            values = np.array([vals_scalar, vals_vect_cell, vals_vect_face])
+
+            for i in range(len(variables)):
+                pp.set_solution_values(
+                    name=variables[i], values=values[i], data=data, time_step_index=0
+                )
+
         else:
-            data[pp.STATE] = {}
+            data[pp.TIME_STEP_SOLUTIONS] = {}

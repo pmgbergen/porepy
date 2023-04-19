@@ -174,13 +174,13 @@ def test_evaluated_values(
         setup.equation_system.set_variable_values(
             2 * np.ones(setup.mdg.num_subdomain_cells()),
             [setup.pressure_variable],
-            to_iterate=True,
+            iterate_index=0,
         )
     if hasattr(setup, "temperature_variable"):
         setup.equation_system.set_variable_values(
             3 * np.ones(setup.mdg.num_subdomain_cells()),
             [setup.temperature_variable],
-            to_iterate=True,
+            iterate_index=0,
         )
     method = getattr(setup, method_name)
 
