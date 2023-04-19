@@ -16,7 +16,7 @@ from . import domains, fracture_sets
 
 def square_with_orthogonal_fractures(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
-    meshing_args: dict,
+    meshing_args: dict[str, float],
     fracture_indices: list[int],
     size: pp.number,
     **meshing_kwargs,
@@ -85,6 +85,6 @@ def cube_with_orthogonal_fractures(
     all_fractures = fracture_sets.orthogonal_fractures_3d(size)
     fractures = [all_fractures[i] for i in fracture_indices]
     domain = domains.nd_cube_domain(3, size)
-    fracture_network = pp.FractureNetwork3d(fractures, domain)
+    fracture_network = pp.create_fracture_network(fractures, domain)
     mdg = pp.create_mdg(grid_type, meshing_args, fracture_network, **meshing_kwargs)
     return mdg, domain, fracture_network
