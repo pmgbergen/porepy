@@ -18,8 +18,6 @@ from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter
-from porepy.fracs.plane_fracture import PlaneFracture
-from porepy.geometry.domain import Domain
 from porepy.utils import setmembership, sort_points
 
 from .gmsh_interface import Tags as GmshInterfaceTags
@@ -60,14 +58,14 @@ class FractureNetwork3d(object):
 
     def __init__(
         self,
-        fractures: Optional[list[PlaneFracture]] = None,
-        domain: Optional[Domain] = None,
+        fractures: Optional[list[pp.PlaneFracture]] = None,
+        domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
         run_checks: bool = False,
     ) -> None:
 
         # Initialize fractures as an empty list
-        self.fractures: list[PlaneFracture] = []
+        self.fractures: list[pp.PlaneFracture] = []
         """List of fractures forming the network."""
 
         if fractures is not None:
@@ -108,7 +106,7 @@ class FractureNetwork3d(object):
 
         # Initialize with an empty domain unless given explicitly. Can be modified
         # later by a call to 'impose_external_boundary()'
-        self.domain: Optional[Domain] = domain
+        self.domain: Optional[pp.Domain] = domain
         """Domain specification."""
 
         # Initialize mesh size parameters as empty
@@ -155,7 +153,7 @@ class FractureNetwork3d(object):
 
         """
 
-    def add(self, fracture: PlaneFracture) -> None:
+    def add(self, fracture: pp.PlaneFracture) -> None:
         """Add a fracture to the network.
 
         The fracture will be assigned a new index, higher than the maximum value
@@ -193,10 +191,10 @@ class FractureNetwork3d(object):
             # Get a deep copy of domain, but no need to do that if domain is None
             if domain.is_boxed:
                 box = copy.deepcopy(domain.bounding_box)
-                domain = Domain(bounding_box=box)
+                domain = pp.Domain(bounding_box=box)
             else:
                 polytope = domain.polytope.copy()
-                domain = Domain(polytope=polytope)
+                domain = pp.Domain(polytope=polytope)
 
         return FractureNetwork3d(fracs, domain, self.tol)  # type: ignore[arg-type]
 
@@ -650,7 +648,7 @@ class FractureNetwork3d(object):
         return gmsh_repr
 
     def intersections_of_fracture(
-        self, frac: Union[int, PlaneFracture]
+        self, frac: Union[int, pp.PlaneFracture]
     ) -> tuple[list[int], list[bool]]:
         """Get all known intersections of a fracture.
 
@@ -1521,7 +1519,7 @@ class FractureNetwork3d(object):
 
     def impose_external_boundary(
         self,
-        domain: Optional[Domain] = None,
+        domain: Optional[pp.Domain] = None,
         keep_box: bool = True,
         area_threshold: float = 1e-4,
         clear_gmsh: bool = True,
@@ -1620,7 +1618,7 @@ class FractureNetwork3d(object):
                 "zmin": cmin[2] - dx[2],
                 "zmax": cmax[2] + dx[2],
             }
-            self.domain = Domain(box)
+            self.domain = pp.Domain(box)
 
         # Constrain the fractures to lie within the bounding polyhedron
         polys = [f.pts for f in self.fractures]
@@ -1655,7 +1653,7 @@ class FractureNetwork3d(object):
                 # the points should not be sorted.
                 # Splitting of non-convex fractures into convex subparts is
                 # handled below.
-                new_frac = PlaneFracture(constrained_polys[sub_i], sort_points=False)
+                new_frac = pp.PlaneFracture(constrained_polys[sub_i], sort_points=False)
                 self.add(new_frac)
                 ind_map = np.hstack((ind_map, fi))
 
@@ -1987,7 +1985,7 @@ class FractureNetwork3d(object):
                 # thus a linear ordering should be fine also for a subpolygon.
                 verts = np.unique(triangles[tris])
                 # To be sure, check the convexity of the polygon.
-                self.add(PlaneFracture(f.pts[:, verts], check_convexity=False))
+                self.add(pp.PlaneFracture(f.pts[:, verts], check_convexity=False))
                 ind_map = np.hstack((ind_map, fi))
 
             # Finally, increase pointer to ind_map array
@@ -2009,7 +2007,7 @@ class FractureNetwork3d(object):
         boundary_tags = self.tags.get("boundary", [False] * len(self.fractures))
         if keep_box:
             for pnt in self.domain.polytope:
-                self.add(PlaneFracture(pnt))
+                self.add(pp.PlaneFracture(pnt))
                 boundary_tags.append(True)
         self.tags["boundary"] = boundary_tags
 
@@ -2661,8 +2659,8 @@ class FractureNetwork3d(object):
 
     def _add_intersection(
         self,
-        first: Union[PlaneFracture, np.ndarray],
-        second: Union[PlaneFracture, np.ndarray],
+        first: Union[pp.PlaneFracture, np.ndarray],
+        second: Union[pp.PlaneFracture, np.ndarray],
         start: np.ndarray,
         end: np.ndarray,
         bound_first: Union[bool, np.ndarray],
@@ -2799,7 +2797,7 @@ class FractureNetwork3d(object):
         )
         meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
-    def to_csv(self, file_name: str, domain: Optional[Domain] = None) -> None:
+    def to_csv(self, file_name: str, domain: Optional[pp.Domain] = None) -> None:
         """Save the 3D network on a CSV file with comma as separator.
 
         The format is as follows:
