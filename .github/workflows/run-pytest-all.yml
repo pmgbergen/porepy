@@ -69,6 +69,10 @@ jobs:
       run: |
         pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt        
 
+    - name: Install pypardiso
+      run: |
+        pip install pypardiso
+
     - name: Install PorePy
       run: |
         pip install .
@@ -77,7 +81,6 @@ jobs:
     - name: all tests
       if: ${{always()}}
       run: pytest --run-skipped
-
 
 
 
