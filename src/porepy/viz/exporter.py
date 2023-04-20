@@ -236,7 +236,7 @@ class Exporter:
                 associated to the same time step.
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords corresponding to primary
-                variables identified through pp.STATES.
+                variables identified through pp.TIME_STEP_SOLUTIONS.
 
         Returns:
             Time index, obtained from suffix.
@@ -323,7 +323,7 @@ class Exporter:
             vtu_files: path(s) to vtu file(s)
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords corresponding to primary
-                variables identified through pp.STATES.
+                variables identified through pp.TIME_STEP_SOLUTIONS.
             kwargs:
                 automatic: boolean flag controlling whether dimensionality of the grids
                     and whether it is a subdomain or interface grid is read
