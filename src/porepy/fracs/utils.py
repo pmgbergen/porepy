@@ -51,7 +51,7 @@ def uniquify_points(
 
             A point cloud in dimension ``nd`` containing ``np`` point and their
             coordinates column-wise.
-        edges (np.ndarray, n x n_fracs): ``shape=(n, nf)``
+        edges: ``shape=(n, nf)``
 
             An array containing indices of start- and endpoints of
             fractures, in the first and second row respectively,
@@ -65,10 +65,10 @@ def uniquify_points(
         :obj:`~numpy.ndarray`: ``shape=(nd, np_new)``
 
             The new point cloud consisting of ``np_new`` points after the merger.
-        obj:`~numpy.ndarray`: ``shape=(n, nf_new)``
+        :obj:`~numpy.ndarray`: ``shape=(n, nf_new)``
 
             Updated indexation of edges with the same structure as ``edges``.
-        obj:`~numpy.ndarray`: ``shape=(1, m)``
+        :obj:`~numpy.ndarray`: ``shape=(1, m)``
 
             Indices (referring to input ``edges``) of fractures deleted as they
             effectively contained a single coordinate.

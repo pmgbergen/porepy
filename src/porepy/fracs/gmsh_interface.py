@@ -1,15 +1,10 @@
-"""This module contains functionality to interface with ``gmsh``, mainly by translating
-information from a PorePy format to that used by the Gmsh Python API.
+"""Functionality to interface with gmsh, mainly by translating information from a PorePy
+format to that used by the gmsh Python API.
 
 For examples on how that can be used, see
-:class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d` and
+:class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
+and
 :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
-
-Content:
-    GmshData1d, 2d, 3d: dataclasses for the specification of geometries in the various
-        dimensions.
-    GmshWriter: Interface to Gmsh. Takes a GmshData*d object and translates it to a
-        gmsh model. Can also mesh.
 
 """
 from __future__ import annotations
@@ -22,6 +17,7 @@ import gmsh
 import numpy as np
 
 __all__ = [
+    "GmshData",
     "GmshData1d",
     "GmshData2d",
     "GmshData3d",
@@ -195,12 +191,18 @@ def _tag_to_physical_name(tag: int | Tags) -> str:
 
 
 @dataclass
-class _GmshData:
+class GmshData:
     """Data class to store information for a mesh coming from ``gmsh``, which
-    are common in every dimension."""
+    are common in every dimension.
+
+    This class is not supposed to be used, but its derivatives for respective
+    dimension.
+
+    """
 
     pts: np.ndarray
     """Points in the geometry."""
+
     mesh_size: np.ndarray
     """Mesh size for each point in ``pts``."""
 
@@ -223,7 +225,7 @@ class _GmshData:
 
 
 @dataclass
-class GmshData1d(_GmshData):
+class GmshData1d(GmshData):
     """A derived data class containing additional information for 1D meshes.
 
     Note:
@@ -236,7 +238,7 @@ class GmshData1d(_GmshData):
 
 
 @dataclass
-class GmshData2d(_GmshData):
+class GmshData2d(GmshData):
     """A derived data class containing additional information for 2D meshes."""
 
     dim: int = 2
@@ -244,7 +246,7 @@ class GmshData2d(_GmshData):
 
 
 @dataclass
-class GmshData3d(_GmshData):
+class GmshData3d(GmshData):
     """A derived data class containing additional information for 3D meshes."""
 
     polygons: tuple[list[np.ndarray], list[np.ndarray]]
@@ -273,7 +275,7 @@ class GmshData3d(_GmshData):
     """
 
     lines_in_surface: list[list[int]]
-    """A list of indices of lines in :data:`~_GmshData.lines` embedded in surfaces.
+    """A list of indices of lines in ``lines`` embedded in surfaces.
 
     The outer list has one item per polygon, the inner list has indices of embedded
     lines.
@@ -301,8 +303,8 @@ class GmshWriter:
     """A flag keeping track of whether gmsh has been initialized.
 
     Important:
-        This does not account for calls to ``gmsh.initialize()`` and ``gmsh.finalize()``
-        outside the class.
+        This does not account for calls to ``gmsh.initialize`` and
+        ``gmsh.finalize`` outside the class.
 
     """
 
@@ -348,10 +350,10 @@ class GmshWriter:
         self.define_geometry()
 
     def set_gmsh_options(self, options: Optional[dict] = None) -> None:
-        """Set Gmsh options. See Gmsh documentation for choices available.
+        """Set gmsh options. See gmsh documentation for choices available.
 
         Parameters:
-            options: Options to set. Keys should be recognizable for Gmsh.
+            options: Options to set. Keys should be recognizable for gmsh.
 
         """
         if options is None:
@@ -448,25 +450,37 @@ class GmshWriter:
 
         The mesh is generated from the geometry specified in gmsh.model.
 
-        NOTE: We have experienced issues relating to memory leakages in gmsh which
-        manifest when gmsh is initialized and finalized several times in a session.
-        In these situation, best practice seems to be not to finalize gmsh after
-        mesh generation (set finalize=False, but rather clear the gmsh model by setting
-        clear_gmsh=True), and finalize gmsh from the outside.
+        Note:
+            We have experienced issues relating to memory leakages in gmsh which
+            manifest when gmsh is initialized and finalized several times in a session.
+            In these situation, best practice seems to be not to finalize gmsh after
+            mesh generation (set ``finalize=False``, but rather clear the gmsh model by
+            setting ``clear_gmsh=True``), and finalize gmsh from the outside.
 
         Parameters:
-            file_name (str): Name of the file. The suffix '.msh' is added if necessary.
-            ndim (int, optional): Dimension of the grid to be made. If not specified, the
+            file_name: Name of the file. The suffix ``.msh`` is added if necessary.
+            ndim: ``default=-1``
+
+                Dimension of the grid to be made. If not specified, the
                 dimension of the data used to initialize this GmshWriter will be used.
-            write_geo (bool, optional): If True, the geometry will be written before meshing.
-                The name of the file will be file_name.geo_unrolled. Defaults to False.
-            clear_gmsh (bool, optional): If True, the function gmsh.clear() is called after
+            write_geo: ``default=False``
+
+                If True, the geometry will be written before meshing.
+                The name of the file will be ``file_name.geo_unrolled``.
+            clear_gmsh: ``default=True``
+
+                If True, the function ``gmsh.clear`` is called after
                 mesh generation. This will delete the geometry from gmsh.
-            finalize (bool, optional): If True (default), the finalize method of the gmsh
-                module is called after mesh generation. If set to False, gmsh should be
-                finalized by a direct call to gmsh.finalize(); note however that if this
-                is done, Gmsh cannot be accessed either from the outside or by an
-                instance of the GmshWriter class before gmsh.initialize() is called.
+            finalize: ``default=True``
+
+                If True, the finalize method of the gmsh module is called after mesh
+                generation.
+
+                If set to False, gmsh should be finalized by a direct call to
+                ``gmsh.finalize``.
+                Note however that if this is done, gmsh cannot be accessed either from
+                the outside or by an instance of the GmshWriter class before
+                ``gmsh.initialize`` is called.
 
         """
         if ndim == -1:

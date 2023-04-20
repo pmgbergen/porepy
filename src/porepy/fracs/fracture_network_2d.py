@@ -1,6 +1,3 @@
-"""
-Module contains class for representing a fracture network in a 2d domain.
-"""
 from __future__ import annotations
 
 import copy
@@ -18,6 +15,7 @@ import porepy.fracs.simplex
 from porepy.fracs import tools
 from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
+from porepy.geometry.domain import Domain
 
 from .gmsh_interface import GmshData2d, GmshWriter
 from .gmsh_interface import Tags as GmshInterfaceTags
@@ -26,27 +24,30 @@ logger = logging.getLogger(__name__)
 
 
 class FractureNetwork2d:
-    """Representation of a set of line fractures in a two-dimensional domain.
+    """Representation of a set of line fractures in a 2D domain.
 
-    The fractures are represented by line fracture objects (see
-    :class:`~porepy.fracs.line_fracture.LineFracture`). Polyline fractures are
-    currently not supported. There is no requirement or guarantee that the fractures
+    The fractures are represented by line fracture objects
+    (see :class:`~porepy.fracs.line_fracture.LineFracture` ).
+
+    Polyline fractures are currently not supported.
+
+    There is no requirement or guarantee that the fractures
     are contained within the specified domain. The fractures can be cut to a given
-    domain by the method :meth:`~porepy.fracs.fracture_network_2d.constrain_to_domain`.
-    The domain can be a general non-convex polygon (see
-    :class:`~porepy.geometry.domain.Domain`).
+    domain by the method :meth:`constrain_to_domain`.
+    The domain can be a general non-convex polygon
+    (see :class:`~porepy.geometry.domain.Domain` ).
 
     Note:
         The class is mainly intended for representation and meshing of a fracture
-        network, however, it also contains some utility functions. The balance
-        between these components may change in the future, specifically, utility
+        network. However, it also contains some utility functions. The balance
+        between these components may change in the future, especially utility
         functions may be removed.
 
     Parameters:
         fractures: ``default=None``
 
             Line fractures that make up the network. Defaults to ``None``, which will
-            create a domain without fractures. An empty :attr:`~fractures` list is
+            create a domain without fractures. An empty ``fractures`` list is
             effectively treated as ``None``.
         domain: ``default=None``
 
@@ -60,9 +61,10 @@ class FractureNetwork2d:
     def __init__(
         self,
         fractures: Optional[list[LineFracture]] = None,
-        domain: Optional[pp.Domain] = None,
+        domain: Optional[Domain] = None,
         tol: float = 1e-8,
     ) -> None:
+
         self._pts: np.ndarray
         """Start and endpoints of the fractures. Points can be shared by fractures."""
 
@@ -91,7 +93,7 @@ class FractureNetwork2d:
             self._pts = np.zeros((2, 0))
             self._edges = np.zeros((2, 0), dtype=int)
 
-        self.domain: pp.Domain | None = domain
+        self.domain: Optional[Domain] = domain
         """Domain specification for the fracture network."""
 
         self.tags: dict[int | str, np.ndarray] = dict()
@@ -141,9 +143,9 @@ class FractureNetwork2d:
             The new set may contain non-unique points and edges.
 
         Note:
-            Tags, in :attr:`fs` are preserved. If the two sets have different set of
+            Tags in ``fs`` are preserved. If the two sets have different set of
             tags, the necessary rows and columns are filled with the value ``-1``,
-            which equals no tag.
+            which equals to no tag.
 
         Todo:
             This function is not being used. Consider deleting it.
@@ -152,9 +154,8 @@ class FractureNetwork2d:
             fs: The new fracture network to be added to the current one.
 
         Returns:
-            New fracture set, containing all points and edges in both :attr:`self` and
-            :attr:`fs`, and the union of the domains.
-
+            New fracture set, containing all points and edges in both ``self`` and
+            ``fs``, and the union of the domains.
 
         """
         logger.info("Add fracture sets: ")
@@ -214,7 +215,7 @@ class FractureNetwork2d:
                 self.domain.bounding_box["ymax"], fs.domain.bounding_box["ymax"]
             )
             new_bounding_box = {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
-            domain = pp.Domain(new_bounding_box)
+            domain = Domain(new_bounding_box)
         elif self.domain is not None:
             domain = self.domain
         elif fs.domain is not None:
@@ -244,7 +245,7 @@ class FractureNetwork2d:
     ) -> pp.MixedDimensionalGrid:
         """Mesh the fracture network and generate a mixed-dimensional grid.
 
-        Note that the mesh generation process is outsourced to Gmsh.
+        Note that the mesh generation process is outsourced to gmsh.
 
         Todo:
             Add description of **kwargs.
@@ -260,7 +261,7 @@ class FractureNetwork2d:
             do_snap: ``default=True``
 
                 Whether to snap lines to avoid small segments.
-            constraints: ``(dtype=np.int8, default=None)``
+            constraints: ``dtype=np.int8, default=None``
 
                 Indices of fractures that should not generate lower-dimensional
                 meshes, but only act as constraints in the meshing algorithm. Useful
@@ -269,7 +270,7 @@ class FractureNetwork2d:
 
             file_name: ``default=None``
 
-                Name of the output Gmsh file(s). If not given, ``gmsh_frac_file``
+                Name of the output gmsh file(s). If not given, ``gmsh_frac_file``
                 will be assigned.
             dfn: ``default=False``
 
@@ -295,16 +296,15 @@ class FractureNetwork2d:
                 On repeated invocations of Gmsh in the same Python session, a memory
                 leak in Gmsh may cause reduced performance (written spring 2021). In
                 these cases, it may be better to finalize gmsh externally
-                to this class. See also :attr:`clear_gmsh`.
+                to this class. See also ``clear_gmsh``.
             clear_gmsh: ``default=False``
 
                 Whether to delete the geometry representation in Gmsh when the
                 meshing process is completed.
 
-                This is of use only if :attr:`finalize_gmsh` is set to `False`, in which
-                case it may be desirable to delete the old geometry before adding a
-                new one.
-            **kwargs: **Add description**
+                This is of use only if ``finalize_gmsh=False`, in which case it may be
+                desirable to delete the old geometry before adding a new one.
+            **kwargs:
 
         Returns:
             Mixed-dimensional grid for this fracture network.
@@ -376,14 +376,14 @@ class FractureNetwork2d:
         Note:
              Consider using
              :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh` instead
-             to get a ready mixed-dimensional grid.
+             to get a usable mixed-dimensional grid.
 
         Todo:
-            Expand description of :attr:`remove_small_fractures`.
+            Expand description of ``remove_small_fractures``.
 
         Parameters:
-            mesh_args: Arguments passed on to mesh size control. It should contain,
-                minimally, the keyword ``mesh_size_frac``.
+            mesh_args: Arguments passed on to mesh size control.
+            It should contain at least the keyword ``mesh_size_frac``.
             tol: ``default=None``
 
                 Tolerance used for geometric computations. If not given,
@@ -391,7 +391,7 @@ class FractureNetwork2d:
             do_snap: ``default=True``
 
                 Whether to snap lines to avoid small segments.
-            constraints: ``(dtype=np.int8, default=None)``
+            constraints: ``dtype=np.int8, default=None``
 
                 Indices of fractures that should not generate lower-dimensional
                 meshes, but only act as constraints in the meshing algorithm.
@@ -405,8 +405,7 @@ class FractureNetwork2d:
                 Whether to remove small fractures.
 
         Returns:
-            Instance of the data class
-            :class:`~porepy.fracs.gmsh_interface.GmshData2d`.
+            The data structure for gmsh in 2D.
 
         """
 
@@ -755,8 +754,8 @@ class FractureNetwork2d:
 
         mesh_size, pts_split, lines = tools.determine_mesh_size(
             p,
-            lines,
             boundary_pt_ind,
+            lines,
             mesh_size_frac=mesh_size_frac,
             mesh_size_bound=mesh_size_bound,
             mesh_size_min=mesh_size_min,
@@ -814,20 +813,21 @@ class FractureNetwork2d:
 
     def impose_external_boundary(
         self,
-        domain: Optional[pp.Domain] = None,
+        domain: Optional[Domain] = None,
         add_domain_edges: bool = True,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Constrain the fracture network to lie within a domain.
 
         Fractures outside the imposed domain will be deleted. The :attr:`domain` will be
-        added to ``self._pts`` and ``self._edges``, if :attr:`add_domain_edges` is
-        ``True``. The domain boundary edges can be identified from
-        ``self.tags['boundary']``.
+        added to :attr:`_pts` and :attr:`_edges`, if ``add_domain_edges=True``.
+
+        The domain boundary edges can be identified from
+        :attr:`tags` using the key ``'boundary'``.
 
         Parameters:
             domain: ``default=None``
 
-                Domain specification. If not provided, ``self.domain`` will be used.
+                Domain specification. If not provided, :attr:`domain` will be used.
             add_domain_edges: ``default=True``
 
                 Whether to include the boundary edges and points in the list of edges.
@@ -845,38 +845,16 @@ class FractureNetwork2d:
                     since they were outside the bounding box.
 
         """
-
-        # Get min/max point of the domain. If no domain is given, a bounding box
-        # based on `self.tol` will be imposed outside the fracture set
-        if domain is None:
-            # Sanity check
-            if len(self.fractures) == 0:
-                raise ValueError("No fractures given, domain cannot be imposed.")
-            # Loop through the fracture list and retrieve the points
-            x_pts = []
-            y_pts = []
-            for frac in self.fractures:
-                # Append all start/end-points in the x-direction
-                x_pts.append(frac.pts[0][0])
-                x_pts.append(frac.pts[0][1])
-                # Append all start/end-points in the y-direction
-                y_pts.append(frac.pts[1][0])
-                y_pts.append(frac.pts[1][1])
-            # Get min/max points
-            x_min = np.min(np.asarray(x_pts)) - 10 * self.tol
-            x_max = np.max(np.asarray(x_pts)) + 10 * self.tol
-            y_min = np.min(np.asarray(y_pts)) - 10 * self.tol
-            y_max = np.max(np.asarray(y_pts)) + 10 * self.tol
-        else:
-            # If the domain is given, we know the min/max points
+        if domain is not None:
+            # First create lines that define the domain
             x_min = domain.bounding_box["xmin"]
             x_max = domain.bounding_box["xmax"]
             y_min = domain.bounding_box["ymin"]
             y_max = domain.bounding_box["ymax"]
-
-        # Create the domain lines
-        dom_p = np.array([[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]])
-        dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+            dom_p: np.ndarray = np.array(
+                [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
+            )
+            dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
 
         # Constrain the edges to the domain
         p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(
@@ -1081,9 +1059,7 @@ class FractureNetwork2d:
     ---------------------------------
     """
 
-    def constrain_to_domain(
-        self, domain: Optional[pp.Domain] = None
-    ) -> FractureNetwork2d:
+    def constrain_to_domain(self, domain: Optional[Domain] = None) -> FractureNetwork2d:
         """Constrain the fracture network to lay within a specified domain.
 
         Fractures that cross the boundary of the domain will be cut to lay within the
@@ -1096,15 +1072,15 @@ class FractureNetwork2d:
         Parameters:
             domain: ``default: None``
 
-                Domain specification. If not given, ``self.domain`` will be used.
+                Domain specification. If not given, :attr:`domain` will be used.
 
         Returns:
-            Constrained, two-dimensional fracture network.
+            Constrained, 2D fracture network.
 
         """
         if domain is None:
             domain = self.domain
-        assert isinstance(domain, pp.Domain)
+        assert isinstance(domain, Domain)
 
         p_domain = self._bounding_box_to_points(domain.bounding_box)
 
@@ -1149,8 +1125,9 @@ class FractureNetwork2d:
             procedure, these will be included in the copied fractures.
 
         See also:
-            :meth:`~porepy.fracs.FractureNetwork2d.snapped_copy`,
-            :meth:`~porepy.fracs.FractureNetwork2d.copy_with_split_intersections`
+
+            - :meth:`~snapped_copy`
+            - :meth:`~copy_with_split_intersections`
 
         Returns:
             Deep copy of this fracture network.
@@ -1165,10 +1142,10 @@ class FractureNetwork2d:
         if domain is not None:
             if domain.is_boxed:
                 box = copy.deepcopy(domain.bounding_box)
-                domain = pp.Domain(bounding_box=box)
+                domain = Domain(bounding_box=box)
             else:
                 polytope = domain.polytope.copy()
-                domain = pp.Domain(polytope=polytope)
+                domain = Domain(polytope=polytope)
 
         fn = FractureNetwork2d(fractures_new, domain, self.tol)
         fn.tags = self.tags.copy()
@@ -1182,8 +1159,8 @@ class FractureNetwork2d:
         almost-intersecting fractures become intersecting.
 
         See also:
-            :meth:`~porepy.fracs.FractureNetwork2d.copy`,
-            :meth:`~porepy.fracs.FractureNetwork2d.copy_with_split_intersections`
+            - :meth:`~copy`
+            - :meth:`~copy_with_split_intersections`
 
         Parameters:
             tol: Threshold for geometric modifications. Points and segments closer
@@ -1209,14 +1186,15 @@ class FractureNetwork2d:
         """Create a copy of this network with all fracture intersections removed.
 
         See also:
-            :meth:`~porepy.fracs.FractureNetwork2d.copy`,
-            :meth:`~porepy.fracs.FractureNetwork2d.snapped_copy`
+
+            - :meth:`~copy`
+            - :meth:`~snapped_copy`
 
         Parameters:
             tol: ``default=None``
 
                 Tolerance used in geometry computations when splitting fractures. If
-                not given, ``self.tol`` will be used.
+                not given, :attr:`~tol`` will be used.
 
         Returns:
             New fracture network, where all intersection points are added so that
@@ -1249,7 +1227,7 @@ class FractureNetwork2d:
     # --------- Methods for analysis of the fracture set
 
     def as_graph(
-        self, split_intersections=True
+        self, split_intersections: bool = True
     ) -> Union[networkx.Graph, tuple[networkx.Graph, FractureNetwork2d]]:
         """Represent the fracture set as a graph, using the networkx data structure.
 
@@ -1258,12 +1236,12 @@ class FractureNetwork2d:
         Parameters:
             split_intersections: ``default=True``
 
-                Whether the network should be split into non-intersecting branches
+                Flag if the network should be split into non-intersecting branches
                 before invoking the graph representation.
 
         Returns:
             Graph representation of the network, using the networkx data structure,
-            and if :attr:`split_intersections=True`, also the fracture network,
+            and if ``split_intersections=True``, also the fracture network,
             split into non-intersecting branches.
 
         """
@@ -1296,10 +1274,9 @@ class FractureNetwork2d:
     # --------- Utility functions below here
 
     def num_frac(self) -> int:
-        """Obtain number of fractures.
-
+        """
         Returns:
-            Number of fractures of this fracture network.
+            Number of fractures in this fracture network.
 
         """
         return self._edges.shape[1]
@@ -1370,8 +1347,10 @@ class FractureNetwork2d:
             frac_index: ``default=None``
 
                 Index of the fractures for which the end point should be returned.
+
                 Either a numpy array, or a single integer. In case of multiple indices,
-                the points are returned in the order specified in :attr:`frac_index`.
+                the points are returned in the order specified in ``frac_index``.
+
                 If not specified, all end points will be returned.
 
         Returns:
@@ -1398,18 +1377,20 @@ class FractureNetwork2d:
             frac_index: ``default=None``
 
                 Index of the fractures for which the start/end point should be returned.
+
                 Either a numpy array, or a single integer. In case of multiple indices,
-                the points are returned in the order specified in :attr:`frac_index`.
+                the points are returned in the order specified in ``frac_index``.
+
                 If not specified, all start/end points will be returned.
 
         Returns:
-            Tuple with 2 elements.
+            Tuple with 2 elements
 
-            :obj:`numpy.ndarray`: ``shape=(2, num_fracs)``
+            :obj:`~numpy.ndarray`: ``shape=(2, num_fracs)``
 
                 Coordinates of the start points of the fractures.
 
-            :obj:`numpy.ndarray`: ``shape=(2, num_fracs)``
+            :obj:`~numpy.ndarray`: ``shape=(2, num_fracs)``
 
                 Coordinates of the end points of the fractures.
 
@@ -1422,8 +1403,8 @@ class FractureNetwork2d:
     ) -> np.ndarray:
         """Compute the length of all fractures, or a subset.
 
-        The output array has length ``np.unique(frac_index).size`` and is ordered from
-        the lower index to the higher index.
+        The output array has length ``numpy.unique(frac_index).size`` and is ordered
+        from the lower index to the higher index.
 
         Parameters:
             frac_index: ``default=None``
@@ -1434,7 +1415,7 @@ class FractureNetwork2d:
                 will be computed.
 
         Returns:
-            Array of ``shape=(np.unique(frac_index).size, )`` containing the length of
+            Array of ``shape=(numpy.unique(frac_index).size,)`` containing the length of
             each fracture.
 
         """
@@ -1453,7 +1434,7 @@ class FractureNetwork2d:
     def orientation(
         self,
         frac_index: Optional[Union[int, np.ndarray]] = None,
-    ):
+    ) -> np.ndarray:
         """Compute the angle of the fractures relative to the x-axis.
 
         Parameters:
@@ -1465,7 +1446,7 @@ class FractureNetwork2d:
                 fractures will be computed.
 
         Returns:
-            Array of ``shape=(num_fracs, )`` with the orientation of each fracture,
+            Array of ``shape=(num_fracs,)`` with the orientation of each fracture,
             relative to the x-axis. Measured in radians, will be a number in the
             interval :math:`(0, \\pi)`.
 
@@ -1499,15 +1480,15 @@ class FractureNetwork2d:
         """Compute center points of a set of fractures.
 
         Parameters:
-            pts: ``(shape=(2, num_points), default=None)``
+            pts: ``shape=(2, num_points), default=None``
 
-                Points used to describe the fractures. If not given, ``self._pts``
+                Points used to describe the fractures. If not given, :attr:`_pts`
                 will be employed.
-            edges: ``(shape=(2, num_frac), default=None)``
+            edges: ``shape=(2, num_frac), default=None``
 
-                Indices, referring to ``self._pts``, of the start and end points of
+                Indices, referring to :attr:`_pts`, of the start and end points of
                 the fractures for which the centres should be computed. If not given,
-                ``self._edges`` will be employed.
+                :attr:`_edges` will be employed.
 
         Returns:
             Array of ``shape=(2, num_frac)``, containing the horizontal and vertical
@@ -1539,8 +1520,9 @@ class FractureNetwork2d:
         Parameters:
             bounding_box: Should contain keys ``xmin`` and ``xmax``, specifying the
                 extension in the x-direction. If the domain is 2d, it should also
-                have keys ``ymin`` and ``ymax``. If no :attr:`bounding_box` is given,
-                ``self.domain.bounding_box`` will be used.
+                have keys ``ymin`` and ``ymax``. If no ``bounding_box`` is given,
+                the bounding box of the underlying
+                :class:`~porepy.geometry.domain.Domain` will be used.
 
         Returns:
             Measure of the bounding box.
@@ -1565,26 +1547,26 @@ class FractureNetwork2d:
 
         Parameters:
             **kwargs: Keyword arguments to be passed on to
-                :meth:`~matplotlib.pyplot.plot`.
+                :obj:`~matplotlib.pyplot.plot`.
 
         """
         pp.plot_fractures(self._pts, self._edges, domain=self.domain, **kwargs)
 
-    def to_csv(self, file_name: str, with_header=True) -> None:
-        """Save the 2d network on a CSV file with comma as separator.
+    def to_csv(self, file_name: str, with_header: bool = True) -> None:
+        """Save the 2D network on a CSV file with comma as separator.
 
         The format is ``FID, START_X, START_Y, END_X, END_Y``, where ``FID`` is the
         fracture ID, and ``START_X, ..., END_Y`` are the point coordinates.
 
         Warning:
-            If :attr:`file_name` is already present, it will be overwritten without
+            If ``file_name`` is already present, it will be overwritten without
             prompting any warning.
 
         Parameters:
             file_name: Name of the CSV file.
             with_header: ``default=True``
 
-                Whether to write headers for the five columns in the first row.
+                Flag for writing headers for the five columns in the first row.
 
         """
 
@@ -1605,7 +1587,7 @@ class FractureNetwork2d:
     ) -> None:
         """Export the fracture network to file.
 
-        The file format is given as a :attr:`kwarg`, by default ``vtu`` will be used.
+        The file format is given as a ``kwargs``, by default ``vtu`` will be used.
         The writing is outsourced to meshio, thus the file format should be supported
         by that package.
 
@@ -1624,19 +1606,19 @@ class FractureNetwork2d:
 
             **kwargs: The following arguments can be given:
 
-                - *binary* (:obj:`bool`): ``default=True``
+                - ``'binary'`` (:obj:`bool`): ``default=True``
 
                     Whether to use binary export format.
 
-                - *fracture_offset* (:obj:`int`): ``default=1``
+                - ``'fracture_offset'`` (:obj:`int`): ``default=1``
 
                     Used to define the offset for a fracture id.
 
-                - *folder_name* (:obj:`str`): ``default="./"``
+                - ``'folder_name'`` (:obj:`str`): ``default="./"``
 
                     Path to save the file.
 
-                - *extension* (:obj:`str`): ``default="vtu"``
+                - ``'extension'`` (:obj:`str`): ``default="vtu"``
 
                     File extension.
 

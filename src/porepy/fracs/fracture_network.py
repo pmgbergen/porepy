@@ -1,5 +1,6 @@
-"""
-Module containing a wrapper function to generate fracture networks in 2d and 3d.
+"""This module contains a wrapper function to generate fracture networks in 2D and 3D,
+without having to deal with dimension-specific objects and methodology.
+
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ def create_fracture_network(
     tol: float = 1e-8,
     run_checks: bool = False,
 ) -> pp.fracture_network:
-    """Create a fracture network.
+    """Create a fracture network in dimensions 2 or 3.
 
     Examples:
 
@@ -43,31 +44,17 @@ def create_fracture_network(
             # Construct the fracture network
             fracture_network = pp.create_fracture_network(fractures, domain)
 
-    Raises:
-        ValueError
-            If ``domain = None`` and ``fractures = None`` (or an empty list).
-
-        ValueError
-            If the dimensions from ``domain`` and ``fractures`` do not match.
-
-        TypeError
-            If not all items of ``fractures`` are of the same type.
-
-        Warning
-            If ``run_checks = True`` when dimension is different from 3.
-
     Parameters:
         fractures: ``default=None``
 
             List of fractures. Each item of the list should be either an instance of
-            :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3d or an instance
-            of :class:`~porepy.fracs.line_fracture.LineFracture` for 2d. Default is
+            :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3D or an instance
+            of :class:`~porepy.fracs.line_fracture.LineFracture` for 2D. Default is
             ``None``, meaning, no fractures. If an empty list is given, it will be
             treated as ``None``.
         domain: ``default=None``
 
-            Domain specification. If given, it should be an instance of
-            :class:`~porepy.geometry.domain.Domain`.
+            Domain specification.
         tol: ``default=1e-8``
 
             Geometric tolerance used in the computations.
@@ -75,6 +62,16 @@ def create_fracture_network(
 
             Run consistency checks during the network processing. Can be considered a
             limited debug mode. Only used for three-dimensional fracture networks.
+
+    Raises:
+        ValueError:
+            If ``domain = None`` **and** ``fractures = None`` (or an empty list).
+        ValueError:
+            If the dimensions from ``domain`` and ``fractures`` do not match.
+        TypeError:
+            If not all items of ``fractures`` are of the same type.
+        Warning:
+            If ``run_checks = True`` when dimension is different from 3.
 
     Returns:
         Fracture network object according to the dimensionality of the problem.

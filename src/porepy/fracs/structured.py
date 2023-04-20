@@ -2,6 +2,10 @@
 
 The functions in this module can be accessed through the meshing wrapper module.
 
+Todo:
+    Since this module contains only private methods, consider making the whole
+    module private.
+
 """
 from __future__ import annotations
 

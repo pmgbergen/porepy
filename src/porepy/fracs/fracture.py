@@ -32,7 +32,7 @@ class Fracture(abc.ABC):
 
             Array containing the start- and end point/the corner points for
             line/plane fractures.
-        tags: ``(shape=(num_tags, ), dtype=np.int8, default=None)``
+        tags: ``shape=(num_tags, ), dtype=np.int8, default=None``
 
             All the tags of the fracture. A tag value of ``-1`` equals to the tag not
             existing at all.
@@ -55,10 +55,10 @@ class Fracture(abc.ABC):
         sort_points: bool = True,
     ):
         self.pts: np.ndarray = np.asarray(points, dtype=float)
-        """Fracture vertices ``(shape=(nd, num_points))``.
+        """Fracture vertices ``shape=(nd, num_points)``.
 
         The points are stored in the implemented order. Note that the ``points``
-        passed at instantiation will mutate.
+        passed at instantiation will be permuted.
 
         """
         self._check_pts()
@@ -68,38 +68,17 @@ class Fracture(abc.ABC):
             self.sort_points()
 
         self.normal: np.ndarray = self.compute_normal()
-        """Normal vector ``(shape=(nd, ))``."""
+        """Normal vector ``shape=(nd,)``."""
 
         self.center: np.ndarray = self.compute_centroid()
-        """Centroid of the fracture ``(shape=(nd, ))``."""
+        """Centroid of the fracture ``shape=(nd,)``."""
 
         self.orig_pts: np.ndarray = self.pts.copy()
-        """Original fracture vertices ``(shape=(nd, num_points))``.
+        """Original fracture vertices ``shape=(nd, num_points)``.
 
         The original points are kept in case the fracture geometry is modified.
 
         """
-
-        if tags is None:
-            self.tags: np.ndarray = np.full((0,), -1, dtype=np.int8)
-        else:
-            self.tags = np.asarray(tags, dtype=np.int8)
-            """Tags of the fracture.
-
-            In the standard form, the first tag identifies the type of the fracture,
-            referring to the numbering system in
-            :class:`~porepy.fracs.gmsh_interface.Tags`. The second tag keeps track of
-            the numbering of the fracture (referring to the original order of the
-            fractures) in geometry processing, like intersection removal. Additional
-            tags can be assigned by the user.
-
-            A tag value of ``-1`` means that the fracture does not have the specified
-            tag. This enables e.g., the functionality for a fracture to have the
-            second tag, but not the first one. In a more extreme case,
-            ``fracture.tags==[-1, -1, -1, -1, -1]`` is equal to the fracture not
-            having any tags at all.
-
-            """
 
         self.index: Optional[int] = index
         """Index of fracture.
@@ -110,6 +89,28 @@ class Fracture(abc.ABC):
         it with care.
 
         """
+
+        self.tags: np.ndarray
+        """Tags of the fracture.
+
+        In the standard form, the first tag identifies the type of the fracture,
+        referring to the numbering system in
+        :class:`~porepy.fracs.gmsh_interface.Tags`. The second tag keeps track of
+        the numbering of the fracture (referring to the original order of the
+        fractures) in geometry processing, like intersection removal. Additional
+        tags can be assigned by the user.
+
+        A tag value of ``-1`` means that the fracture does not have the specified
+        tag. This enables e.g., the functionality for a fracture to have the
+        second tag, but not the first one. In a more extreme case,
+        ``fracture.tags==[-1, -1, -1, -1, -1]`` is equal to the fracture not
+        having any tags at all.
+
+        """
+        if tags is None:
+            self.tags = np.full((0,), -1, dtype=np.int8)
+        else:
+            self.tags = np.asarray(tags, dtype=np.int8)
 
     def __repr__(self) -> str:
         """Representation is same as str-representation."""
@@ -141,7 +142,7 @@ class Fracture(abc.ABC):
         return self.index == other.index
 
     def set_index(self, index: int) -> None:
-        """Set index of this fracture.
+        """Set the index of this fracture.
 
         Parameters:
             index: Index.
@@ -176,7 +177,7 @@ class Fracture(abc.ABC):
         """Check whether a given point is a vertex of the fracture.
 
         Parameters:
-            p: ``shape=(nd, )``
+            p: ``shape=(nd,)``
 
                 Point to be checked.
             tol: ``default=1e-4``
@@ -184,14 +185,14 @@ class Fracture(abc.ABC):
                 Tolerance of point accuracy.
 
         Returns:
-            A tuple with two elements.
+            A tuple with two elements
 
             :obj:`bool`:
                 Indicates whether the point is a vertex.
 
-            :obj:`~numpy.ndarray`:
-                Gives the position of ``p`` in :attr:`pts` if the point is a vertex.
-                Otherwise, ``None`` is returned.
+            :obj:`int`:
+                The index of ``p`` in :attr:`pts` if the point is a vertex.
+                Returns ``None`` if ``p`` is not a vertex.
 
         """
         p = p.reshape((-1, 1))

@@ -1,12 +1,10 @@
-"""
-Main module for grid generation in fractured domains in 2d and 3d.
+"""This is the main module for grid generation in fractured domains in 2D and 3D.
 
-The module serves as the only necessary entry point to create the grid. It
+The module serves as the only necessary entry point to create a grid. It
 will therefore wrap interface to different mesh generators, pass options to the
 generators etc.
 
 """
-
 from __future__ import annotations
 
 import logging
@@ -32,26 +30,28 @@ def subdomains_to_mdg(
     time_tot: Optional[float] = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
-    """Convert a list of grids to a full :class:~`porepy.MixedDimensionalGrid`.
+    """Convert a list of grids to a full mixed-dimensional grid.
 
     The list can come from several mesh constructors, both simplex and
-    structured approaches uses this in 2d and 3d.
+    structured approaches uses this in 2D and 3D.
 
-    The function can not be used on an arbitrary set of grids; they should
+    The function can not be used on an arbitrary set of grids. They should
     contain information to glue grids together. This will be included for grids
     created by the standard mixed-dimensional grid constructors. Essentially,
     do not directly use this function unless you are knowledgeable about how it
     works.
 
     Parameters:
-        subdomains: Subdomains to enter into the Mixed-dimensional grid.
+        subdomains: Nested lists of subdomains to enter into the mixed-dimensional grid.
             Sorted per dimension.
-        time_tot: Start time for full mesh construction. Used for logging. Defaults to
-            ``None``, in which case no information on total time consumption is logged.
+        time_tot: ``default=None``
+
+            Start time for full mesh construction. Used for logging.
+            If ``None``, no information on total time consumption is logged.
         **kwargs: Passed on to subfunctions.
 
     Returns:
-        mdg: Final mixed-dimensional grid.
+        The resulting mixed-dimensional grid.
 
     """
 
@@ -96,34 +96,8 @@ def subdomains_to_mdg(
 def cart_grid(
     fracs: list[np.ndarray], nx: np.ndarray, **kwargs
 ) -> pp.MixedDimensionalGrid:
-    """Create a cartesian fractured :class:~`porepy.MixedDimensionalGrid` in 2 or 3
+    """Create a cartesian, fractured mixed-dimensional grid in 2 or 3
     dimensions.
-
-    Parameters:
-        fracs: One list item for each fracture. Each item consists of an array of shape
-            ``(nd, num_points)`` describing fracture vertices, where ``num_points`` is 2 for
-            2d domains, 4 for 3d domains. The fractures have to be rectangles (3d) or
-            straight lines (2d) that align with the axis. The fractures may be
-            intersecting. The fractures will snap to the closest grid faces.
-        nx: Number of cells in each direction. Should be 2d or 3d.
-        **kwargs:
-            - physdims (:obj:~`numpyp.ndarray`): Physical dimensions in each direction.
-                Defaults to same as ``nx``, that is, cells of unit size. May also
-                contain fracture tags, options for gridding, etc.
-
-    Returns:
-        mdg: A complete mixed-dimensional grid where all fractures are represented as
-            lower dim grids. The higher dim fracture faces are split in two, and on the
-            edges of the MixedDimensionalGrid graph the mapping from lower dim cells to
-            higher dim faces are stored as 'face_cells'. Each face is given boolean tags
-            depending on the type:
-            - ``domain_boundary_faces``: All faces that lie on the domain boundary
-                (i.e. should be given a boundary condition).
-            - ``fracture_faces``: All faces that are split (i.e. has a connection to a
-                lower dim grid).
-            - ``tip_faces``: A boundary face that is neither on the domain boundary, nor
-                coupled to a lower dimensional domain.
-            The union of the above three is the tag ``boundary_faces``.
 
     Examples:
 
@@ -131,6 +105,41 @@ def cart_grid(
         >>> frac2 = np.array([[2, 2], [1, 4]])
         >>> fracs = [frac1, frac2]
         >>> mdg = cart_grid(fracs, [5, 5])
+
+    Parameters:
+        fracs: One list item for each fracture.
+            Each item consists of an array of shape
+            ``(nd, num_points)`` describing fracture vertices,
+            where ``num_points`` is 2 for 2D domains, 4 for 3D domains.
+            The fractures have to be rectangles (3D) or
+            straight lines (2D) that align with the axis. The fractures may be
+            intersecting. The fractures will snap to the closest grid faces.
+        nx: Number of cells in each direction. Should be 2D or 3D.
+        **kwargs: Available keyword arguments are
+
+            - ``'physdims'``: A :obj:`~numpy.ndarray` containing the physical dimensions
+              in each direction.
+              Defaults to same as ``nx``, that is, cells of unit size.
+              May also contain fracture tags, options for the grid, etc.
+
+    Returns:
+        A complete mixed-dimensional grid where all fractures are represented as
+        lower dim grids. The higher dim fracture faces are split in two, and on the
+        edges of the MixedDimensionalGrid graph the mapping from lower dim cells to
+        higher dim faces are stored as ``face_cells``.
+
+        Each face is given boolean tags depending on the type.
+
+        - ``domain_boundary_faces``:
+          All faces that lie on the domain boundary
+          (i.e. should be given a boundary condition).
+        - ``fracture_faces``:
+          All faces that are split (i.e. has a connection to a lower dim grid).
+        - ``tip_faces``:
+          A boundary face that is neither on the domain boundary,
+          nor coupled to a lower dimensional domain.
+
+        The union of the above three is the tag ``boundary_faces``.
 
     """
     ndim = np.asarray(nx).size
@@ -159,42 +168,54 @@ def tensor_grid(
     z: Optional[np.ndarray] = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
-    """Create a cartesian fractured :class:~`porepy.MixedDimensionalGrid` in 2 or 3
-    dimensions.
+    """Create a cartesian, fractured, mixed-dimensional grid in 2 or 3 dimensions.
 
-    Note: If only the ``x`` coordinate is passed, an error will be raised, as fractured
-        tensor grids are not implemented in 1d.
+    Note:
+        If only the ``x`` coordinate is passed, an error will be raised, as fractured
+        tensor grids are not implemented in 1D.
+
+    Examples:
+
+        >>> frac1 = np.array([[1, 4], [2, 2]])
+        >>> frac2 = np.array([[2, 2], [1, 4]])
+        >>> fracs = [frac1, frac2]
+        >>> mdg = cart_grid(fracs, [5, 5])
 
     Parameters:
-        fracs: One list item for each fracture. Each item consists of an array of shape
-            ``(nd, num_points)`` describing fracture vertices, where ``num_points`` is 2 for
-            2d  domains, 4 for 3d domains. The fractures have to be rectangles(3d) or
-            straight lines(2d) that align with the axis. The fractures may be
-            intersecting. The fractures will snap to closest grid faces
+        fracs: One list item for each fracture.
+
+            Each item consists of an array with ``shape=(nd, num_points)`` describing
+            fracture vertices, where ``num_points`` is 2 for
+            2D domains, 4 for 3D domains.
+
+            The fractures have to be rectangles (3D) or straight lines (2D) that align
+            with the axis.
+
+            The fractures may be intersecting.
+            The fractures will snap to closest grid faces
         x: Node coordinates in x-direction.
         y: Node coordinates in y-direction.
         z: Node coordinates in z-direction.
         **kwargs: May contain fracture tags, options for gridding, etc.
 
     Returns:
-        mdg: A complete bucket where all fractures are represented as
-            lower dim grids. The higher dim fracture faces are split in two,
-            and on the edges of the MixedDimensionalGrid graph the mapping from lower
-            dim cells to higher dim faces are stored as 'face_cells'. Each face is given
-            boolean tags depending on the type:
-            - ``domain_boundary_faces``: All faces that lie on the domain boundary
-                (i.e., should be given a boundary condition).
-            - ``fracture_faces``: All faces that are split (i.e., has a connection to a
-                lower dim grid).
-            - ``tip_faces``: A boundary face that is not on the domain boundary, nor
-                coupled to a lower domentional domain.
-            The union of the above three is the tag ``boundary_faces``.
+        A mixed-dimensional grid where all fractures are represented as
+        lower-dimensional grids. The higher-dimensional fracture faces are split in two,
+        and the mapping from lower-dimensional cells to higher-dimensional faces are
+        stored as ``face_cells``.
 
-    Examples
-        >>> frac1 = np.array([[1, 4], [2, 2]])
-        >>> frac2 = np.array([[2, 2], [1, 4]])
-        >>> fracs = [frac1, frac2]
-        >>> mdg = cart_grid(fracs, [5, 5])
+        Each face is given boolean tags depending on the type.
+
+        - ``domain_boundary_faces``:
+          All faces that lie on the domain boundary
+          (i.e., should be given a boundary condition).
+        - ``fracture_faces``:
+          All faces that are split (i.e., has a connection to a lower-dimensional grid).
+        - ``tip_faces``:
+          A boundary face that is not on the domain boundary,
+          nor coupled to a lower-dimensional domain.
+
+        The union of the above three is the tag ``boundary_faces``.
 
     """
     # Call relevant method, depending on grid dimensions
@@ -534,14 +555,17 @@ def create_interfaces(
     mdg: pp.MixedDimensionalGrid,
     sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
 ):
-    """Create interfaces for a given :class:~`porepy.MixedDimensionalGrid``.
+    """Create interfaces for a given mixed-dimensional grid.
 
     Parameters:
         mdg: The mixed-dimensional grid where the interfaces are built.
-        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a face-cell map.
-            The first item represents  two neighboring subdomains. The second item is a
-            mapping between faces in the high dimension subdomain and cells in the low
-            dimension subdomain.
+        sd_pair_to_face_cell_map: A dictionary of subdomain-pairs mapped to a face-cell
+            map.
+
+            The keys represent two neighboring subdomains.
+
+            The values are mappings between faces in the higher-dimensional subdomain
+            and cells in the lower-dimension subdomain.
 
     """
 

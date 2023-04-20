@@ -47,7 +47,6 @@ def determine_mesh_size(
 
         **kwargs: The mesh size is determined by the following keywords
 
-
             - ``'mesh_size_frac'``: Ideal mesh size. Will be added to all points which
               are sufficiently far away from other points.
             - ``'mesh_size_min'``: Minimal mesh size. No attempts are made to enforce
@@ -67,8 +66,8 @@ def determine_mesh_size(
 
             A modified array of ``np_mod`` points, corresponding to the
             mesh size defined by the arguments (analogous to argument ``pts``).
-        :obj:`~numpy.ndarray`: A modified array of lines with the same structure as
-            the argument ``lines``.
+        :obj:`~numpy.ndarray`:
+            A modified array of lines with the same structure as the argument ``lines``.
 
     """
     num_pts = pts.shape[1]
@@ -357,7 +356,7 @@ def obtain_interdim_mappings(
             An array containing indices of faces in the higher-dimensional grid that
             correspond to a cell in the lower-dimensional grid.
             The indexing is based on **all** cells in the lower-dimensional grid.
-        :obj:`~numpy.array`:
+        :obj:`~numpy.ndarray`:
             Indices of the corresponding cells in the lower-dimensional grid.
 
     """
