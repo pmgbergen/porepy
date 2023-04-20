@@ -1,6 +1,7 @@
 """Module containing a class for performing spatio-temporal convergence analysis."""
 from __future__ import annotations
 
+import warnings
 from copy import deepcopy
 from typing import NamedTuple, Optional, Union
 
@@ -43,7 +44,7 @@ class ConvergenceAnalysis:
             necessary to set up a valid instance of :data:`model_class`.
         levels: ``default=1``
 
-            Number of refinement levels associated to the convergence analysis
+            Number of refinement levels associated to the convergence analysis.
         in_space: ``default=True``
 
             Whether convergence in space should be performed.
@@ -71,9 +72,17 @@ class ConvergenceAnalysis:
         spatial_rate: int = 1,
         temporal_rate: int = 1,
     ):
-        # Sanity check
+        # Sanity checks
         if not in_space and not in_time:
             raise ValueError("At least one type of analysis should be performed.")
+
+        if not in_space and spatial_rate > 1:
+            warnings.warn("'spatial_rate' is not being used.")
+            spatial_rate = 1
+
+        if not in_time:
+            warnings.warn("'temporal_rate' is not being used.")
+            temporal_rate = 1
 
         self.model_class = model_class
         """Model class that should be used to run the simulations and perform the
@@ -232,6 +241,77 @@ class ConvergenceAnalysis:
 
             convergence_results.append(setup.results[-1])
         return convergence_results
+
+    def export_errors_to_txt(
+            self,
+            list_of_results: list,
+            variables: Optional[list[str]] = None,
+            file_name="error_analysis",
+    ) -> None:
+        """Write errors into a TXT file.
+
+        The format is the following one:
+
+            - First column contains the cell diameters.
+            - Second column contain the time steps.
+            - The rest of the columns contains the errors for each variable in
+              `variables`. If `variables` is not given, all the attributes for each
+              result data class starting with 'error_' will be collected.
+
+        Parameters:
+            list_of_results: List containing the results of the convergence analysis.
+                Typically, the output of ``self.run_analysis()``.
+            variables: names of the variables for which the CSV file will be generated.
+            file_name: Name of the CSV file. Default is "error_analysis".
+
+        """
+        cell_diameters = np.array([result.cell_diam for result in list_of_results])
+        time_steps = np.array([result.dt for result in list_of_results])
+
+        # Get variable names
+        if variables is None:
+            # Retrieve all attributes from the data class
+            attributes: list[str] = list(vars(list_of_results[0]).keys())
+            # Filter attributes that start with ``error_``
+            var_names: list[str] = [
+                attr for attr in attributes if attr.startswith("error_")
+            ]
+        else:
+            var_names = ["error_" + attr for attr in variables]
+
+        # Obtain errors
+        var_errors = []
+        for name in var_names:
+            var_error = []
+            # Loop over lists of results
+            for result in list_of_results:
+                var_error.append(getattr(result, name))
+            # Append to the `var_errors` list
+            var_errors.append(np.array(var_error))
+
+        # Initialize export table
+        data_type: list[tuple] = []
+        for idx in range(2 + len(var_names)):
+            data_type.append((f"var{idx}", float))
+        export = np.zeros(self.levels, dtype=data_type)
+
+        # Fill table
+        export["var0"] = cell_diameters
+        export["var1"] = time_steps
+        for idx, errors in zip(range(len(var_names)), var_errors):
+            export[f"var{idx + 2}"] = errors
+
+        # Formatting string
+        fmt = "%2.2e " * (2 + len(var_names))
+        fmt.rstrip(" ")
+
+        # Headers
+        header = "cell_diam time_step"
+        for var_name in var_names:
+            header += " " + var_name.lstrip("error_")
+
+        # Writing into txt
+        np.savetxt(fname=file_name + ".txt", X=export, header=header, fmt=fmt)
 
     def order_of_convergence(
         self,
