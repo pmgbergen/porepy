@@ -217,11 +217,41 @@ class SolutionStrategy(abc.ABC):
         pass
 
     def initial_condition(self) -> None:
-        """Set the initial condition for the problem."""
-        vals = np.zeros(self.equation_system.num_dofs())
-        self.equation_system.set_variable_values(
-            vals, iterate_index=0, time_step_index=0
-        )
+        """Set the initial condition for the problem.
+
+        For each solution index stored in ``self.time_step_indices`` and
+        ``self.iterate_indices`` a zero initial value will be assigned.
+
+        """
+        val = np.zeros(self.equation_system.num_dofs())
+        for time_step_index in self.time_step_indices:
+            self.equation_system.set_variable_values(
+                val,
+                time_step_index=time_step_index,
+            )
+
+        for iterate_index in self.iterate_indices:
+            self.equation_system.set_variable_values(val, iterate_index=iterate_index)
+
+    @property
+    def time_step_indices(self) -> np.ndarray:
+        """Indices for storing time step solutions.
+
+        Returns:
+            An array of the indices of which time step solutions will be stored.
+
+        """
+        return np.array([0])
+
+    @property
+    def iterate_indices(self) -> np.ndarray:
+        """Indices for storing iterate solutions.
+
+        Returns:
+            An array of the indices of which iterate solutions will be stored.
+
+        """
+        return np.array([0])
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
@@ -369,6 +399,7 @@ class SolutionStrategy(abc.ABC):
 
         """
         self._nonlinear_iteration += 1
+        self.equation_system.shift_iterate_values()
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, iterate_index=0
         )
@@ -388,6 +419,7 @@ class SolutionStrategy(abc.ABC):
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
+        self.equation_system.shift_time_step_values()
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
