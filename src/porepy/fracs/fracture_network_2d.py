@@ -754,8 +754,8 @@ class FractureNetwork2d:
 
         mesh_size, pts_split, lines = tools.determine_mesh_size(
             p,
-            boundary_pt_ind,
             lines,
+            boundary_pt_ind,
             mesh_size_frac=mesh_size_frac,
             mesh_size_bound=mesh_size_bound,
             mesh_size_min=mesh_size_min,
@@ -845,16 +845,38 @@ class FractureNetwork2d:
                     since they were outside the bounding box.
 
         """
-        if domain is not None:
-            # First create lines that define the domain
+
+        # Get min/max point of the domain. If no domain is given, a bounding box
+        # based on `self.tol` will be imposed outside the fracture set
+        if domain is None:
+            # Sanity check
+            if len(self.fractures) == 0:
+                raise ValueError("No fractures given, domain cannot be imposed.")
+            # Loop through the fracture list and retrieve the points
+            x_pts = []
+            y_pts = []
+            for frac in self.fractures:
+                # Append all start/end-points in the x-direction
+                x_pts.append(frac.pts[0][0])
+                x_pts.append(frac.pts[0][1])
+                # Append all start/end-points in the y-direction
+                y_pts.append(frac.pts[1][0])
+                y_pts.append(frac.pts[1][1])
+            # Get min/max points
+            x_min = np.min(np.asarray(x_pts)) - 10 * self.tol
+            x_max = np.max(np.asarray(x_pts)) + 10 * self.tol
+            y_min = np.min(np.asarray(y_pts)) - 10 * self.tol
+            y_max = np.max(np.asarray(y_pts)) + 10 * self.tol
+        else:
+            # If the domain is given, we know the min/max points
             x_min = domain.bounding_box["xmin"]
             x_max = domain.bounding_box["xmax"]
             y_min = domain.bounding_box["ymin"]
             y_max = domain.bounding_box["ymax"]
-            dom_p: np.ndarray = np.array(
-                [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
-            )
-            dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+
+        # Create the domain lines
+        dom_p = np.array([[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]])
+        dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
 
         # Constrain the edges to the domain
         p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(
