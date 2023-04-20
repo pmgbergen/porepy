@@ -45,14 +45,11 @@ class ModelGeometry:
         # Create a fracture network.
         self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
         # Create a mixed-dimensional grid.
-        meshing_kwargs = self.params.get("meshing_kwargs", None)
-        if meshing_kwargs is None:
-            meshing_kwargs = {}
         self.mdg = pp.create_mdg(
             self.grid_type(),
             self.meshing_arguments(),
             self.fracture_network,
-            **meshing_kwargs,
+            **self.meshing_kwargs(),
         )
         self.nd: int = self.mdg.dim_max()
 
@@ -138,6 +135,18 @@ class ModelGeometry:
         # Default value of 1/2, scaled by the length unit.
         mesh_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
         return mesh_args
+
+    def meshing_kwargs(self) -> dict:
+        """Keyword arguments for md-grid creation.
+
+        Returns:
+            Keyword arguments compatible with pp.create_mdg() method.
+
+        """
+        meshing_kwargs = self.params.get("meshing_kwargs", None)
+        if meshing_kwargs is None:
+            meshing_kwargs = {}
+        return meshing_kwargs
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
