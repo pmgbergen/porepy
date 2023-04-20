@@ -11,11 +11,12 @@ from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 # Custom typings
+FractureList = Union[list[pp.LineFracture], list[pp.PlaneFracture]]
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
 def create_fracture_network(
-    fractures: Optional[list[pp.Fracture]] = None,
+    fractures: Optional[FractureList] = None,
     domain: Optional[pp.Domain] = None,
     tol: float = 1e-8,
     run_checks: bool = False,
@@ -65,7 +66,7 @@ def create_fracture_network(
     """
 
     # Interpret empty `fractures` list as None
-    fracs: Optional[list[pp.Fracture]]
+    fracs: Optional[FractureList]
     if isinstance(fractures, list) and len(fractures) == 0:
         fracs = None
     else:
