@@ -1244,13 +1244,12 @@ class MandelGeometry(pp.ModelGeometry):
 
     """
 
-    def set_fracture_network(self) -> None:
+    def set_domain(self) -> None:
         """Set fracture network. Unit square with no fractures."""
         ls = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
-        self.domain = domain
-        self.fracture_network = pp.create_fracture_network(None, domain)
+        self._domain = domain
 
     def meshing_arguments(self) -> dict:
         """Set mesh arguments."""
@@ -1258,13 +1257,9 @@ class MandelGeometry(pp.ModelGeometry):
         default_mesh_arguments = {"cell_size": 2 * ls}
         return self.params.get("mesh_arguments", default_mesh_arguments)
 
-    def set_md_grid(self) -> None:
-        """Set mixed-dimensional grid."""
-        self.mdg = pp.create_mdg(
-            grid_type="simplex",
-            meshing_args=self.meshing_arguments(),
-            fracture_network=self.fracture_network,
-        )
+    def grid_type(self) -> str:
+        """Set grid type."""
+        return "simplex"
 
 
 # -----> Boundary conditions

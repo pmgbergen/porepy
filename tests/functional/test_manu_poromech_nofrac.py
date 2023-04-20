@@ -59,7 +59,7 @@ def results() -> list[ManuPoroMechSaveData]:
     solid = pp.SolidConstants({"biot_coefficient": 0.5})
     material_constants = {"fluid": fluid, "solid": solid}
     params = {
-        "mesh_arguments": {"mesh_size_frac": 0.1, "mesh_size_bound": 0.1},
+        "mesh_arguments": {"cell_size": 0.1},
         "manufactured_solution": "nordbotten_2016",
         "material_constants": material_constants,
         "time_manager": pp.TimeManager([0, 0.2, 0.6, 1], 0.2, True),
