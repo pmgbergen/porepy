@@ -227,9 +227,13 @@ class ListFilter(AssemblerFilter):
     def _make_grid_filter(self, grid_list):
 
         subdomains, interfaces, couplings = self._parse_grid_list(grid_list)
-        self._subdomains: List[Grid] = subdomains
-        self._interfaces: List[Tuple[Grid, Grid]] = interfaces
-        self._couplings: List[Tuple[Grid, Grid, Tuple[Grid, Grid]]] = couplings
+        self._subdomains: List[Grid] = subdomains  # type: ignore
+        self._interfaces: List[Tuple[Grid, Grid]] = interfaces  # type: ignore
+        # fmt: off
+        self._couplings: List[Tuple[Grid, Grid, Tuple[Grid, Grid]]] = (  # type: ignore
+            couplings
+        )
+        # fmt: on
 
         def _grid_filter(gl):
             if not isinstance(gl, list):
