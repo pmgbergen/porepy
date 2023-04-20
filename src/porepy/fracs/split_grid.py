@@ -27,26 +27,32 @@ def split_fractures(
     Note:
         This function modifies the input arguments since they are passed by reference.
 
+    Todo:
+        Check if ``sd_pairs`` and the second, returned object are properly documented.
+
     Example:
 
         .. code:: python3
 
-        import numpy as np
-        from gridding.fractured import meshing, split_grid
-        from viz.exporter import export_vtk
+            import numpy as np
+            from gridding.fractured import meshing, split_grid
+            from viz.exporter import export_vtk
 
-        f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
-        f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
-        f_set = [f_1, f_2]
-        domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax': 2}
-        mdg = meshing.create_grid(f_set, domain)
-        [g.compute_geometry() for g,_ in mdg]
+            f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
+            f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
+            f_set = [f_1, f_2]
+            domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax': 2}
+            mdg = meshing.create_grid(f_set, domain)
+            [g.compute_geometry() for g,_ in mdg]
 
-        split_grid.split_fractures(mdg, offset=0.1)
-        export_vtk(mdg, "grid")
+            split_grid.split_fractures(mdg, offset=0.1)
+            export_vtk(mdg, "grid")
 
     Parameters:
-        mdg: A mixed-dimensional grid
+        mdg: A mixed-dimensional grid.
+        sd_pairs: A map between subdomain pairs and a face-to-cell map, mapping the
+            face of the higher-dimensional grid to the corresponding cell of the
+            lower-dimensional grid.
         **kwargs: Supported keyword arguments include
 
             - ``'offset'``: A float FLOAT to perturb the nodes around the
@@ -56,7 +62,7 @@ def split_fractures(
 
     Returns:
         A 2-tuple containing the modified mixed-dimensional grid where the faces are
-        split at internal boundaries, and an updated map as given by ``sd_pairs``
+        split at internal boundaries, and an updated map as given by ``sd_pairs``.
 
     """
 
@@ -205,10 +211,10 @@ def split_specific_faces(
 
         .. code:: python3
 
-        # If ``gl_ind`` identifies a lower-dimensional grid ``gl`` in
-        # ``face_cell_list``, then the respective face-cell mapping is given by:
-        intf = mdg.subdomain_pair_to_interface((gh, gl))
-        face_cell_list[gl_ind] = mdg.interface_data(intf, 'face_cells')
+            # If ``gl_ind`` identifies a lower-dimensional grid ``gl`` in
+            # ``face_cell_list``, then the respective face-cell mapping is given by:
+            intf = mdg.subdomain_pair_to_interface((gh, gl))
+            face_cell_list[gl_ind] = mdg.interface_data(intf, 'face_cells')
 
     Parameters:
         sd_primary: The primary, higher-dimensional grid.

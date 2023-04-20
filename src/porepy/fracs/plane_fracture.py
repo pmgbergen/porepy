@@ -1,11 +1,6 @@
-"""
-Contains classes representing fractures in 2d, i.e. manifolds of dimension 2 embedded in
-3d.
-
-"""
 from __future__ import annotations
 
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -18,10 +13,18 @@ from .fracture import Fracture
 
 
 class PlaneFracture(Fracture):
-    """A class representing planar fracture in 3d in form of a (bounded) plane.
+    """A class representing planar fractures in 3D in form of a (bounded) plane,
+    i.e. manifolds of dimension 2 embedded in 3D.
 
     Non-convex fractures can be initialized, but geometry processing (computation of
     intersections etc.) is not supported for non-convex geometries.
+
+    For a description of constructor arguments, see base class.
+
+    Raises:
+        AssertionError: If the resulting fracture is not planar or convex
+            (if additional check requested).
+
     """
 
     def __init__(
@@ -40,14 +43,14 @@ class PlaneFracture(Fracture):
     def sort_points(self) -> np.ndarray:
         """Sort the points in a counter-clockwise (CCW) order.
 
-        Note: For now, the ordering of nodes in based on a simple angle argument.
+        Note:
+            For now, the ordering of nodes in based on a simple angle argument.
             This will not be robust for general point clouds, but we expect the
             fractures to be regularly shaped in this sense. In particular, we
             will be safe if the cell is convex.
 
         Returns:
-        :obj:~`numpy.ndarray`: ``(dtype=int)``
-            The sorted vertex indices.
+            An integer array with containing the sorted indices.
 
         """
         # First rotate coordinates to the plane
@@ -63,15 +66,15 @@ class PlaneFracture(Fracture):
         return sort_ind
 
     def local_coordinates(self) -> np.ndarray:
-        """
-        Represent the vertex coordinates in the natural 2d plane.
+        """Represent the vertex coordinates in the natural 2D plane.
 
         The plane has constant, but not necessarily zero, third coordinate. I.e., no
         translation to the origin is made.
 
         Returns:
-            :obj:~`numpy.ndarray`: ``(shape=(2, n))``
-            The 2d coordinates of the vertices.
+            An array with ``shape=(2, n)`` representing the 2D coordinates of the
+            vertices.
+
         """
         rotation = pp.map_geometry.project_plane_matrix(self.pts)
         points_2d = rotation.dot(self.pts)
@@ -92,17 +95,26 @@ class PlaneFracture(Fracture):
         turned off to speed up simulations (the test uses sympy, which turns
         out to be slow in many cases).
 
-        Args:
-            p: ``(shape=(nd, num_pts))`` Points to be added.
-            check_convexity: Verify that the polygon is convex.
-                Defaults to true.
-            tol: Tolerance used to check if the point already exists.
-            enforce_pt_tol: If not ``None``, enforces a
-                maximal distance between points by removing points failing that criterion.
+        Parameters:
+            p: ``shape=(nd, num_pts)``
+
+                Points to be added.
+            check_convexity: ``default=True``
+
+                Verify that the polygon is convex.
+            tol: ``default=1e-4``
+
+                Tolerance used to check if the point already exists.
+            enforce_pt_tol: ``default=None``
+
+                If not ``None``, enforces a maximal distance between points by removing
+                points failing that criterion.
 
         Returns:
-            bool : ``True``, if the resulting polygon is planar, ``False`` otherwise. If the
-                argument ``check_convexity`` is ``True``, checks for planarity *AND* convexity
+            ``True``, if the resulting polygon is planar, ``False`` otherwise.
+
+            If the argument ``check_convexity`` is ``True``,
+            checks for planarity **and** convexity.
 
         """
         to_enforce = np.hstack(
@@ -131,13 +143,17 @@ class PlaneFracture(Fracture):
         else:
             return self.is_planar()
 
-    def remove_points(self, ind: Union[np.ndarray, List[int]], keep_orig: bool = False):
+    def remove_points(
+        self, ind: Union[np.ndarray, list[int]], keep_orig: bool = False
+    ) -> None:
         """Remove points from the fracture definition.
 
-        Args:
-            ind: Numpy array or list of indices of points to be removed.
-            keep_orig: If ``True``, keeps the original
-                points in the attribute :attr:`~Fracture.orig_pts`.
+        Parameters:
+            ind: Array or list of indices of points to be removed.
+            keep_orig: ``default=False``
+
+                If ``True``, keeps the original points in the attribute
+                :attr:`orig_pts`.
 
         """
         self.pts = np.delete(self.pts, ind, axis=1)
@@ -148,7 +164,7 @@ class PlaneFracture(Fracture):
     def is_convex(self) -> bool:
         """See parent class docs.
 
-        TODO:
+        Todo:
             If a hanging node is inserted at a segment, this may slightly
             violate convexity due to rounding errors. It should be possible to
             write an algorithm that accounts for this. First idea: Project
@@ -164,14 +180,16 @@ class PlaneFracture(Fracture):
         return self.as_sympy_polygon(p_2d).is_convex()
 
     def is_planar(self, tol: float = 1e-4) -> bool:
-        """Check if the points representing this fracture lie within a 2d-plane.
+        """Check if the points representing this fracture lie within a 2D-plane.
 
-        Parameters
-            tol: Tolerance for non-planarity. Treated as an absolute quantity (no
+        Parameters:
+            tol: ``default=1e-4``
+
+                Tolerance for non-planarity. Treated as an absolute quantity (no
                 scaling with fracture extent).
 
-        Returns
-            bool: ``True`` if the polygon is planar, ``False`` otherwise.
+        Returns:
+            ``True`` if the polygon is planar, ``False`` otherwise.
 
         """
         p = self.pts - np.mean(self.pts, axis=1).reshape((-1, 1))
@@ -182,7 +200,8 @@ class PlaneFracture(Fracture):
     def compute_centroid(self) -> np.ndarray:
         """See parent class docs.
 
-        Note: This method assumes the polygon is convex.
+        Note:
+            This method assumes the polygon is convex.
 
         """
         # Rotate to 2d coordinates
@@ -207,19 +226,19 @@ class PlaneFracture(Fracture):
         return rot.transpose().dot(np.append(center, z)).reshape((3, 1))
 
     def compute_normal(self) -> np.ndarray:
-        """See parent class docs."""
         return pp.map_geometry.compute_normal(self.pts)[:, None]
 
     def as_sympy_polygon(self, pts: Optional[np.ndarray] = None) -> Polygon:
-        """Represent polygon as a ``sympy`` object.
+        """Represent polygon as a sympy object.
 
-        Parameters
-            pts : ``shape=(nd, num_pts)`` Points for the polygon. If ``None``,
-            ``self.pts`` is used.
+        Parameters:
+            pts: ``shape=(nd, num_pts)``
 
-        Returns
-        -------
-        :obj:~`sympy.geometry.Polygon`: Representation of the polygon formed by p.
+                Points for the polygon. If ``None``, :attr:`pts` is used.
+
+        Returns:
+            Sympy Representation of the polygon formed by ``pts``.
+
         """
 
         if pts is None:
@@ -228,11 +247,12 @@ class PlaneFracture(Fracture):
         sp = [Point(pts[:, i]) for i in range(pts.shape[1])]
         return Polygon(*sp)
 
-    def _check_pts(self):
+    def _check_pts(self) -> None:
         """Check the shape of ``self.pts``.
 
         Raises:
             ValueError: If ``self.pts`` does not have the expected shape.
+
         """
         if self.pts.shape[0] != 3:
             raise ValueError(
@@ -251,9 +271,8 @@ def create_elliptic_fracture(
     dip_angle: float,
     num_points: int = 16,
     index: Optional[int] = None,
-):
-    """
-    Initialize an elliptic shaped fracture, approximated by a polygon.
+) -> PlaneFracture:
+    """Initialize an elliptically shaped fracture, approximated by a polygon.
 
     The rotation of the plane is calculated using three angles. First, the
     rotation of the major axis from the x-axis. Next, the fracture is
@@ -261,29 +280,35 @@ def create_elliptic_fracture(
     axis) measured from the x-axis, and the dip angle. All angles are
     measured in radians.
 
-    Note: This child class constructor does not call the parent class constructor.
-        Ergo parent methods like `copy` are not available
+    Example:
+        Fracture centered at ``[0, 1, 0]``, with a ratio of lengths of 2,
+        rotation in xy-plane of 45 degrees, and an incline of 30 degrees
+        rotated around the x-axis:
+
+        >>> import numpy as np
+        >>> import porepy as pp
+        >>> frac = pp.create_elliptic_fracture(np.array([0, 1, 0]), 10, 5,
+        >>> ... np.pi/4, 0, np.pi/6)
 
     Parameters:
-        center: ``(shape=(3, 1))``
+        center: ``shape=(3, 1)``
+
             Center coordinates of fracture.
         major_axis: Length of major axis (radius-like, not diameter).
-        minor_axis: Length of minor axis. There are no checks on whether the minor axis
-            is less or equal the major.
+        minor_axis: Length of minor axis.
+
+            There are no checks on whether the minor axis is less or equal the major.
         major_axis_angle: Rotation of the major axis from the x-axis in radians.
-        Measured before strike-dip rotation, see above.
+            Measured before strike-dip rotation, see above.
         strike_angle: Line of rotation for the dip. Given as angle in radians from the
             x-direction.
-        dip_angle: Dip angle, i.e., rotation around the strike direction. Given in radians.
-        num_points: Number of points used to approximate the ellipsis.
-        index: Index of fracture.
+        dip_angle: Dip angle in radians, i.e., rotation around the strike direction.
+        num_points: ``default=16``
 
-    Examples
-        Fracture centered at [0, 1, 0], with a ratio of lengths of 2,
-        rotation in xy-plane of 45 degrees, and an incline of 30 degrees
-        rotated around the x-axis.
-        >>> frac = create_elliptic_fracture(np.array([0, 1, 0]), 10, 5,
-                                            np.pi/4, 0, np.pi/6)
+            Number of points used to approximate the ellipsis.
+        index: ``default=None``
+
+            Index to be assigned to the fracture.
 
     """
     center = np.asarray(center)

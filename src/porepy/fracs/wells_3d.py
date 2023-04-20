@@ -1,5 +1,4 @@
-"""
-Module for well representation in :class:`~Well` and :class:`~WellNetworks`.
+"""Module for well representation in :class:`~Well` and :class:`~WellNetworks`.
 
 A well is a polyline of at least ``num_segments = 1`` segment defined through a list of
 ``num_points = num_segments + 1`` points. Wells are connected in a network.
@@ -31,18 +30,16 @@ logger = logging.getLogger(__name__)
 class Well:
     """Class representing a single well as a polyline embedded in 3D space.
 
-    The fracture is defined by its vertexes. It contains various utility
+    The fracture is defined by its vertices. It contains various utility
     methods, mainly intended for use together with the :class:`~WellNetwork3d` class.
 
     Parameters:
         points: ``shape=(3, num_points)``
 
             Endpoints of each of ``num_points - 1`` line segments of the new well.
-
         index: ``default=None``
 
             Index of the well. if not given, the well will be assigned the index ``-1``.
-
         tags: ``default=None``
 
             Dictionary of tags, identifying the different types of points.
@@ -66,44 +63,44 @@ class Well:
         Original endpoints of the well. Copy kept in case the well geometry is modified.
 
         """
-
         self.dim: int = 1
-        # Set well index
-        if index is None:
-            self.index: int = -1
-        else:
-            self.index = index
+        """Wells modelled as lines have always dimension 1."""
+
+        self.tags: dict
+        """Dictionary of tags, e.g., to identify different types of points.
+
+        In particular, ``tags["intersecting_fractures"]`` has length ``num_points``
+        and will be used to identify which fracture(s) intersects each of the
+        points in ``pts``.
+
+        """
         # Initialize tag dictionary.
         if tags is None:
-            self.tags: dict = {}
-            """Dictionary of tags, e.g., to identify different types of points.
-
-            In particular, ``tags["intersecting_fractures"]`` has length ``num_points``
-            and will be used to identify which fracture(s) intersects each of the
-            points in ``points``.
-
-            """
+            self.tags = {}
         else:
             self.tags = tags
 
+        self._index: int = -1
+        """Private index attribute. To be accessed by the property."""
+
+        # Set well index
+        if index is not None:
+            self.index = index
+
     @property
     def index(self) -> int:
-        """Index of this well.
+        """
+        Parameters:
+            i: An integer representing the assigned index.
 
         Returns:
-            Index of the well.
+            The index of the well.
 
         """
         return self._index
 
     @index.setter
     def index(self, i: Optional[int] = None) -> None:
-        """Set index of this fracture.
-
-        Parameters:
-            i: Integer index.
-
-        """
         if i is None:
             self._index = -1
         else:
@@ -113,15 +110,14 @@ class Well:
         """Iterate over the segments defined through segment indices and endpoints.
 
         Yields:
-            Tuple with two elements.
+            Tuple with two elements
 
             :obj:`tuple`: ``len=2``
 
                 2-tuple of integers, containing the segment indices.
-
             :obj:`numpy.ndarray`:
 
-                Coordinate of the endpoints of the segment indices.
+                Coordinates of the endpoints of the segment indices.
 
         """
         for i in range(self.num_segments()):
@@ -130,10 +126,9 @@ class Well:
             yield segment_inds, endpoints
 
     def num_points(self) -> int:
-        """Get number of points.
-
+        """
         Returns:
-            Number of points.
+            The number of points on the polyline well.
         """
         return self.pts.shape[1]
 
@@ -152,12 +147,12 @@ class Well:
             point: ``shape=(nd, 1)``
 
                 Point to be added.
-
             ind: ``default=None``
 
                 Index. If ``ind`` is not specified, the point is appended at the end of
                 ``self.pts``. Otherwise, it is inserted between the old points ``ind``
-                 and ``ind + 1``.
+                and ``ind + 1``.
+
         """
         if ind is None:
             self.pts = np.hstack((self.pts, point))
@@ -188,14 +183,13 @@ class Well:
         return None
 
     def copy(self) -> Well:
-        """Return a deep copy of the well.
-
+        """
         Warning:
             The original points (as given when the fracture was initialized) will
             *not* be preserved.
 
         Returns:
-            Well with the same points and tags.
+            A deep copy of the well with the same points and tags.
 
         """
         p = np.copy(self.pts)
@@ -209,19 +203,22 @@ class WellNetwork3d:
     Facilitates meshing of all wells in the network and their addition to a
     mixed-dimensional grid, see e.g., :meth:`~mesh` method.
 
+    Todo:
+        The attribute ``domain`` is not properly implemented in the constructor.
+        If the respective input argument is ``None``, the attribute is not assigned
+        and can cause errors subsequently.
+
     Parameters:
         wells: ``default=None``
 
-            List of wells in the network.
-
+            List of wells in the network. If not empty, the constructor assigns indices
+            to the wells corresponding to the order in this list.
         domain: ``default=None``
 
             Domain specification.
-
         tol: ``default=1e-8``
 
             Geometric tolerance used in computations.
-
         parameters: ``default=None``
 
             Dictionary of parameters, e.g., for the meshing process.
@@ -237,16 +234,18 @@ class WellNetwork3d:
     ) -> None:
 
         self.well_dim: int = 1
+        """All polyline wells have dimension 1."""
         self.wells: list[Well] = wells if wells is not None else []
         """List of wells in the network."""
 
         for i, w in enumerate(self.wells):
             w.index = i
 
-        if parameters is None:
-            self.parameters: dict = {}
-            """Dictionary of parameters, e.g. for the meshing process."""
-        else:
+        self.parameters: dict
+        """Dictionary of parameters, e.g. for the meshing process passed at
+        instantiation."""
+
+        if parameters is not None:
             self.parameters = parameters
 
         if domain is not None:
@@ -312,25 +311,26 @@ class WellNetwork3d:
         and fractures. Finally, edges are added between intersection points and
         both fractures and well segments.
 
-        Example topology for well intersecting two fractures, terminating at the
-        lowermost
+        Example:
+            Topology for well intersecting two fractures, terminating at the
+            lowermost
 
-        .. code:: python3
+            .. code:: python3
 
-                         |
-            sd_well_0    |
-                         |
-                         * e(sd_isec_0, sd_well_0)
-            sd_isec_0    . * e(sd_isec_0, sd_frac_0)  ___________ sd_frac_0 (2d)
-                         * e(sd_isec_0, sd_well_1)
-                         |
-            sd_well_1    |
-                         |
-                         * e(sd_isec_1, sd_well_1)
-            sd_isec_1    . * e(sd_isec_1, sd_frac_1)  ___________ sd_frac_1 (2d)
+                            |
+                sd_well_0    |
+                            |
+                            * e(sd_isec_0, sd_well_0)
+                sd_isec_0    . * e(sd_isec_0, sd_frac_0)  ___________ sd_frac_0 (2d)
+                            * e(sd_isec_0, sd_well_1)
+                            |
+                sd_well_1    |
+                            |
+                            * e(sd_isec_1, sd_well_1)
+                sd_isec_1    . * e(sd_isec_1, sd_frac_1)  ___________ sd_frac_1 (2d)
 
-        Note that all edge grids ``*`` are zero-dimensional, and that those
-        connected with the fracture have co-dimension 2.
+            Note that all edge grids ``*`` are zero-dimensional, and that those
+            connected with the fracture have co-dimension 2.
 
         Each point defining the well polyline is assumed to have a tag list
         stored in ``well.tags["intersecting_fractures"]``. An empty tag means the point
@@ -340,11 +340,11 @@ class WellNetwork3d:
         intersection between the well and a fracture intersection line or point.
         This is not implemented. Points not corresponding to a fracture intersection,
         but merely representing a kink in the polyline, will not be represented by a
-        zero-dimensional grid. Instead, the two neighbouring segments are joined and a
+        zero-dimensional grid. Instead, the two neighboring segments are joined and a
         single *piecewise* linear grid is produced.
 
         This function may be split/restructured in the future. One possibility is to
-        let Gmsh do the actual meshing as done in the ``FractureNetwork`` classes. For
+        let gmsh do the actual meshing as done in the ``FractureNetwork`` classes. For
         now, this simplified approach is deemed sufficient.
 
         Parameters:
@@ -486,6 +486,7 @@ def compute_well_fracture_intersections(
         well_network: Network of wells. Dimension 2 or 3 must match that of the
             fracture network.
         fracture_network: Three-dimensional fracture network.
+
     """
 
     for well in well_network.wells:

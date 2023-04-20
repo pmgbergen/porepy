@@ -1,5 +1,9 @@
-"""
-Module for converting gmsh output file to our grid structure.
+"""A module containing functionality for converting gmsh output file to PorePy's grid
+structure.
+
+Todo:
+    Elaborate more arguments ``cell_info`` and ``phys_names``
+    (admissible keywords etc.)
 
 """
 from __future__ import annotations
@@ -14,15 +18,18 @@ from .gmsh_interface import PhysicalNames
 
 
 def create_3d_grids(pts: np.ndarray, cells: dict[str, np.ndarray]) -> list[pp.Grid]:
-    """Create a tetrahedral grid from a gmsh tessalation.
+    """Create a tetrahedral grid from a gmsh tesselation.
 
     Parameters:
-        pts: ``(shape=(num_points, 3))`` Global point set from gmsh.
-        cells: Should have a key 'tetra' which maps to an :obj:~`numpy.ndarray` with
-            indices of the points that form 3d grids.
+        pts: ``shape=(num_points, 3)``
+
+            Global point set from gmsh.
+        cells: Should have a key ``'tetra'`` which maps to an :obj:`~numpy.ndarray` with
+            indices of the points that form 3D grids.
 
     Returns:
-        list of grids: List with a 3d grid.
+        A list of 3D grids.
+
     """
 
     tet_cells = cells["tetra"]
@@ -47,42 +54,57 @@ def create_2d_grids(
     surface_tag: Optional[str] = None,
     constraints: Optional[np.ndarray] = None,
 ) -> list[pp.Grid]:
-    """Create 2d grids for lines of a specified type from a gmsh tessalation.
+    """Create 2D grids for lines of a specified type from a gmsh tesselation.
 
     Only surfaces that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches the specified ``line_tag``.
 
-    TODO: What exactly is the ``line_tag``. This variable is only mentioned in the
-    documentation, but does not appear in the code. Should this say ``surface_tag``
-    instead? -> The ``plane_type`` is checked against the ``surface_tag``
-    If this needs to be changed, also change this in the ``constraints`` parameter doc.
+    Todo:
 
-    TODO: Check that the typing changes for ``phys_names`` and ``cell_info`` were
-    correct.
+        1. What exactly is the ``line_tag``? This variable is only mentioned in the
+           documentation, but does not appear in the code.
+           Should this say ``surface_tag`` instead?
+           -> The ``plane_type`` is checked against the ``surface_tag``
+           If this needs to be changed, also change this in the ``constraints``
+           parameter doc.
+        2. Check that the typing changes for ``phys_names`` and ``cell_info`` were
+           correct.
 
-    It is assumed that the mesh is read by meshio. See :class:~``porepy.fracs.simplex``
-    for how to do this.
+    It is assumed that the mesh is read by meshio.
+    See module :mod:`~porepy.fracs.simplex` for how to do this.
 
     Parameters:
-        pts: ``(shape=(num_points, 3))`` Global point set from gmsh
-        cells: Should have a key ``'triangle'`` which maps to an :obj:~`numpy.ndarray`
-            with indices of the points that form 2d grids.
+        pts: ``shape=(num_points, 3)``
+
+            Global point set from gmsh
+        cells: Should have a key ``'triangle'`` which maps to an :obj:`~numpy.ndarray`
+            with indices of the points that form 2D grids.
         phys_names: mapping from the gmsh tags assigned to physical entities to the
             physical name of that tag.
         cell_info: Should have a key ``'triangle'`` that contains the physical names (in
             the gmsh sense) of the points.
-        is_embedded: If ``True``, the triangle grids are embedded in 3d space. If
-            ``False`` (default), the grids are truly 2d.
-        surface_tag: The target physical name, all surfaces that have this tag will be
-            assigned a grid. The string is assumed to be on the from between the
-            physical names and the line, up to the last underscore. If not provided, the
-            physical names of fracture surfaces will be used as target.
-        constraints: Array with lists of lines that should not become grids. The array
-        items should match the ``INDEX`` in ``line_tag``, see above.
+        is_embedded: ``default=False``
+
+            If ``True``, the triangle grids are embedded in 3D space.
+            If ``False``, the grids are truly 2D.
+        surface_tag: ``default=None``
+
+            The target physical name.
+            All surfaces that have this tag will be assigned a grid.
+
+            The string is assumed to be on the from between the physical names and
+            the line, up to the last underscore.
+
+            If not provided, the physical names of fracture surfaces will be used as
+            target.
+        constraints: ``default=None``
+
+            Array with lists of lines that should not become grids. The array
+            items should match the ``INDEX`` in ``line_tag``, see above.
 
     Returns:
-        list of grids: List of 2d grids for all physical surfaces that matched with the
-            specified target tag.
+        List of 2D grids for all physical surfaces that matched with the specified
+        target tag.
 
     """
 
@@ -216,40 +238,56 @@ def create_1d_grids(
     constraints: Optional[np.ndarray] = None,
     return_fracture_tips: bool = True,
 ):
-    """Create 1d grids for lines of a specified type from a gmsh tessalation.
+    """Create 1D grids for lines of a specified type from a gmsh tesselation.
 
     Only lines that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified ``line_tag``.
 
-    It is assumed that the mesh is read by meshio. See :porepy.fracs.simplex for how to
-    do this.
+    It is assumed that the mesh is read by meshio.
+    See :mod:`~porepy.fracs.simplex` for how to do this.
 
-    TODO: Check that the typing is correct.
+    Todo:
+        Check if the typing is correct.
 
     Parameters:
-        pts: ``(shape=(num_points, 3))`` Global point set from gmsh
-        cells: Should have a key ``'line'``, which maps to a :obj:~`numpy.ndarray` with
-            indices of the lines that form 1d grids.
-        phys_names: mapping from the gmsh tags assigned to physical entities to the
+        pts: ``shape=(num_points, 3)``
+
+            Global point set from gmsh
+        cells: Should have a key ``'line'``, which maps to a :obj:`~numpy.ndarray` with
+            indices of the lines that form 1D grids.
+        phys_names: Mapping from the gmsh tags assigned to physical entities to the
             physical name of that tag.
         cell_info: Should have a key ``'line'``, that contains the physical names (in
             the gmsh sense) of the points.
-        line_tag: The target physical name, all lines that have this tag will be
-            assigned a grid. The string is assumed to be on the from
-            ``BASE_NAME_OF_TAG_{INDEX}``, where ``_INDEX`` is a number. The comparison
-            is made between the physical names and the line, up to the last underscore.
-            If not provided, the physical names of fracture lines will be used as target.
-        tol: Tolerance used when comparing points in the creation of line grids.
-            constraints: Array with lists of lines that should not become grids. The
-            array items should match the ``INDEX`` in ``line_tag``, see above.
-        return_fracture_tips: If ``True`` (default), fracture tips will be found and
-            returned.
+        line_tag: ``default=None``
+
+            The target physical name.
+            All lines that have this tag will be assigned a grid.
+
+            The string is assumed to be on the from ``BASE_NAME_OF_TAG_{INDEX}``,
+            where ``INDEX`` is a number.
+            The comparison is made between the physical names and the line,
+            up to the last underscore.
+
+            If not provided, the physical names of fracture lines will be used as
+            target.
+        tol: ``default=1e-4``
+
+            Tolerance used when comparing points in the creation of line grids.
+        constraints: ``default=None``
+
+            Array with lists of lines that should not become grids.
+            The array items should match the ``INDEX`` in ``line_tag``, see above.
+        return_fracture_tips: ``default=True``
+
+            If ``True``, fracture tips will be found and returned.
 
     Returns:
-        list of grids: List of 1d grids for all physical lines that matched with the
-            specified target tag.
-        :obj:~`numpy.ndarray`: each item is an array of indices of points on a fracture
-            tip. Only returned if ``return_fracture_tips`` is ``True``.
+        List of 1D grids for all physical lines that matched with the specified target
+        tag.
+
+        If ``return_fracture_tips=True``, returns additionally a :obj:`~numpy.ndarray`
+        of indices of points on a fracture tip.
 
     """
     if line_tag is None:
@@ -333,32 +371,39 @@ def create_0d_grids(
     cell_info: dict[str, np.ndarray],
     target_tag_stem: Optional[str] = None,
 ) -> list[pp.PointGrid]:
-    """Create 0d grids for points of a specified type from a gmsh tessalation.
+    """Create 0D grids for points of a specified type from a gmsh tesselation.
 
     Only points that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified ``target_tag_stem``.
 
-    It is assumed that the mesh is read by meshio. See porepy.fracs.simplex for how to
-    do this.
+    It is assumed that the mesh is read by meshio.
+    See module :mod:`~porepy.fracs.simplex` for how to do this.
 
     Parameters:
-        pts: ``(shape=(num_points, 3))`` Global point set from gmsh
-        cells: Should have a key ``'vertex'``, which maps to a :obj:~`numpy.ndarray`
+        pts: ``shape=(num_points, 3)``
+
+            Global point set from gmsh
+        cells: Should have a key ``'vertex'``, which maps to a :obj:`~numpy.ndarray`
             with indices of the points that form point grids.
         phys_names: mapping from the gmsh tags assigned to physical entities
             to the physical name of that tag.
-        cell_info Should have a key ``'vertex'``, that contains the
+        cell_info: Should have a key ``'vertex'``, that contains the
             physical names (in the gmsh sense) of the points.
-        target_tag_stem: The target physical name, all points that have
-            this tag will be assigned a grid. The string is assumed to be on the from
-            ``BASE_NAME_OF_TAG_{INDEX}``, where ``_INDEX`` is a number. The comparison is made
-            between the physical names and the ``target_tag_stem``, up to the last
-            underscore. If not provided, the physical names of fracture points will be
-            used as target.
+        target_tag_stem: The target physical name.
+
+            All points that have this tag will be assigned a grid.
+            The string is assumed to be on the from ``BASE_NAME_OF_TAG_{INDEX}``,
+            where ``INDEX`` is a number.
+
+            The comparison is made between the physical names and the
+            ``target_tag_stem``, up to the last underscore.
+
+            If not provided, the physical names of fracture points will be used as
+            target.
 
     Returns:
-        list of grids: List of 0d grids for all physical points that matched with the
-            specified target tag.
+        List of point grids for all physical points that matched with the specified
+        target tag.
 
     """
     if target_tag_stem is None:

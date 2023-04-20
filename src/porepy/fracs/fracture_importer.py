@@ -106,11 +106,13 @@ def network_3d_from_csv(
         return fn
 
 
-def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
+def elliptic_network_3d_from_csv(
+    file_name: str, has_domain: bool = True, tol: float = 1e-4, degrees: bool = False
+) -> pp.fracture_network:
     """Create fracture network from a set of elliptic fractures stored in a CSV file.
 
     Todo:
-        Fill description of :attr:`degrees`.
+        Fill description of argument ``degrees``.
 
     In the CSV file, we assume the following structure:
 
@@ -131,14 +133,14 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
         file_name: Path to the CSV file.
         has_domain: ``default=True``
 
-            Whether the first line in the CSV file specifies the domain.
+            Indicates whether the first line in the CSV file specifies the domain.
         tol: ``default=1e-4``
 
             Geometric tolerance used in the computations.
         degrees:
 
     Returns:
-        Three-dimensional fracture network object with elliptic fractures.
+        3D fracture network object with elliptic fractures.
 
     """
 
@@ -205,35 +207,31 @@ def network_2d_from_csv(
     domain: Optional[pp.Domain] = None,
     **kwargs,
 ) -> Union[FractureNetwork2d, tuple[FractureNetwork2d, np.ndarray]]:
-    """Create two-dimensional fracture network from a CSV file.
+    """Create 2D fracture network from a CSV file.
 
     In the CSV file, we assume one of the two following structures:
 
-        (a) ``FID, START_X, START_Y, END_X, END_Y``.
-        (b) ``FID, PT_X, PT_Y``.
+    1. ``FID, START_X, START_Y, END_X, END_Y``.
+    2. ``FID, PT_X, PT_Y``.
 
-    Format (a) is used to describe fractures consisting of a straight line.
+    Format 1 is used to describe fractures consisting of a straight line.
     ``FID`` is the fracture id, ``START_X`` and ``START_Y`` are the abscissa and
     coordinate of the starting point, and ``END_X`` and ``END_Y`` are the abscissa and
     coordinate of the ending point.
 
-    Format (b) can be used to describe polyline fractures, where each row in the file
+    Format 2 can be used to describe polyline fractures, where each row in the file
     represents separate points, points with the same ``FID`` will be assigned to
     the same fracture *in the order specified in the file*.
 
     To change the delimiter from the default comma, use kwargs passed to
-    ``np.genfromtxt``.
+    :obj:`numpy.genfromtxt`.
 
     The CSV file is assumed to have a header of 1 line. To change this number,
     use kwargs ``skip_header``.
 
-    Raises:
-        ValueError:
-            If a fracture of a single point is specified.
-
     Parameters:
         f_name: Path to the CSV file.
-        tagcols: ``(dtype=np.int8, default=None)``
+        tagcols: ``dtype=np.int8, default=None``
 
             Column index where fracture tags are stored. 0-offset. Defaults to no
             columns.
@@ -246,19 +244,23 @@ def network_2d_from_csv(
             file. Defaults to inclusion of all fractures.
         polyline: ``default=False``
 
-            Whether the fractures are given as a polyline, e.g., via format (b).
+            Indicates if the fractures are given as a polyline, e.g., via format 2.
         return_frac_id: ``default=False``
 
-            Whether to return the fractures ID.
+            Indicates whether to return the fracture IDs or not.
         domain:  ``default=None``
 
             Domain specification. If not given, the domain will be set as the
             bounding box of the set of fractures.
-        **kwargs: keyword arguments passed to ``np.genfromtxt``.
+        **kwargs: keyword arguments passed to :obj:`numpy.genfromtxt`.
+
+    Raises:
+        ValueError:
+            If a fracture of a single point is specified.
 
     Returns:
-        The two-dimensional fracture network, and if :attr:`return_frac_id` = True,
-        also the fractures' ID as a numpy array of ``shape=(num_fracs, )``.
+        The 2D fracture network. If ``return_frac_id=True``,
+        also the fracture IDs are returned as a numpy array of ``shape=(num_fracs,)``.
 
     """
     npargs = {}
@@ -358,26 +360,29 @@ def network_2d_from_csv(
 
 
 def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid:
-    """Generate a mixed-dimensional grid from a Gmsh file.
+    """Generate a mixed-dimensional grid from a gmsh file.
 
-    If the provided extension of the input file for Gmsh is ``.geo`` (not ``.msh``),
-    Gmsh will be called to generate the mesh before the mixed-dimensional grid is
+    If the provided extension of the input file for gmsh is ``.geo`` (not ``.msh``),
+    gmsh will be called to generate the mesh before the mixed-dimensional grid is
     constructed.
 
     Parameters:
-        file_name: Name of Gmsh *in* and *out* file. Should have extension ``.geo``
-            or ``.msh``. In the former case, Gmsh will be called upon to generate the
+        file_name:
+            Name of gmsh *in* and *out* file. Should have extension ``.geo``
+            or ``.msh``. In the former case, gmsh will be called upon to generate the
             mesh before the mixed-dimensional mesh is constructed.
-        dim: Dimension of the problem. Should be ``2`` or ``3``.
-        **kwargs: Optional keyword arguments.
+        dim:
+            Dimension of the problem. Should be 2 or 3.
+        **kwargs:
+            Optional keyword arguments.
 
             See :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh` for
-            :attr:`dim` = 2, and
-            :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh` for
-            :attr:`dim` = 3.
+            ``dim=2``,
+            and :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh` for
+            ``dim=3``.
 
     Returns:
-        Mixed-dimensional grid as contained in the Gmsh file.
+        Mixed-dimensional grid as contained in the gmsh file.
 
     """
 
@@ -422,8 +427,8 @@ def dfm_3d_from_fab(
     return_domain: bool = False,
     **mesh_kwargs,
 ) -> Union[pp.MixedDimensionalGrid, tuple[pp.MixedDimensionalGrid, pp.Domain]]:
-    """
-    Create the grid bucket from a set of 3d fractures stored in a fab file and domain.
+    """Create the grid bucket from a set of 3d fractures stored in a fab file and
+    domain.
 
     Parameters:
         file_name: Name of the file.
@@ -464,13 +469,13 @@ def dfm_3d_from_fab(
 def network_3d_from_fab(
     f_name: str, return_all: bool = False, tol: Optional[float] = None
 ) -> Union[FractureNetwork3d, tuple[FractureNetwork3d, list[np.ndarray], np.ndarray]]:
-    """Create 3d fracture network from a ``.fab`` file, as specified by FracMan.
+    """Create 3D fracture network from a ``.fab`` file, as specified by FracMan.
 
-    The filter is based on the ``.fab``-files available at the time of writing, and
+    The filter is based on the ``.fab``-files available at the time of writing and
     may not cover all options available.
 
     Note:
-        The function also reads in various other information of unknown usefulness,
+        The function also reads various other information of unknown usefulness,
         see implementation for details. This information is currently not returned.
 
     Parameters:
@@ -484,15 +489,14 @@ def network_3d_from_fab(
             :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
 
     Returns:
-        Three-dimensional fracture network, and if :attr:`return_all` is ``True``, also
+        3D fracture network, and if ``return_all=True`` also
 
-            - A list of numpy arrays of ``shape=(nd, num_points)``, where each
-            item of the list contains the fractures cut by the domain boundary,
-            represented by their ``num_points`` vertexes.
-
-            - A numpy array, where for each element in the list of numpy arrays from
-            above, a :math:`\\pm 1` is associated, establishing which boundary the
-            fracture is on.
+        - A list of numpy arrays of ``shape=(nd, num_points)``, where each
+          item of the list contains the fractures cut by the domain boundary,
+          represented by their ``num_points`` vertexes.
+        - A numpy array, where for each element in the list of numpy arrays from
+          above, a :math:`\\pm 1` is associated, establishing which boundary the
+          fracture is on.
 
     """
 

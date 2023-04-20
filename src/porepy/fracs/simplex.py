@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def triangle_grid_embedded(file_name: str) -> list[list[pp.Grid]]:
-    """Create triangular (2D) grid of a domain embedded in 3D space, without
+    """Creates a triangular 2D grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
     The resulting grid can be used in a DFN model. The grid will be fully
@@ -27,11 +27,12 @@ def triangle_grid_embedded(file_name: str) -> list[list[pp.Grid]]:
     This function produces a set of grids for fractures and lower-dimensional
     objects, but it does nothing to merge the grids. To create a
     :class:`~porepy.grids.md_grid.MixedDimensionalGrid`,
-    use the function :clas:`~porepy.fracs.meshing.subdomains_to_mdg` instead.
+    use the function :class:`~porepy.fracs.meshing.subdomains_to_mdg` instead.
 
     Parameters:
-        file_name: Filename for communication with ``gmsh``.
-            The config file for ``gmsh`` will be ``f_name.geo``, with the grid output
+        file_name: Filename for communication with gmsh.
+
+            The config file for gmsh will be ``f_name.geo``, with the grid output
             to ``f_name.msh``.
 
     Returns:
@@ -85,10 +86,10 @@ def triangle_grid_from_gmsh(
     file_name: str, constraints: Optional[np.ndarray] = None, **kwargs
 ) -> list[list[pp.Grid]]:
     """Creates a nested list of grids dimensions ``{2, 1, 0}``, starting from meshes
-    created by ``gmsh``.
+    created by gmsh.
 
     Parameters:
-        file_name: Path to a ``*.msh``=file containing ``gmsh`` specifications.
+        file_name: Path to a ``*.msh``-file containing gmsh specifications.
         constraints: ``default=None``
 
             Indices of fracture lines that are constraints in the meshing,
@@ -157,20 +158,20 @@ def triangle_grid_from_gmsh(
 def line_grid_from_gmsh(
     file_name: str, constraints: Optional[np.ndarray] = None, **kwargs
 ) -> list[list[pp.Grid]]:
-    """Creates a nested list of grids dimensions ``{1, 0}``, starting from meshes
-    created by ``gmsh``.
+    """Creates a nested list of grids with dimensions ``{1, 0}``, starting from meshes
+    created by gmsh.
 
     Parameters:
-        file_name: Path to a ``*.msh``=file containing ``gmsh`` specifications.
+        file_name: Path to a ``*.msh``-file containing gmsh specifications.
         constraints: ``default=None``
 
             Indices of fracture lines that are constraints in the meshing,
             but should not have a lower-dimensional mesh.
         **kwargs: Optional keyword arguments for
-            :func:`~porepy.fracs.msg_2_grid.create_1d_grids`
+            :func:`~porepy.fracs.msh_2_grid.create_1d_grids`.
 
     Returns:
-        A nested list with length 2, where for the dimensions 1 and 0 the respective
+        A nested list with length 2, where for dimensions 1 and 0 the respective
         sub-list contains instances of :class:`~porepy.grids.grid.Grid` with that
         dimension. If there are no grids of a specific dimension, the respective
         sub-list is empty.

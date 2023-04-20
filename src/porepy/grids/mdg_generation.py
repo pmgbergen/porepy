@@ -414,8 +414,8 @@ def _preprocess_simplex_args(
     """Preprocess arguments for simplex mdg.
 
     See Also:
-        - :method:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
-        - :method:`~porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh`
+        - :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
+        - :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh`
 
     Parameters:
         meshing_args: A dictionary with meshing keys depending on each grid_type.
@@ -481,7 +481,7 @@ def _preprocess_cartesian_args(
     """Preprocess arguments for cartesian mdg.
 
     See Also:
-        - :method:`~porepy.fracs.meshing.cart_grid`
+        - :meth:`~porepy.fracs.meshing.cart_grid`
 
     Parameters:
         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
@@ -542,7 +542,7 @@ def _preprocess_tensor_grid_args(
     """Preprocess arguments for tensor_grid mdg.
 
     See Also:
-        - :method:`~porepy.fracs.meshing.cart_grid`
+        - :meth:`~porepy.fracs.meshing.cart_grid`
 
     Parameters:
         domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
@@ -636,10 +636,10 @@ def create_mdg(
                 mdg = pp.create_mdg("simplex", meshing_args, fracture_network)
 
         See Also:
-            - :method:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
-            - :method:`~porepy.fracs.fracture_network_2d.FractureNetwork3d.mesh`
-            - :method:`~porepy.fracs.meshing.cart_grid`
-            - :method:`~porepy.fracs.meshing.tensor_grid`
+            - :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
+            - :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork3d.mesh`
+            - :meth:`~porepy.fracs.meshing.cart_grid`
+            - :meth:`~porepy.fracs.meshing.tensor_grid`
 
         Parameters:
             grid_type: Type of grid. Use ``simplex`` for unstructured triangular and
