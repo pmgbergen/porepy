@@ -404,17 +404,22 @@ class ConvergenceAnalysis:
 
     def plot_spatial_rates(
         self,
-        list_of_results: list,
+        list_of_results: Optional[list] = None,
         vars_to_plot: Optional[list[tuple[str, str]]] = None,
         plot_first_order_line=False,
         plot_second_order_line=False,
         save_img=False,
+        out_fname="convergence_rates",
+        out_format="png",
+        read_from_txt=False,
+        txt_fname="error_analysis",
     ) -> None:
         """Convergence plot in space.
 
         Parameters:
             list_of_results: List of ``results`` data classes associated with a given
-                model class.
+                model class. Typically, the output of :meth:`~run_analysis`. If is
+                not given, we require ``read_from_txt=True``.
             vars_to_plot: List of 2-tuples containing the name and label identifying
                 the errors associated with the variables that should be included in the
                 plot. Note, however, that the name should NOT include the prefix
@@ -428,41 +433,104 @@ class ConvergenceAnalysis:
             plot_first_order_line: Whether to include the reference line
                 corresponding to first order convergence. Note that some manual
                 tweaking might be required to position the line in a decent place. If
-                that is the case, you should override the method ``plot_first_order()``.
+                that is the case, you should override the method
+                :meth:`~plot_first_order`.
             plot_second_order_line: Whether to include the reference line
                 corresponding to second order convergence. Note that some manual
                 tweaking might be required to position the line in a decent place. If
                 that is the case, you should override the method
-                ``plot_second_order()``.
-            save_img: Whether to save the image in PDF format. The plot will be save
-                under the name "convergence_plot.pdf".
+                :meth:`~plot_second_order`.
+            save_img: Whether to save the image. Default is ``False``.
+            out_fname: Name of the image to be saved. Default is
+                ``"convergence_rates"``.
+            out_format: Format of the image to be saved. Default is ``"png"``.
+            read_from_txt: Whether the results should be read from a TXT file.
+                Default is ``False``.
+            txt_fname: Name of the TXT file to be read. Default is ``"error_analysis"``.
 
         """
 
-        # Get x_axis
-        mesh_sizes = np.array([result.cell_diam for result in list_of_results])
+        # Sanity check
+        if list_of_results is None and not read_from_txt:
+            raise ValueError("Expected at least a list of results OR a TXT file.")
 
-        # Get variable names and labels
-        if vars_to_plot is None:
-            # Retrieve all attributes from the data class
-            attributes: list[str] = list(vars(list_of_results[0]).keys())
-            # Filter attributes that start with ``error_``
-            names: list[str] = [att for att in attributes if att.startswith("error_")]
-            # Assign as label the suffix of ``error_`` corresponding to that name
-            labels: list[str] = [att[6:] for att in names]
+        if list_of_results is not None and read_from_txt:
+            raise ValueError("Only a list of results OR a TXT file can be processed.")
+
+        if read_from_txt:
+            # Read the header
+            with open(txt_fname+".txt") as f:
+                lines = f.readlines()
+            header = lines[0]
+            # Strip comment from header
+            header = header.lstrip("# ")
+            # Strip line break from header
+            header = header.rstrip("\n")
+
+            # Get all variable names
+            all_vars = header.split()
+
+            # Load the file
+            all_vals = np.loadtxt(
+                fname=txt_fname+".txt",
+                dtype=float,
+                unpack=True,
+            )
+
+            # Get mesh sizes
+            mesh_sizes = all_vals[0]
+
+            # Now we can construct the named tuple containing name, label, and vals
+            plot_vars: list[PlotVar] = []
+            if vars_to_plot is None:
+                for idx in range(len(all_vars)-2):  # retrieve all variables from the
+                    # file
+                    plot_vars.append(
+                        PlotVar(  # offset of 2 since vars to plot appear from 3rd col
+                            name=all_vars[idx+2],
+                            label=all_vars[idx+2],
+                            value=all_vals[idx+2],
+                        )
+                    )
+            else:
+                for name, label in vars_to_plot:
+                    if name in all_vars:
+                        idx = all_vars.index("name")
+                        plot_vars.append(
+                            PlotVar(
+                                name=name,
+                                label=label,
+                                value=all_vals[idx],
+                            )
+                        )
         else:
-            names, labels = [], []
-            for var in vars_to_plot:
-                names.append("error_" + var[0])
-                labels.append(var[1])
+            # Please mypy
+            assert list_of_results is not None
 
-        # Now we can construct the named tuple containing name, label, and vals
-        plot_vars = []
-        for name, label in zip(names, labels):
-            vals = []
-            for result in list_of_results:
-                vals.append(getattr(result, name))
-            plot_vars.append(PlotVar(name=name, label=label, value=np.asarray(vals)))
+            # Get mesh sizes
+            mesh_sizes = np.array([result.cell_diam for result in list_of_results])
+
+            # Get variable names and labels
+            if vars_to_plot is None:
+                # Retrieve all attributes from the data class
+                attributes: list[str] = list(vars(list_of_results[0]).keys())
+                # Filter attributes that start with ``error_``
+                names: list[str] = [att for att in attributes if att.startswith("error_")]
+                # Assign as label the suffix of ``error_`` corresponding to that name
+                labels: list[str] = [att[6:] for att in names]
+            else:
+                names, labels = [], []
+                for var in vars_to_plot:
+                    names.append("error_" + var[0])
+                    labels.append(var[1])
+
+            # Now we can construct the named tuple containing name, label, and vals
+            plot_vars = []
+            for name, label in zip(names, labels):
+                vals = []
+                for result in list_of_results:
+                    vals.append(getattr(result, name))
+                plot_vars.append(PlotVar(name=name, label=label, value=np.asarray(vals)))
 
         # Plot
         cmap = mcolors.ListedColormap(plt.cm.tab10.colors[: len(plot_vars)])
@@ -515,10 +583,13 @@ class ConvergenceAnalysis:
             )
 
         plt.tight_layout()
-        # plt.show()
+        plt.show()
 
         if save_img:
             plt.savefig(fname="convergence_plot.pdf")
+
+
+
 
     # -----> Utility methods
     def log_space(self, array: np.ndarray) -> np.ndarray:
