@@ -5,14 +5,14 @@ without having to deal with dimension-specific objects and methodology.
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 # Custom typings
-FractureList = Union[list[pp.LineFracture], list[pp.PlaneFracture]]
+FractureList = Union[List[pp.LineFracture], List[pp.PlaneFracture]]
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
