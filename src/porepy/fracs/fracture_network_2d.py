@@ -13,9 +13,7 @@ import numpy as np
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
-from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
-from porepy.geometry.domain import Domain
 
 from .gmsh_interface import GmshData2d, GmshWriter
 from .gmsh_interface import Tags as GmshInterfaceTags
@@ -60,8 +58,8 @@ class FractureNetwork2d:
 
     def __init__(
         self,
-        fractures: Optional[list[LineFracture]] = None,
-        domain: Optional[Domain] = None,
+        fractures: Optional[list[pp.LineFracture]] = None,
+        domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
     ) -> None:
 
@@ -93,7 +91,7 @@ class FractureNetwork2d:
             self._pts = np.zeros((2, 0))
             self._edges = np.zeros((2, 0), dtype=int)
 
-        self.domain: Optional[Domain] = domain
+        self.domain: Optional[pp.Domain] = domain
         """Domain specification for the fracture network."""
 
         self.tags: dict[int | str, np.ndarray] = dict()
@@ -215,7 +213,7 @@ class FractureNetwork2d:
                 self.domain.bounding_box["ymax"], fs.domain.bounding_box["ymax"]
             )
             new_bounding_box = {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
-            domain = Domain(new_bounding_box)
+            domain = pp.Domain(new_bounding_box)
         elif self.domain is not None:
             domain = self.domain
         elif fs.domain is not None:
@@ -813,7 +811,7 @@ class FractureNetwork2d:
 
     def impose_external_boundary(
         self,
-        domain: Optional[Domain] = None,
+        domain: Optional[pp.Domain] = None,
         add_domain_edges: bool = True,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Constrain the fracture network to lie within a domain.
@@ -1081,7 +1079,9 @@ class FractureNetwork2d:
     ---------------------------------
     """
 
-    def constrain_to_domain(self, domain: Optional[Domain] = None) -> FractureNetwork2d:
+    def constrain_to_domain(
+        self, domain: Optional[pp.Domain] = None
+    ) -> FractureNetwork2d:
         """Constrain the fracture network to lay within a specified domain.
 
         Fractures that cross the boundary of the domain will be cut to lay within the
@@ -1102,7 +1102,7 @@ class FractureNetwork2d:
         """
         if domain is None:
             domain = self.domain
-        assert isinstance(domain, Domain)
+        assert isinstance(domain, pp.Domain)
 
         p_domain = self._bounding_box_to_points(domain.bounding_box)
 
@@ -1164,10 +1164,10 @@ class FractureNetwork2d:
         if domain is not None:
             if domain.is_boxed:
                 box = copy.deepcopy(domain.bounding_box)
-                domain = Domain(bounding_box=box)
+                domain = pp.Domain(bounding_box=box)
             else:
                 polytope = domain.polytope.copy()
-                domain = Domain(polytope=polytope)
+                domain = pp.Domain(polytope=polytope)
 
         fn = FractureNetwork2d(fractures_new, domain, self.tol)
         fn.tags = self.tags.copy()

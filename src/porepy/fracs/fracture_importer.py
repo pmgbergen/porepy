@@ -153,14 +153,14 @@ def elliptic_network_3d_from_csv(
 
         # Read the domain first
         if has_domain:
-            bbox = np.asarray(next(spam_reader), dtype=np.float)
+            bbox_as_array = np.asarray(next(spam_reader), dtype=float)
             bbox = {
-                "xmin": bbox[0],
-                "xmax": bbox[3],
-                "ymin": bbox[1],
-                "ymax": bbox[4],
-                "zmin": bbox[2],
-                "zmax": bbox[5],
+                "xmin": bbox_as_array[0],
+                "xmax": bbox_as_array[3],
+                "ymin": bbox_as_array[1],
+                "ymax": bbox_as_array[4],
+                "zmin": bbox_as_array[2],
+                "zmax": bbox_as_array[5],
             }
             domain = pp.Domain(bbox)
 
@@ -170,7 +170,7 @@ def elliptic_network_3d_from_csv(
                 continue
 
             # Read the data
-            data = np.asarray(row, dtype=np.float)
+            data = np.asarray(row, dtype=float)
             if not data.size % 9 == 0:
                 raise ValueError("Data has to have size 9")
 
