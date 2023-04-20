@@ -86,7 +86,7 @@ class ModelGeometry:
         self._domain = nd_cube_domain(2, size)
 
     @property
-    def fractures(self) -> list[pp.Fracture]:
+    def fractures(self) -> Union[list[pp.LineFracture], list[pp.PlaneFracture]]:
         """List of fractures in the fracture network."""
         return self._fractures
 
@@ -96,7 +96,7 @@ class ModelGeometry:
         Override this method to define a geometry with fractures.
 
         """
-        self._fractures: list[pp.Fracture] = []
+        self._fractures: list = []
 
     def set_well_network(self) -> None:
         """Assign well network class."""

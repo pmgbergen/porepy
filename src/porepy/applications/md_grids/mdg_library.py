@@ -43,6 +43,7 @@ def square_with_orthogonal_fractures(
     fractures = [all_fractures[i] for i in fracture_indices]
     domain = domains.nd_cube_domain(2, size)
     fracture_network = pp.create_fracture_network(fractures, domain)
+    assert isinstance(fracture_network, pp.FractureNetwork2d)  # for mypy
     mdg = pp.create_mdg(grid_type, meshing_args, fracture_network, **meshing_kwargs)
     return mdg, fracture_network
 
@@ -78,5 +79,6 @@ def cube_with_orthogonal_fractures(
     fractures = [all_fractures[i] for i in fracture_indices]
     domain = domains.nd_cube_domain(3, size)
     fracture_network = pp.create_fracture_network(fractures, domain)
+    assert isinstance(fracture_network, pp.FractureNetwork3d)  # for mypy
     mdg = pp.create_mdg(grid_type, meshing_args, fracture_network, **meshing_kwargs)
     return mdg, fracture_network
