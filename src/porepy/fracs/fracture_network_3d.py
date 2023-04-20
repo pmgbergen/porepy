@@ -749,7 +749,7 @@ class FractureNetwork3d(object):
                 point_ind[ind_1], point_ind[ind_0]
             )
             # Convert from boolean indices to indices
-            common_ind = np.where(common_ind)[0]
+            common_ind = np.where(common_ind)[0]  # type: ignore[assignment]
             # There should be exactly two intersection points
             assert common_ind.size == 2
 
@@ -757,7 +757,7 @@ class FractureNetwork3d(object):
             common_ind_2, i1 = pp.utils.setmembership.ismember_rows(
                 point_ind[ind_0], point_ind[ind_1]
             )
-            common_ind_2 = np.where(common_ind_2)[0]
+            common_ind_2 = np.where(common_ind_2)[0]  # type: ignore[assignment]
             assert common_ind_2.size == 2
 
             # Check if the intersection points form a boundary edge of each of the
