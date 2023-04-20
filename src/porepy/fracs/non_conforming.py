@@ -8,7 +8,7 @@
     unspecified point in the future.
 
 """
-
+from __future__ import annotations
 
 from typing import Any, Optional, Union
 

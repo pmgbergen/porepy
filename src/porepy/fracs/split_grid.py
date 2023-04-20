@@ -863,8 +863,8 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         # Map cell indexes from the ordering in the clusters back to global ordering
         loc_cells = rows_cell_map[comp]
         # Faces of these cells
-        loc_faces = np.unique(  # type: ignore
-            pp.matrix_operations.slice_indices(g.cell_faces, loc_cells)
+        loc_faces = np.unique(
+            pp.matrix_operations.slice_indices(g.cell_faces, loc_cells)  # type: ignore
         )
         # Nodes of the faces, and indices in the sparse storage format where the nodes
         # are located.
