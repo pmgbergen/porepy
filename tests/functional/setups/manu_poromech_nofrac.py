@@ -652,6 +652,10 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
         }
         return self.params.get("mesh_arguments", default_mesh_arguments)
 
+    def grid_type(self) -> str:
+        """Set grid type."""
+        return self.params.get("grid_type", "simplex")
+
 
 # -----> Balance equations
 class ManuPoroMechMassBalance(mass.MassBalanceEquations):
