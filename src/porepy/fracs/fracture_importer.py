@@ -331,7 +331,7 @@ def network_2d_from_csv(
         # Fracture id is the first column of data
         edges_frac_id = data[:, 0]
         if tagcols is not None:
-            edges = np.vstack((edges, data[:, tagcols].T))
+            edges = np.vstack((edges, data[:, tagcols].T))  # type: ignore
 
     if domain is None:
         overlap = kwargs.get("domain_overlap", 0)

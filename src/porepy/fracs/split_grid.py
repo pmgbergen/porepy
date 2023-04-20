@@ -713,7 +713,8 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
     ## Step 1
     # Create a list where each item is the cells associated with a node to be expanded.
     cell_clusters = [
-        np.unique(pp.matrix_operations.slice_indices(cell_node, n)) for n in nodes
+        np.unique(pp.matrix_operations.slice_indices(cell_node, n))  # type: ignore
+        for n in nodes
     ]
 
     # Number of cells in each cluster.
@@ -862,7 +863,7 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         # Map cell indexes from the ordering in the clusters back to global ordering
         loc_cells = rows_cell_map[comp]
         # Faces of these cells
-        loc_faces = np.unique(
+        loc_faces = np.unique(  # type: ignore
             pp.matrix_operations.slice_indices(g.cell_faces, loc_cells)
         )
         # Nodes of the faces, and indices in the sparse storage format where the nodes
