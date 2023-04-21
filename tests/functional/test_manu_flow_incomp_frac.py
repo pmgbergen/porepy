@@ -277,7 +277,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     return [desired_ooc_2d, desired_ooc_3d]
 
 
-# TODO: Add @pytest.mark.skipped after merging #856
+@pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize(
     "var",
     ["matrix_pressure", "matrix_flux", "frac_pressure", "frac_flux", "intf_flux"],
