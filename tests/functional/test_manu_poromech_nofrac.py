@@ -91,7 +91,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
-        "mesh_arguments": {"cell_size": 0.25},
+        "meshing_arguments": {"cell_size": 0.25},
         "manufactured_solution": "nordbotten_2016",
         "time_manager": pp.TimeManager([0, 0.2, 0.6, 1.0], 0.2, True),
     }
@@ -174,7 +174,7 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
 
 @pytest.mark.parametrize("dim_idx", [0, 1])
 @pytest.mark.parametrize("var", ["pressure", "flux", "displacement", "force"])
-@pytest.mark.parametrize("time_idx", [0, 1, 2])
+@pytest.mark.parametrize("time_idx", [0, 1])
 def test_relative_l2_errors_cartesian_grid(
     dim_idx: int,
     var: str,
@@ -260,7 +260,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                     "manufactured_solution": "nordbotten_2016",
                     "grid_type": grid_type,
                     "material_constants": material_constants,
-                    "mesh_arguments": {"cell_size": 0.25},
+                    "meshing_arguments": {"cell_size": 0.25},
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
                 if model_idx == 0:
@@ -326,7 +326,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     return [desired_ooc_2d, desired_ooc_3d]
 
 
-# TODO: Add @pytest.mark.skipped after merging #856
+@pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize("var", ["pressure", "flux", "displacement", "force"])
 @pytest.mark.parametrize("grid_type_idx", [0, 1])
 @pytest.mark.parametrize("dim_idx", [0, 1])

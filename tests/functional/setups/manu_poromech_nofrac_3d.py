@@ -483,29 +483,16 @@ class UnitCubeGrid(pp.ModelGeometry):
     fracture_network: pp.FractureNetwork2d
     """Fracture network. Empty in this case."""
 
-    def set_fracture_network(self) -> None:
+    def set_domain(self) -> None:
         """Set fracture network. Unit square with no fractures."""
-        domain = pp.Domain(
+        self._domain = pp.Domain(
             {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
         )
-        self.domain = domain
-        self.fracture_network = pp.create_fracture_network(domain=domain)
 
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        return self.params.get("grid_type", "cartesian")
-
-    def mesh_arguments(self) -> dict[str, float]:
+    def mesh_ingarguments(self) -> dict[str, float]:
         """Set meshing arguments."""
-        default_mesh_arguments = {"cell_size": 0.2}
-        return self.params.get("mesh_arguments", default_mesh_arguments)
-
-    def set_md_grid(self) -> None:
-        """Set mixed-dimensional grid."""
-        self.mdg = pp.create_mdg(
-            grid_type=self.grid_type(),
-            meshing_args=self.mesh_arguments(),
-            fracture_network=self.fracture_network,
-        )
+        default_mesh_arguments = {"cell_size": 0.1}
+        return self.params.get("meshing_arguments", default_mesh_arguments)
 
 
 # -----> Solution strategy

@@ -610,6 +610,7 @@ class ManuPoroMechUtils(VerificationUtils):
 
 
 # -----> Geometry
+
 # TODO: Update after merging #860
 class UnitSquareGrid(pp.ModelGeometry):
     """Class for setting up the geometry of the unit square domain."""
@@ -623,14 +624,8 @@ class UnitSquareGrid(pp.ModelGeometry):
 
     def meshing_arguments(self) -> dict:
         """Set mesh arguments."""
-        default_mesh_arguments = {
-            "cell_size": 0.05,
-        }
-        return self.params.get("mesh_arguments", default_mesh_arguments)
-
-    def grid_type(self) -> str:
-        """Set grid type."""
-        return self.params.get("grid_type", "simplex")
+        default_mesh_arguments = {"cell_size": 0.1}
+        return self.params.get("meshing_arguments", default_mesh_arguments)
 
 
 # -----> Balance equations
@@ -790,3 +785,20 @@ class ManuPoroMechSetup2d(  # type: ignore[misc]
     Mixer class for the two-dimensional non-linear poromechanics verification setup.
 
     """
+
+# #%% Runner
+# fluid_constants = pp.FluidConstants({"compressibility": 0.02})
+# solid_constants = pp.SolidConstants({"biot_coefficient": 0.5})
+# material_constants = {"solid": solid_constants, "fluid": fluid_constants}
+# parameters = {
+#     "grid_type": "simplex",
+#     "material_constants": material_constants,
+#     "meshing_arguments": {"cell_size": 0.25},
+#     "manufactured_solution": "parabolic",
+#     "time_manager": pp.TimeManager([0, 0.2, 0.6, 1.0], 0.2, True),
+# }
+# setup = ManuPoroMechSetup2d(parameters)
+# pp.run_time_dependent_model(setup, {})
+#
+# #%%
+# setup.plot_results()
