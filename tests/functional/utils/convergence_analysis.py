@@ -457,146 +457,183 @@ class ConvergenceAnalysis:
         if list_of_results is not None and read_from_txt:
             raise ValueError("Only a list of results OR a TXT file can be processed.")
 
-        if read_from_txt:
-            # Read the header
-            with open(txt_fname+".txt") as f:
-                lines = f.readlines()
-            header = lines[0]
-            # Strip comment from header
-            header = header.lstrip("# ")
-            # Strip line break from header
-            header = header.rstrip("\n")
-
-            # Get all variable names
-            all_vars = header.split()
-
-            # Load the file
-            all_vals = np.loadtxt(
-                fname=txt_fname+".txt",
-                dtype=float,
-                unpack=True,
-            )
-
-            # Get mesh sizes
-            mesh_sizes = all_vals[0]
-
-            # Now we can construct the named tuple containing name, label, and vals
-            plot_vars: list[PlotVar] = []
-            if vars_to_plot is None:
-                for idx in range(len(all_vars)-2):  # retrieve all variables from the
-                    # file
-                    plot_vars.append(
-                        PlotVar(  # offset of 2 since vars to plot appear from 3rd col
-                            name=all_vars[idx+2],
-                            label=all_vars[idx+2],
-                            value=all_vals[idx+2],
-                        )
-                    )
-            else:
-                for name, label in vars_to_plot:
-                    if name in all_vars:
-                        idx = all_vars.index("name")
-                        plot_vars.append(
-                            PlotVar(
-                                name=name,
-                                label=label,
-                                value=all_vals[idx],
-                            )
-                        )
-        else:
-            # Please mypy
+        if not read_from_txt:
             assert list_of_results is not None
-
-            # Get mesh sizes
-            mesh_sizes = np.array([result.cell_diam for result in list_of_results])
-
-            # Get variable names and labels
-            if vars_to_plot is None:
-                # Retrieve all attributes from the data class
-                attributes: list[str] = list(vars(list_of_results[0]).keys())
-                # Filter attributes that start with ``error_``
-                names: list[str] = [att for att in attributes if att.startswith("error_")]
-                # Assign as label the suffix of ``error_`` corresponding to that name
-                labels: list[str] = [att[6:] for att in names]
-            else:
-                names, labels = [], []
-                for var in vars_to_plot:
-                    names.append("error_" + var[0])
-                    labels.append(var[1])
-
-            # Now we can construct the named tuple containing name, label, and vals
-            plot_vars = []
-            for name, label in zip(names, labels):
-                vals = []
-                for result in list_of_results:
-                    vals.append(getattr(result, name))
-                plot_vars.append(PlotVar(name=name, label=label, value=np.asarray(vals)))
-
-        # Plot
-        cmap = mcolors.ListedColormap(plt.cm.tab10.colors[: len(plot_vars)])
-        fig, ax = plt.subplots(nrows=1, ncols=2)
-
-        # Plot first order convergence rate line
-        if plot_first_order_line:
-            self.plot_first_order(ax[0], ax[1], mesh_sizes)
-
-        # Plot second order convergence rate line
-        if plot_second_order_line:
-            self.plot_second_order(ax[0], ax[1], mesh_sizes)
-
-        # Plot data
-        for idx, var in enumerate(plot_vars):
-
-            # Data plot
-            ax[0].plot(
-                self.log_space(1 / mesh_sizes),
-                self.log_space(var.value),
-                linestyle="-",
-                linewidth=3,
-                marker="o",
-                markersize=6,
-                color=cmap.colors[idx],
+            mesh_sizes, plot_vars = self._get_data_from_list_of_results(
+                list_of_results,
+                vars_to_plot,
             )
-            ax[0].set_xlabel(rf"$\log_{self.spatial_rate}$($1/h$)", fontsize=14)
-            ax[0].set_ylabel(rf"$\log_{self.spatial_rate}$(error)", fontsize=14)
-            ax[0].grid(True)
-
-            # Legend plot
-            ax[1].plot(
-                [],
-                [],
-                linestyle="-",
-                linewidth=3,
-                marker="o",
-                markersize=6,
-                color=cmap.colors[idx],
-                label=var.label,
+        else:
+            mesh_sizes, plot_vars = self._get_data_from_txt_file(
+                txt_fname,
+                vars_to_plot,
             )
 
-            # Add legend
-            ax[1].plot()
-            ax[1].axis("off")
-            ax[1].legend(
-                bbox_to_anchor=(1.25, 0.5),
-                loc="center right",
-                fontsize=13,
-            )
-
-        plt.tight_layout()
-        plt.show()
+        self._plot_rates_and_legends(
+            mesh_sizes=mesh_sizes,
+            plot_vars=plot_vars,
+            plot_first_order_line=plot_first_order_line,
+            plot_second_order_line=plot_second_order_line,
+        )
 
         if save_img:
-            plt.savefig(fname="convergence_plot.pdf")
+            plt.savefig(fname=f"{out_fname} + '.' + {out_format}")
 
-    # -----> Utility methods
-    def log_space(self, array: np.ndarray) -> np.ndarray:
-        return np.emath.logn(self.spatial_rate, array)
+    # -----> Plotting methods
+    def _get_data_from_txt_file(self, txt_fname, vars_to_plot):
+        """Retrieves data to be plotted from a TXT file.
 
-    def log_time(self, array: np.ndarray) -> np.ndarray:
-        return np.emath.logn(self.temporal_rate, array)
+        Args:
+            txt_fname:
+            vars_to_plot:
 
-    # -----> Auxiliary plotting methods
-    def plot_first_order(
+        Returns:
+
+        """
+        # Read the header
+        with open(txt_fname + ".txt") as f:
+            lines = f.readlines()
+        header = lines[0]
+        # Strip comment from header
+        header = header.lstrip("# ")
+        # Strip line break from header
+        header = header.rstrip("\n")
+
+        # Get all variable names
+        all_vars = header.split()
+
+        # Load the file
+        all_vals = np.loadtxt(
+            fname=txt_fname + ".txt",
+            dtype=float,
+            unpack=True,
+        )
+
+        # Get mesh sizes
+        mesh_sizes = all_vals[0]
+
+        # Now we can construct the named tuple containing name, label, and vals
+        plot_vars: list[PlotVar] = []
+        if vars_to_plot is None:
+            for idx in range(len(all_vars) - 2):  # retrieve all variables from the
+                # file
+                plot_vars.append(
+                    PlotVar(  # offset of 2 since vars to plot appear from 3rd col
+                        name=all_vars[idx + 2],
+                        label=all_vars[idx + 2],
+                        value=all_vals[idx + 2],
+                    )
+                )
+        else:
+            for name, label in vars_to_plot:
+                if name in all_vars:
+                    idx = all_vars.index("name")
+                    plot_vars.append(
+                        PlotVar(
+                            name=name,
+                            label=label,
+                            value=all_vals[idx],
+                        )
+                    )
+        return mesh_sizes, plot_vars
+
+    def _get_data_from_list_of_results(self, list_of_results, vars_to_plot):
+        """Retrieve data to be plotted from a list of results.
+
+        Args:
+            list_of_results:
+            vars_to_plot:
+
+        Returns:
+
+        """
+
+        # Get mesh sizes
+        mesh_sizes = np.array([result.cell_diam for result in list_of_results])
+
+        # Get variable names and labels
+        if vars_to_plot is None:
+            # Retrieve all attributes from the data class
+            attributes: list[str] = list(vars(list_of_results[0]).keys())
+            # Filter attributes that start with ``error_``
+            names: list[str] = [att for att in attributes if att.startswith("error_")]
+            # Assign as label the suffix of ``error_`` corresponding to that name
+            labels: list[str] = [att[6:] for att in names]
+        else:
+            names, labels = [], []
+            for var in vars_to_plot:
+                names.append("error_" + var[0])
+                labels.append(var[1])
+
+        # Now we can construct the named tuple containing name, label, and vals
+        plot_vars = []
+        for name, label in zip(names, labels):
+            vals = []
+            for result in list_of_results:
+                vals.append(getattr(result, name))
+            plot_vars.append(PlotVar(name=name, label=label, value=np.asarray(vals)))
+
+        return mesh_sizes, plot_vars
+
+    def _plot_rates_and_legends(
+            self,
+            mesh_sizes,
+            plot_vars,
+            plot_first_order_line,
+            plot_second_order_line,
+    ):
+        """Plot rates and legends.
+
+        Args:
+            mesh_sizes:
+            plot_vars:
+            plot_first_order_line:
+            plot_second_order_line:
+
+        Returns:
+
+        """
+
+        # Declare color palette
+        cmap = self.define_color_palette(plot_vars)
+
+        # Create figure
+        fig, ax = self.create_figure()
+
+        # Plot first order line
+        if plot_first_order_line:
+            self.plot_first_order_line(ax[0], ax[1], mesh_sizes)
+
+        # Plot second order line
+        if plot_second_order_line:
+            self.plot_second_order_line(ax[0], ax[1], mesh_sizes)
+
+        # Loop through the variables and plot rates and legends
+        for idx, var in enumerate(plot_vars):
+            self.plot_rates(ax, cmap, idx, var, mesh_sizes)
+            self.plot_legends(ax, cmap, idx, var, mesh_sizes)
+            self.extra_plot_settings()
+
+    def create_figure(self):
+        """Create the matplotlib figure."""
+        fig, ax = plt.subplots(nrows=1, ncols=2)
+        return fig, ax
+
+    def define_color_palette(self, plot_vars):
+        """Define the color palette to be used for plotting the different rates.
+
+        Args:
+            plot_vars:
+
+        Returns:
+
+        """
+
+        # Use tab20 if you have more than 10 variables to plot
+        # You can also declare a custom palette if you want
+        return mcolors.ListedColormap(plt.cm.tab10.colors[: len(plot_vars)])
+
+    def plot_first_order_line(
         self,
         data_axis,
         legend_axis,
@@ -629,7 +666,12 @@ class ConvergenceAnalysis:
             label="First order",
         )
 
-    def plot_second_order(self, data_axis, legend_axis, mesh_sizes: np.ndarray) -> None:
+    def plot_second_order_line(
+            self,
+            data_axis,
+            legend_axis,
+            mesh_sizes: np.ndarray
+    ) -> None:
         """Plot second order line.
 
         Parameters:
@@ -655,3 +697,65 @@ class ConvergenceAnalysis:
             linewidth=3,
             label="Second order",
         )
+
+    def plot_rates(self, ax, cmap, idx, var, mesh_sizes) -> None:
+        """Plot the rate for a given variable.
+
+        Args:
+            ax:
+            cmap:
+            idx:
+            var:
+            mesh_sizes:
+
+        Returns:
+
+        """
+        ax[0].plot(
+            self.log_space(1 / mesh_sizes),
+            self.log_space(var.value),
+            linestyle="-",
+            linewidth=3,
+            marker="o",
+            markersize=6,
+            color=cmap.colors[idx],
+        )
+        ax[0].set_xlabel(rf"$\log_{self.spatial_rate}$($1/h$)", fontsize=14)
+        ax[0].set_ylabel(rf"$\log_{self.spatial_rate}$(error)", fontsize=14)
+        ax[0].grid(True)
+
+    def plot_legends(self, ax, cmap, idx, var, mesh_sizes) -> None:
+        """Plot legend for a given variable."""
+
+        # Plot ghost data to set the format of the legend
+        ax[1].plot(
+            [],
+            [],
+            linestyle="-",
+            linewidth=3,
+            marker="o",
+            markersize=6,
+            color=cmap.colors[idx],
+            label=var.label,
+        )
+
+        # Add legend
+        ax[1].plot()
+        ax[1].axis("off")
+        ax[1].legend(
+            bbox_to_anchor=(1.25, 0.5),
+            loc="center right",
+            fontsize=13,
+        )
+
+    def extra_plot_settings(self):
+        """Define a few extra settings"""
+        plt.tight_layout()
+        plt.show()
+
+    # -----> Helper methods
+    def log_space(self, array: np.ndarray) -> np.ndarray:
+        return np.emath.logn(self.spatial_rate, array)
+
+    def log_time(self, array: np.ndarray) -> np.ndarray:
+        return np.emath.logn(self.temporal_rate, array)
