@@ -630,7 +630,7 @@ class SingleEmbeddedVerticalLineFracture(pp.ModelGeometry):
     """Simulation model parameters"""
 
     def set_fractures(self) -> None:
-        """Create fracture network.
+        """Declare set of fractures.
 
         Note:
             For simplicial grids, two horizontal fractures at :math:`y = 0.25` and
@@ -639,28 +639,36 @@ class SingleEmbeddedVerticalLineFracture(pp.ModelGeometry):
             fractures will not be part of the mixed-dimensional grid.
 
         """
-        self._fractures = [
-            pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
-            pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
-            pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
-        ]
+        physical_frac_0 = pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]]))
+
+        if self.grid_type() == "simplex":
+            ghost_frac_0 = pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]]))
+            ghost_frac_1 = pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]]))
+            self._fractures = [physical_frac_0, ghost_frac_0, ghost_frac_1]
+        elif self.grid_type() == "cartesian":
+            self._fractures = [physical_frac_0]
+        else:
+            raise NotImplementedError()
+
     def set_domain(self) -> None:
         """Set domain."""
         self._domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
-    def meshing_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict[str, float]:
         """Define mesh arguments for meshing."""
-        return self.params.get("mesh_arguments", {"cell_size": 0.125})
+        return self.params.get("meshing_arguments", {"cell_size": 0.125})
 
     def meshing_kwargs(self) -> dict:
-        """Create mixed-dimensional grid. Ignore fractures 1 and 2."""
+        """Declare meshing constraints. Ignore fractures 1 and 2."""
         kw_args = super().meshing_kwargs()
-        kw_args.update({"constraints": np.array([1, 2])})
+        if self.grid_type() == "simplex":
+            kw_args.update({"constraints": np.array([1, 2])})
         return kw_args
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         """Return grid type."""
-        return "simplex"
+        return self.params.get("grid_type", "cartesian")
+
 
 # -----> Boundary conditions
 class ManuIncompBoundaryConditions:

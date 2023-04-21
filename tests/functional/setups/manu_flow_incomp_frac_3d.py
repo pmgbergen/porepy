@@ -438,27 +438,16 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
     params: dict
     """Simulation model parameters"""
 
-    fracture_network: pp.FractureNetwork3d
-    """Fracture network. Set in :meth:`set_fracture_network`."""
-
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        """Set grid type."""
-        return self.params.get("grid_type", "cartesian")
-
-    def set_fracture_network(self) -> None:
-        """Create fracture network.
+    def set_fractures(self) -> None:
+        """Declare set of fractures.
 
         Note:
-            The physical fracture is `f0`. For simplices, fractures `f1` to `f24` act
-            as constraints in the meshing process.
+            The physical fracture is `physical_frac_0`. For simplices, fractures
+            `ghost_frac_0` ... `ghost_frac_23` are constraints for the meshing process.
 
         """
-        # Unit cube domain
-        domain = unit_domain(3)
-        self.domain = domain
 
-        # Physical fracture
-        f0 = pp.PlaneFracture(
+        physical_frac_0 = pp.PlaneFracture(
             np.array(
                 [
                     [0.50, 0.50, 0.50, 0.50],
@@ -469,7 +458,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
         )
 
         if self.grid_type() == "simplex":
-            f1 = pp.PlaneFracture(
+            ghost_frac_0 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -478,7 +467,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f2 = pp.PlaneFracture(
+            ghost_frac_1 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -487,7 +476,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f3 = pp.PlaneFracture(
+            ghost_frac_2 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -496,7 +485,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f4 = pp.PlaneFracture(
+            ghost_frac_3 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -505,7 +494,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f5 = pp.PlaneFracture(
+            ghost_frac_4 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.50, 0.00, 0.00],
@@ -514,7 +503,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f6 = pp.PlaneFracture(
+            ghost_frac_5 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 1.00, 0.50, 0.50],
@@ -523,7 +512,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f7 = pp.PlaneFracture(
+            ghost_frac_6 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.50, 0.00, 0.00],
@@ -532,7 +521,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f8 = pp.PlaneFracture(
+            ghost_frac_7 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 1.00, 0.50, 0.50],
@@ -541,7 +530,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f9 = pp.PlaneFracture(
+            ghost_frac_8 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -550,7 +539,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f10 = pp.PlaneFracture(
+            ghost_frac_9 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -559,7 +548,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f11 = pp.PlaneFracture(
+            ghost_frac_10 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -568,7 +557,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f12 = pp.PlaneFracture(
+            ghost_frac_11 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -577,7 +566,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f13 = pp.PlaneFracture(
+            ghost_frac_12 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -586,7 +575,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f14 = pp.PlaneFracture(
+            ghost_frac_13 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -595,7 +584,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f15 = pp.PlaneFracture(
+            ghost_frac_14 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -604,7 +593,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f16 = pp.PlaneFracture(
+            ghost_frac_15 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -613,7 +602,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f17 = pp.PlaneFracture(
+            ghost_frac_16 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -622,7 +611,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f18 = pp.PlaneFracture(
+            ghost_frac_17 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -631,7 +620,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f19 = pp.PlaneFracture(
+            ghost_frac_18 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -640,7 +629,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f20 = pp.PlaneFracture(
+            ghost_frac_19 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -649,7 +638,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f21 = pp.PlaneFracture(
+            ghost_frac_20 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -658,7 +647,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f22 = pp.PlaneFracture(
+            ghost_frac_21 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -667,7 +656,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f23 = pp.PlaneFracture(
+            ghost_frac_22 = pp.PlaneFracture(
                 np.array(
                     [
                         [0.50, 0.00, 0.00, 0.50],
@@ -676,7 +665,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                     ]
                 )
             )
-            f24 = pp.PlaneFracture(
+            ghost_frac_23 = pp.PlaneFracture(
                 np.array(
                     [
                         [1.00, 0.50, 0.50, 1.00],
@@ -686,61 +675,59 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
                 )
             )
 
-            fractures = [
-                f0,
-                f1,
-                f2,
-                f3,
-                f4,
-                f5,
-                f6,
-                f7,
-                f8,
-                f9,
-                f10,
-                f11,
-                f12,
-                f13,
-                f14,
-                f15,
-                f16,
-                f17,
-                f18,
-                f19,
-                f20,
-                f21,
-                f22,
-                f23,
-                f24,
+            self._fractures = [
+                physical_frac_0,
+                ghost_frac_0,
+                ghost_frac_1,
+                ghost_frac_2,
+                ghost_frac_3,
+                ghost_frac_4,
+                ghost_frac_5,
+                ghost_frac_6,
+                ghost_frac_7,
+                ghost_frac_8,
+                ghost_frac_9,
+                ghost_frac_10,
+                ghost_frac_11,
+                ghost_frac_12,
+                ghost_frac_13,
+                ghost_frac_14,
+                ghost_frac_15,
+                ghost_frac_16,
+                ghost_frac_17,
+                ghost_frac_18,
+                ghost_frac_19,
+                ghost_frac_20,
+                ghost_frac_21,
+                ghost_frac_22,
+                ghost_frac_23,
             ]
+
         elif self.grid_type() == "cartesian":
-            fractures = [f0]
+            self._fractures = [physical_frac_0]
         else:
             raise NotImplementedError()
 
-        # Create fracture network
-        network_3d = pp.create_fracture_network(fractures, domain)
-        self.fracture_network = network_3d
+    def set_domain(self) -> None:
+        """Set domain"""
+        self._domain = pp.Domain(
+            {"xmin": 0, "ymin": 0, "zmin": 0, "xmax": 1, "ymax": 1, "zmax": 1}
+        )
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict[str, float]:
         """Define mesh arguments for meshing."""
-        return self.params.get("mesh_arguments", {"cell_size": 0.125})
+        return self.params.get("meshing_arguments", {"cell_size": 0.125})
 
-    def set_md_grid(self) -> None:
-        """Create mixed-dimensional grid."""
+    def meshing_kwargs(self) -> dict:
+        """Declare meshing constraints. Ignore ghost fractures 1 to 24."""
+        kw_args = super().meshing_kwargs()
         if self.grid_type() == "simplex":
-            self.mdg = pp.create_mdg(
-                grid_type=self.grid_type(),
-                meshing_args=self.mesh_arguments(),
-                fracture_network=self.fracture_network,
-                **{"constraints": np.arange(1, 25)},
-            )
-        else:
-            self.mdg = pp.create_mdg(
-                grid_type=self.grid_type(),
-                meshing_args=self.mesh_arguments(),
-                fracture_network=self.fracture_network,
-            )
+            kw_args.update({"constraints": np.arange(1, 25)})
+        return kw_args
+
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
+        """Set grid type."""
+        return self.params.get("grid_type", "cartesian")
 
 
 # -----> Solution strategy
