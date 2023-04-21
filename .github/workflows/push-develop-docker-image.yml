@@ -5,6 +5,8 @@
 name: Publish Docker image for develop branch
 
 on:
+  workflow_dispatch:
+    # run jobs manually
   push:
     branches:
        - develop
