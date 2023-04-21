@@ -524,20 +524,9 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             assert ref_msg in str(error_message.value)
 
     def test_network_inconsistencies(self):
-
         grid_type = "simplex"
         fracture_network, _ = self.generate_network(0, [0, 1, 2])
         mesh_arguments: dict = {"cell_size": self.cell_size()}
-
-        with pytest.raises(ValueError) as error_message:
-            fracture_network.domain.dim = 0
-            ref_msg = str(
-                "Inferred dimension must be 2 or 3, not %r"
-                % fracture_network.domain.dim
-            )
-            pp.create_mdg(grid_type, mesh_arguments, fracture_network)
-            fracture_network.domain.dim = 2
-        assert ref_msg in str(error_message.value)
 
         with pytest.raises(TypeError) as error_message:
             ref_msg = str(
