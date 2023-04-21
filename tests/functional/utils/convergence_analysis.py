@@ -80,7 +80,7 @@ class ConvergenceAnalysis:
             warnings.warn("'spatial_rate' is not being used.")
             spatial_rate = 1
 
-        if not in_time:
+        if not in_time and temporal_rate > 1:
             warnings.warn("'temporal_rate' is not being used.")
             temporal_rate = 1
 
@@ -133,9 +133,9 @@ class ConvergenceAnalysis:
             self._is_simplicial = False
 
         # Retrieve list of mesh arguments
-        list_of_mesh_arguments: list[
+        list_of_meshing_arguments: list[
             Union[dict[str, pp.number], np.ndarray]
-        ] = self._get_list_of_mesh_arguments()
+        ] = self._get_list_of_meshing_arguments()
 
         # Retrieve list of time managers
         list_of_time_managers: Union[
@@ -146,7 +146,7 @@ class ConvergenceAnalysis:
         list_of_params: list[dict] = []
         for lvl in range(self.levels):
             params = deepcopy(model_params)
-            params["mesh_arguments"] = list_of_mesh_arguments[lvl]
+            params["meshing_arguments"] = list_of_meshing_arguments[lvl]
             if list_of_time_managers is not None:
                 params["time_manager"] = list_of_time_managers[lvl]
             list_of_params.append(params)
@@ -154,38 +154,38 @@ class ConvergenceAnalysis:
         self.model_params: list[dict] = list_of_params
         """List of model parameters associated to each run."""
 
-    def _get_list_of_mesh_arguments(self) -> list[dict[str, pp.number]]:
-        """Obtain list of mesh arguments.
+    def _get_list_of_meshing_arguments(self) -> list[dict[str, pp.number]]:
+        """Obtain list of meshing arguments.
 
         Returns:
             List of mesh arguments. Length of list is ``levels``.
 
         """
         # Retrieve initial mesh arguments
-        init_mesh_args = deepcopy(self._init_setup.mesh_arguments())
+        init_mesh_args = deepcopy(self._init_setup.meshing_arguments())
 
         # Prepare factors for the spatial analysis
         factors = 1 / (self.spatial_rate ** np.arange(self.levels))
 
         # Loop over levels
         if self._is_simplicial:
-            list_mesh_args: list[dict[str, pp.number]] = []
+            list_meshing_args: list[dict[str, pp.number]] = []
             for lvl in range(self.levels):
                 factor: pp.number = factors[lvl]
-                mesh_args = {}
+                meshing_args = {}
                 for key in init_mesh_args:
-                    mesh_args[key] = init_mesh_args[key] * factor
-                list_mesh_args.append(mesh_args)
+                    meshing_args[key] = init_mesh_args[key] * factor
+                list_meshing_args.append(meshing_args)
         else:
-            list_mesh_args: list[dict[str, pp.number]] = []
+            list_meshing_args: list[dict[str, pp.number]] = []
             for lvl in range(self.levels):
                 factor: pp.number = factors[lvl]
-                mesh_args = {}
+                meshing_args = {}
                 for key in init_mesh_args:
-                    mesh_args[key] = init_mesh_args[key] * factor
-                list_mesh_args.append(mesh_args)
+                    meshing_args[key] = init_mesh_args[key] * factor
+                list_meshing_args.append(meshing_args)
 
-        return list_mesh_args
+        return list_meshing_args
 
     def _get_list_of_time_managers(self) -> Union[list[pp.TimeManager], None]:
         """Obtain list of time managers.
@@ -587,9 +587,6 @@ class ConvergenceAnalysis:
 
         if save_img:
             plt.savefig(fname="convergence_plot.pdf")
-
-
-
 
     # -----> Utility methods
     def log_space(self, array: np.ndarray) -> np.ndarray:
