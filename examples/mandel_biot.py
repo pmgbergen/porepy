@@ -1251,13 +1251,13 @@ class MandelGeometry(pp.ModelGeometry):
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
         self._domain = domain
 
-    def meshing_arguments(self) -> dict:
-        """Set mesh arguments."""
+    def meshing_arguments(self) -> dict[str, float]:
+        """Set meshing arguments."""
         ls = 1 / self.units.m  # length scaling
-        default_mesh_arguments = {"cell_size": 2 * ls}
-        return self.params.get("mesh_arguments", default_mesh_arguments)
+        default_meshing_arguments = {"cell_size": 2 * ls}
+        return self.params.get("meshing_arguments", default_meshing_arguments)
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         """Set grid type."""
         return "simplex"
 
