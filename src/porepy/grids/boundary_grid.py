@@ -77,3 +77,28 @@ class BoundaryGrid(pp.Grid):
 
         """
         return self._proj
+
+    def __repr__(self) -> str:
+        """Get a string representation of the boundary grid.
+
+        Returns:
+            A string representation of the boundary grid.
+
+        """
+        s = f"Boundary grid of dimension {self.dim}\n"
+        s += f"ID of parent grid: {self._parent.id}\n"
+        s += f"{self.num_cells} cells.\n"
+        s += f"Dimension of the projection from the parent grid: {self._proj.shape}"
+        return s
+
+    def __str__(self) -> str:
+        """Get a string representation of the boundary grid.
+
+        Returns:
+            A string representation of the boundary grid.
+
+        """
+        s = f"Boundary grid of dimension {self.dim}\n"
+        s += f"ID of parent grid: {self._parent.id}\n"
+        s += f"{self.num_cells} cells."
+        return s
