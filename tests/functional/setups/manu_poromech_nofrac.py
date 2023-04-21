@@ -641,22 +641,20 @@ class UnitSquareTriangleGrid(pp.ModelGeometry):
     fracture_network: pp.FractureNetwork2d
     """Fracture network. Empty in this case."""
 
-    def set_fracture_network(self) -> None:
+    def set_domain(self) -> None:
         """Set fracture network. Unit square with no fractures."""
-        domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
-        self.fracture_network = pp.FractureNetwork2d(domain=domain)
+        self._domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         """Set mesh arguments."""
-        default_mesh_arguments = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05}
+        default_mesh_arguments = {
+            "cell_size": 0.05,
+        }
         return self.params.get("mesh_arguments", default_mesh_arguments)
 
-    def set_md_grid(self) -> None:
-        """Set mixed-dimensional grid."""
-        self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-        domain = self.fracture_network.domain
-        if domain is not None and domain.is_boxed:
-            self.domain = domain
+    def grid_type(self) -> str:
+        """Set grid type."""
+        return self.params.get("grid_type", "simplex")
 
 
 # -----> Balance equations

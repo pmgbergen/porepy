@@ -600,7 +600,7 @@ def create_mdg(
     meshing_args: dict,
     fracture_network: FractureNetwork,
     **kwargs,
-) -> Optional[pp.MixedDimensionalGrid]:
+) -> pp.MixedDimensionalGrid:
     """Creates a mixed-dimensional grid.
 
     Note:
@@ -716,7 +716,7 @@ def create_mdg(
 
     _validate_args(grid_type, meshing_args, fracture_network)
 
-    mdg: Optional[pp.MixedDimensionalGrid] = None
+    mdg: pp.MixedDimensionalGrid
 
     # Unstructured cases
     if grid_type == "simplex":
