@@ -4,21 +4,19 @@ Module containing a wrapper function to generate fracture networks in 2d and 3d.
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.fracs.line_fracture import LineFracture
-from porepy.fracs.plane_fracture import PlaneFracture
 
 # Custom typings
-Fracture = Union[LineFracture, PlaneFracture]
+FractureList = Union[List[pp.LineFracture], List[pp.PlaneFracture]]
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
 def create_fracture_network(
-    fractures: Optional[list[Fracture]] = None,
+    fractures: Optional[FractureList] = None,
     domain: Optional[pp.Domain] = None,
     tol: float = 1e-8,
     run_checks: bool = False,
@@ -68,7 +66,7 @@ def create_fracture_network(
     """
 
     # Interpret empty `fractures` list as None
-    fracs: Optional[list[Fracture]]
+    fracs: Optional[FractureList]
     if isinstance(fractures, list) and len(fractures) == 0:
         fracs = None
     else:
@@ -90,7 +88,7 @@ def create_fracture_network(
         dim = domain.dim
     elif fracs is not None and domain is not None:  # CASE2 2: both are given
         # Infer dimension form the list of fractures
-        if isinstance(fracs[0], LineFracture):
+        if isinstance(fracs[0], pp.LineFracture):
             dim_from_fracs = 2
         else:
             dim_from_fracs = 3
@@ -103,7 +101,7 @@ def create_fracture_network(
         dim = dim_from_domain
     else:  # CASE 3: fractures given, no domain
         assert fracs is not None and domain is None  # needed to please mypy
-        if isinstance(fracs[0], LineFracture):
+        if isinstance(fracs[0], pp.LineFracture):
             dim = 2
         else:
             dim = 3

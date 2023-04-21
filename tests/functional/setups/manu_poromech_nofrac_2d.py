@@ -617,27 +617,20 @@ class UnitSquareGrid(pp.ModelGeometry):
     params: dict
     """Simulation model parameters."""
 
-    def set_fracture_network(self) -> None:
+    def set_domain(self) -> None:
         """Set fracture network. Unit square with no fractures."""
-        domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
-        self.domain = domain
-        self.fracture_network = pp.create_fracture_network(domain=domain)
+        self._domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
 
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        return self.params.get("grid_type", "cartesian")
-
-    def mesh_arguments(self) -> dict[str, float]:
+    def meshing_arguments(self) -> dict:
         """Set mesh arguments."""
-        default_mesh_arguments = {"cell_size": 0.2}
+        default_mesh_arguments = {
+            "cell_size": 0.05,
+        }
         return self.params.get("mesh_arguments", default_mesh_arguments)
 
-    def set_md_grid(self) -> None:
-        """Set mixed-dimensional grid."""
-        self.mdg = pp.create_mdg(
-            grid_type=self.grid_type(),
-            meshing_args=self.mesh_arguments(),
-            fracture_network=self.fracture_network,
-        )
+    def grid_type(self) -> str:
+        """Set grid type."""
+        return self.params.get("grid_type", "simplex")
 
 
 # -----> Balance equations

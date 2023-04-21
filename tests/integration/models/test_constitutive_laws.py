@@ -80,10 +80,16 @@ from . import setup_utils
 # fracture, since it seems unlikely this will uncover any errors that will not be found
 # with the simpler setups. Activate more fractures if needed in debugging.
 @pytest.mark.parametrize(
-    "num_fracs", [0, 1, pytest.param([2, 3], marks=pytest.mark.skip)]
+    "num_fracs",
+    [  # Number of fractures
+        0,
+        1,
+        pytest.param(2, marks=pytest.mark.skipped),
+        pytest.param(3, marks=pytest.mark.skipped),
+    ]
 )
 # By default we run only a 2d test. Activate 3d if needed in debugging.
-@pytest.mark.parametrize("domain_dim", [2, pytest.param(3, marks=pytest.mark.skip)])
+@pytest.mark.parametrize("domain_dim", [2, pytest.param(3, marks=pytest.mark.skipped)])
 def test_parse_constitutive_laws(
     model_type, method_name, only_codimension, num_fracs, domain_dim
 ):

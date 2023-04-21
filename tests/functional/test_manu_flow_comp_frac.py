@@ -55,7 +55,6 @@ from tests.functional.utils.convergence_analysis import ConvergenceAnalysis
 @pytest.fixture(scope="module")
 def material_constants() -> dict:
     """Set material constants.
-
     Use default values provided in the module where the setup class is included.
 
     Returns:
