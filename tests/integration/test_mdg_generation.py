@@ -34,15 +34,19 @@ class TestMDGridGeneration:
     def fracture_2d_data(self) -> List[np.ndarray]:
         """Fracture points for 2d cases"""
         data: List[np.array] = [
-            np.array([[0.0, 2.0], [0.0, 0.0]]),
+            # Fractures contained within the domain
+            np.array([[0.0, 2.0], [1.0, 1.0]]),
             np.array([[1.0, 1.0], [0.0, 1.0]]),
             np.array([[2.0, 2.0], [0.0, 2.0]]),
+            # A fracture outside the domain
+            np.array([[-1.0, -1.0], [-1.0, -2.0]]),
         ]
         return data
 
     def fracture_3d_data(self) -> List[np.array]:
         """Fracture points for 3d cases"""
         data: List[np.array] = [
+            # Fractures inside the domain
             np.array(
                 [[2.0, 3.0, 3.0, 2.0], [2.0, 2.0, 2.0, 2.0], [0.0, 0.0, 1.0, 1.0]]
             ),
@@ -51,6 +55,10 @@ class TestMDGridGeneration:
             ),
             np.array(
                 [[1.0, 4.0, 4.0, 1.0], [3.0, 3.0, 3.0, 3.0], [1.0, 1.0, 2.0, 2.0]]
+            ),
+            # One fracture outside the domain (note minus sign in front)
+            -np.array(
+                [[2.0, 3.0, 3.0, 2.0], [2.0, 2.0, 2.0, 2.0], [0.0, 0.0, 1.0, 1.0]]
             ),
         ]
         return data
@@ -161,7 +169,7 @@ class TestMDGridGeneration:
             disjoint_fractures = list(map(pp.PlaneFracture, geometry))
 
         network = pp.create_fracture_network(disjoint_fractures, domain)
-        return network
+        return network, domain
 
     def high_level_mdg_generation(self, grid_type, fracture_network):
         """Generates a mixed-dimensional grid using pp.create_mdg
@@ -272,8 +280,12 @@ class TestMDGridGeneration:
             `pp.meshing.tensor_grid`."""
 
         # Generates a fracture_network that can be without fractures
-        fracture_network = self.generate_network(domain_index, fracture_indices)
+        fracture_network, _ = self.generate_network(domain_index, fracture_indices)
         h_mdg = self.high_level_mdg_generation(grid_type, fracture_network)
+
+        # Generate the fracture once more to avoid issues relating to processing the
+        # geometry of a fracture network twice.
+        fracture_network, _ = self.generate_network(domain_index, fracture_indices)
         l_mdg = self.low_level_mdg_generation(grid_type, fracture_network)
 
         # Failing in equality could mean that:
@@ -282,6 +294,43 @@ class TestMDGridGeneration:
         equality_q = self.mdg_equality(h_mdg, l_mdg)
         assert equality_q
 
+    # Test both 2d and 3d domains. Let the fracture outside the domain be first and last
+    # in the list, to cover any special cases under deletion of fractures.
+    test_parameters_impose_boundary = [
+        (0, [2, 3]),
+        (0, [3, 2]),
+        (1, [0, 3]),
+        (1, [3, 0]),
+    ]
+
+    @pytest.mark.parametrize(
+        "domain_index, fracture_indices", test_parameters_impose_boundary
+    )
+    def test_fractures_outside_structured_domain(self, domain_index, fracture_indices):
+        """Test that structured meshing of networks with fractures outside the domain
+        works.
+
+        Both 2d and 3d networks are tested. Failure is most likely to be caused by
+        errors in, or changes to, the functionality to delete fractures in fracture
+        networks while imposing external boundaries.
+
+        """
+        # The target functionality is used for both Cartesian and tensor grids, but it
+        # is common for the two, so it should suffice to check the Cartesian case.
+        grid_type = "cartesian"
+        fracture_network, domain = self.generate_network(domain_index, fracture_indices)
+        # Generate the mesh via the high-level function.
+        mdg = self.high_level_mdg_generation(grid_type, fracture_network)
+
+        # The fracture network is set up to have two grids, but one of them is outside
+        # the domain, so by now, there should be one fracture (thus two grids) left.
+        assert len(mdg.subdomains()) == 2
+        # Also verify that all the nodes in the fracture grid is inside the domain, that
+        # is, we did not purge the wrong grid.
+        frac_domain = mdg.subdomains()[-1]
+        for pi in range(frac_domain.num_nodes):
+            assert frac_domain.nodes[: domain.dim, pi] in domain
+
 
 class TestGenerationInconsistencies(TestMDGridGeneration):
     """Test suite for verifying function inconsistencies.
@@ -289,8 +338,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
     """
 
     def test_grid_type_inconsistencies(self):
-
-        fracture_network = self.generate_network(0, [0, 1, 2])
+        fracture_network, _ = self.generate_network(0, [0, 1, 2])
         mesh_arguments: dict = {"cell_size": self.cell_size()}
 
         with pytest.raises(TypeError) as error_message:
@@ -309,9 +357,8 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         assert ref_msg in str(error_message.value)
 
     def test_simplex_meshing_args_inconsistencies(self):
-
         grid_type = "simplex"
-        fracture_network = self.generate_network(0, [0, 1, 2])
+        fracture_network, _ = self.generate_network(0, [0, 1, 2])
 
         # testing meshing_args type
         with pytest.raises(TypeError) as error_message:
@@ -382,9 +429,8 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         assert ref_msg in str(error_message.value)
 
     def test_cartesian_meshing_args_inconsistencies(self):
-
         grid_type = "cartesian"
-        fracture_network = self.generate_network(1, [0, 1, 2])
+        fracture_network, _ = self.generate_network(1, [0, 1, 2])
 
         # testing incompleteness in cell_sizes
         cell_size_args = ["cell_size_x", "cell_size_y", "cell_size_z"]
@@ -430,9 +476,8 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             assert ref_msg in str(error_message.value)
 
     def test_tensor_grid_meshing_args_inconsistencies(self):
-
         grid_type = "tensor_grid"
-        fracture_network = self.generate_network(1, [0, 1, 2])
+        fracture_network, _ = self.generate_network(1, [0, 1, 2])
 
         # # testing incompleteness
         cell_size_args = ["x_pts", "y_pts", "z_pts"]
@@ -481,7 +526,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
     def test_network_inconsistencies(self):
 
         grid_type = "simplex"
-        fracture_network = self.generate_network(0, [0, 1, 2])
+        fracture_network, _ = self.generate_network(0, [0, 1, 2])
         mesh_arguments: dict = {"cell_size": self.cell_size()}
 
         with pytest.raises(ValueError) as error_message:
