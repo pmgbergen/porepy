@@ -10,8 +10,8 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
 class ModelGeometry:
