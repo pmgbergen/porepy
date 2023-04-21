@@ -80,7 +80,7 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
     params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
-        "mesh_arguments": {"cell_size": 0.125},
+        "meshing_arguments": {"cell_size": 0.125},
     }
 
     # Retrieve actual L2-relative errors
@@ -211,7 +211,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 params = {
                     "grid_type": grid_type,
                     "material_constants": material_constants,
-                    "mesh_arguments": {"cell_size": 0.125},
+                    "meshing_arguments": {"cell_size": 0.125},
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
                 if model_idx == 0:
