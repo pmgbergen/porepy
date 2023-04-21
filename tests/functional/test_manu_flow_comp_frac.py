@@ -89,7 +89,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
-        "mesh_arguments": {"cell_size": 0.125},
+        "meshing_arguments": {"cell_size": 0.125},
         "time_manager": pp.TimeManager([0, 0.2, 0.8, 1.0], 0.2, True),
     }
 
@@ -268,7 +268,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 params = {
                     "grid_type": grid_type,
                     "material_constants": material_constants,
-                    "mesh_arguments": {"cell_size": 0.125},
+                    "meshing_arguments": {"cell_size": 0.125},
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
                 if model_idx == 0:
@@ -337,7 +337,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     return [desired_ooc_2d, desired_ooc_3d]
 
 
-# TODO: Add @pytest.mark.skipped after merging #856
+@pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize(
     "var",
     ["matrix_pressure", "matrix_flux", "frac_pressure", "frac_flux", "intf_flux"],
