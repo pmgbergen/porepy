@@ -1704,7 +1704,7 @@ class EquationSystem:
 
         """
         if inverter is None:
-            inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
+            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
 
         # Find the rows of the primary block. This can include both equations defined
         # on their full image, and equations specified on a subset of grids.
