@@ -65,7 +65,7 @@ def results() -> list[ManuCompSaveData]:
         "solid": pp.SolidConstants(manu_comp_solid),
         "fluid": pp.FluidConstants(manu_comp_fluid),
     }
-    mesh_arguments = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.05}
+    mesh_arguments = {"cell_size": 0.05}
     time_manager = pp.TimeManager([0, 0.2, 0.8, 1.0], 0.2, True)
     params = {
         "material_constants": material_constants,
