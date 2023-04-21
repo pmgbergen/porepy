@@ -1,6 +1,8 @@
 name: Publish Docker image for main branch
 
 on:
+  workflow_dispatch:
+    # run jobs manually
   push:
     branches:
       - main
