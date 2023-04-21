@@ -303,7 +303,7 @@ class ManuIncompExactSolution2d:
 
         # Cell-centered pressures
         p_cc = np.zeros(sd_matrix.num_cells)
-        for (p, idx) in zip(p_fun, cell_idx):
+        for p, idx in zip(p_fun, cell_idx):
             p_cc += p(cc[0], cc[1]) * idx
 
         return p_cc
@@ -405,7 +405,7 @@ class ManuIncompExactSolution2d:
         # Integrated cell-centered sources
         vol = sd_matrix.cell_volumes
         f_cc = np.zeros(sd_matrix.num_cells)
-        for (f, idx) in zip(f_fun, cell_idx):
+        for f, idx in zip(f_fun, cell_idx):
             f_cc += f(cc[0], cc[1]) * vol * idx
 
         return f_cc
@@ -547,7 +547,7 @@ class ManuIncompExactSolution2d:
 
         # Boundary pressures
         p_bf = np.zeros(sd_matrix.num_faces)
-        for (p, idx) in zip(p_fun, face_idx):
+        for p, idx in zip(p_fun, face_idx):
             p_bf[bc_faces] += p(fc[0], fc[1])[bc_faces] * idx[bc_faces]
 
         return p_bf
@@ -629,14 +629,7 @@ class SingleEmbeddedVerticalLineFracture(pp.ModelGeometry):
     params: dict
     """Simulation model parameters"""
 
-    fracture_network: pp.FractureNetwork2d
-    """Fracture network. Set in :meth:`set_fracture_network`."""
-
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        """Set grid type."""
-        return self.params.get("grid_type", "cartesian")
-
-    def set_fracture_network(self) -> None:
+    def set_fractures(self) -> None:
         """Create fracture network.
 
         Note:
@@ -646,47 +639,28 @@ class SingleEmbeddedVerticalLineFracture(pp.ModelGeometry):
             fractures will not be part of the mixed-dimensional grid.
 
         """
-        # Unit square domain
-        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
-        self.domain = domain
+        self._fractures = [
+            pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
+            pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
+            pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
+        ]
+    def set_domain(self) -> None:
+        """Set domain."""
+        self._domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
-        if self.grid_type() == "simplex":
-            fractures = [
-                pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
-                pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
-                pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
-            ]
-        elif self.grid_type() == "cartesian":
-            fractures = [
-                pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
-            ]
-        else:
-            raise NotImplementedError()
-
-        # Create fracture network
-        network_2d = pp.FractureNetwork2d(fractures, domain)
-        self.fracture_network = network_2d
-
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         """Define mesh arguments for meshing."""
         return self.params.get("mesh_arguments", {"cell_size": 0.125})
 
-    def set_md_grid(self) -> None:
-        """Create mixed-dimensional grid."""
-        if self.grid_type() == "simplex":
-            self.mdg = pp.create_mdg(
-                grid_type=self.grid_type(),
-                meshing_args=self.mesh_arguments(),
-                fracture_network=self.fracture_network,
-                **{"constraints": np.array([1, 2])},
-            )
-        else:
-            self.mdg = pp.create_mdg(
-                grid_type=self.grid_type(),
-                meshing_args=self.mesh_arguments(),
-                fracture_network=self.fracture_network,
-            )
+    def meshing_kwargs(self) -> dict:
+        """Create mixed-dimensional grid. Ignore fractures 1 and 2."""
+        kw_args = super().meshing_kwargs()
+        kw_args.update({"constraints": np.array([1, 2])})
+        return kw_args
 
+    def grid_type(self) -> str:
+        """Return grid type."""
+        return "simplex"
 
 # -----> Boundary conditions
 class ManuIncompBoundaryConditions:
