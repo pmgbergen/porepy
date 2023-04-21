@@ -5,8 +5,8 @@ Mainly for use in tests. Other usage should be covered by the model_geometries.
 """
 
 from __future__ import annotations
+
 from typing import Literal
-from typing import Literal, Tuple
 
 import porepy as pp
 
@@ -18,6 +18,7 @@ def square_with_orthogonal_fractures(
     meshing_args: dict[str, float],
     fracture_indices: list[int],
     size: pp.number,
+    **meshing_kwargs,
 ) -> tuple[pp.MixedDimensionalGrid, pp.FractureNetwork2d]:
     """Create a mixed-dimensional grid for a square domain with up to two
     orthogonal fractures.
@@ -26,7 +27,7 @@ def square_with_orthogonal_fractures(
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
         fracture_indices: Which fractures to include in the grid. Fracture i has
             constant i coordinates = size / 2.
-        **kwargs: Keyword arguments for meshing as used by
+        **meshing_kwargs: Keyword arguments for meshing as used by
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
     Returns:
