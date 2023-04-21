@@ -47,8 +47,7 @@ def test_pressure_and_fluxes():
         "fluid": pp.FluidConstants(manu_incomp_fluid),
     }
     mesh_arguments = {
-        "mesh_size_bound": 0.05,
-        "mesh_size_frac": 0.05,
+        "cell_size": 0.05,
     }
     params = {
         "material_constants": material_constants,

@@ -303,7 +303,7 @@ class ManuIncompExactSolution:
 
         # Cell-centered pressures
         p_cc = np.zeros(sd_matrix.num_cells)
-        for (p, idx) in zip(p_fun, cell_idx):
+        for p, idx in zip(p_fun, cell_idx):
             p_cc += p(cc[0], cc[1]) * idx
 
         return p_cc
@@ -344,7 +344,7 @@ class ManuIncompExactSolution:
         # Face-centered Darcy fluxes
         fn = sd_matrix.face_normals
         q_fc = np.zeros(sd_matrix.num_faces)
-        for (q, idx) in zip(q_fun, face_idx):
+        for q, idx in zip(q_fun, face_idx):
             q_fc += (q[0](fc[0], fc[1]) * fn[0] + q[1](fc[0], fc[1]) * fn[1]) * idx
 
         # We need to correct the values of the exact Darcy fluxes at the internal
@@ -389,7 +389,7 @@ class ManuIncompExactSolution:
         # Integrated cell-centered sources
         vol = sd_matrix.cell_volumes
         f_cc = np.zeros(sd_matrix.num_cells)
-        for (f, idx) in zip(f_fun, cell_idx):
+        for f, idx in zip(f_fun, cell_idx):
             f_cc += f(cc[0], cc[1]) * vol * idx
 
         return f_cc
@@ -531,7 +531,7 @@ class ManuIncompExactSolution:
 
         # Boundary pressures
         p_bf = np.zeros(sd_matrix.num_faces)
-        for (p, idx) in zip(p_fun, face_idx):
+        for p, idx in zip(p_fun, face_idx):
             p_bf[bc_faces] += p(fc[0], fc[1])[bc_faces] * idx[bc_faces]
 
         return p_bf
@@ -616,7 +616,7 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
     fracture_network: pp.FractureNetwork2d
     """Fracture network. Set in :meth:`set_fracture_network`."""
 
-    def set_fracture_network(self) -> None:
+    def set_fractures(self) -> None:
         """Create fracture network.
 
         Note:
@@ -626,33 +626,29 @@ class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
             part of the mixed-dimensional grid.
 
         """
-        # Unit square domain
-        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
-
-        fractures = [
+        self._fractures = [
             pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
             pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
             pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
         ]
 
-        # Create fracture network
-        network_2d = pp.FractureNetwork2d(fractures, domain)
-        self.fracture_network = network_2d
+    def set_domain(self) -> None:
+        """Set domain."""
+        self._domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         """Define mesh arguments for meshing."""
-        return self.params.get(
-            "mesh_arguments", {"mesh_size_bound": 0.1, "mesh_size_frac": 0.1}
-        )
+        return self.params.get("mesh_arguments", {"cell_size": 0.1})
 
-    def set_md_grid(self) -> None:
+    def meshing_kwargs(self) -> dict:
         """Create mixed-dimensional grid. Ignore fractures 1 and 2."""
-        self.mdg = self.fracture_network.mesh(
-            self.mesh_arguments(), constraints=np.array([1, 2])
-        )
-        domain = self.fracture_network.domain
-        if domain is not None and domain.is_boxed:
-            self.domain: pp.Domain = domain
+        kw_args = super().meshing_kwargs()
+        kw_args.update({"constraints": np.array([1, 2])})
+        return kw_args
+
+    def grid_type(self) -> str:
+        """Return grid type."""
+        return "simplex"
 
 
 # -----> Boundary conditions
