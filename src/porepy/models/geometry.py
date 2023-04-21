@@ -129,7 +129,8 @@ class ModelGeometry:
         """Meshing arguments for md-grid creation.
 
         Returns:
-            Meshing arguments compatible with pp.create_mdg() method.
+            Meshing arguments compatible with
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
         """
         # Default value of 1/2, scaled by the length unit.

@@ -1,10 +1,11 @@
 """Library of mixed-dimensional grids.
-for use in tests. Other usage should be covered by the model_geometries.
+
+Mainly for use in tests. Other usage should be covered by the model_geometries.
 
 """
 
 from __future__ import annotations
-
+from typing import Literal
 from typing import Literal, Tuple
 
 import porepy as pp
@@ -17,17 +18,16 @@ def square_with_orthogonal_fractures(
     meshing_args: dict[str, float],
     fracture_indices: list[int],
     size: pp.number,
-    **meshing_kwargs,
-) -> Tuple[pp.MixedDimensionalGrid, pp.FractureNetwork2d]:
+) -> tuple[pp.MixedDimensionalGrid, pp.FractureNetwork2d]:
     """Create a mixed-dimensional grid for a square domain with up to two
     orthogonal fractures.
 
-    Parameters:
-        meshing_args: Keyword arguments for meshing as used by pp.create_mdg.
+        meshing_args: Keyword arguments for meshing as used by
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
         fracture_indices: Which fractures to include in the grid. Fracture i has
             constant i coordinates = size / 2.
-        size: Side length of square.
-        **kwargs: Keyword arguments for meshing as used by pp.create_mdg.
+        **kwargs: Keyword arguments for meshing as used by
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
     Returns:
         Tuple containing a:
@@ -54,7 +54,7 @@ def cube_with_orthogonal_fractures(
     fracture_indices: list[int],
     size: pp.number,
     **meshing_kwargs,
-) -> Tuple[pp.MixedDimensionalGrid, pp.FractureNetwork3d]:
+) -> tuple[pp.MixedDimensionalGrid, pp.FractureNetwork3d]:
     """Create a mixed-dimensional grid for a cube domain with up to three
     orthogonal fractures.
 
@@ -63,7 +63,8 @@ def cube_with_orthogonal_fractures(
         fracture_indices: Which fractures to include in the grid. Fracture i has
             constant i coordinates = size / 2.
         size: Side length of cube.
-        **kwargs: Keyword arguments for meshing as used by pp.create_mdg.
+        **kwargs: Keyword arguments for meshing as used by
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
     Returns:
         Tuple containing a:
