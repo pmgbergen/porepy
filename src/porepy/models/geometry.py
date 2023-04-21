@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 import copy
-from typing import Optional, Sequence
+from typing import Literal, Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.grids.standard_grids.utils import unit_domain
+from porepy.applications.md_grids.domains import nd_cube_domain
 
 
 class ModelGeometry:
@@ -25,21 +25,36 @@ class ModelGeometry:
     """Well network."""
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
-    domain: pp.Domain
-    """Box-shaped domain. Set by the method :meth:`set_md_grid`."""
     nd: int
     """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
     units: pp.Units
     """Unit system."""
+    params: dict
+    """Parameters for the model."""
 
     def set_geometry(self) -> None:
-        """Define geometry and create a mixed-dimensional grid."""
-        # Create fracture network and mixed-dimensional grid
-        self.set_fracture_network()
-        self.set_md_grid()
+        """Define geometry and create a mixed-dimensional grid.
+
+        The default values provided in set_domain, set_fractures, grid_type and
+        meshing_arguments produce a 2d unit square domain with no fractures and a four
+        Cartesian cells.
+
+        """
+        # Create the geometry through domain amd fracture set.
+        self.set_domain()
+        self.set_fractures()
+        # Create a fracture network.
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+        # Create a mixed-dimensional grid.
+        self.mdg = pp.create_mdg(
+            self.grid_type(),
+            self.meshing_arguments(),
+            self.fracture_network,
+            **self.meshing_kwargs(),
+        )
         self.nd: int = self.mdg.dim_max()
 
-        # If fractures are present, it is advised to call
+        # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
         self.set_well_network()
@@ -49,13 +64,37 @@ class ModelGeometry:
             pp.compute_well_fracture_intersections(
                 self.well_network, self.fracture_network
             )
-            # Mesh fractures and add fracture + intersection grids to mixed-dimensional
+            # Mesh wells and add fracture + intersection grids to mixed-dimensional
             # grid along with these grids' new interfaces to fractures.
             self.well_network.mesh(self.mdg)
 
-    def set_fracture_network(self) -> None:
-        """Assign fracture network class."""
-        self.fracture_network = pp.create_fracture_network(None, unit_domain(2))
+    @property
+    def domain(self) -> pp.Domain:
+        """Domain of the problem."""
+        return self._domain
+
+    def set_domain(self) -> None:
+        """Set domain of the problem.
+
+        Defaults to a 2d unit square domain.
+        Override this method to define a geometry with a different domain.
+
+        """
+        size = 1 / self.units.m
+        self._domain = nd_cube_domain(2, size)
+
+    @property
+    def fractures(self) -> Union[list[pp.LineFracture], list[pp.PlaneFracture]]:
+        """List of fractures in the fracture network."""
+        return self._fractures
+
+    def set_fractures(self) -> None:
+        """Set fractures in the fracture network.
+
+        Override this method to define a geometry with fractures.
+
+        """
+        self._fractures: list = []
 
     def set_well_network(self) -> None:
         """Assign well network class."""
@@ -78,64 +117,38 @@ class ModelGeometry:
         else:
             raise ValueError("Unknown grid type.")
 
-    def mesh_arguments(self) -> dict:
-        """Mesh arguments for md-grid creation.
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
+        """Grid type for the mixed-dimensional grid.
 
         Returns:
-            Meshing arguments compatible with FractureNetwork.mesh() method.
+            Grid type for the mixed-dimensional grid.
 
         """
-        mesh_args: dict[str, float] = {
-            "mesh_size_frac": self.mesh_size(),  # Mesh size for fractures
-            "mesh_size_min": self.mesh_size() / 2,  # Minimum mesh size
-            "mesh_size_bound": self.mesh_size(),  # Mesh size for boundary
-        }
+        return self.params.get("grid_type", "cartesian")
+
+    def meshing_arguments(self) -> dict:
+        """Meshing arguments for md-grid creation.
+
+        Returns:
+            Meshing arguments compatible with
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
+
+        """
+        # Default value of 1/2, scaled by the length unit.
+        mesh_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
         return mesh_args
 
-    def mesh_size(self) -> float:
-        """Mesh size for md-grid creation.
+    def meshing_kwargs(self) -> dict:
+        """Keyword arguments for md-grid creation.
 
         Returns:
-            mesh_size: Mesh size for the mixed-dimensional grid.
+            Keyword arguments compatible with pp.create_mdg() method.
 
         """
-        return 1
-
-    def set_md_grid(self) -> None:
-        """Create the mixed-dimensional grid.
-
-        A unit square grid with no fractures is assigned by default if
-        self.fracture_network contains no fractures. Otherwise, the network's mesh
-        method is used.
-
-        The method assigns the following attributes to self:
-            mdg: The produced mixed-dimensional grid.
-            domain: The bounding box of the domain, defined through minimum and maximum
-                values in each dimension.
-
-        """
-
-        if self.fracture_network.num_frac() == 0:
-            # Length scale:
-            ls = 1 / self.units.m
-            # Mono-dimensional grid by default
-            phys_dims = np.array([1, 1]) * ls
-            n_cells = np.array([2, 2])
-            bounding_box = {
-                "xmin": 0,
-                "xmax": phys_dims[0] * ls,
-                "ymin": 0,
-                "ymax": phys_dims[1] * ls,
-            }
-            self.domain = pp.Domain(bounding_box)
-            g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
-            g.compute_geometry()
-            self.mdg = pp.meshing.subdomains_to_mdg([[g]])
-        else:
-            self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-            domain = self.fracture_network.domain
-            if domain is not None and domain.is_boxed:
-                self.domain = domain
+        meshing_kwargs = self.params.get("meshing_kwargs", None)
+        if meshing_kwargs is None:
+            meshing_kwargs = {}
+        return meshing_kwargs
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]

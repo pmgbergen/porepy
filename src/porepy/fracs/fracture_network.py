@@ -76,7 +76,7 @@ def create_fracture_network(
 
     """
 
-    # Interpret empty ``fractures`` list as None
+    # Interpret empty `fractures` list as None
     fracs: Optional[FractureList]
     if isinstance(fractures, list) and len(fractures) == 0:
         fracs = None

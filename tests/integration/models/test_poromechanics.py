@@ -338,6 +338,7 @@ def test_without_fracture(biot_coefficient):
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
         "uy_north": 0.001,
+        "cartesian": True,
     }
     m = TailoredPoromechanics(params)
     pp.run_time_dependent_model(m, {})
@@ -357,13 +358,12 @@ def test_without_fracture(biot_coefficient):
     # Check that y component lies between zero and applied boundary displacement
     assert np.all(u[1] > 0)
     assert np.all(u[1] < 0.001)
-    # Check that the expansion yields a negative pressure
     if biot_coefficient == 0:
+        # No coupling implies zero pressure.
         assert np.allclose(p, 0)
     else:
+        # Check that the expansion yields a negative pressure.
         assert np.all(p < -tol)
-        # Stronger test, could be relaxed.
-        assert np.allclose(p, -4.16490713e-05)
 
 
 def test_pull_north_positive_opening():

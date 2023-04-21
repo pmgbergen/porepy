@@ -509,28 +509,21 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
         height = self.params.get("height", 1.0)  # [m]
         return height * ls
 
-    def set_fracture_network(self) -> None:
+    def set_domain(self) -> None:
         """A fracture network without fractures."""
 
         # Define the domain
         domain = pp.Domain(
             {"xmin": 0, "xmax": self.height(), "ymin": 0, "ymax": self.height()}
         )
-        self.domain = domain
+        self._domain = domain
 
-        # Set the fracture network
-        self.fracture_network = pp.create_fracture_network(None, domain)
-
-    def set_md_grid(self) -> None:
-        """Create the mixed-dimensional grid based on two-dimensional Cartesian grid."""
-        self.mdg = pp.create_mdg(
-            grid_type="cartesian",
-            meshing_args={
-                "cell_size_x": self.height(),
-                "cell_size_y": self.height() / self.params.get("num_cells", 20),
-            },
-            fracture_network=self.fracture_network,
-        )
+    def meshing_arguments(self) -> dict:
+        meshing_args = {
+            "cell_size_x": self.height(),
+            "cell_size_y": self.height() / self.params.get("num_cells", 20),
+        }
+        return meshing_args
 
 
 # -----> Boundary conditions
