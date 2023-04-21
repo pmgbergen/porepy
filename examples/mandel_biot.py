@@ -1239,27 +1239,22 @@ class MandelGeometry(pp.ModelGeometry):
     params: dict
     """Simulation model parameters."""
 
-    def set_fracture_network(self) -> None:
-        """Set fracture network. Unit square with no fractures."""
+    def set_domain(self) -> None:
+        """Set the domain."""
         ls = 1 / self.units.m  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
-        self.domain = domain
-        self.fracture_network = pp.create_fracture_network(None, domain)
+        self._domain = domain
 
-    def mesh_arguments(self) -> dict:
-        """Set mesh arguments."""
+    def meshing_arguments(self) -> dict[str, float]:
+        """Set meshing arguments."""
         ls = 1 / self.units.m  # length scaling
-        default_mesh_arguments = {"cell_size": 2 * ls}
-        return self.params.get("mesh_arguments", default_mesh_arguments)
+        default_meshing_arguments = {"cell_size": 2 * ls}
+        return self.params.get("meshing_arguments", default_meshing_arguments)
 
-    def set_md_grid(self) -> None:
-        """Set mixed-dimensional grid."""
-        self.mdg = pp.create_mdg(
-            grid_type="simplex",
-            meshing_args=self.mesh_arguments(),
-            fracture_network=self.fracture_network,
-        )
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
+        """Set grid type."""
+        return "simplex"
 
 
 # -----> Boundary conditions
