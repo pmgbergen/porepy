@@ -129,43 +129,43 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     """
     desired_errors_2d = [
         {  # t = 0.2 [s]
-            'error_pressure': 0.25151427228540035,
-            'error_flux': 0.18937166702134517,
-            'error_displacement': 0.3956281463918882,
-            'error_force': 0.1637416678810283
+            "error_pressure": 0.25151427228540035,
+            "error_flux": 0.18937166702134517,
+            "error_displacement": 0.3956281463918882,
+            "error_force": 0.1637416678810283,
         },
         {  # t = 0.6 [s]
-            'error_pressure': 0.20290279871225786,
-            'error_flux': 0.10056084121234417,
-            'error_displacement': 0.39528317342334823,
-            'error_force': 0.1637838841316564
+            "error_pressure": 0.20290279871225786,
+            "error_flux": 0.10056084121234417,
+            "error_displacement": 0.39528317342334823,
+            "error_force": 0.1637838841316564,
         },
         {  # t = 1.0 [s]
-            'error_pressure': 0.19811215356951034,
-            'error_flux': 0.08909630991014847,
-            'error_displacement': 0.395212045815961,
-            'error_force': 0.16379246203974482
+            "error_pressure": 0.19811215356951034,
+            "error_flux": 0.08909630991014847,
+            "error_displacement": 0.395212045815961,
+            "error_force": 0.16379246203974482,
         },
     ]
 
     desired_errors_3d = [
         {  # t = 0.2 [s]
-            'error_pressure': 0.23464416339949817,
-            'error_flux': 0.14573171954165537,
-            'error_displacement': 0.44395391299204107,
-            'error_force': 0.22057090855970796,
+            "error_pressure": 0.23464416339949817,
+            "error_flux": 0.14573171954165537,
+            "error_displacement": 0.44395391299204107,
+            "error_force": 0.22057090855970796,
         },
         {  # t = 0.6 [s]
-            'error_pressure': 0.21400059478345512,
-            'error_flux': 0.10078528867796033,
-            'error_displacement': 0.44378245861976723,
-            'error_force': 0.2206023298079865,
+            "error_pressure": 0.21400059478345512,
+            "error_flux": 0.10078528867796033,
+            "error_displacement": 0.44378245861976723,
+            "error_force": 0.2206023298079865,
         },
         {  # t = 1.0 [s]
-            'error_pressure': 0.21212315258433265,
-            'error_flux': 0.09607668646680645,
-            'error_displacement': 0.4437474278712324,
-            'error_force': 0.2206087474332715,
+            "error_pressure": 0.21212315258433265,
+            "error_flux": 0.09607668646680645,
+            "error_displacement": 0.4437474278712324,
+            "error_force": 0.2206087474332715,
         },
     ]
 

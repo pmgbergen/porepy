@@ -53,7 +53,7 @@ References:
 """
 from __future__ import annotations
 
-from typing import Callable, Literal
+from typing import Callable
 
 import numpy as np
 import sympy as sym
@@ -527,4 +527,3 @@ class ManuPoroMechSetup3d(  # type: ignore[misc]
     Mixer class for the two-dimensional non-linear poromechanics verification setup.
 
     """
-
