@@ -89,7 +89,7 @@ class DiagnosticsMixin:
         grouping: GridGroupingType
         | Literal["dense", "subdomains", "interfaces"]
         | None = None,
-        default_handlers: tuple[Literal["cond", "max"], ...] = ("max",),
+        default_handlers: Sequence[Literal["cond", "max"]] = ("max",),
         additional_handlers: Optional[dict[str, SubmatrixHandlerType]] = None,
     ) -> DiagnosticsData:
         """Collects and plots diagnostics from the last assembled Jacobian matrix stored
@@ -175,6 +175,9 @@ class DiagnosticsMixin:
         grouping_: GridGroupingType = grouping  # type: ignore
 
         full_matrix: csr_matrix = self.linear_system[0]
+
+        # Validating default_handlers.
+        assert all(x in ("cond", "max") for x in default_handlers)
 
         # Listing all the handlers to be applied to the submatrices.
         active_handlers: dict[str, SubmatrixHandlerType] = additional_handlers.copy()
@@ -296,7 +299,7 @@ class DiagnosticsMixin:
 
     def _equations_data(
         self, grouping: GridGroupingType, add_grid_info: bool
-    ) -> tuple[dict[str, Any], ...]:
+    ) -> Sequence[dict[str, Any]]:
         """Collects the indices of equations presented in the Jacobian matrix as rows.
 
         Returns:
@@ -354,7 +357,7 @@ class DiagnosticsMixin:
 
     def _variable_data(
         self, grouping: GridGroupingType, add_grid_info: bool
-    ) -> tuple[dict[str, Any], ...]:
+    ) -> Sequence[dict[str, Any]]:
         """Collects the indices of variables presented in the Jacobian matrix as
         columns.
 
