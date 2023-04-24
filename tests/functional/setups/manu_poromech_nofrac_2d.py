@@ -49,7 +49,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Callable
 
 import numpy as np
 import sympy as sym
@@ -58,6 +58,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
+from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -610,20 +611,18 @@ class ManuPoroMechUtils(VerificationUtils):
 
 
 # -----> Geometry
-
-# TODO: Update after merging #860
-class UnitSquareGrid(pp.ModelGeometry):
+class UnitSquareGrid:
     """Class for setting up the geometry of the unit square domain."""
 
     params: dict
     """Simulation model parameters."""
 
     def set_domain(self) -> None:
-        """Set fracture network. Unit square with no fractures."""
-        self._domain = pp.Domain({"xmin": 0.0, "xmax": 1.0, "ymin": 0.0, "ymax": 1.0})
+        """Set domain."""
+        self._domain = nd_cube_domain(2, 1.0)
 
-    def meshing_arguments(self) -> dict:
-        """Set mesh arguments."""
+    def meshing_arguments(self) -> dict[str, float]:
+        """Set meshing arguments."""
         default_mesh_arguments = {"cell_size": 0.1}
         return self.params.get("meshing_arguments", default_mesh_arguments)
 
