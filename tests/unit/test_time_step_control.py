@@ -397,8 +397,8 @@ class TestTimeControl:
         """A warning should be raised if iterations is given and time step is constant"""
         time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10, constant_dt=True)
         iterations = 1
-        msg = msg = (
-            f"iterations '{iterations}' has no effect if time step is " "constant."
+        msg = (
+            f"iterations '{iterations}' has no effect if time step is constant."
         )
         with pytest.warns() as record:
             time_manager.compute_time_step(iterations=iterations)
