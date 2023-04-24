@@ -48,7 +48,7 @@ from tests.functional.setups.manu_flow_comp_2d_frac import (
     manu_comp_solid,
 )
 from tests.functional.setups.manu_flow_comp_3d_frac import ManuCompFlowSetup3d
-from tests.functional.utils.convergence_analysis import ConvergenceAnalysis
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests

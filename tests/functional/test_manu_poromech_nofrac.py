@@ -49,7 +49,7 @@ import pytest
 import porepy as pp
 from tests.functional.setups.manu_poromech_nofrac_2d import ManuPoroMechSetup2d
 from tests.functional.setups.manu_poromech_nofrac_3d import ManuPoroMechSetup3d
-from tests.functional.utils.convergence_analysis import ConvergenceAnalysis
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
