@@ -8,11 +8,10 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import product
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional, Sequence
 
 import matplotlib
 import numpy as np
-from matplotlib import pyplot as plt
 from scipy.sparse import csr_matrix, spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
@@ -90,8 +89,7 @@ class DiagnosticsMixin:
         grouping: GridGroupingType
         | Literal["dense", "subdomains", "interfaces"]
         | None = None,
-        is_plotting_condition_number: bool = False,
-        is_plotting_max: bool = True,
+        default_handlers: Sequence[Literal["cond", "max"]] = ("max",),
         additional_handlers: Optional[dict[str, SubmatrixHandlerType]] = None,
     ) -> DiagnosticsData:
         """Collects and plots diagnostics from the last assembled Jacobian matrix stored
@@ -113,11 +111,9 @@ class DiagnosticsMixin:
                 equation in general, when you are not interested in specific grids. Pass
                 `'subdomains'` or `'interfaces'` to investigate only subdomains or
                 interfaces respectively.
-            is_plotting_condition_number (optional): Whether to plot
-                the condition number. Caution - this might take time if the matrix
-                is big. Defaults to False.
-            is_plotting_max (optional): Whether to plot the absolute maximum.
-                This option is computationally cheap even for big matrices.
+            default_handlers (optional): A tuple containing default handler names.
+                Possible values are 'cond' to compute condition numbers and 'max' to
+                compute absolute maximum of blocks. Defaults to ('max',).
             additional_handlers (optional): A dictionary of additional functions to be
                 applied to the submatrices. The keys represent the name of the handler.
                 The values are the functions with the arguments: the matrix, the
@@ -178,27 +174,29 @@ class DiagnosticsMixin:
         # The type is checked one line earlier.
         grouping_: GridGroupingType = grouping  # type: ignore
 
+        full_matrix: csr_matrix = self.linear_system[0]
+
+        # Validating default_handlers.
+        assert all(x in ("cond", "max") for x in default_handlers)
+
         # Listing all the handlers to be applied to the submatrices.
         active_handlers: dict[str, SubmatrixHandlerType] = additional_handlers.copy()
-        if is_plotting_condition_number:
-            active_handlers["Block condition number"] = get_condition_number
-        if is_plotting_max:
-            active_handlers["Absolute maximum value"] = get_max
+        if "cond" in default_handlers:
+            active_handlers["cond"] = get_condition_number
+            if full_matrix.shape[0] > 1e5:
+                logger.warning(
+                    "Computing condition number might take significant time for "
+                    "big matrices. It is recommended to reduce the problem size or to "
+                    'use the option "max" only.'
+                )
+        if "max" in default_handlers:
+            active_handlers["max"] = get_max
 
-        full_matrix: csr_matrix = self.linear_system[0]
         if not _IS_SEABORN_AVAILABLE:
             logger.warning(
                 "Plotting the diagnostics image requires seaborn package."
                 ' Run "pip install seaborn". Falling back to text mode.'
             )
-
-        if is_plotting_condition_number and full_matrix.shape[0] > 1e5:
-            logger.warning(
-                "Computing condition number might take significant time for "
-                "big matrices. It is recommended to reduce the problem size or to use "
-                'the option "is_plotting_max" only.'
-            )
-
         # Determining the block indices and collecting the submatrices.
         equation_data = self._equations_data(
             grouping=grouping_, add_grid_info=add_grid_info
@@ -236,21 +234,6 @@ class DiagnosticsMixin:
                     block_data[i, j][handler_name] = handler(
                         submat, equation_name, variable_name
                     )
-
-        # Plotting the figures.
-        if is_plotting_condition_number:
-            self.plot_diagnostics(
-                block_data,
-                key="Block condition number",
-                norm=matplotlib.colors.LogNorm(vmin=1, vmax=1e3),
-            )
-            plt.show()
-        if is_plotting_max:
-            self.plot_diagnostics(
-                block_data,
-                key="Absolute maximum value",
-            )
-            plt.show()
 
         return block_data
 
@@ -316,7 +299,7 @@ class DiagnosticsMixin:
 
     def _equations_data(
         self, grouping: GridGroupingType, add_grid_info: bool
-    ) -> tuple[dict[str, Any], ...]:
+    ) -> Sequence[dict[str, Any]]:
         """Collects the indices of equations presented in the Jacobian matrix as rows.
 
         Returns:
@@ -374,7 +357,7 @@ class DiagnosticsMixin:
 
     def _variable_data(
         self, grouping: GridGroupingType, add_grid_info: bool
-    ) -> tuple[dict[str, Any], ...]:
+    ) -> Sequence[dict[str, Any]]:
         """Collects the indices of variables presented in the Jacobian matrix as
         columns.
 
@@ -459,7 +442,7 @@ class DiagnosticsMixin:
 
 
 def _format_ticks(
-    name: str, block_of_grids: list[GridLike], add_grid_info: bool
+    name: str, block_of_grids: Sequence[GridLike], add_grid_info: bool
 ) -> str:
     """Formats variable or equation name for printing.
 
