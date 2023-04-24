@@ -821,4 +821,3 @@ class ManuIncompFlowSetup2d(  # type: ignore[misc]
     """
     Mixer class for the 2d incompressible flow setup with a single fracture.
     """
-
