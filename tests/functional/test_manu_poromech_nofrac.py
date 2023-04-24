@@ -5,7 +5,7 @@ modeling the 2d and 3d flow in deformable porous media.
 The set of equations is non-linear, with the non-linearity entering through the
 dependency of the fluid density with the pressure as given in [1, 2]:
 
-..math::
+.. math::
 
     \\rho(p) = \\rho_0 * \\exp(c_f * (p - p_0)),
 
@@ -29,14 +29,14 @@ Tests:
 
 References:
 
-    - [1] Coussy, O. (2004). Poromechanics. John Wiley & Sons. ISO 690
+    [1] Coussy, O. (2004). Poromechanics. John Wiley & Sons. ISO 690
 
-    - [2] Garipov, T. T., & Hui, M. H. (2019). Discrete fracture modeling approach for
-    simulating coupled thermo-hydro-mechanical effects in fractured reservoirs.
-    International Journal of Rock Mechanics and Mining Sciences, 122, 104075.
+    [2] Garipov, T. T., & Hui, M. H. (2019). Discrete fracture modeling approach for
+      simulating coupled thermo-hydro-mechanical effects in fractured reservoirs.
+      International Journal of Rock Mechanics and Mining Sciences, 122, 104075.
 
-    - [3] Nordbotten, J. M. (2016). Stable cell-centered finite volume discretization
-    for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
+    [3] Nordbotten, J. M. (2016). Stable cell-centered finite volume discretization
+      for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
 
 """
 from __future__ import annotations
@@ -69,7 +69,7 @@ def material_constants() -> dict:
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
-# --> [TST-1] Relative L2-errors on Cartesian grid
+# --> [TEST_1] Relative L2-errors on Cartesian grid
 
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
@@ -82,12 +82,13 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     Returns:
         List of lists of dictionaries of actual relative errors. The outer list contains
         two items, the first contains the results for 2d and the second contains the
-        results for 3d. The inner lists contain three items each, with the dictionary of
-        results for the scheduled times, i.e., 0.2 [s],  0.6 [s], and 1.0 [s].
+        results for 3d. Both inner lists contain three items each, each of which is a
+        dictionary of results for the scheduled times, i.e., 0.2 [s], 0.6 [s], and
+        1.0 [s].
 
     """
 
-    # Define model parameters (same for 2d and 3d)
+    # Define model parameters (same for 2d and 3d).
     params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
@@ -96,14 +97,14 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
         "time_manager": pp.TimeManager([0, 0.2, 0.6, 1.0], 0.2, True),
     }
 
-    # Retrieve actual L2-relative errors
+    # Retrieve actual L2-relative errors.
     errors: list[list[dict[str, float]]] = []
-    # Loop through models, e.g., 2d and 3d
+    # Loop through models, i.e., 2d and 3d.
     for model in [ManuPoroMechSetup2d, ManuPoroMechSetup3d]:
-        setup = model(deepcopy(params))  # make deep copy of params to avoid nasty bugs
+        setup = model(deepcopy(params))  # Make deep copy of params to avoid nasty bugs.
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
-        # Loop through results, e.g., results for each scheduled time
+        # Loop through results, i.e., results for each scheduled time.
         for result in setup.results:
             errors_setup.append(
                 {
@@ -186,15 +187,15 @@ def test_relative_l2_errors_cartesian_grid(
 
     Note:
         Tests should pass as long as the `desired_error` matches the `actual_error`,
-        up to absolute (1e-6) and relative (1e-5) tolerances. The values for such
+        up to absolute (1e-8) and relative (1e-5) tolerances. The values for such
         tolerances aim at keeping the test meaningful while minimizing the chances of
         failure due to floating-point arithmetic.
 
         For this functional test, we are comparing errors for the pressure, fluxes,
         displacement, and forces. The errors are measured using the discrete relative
         L2-error norm. The desired errors were obtained by running the model using the
-        physical constants from :meth:`˜material_constants` on a Cartesian grid with
-        25 cells in 2d and 125 in 3d. We test the errors for three different times,
+        physical constants from :meth:`~material_constants` on a Cartesian grid with
+        16 cells in 2d and 64 in 3d. We test the errors for three different times,
         namely: 0.2 [s], 0.6[s], and 1.0 [s].
 
     Parameters:
@@ -213,7 +214,7 @@ def test_relative_l2_errors_cartesian_grid(
     np.testing.assert_allclose(
         actual_l2_errors[dim_idx][time_idx]["error_" + var],
         desired_l2_errors[dim_idx][time_idx]["error_" + var],
-        atol=1e-6,
+        atol=1e-8,
         rtol=1e-5,
     )
 
@@ -246,23 +247,23 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
 
     """
     ooc: list[list[dict[str, float]]] = []
-    # Loop through the models
+    # Loop through the models.
     for model_idx, model in enumerate([ManuPoroMechSetup2d, ManuPoroMechSetup3d]):
         ooc_setup: list[dict[str, float]] = []
-        # Loop through grid type
+        # Loop through grid type.
         for grid_type in ["cartesian", "simplex"]:
-            # We do not perform a convergence analysis with simplices in 3d
+            # We do not perform a convergence analysis with simplices in 3d.
             if model_idx == 1 and grid_type == "simplex":
                 continue
             else:
-                # Use same parameters for both 2d and 3d
+                # Use same parameters for both 2d and 3d.
                 params = {
                     "manufactured_solution": "nordbotten_2016",
                     "grid_type": grid_type,
                     "material_constants": material_constants,
                     "meshing_arguments": {"cell_size": 0.25},
                 }
-                # Use 4 levels of refinement for 2d and 3 levels for 3d
+                # Use 4 levels of refinement for 2d and 3 levels for 3d.
                 if model_idx == 0:
                     conv_analysis = ConvergenceAnalysis(
                         model_class=model,

@@ -80,12 +80,13 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     Returns:
         List of lists of dictionaries of actual relative errors. The outer list contains
         two items, the first contains the results for 2d and the second contains the
-        results for 3d. The inner lists contain three items each, with the dictionary of
-        results for the scheduled times, i.e., 0.2 [s],  0.8 [s], and 1.0 [s].
+        results for 3d. Both inner lists contain three items each, each of which is a
+        dictionary of results for the scheduled times, i.e., 0.2 [s], 0.8 [s], and
+        1.0 [s].
 
     """
 
-    # Define model parameters (same for 2d and 3d)
+    # Define model parameters (same for 2d and 3d).
     params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
@@ -93,14 +94,14 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
         "time_manager": pp.TimeManager([0, 0.2, 0.8, 1.0], 0.2, True),
     }
 
-    # Retrieve actual L2-relative errors
+    # Retrieve actual L2-relative errors.
     errors: list[list[dict[str, float]]] = []
-    # Loop through models, e.g., 2d and 3d
+    # Loop through models, i.e., 2d and 3d.
     for model in [ManuCompFlowSetup2d, ManuCompFlowSetup3d]:
-        setup = model(deepcopy(params))  # make deep copy of params to avoid nasty bugs
+        setup = model(deepcopy(params))  # Make deep copy of params to avoid nasty bugs.
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
-        # Loop through results, e.g., results for each scheduled time
+        # Loop through results, i.e., results for each scheduled time.
         for result in setup.results:
             errors_setup.append(
                 {
@@ -194,7 +195,7 @@ def test_relative_l2_errors_cartesian_grid(
 
     Note:
         Tests should pass as long as the `desired_error` matches the `actual_error`,
-        up to absolute (1e-6) and relative (1e-5) tolerances. The values for such
+        up to absolute (1e-8) and relative (1e-5) tolerances. The values for such
         tolerances aim at keeping the test meaningful while minimizing the chances of
         failure due to floating-point arithmetic.
 
@@ -202,7 +203,7 @@ def test_relative_l2_errors_cartesian_grid(
         matrix and in the fracture) and fluxes (in the matrix, in the fracture,
         and on the interfaces). The errors are measured using the discrete relative
         L2-error norm. The desired errors were obtained by running the model using the
-        physical constants from :meth:`˜material_constants` on a Cartesian grid with
+        physical constants from :meth:`~material_constants` on a Cartesian grid with
         64 cells in 2d and 512 in 3d. We test the errors for three different times,
         namely: 0.2 [s], 0.8 [s], and 1.0 [s].
 
@@ -222,7 +223,7 @@ def test_relative_l2_errors_cartesian_grid(
     np.testing.assert_allclose(
         actual_l2_errors[dim_idx][time_idx]["error_" + var],
         desired_l2_errors[dim_idx][time_idx]["error_" + var],
-        atol=1e-6,
+        atol=1e-8,
         rtol=1e-5,
     )
 
@@ -241,7 +242,8 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
         by a factor of `2` and the temporal step size is decreased by a factor of `4`
         between each run. We have to do this so that the temporal error does not become
         dominant when the grid is refined, i.e., since MPFA is quadratically convergent,
-        whereas Backward Euler is linearly convergent.
+        whereas Backward Euler is linearly convergent. We consider `4` levels of
+        refinement for 2d and `3` levels of refinement for 3d.
 
     Parameters:
         material_constants: Dictionary containing the material constants.
