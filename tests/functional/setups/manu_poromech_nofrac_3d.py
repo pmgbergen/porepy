@@ -59,10 +59,12 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
 from tests.functional.setups.manu_poromech_nofrac_2d import (
     ManuPoroMechSetup2d,
     ManuPoroMechSolutionStrategy2d,
 )
+
 
 # PorePy typings
 number = pp.number
@@ -473,21 +475,15 @@ class ManuPoroMechExactSolution3d:
 
 
 # -----> Geometry
-# Todo: Update after #860 is merged
-class UnitCubeGrid(pp.ModelGeometry):
-    """Class for setting up the geometry of the unit square domain."""
+class UnitCubeGrid:
+    """Class for setting up the geometry of the unit cube domain."""
 
     params: dict
     """Simulation model parameters."""
 
-    fracture_network: pp.FractureNetwork2d
-    """Fracture network. Empty in this case."""
-
     def set_domain(self) -> None:
         """Set fracture network. Unit square with no fractures."""
-        self._domain = pp.Domain(
-            {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        )
+        self._domain = nd_cube_domain(3, 1.0)
 
     def mesh_ingarguments(self) -> dict[str, float]:
         """Set meshing arguments."""

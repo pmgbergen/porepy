@@ -79,7 +79,7 @@ class ManuCompDataSaving(VerificationDataSaving):
 
     """
 
-    exact_sol: ManuCompressibleExactSolution2d
+    exact_sol: ManuCompExactSolution2d
     """Exact solution object."""
 
     interface_darcy_flux: Callable[
@@ -115,7 +115,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         sd_matrix: pp.Grid = self.mdg.subdomains()[0]
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
-        exact_sol: ManuCompressibleExactSolution2d = self.exact_sol
+        exact_sol: ManuCompExactSolution2d = self.exact_sol
         t: number = self.time_manager.time
 
         # Collect data
@@ -198,7 +198,7 @@ class ManuCompDataSaving(VerificationDataSaving):
 
 
 # -----> Exact solution
-class ManuCompressibleExactSolution2d:
+class ManuCompExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
@@ -715,7 +715,7 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
 
     """
 
-    exact_sol: ManuCompressibleExactSolution2d
+    exact_sol: ManuCompExactSolution2d
     """Exact solution object."""
 
     fluid: pp.FluidConstants
@@ -737,7 +737,7 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
         """Constructor of the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuCompressibleExactSolution2d
+        self.exact_sol: ManuCompExactSolution2d
         """Exact solution object."""
 
         self.results: list[ManuCompSaveData] = []
@@ -757,7 +757,7 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
         assert self.solid.normal_permeability() == 0.5
 
         # Instantiate exact solution object
-        self.exact_sol = ManuCompressibleExactSolution2d(self)
+        self.exact_sol = ManuCompExactSolution2d(self)
 
     def before_nonlinear_loop(self) -> None:
         """Update values of external sources and boundary conditions."""
@@ -842,6 +842,5 @@ class ManuCompFlowSetup2d(  # type: ignore[misc]
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
-    Mixer class for the compressible flow with a single fracture verification setup.
-
+    Mixer class for the 2d compressible flow setup with a single fracture.
     """

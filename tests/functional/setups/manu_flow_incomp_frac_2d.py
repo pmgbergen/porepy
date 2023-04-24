@@ -22,6 +22,7 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -623,11 +624,14 @@ class ManuIncompUtils(VerificationUtils):
 
 
 # -----> Geometry
-class SingleEmbeddedVerticalLineFracture(pp.ModelGeometry):
+class SingleEmbeddedVerticalLineFracture:
     """Generate fracture network and mixed-dimensional grid."""
 
     params: dict
-    """Simulation model parameters"""
+    """Simulation model parameters."""
+
+    grid_type: Callable[[], Literal["cartesian", "simplex", "tensor_grid"]]
+    """Type of grid."""
 
     def set_fractures(self) -> None:
         """Declare set of fractures.
@@ -652,7 +656,7 @@ class SingleEmbeddedVerticalLineFracture(pp.ModelGeometry):
 
     def set_domain(self) -> None:
         """Set domain."""
-        self._domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+        self._domain = nd_cube_domain(2, 1.0)
 
     def meshing_arguments(self) -> dict[str, float]:
         """Define mesh arguments for meshing."""
@@ -660,14 +664,10 @@ class SingleEmbeddedVerticalLineFracture(pp.ModelGeometry):
 
     def meshing_kwargs(self) -> dict:
         """Declare meshing constraints. Ignore fractures 1 and 2."""
-        kw_args = super().meshing_kwargs()
+        kw_args = {}
         if self.grid_type() == "simplex":
-            kw_args.update({"constraints": np.array([1, 2])})
+            kw_args = {"constraints": np.array([1, 2])}
         return kw_args
-
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        """Return grid type."""
-        return self.params.get("grid_type", "cartesian")
 
 
 # -----> Boundary conditions
@@ -819,6 +819,6 @@ class ManuIncompFlowSetup2d(  # type: ignore[misc]
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
-    Mixer class for the incompressible flow with a single fracture verification setup.
-
+    Mixer class for the 2d incompressible flow setup with a single fracture.
     """
+

@@ -14,7 +14,7 @@ References:
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Callable, Literal
 
 import numpy as np
 import sympy as sym
@@ -24,6 +24,7 @@ from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompFlowSetup2d,
     ManuIncompSolutionStrategy2d,
 )
+from porepy.applications.md_grids.domains import nd_cube_domain
 
 # PorePy typings
 number = pp.number
@@ -431,11 +432,14 @@ class ManuIncompExactSolution3d:
 
 
 # -----> Geometry
-class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
+class SingleEmbeddedVerticalPlaneFracture:
     """Generate fracture network and mixed-dimensional grid."""
 
     params: dict
-    """Simulation model parameters"""
+    """Simulation model parameters."""
+
+    grid_type: Callable[[], Literal["cartesian", "simplex", "tensor_grid"]]
+    """Type of grid."""
 
     def set_fractures(self) -> None:
         """Declare set of fractures.
@@ -709,9 +713,7 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
 
     def set_domain(self) -> None:
         """Set domain"""
-        self._domain = pp.Domain(
-            {"xmin": 0, "ymin": 0, "zmin": 0, "xmax": 1, "ymax": 1, "zmax": 1}
-        )
+        self._domain = nd_cube_domain(3, 1.0)
 
     def meshing_arguments(self) -> dict[str, float]:
         """Define mesh arguments for meshing."""
@@ -719,14 +721,10 @@ class SingleEmbeddedVerticalPlaneFracture(pp.ModelGeometry):
 
     def meshing_kwargs(self) -> dict:
         """Declare meshing constraints. Ignore ghost fractures 1 to 24."""
-        kw_args = super().meshing_kwargs()
+        kw_args = {}
         if self.grid_type() == "simplex":
             kw_args.update({"constraints": np.arange(1, 25)})
         return kw_args
-
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        """Set grid type."""
-        return self.params.get("grid_type", "cartesian")
 
 
 # -----> Solution strategy
@@ -758,5 +756,5 @@ class ManuIncompFlowSetup3d(  # type: ignore[misc]
     ManuIncompFlowSetup2d,
 ):
     """
-    Mixer class for the 2d incompressible flow setup with a single fracture.
+    Mixer class for the 3d incompressible flow setup with a single fracture.
     """
