@@ -7,7 +7,6 @@ The 2d manufactured solution is given in Appendix D.1 from [1]. The 3d manufactu
 solution is based on a slightly modified version of the solution given in Appendix D.2
 from [1] (i.e., the bubble function is scaled to obtain a better conditioned system).
 
-
 Tests:
 
     [TEST_1] Relative L2-error on Cartesian grids for primary and secondary variables
@@ -60,7 +59,7 @@ def material_constants() -> dict:
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
-# --> [TST-1] Relative L2-errors on Cartesian grid
+# --> [TEST_1] Relative L2-errors on Cartesian grid
 
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
@@ -72,11 +71,11 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
 
     Returns:
         List of dictionaries containing the actual relative L2-errors. The first item of
-        the list corresponds to the results for 2d, and the second item for 3d.
+        the list corresponds to the results for 2d, whereas the second for 3d.
 
     """
 
-    # Define model parameters
+    # Define model parameters (same for 2d and 3d).
     params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
@@ -85,7 +84,7 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
 
     # Retrieve actual L2-relative errors
     errors: list[dict[str, float]] = []
-    # Loop through models, e.g., 2d and 3d
+    # Loop through models, i.e., 2d and 3d
     for model in [ManuIncompFlowSetup2d, ManuIncompFlowSetup3d]:
         setup = model(deepcopy(params))  # make deep copy of params to avoid nasty bugs
         pp.run_time_dependent_model(setup, {})
@@ -147,7 +146,7 @@ def test_relative_l2_errors_cartesian_grid(
 
     Note:
         Tests should pass as long as the `desired_error` matches the `actual_error`,
-        up to absolute (1e-6) and relative (1e-5) tolerances. The values of such
+        up to absolute (1e-8) and relative (1e-5) tolerances. The values of such
         tolerances aim at keeping the test meaningful while minimizing the chances of
         failure due to floating-point arithmetic close to machine precision.
 
@@ -155,7 +154,7 @@ def test_relative_l2_errors_cartesian_grid(
         matrix and the fracture) and fluxes (for the matrix, the fracture, and on the
         interface). The errors are measured in a discrete relative L2-error norm. The
         desired errors were obtained by running the model using the physical constants
-        from :meth:`˜material_constants` on a Cartesian grid with 64 cells.
+        from :meth:`~material_constants` on a Cartesian grid with 64 cells.
 
     Parameters:
         dim_idx: Dimension index acting on `actual_l2_errors` and `desired_l2_errors`.
@@ -169,7 +168,7 @@ def test_relative_l2_errors_cartesian_grid(
     np.testing.assert_allclose(
         actual_l2_errors[dim_idx]["error_" + var],
         desired_l2_errors[dim_idx]["error_" + var],
-        atol=1e-6,
+        atol=1e-8,
         rtol=1e-5,
     )
 
@@ -192,9 +191,11 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
         material_constants: Dictionary containing the material constants.
 
     Returns:
-        List of dictionaries containing the actual observed order of convergence. The
-        first item corresponds to the results obtained with Cartesian grids, and the
-        second with simplices.
+        List of lists of dictionaries containing the actual observed order of
+        convergence. The outer list contains two items, the first contains the results
+        for 2d and the second for 3d. Each inner list contains the dictionaries with
+        the observed order of convergence obtained with Cartesian and simplicial grids
+        (only for 2d).
 
     """
     ooc: list[list[dict[str, float]]] = []
