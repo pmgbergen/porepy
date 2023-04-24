@@ -1,9 +1,11 @@
 """Module containing tests for the ConvergenceAnalysis class."""
+from __future__ import annotations
 
 import porepy as pp
 import numpy as np
 import pytest
 
+from copy import deepcopy
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 
 
@@ -59,7 +61,7 @@ def time_dependent_mock_model() -> 'TimeDependentMockModel':
     return TimeDependentMockModel
 
 
-class TestParameterInputsAndSanityChecks:
+class TestInitializationAndSanityChecks:
     """The following tests are written to check the sanity of the input parameters"""
 
     def test_instantiation_stationary(self, stationary_mock_model):
@@ -125,3 +127,33 @@ class TestParameterInputsAndSanityChecks:
                 spatial_refinement_rate=2,
             )
         assert msg in str(excinfo.value)
+
+    def test_list_of_meshing_arguments(self, stationary_mock_model):
+        """Test if the list of mesh sizes is correctly obtained."""
+        conv = ConvergenceAnalysis(
+            model_class=stationary_mock_model,
+            model_params={"meshing_arguments": {"cell_size": 0.2}},
+            levels=3,
+            spatial_refinement_rate=2,
+        )
+        known_cell_sizes = [0.2, 0.1, 0.05]
+        actual_cell_sizes: list[float] = []
+        for param in deepcopy(conv.model_params):
+            actual_cell_sizes.append(param["meshing_arguments"]["cell_size"])
+        np.testing.assert_array_almost_equal(known_cell_sizes, actual_cell_sizes)
+
+    def test_list_of_time_managers(self, time_dependent_mock_model):
+        """Test if the list of time managers is correctly obtained."""
+        conv = ConvergenceAnalysis(
+            model_class=time_dependent_mock_model,
+            model_params={"time_manager": pp.TimeManager([0, 1], 0.2, True)},
+            levels=4,
+            in_space=False,
+            in_time=True,
+            temporal_refinement_rate=4,
+        )
+        known_time_steps = [0.2, 0.05, 0.0125, 0.003125]
+        actual_time_steps: list[float] = []
+        for param in deepcopy(conv.model_params):
+            actual_time_steps.append(param["time_manager"].dt)
+        np.testing.assert_array_almost_equal(known_time_steps, actual_time_steps)
