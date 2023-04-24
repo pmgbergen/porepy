@@ -244,7 +244,7 @@ def network_2d_from_csv(
             file. Defaults to inclusion of all fractures.
         polyline: ``default=False``
 
-            Indicates if the fractures are given as a polyline, e.g., via format 2.
+            Indicates if the fractures are given as a polyline, i.e., via format 2.
         return_frac_id: ``default=False``
 
             Indicates whether to return the fracture IDs or not.
@@ -427,8 +427,7 @@ def dfm_3d_from_fab(
     return_domain: bool = False,
     **mesh_kwargs,
 ) -> Union[pp.MixedDimensionalGrid, tuple[pp.MixedDimensionalGrid, pp.Domain]]:
-    """Create the grid bucket from a set of 3d fractures stored in a fab file and
-    domain.
+    """Create the mdg from a set of 3d fractures stored in a fab file and domain.
 
     Parameters:
         file_name: Name of the file.
