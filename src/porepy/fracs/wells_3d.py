@@ -166,7 +166,7 @@ class Well:
 
         # If the well consists of only a few segments (5 here is somewhat randomly
         # chosen), list all the coordinates. If not, we limit the representation to
-        # (effectively) the bounding box.
+        # (effectively) the bounding box, which usually coincides with well endpoints.
         if self.num_points() < 5:
             s += "Coorditates of well points (x, y, z):\n"
             for i in range(self.num_points()):
