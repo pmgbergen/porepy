@@ -94,9 +94,9 @@ class BoundaryGrid(pp.Grid):
             A string representation of the boundary grid.
 
         """
-        s = f"Boundary grid of dimension {self.dim}\n"
-        s += f"ID of parent grid: {self._parent.id}\n"
-        s += f"{self.num_cells} cells.\n"
+        s = f"Boundary grid of dimension {self.dim} containing {self.num_cells}"
+        s += "cells.\n"
+        s += f"ID of parent grid: {self._parent.id}.\n"
         s += f"Dimension of the projection from the parent grid: {self._proj.shape}"
         return s
 
@@ -107,7 +107,7 @@ class BoundaryGrid(pp.Grid):
             A string representation of the boundary grid.
 
         """
-        s = f"Boundary grid of dimension {self.dim}\n"
+        s = f"Boundary grid of dimension {self.dim} containing {self.num_cells} "
+        s += f"cells.\n"
         s += f"ID of parent grid: {self._parent.id}\n"
-        s += f"{self.num_cells} cells."
         return s
