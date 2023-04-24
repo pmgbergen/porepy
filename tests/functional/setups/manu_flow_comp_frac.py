@@ -40,6 +40,7 @@ from tests.functional.setups.manu_flow_incomp_frac import (
     SingleEmbeddedVerticalFracture,
 )
 
+
 # PorePy typings
 number = pp.number
 grid = pp.GridLike

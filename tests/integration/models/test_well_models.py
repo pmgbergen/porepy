@@ -32,6 +32,7 @@ def test_run_models(base_model, num_wells):
         "material_constants": {"solid": solid},
         "fracture_indices": [2],
         "num_wells": num_wells,
+        "grid_type": "simplex",
     }
 
     class LocalThermoporomechanics(
@@ -53,22 +54,23 @@ class OneVerticalWell:
         self.well_network = pp.WellNetwork3d(
             wells=[pp.Well(points)],
             domain=self.domain,
-            parameters={"mesh_size": self.mesh_size()},
+            parameters={"mesh_size": 1 / 10 / self.units.m},
         )
 
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         # Length scale:
         ls = 1 / self.units.m
         h = 0.15 * ls
         mesh_sizes = {
-            "mesh_size_frac": h,
-            "mesh_size_bound": h,
-            "mesh_size_min": 0.2 * h,
+            "cell_size_fracture": h,
+            "cell_size_boundary": h,
+            "cell_size_min": 0.2 * h,
         }
+
         return mesh_sizes
 
-    def mesh_size(self) -> float:
-        return 0.01
+    def grid_type(self) -> str:
+        return "simplex"
 
 
 class BoundaryConditionsWellSetup(
@@ -197,7 +199,7 @@ class BoundaryConditionsWellSetup(
         """
         val = self.fluid.convert_units(
             self.params.get("well_enthalpy", 1e7), "kg * m ^ 3 * s ^ -1"
-        )  # * self.fluid.density() * self.fluid.specific_heat_capacity()
+        )
         return self._bc_values(subdomains, val, "bc_values_enthalpy")
 
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -319,7 +321,6 @@ def test_incompressible_pressure_values():
     assert np.isclose(np.min(fracture_pressure), min_p, rtol=1e-2)
     wells = setup.mdg.subdomains(dim=0)
     well_pressure = setup.pressure(wells).evaluate(setup.equation_system).val
-    print(well_pressure)
 
     # Check that the pressure drop from the well to the fracture is as expected The
     # Peacmann well model is: u = 2 * pi * k * h * (p_fracture - p_well) / ( ln(r_e /
@@ -377,6 +378,7 @@ def test_energy_conservation():
         # Use only the horizontal fracture of OrthogonalFractures3d
         "fracture_indices": [2],
         "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
+        "grid_type": "cartesian",
     }
 
     setup = THModel(params)
@@ -418,14 +420,12 @@ class Poromechanics(
     BoundaryConditionsWellSetup,
     pp.poromechanics.Poromechanics,
 ):
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         # Length scale:
         ls = 1 / self.units.m
         h = 0.5 * ls
         mesh_sizes = {
-            "mesh_size_frac": h,
-            "mesh_size_bound": h,
-            "mesh_size_min": 0.2 * h,
+            "cell_size": h,
         }
         return mesh_sizes
 
@@ -447,14 +447,12 @@ class Thermoporomechanics(
     BoundaryConditionsWellSetup,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
-    def mesh_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict:
         # Length scale:
         ls = 1 / self.units.m
         h = 0.5 * ls
         mesh_sizes = {
-            "mesh_size_frac": h,
-            "mesh_size_bound": h,
-            "mesh_size_min": 0.2 * h,
+            "cell_size": h,
         }
         return mesh_sizes
 
