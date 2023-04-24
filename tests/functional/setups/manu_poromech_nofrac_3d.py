@@ -65,7 +65,6 @@ from tests.functional.setups.manu_poromech_nofrac_2d import (
     ManuPoroMechSolutionStrategy2d,
 )
 
-
 # PorePy typings
 number = pp.number
 grid = pp.GridLike

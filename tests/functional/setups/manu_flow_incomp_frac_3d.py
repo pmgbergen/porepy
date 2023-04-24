@@ -20,11 +20,11 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompFlowSetup2d,
     ManuIncompSolutionStrategy2d,
 )
-from porepy.applications.md_grids.domains import nd_cube_domain
 
 # PorePy typings
 number = pp.number

@@ -42,13 +42,13 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_flow_comp_2d_frac import (
     ManuCompFlowSetup2d,
     manu_comp_fluid,
     manu_comp_solid,
 )
 from tests.functional.setups.manu_flow_comp_3d_frac import ManuCompFlowSetup3d
-from porepy.applications.convergence_analysis import ConvergenceAnalysis
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
@@ -279,9 +279,9 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                         model_params=deepcopy(params),
                         levels=4,
                         in_space=True,
-                        spatial_rate=2,
                         in_time=True,
-                        temporal_rate=4,
+                        spatial_refinement_rate=2,
+                        temporal_refinement_rate=4,
                     )
                 else:
                     conv_analysis = ConvergenceAnalysis(
@@ -289,9 +289,9 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                         model_params=deepcopy(params),
                         levels=3,
                         in_space=True,
-                        spatial_rate=2,
                         in_time=True,
-                        temporal_rate=4,
+                        spatial_refinement_rate=2,
+                        temporal_refinement_rate=4,
                     )
                 results = conv_analysis.run_analysis()
                 ooc_setup.append(conv_analysis.order_of_convergence(results))
