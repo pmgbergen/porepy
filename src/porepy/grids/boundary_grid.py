@@ -1,3 +1,8 @@
+"""This module contains a subclass of the standard grid class which represents the
+boundary of a domain in the form of a grid. The intention is to use this class to set
+boundary conditions in cases where constitutive laws are defined on the boundary.
+
+"""
 from typing import Optional
 
 import numpy as np
@@ -13,7 +18,8 @@ class BoundaryGrid(pp.Grid):
     parent which are on the boundary of the computational domain (i.e. those with tag
     'domain_boundary_faces' set to True).
 
-    The boundary grid is intended as a holder of boundary conditions only.
+    The boundary grid is intended for computing boundary conditions, e.g. when
+    constitutive laws must be evaluated on the boundary.
 
     Todo:
         The BoundaryGrid is not a full grid, and should not be used as such. The current
@@ -24,6 +30,9 @@ class BoundaryGrid(pp.Grid):
         when either a Grid or a BoundaryGrid can be used.
 
     Note:
+        The BoundaryGrid class is an experimental feature which is subject to major
+        changes, hereunder deletion.
+
         Boundary grids have a id counter, which is shared with the parent class Grid.
         This may confuse expectations of consecutive numbering of grids, if generation
         of standard grids is interleaved with generation of boundary grids.
@@ -68,7 +77,7 @@ class BoundaryGrid(pp.Grid):
         ).tocsr()
 
     @property
-    def projection(self):
+    def projection(self) -> sps.spmatrix:
         """Projection matrix from the parent grid to the boundary grid.
 
         The projection matrix is a sparse matrix,
@@ -77,3 +86,28 @@ class BoundaryGrid(pp.Grid):
 
         """
         return self._proj
+
+    def __repr__(self) -> str:
+        """Get a string representation of the boundary grid.
+
+        Returns:
+            A string representation of the boundary grid.
+
+        """
+        s = f"Boundary grid of dimension {self.dim} containing {self.num_cells}"
+        s += "cells.\n"
+        s += f"ID of parent grid: {self._parent.id}.\n"
+        s += f"Dimension of the projection from the parent grid: {self._proj.shape}"
+        return s
+
+    def __str__(self) -> str:
+        """Get a string representation of the boundary grid.
+
+        Returns:
+            A string representation of the boundary grid.
+
+        """
+        s = f"Boundary grid of dimension {self.dim} containing {self.num_cells} "
+        s += f"cells.\n"
+        s += f"ID of parent grid: {self._parent.id}\n"
+        return s
