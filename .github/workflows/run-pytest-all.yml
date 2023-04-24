@@ -1,43 +1,33 @@
-# Run static tests for code quality: Isort, black, flake8, mypy.
-
-name: Static tests
+# Run unit, integration, and functional tests (including skipped tests)
+name: Pytest (all tests)
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events for the main and develop branches
 on:
   workflow_dispatch:
     # run jobs manually
-  push:
-    branches:
-      - develop
-      - main
-  pull_request:
-    branches: 
-      - develop
-      - main
   schedule:
-    # Do a nightly run of the tests
-    - cron: '0 1 * * *'
+    # Do a weekly run of the tests (repeats every Sunday at 00:01)
+    - cron: '1 0 * * 0'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
   build:
-    name: Static tests
+    name: Pytest (all tests)
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        # Run the tests only on the latest supported Python version (currently 3.10).
-        python-version:  ["3.10"]
+        python-version:  ["3.10"]  # run only the last python version
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v3
     
     - name: Setup Python ${{ matrix.python-version}}
@@ -57,16 +47,17 @@ jobs:
         # Cache the full python environment, this is more efficient than just caching pip
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         path: ${{ env.pythonLocation }}
+        # Hash both ordinary requirements and those specific for developmnet.
         key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt', '**/requirements-dev.txt') }}
 
-    - name: Cache mypy
-      uses: actions/cache@v3
-      id: cache-mypy
-      with:
-        path: mypy-cache-${{ matrix.python-version}}
-        key: ${{ runner.os }}-mypy
+    - name: Install external libraries
+      run: |
+        # Various packages that must be installed 
+        # Install libffi v7. This was (seemed to be) necessary in Nov 2022. The reason could be that
+        # ubuntu-latest was updated, libffi was removed, and scipy complained.
+        sudo apt-get install libglu1-mesa libgeos-dev libffi7
+        export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
 
-    # Install the requirements. Mypy needs this to access stubs for numpy etc.
     - name: Install requirements
       run: |
         pip install -U pip
@@ -74,27 +65,22 @@ jobs:
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         pip install --upgrade --upgrade-strategy eager -r requirements.txt
 
-    # Install the requirements needed for development. This will give access to black,
-    # isort, mypy, and flake8
     - name: Install requirements-dev
       run: |
-        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt          
+        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt        
 
-    # Run black, isort, flake8, and mypy.
-    # Note that since these are static checks, we have not installed PorePy, nor its
-    # dependencies (except the development ones).
-    - name: black
-      if: ${{ always() }}
-      run: black --check src
+    - name: Install pypardiso
+      run: |
+        pip install pypardiso
 
-    - name: isort
+    - name: Install PorePy
+      run: |
+        pip install .
+        pip freeze       
+
+    - name: all tests
       if: ${{always()}}
-      run: isort --check src
+      run: pytest --run-skipped
 
-    - name: flake8
-      if: ${{ always() }}
-      run: flake8 src 
 
-    - name: mypy
-      if: ${{ always() }}
-      run: mypy src --cache-dir mypy-cache-${{ matrix.python-version}}
+

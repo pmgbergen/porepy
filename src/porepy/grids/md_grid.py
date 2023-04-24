@@ -290,17 +290,18 @@ class MixedDimensionalGrid:
                 interfaces.append(intf)
         return self.sort_interfaces(interfaces)
 
-    def subdomain_to_boundary_grid(self, sd: pp.Grid) -> pp.BoundaryGrid:
+    def subdomain_to_boundary_grid(self, sd: pp.Grid) -> Optional[pp.BoundaryGrid]:
         """Get the boundary grid associated with a subdomain.
 
         Parameters:
             sd: A subdomain in the mixed-dimensional grid.
 
         Returns:
-            The boundary grid associated with this subdomain.
+            The boundary grid associated with this subdomain. If ``sd`` is not on the
+            domain boundary, None is returned.
 
         """
-        return self._subdomain_boundary_grids[sd]
+        return self._subdomain_boundary_grids.get(sd, None)
 
     def neighboring_subdomains(
         self, sd: pp.Grid, only_higher: bool = False, only_lower: bool = False
@@ -650,7 +651,6 @@ class MixedDimensionalGrid:
         # refine the mortar grids when specified
         if intf_map is not None:
             for intf_old, intf_new in intf_map.items():
-
                 # Update the mortar grid. The update_mortar function in class MortarGrid
                 # performs the update in place, thus the mortar grid will not be
                 # modified in the mixed-dimensional grid itself (thus no changes to
@@ -665,7 +665,6 @@ class MixedDimensionalGrid:
         # update the mixed-dimensional considering the new grids instead of the old one.
         if sd_map is not None:
             for sd_old, sd_new in sd_map.items():
-
                 # Update the subdomain data
                 data = self._subdomain_data[sd_old]
                 self._subdomain_data[sd_new] = data

@@ -24,3 +24,4 @@ _Put an `x` in the boxes that apply or explain briefly why the box is not releva
 - [ ] Static typing is included in the update.
 - [ ] This PR does not duplicate existing functionality.
 - [ ] The update is covered by the test suite (including tests added in the PR).
+- [ ] If new skipped tests have been introduced in this PR, `pytest` was run with the `--run-skipped` flag.
