@@ -1,4 +1,16 @@
-"""Module containing a class for performing spatio-temporal convergence analysis."""
+"""Module containing a class for performing spatio-temporal convergence analysis.
+
+The class :class:`~ConvergenceAnalysis` takes a PorePy model and its parameter
+dictionary to run a batch of simulations with successively refined mesh sizes and time
+steps and collect the results (i.e., the data classes containing the errors) in a
+list using the :meth:`~run_analysis` method. Levels of refinement (in time and space)
+are given at instantiation.
+
+Useful methods of this class include: :meth:`~export_errors_to_txt` (that export the
+errors into a txt file) and :meth:`~order_of_convergence` which estimates the observed
+order of convergence of a given variable (e.g., pressure) via linear regression.
+
+"""
 from __future__ import annotations
 
 import warnings
@@ -12,13 +24,18 @@ import porepy as pp
 
 
 class ConvergenceAnalysis:
-    """Performing a convergence analysis on a model.
+    """Perform spatio-temporal convergence analysis on a given model.
 
-    Current support:
-        - Simplicial and Cartesian grids in 2d and 3d. Tensor grids are not supported.
-        - Static and time-dependent models.
-        - If the model is time-dependent, we assume that the ``TimeManager`` is
-          instantiated with a constant time step.
+    Note:
+        Current support of the class includes
+
+            - Simplicial and Cartesian grids in 2d and 3d. Tensor grids are not
+              supported.
+
+            - Static and time-dependent models.
+
+            - If the model is time-dependent, we assume that the ``TimeManager`` is
+              instantiated with a constant time step.
 
     Parameters:
         model_class: Model class for which the analysis will be performed.
