@@ -1,5 +1,5 @@
-"""This module contains utility functions and data for the composite submodule.
-The module is built around the assumptions made here.
+"""This module contains utility functions and data for the composite subpackage.
+The subpackage is built around the assumptions made here.
 
 """
 from __future__ import annotations
@@ -8,6 +8,7 @@ import abc
 from typing import Any
 
 import porepy as pp
+
 
 __all__ = [
     "R_IDEAL",
@@ -20,7 +21,7 @@ __all__ = [
     "CP_REF",
     "CV_REF",
     "MPa_kJ_SCALE",
-    "_safe_sum",
+    "safe_sum",
     "CompositionalSingleton",
     "COMPOSITIONAL_VARIABLE_SYMBOLS",
 ]
@@ -155,7 +156,7 @@ Warning:
 """
 
 
-def _safe_sum(x: tuple[Any]) -> Any:
+def safe_sum(x: tuple[Any]) -> Any:
     """Auxiliary method to safely sum the elements, without creating
     a first addition with 0 (important for AD operators to avoid overhead)."""
     if len(x) >= 1:

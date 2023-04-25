@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import porepy as pp
 
-from .._composite_utils import _safe_sum
+from ..composite_utils import safe_sum
 from ..phase import Phase
 from .pr_component import PR_Component
 from .pr_eos import PR_EoS
@@ -118,10 +118,10 @@ class PR_Phase(Phase):
                 self.fraction_of_component(comp).evaluate(self.ad_system)
                 for comp in self
             ]
-            X_sum = _safe_sum(X_)
+            X_sum = safe_sum(X_)
             X_ = [x / X_sum for x in X_]
 
-        h_ideal = _safe_sum([x * comp.h_ideal(p, T) for x, comp in zip(X_, self)])
+        h_ideal = safe_sum([x * comp.h_ideal(p, T) for x, comp in zip(X_, self)])
 
         return h_ideal + self.eos.h_dep
 

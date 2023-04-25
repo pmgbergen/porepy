@@ -11,10 +11,11 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._composite_utils import _safe_sum
+from .composite_utils import safe_sum
 from .mixture import Mixture
 from .peng_robinson.pr_utils import Leaf
 from .phase import Phase
+from .heuristics import K_val_Wilson
 
 # import time
 
@@ -368,12 +369,12 @@ class Flash:
 
             # regularization.append(_reg_smoother(_neg(v) / (nu + 1)))
 
-        dot_part = pp.ad.power(_pos(_safe_sum(dot_parts)), 2) * coeff
+        dot_part = pp.ad.power(_pos(safe_sum(dot_parts)), 2) * coeff
 
         f = (
             eta * nu
             + nu * nu
-            + (_safe_sum(norm_parts) + dot_part) / 2
+            + (safe_sum(norm_parts) + dot_part) / 2
             # + _safe_sum(regularization) * self._regularization_param.value
         )
         return f
@@ -567,7 +568,7 @@ class Flash:
 
     def flash(
         self,
-        flash_type: Literal["ph", "pT"] = "pT",
+        flash_type: Literal["pT", "ph"] = "pT",
         method: Literal["newton-min", "npipm"] = "npipm",
         initial_guess: Literal["iterate", "feed", "uniform", "rachford_rice"]
         | str = "iterate",
@@ -889,7 +890,7 @@ class Flash:
             W.append(w_e)
 
         # initial guess for nu is cell-wise scalar product between concatenated V and W
-        nu = _safe_sum([v * w for v, w in zip(V, W)])
+        nu = safe_sum([v * w for v, w in zip(V, W)])
         nu = nu / self._MIX.num_phases
         # nu[nu < 0] = 0
 
@@ -983,7 +984,7 @@ class Flash:
             for phase in phases:
                 for comp in self._MIX.components:
                     # normalize
-                    x_ce = composition[phase][comp] / _safe_sum(
+                    x_ce = composition[phase][comp] / safe_sum(
                         composition[phase].values()
                     )
                     # set values
@@ -1020,17 +1021,15 @@ class Flash:
 
             # Collects initial K values from Wilson's correlation
             K = [
-                comp.critical_pressure()
-                / pressure.val
-                * pp.ad.exp(
-                    5.37
-                    * (1 + comp.acentric_factor)
-                    * (1 - comp.critical_temperature() / temperature.val)
+                K_val_Wilson(
+                    pressure.val,
+                    comp.critical_pressure(),
+                    temperature.val,
+                    comp.critical_temperature(),
+                    comp.acentric_factor
                 )
-                + 1.0e-12
                 for comp in self._MIX.components
             ]
-            K = [np.power(K_i, 1.0 / 3.0) for K_i in K]
 
             def ResidualRR(Y, z_c, K):
                 res = np.zeros_like(Y)
@@ -1104,7 +1103,7 @@ class Flash:
                             composition[phase].update({comp: x_ce})
 
                 for phase in self._MIX.phases:
-                    total = _safe_sum(list(composition[phase].values()))
+                    total = safe_sum(list(composition[phase].values()))
                     for comp in self._MIX.components:
                         x_ce = composition[phase][comp] / total
                         composition[phase].update({comp: x_ce})

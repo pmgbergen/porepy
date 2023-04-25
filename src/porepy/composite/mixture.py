@@ -68,7 +68,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._composite_utils import COMPOSITIONAL_VARIABLE_SYMBOLS, _safe_sum
+from .composite_utils import COMPOSITIONAL_VARIABLE_SYMBOLS, safe_sum
 from .component import Component, Compound
 from .phase import Phase
 
@@ -455,7 +455,7 @@ class MixtureAD:
                 for phase in phases
             ]
         )
-        self.rho_mix = _safe_sum(
+        self.rho_mix = safe_sum(
             [
                 s * phase.density(self.p, self.T, *X[phase])
                 for s, phase in zip(S, phases)
@@ -474,7 +474,7 @@ class MixtureAD:
             phase_enthalpies.append(
                 y * phase.specific_enthalpy(self.p, self.T, *X[phase])
             )
-        self.h_mix = _safe_sum(phase_enthalpies)
+        self.h_mix = safe_sum(phase_enthalpies)
         self.h_mix.set_name("mixture-enthalpy-as-function")
         self.enthalpy_constraint = self.h - self.h_mix
         self.enthalpy_constraint.set_name("mixture-enthalpy-constraint")
@@ -710,17 +710,17 @@ class MixtureAD:
     @staticmethod
     def evaluate_unity(*x: tuple[Any]) -> Any:
         """Returns ``1 - sum(x)`` with 1 as a Python integer."""
-        return 1 - _safe_sum(x)
+        return 1 - safe_sum(x)
 
     @staticmethod
     def evaluate_mass_constraint(z: Any, y: list[Any], x: list[Any]) -> Any:
         """Returns ``z - sum(y*x)``."""
-        return z - _safe_sum([y_ * x_ for y_, x_ in zip(y, x)])
+        return z - safe_sum([y_ * x_ for y_, x_ in zip(y, x)])
 
     @staticmethod
     def evaluate_complementary_condtion(y: Any, x: list[Any]) -> Any:
         """Returns ``y * (1 - sum(x))`` with 1 as a Python integer."""
-        return y * (1 - _safe_sum(x))
+        return y * (1 - safe_sum(x))
 
     def get_compositional_state(
         self,
