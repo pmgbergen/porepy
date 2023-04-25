@@ -1,4 +1,12 @@
-"""Module containing tests for the ConvergenceAnalysis class."""
+"""Module containing tests for the ConvergenceAnalysis class.
+
+Tested functionality:
+    - Default parameters at instantiation and sanity checks.
+    - The `run_analysis()` method.
+    - The `order_of_convergence()` method.
+    - The `export_error_to_txt()` method.
+
+"""
 from __future__ import annotations
 
 import porepy as pp
@@ -14,16 +22,24 @@ from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 @pytest.fixture(scope="module")
 def stationary_mock_model() -> 'StationaryMockModel':
-    """Set a stationary mock model."""
+    """Set a stationary mock model.
 
+    Returns:
+        Stationary mock model.
+
+    """
     class StationaryMockModel:
-        """A mock model for unit-testing purposes."""
+        """A stationary mock model for unit-testing purposes.
+
+        Parameters:
+            params: Model parameters.
+
+        """
         def __init__(self, params: dict):
             self.params = params
 
-        def prepare_simulation(self):
-            """Prepare simulation by setting minimum required arguments."""
-            ...
+        def prepare_simulation(self) -> None:
+            """Prepare simulation. Nothing to do here."""
 
         def _is_time_dependent(self) -> bool:
             """Define whether the model is time-dependent."""
@@ -38,10 +54,19 @@ def stationary_mock_model() -> 'StationaryMockModel':
 
 @pytest.fixture(scope="module")
 def time_dependent_mock_model() -> 'TimeDependentMockModel':
-    """Set a stationary mock model."""
+    """Set a time-dependent mock model.
 
+    Returns:
+        Time-dependent mock model.
+
+    """
     class TimeDependentMockModel:
-        """A mock model for unit-testing purposes."""
+        """A time-dependent mock model for unit-testing purposes.
+
+        Parameters:
+            params: Model parameters.
+
+        """
         def __init__(self, params: dict):
             self.params = params
 
@@ -66,34 +91,56 @@ def time_dependent_mock_model() -> 'TimeDependentMockModel':
 
 @pytest.fixture(scope="module")
 def stationary_model() -> 'StationaryModel':
+    """Stationary flow model.
+
+    Returns:
+        Stationary flow model with default parameters.
+
+    """
     @dataclass
     class StationaryModelSaveData:
+        """Data class to store errors."""
 
         error_var_0: float
+        """Error associated to the variable 0."""
+
         error_var_1: float
+        """Error associated to the variable 1."""
 
     class StationaryModelDataSaving(VerificationDataSaving):
+        """Class that collects and store data."""
 
         def collect_data(self) -> StationaryModelSaveData:
+            """Collect and return data.
 
+            Returns:
+                Data class with attributes ``error_var_0`` and ``error_var_1``.
+
+            """
+            # First error is set as the inverse of the number of cells.
             error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
+
+            # Second error is set as the inverse of four times the number of cells.
             error_var_1 = 1 / (4 * self.mdg.subdomains()[0].num_cells)
-            collected_data = StationaryModelSaveData(
-                error_var_0=error_var_0,
-                error_var_1=error_var_1,
-            )
+
+            # Instantiate data class
+            collected_data = StationaryModelSaveData(error_var_0, error_var_1)
+
             return collected_data
 
     class StationaryModelSolutionStrategy(pp.SolutionStrategy):
+        """Solution strategy for the stationary flow model."""
 
         def __init__(self, params: dict):
             super().__init__(params)
             self.results: list[StationaryModelSaveData] = []
 
         def _is_nonlinear_problem(self) -> bool:
+            """Whether the model is non-linear."""
             return False
 
         def _is_time_dependent(self) -> bool:
+            """Whether the model is time-dependent."""
             return False
 
     class StationaryModel(
@@ -101,42 +148,67 @@ def stationary_model() -> 'StationaryModel':
         StationaryModelDataSaving,
         SinglePhaseFlow,
     ):
-        ...
+        """Mixer class for the stationary flow model."""
 
     return StationaryModel
 
 
 @pytest.fixture(scope="module")
 def time_dependent_model() -> 'TimeDependentModel':
+    """Time-dependent flow model.
 
+    Returns:
+        Time-dependent flow model with default parameters.
+
+    """
     @dataclass
     class TimeDependentModelSaveData:
+        """Collect and return data.
 
+        Returns:
+            Data class with attributes ``error_var_0`` and ``error_var_1``.
+
+        """
         error_var_0: float
+        """Error associated with the variable 0."""
+
         error_var_1: float
+        """Error associated with the variable 1."""
 
     class TimeDependentModelDataSaving(VerificationDataSaving):
+        """Class that collects and store data."""
 
         def collect_data(self) -> TimeDependentModelSaveData:
+            """Collect and return data.
 
+            Returns:
+                Data class with attributes ``error_var_0`` and ``error_var_1``.
+
+            """
+            # Spatial error is set as the inverse of the number of cells.
             error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
-            error_var_1 = 1 / (self.time_manager.dt)
-            collected_data = TimeDependentModelSaveData(
-                error_var_0=error_var_0,
-                error_var_1=error_var_1,
-            )
+
+            # Temporal error is set as the inverse of the time step.
+            error_var_1 = 1 / self.time_manager.dt
+
+            # Instantiate data class
+            collected_data = TimeDependentModelSaveData(error_var_0, error_var_1)
+
             return collected_data
 
     class TimeDependentModelSolutionStrategy(pp.SolutionStrategy):
+        """Solution strategy for the time-dependent flow model."""
 
         def __init__(self, params: dict):
             super().__init__(params)
             self.results: list[TimeDependentModelSaveData] = []
 
         def _is_nonlinear_problem(self) -> bool:
+            """Whether the problem is non-linear."""
             return True
 
         def _is_time_dependent(self) -> bool:
+            """Whether the problem is time-dependent."""
             return True
 
     class TimeDependentModel(
@@ -144,13 +216,13 @@ def time_dependent_model() -> 'TimeDependentModel':
         TimeDependentModelDataSaving,
         SinglePhaseFlow,
     ):
-        ...
+        """Mixer class for the time-dependent flow model."""
 
     return TimeDependentModel
 
 
 class TestInitializationAndSanityChecks:
-    """The following tests are written to check the sanity of the input parameters"""
+    """The following tests are written to check the sanity of the input parameters."""
 
     def test_instantiation_stationary(self, stationary_mock_model):
         """Test initialization of attributes for a stationary mock model."""
@@ -166,8 +238,8 @@ class TestInitializationAndSanityChecks:
 
     def test_raise_error_space_and_time_false(self, stationary_mock_model):
         """Test that an error is raised when 'in_space' and 'in_time' are False."""
+        msg = "At least one type of analysis should be performed."
         with pytest.raises(ValueError) as excinfo:
-            msg = "At least one type of analysis should be performed."
             ConvergenceAnalysis(
                 model_class=stationary_mock_model,
                 model_params={},
@@ -248,8 +320,10 @@ class TestInitializationAndSanityChecks:
 
 
 class TestRunAnalysis:
+    """Collection of tests to check that `run_analysis()` is working correctly."""
 
     def test_stationary_model(self, stationary_model):
+        """Check that successively refined stationary flow models are correctly run."""
         conv = ConvergenceAnalysis(
             model_class=stationary_model,
             model_params={},
@@ -263,6 +337,7 @@ class TestRunAnalysis:
         assert results[1].error_var_1 == 0.015625
 
     def test_time_dependent_model(self, time_dependent_model):
+        """Check that successively refined dynamic flow models are correctly run."""
         conv = ConvergenceAnalysis(
             model_class=time_dependent_model,
             model_params={},
@@ -278,5 +353,9 @@ class TestRunAnalysis:
         assert results[1].error_var_0 == 0.0625
         assert results[1].error_var_1 == 4.0
 
+
 class TestOrderOfConvergence:
+    ...
+
+class TestExportErrors:
     ...
