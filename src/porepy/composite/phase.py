@@ -14,12 +14,9 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .composite_utils import (
-    COMPOSITIONAL_VARIABLE_SYMBOLS,
-    CompositionalSingleton,
-    safe_sum,
-)
+from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS
 from .component import Component
+from .composite_utils import CompositionalSingleton, safe_sum
 
 
 class Phase(abc.ABC, metaclass=CompositionalSingleton):

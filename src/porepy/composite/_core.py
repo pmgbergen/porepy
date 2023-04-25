@@ -6,6 +6,10 @@ Changes here should be done with much care.
 """
 from __future__ import annotations
 
+import porepy as pp
+from porepy.numerics.ad.operator_functions import NumericType
+
+from .composite_utils import safe_sum
 
 MPa_kJ_SCALE = 1e3
 
@@ -135,3 +139,105 @@ Warning:
     variable using the symbols here.
 
 """
+
+
+def _rr_pole(i: int, y: list[NumericType], K: list[list[NumericType]]) -> NumericType:
+    """Calculates the i-th denominator in the Rachford-Rice equation.
+
+    With :math:`n_c` components, :math:`n_p` phases and :math:`R` the reference phase,
+    the i-th denominator is given by
+
+    .. math::
+
+        t_i(y) = 1 - (\\sum\\limits_{j\\neq R}(1 - K_{ij})y_j)
+
+    Parameters:
+        i: Index of component. Used to access values in ``K``.
+        y: ``len=(n_p-1)``
+
+            List of phase fractions, excluding the reference phase fraction
+        K: ``shape=(n_p, n_c)``
+
+            A matrix-like structure or nested list, containing the K-value for component
+            ``i`` in phase ``j`` by ``K[j][i]``.
+
+    Returns:
+        The expression for the denominator.
+
+    """
+    t = [(1 - K[j][i]) * y[j] for j in range(len(y))]
+
+    return 1 - safe_sum(t)
+
+
+def rachford_rice_equation(
+    j: int, z: list[NumericType], y: list[NumericType], K: list[list[NumericType]]
+) -> NumericType:
+    """Assembles and returns the residual of the j-th Rachford-Rice equations.
+
+    With :math:`n_c` components, :math:`n_p` phases and :math:`R` the reference phase,
+    the j-th equation is given by
+
+    .. math::
+
+        f_j(y) = \\sum\\limits_{i=1}^{n_c}
+        \\frac{(1-K_{ij})z_i}{1 - \\sum\\limits_{j\\neq R}(1 - K_{ij})y_j}
+
+    Parameters:
+        j: Index of phase. Used to access values in ``y`` and ``K``.
+        z: ``len=n_c``
+
+            List of overall component fractions
+        y: ``len=(n_p-1)``
+
+            List of phase fractions, excluding the reference phase fraction
+        K: ``shape=(n_p, n_c)``
+
+            A matrix-like structure or nested list, containing the K-value for component
+            ``i`` in phase ``j`` by ``K[j][i]``.
+
+    Returns:
+        The residual of the j-th Rachford-Rice equation.
+
+    """
+    assert len(y) >= 1, "No phase fractions given."
+    assert len(z) >= 1, "No overall component fractions given."
+
+    f = [(1 - K[j][i]) * z[i] / _rr_pole(i, y, K) for i in range(len(z))]
+
+    return safe_sum(f)
+
+
+def rachford_rice_potential(
+    z: list[NumericType], y: list[NumericType], K: list[list[NumericType]]
+) -> NumericType:
+    """Calculates the potential according to [1] for the j-th Rachford-Rice equation.
+
+    With :math:`n_c` components, :math:`n_p` phases and :math:`R` the reference phase,
+    the potential is given by
+
+    .. math::
+
+        F = \\sum\\limits_{i} -(z_i ln(1 - (\\sum\\limits_{j\\neq R}(1 - K_{ij})y_j)))
+
+    References:
+        [1] `Okuno and Sepehrnoori (2010) <https://doi.org/10.2118/117752-PA>`_
+
+    Parameters:
+        z: ``len=n_c``
+
+            List of overall component fractions
+        y: ``len=(n_p-1)``
+
+            List of phase fractions, excluding the reference phase fraction
+        K: ``shape=(n_p, n_c)``
+
+            A matrix-like structure or nested list, containing the K-value for component
+            ``i`` in phase ``j`` by ``K[j][i]``.
+
+    Returns:
+        The value of the potential based on above formula.
+
+    """
+    F = [-z[i] * pp.ad.log(pp.ad.abs(_rr_pole(i, y, K))) for i in range(len(z))]
+    return safe_sum(F)
