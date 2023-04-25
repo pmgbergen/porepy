@@ -33,7 +33,7 @@ from scipy import sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._composite_utils import COMPOSITIONAL_VARIABLE_SYMBOLS, CompositionalSingleton
+from .composite_utils import COMPOSITIONAL_VARIABLE_SYMBOLS, CompositionalSingleton
 
 
 class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):

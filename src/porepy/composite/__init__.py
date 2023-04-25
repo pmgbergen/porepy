@@ -30,13 +30,13 @@ References:
 
 __all__ = []
 
-from . import _composite_utils, flash, mixture, peng_robinson
-from ._composite_utils import *
+from . import composite_utils, flash, mixture, peng_robinson
+from .composite_utils import *
 from .flash import *
 from .mixture import *
 from .peng_robinson import *
 
-__all__.extend(_composite_utils.__all__)
+__all__.extend(composite_utils.__all__)
 __all__.extend(mixture.__all__)
 __all__.extend(flash.__all__)
 __all__.extend(peng_robinson.__all__)

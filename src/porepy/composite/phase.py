@@ -14,10 +14,10 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._composite_utils import (
+from .composite_utils import (
     COMPOSITIONAL_VARIABLE_SYMBOLS,
     CompositionalSingleton,
-    _safe_sum,
+    safe_sum,
 )
 from .component import Component
 
@@ -224,7 +224,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         """
         if component in self._composition:
             # normalization by division through fraction sum
-            norm_frac = self.fraction_of_component(component) / _safe_sum(
+            norm_frac = self.fraction_of_component(component) / safe_sum(
                 [self.fraction_of_component(comp) for comp in self]
             )
             norm_frac.set_name(
@@ -338,7 +338,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
                 self.fraction_of_component(comp).evaluate(self.ad_system)
                 for comp in self
             ]
-            normalization = _safe_sum(X_)
+            normalization = safe_sum(X_)
             X_ = tuple([x / normalization for x in X_])
             for component in self._composition:
                 weight += component.molar_mass() * X_[component]

@@ -10,7 +10,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .._composite_utils import R_IDEAL, MPa_kJ_SCALE
+from ..composite_utils import R_IDEAL, MPa_kJ_SCALE
 from .pr_component import PR_Component
 from .pr_mixing import VdW_a, VdW_b, VdW_dT_a, VdW_dXi_a
 from .pr_utils import A_CRIT, B_CRIT
