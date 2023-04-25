@@ -134,9 +134,8 @@ class ModelGeometry:
 
         """
         # Default value of 1/2, scaled by the length unit.
-        cell_size: float = self.params.get("cell_size", 0.5) / self.units.m
-        meshing_args: dict[str, float] = {"cell_size": cell_size}
-        return meshing_args
+        default_meshing_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
+        return self.params.get("meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
         """Keyword arguments for md-grid creation.
