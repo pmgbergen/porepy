@@ -20,7 +20,7 @@ from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def stationary_mock_model() -> 'StationaryMockModel':
     """Set a stationary mock model.
 
@@ -52,7 +52,7 @@ def stationary_mock_model() -> 'StationaryMockModel':
     return StationaryMockModel
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def time_dependent_mock_model() -> 'TimeDependentMockModel':
     """Set a time-dependent mock model.
 
@@ -87,138 +87,6 @@ def time_dependent_mock_model() -> 'TimeDependentMockModel':
             return self.params.get("meshing_arguments", {"cell_size": 1.0})
 
     return TimeDependentMockModel
-
-
-@pytest.fixture(scope="module")
-def stationary_model() -> 'StationaryModel':
-    """Stationary flow model.
-
-    Returns:
-        Stationary flow model with default parameters.
-
-    """
-    @dataclass
-    class StationaryModelSaveData:
-        """Data class to store errors."""
-
-        error_var_0: float
-        """Error associated to the variable 0."""
-
-        error_var_1: float
-        """Error associated to the variable 1."""
-
-    class StationaryModelDataSaving(VerificationDataSaving):
-        """Class that collects and store data."""
-
-        def collect_data(self) -> StationaryModelSaveData:
-            """Collect and return data.
-
-            Returns:
-                Data class with attributes ``error_var_0`` and ``error_var_1``.
-
-            """
-            # First error is set as the inverse of the number of cells.
-            error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
-
-            # Second error is set as the inverse of four times the number of cells.
-            error_var_1 = 1 / (4 * self.mdg.subdomains()[0].num_cells)
-
-            # Instantiate data class
-            collected_data = StationaryModelSaveData(error_var_0, error_var_1)
-
-            return collected_data
-
-    class StationaryModelSolutionStrategy(pp.SolutionStrategy):
-        """Solution strategy for the stationary flow model."""
-
-        def __init__(self, params: dict):
-            super().__init__(params)
-            self.results: list[StationaryModelSaveData] = []
-
-        def _is_nonlinear_problem(self) -> bool:
-            """Whether the model is non-linear."""
-            return False
-
-        def _is_time_dependent(self) -> bool:
-            """Whether the model is time-dependent."""
-            return False
-
-    class StationaryModel(
-        StationaryModelSolutionStrategy,
-        StationaryModelDataSaving,
-        SinglePhaseFlow,
-    ):
-        """Mixer class for the stationary flow model."""
-
-    return StationaryModel
-
-
-@pytest.fixture(scope="module")
-def time_dependent_model() -> 'TimeDependentModel':
-    """Time-dependent flow model.
-
-    Returns:
-        Time-dependent flow model with default parameters.
-
-    """
-    @dataclass
-    class TimeDependentModelSaveData:
-        """Collect and return data.
-
-        Returns:
-            Data class with attributes ``error_var_0`` and ``error_var_1``.
-
-        """
-        error_var_0: float
-        """Error associated with the variable 0."""
-
-        error_var_1: float
-        """Error associated with the variable 1."""
-
-    class TimeDependentModelDataSaving(VerificationDataSaving):
-        """Class that collects and store data."""
-
-        def collect_data(self) -> TimeDependentModelSaveData:
-            """Collect and return data.
-
-            Returns:
-                Data class with attributes ``error_var_0`` and ``error_var_1``.
-
-            """
-            # Spatial error is set as the inverse of the number of cells.
-            error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
-
-            # Temporal error is set as the inverse of the time step.
-            error_var_1 = 1 / self.time_manager.dt
-
-            # Instantiate data class
-            collected_data = TimeDependentModelSaveData(error_var_0, error_var_1)
-
-            return collected_data
-
-    class TimeDependentModelSolutionStrategy(pp.SolutionStrategy):
-        """Solution strategy for the time-dependent flow model."""
-
-        def __init__(self, params: dict):
-            super().__init__(params)
-            self.results: list[TimeDependentModelSaveData] = []
-
-        def _is_nonlinear_problem(self) -> bool:
-            """Whether the problem is non-linear."""
-            return True
-
-        def _is_time_dependent(self) -> bool:
-            """Whether the problem is time-dependent."""
-            return True
-
-    class TimeDependentModel(
-        TimeDependentModelSolutionStrategy,
-        TimeDependentModelDataSaving,
-        SinglePhaseFlow,
-    ):
-        """Mixer class for the time-dependent flow model."""
-
-    return TimeDependentModel
 
 
 class TestInitializationAndSanityChecks:
@@ -317,6 +185,138 @@ class TestInitializationAndSanityChecks:
         for param in deepcopy(conv.model_params):
             actual_time_steps.append(param["time_manager"].dt)
         np.testing.assert_array_almost_equal(known_time_steps, actual_time_steps)
+
+
+@pytest.fixture(scope="class")
+def stationary_model() -> 'StationaryModel':
+    """Stationary flow model.
+
+    Returns:
+        Stationary flow model with default parameters.
+
+    """
+    @dataclass
+    class StationaryModelSaveData:
+        """Data class to store errors."""
+
+        error_var_0: float
+        """Error associated to the variable 0."""
+
+        error_var_1: float
+        """Error associated to the variable 1."""
+
+    class StationaryModelDataSaving(VerificationDataSaving):
+        """Class that collects and store data."""
+
+        def collect_data(self) -> StationaryModelSaveData:
+            """Collect and return data.
+
+            Returns:
+                Data class with attributes ``error_var_0`` and ``error_var_1``.
+
+            """
+            # First error is set as the inverse of the number of cells.
+            error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
+
+            # Second error is set as the inverse of four times the number of cells.
+            error_var_1 = 1 / (4 * self.mdg.subdomains()[0].num_cells)
+
+            # Instantiate data class
+            collected_data = StationaryModelSaveData(error_var_0, error_var_1)
+
+            return collected_data
+
+    class StationaryModelSolutionStrategy(pp.SolutionStrategy):
+        """Solution strategy for the stationary flow model."""
+
+        def __init__(self, params: dict):
+            super().__init__(params)
+            self.results: list[StationaryModelSaveData] = []
+
+        def _is_nonlinear_problem(self) -> bool:
+            """Whether the model is non-linear."""
+            return False
+
+        def _is_time_dependent(self) -> bool:
+            """Whether the model is time-dependent."""
+            return False
+
+    class StationaryModel(
+        StationaryModelSolutionStrategy,
+        StationaryModelDataSaving,
+        SinglePhaseFlow,
+    ):
+        """Mixer class for the stationary flow model."""
+
+    return StationaryModel
+
+
+@pytest.fixture(scope="class")
+def time_dependent_model() -> 'TimeDependentModel':
+    """Time-dependent flow model.
+
+    Returns:
+        Time-dependent flow model with default parameters.
+
+    """
+    @dataclass
+    class TimeDependentModelSaveData:
+        """Collect and return data.
+
+        Returns:
+            Data class with attributes ``error_var_0`` and ``error_var_1``.
+
+        """
+        error_var_0: float
+        """Error associated with the variable 0."""
+
+        error_var_1: float
+        """Error associated with the variable 1."""
+
+    class TimeDependentModelDataSaving(VerificationDataSaving):
+        """Class that collects and store data."""
+
+        def collect_data(self) -> TimeDependentModelSaveData:
+            """Collect and return data.
+
+            Returns:
+                Data class with attributes ``error_var_0`` and ``error_var_1``.
+
+            """
+            # Spatial error is set as the inverse of the number of cells.
+            error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
+
+            # Temporal error is set as the inverse of the time step.
+            error_var_1 = 1 / self.time_manager.dt
+
+            # Instantiate data class
+            collected_data = TimeDependentModelSaveData(error_var_0, error_var_1)
+
+            return collected_data
+
+    class TimeDependentModelSolutionStrategy(pp.SolutionStrategy):
+        """Solution strategy for the time-dependent flow model."""
+
+        def __init__(self, params: dict):
+            super().__init__(params)
+            self.results: list[TimeDependentModelSaveData] = []
+
+        def _is_nonlinear_problem(self) -> bool:
+            """Whether the problem is non-linear."""
+            return True
+
+        def _is_time_dependent(self) -> bool:
+            """Whether the problem is time-dependent."""
+            return True
+
+    class TimeDependentModel(
+        TimeDependentModelSolutionStrategy,
+        TimeDependentModelDataSaving,
+        SinglePhaseFlow,
+    ):
+        """Mixer class for the time-dependent flow model."""
+
+    return TimeDependentModel
 
 
 class TestRunAnalysis:
