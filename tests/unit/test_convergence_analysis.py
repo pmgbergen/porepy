@@ -6,7 +6,10 @@ import numpy as np
 import pytest
 
 from copy import deepcopy
+from dataclasses import dataclass
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 
 @pytest.fixture(scope="module")
@@ -59,6 +62,91 @@ def time_dependent_mock_model() -> 'TimeDependentMockModel':
             return self.params.get("meshing_arguments", {"cell_size": 1.0})
 
     return TimeDependentMockModel
+
+
+@pytest.fixture(scope="module")
+def stationary_model() -> 'StationaryModel':
+    @dataclass
+    class StationaryModelSaveData:
+
+        error_var_0: float
+        error_var_1: float
+
+    class StationaryModelDataSaving(VerificationDataSaving):
+
+        def collect_data(self) -> StationaryModelSaveData:
+
+            error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
+            error_var_1 = 1 / (4 * self.mdg.subdomains()[0].num_cells)
+            collected_data = StationaryModelSaveData(
+                error_var_0=error_var_0,
+                error_var_1=error_var_1,
+            )
+            return collected_data
+
+    class StationaryModelSolutionStrategy(pp.SolutionStrategy):
+
+        def __init__(self, params: dict):
+            super().__init__(params)
+            self.results: list[StationaryModelSaveData] = []
+
+        def _is_nonlinear_problem(self) -> bool:
+            return False
+
+        def _is_time_dependent(self) -> bool:
+            return False
+
+    class StationaryModel(
+        StationaryModelSolutionStrategy,
+        StationaryModelDataSaving,
+        SinglePhaseFlow,
+    ):
+        ...
+
+    return StationaryModel
+
+
+@pytest.fixture(scope="module")
+def time_dependent_model() -> 'TimeDependentModel':
+
+    @dataclass
+    class TimeDependentModelSaveData:
+
+        error_var_0: float
+        error_var_1: float
+
+    class TimeDependentModelDataSaving(VerificationDataSaving):
+
+        def collect_data(self) -> TimeDependentModelSaveData:
+
+            error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
+            error_var_1 = 1 / (self.time_manager.dt)
+            collected_data = TimeDependentModelSaveData(
+                error_var_0=error_var_0,
+                error_var_1=error_var_1,
+            )
+            return collected_data
+
+    class TimeDependentModelSolutionStrategy(pp.SolutionStrategy):
+
+        def __init__(self, params: dict):
+            super().__init__(params)
+            self.results: list[TimeDependentModelSaveData] = []
+
+        def _is_nonlinear_problem(self) -> bool:
+            return True
+
+        def _is_time_dependent(self) -> bool:
+            return True
+
+    class TimeDependentModel(
+        TimeDependentModelSolutionStrategy,
+        TimeDependentModelDataSaving,
+        SinglePhaseFlow,
+    ):
+        ...
+
+    return TimeDependentModel
 
 
 class TestInitializationAndSanityChecks:
@@ -157,3 +245,38 @@ class TestInitializationAndSanityChecks:
         for param in deepcopy(conv.model_params):
             actual_time_steps.append(param["time_manager"].dt)
         np.testing.assert_array_almost_equal(known_time_steps, actual_time_steps)
+
+
+class TestRunAnalysis:
+
+    def test_stationary_model(self, stationary_model):
+        conv = ConvergenceAnalysis(
+            model_class=stationary_model,
+            model_params={},
+            levels=2,
+            spatial_refinement_rate=2,
+        )
+        results = conv.run_analysis()
+        assert results[0].error_var_0 == 0.25
+        assert results[0].error_var_1 == 0.0625
+        assert results[1].error_var_0 == 0.0625
+        assert results[1].error_var_1 == 0.015625
+
+    def test_time_dependent_model(self, time_dependent_model):
+        conv = ConvergenceAnalysis(
+            model_class=time_dependent_model,
+            model_params={},
+            levels=2,
+            in_space=True,
+            spatial_refinement_rate=2,
+            in_time=True,
+            temporal_refinement_rate=4,
+        )
+        results = conv.run_analysis()
+        assert results[0].error_var_0 == 0.25
+        assert results[0].error_var_1 == 1.0
+        assert results[1].error_var_0 == 0.0625
+        assert results[1].error_var_1 == 4.0
+
+class TestOrderOfConvergence:
+    ...
