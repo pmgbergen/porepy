@@ -205,8 +205,8 @@ class ConvergenceAnalysis:
         self,
         list_of_results: list,
         variables: Optional[list[str]] = None,
-        in_space=True,
-        in_time=False,
+        with_respect_to_space=True,
+        with_respect_to_time=False,
     ) -> dict[str, float]:
         """Compute order of convergence (OOC) for a given set of variables.
 
@@ -217,10 +217,12 @@ class ConvergenceAnalysis:
 
         Raises:
             ValueError
-                If both ``in_space`` and ``in_time`` are set to ``True``.
+                If both ``with_respect_to_space`` and ``with_respect_to_time``
+                are set to ``True``.
 
             ValueError
-                If both ``in_space`` and ``in_time`` are set to ``False``.
+                If both ``with_respect_to_space`` and ``with_respect_to_time``
+                are set to ``False``.
 
         Parameters:
             list_of_results: List containing the results of the convergence analysis.
@@ -231,11 +233,11 @@ class ConvergenceAnalysis:
                 ``item`` of the list must match the attribute ``"error_" + item`` from
                 each item from the ``list_of_results``. If not given, all attributes
                 starting with "error_" will be included in the analysis.
-            in_space: ``default=True``
+            with_respect_to_space: ``default=True``
 
                 Whether the OOC should be computed with respect to the inverse
                 of the cell diameter.
-            in_time: ``default=False``
+            with_respect_to_time: ``default=False``
 
                 Whether the OOC should be computed with respect to the inverse of the
                 time step size.
@@ -247,14 +249,18 @@ class ConvergenceAnalysis:
 
         """
         # Sanity checks
-        if in_space and in_time:
-            raise ValueError("Both 'in_space' and 'in_time' cannot be True.")
+        if with_respect_to_space and with_respect_to_time:
+            msg = "Both 'with_respect_to_space' and 'with_respect_to_space'"
+            msg += " cannot be True."
+            raise ValueError(msg)
 
-        if not in_space and not in_time:
-            raise ValueError("Expected either 'in_space' or 'in_time' to be True.")
+        if not with_respect_to_space and not with_respect_to_time:
+            msg = "Expected either 'with_respect_to_space' or 'with_respect_to_space'"
+            msg += " to be True."
+            raise ValueError(msg)
 
         # Obtain x-values
-        if in_space:
+        if with_respect_to_space:
             cell_diameters = np.array(
                 [result.cell_diameter for result in list_of_results]
             )
@@ -288,7 +294,7 @@ class ConvergenceAnalysis:
             for result in list_of_results:
                 y_val.append(getattr(result, name))
             # Append to the `y_vals` list, using the right log base
-            if in_space:
+            if with_respect_to_space:
                 y_vals.append(self.log_space(np.array(y_val)))
             else:
                 y_vals.append(self.log_time(np.array(y_val)))
