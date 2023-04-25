@@ -9,7 +9,7 @@ import abc
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ..composite_utils import R_IDEAL
+from .._core import R_IDEAL
 from ..component import Component, Compound
 from .pr_utils import A_CRIT, B_CRIT
 

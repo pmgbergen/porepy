@@ -5,7 +5,7 @@ from __future__ import annotations
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ..composite_utils import R_IDEAL, T_REF
+from .._core import R_IDEAL, T_REF
 from ..component import PseudoComponent
 from .pr_component import PR_Component, PR_Compound
 

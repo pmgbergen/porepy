@@ -68,8 +68,9 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .composite_utils import COMPOSITIONAL_VARIABLE_SYMBOLS, safe_sum
+from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS
 from .component import Component, Compound
+from .composite_utils import safe_sum
 from .phase import Phase
 
 __all__ = ["Mixture", "MixtureAD"]

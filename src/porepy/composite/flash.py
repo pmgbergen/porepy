@@ -11,11 +11,12 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
+from ._core import rachford_rice_equation, rachford_rice_potential
 from .composite_utils import safe_sum
+from .heuristics import K_val_Wilson
 from .mixture import Mixture
 from .peng_robinson.pr_utils import Leaf
 from .phase import Phase
-from .heuristics import K_val_Wilson
 
 # import time
 
@@ -1026,7 +1027,7 @@ class Flash:
                     comp.critical_pressure(),
                     temperature.val,
                     comp.critical_temperature(),
-                    comp.acentric_factor
+                    comp.acentric_factor,
                 )
                 for comp in self._MIX.components
             ]
