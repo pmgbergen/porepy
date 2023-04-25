@@ -125,8 +125,8 @@ class ModelGeometry:
         """
         return self.params.get("grid_type", "cartesian")
 
-    def meshing_arguments(self) -> dict:
-        """Meshing arguments for md-grid creation.
+    def meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for mixed-dimensional grid generation.
 
         Returns:
             Meshing arguments compatible with
@@ -134,8 +134,8 @@ class ModelGeometry:
 
         """
         # Default value of 1/2, scaled by the length unit.
-        mesh_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
-        return mesh_args
+        default_meshing_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
+        return self.params.get("meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
         """Keyword arguments for md-grid creation.
