@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import warnings
 from copy import deepcopy
-from typing import Optional, Union
+from typing import Optional, Type, Union
 
 import numpy as np
 from scipy import stats
@@ -20,10 +20,11 @@ class ConvergenceAnalysis:
     a list using the :meth:`~run_analysis` method. Levels of refinement (in time and
     space) are given at instantiation.
 
-    Useful methods of this class include: :meth:`~export_errors_to_txt` (that export the
-    errors into a ``txt`` file) and :meth:`~order_of_convergence` which estimates the
-    observed order of convergence of a given variable (e.g., pressure) via linear
-    regression.
+    Useful methods of this class include
+
+        - :meth:`~export_errors_to_txt`: Exports errors into a ``txt`` file.
+        - :meth:`~order_of_convergence`: Estimates the observed order of convergence
+          of a given set of variables using linear regression.
 
     Note:
         Current support of the class includes
@@ -200,6 +201,86 @@ class ConvergenceAnalysis:
 
             convergence_results.append(setup.results[-1])
         return convergence_results
+
+    def export_errors_to_txt(
+        self,
+        list_of_results: list,
+        variables_to_export: Optional[list[str]] = None,
+        file_name="error_analysis.txt",
+    ) -> None:
+        """Write errors into a ``txt`` file.
+
+        The format is the following one:
+
+            - First column contains the cell diameters.
+            - Second column contains the time steps (if the model is time-dependent).
+            - The rest of the columns contain the errors for each variable in
+              ``variables``.
+
+        Parameters:
+            list_of_results: List containing the results of the convergence analysis.
+                Typically, the output of :meth:`~run_analysis`.
+            variables_to_export: names of the variables for which the TXT file will be
+                generated. If ``variables`` is not given, all the variables present
+                in the txt file will be collected.
+            file_name: Name of the output file. Default is "error_analysis.txt".
+
+        """
+        cell_diameters = np.array([result.cell_diam for result in list_of_results])
+        if self._is_time_dependent:
+            time_steps = np.array([result.dt for result in list_of_results])
+            non_vars = 2  # number of variables to be exported that are not errors
+        else:
+            time_steps = None
+            non_vars = 1
+
+        # Get variable names
+        if variables_to_export is None:
+            # Retrieve all attributes from the data class
+            attributes: list[str] = list(vars(list_of_results[0]).keys())
+            # Filter all attributes with the prefix ``error_``
+            var_names: list[str] = [
+                attr for attr in attributes if attr.startswith("error_")
+            ]
+        else:
+            var_names = [attr for attr in variables_to_export]
+
+        # Obtain errors
+        var_errors: list[np.ndarray] = []
+        for name in var_names:
+            var_error: list[float] = []
+            # Loop over lists of results
+            for result in list_of_results:
+                var_error.append(getattr(result, name))
+            # Append to the ``var_errors`` list
+            var_errors.append(np.array(var_error))
+
+        # Initialize export table
+        data_type: list[tuple[str, Type[float]]] = []
+        for idx in range(non_vars + len(var_names)):
+            data_type.append((f"var{idx}", float))
+        export = np.zeros(self.levels, dtype=data_type)
+
+        # Fill out the table
+        export["var0"] = cell_diameters
+        if non_vars == 2:
+            export["var1"] = time_steps
+        for idx, errors in zip(range(len(var_names)), var_errors):
+            export[f"var{idx + non_vars}"] = errors
+
+        # String format
+        fmt = "%2.2e " * (non_vars + len(var_names))
+        fmt.rstrip(" ")  # strip one space
+
+        # Headers
+        header = "cell_diameter"
+        if non_vars == 2:
+            header += " time_step"
+        for var_name in var_names:
+            header += " " + var_name
+
+        # Write into txt
+        np.savetxt(fname=file_name, X=export, header=header, fmt=fmt)  # type: ignore
 
     def order_of_convergence(
         self,
