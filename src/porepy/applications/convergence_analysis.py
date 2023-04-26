@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import warnings
 from copy import deepcopy
-from typing import Optional, Type, Union
+from typing import Literal, Optional, Type, Union
 
 import numpy as np
 from scipy import stats
@@ -286,24 +286,19 @@ class ConvergenceAnalysis:
         self,
         list_of_results: list,
         variables: Optional[list[str]] = None,
-        with_respect_to_space=True,
-        with_respect_to_time=False,
+        x_axis: Literal["cell_diameter", "time_step"] = "cell_diameter",
+        base_log_x_axis: int = 2,
+        base_log_y_axis: int = 2,
     ) -> dict[str, float]:
         """Compute order of convergence (OOC) for a given set of variables.
 
         Note:
-            The OOC is obtained by fitting a line where the y-values are
-            ``log_space(error)`` (or ``log_time(error)) and the x-values are
-            ``log_space(1 / cell_diameters)`` (or ``log_time(dt)``).
+            The OOC is computed by fitting a line for log_{base_log_y_axis}(error)
+            vs. log_{base_log_x_axis}(x_axis).
 
         Raises:
             ValueError
-                If both ``with_respect_to_space`` and ``with_respect_to_time``
-                are set to ``True``.
-
-            ValueError
-                If both ``with_respect_to_space`` and ``with_respect_to_time``
-                are set to ``False``.
+                If ``x_axis`` is ``"time_step"`` and the model is stationary.
 
         Parameters:
             list_of_results: List containing the results of the convergence analysis.
@@ -314,43 +309,37 @@ class ConvergenceAnalysis:
                 ``item`` of the list must match the attribute ``"error_" + item`` from
                 each item from the ``list_of_results``. If not given, all attributes
                 starting with "error_" will be included in the analysis.
-            with_respect_to_space: ``default=True``
+            x_axis: ``default=cell_diameter``
 
-                Whether the OOC should be computed with respect to the inverse
-                of the cell diameter.
-            with_respect_to_time: ``default=False``
+                Type of data in the x-axis used to compute the OOC.
+            base_log_x_axis: ``default=2``
 
-                Whether the OOC should be computed with respect to the inverse of the
-                time step size.
+                Base of the logarithm for the data in the x-axis.
+            base_log_y_axis: ``default=2``
+
+                Base of the logarithm for the data in the y-axis.
 
         Returns:
-            Dictionary with ``var`` as keys and ``ooc`` as values, where ``var: str``
-            is the name of the variable (without the prefix 'error_') and ``ooc:
-            float`` is the estimated OOC obtained via linear regression.
+            Dictionary containing the OOC for the given variables.
 
         """
-        # Sanity checks
-        if with_respect_to_space and with_respect_to_time:
-            msg = "Both 'with_respect_to_space' and 'with_respect_to_space'"
-            msg += " cannot be True."
+        # Sanity check
+        if x_axis == "time_step" and not self._is_time_dependent:
+            msg = "Order of convergence cannot be estimated as a function of the time "
+            msg += "step for a stationary model."
             raise ValueError(msg)
 
-        if not with_respect_to_space and not with_respect_to_time:
-            msg = "Expected either 'with_respect_to_space' or 'with_respect_to_space'"
-            msg += " to be True."
-            raise ValueError(msg)
-
-        # Obtain x-values
-        if with_respect_to_space:
-            cell_diameters = np.array(
-                [result.cell_diameter for result in list_of_results]
-            )
-            # Invert and apply logarithm in space
-            x_vals = self.log_space(1 / cell_diameters)
+        # Get x-data
+        if x_axis == "cell_diameter":
+            x_data = np.array([result.cell_diameter for result in list_of_results])
+        elif x_axis == "time_step":
+            x_data = np.array([result.dt for result in list_of_results])
         else:
-            time_steps = np.array([result.dt for result in list_of_results])
-            # Invert and apply logarithm in time
-            x_vals = self.log_time(1 / time_steps)
+            msg = "'x_axis' must be either 'cell_diameter' or 'time_step'."
+            raise NotImplementedError(msg)
+
+        # Apply logarithm to x_data
+        x_vals = np.emath.logn(base_log_x_axis, x_data)
 
         # Get variable names and labels
         if variables is None:
@@ -365,7 +354,7 @@ class ConvergenceAnalysis:
         else:
             # Not much to do here, since the user gives the variables that should be
             # retrieved
-            names = ["error_" + attr for attr in variables]
+            names = [attr for attr in variables]
 
         # Obtain y-values
         y_vals: list[np.ndarray] = []
@@ -374,52 +363,20 @@ class ConvergenceAnalysis:
             # Loop over lists of results
             for result in list_of_results:
                 y_val.append(getattr(result, name))
-            # Append to the `y_vals` list, using the right log base
-            if with_respect_to_space:
-                y_vals.append(self.log_space(np.array(y_val)))
-            else:
-                y_vals.append(self.log_time(np.array(y_val)))
+            y_vals.append(np.emath.logn(base_log_y_axis, np.array(y_val)))
 
         # Perform linear regression and populate the return dictionary
         # Keywords of the dictionary will have the prefix "ooc_" before the `name`
-        # Note that since we are determining the order of convergence based on the
-        # inverse of the cell diameter (or time step), the values of OOC will
-        # correspond to the negative of the slope of the fitted line
         ooc_dict: dict[str, float] = {}
         for idx, name in enumerate(names):
             slope, *_ = stats.linregress(x_vals, y_vals[idx])
-            ooc_name = "ooc_" + name.lstrip("error_")
-            ooc_val = -slope
+            ooc_name = "ooc_" + name.lstrip("error_")  # strip the prefix "error_"
+            ooc_val = slope
             ooc_dict[ooc_name] = ooc_val
 
         return ooc_dict
 
     # -----> Helper methods
-    def log_space(self, array: np.ndarray) -> np.ndarray:
-        """Spatial logarithm. The base corresponds to the spatial refinement rate.
-
-        Parameters:
-            array: Numpy array to which the logarithm should be applied.
-
-        Returns:
-            Spatial logarithm of ``array``.
-
-        """
-        return np.emath.logn(self.spatial_refinement_rate, array)
-
-    def log_time(self, array: np.ndarray) -> np.ndarray:
-        """Temporal logarithm. The base corresponds to the temporal refinement rate.
-
-        Parameters:
-            array: Numpy array to which the logarithm should be applied.
-
-        Returns:
-            Temporal logarithm of ``array``.
-
-        """
-        return np.emath.logn(self.temporal_refinement_rate, array)
-
-    # -----> Getter methods
     def _get_list_of_meshing_arguments(self) -> list[dict[str, float]]:
         """Obtain list of meshing arguments dictionaries.
 
