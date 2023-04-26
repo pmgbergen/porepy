@@ -8,7 +8,6 @@ numpy
 requests
 scipy
 shapely
-shapely[vectorized]
 six
 sympy
 typing_extensions
