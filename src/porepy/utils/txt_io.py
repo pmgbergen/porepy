@@ -17,7 +17,7 @@ class TxtData:
     array: np.ndarray
     """Value of the data."""
 
-    format: str = "%.6e"
+    format: str = "%2.2e"
     """Format of the array values to be included in the txt file."""
 
 
@@ -65,3 +65,32 @@ def export_data_to_txt(
 
     # Write into the file
     np.savetxt(fname=file_name, X=export, header=header, fmt=fmt)  # type: ignore
+
+
+def read_data_from_txt(file_name: str) -> dict[str, np.ndarray]:
+    """Read data from a txt file.
+
+    Parameters:
+        file_name: Name of the file that should be read. It must end with ``.txt``.
+
+    Returns:
+        Dictionary containing the read data.
+
+    """
+    # Open file and retrieve the header
+    with open(file_name) as f:
+        lines = f.readlines()
+    header = lines[0]
+    header = header.lstrip("# ")
+    header = header.rstrip("\n")
+
+    # Get all variable names
+    names = header.split()
+    values = np.loadtxt(fname=file_name, dtype=np.float64, unpack=True)
+
+    # Prepare to return
+    read_data: dict[str, np.ndarray] = {}
+    for name, val in zip(names, values):
+        read_data[name] = val
+
+    return read_data
