@@ -118,8 +118,10 @@ def test_total_flux_no_gravity(ad):
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
 
+    dynamic_viscosity = 1
+
     qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad
+        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad, dynamic_viscosity
     )
     qt_internal = qt_internal[0] + qt_internal[1]
 
@@ -175,8 +177,9 @@ def test_total_flux_no_pressure(ad):
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
 
+    dynamic_viscosity = 1
     qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad
+        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad, dynamic_viscosity
     )
     qt_internal = qt_internal[0] + qt_internal[1]
 
@@ -233,8 +236,10 @@ def test_total_flux_null(ad):
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
 
+    dynamic_viscosity = 1
+
     qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad
+        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad, dynamic_viscosity
     )
     qt_internal = qt_internal[0] + qt_internal[1]
 
@@ -283,10 +288,12 @@ def test_total_flux_jac():
     mixture = pp.Mixture()
     mixture.add([wetting_phase, non_wetting_phase])
 
+    dynamic_viscosity = 1
+
     hu = pp.Hu()
     ad = True
     _, qt_jacobian_ad = hu.compute_jacobian_qt_ad(
-        sd, data, mixture, pressure, gravity_value, ad
+        sd, data, mixture, pressure, gravity_value, ad, dynamic_viscosity
     )
 
     # complex step: ----------------------
@@ -302,12 +309,12 @@ def test_total_flux_jac():
     ell = 0  ### TODO: this is a mess... it will be naturalluy solved removing finite differences and complex step
     ad = False
     qt_jacobian_complex = hu.compute_jacobian_qt_complex(
-        sd, data, mixture, pressure, ell, gravity_value, ad
+        sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
     )
 
     # finite difference: ----------------------
     qt_jacobian_finite_diff = hu.compute_jacobian_qt_finite_diff(
-        sd, data, mixture, pressure, ell, gravity_value, ad
+        sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
     )
 
     assert np.all(np.imag(qt_jacobian_complex) == 0)
@@ -387,8 +394,10 @@ def test_flux_V():
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
 
+    dynamic_viscosity = 1
+
     qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad
+        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad, dynamic_viscosity
     )
     qt_internal = qt_internal[0] + qt_internal[1]
 
@@ -402,7 +411,7 @@ def test_flux_V():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert np.all(rho_V.val == np.array([0, 0, 0, 0, 0, 1, 0]))
@@ -448,6 +457,7 @@ def test_flux_G():
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
 
     ell = 0
+    dynamic_viscosity = 1
 
     rho_G = hu.rho_flux_G(
         sd,
@@ -458,7 +468,7 @@ def test_flux_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
     assert np.all(rho_G.val == np.array([0, 0, 0, 0, 0, 0, 0]))
 
@@ -468,80 +478,6 @@ def test_flux_V_G():
     TODO
     """
 
-
-def test_full_jacobian():
-    """
-    Remark: in this test the total flux is null, which is the tricky case becouse the upwind direction is not clearly defined.
-    Actually, becouse of epsilons added to avoid division by zero qt is not exactly null.
-    I forced it to be exactly = 0 in compute_jacobian_V_G_ad, compute_jacobian_V_G_complex, and compute_jacobian_V_G_finite_diff
-    and nothing happend, only the jacobian computed with finite diff was slighlty affected, the others weren't.
-    I haven't tried to modified the upwind direction for G, I force only qt to be equal to zero.
-
-    same jacobians with wetting_saturation = np.array([0.7, 0.9])
-    """
-    nx = 1
-    ny = 2
-    sd = pp.CartGrid(np.array([nx, ny]))
-    sd.compute_geometry()
-
-    data = pp.initialize_default_data(grid=sd, data={}, parameter_type="flow")
-
-    wetting_phase = ConstantDensityPhase(rho0=1)
-    non_wetting_phase = ConstantDensityPhase(rho0=0.5)
-
-    gravity_value = 1
-    ell = 0
-    bc_val = np.zeros(sd.num_faces)
-
-    # ad: ------------------
-    pressure_val = np.array([1, 0])
-    wetting_saturation_val = np.ones(sd.num_cells)
-    # wetting_saturation_val = np.array([0.7, 0.9])
-    primary_vars = pp.ad.initAdArrays([pressure_val, wetting_saturation_val])
-
-    pressure = primary_vars[0]
-    wetting_phase._s = primary_vars[1]
-    non_wetting_phase._s = (
-        1 - primary_vars[1]
-    )  # the constraint is applied here. TODO: not clear... improve it
-
-    mixture = pp.Mixture()
-    mixture.add([wetting_phase, non_wetting_phase])
-
-    hu = pp.Hu()
-
-    ad = True
-    _, A_ad, _ = hu.assemble_matrix_rhs_ad(
-        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad
-    )
-
-    # complex: ---------------------------
-    pressure = np.array([1, 0], dtype=np.complex128)
-
-    wetting_phase._s = np.ones(sd.num_cells, dtype=np.complex128)
-    # wetting_phase._s = np.array([0.7, 0.9], dtype=np.complex128)
-    non_wetting_phase._s = np.ones(sd.num_cells) - wetting_phase._s
-
-    mixture = pp.Mixture()
-    mixture.add([wetting_phase, non_wetting_phase])
-
-    ad = False
-    A_complex, _ = hu.assemble_matrix_rhs_complex(
-        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad
-    )
-
-    # finite differnce: -------------------------
-    A_finite_diff, _ = hu.assemble_matrix_rhs_tmp_finite_diff(
-        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad
-    )
-
-    A_exact = np.array([[1, -1, 0, 0], [-1, 1, 0, 0], [1, -1, 0, 0], [-1, 1, 0, 0]])
-
-    assert np.all(
-        np.isclose(A_ad, A_exact, rtol=0, atol=1e-10)
-    )  # TODO: not sure why the zero elements are not exactly zero
-    assert np.all(np.isclose(A_complex, A_exact, rtol=0, atol=1e-10))
-    assert np.all(np.isclose(A_finite_diff, A_exact, rtol=0, atol=1e-5))
 
 
 def test_upwind_direction_V_G():
@@ -580,6 +516,8 @@ def test_upwind_direction_V_G():
 
     ad = True
 
+    dynamic_viscosity = 1
+
     # V: ------------------------------------------------
     qt_internal = np.array([1])
 
@@ -591,7 +529,7 @@ def test_upwind_direction_V_G():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert V.val == np.array([0])
@@ -604,7 +542,7 @@ def test_upwind_direction_V_G():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
     assert V.val == np.array([1])
 
@@ -618,7 +556,7 @@ def test_upwind_direction_V_G():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
     assert V.val == np.array([-1])
 
@@ -630,7 +568,7 @@ def test_upwind_direction_V_G():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
     assert V.val == np.array([0])
 
@@ -648,7 +586,7 @@ def test_upwind_direction_V_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert G.val == np.array([0])
@@ -663,7 +601,7 @@ def test_upwind_direction_V_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert G.val == np.array([0])
@@ -679,7 +617,7 @@ def test_upwind_direction_V_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert np.isclose(
@@ -696,7 +634,7 @@ def test_upwind_direction_V_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert np.isclose(
@@ -759,6 +697,8 @@ def test_upwind_direction_V_G_3x3():
 
     ad = True
 
+    dynamic_viscosity = 1
+
     # V: ------------------------------------------------
     qt_internal = np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1])
 
@@ -770,7 +710,7 @@ def test_upwind_direction_V_G_3x3():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert np.all(V.val == np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1]))
@@ -783,7 +723,7 @@ def test_upwind_direction_V_G_3x3():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
     assert np.all(V.val == np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0]))
 
@@ -797,7 +737,7 @@ def test_upwind_direction_V_G_3x3():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
     assert np.all(V.val == np.array([0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1]))
 
@@ -809,7 +749,7 @@ def test_upwind_direction_V_G_3x3():
         qt_internal,
         L,
         R,
-        ad,
+        ad, dynamic_viscosity
     )
     assert np.all(V.val == np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
 
@@ -827,7 +767,7 @@ def test_upwind_direction_V_G_3x3():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert np.all(G.val == np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
@@ -842,7 +782,7 @@ def test_upwind_direction_V_G_3x3():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert np.all(G.val == np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
@@ -858,7 +798,7 @@ def test_upwind_direction_V_G_3x3():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert np.all(
@@ -877,7 +817,7 @@ def test_upwind_direction_V_G_3x3():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     )
 
     assert np.all(
@@ -885,6 +825,84 @@ def test_upwind_direction_V_G_3x3():
             G.val, np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0]), rtol=0, atol=1e-9
         )
     )  # pay attention: G is the volumetric flux, not the mass flux, thus np.array([1])
+
+
+
+def test_full_jacobian():
+    """
+    Remark: in this test the total flux is null, which is the tricky case becouse the upwind direction is not clearly defined.
+    Actually, becouse of epsilons added to avoid division by zero qt is not exactly null.
+    I forced it to be exactly = 0 in compute_jacobian_V_G_ad, compute_jacobian_V_G_complex, and compute_jacobian_V_G_finite_diff
+    and nothing happend, only the jacobian computed with finite diff was slighlty affected, the others weren't.
+    I haven't tried to modified the upwind direction for G, I force only qt to be equal to zero.
+
+    same jacobians with wetting_saturation = np.array([0.7, 0.9])
+    """
+    nx = 1
+    ny = 2
+    sd = pp.CartGrid(np.array([nx, ny]))
+    sd.compute_geometry()
+
+    data = pp.initialize_default_data(grid=sd, data={}, parameter_type="flow")
+
+    wetting_phase = ConstantDensityPhase(rho0=1)
+    non_wetting_phase = ConstantDensityPhase(rho0=0.5)
+
+    gravity_value = 1
+    ell = 0
+    bc_val = np.zeros(sd.num_faces)
+
+    # ad: ------------------
+    pressure_val = np.array([1, 0])
+    wetting_saturation_val = np.ones(sd.num_cells)
+    # wetting_saturation_val = np.array([0.7, 0.9])
+    primary_vars = pp.ad.initAdArrays([pressure_val, wetting_saturation_val])
+
+    pressure = primary_vars[0]
+    wetting_phase._s = primary_vars[1]
+    non_wetting_phase._s = (
+        1 - primary_vars[1]
+    )  # the constraint is applied here. TODO: not clear... improve it
+
+    mixture = pp.Mixture()
+    mixture.add([wetting_phase, non_wetting_phase])
+
+    hu = pp.Hu()
+    dynamic_viscosity = 1
+
+    ad = True
+    _, A_ad, _ = hu.assemble_matrix_rhs_ad(
+        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad, dynamic_viscosity
+    )
+
+    # complex: ---------------------------
+    pressure = np.array([1, 0], dtype=np.complex128)
+
+    wetting_phase._s = np.ones(sd.num_cells, dtype=np.complex128)
+    # wetting_phase._s = np.array([0.7, 0.9], dtype=np.complex128)
+    non_wetting_phase._s = np.ones(sd.num_cells) - wetting_phase._s
+
+    mixture = pp.Mixture()
+    mixture.add([wetting_phase, non_wetting_phase])
+
+    ad = False
+    A_complex, _ = hu.assemble_matrix_rhs_complex(
+        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad, dynamic_viscosity
+    )
+
+    # finite differnce: -------------------------
+    A_finite_diff, _ = hu.assemble_matrix_rhs_tmp_finite_diff(
+        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad, dynamic_viscosity
+    )
+
+    A_exact = np.array([[1, -1, 0, 0], [-1, 1, 0, 0], [1, -1, 0, 0], [-1, 1, 0, 0]])
+
+    assert np.all(
+        np.isclose(A_ad, A_exact, rtol=0, atol=1e-10)
+    )  # TODO: not sure why the zero elements are not exactly zero
+    assert np.all(np.isclose(A_complex, A_exact, rtol=0, atol=1e-10))
+    assert np.all(np.isclose(A_finite_diff, A_exact, rtol=0, atol=1e-5))
+
 
 
 ad = True
@@ -921,7 +939,7 @@ the sign of tmp isnt goes unnoticed
 #
 # solve one iteration: ---------------------------------------------------------------------
 
-do_this_section = True
+do_this_section = False
 
 
 np.set_printoptions(precision=2, linewidth=150)
@@ -934,7 +952,7 @@ def unstationary_term(
     ell,
     porosity,
 ):
-    """tmp
+    """ tmp
     TODO: find a better name
     """
     volumes = sd.cell_volumes
@@ -946,7 +964,7 @@ def unstationary_term(
     return lack_of_a_better_name
 
 
-def newton_tmp(sd, data, mixture, ell, gravity_value, bc_val, initial_guess, timestep):
+def newton_tmp(sd, data, mixture, ell, gravity_value, bc_val, initial_guess, timestep, dynamic_viscosity):
     """
     - Strongly hardcoded
     - null bc
@@ -999,7 +1017,7 @@ def newton_tmp(sd, data, mixture, ell, gravity_value, bc_val, initial_guess, tim
         # print("mixture.get_phase(m)._s = ", mixture.get_phase(m)._s.val)
 
         F, JF, _ = hu.assemble_matrix_rhs_ad(
-            sd, data, mixture, pressure, ell, gravity_value, bc_val, ad
+            sd, data, mixture, pressure, ell, gravity_value, bc_val, ad, dynamic_viscosity
         )
 
         # unstationary term pressure eq:
@@ -1098,11 +1116,12 @@ if do_this_section:
     initial_guess = primary_vars
     timestep = 0.1
     porosity = 0.5 * np.ones(sd.num_cells)
+    dynamic_viscosity = 1
 
     time_list = np.arange(0, 20, step=timestep)
     for time in time_list:
         sol = newton_tmp(
-            sd, data, mixture, ell, gravity_value, bc_val, initial_guess, timestep
+            sd, data, mixture, ell, gravity_value, bc_val, initial_guess, timestep, dynamic_viscosity
         )
 
         if np.mod(time, 0.5) == 0:
@@ -1206,7 +1225,7 @@ if do_this_section:
 # unofficial tests: ---------------------------------------------------------------------------------------------------------
 print("\n\nUNOFFICIAL TESTS: ---------------------\n")
 
-do_unofficial_tests = True
+do_unofficial_tests = False
 
 if do_unofficial_tests:
     ad = True
