@@ -22,8 +22,8 @@ class TxtData:
 
 
 def export_data_to_txt(
-        list_of_txt_data: list[TxtData],
-        file_name: str = "out.txt",
+    list_of_txt_data: list[TxtData],
+    file_name: str = "out.txt",
 ) -> None:
     """Write data into a txt file.
 
