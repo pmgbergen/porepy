@@ -241,10 +241,9 @@ class WellNetwork3d:
         for i, w in enumerate(self.wells):
             w.index = i
 
-        self.parameters: dict
+        self.parameters: dict = {}
         """Dictionary of parameters, e.g. for the meshing process passed at
         instantiation."""
-
         if parameters is not None:
             self.parameters = parameters
 
