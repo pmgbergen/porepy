@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import warnings
 from copy import deepcopy
-from typing import Literal, Optional, Type, Union
+from typing import Literal, Optional, Union
 
 import numpy as np
 from scipy import stats
 
 import porepy as pp
+from porepy.utils.txt_io import TxtData, export_data_to_txt
 
 
 class ConvergenceAnalysis:
@@ -22,6 +23,8 @@ class ConvergenceAnalysis:
 
     Useful methods of this class include
 
+        - :meth:`run_analysis`: Run a batch of simulations with successively refined
+          mesh size and/or time steps.
         - :meth:`~export_errors_to_txt`: Exports errors into a ``txt`` file.
         - :meth:`~order_of_convergence`: Estimates the observed order of convergence
           of a given set of variables using linear regression.
@@ -226,61 +229,37 @@ class ConvergenceAnalysis:
             file_name: Name of the output file. Default is "error_analysis.txt".
 
         """
-        cell_diameters = np.array([result.cell_diam for result in list_of_results])
-        if self._is_time_dependent:
-            time_steps = np.array([result.dt for result in list_of_results])
-            non_vars = 2  # number of variables to be exported that are not errors
-        else:
-            time_steps = None
-            non_vars = 1
+        # Filter variables from the list of results
+        var_names: list[str] = self._filter_variables_from_list_of_results(
+            list_of_results=list_of_results,
+            variables=variables_to_export,
+        )
 
-        # Get variable names
-        if variables_to_export is None:
-            # Retrieve all attributes from the data class
-            attributes: list[str] = list(vars(list_of_results[0]).keys())
-            # Filter all attributes with the prefix ``error_``
-            var_names: list[str] = [
-                attr for attr in attributes if attr.startswith("error_")
-            ]
-        else:
-            var_names = [attr for attr in variables_to_export]
-
-        # Obtain errors
-        var_errors: list[np.ndarray] = []
+        # Filter errors to be exported
+        errors_to_export: dict[str, np.ndarray] = {}
         for name in var_names:
-            var_error: list[float] = []
             # Loop over lists of results
+            var_error: list[float] = []
             for result in list_of_results:
                 var_error.append(getattr(result, name))
-            # Append to the ``var_errors`` list
-            var_errors.append(np.array(var_error))
+            # Append to the dictionary
+            errors_to_export[name] = np.array(var_error)
 
-        # Initialize export table
-        data_type: list[tuple[str, Type[float]]] = []
-        for idx in range(non_vars + len(var_names)):
-            data_type.append((f"var{idx}", float))
-        export = np.zeros(self.levels, dtype=data_type)
+        # Prepare to export
+        list_of_txt_data: list[TxtData] = []
+        # Append cell diameters
+        cell_diameters = np.array([result.cell_diameter for result in list_of_results])
+        list_of_txt_data.append(TxtData(header="cell_diameter", array=cell_diameters))
+        # Append time steps (if the analysis employs a time-dependent model)
+        if self._is_time_dependent:
+            time_steps = np.array([result.dt for result in list_of_results])
+            list_of_txt_data.append(TxtData(header="time_step", array=time_steps))
+        # Now, append the errors
+        for key in errors_to_export.keys():
+            list_of_txt_data.append(TxtData(header=key, array=errors_to_export[key]))
 
-        # Fill out the table
-        export["var0"] = cell_diameters
-        if non_vars == 2:
-            export["var1"] = time_steps
-        for idx, errors in zip(range(len(var_names)), var_errors):
-            export[f"var{idx + non_vars}"] = errors
-
-        # String format
-        fmt = "%2.2e " * (non_vars + len(var_names))
-        fmt.rstrip(" ")  # strip one space
-
-        # Headers
-        header = "cell_diameter"
-        if non_vars == 2:
-            header += " time_step"
-        for var_name in var_names:
-            header += " " + var_name
-
-        # Write into txt
-        np.savetxt(fname=file_name, X=export, header=header, fmt=fmt)  # type: ignore
+        # Finally, call the function to write into the txt
+        export_data_to_txt(list_of_txt_data, file_name)
 
     def order_of_convergence(
         self,
@@ -341,20 +320,11 @@ class ConvergenceAnalysis:
         # Apply logarithm to x_data
         x_vals = np.emath.logn(base_log_x_axis, x_data)
 
-        # Get variable names and labels
-        if variables is None:
-            # Retrieve all attributes from the data class. Note that we use the first
-            # result from the list of results to retrieve this information. Thus, we
-            # assume that all other results contain (minimally) the same information.
-            attributes: list[str] = list(vars(list_of_results[0]).keys())
-            # Filter attributes that whose names contain the prefix ``'error_'``
-            names: list[str] = [
-                attr for attr in attributes if attr.startswith("error_")
-            ]
-        else:
-            # Not much to do here, since the user gives the variables that should be
-            # retrieved
-            names = [attr for attr in variables]
+        # Filter variables from the list of results
+        names: list[str] = self._filter_variables_from_list_of_results(
+            list_of_results=list_of_results,
+            variables=variables,
+        )
 
         # Obtain y-values
         y_vals: list[np.ndarray] = []
@@ -435,3 +405,35 @@ class ConvergenceAnalysis:
             list_time_managers.append(time_manager)
 
         return list_time_managers
+
+    def _filter_variables_from_list_of_results(
+        self,
+        list_of_results: list,
+        variables: list[str] | None,
+    ) -> list[str]:
+        """Filter variables from the list of results.
+
+        Parameters:
+            list_of_results: List containing the results of the convergence analysis.
+                Typically, the output of :meth:`~run_analysis`.
+            variables: List of strings containing the variables that should be
+                filtered from the list of results. If ``None``, all variables with
+                the prefix "error_" will be filtered.
+
+        Returns:
+            List of strings containing the filtered variables.
+
+        """
+        if variables is None:
+            # Retrieve all attributes from the data class. Note that we use the first
+            # result from the list of results to retrieve this information. Thus, we
+            # assume that all other results contain (minimally) the same information.
+            attributes: list[str] = list(vars(list_of_results[0]).keys())
+            # Filter attributes that whose names contain the prefix ``'error_'``
+            names = [attr for attr in attributes if attr.startswith("error_")]
+        else:
+            # Not much to do here, since the user gives the variables that should be
+            # retrieved
+            names = variables
+
+        return names
