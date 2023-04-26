@@ -245,3 +245,17 @@ from porepy.utils.default_domains import (
     UnitSquareDomain,
     UnitCubeDomain,
 )
+
+
+# added by Enrico:
+# for hu:
+from porepy.composite.phase import *
+from porepy.composite.mixture import *
+
+from porepy.numerics.fv.hu import Hu
+
+from porepy.tobedefined.capillary_pressure import *
+from porepy.tobedefined.mobility import *
+from porepy.tobedefined.relative_permeability import *
+
+

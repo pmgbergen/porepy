@@ -7,6 +7,9 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+import copy ###
+import pdb ###
+
 
 class Tpfa(pp.FVElliptic):
     """Discretize elliptic equations by a two-point flux approximation.
@@ -179,9 +182,11 @@ class Tpfa(pp.FVElliptic):
         # Return harmonic average. Note that we here use fi_mat to count indices.
         t = 1 / np.bincount(fi_periodic, weights=1 / t_face)
 
+        transmissibility = copy.deepcopy(t)                                                     ### tmp
+
         # Save values for use in recovery of boundary face pressures
         t_full = t.copy()
-
+        
         # For primal-like discretizations like the TPFA, internal boundaries
         # are handled by assigning Neumann conditions.
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
@@ -209,6 +214,7 @@ class Tpfa(pp.FVElliptic):
         ).tocsr()
 
         # Store the matrix in the right dictionary:
+        matrix_dictionary["transmissibility"] = transmissibility   ###
         matrix_dictionary[self.flux_matrix_key] = flux
         matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
 
@@ -261,3 +267,6 @@ class Tpfa(pp.FVElliptic):
         matrix_dictionary[
             self.bound_pressure_vector_source_matrix_key
         ] = bound_pressure_vector_source
+
+
+    
