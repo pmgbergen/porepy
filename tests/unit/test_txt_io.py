@@ -1,10 +1,12 @@
 """Tests for the importing/exporting of numpy arrays into txt files."""
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pytest
-import os
-from porepy.utils.txt_io import TxtData, export_data_to_txt
+
+from porepy.utils.txt_io import TxtData, export_data_to_txt, read_data_from_txt
 
 
 class TestExportData:
@@ -23,15 +25,23 @@ class TestExportData:
     def test_export_data(self) -> None:
         """Check that the data is correctly exported."""
         # Create a list of txt data
-        pressure = TxtData(header="pressure", array=np.array([0.0, 3.0, 500.3, 456.7]))
-        flux = TxtData(header="flux", array=np.array([-2.0, 4.33, 60.46, 1.23e-5]))
+        pressure = TxtData(
+            header="pressure",
+            array=np.array([0.0, 3.0, 500.3, 456.7]),
+            format="%5.3e",
+        )
+        flux = TxtData(
+            header="flux",
+            array=np.array([-2.0, 4.33, 60.46, 1.23e-5]),
+            format="%5.3e",
+        )
         list_of_txt_data = [pressure, flux]
 
         # Export the data
         export_data_to_txt(list_of_txt_data)
 
         # Read back the file
-        read_data: dict[str, np.ndarray] = self.read_txt_file("out.txt")
+        read_data: dict[str, np.ndarray] = read_data_from_txt("out.txt")
 
         # Compare
         assert len(read_data.keys()) == 2
@@ -42,32 +52,3 @@ class TestExportData:
 
         # Delete file
         os.remove("out.txt")
-
-    def read_txt_file(self, file_name: str) -> dict[str, np.ndarray]:
-        """Helper function to read the txt file.
-
-        Parameters:
-            file_name: File of the name to be read.
-
-        Returns:
-            Dictionary containing the read data.
-
-        """
-        # Open file and retrieve the header
-        with open(file_name) as f:
-            lines = f.readlines()
-        header = lines[0]
-        header = header.lstrip('# ')
-        header = header.rstrip("\n")
-
-        # Get all variable names
-        names = header.split()
-        values = np.loadtxt(fname="out.txt", dtype=np.float64, unpack=True)
-
-        # Prepare to return
-        read_data: dict[str, np.ndarray] = {}
-        for name, val in zip(names, values):
-            read_data[name] = val
-
-        return read_data
-
