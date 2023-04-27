@@ -23,7 +23,7 @@ It should however be noted that the appropriate order of reading may depend on t
 4. [meshing_of_fractures](./meshing_of_fractures.ipynb) describes the construction of mixed-dimensional grids. These grids represent a fracture network and the surrounding porous medium.
 5. [conventions](./conventions.ipynb) defines some conventions used in PorePy. Specifically this is related to signs, boundary conditions etc.
 6. [single phase flow](./single_phase_flow.ipynb) describes how to use the model class `SinglePhaseFlow`. The tutorial exposes several extensions and how to solve a mixed-dimensional problem with only a few lines of code.
-7. [poroelasticity](./poroelasticity.ipynb) covers combining the models of mass and momentum balance to obtain a model for poromechanics.
+7. [poromechanics](./poromechanics.ipynb) covers combining the models of mass and momentum balance to obtain a model for poromechanics.
 8. [exporter](./exporter.ipynb) documents how to export data from PorePy for external visualization (e.g. ParaView). Several examples of exporting is demonstrated.
 9. [simulation exporting](./simulation_exporting.ipynb) TODO: Either add description, or if it's combined with the above tutorial: edit above description.
 
