@@ -113,8 +113,6 @@ def conv_analysis_in_space(stationary_mock_model) -> ConvergenceAnalysis:
         model_class=stationary_mock_model,
         model_params={},
         levels=2,
-        in_space=True,
-        in_time=False,
         spatial_refinement_rate=2,
         temporal_refinement_rate=1,
     )
@@ -135,8 +133,6 @@ def conv_analysis_in_time(time_dependent_mock_model) -> ConvergenceAnalysis:
         model_class=time_dependent_mock_model,
         model_params={},
         levels=2,
-        in_space=False,
-        in_time=True,
         spatial_refinement_rate=1,
         temporal_refinement_rate=4,
     )
@@ -157,8 +153,6 @@ def conv_analysis_in_space_and_time(time_dependent_mock_model) -> ConvergenceAna
         model_class=time_dependent_mock_model,
         model_params={},
         levels=2,
-        in_space=True,
-        in_time=True,
         spatial_refinement_rate=2,
         temporal_refinement_rate=4,
     )
@@ -187,7 +181,6 @@ def list_of_results_space() -> list:
         var_0: float = 42  # value of the variable 0
         var_1: float = 24  # value of the variable 1
         cell_diameter: float = 0.5  # cell diameter of the grid
-        num_dofs: int = 4  # number of degrees of freedom
 
     @dataclass
     class ResultsSimulation1:
@@ -198,7 +191,6 @@ def list_of_results_space() -> list:
         var_0: float = 41  # value of the variable 0
         var_1: float = 23  # value of the variable 1
         cell_diameter: float = 0.25  # cell diameter of the grid
-        num_dofs: int = 8  # number of degrees of freedom
 
     return [ResultsSimulation0, ResultsSimulation1]
 
@@ -227,7 +219,6 @@ def list_of_results_time() -> list:
         var_1: float = 24  # value of the variable 1
         dt: float = 1.0  # time step of the simulation
         cell_diameter: float = 0.5  # cell diameter of the grid
-        num_dofs: int = 4  # number of degrees of freedom
 
     @dataclass
     class ResultsSimulation1:
@@ -239,7 +230,6 @@ def list_of_results_time() -> list:
         var_1: float = 23  # value of the variable 1
         dt: float = 0.5  # time step of the simulation
         cell_diameter: float = 0.5  # cell diameter of the grid
-        num_dofs: int = 4  # number of degrees of freedom
 
     return [ResultsSimulation0, ResultsSimulation1]
 
@@ -268,7 +258,6 @@ def list_of_results_space_time() -> list:
         var_1: float = 24  # value of the variable 1
         cell_diameter: float = 0.5
         dt: float = 1.0  # time step of the simulation
-        num_dofs: int = 4  # number of degrees of freedom
 
     @dataclass
     class ResultsSimulation1:
@@ -280,13 +269,12 @@ def list_of_results_space_time() -> list:
         var_1: float = 23  # value of the variable 1
         cell_diameter: float = 0.25
         dt: float = 0.25  # time step of the simulation
-        num_dofs: int = 8  # number of degrees of freedom
 
     return [ResultsSimulation0, ResultsSimulation1]
 
 
 # -----> TEST: Initialization, sanity checks, and helper methods.
-class TestInitializationAndHelperMethods:
+class TestInstantiationSanityCheckAndHelperMethods:
     """The following tests are written to check the sanity of the input parameters."""
 
     def test_instantiation_stationary(self, stationary_mock_model) -> None:
@@ -299,72 +287,82 @@ class TestInitializationAndHelperMethods:
         conv = ConvergenceAnalysis(model_class=stationary_mock_model, model_params={})
         assert conv.spatial_refinement_rate == 1
         assert conv.temporal_refinement_rate == 1
-        assert conv.in_space
-        assert not conv.in_time
         assert conv.levels == 1
         assert not conv._is_time_dependent
+        assert not conv._in_space
+        assert not conv._in_time
         assert len(conv.model_params) == 1
         assert conv.model_params[0]["meshing_arguments"]["cell_size"] == 1.0
 
-    def test_raise_error_space_and_time_false(self, stationary_mock_model) -> None:
-        """Test that an error is raised when 'in_space' and 'in_time' are False.
+    @pytest.mark.parametrize(
+        "spatial_rate, temporal_rate",
+        [
+            (-1, 1),
+            (1, -1),
+        ]
+    )
+    def test_error_raised_if_rates_smaller_than_one(
+            self,
+            spatial_rate: int,
+            temporal_rate: int,
+            stationary_mock_model,
+    ) -> None:
+        """Check that error is raised when rates are smaller than one.
+
+        Parameters:
+            spatial_rate: Spatial refinement rate.
+            temporal_rate: Temporal refinement rate.
+            stationary_mock_model: Stationary mock model.
+
+        """
+        msg = "Refinement rate cannot be less than 1."
+        with pytest.raises(ValueError) as excinfo:
+            ConvergenceAnalysis(
+                model_class=stationary_mock_model,
+                model_params={},
+                spatial_refinement_rate=spatial_rate,
+                temporal_refinement_rate=temporal_rate,
+            )
+        assert msg in str(excinfo.value)
+
+    def test_warning_is_raised_when_both_rates_are_one(
+            self,
+            time_dependent_mock_model,
+    ) -> None:
+        """Check that warning is raised when both rates are equal to one.
+
+        Parameters:
+            time_dependent_mock_model: Time-dependent mock model.
+
+        """
+        msg = "No refinement (in space or time) will be performed."
+        with pytest.warns() as record:
+            ConvergenceAnalysis(
+                model_class=time_dependent_mock_model,
+                model_params={},
+                spatial_refinement_rate=1,
+                temporal_refinement_rate=1,
+            )
+        assert str(record[0].message) == msg
+
+    def test_error_is_raised_when_temporal_rate_larger_than_one_for_stationary_model(
+            self,
+            stationary_mock_model,
+    ) -> None:
+        """Check that error is raised when temporal rate > 1 and model is stationary.
 
         Parameters:
             stationary_mock_model: Stationary mock model.
 
         """
-        msg = "At least one type of analysis should be performed."
+        msg = "Analysis in time not available for stationary models."
         with pytest.raises(ValueError) as excinfo:
             ConvergenceAnalysis(
                 model_class=stationary_mock_model,
                 model_params={},
-                in_time=False,
-                in_space=False,
+                temporal_refinement_rate=2,
             )
         assert msg in str(excinfo.value)
-
-    def test_warns_space_true_and_refinement_one(
-        self,
-        time_dependent_mock_model,
-    ) -> None:
-        """Test warning is raised when in_space=False and spatial_refinement_rate > 1.
-
-        Parameters:
-            time_dependent_mock_model: Time-dependent mock model.
-
-        """
-        msg = "'spatial_refinement_rate' is not being used."
-        with pytest.warns() as record:
-            ConvergenceAnalysis(
-                model_class=time_dependent_mock_model,
-                model_params={},
-                in_space=False,
-                spatial_refinement_rate=2,
-                in_time=True,
-                temporal_refinement_rate=2,
-            )
-        assert str(record[0].message) == msg
-
-    def test_warns_time_true_and_refinement_one(
-        self, time_dependent_mock_model
-    ) -> None:
-        """Test warning is raised when in_time=False and temporal_refinement_rate > 1.
-
-        Parameters:
-            time_dependent_mock_model: Time-dependent mock model.
-
-        """
-        msg = "'temporal_refinement_rate' is not being used."
-        with pytest.warns() as record:
-            ConvergenceAnalysis(
-                model_class=time_dependent_mock_model,
-                model_params={},
-                in_space=True,
-                spatial_refinement_rate=2,
-                in_time=False,
-                temporal_refinement_rate=2,
-            )
-        assert str(record[0].message) == msg
 
     def test_raise_error_when_non_constant_dt_used(
         self, time_dependent_mock_model
@@ -380,8 +378,8 @@ class TestInitializationAndHelperMethods:
             ConvergenceAnalysis(
                 model_class=time_dependent_mock_model,
                 model_params={"time_manager": pp.TimeManager([0, 1], 0.1, False)},
-                in_time=True,
                 spatial_refinement_rate=2,
+                temporal_refinement_rate=2,
             )
         assert msg in str(excinfo.value)
 
@@ -415,8 +413,6 @@ class TestInitializationAndHelperMethods:
             model_class=time_dependent_mock_model,
             model_params={"time_manager": pp.TimeManager([0, 1], 0.2, True)},
             levels=4,
-            in_space=False,
-            in_time=True,
             temporal_refinement_rate=4,
         )
         known_time_steps = [0.2, 0.05, 0.0125, 0.003125]
@@ -458,7 +454,6 @@ def stationary_model():
     @dataclass
     class StationaryModelSaveData:
         """Data class to store errors."""
-
         error_var_0: float  # error associated with variable 0
         error_var_1: float  # error associated with variable 1
 
@@ -525,7 +520,6 @@ def time_dependent_model():
             Data class with attributes ``error_var_0`` and ``error_var_1``.
 
         """
-
         error_var_0: float  # error associated with variable 0
         error_var_1: float  # error associated with variable 1
 
@@ -598,9 +592,7 @@ class TestRunAnalysis:
             model_class=time_dependent_model,
             model_params={},
             levels=2,
-            in_space=True,
             spatial_refinement_rate=2,
-            in_time=True,
             temporal_refinement_rate=4,
         )
         results = conv.run_analysis()

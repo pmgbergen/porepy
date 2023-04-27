@@ -269,8 +269,6 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                         model_class=model,
                         model_params=deepcopy(params),
                         levels=4,
-                        in_space=True,
-                        in_time=True,
                         spatial_refinement_rate=2,
                         temporal_refinement_rate=4,
                     )
@@ -279,8 +277,6 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                         model_class=model,
                         model_params=deepcopy(params),
                         levels=3,
-                        in_space=True,
-                        in_time=True,
                         spatial_refinement_rate=2,
                         temporal_refinement_rate=4,
                     )
