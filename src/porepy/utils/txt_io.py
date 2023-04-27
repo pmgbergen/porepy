@@ -38,30 +38,30 @@ def export_data_to_txt(
             Name of the txt file to be exported.
 
     """
-    # Sanity check
+    # Sanity check.
     array_sizes = [np.size(data.array) for data in list_of_txt_data]
     if not all(x == array_sizes[0] for x in array_sizes):
         raise ValueError("Expected arrays of equal length.")
 
-    # Number of columns
+    # Number of columns.
     cols: int = len(list_of_txt_data)
     rows: int = array_sizes[0]
 
-    # Initialize export table
+    # Initialize export table.
     data_type: list[tuple[str, Type[float]]] = []
     for idx in range(cols):
         data_type.append((f"var{idx}", float))
     export = np.zeros(rows, dtype=data_type)
 
-    # Loop through the list and collect relevant data
+    # Loop through the list and collect relevant data.
     header = ""
     fmt = ""
     for idx, data in enumerate(list_of_txt_data):
         export[f"var{idx}"] = data.array
         header += data.header + " "
         fmt += data.format + " "
-    header.rstrip(" ")  # strip last added empty space
-    fmt.rstrip(" ")  # strip last added empty space
+    header.rstrip(" ")  # strip last added empty space.
+    fmt.rstrip(" ")  # strip last added empty space.
 
     # Write into the file
     np.savetxt(fname=file_name, X=export, header=header, fmt=fmt)  # type: ignore
@@ -77,14 +77,14 @@ def read_data_from_txt(file_name: str) -> dict[str, np.ndarray]:
         Dictionary containing the read data.
 
     """
-    # Open file and retrieve the header
+    # Open file and retrieve the header.
     with open(file_name) as f:
         lines = f.readlines()
     header = lines[0]
     header = header.lstrip("# ")
     header = header.rstrip("\n")
 
-    # Get all variable names and values
+    # Get all variable names and values.
     names = header.split()
     values = np.loadtxt(
         fname=file_name,
