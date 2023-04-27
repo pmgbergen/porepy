@@ -430,7 +430,6 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
 
     def test_cartesian_meshing_args_inconsistencies(self):
         grid_type = "cartesian"
-        fracture_network, _ = self.generate_network(1, [0, 1, 2])
 
         # testing incompleteness in cell_sizes
         cell_size_args = ["cell_size_x", "cell_size_y", "cell_size_z"]
@@ -445,6 +444,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             loc_meshing_args.pop(chunk)
             with pytest.raises(ValueError) as error_message:
                 ref_msg = str("cell_size or " + chunk + " must be provided.")
+                fracture_network, _ = self.generate_network(1, [0, 1, 2])
                 pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
             assert ref_msg in str(error_message.value)
 
@@ -462,6 +462,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
                 loc_meshing_args.update(meshing_args.items())
                 loc_meshing_args[chunk] = complex(1, 2)
                 ref_msg = str(chunk + " must be float, not %r" % type(complex(1, 2)))
+                fracture_network, _ = self.generate_network(1, [0, 1, 2])
                 pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
             assert ref_msg in str(error_message.value)
 
@@ -472,6 +473,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
                 loc_meshing_args.update(meshing_args.items())
                 loc_meshing_args[chunk] = -1.0
                 ref_msg = str(chunk + " must be strictly positive %r" % -1.0)
+                fracture_network, _ = self.generate_network(1, [0, 1, 2])
                 pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
             assert ref_msg in str(error_message.value)
 
@@ -489,6 +491,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
             loc_meshing_args.pop(chunk)
             with pytest.raises(ValueError) as error_message:
                 ref_msg = str("cell_size or " + chunk + " must be provided.")
+                fracture_network, _ = self.generate_network(1, [0, 1, 2])
                 pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
             assert ref_msg in str(error_message.value)
 
@@ -501,6 +504,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
                 ref_msg = str(
                     chunk + " must be np.ndarray, not %r" % type(complex(1, 2))
                 )
+                fracture_network, _ = self.generate_network(1, [0, 1, 2])
                 pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
             assert ref_msg in str(error_message.value)
 
@@ -520,6 +524,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
                     + ")"
                     + " must be on the boundary."
                 )
+                fracture_network, _ = self.generate_network(1, [0, 1, 2])
                 pp.create_mdg(grid_type, loc_meshing_args, fracture_network)
             assert ref_msg in str(error_message.value)
 
