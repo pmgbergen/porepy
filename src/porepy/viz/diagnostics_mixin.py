@@ -12,6 +12,7 @@ from typing import Any, Callable, Literal, Optional, Sequence
 
 import matplotlib
 import numpy as np
+from matplotlib import pyplot as plt
 from scipy.sparse import csr_matrix, spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
@@ -291,6 +292,8 @@ class DiagnosticsMixin:
                 )
                 | kwargs
             )  # Updating them with custom plotting arguments provided by user.
+            plt.figure()
+
             ax = sns.heatmap(block_data, **plot_kwargs)
             ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
             ax.set_title(key)
