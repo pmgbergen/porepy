@@ -939,7 +939,7 @@ the sign of tmp isnt goes unnoticed
 #
 # solve one iteration: ---------------------------------------------------------------------
 
-do_this_section = False
+do_this_section = True
 
 
 np.set_printoptions(precision=2, linewidth=150)

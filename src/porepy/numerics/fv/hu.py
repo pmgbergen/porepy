@@ -12,8 +12,10 @@ def myprint(var):
     print("\n" + var + " = ", eval(var))
 
 
-class Hu:  # Discretization):   # it must be a class, but think "procedurally" tmp
-    """ """
+class Hu:  
+    """
+    procedurally paradigm is adopted
+    """
 
     def __init__(self, keyword: str = "transport") -> None:
         """ """
@@ -40,8 +42,12 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         """
         remark: with ad you have to use matrices instead of working with indices
         TODO: PAY ATTENTION: there are two logical operation in the same function (improve it):
-              get internal set and compute left and right restriction of internal set
+              get internal set of faces and compute left and right restriction of internal set
         TODO: this function was essentially copied from email. Improve it if possible.
+
+        var_left = left_restriction @ var
+        var_left.shape = (len(sd.get_internal_faces()),)
+        var.shape = (sd.num_faces,)
         """
 
         internal_faces = sd.get_internal_faces()
@@ -71,7 +77,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
         return left_restriction, right_restriction
 
-    @staticmethod  # see comments above # think procedurally for now
+    @staticmethod  
     def density_internal_faces(
         saturation, density, left_restriction, right_restriction
     ):
@@ -98,15 +104,13 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         return g_faces
 
     @staticmethod
-    def compute_transmissibility_tpfa(
-        sd, data, keyword="flow"
-    ):  # think procedurally, dont use attribute for now, avoid many copies of the same entity
+    def compute_transmissibility_tpfa(sd, data, keyword="flow"): 
         """ """
         discr = pp.Tpfa(keyword)
         discr.discretize(sd, data)
 
-    @staticmethod  # see comments above
-    def get_transmissibility_tpfa(sd, data, keyword="flow"):  # think procedurally
+    @staticmethod  
+    def get_transmissibility_tpfa(sd, data, keyword="flow"):  
         """ """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         div_transmissibility = matrix_dictionary["flux"]  # TODO: "flux"
@@ -115,48 +119,39 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
         # TODO: you can always use the matrix, so do it. remark: for mpfa you can only use the matrix...
 
-        return transmissibility, transmissibility_internal  # TODO: improve it
+        return transmissibility, transmissibility_internal  
 
     @staticmethod
     def var_upwinded_faces(var, upwind_directions, left_restriction, right_restriction):
         """
-        works for both ad and non ad (or it should)
-        var defined at cell centers
-        upwind_directions np.array, not AdArray. NO, i added the if isinstance()
+        - works for both ad and non ad
+        - var defined at cell centers
+        - remark: no derivative wrt upwind direction => we use only the val if ad or real part if complex step
         """
         var_left = left_restriction @ var
         var_right = right_restriction @ var
 
         if isinstance(upwind_directions, pp.ad.AdArray):
-            upwind_directions = upwind_directions.val  ### TODO: THIS IS WRONG
+            upwind_directions = upwind_directions.val  
 
         upwind_left = np.maximum(
             0, np.heaviside(np.real(upwind_directions), 1)
-        )  # attention, I'm using only the real part
+        )  # attention: I'm using only the real part
         upwind_right = (
             np.ones(upwind_directions.shape) - upwind_left
         )  # what's not left is right (here!)
 
         upwind_left_matrix = sp.sparse.diags(
             upwind_left
-        )  # i need matrices for ad ### TODO: THIS IS WRONG, upwind_left_matrix must be an AdArray
+        )  
         upwind_right_matrix = sp.sparse.diags(upwind_right)
 
         var_upwinded = upwind_left_matrix @ var_left + upwind_right_matrix @ var_right
 
         return var_upwinded
 
-    @staticmethod
-    def density_upwinded_faces(
-        density, upwind_directions, left_restriction, right_restriction
-    ):
-        """TODO: yes, it is useless. I guess."""
-        density_upwinded = Hu.var_upwinded_faces(
-            density, upwind_directions, left_restriction, right_restriction
-        )
-        return density_upwinded
 
-    @staticmethod  # see comments above
+    @staticmethod  
     def total_flux(
         sd: pp.Grid,
         mixture,
@@ -166,8 +161,8 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         right_restriction,
         transmissibility_internal_tpfa,
         ad,
+        dynamic_viscosity
     ):
-        """ """
 
         def gamma_value():
             """ """
@@ -181,11 +176,11 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             gamma_val = alpha / kr0 * dd_kr_max
             return gamma_val
 
-        def g_faces_ref(
+        def g_ref_faces(
             mixture, pressure, z, gravity_value, left_restriction, right_restriction
         ):
             """
-            only for two phases
+            harcoded for two phases
             """
             density_faces_0 = Hu.density_internal_faces(
                 mixture.get_phase(0).saturation,
@@ -244,7 +239,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             z,
             gravity_value,
             gamma_val,
-            g_faces_ref,
+            g_ref_faces,
             left_restriction,
             right_restriction,
             ad,
@@ -262,11 +257,11 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 right_restriction,
             )
             tmp = gamma_val / (
-                g_faces_ref + c_faces_ref + 1e-8
+                g_ref_faces + c_faces_ref + 1e-8
             )  # added epsilon to avoid division by zero
 
             if ad:
-                tmp = -pp.ad.functions.maximum(-tmp, -1e6)  # TODO: improve it
+                tmp = -pp.ad.functions.maximum(-tmp, -1e6)  
                 beta_faces = 0.5 + 1 / np.pi * pp.ad.functions.arctan(
                     tmp * delta_pot_faces
                 )
@@ -287,32 +282,15 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             return lambda_WA
 
         # total flux computation:
-        dynamic_viscosity = 1.0  # TODO # it will be a vect whose size = sd.num_cells
-
         z = -sd.cell_centers[
             sd.dim - 1
-        ]  # TODO: this is wrong ### zed is reversed to conform to paper 2022 notation
-        g_faces_ref = g_faces_ref(
+        ]  # TODO: this is wrong, works only in 2D ### zed is reversed to conform to the notation in paper 2022 
+        g_ref_faces = g_ref_faces(
             mixture, pressure, z, gravity_value, left_restriction, right_restriction
-        )  # required in beta computation
+        )  
         gamma_val = gamma_value()
 
-        if ad:  # useless, see below
-            total_flux = [
-                pp.ad.AdArray(
-                    np.zeros(left_restriction.shape[0]),
-                    0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-                ),
-                pp.ad.AdArray(
-                    np.zeros(left_restriction.shape[0]),
-                    0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-                ),
-            ]  # TODO: find a smart way to initialize ad vars
-        else:  # useless, see below
-            total_flux = [
-                np.zeros(left_restriction.shape[0], dtype=np.complex128),
-                np.zeros(left_restriction.shape[0], dtype=np.complex128),
-            ]  # TODO: improve it
+        total_flux = [None]*mixture.num_phases
 
         for m in np.arange(mixture.num_phases):
             saturation_m = mixture.get_phase(m).saturation
@@ -324,7 +302,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 z,
                 gravity_value,
                 gamma_val,
-                g_faces_ref,
+                g_ref_faces,
                 left_restriction,
                 right_restriction,
                 ad,
@@ -347,9 +325,8 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
             total_flux[m] = (
                 lam_WA_faces * delta_pot_faces
-            ) * transmissibility_internal_tpfa  # before there was a +=, so the initialization which now is useless
+            ) * transmissibility_internal_tpfa  
 
-        # total_flux *= transmissibility_internal_tpfa # moved above
         return total_flux
 
     @staticmethod
@@ -361,7 +338,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         left_restriction,
         right_restriction,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     ):
         """ """
         qt = Hu.total_flux(
@@ -372,7 +349,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             left_restriction,
             right_restriction,
             transmissibility_internal_tpfa,
-            ad,
+            ad, dynamic_viscosity
         )
 
         rho_qt = [None, None]
@@ -388,17 +365,16 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         rho_qt = rho_qt[0] + rho_qt[1]
         return rho_qt
 
-    @staticmethod  # see comments above
+    @staticmethod  
     def flux_V(
-        sd, mixture, ell, total_flux_internal, left_restriction, right_restriction, ad
-    ):  # TODO: use unpwind.py
+        sd, mixture, ell, total_flux_internal, left_restriction, right_restriction, ad, dynamic_viscosity
+    ):  
         """ """
 
         def mobility_V_faces(
-            saturation, total_flux_internal, left_restriction, right_restriction
+            saturation, total_flux_internal, left_restriction, right_restriction, dynamic_viscosity
         ):
             """ """
-            dynamic_viscosity = 1.0  # TODO
 
             mobility_upwinded = Hu.var_upwinded_faces(
                 pp.mobility(saturation, dynamic_viscosity),
@@ -408,7 +384,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             )
             return mobility_upwinded
 
-        def mobility_tot_V(
+        def mobility_tot_V_faces(
             saturation_list,
             total_flux_internal,
             left_restriction,
@@ -425,14 +401,14 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             else:
                 mobility_tot = np.zeros(
                     left_restriction.shape[0], dtype=np.complex128
-                )  # TODO: improve it
+                )  # TODO: improve it, left_restriction.shape[0] = len(sd.get_internal_faces())
 
             for m in np.arange(mixture.num_phases):
                 mobility_tot += mobility_V_faces(
                     saturation_list[m],
                     total_flux_internal,
                     left_restriction,
-                    right_restriction,
+                    right_restriction, dynamic_viscosity
                 )
             return mobility_tot
 
@@ -445,9 +421,9 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             saturation_list[ell],
             total_flux_internal,
             left_restriction,
-            right_restriction,
-        )  ### pay attention to the index ell # TODO: is ir right?
-        mob_tot_V = mobility_tot_V(
+            right_restriction, dynamic_viscosity
+        )  
+        mob_tot_V = mobility_tot_V_faces(
             saturation_list,
             total_flux_internal,
             left_restriction,
@@ -467,7 +443,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         total_flux_internal,
         left_restriction,
         right_restriction,
-        ad,
+        ad, dynamic_viscosity
     ):
         """ """
         V = Hu.flux_V(
@@ -477,10 +453,10 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             total_flux_internal,
             left_restriction,
             right_restriction,
-            ad,
+            ad, dynamic_viscosity
         )
         density = mixture.get_phase(ell).mass_density(pressure)
-        rho_upwinded = Hu.density_upwinded_faces(
+        rho_upwinded = Hu.var_upwinded_faces(
             density, V, left_restriction, right_restriction
         )
         rho_V_internal = rho_upwinded * V
@@ -490,7 +466,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
         return rho_V
 
-    @staticmethod  # see comments above
+    @staticmethod  
     def flux_G(
         sd,
         mixture,
@@ -500,12 +476,11 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         left_restriction,
         right_restriction,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     ):
         """
-        TODO: consider the idea to move omega outside the flux_G
+        TODO: consider the idea to move omega outside the flux_G, if you don't see why => it is already in the right place.
         """
-        dynamic_viscosity = 1  # TODO
 
         def omega(
             num_phases, ell, mobilities, g, left_restriction, right_restriction, ad
@@ -517,7 +492,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 omega_ell = pp.ad.AdArray(
                     np.zeros(left_restriction.shape[0]),
                     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-                )
+                ) # TODO: find a better way to initialize arrays
 
                 for m in np.arange(num_phases):
                     omega_ell += (
@@ -538,37 +513,17 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
             return omega_ell
 
-        def mobility_G(saturation, omega_ell, left_restriction, right_restriction):
+        def mobility_G_faces(saturation, omega_ell, left_restriction, right_restriction, dynamic_viscosity):
             """ """
-            dynamic_viscosity = 1  # TODO:
             mobility_upwinded = Hu.var_upwinded_faces(
                 pp.mobility(saturation, dynamic_viscosity),
                 omega_ell,
                 left_restriction,
                 right_restriction,
             )
+            return mobility_upwinded  
 
-            # TODO: CANCELLARE
-            # mobility_left = left_restriction @ pp.mobility(
-            #     saturation, dynamic_viscosity
-            # )
-            # mobility_right = right_restriction @ pp.mobility(
-            #     saturation, dynamic_viscosity
-            # )
-
-            # upwind_left = np.maximum(
-            #     0, np.heaviside(np.real(omega_ell), 1)
-            # )  # attention, I'm using only the real part
-            # upwind_right = (
-            #     np.ones(omega_ell.shape) - upwind_left
-            # )  # what is not left is right (here!)
-            # mobility_upwinded = (
-            #     mobility_left * upwind_left + mobility_right * upwind_right
-            # )
-
-            return mobility_upwinded  # TODO: add faces (everywhere in the cose)
-
-        def mobility_tot_G(
+        def mobility_tot_G_faces(
             num_phases,
             saturation_list,
             omega_ell,
@@ -579,19 +534,18 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             if ad:
                 mobility_tot_G = pp.ad.AdArray(
                     np.zeros(left_restriction.shape[0]),
-                    0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-                )
+                    0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells))
             else:
                 mobility_tot_G = np.zeros(
-                    left_restriction.shape[0], dtype=np.complex128
-                )
+                    left_restriction.shape[0], dtype=np.complex128)
+
 
             for m in np.arange(num_phases):  # m = phase_id
-                mobility_tot_G += mobility_G(
+                mobility_tot_G += mobility_G_faces(
                     saturation_list[m],
                     omega_ell,
                     left_restriction,
-                    right_restriction,
+                    right_restriction,dynamic_viscosity
                 )
 
             return mobility_tot_G
@@ -599,7 +553,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         # flux G computation:
         z = -sd.cell_centers[
             sd.dim - 1
-        ]  # TODO: this is wrong ### zed is reversed to conform to paper 2022 notation
+        ]  # TODO: this is wrong, works only in 2D ### zed is reversed to conform to paper 2022 notation
 
         saturation_list = [None] * mixture.num_phases
         g_list = [None] * mixture.num_phases
@@ -629,7 +583,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 ad,
             )
 
-        mob_tot_G = mobility_tot_G(
+        mob_tot_G = mobility_tot_G_faces(
             mixture.num_phases,
             saturation_list,
             omega_list[ell],
@@ -648,17 +602,17 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             )  # TODO: improve it
 
         for m in np.arange(mixture.num_phases):
-            mob_G_ell = mobility_G(
+            mob_G_ell = mobility_G_faces(
                 saturation_list[ell],
                 omega_list[ell],
                 left_restriction,
-                right_restriction,
+                right_restriction, dynamic_viscosity
             )  # yes, you can move it outside the loop
-            mob_G_m = mobility_G(
+            mob_G_m = mobility_G_faces(
                 saturation_list[m],
                 omega_list[m],
                 left_restriction,
-                right_restriction,
+                right_restriction, dynamic_viscosity
             )
             G_internal += mob_G_ell * mob_G_m / mob_tot_G * (g_list[m] - g_list[ell])
 
@@ -675,7 +629,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         left_restriction,
         right_restriction,
         transmissibility_internal_tpfa,
-        ad,
+        ad, dynamic_viscosity
     ):
         """ """
         G = Hu.flux_G(
@@ -687,10 +641,10 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             left_restriction,
             right_restriction,
             transmissibility_internal_tpfa,
-            ad,
+            ad, dynamic_viscosity
         )
         density = mixture.get_phase(ell).mass_density(pressure)
-        rho_upwinded = Hu.density_upwinded_faces(
+        rho_upwinded = Hu.var_upwinded_faces(
             density, G, left_restriction, right_restriction
         )
         rho_G_internal = rho_upwinded * G
@@ -700,13 +654,15 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
         return rho_G
 
-    @staticmethod  # see comments above
+    @staticmethod  
     def boundary_conditions_tmp(sd: pp.Grid, bc_val):
         """
         TODO: bc for pressure eq and for mass flux. For now, flux = 0, so I use this method for both
 
         TODO: bc_val is outwards flux wrt domain, not integrated. => if bc_val negative => entering mass
             change it(?) in according to pp convention
+        
+            TODO: not 100% sure about the sign, check it
 
             returns the rhs, in the right size and div included
         """
@@ -714,7 +670,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         return -abs(sd.cell_faces).T @ (sd.face_areas * bc_val)
 
     @staticmethod
-    def compute_jacobian_qt_ad(sd, data, mixture, pressure, gravity_value, ad):
+    def compute_jacobian_qt_ad(sd, data, mixture, pressure, gravity_value, ad, dynamic_viscosity):
         """
         attention: here you don't need ell bcs the primary variable has been identified before computing the flux.
                     for the other jac computation you need ell
@@ -731,7 +687,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             L,
             R,
             transmissibility_internal_tpfa,
-            ad,
+            ad, dynamic_viscosity
         )
 
         pp_div = pp.fvutils.scalar_divergence(sd)
@@ -744,7 +700,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
         return flux_cell_no_bc.val, flux_cell_no_bc.jac.A
 
     @staticmethod
-    def compute_jacobian_V_G_ad(sd, data, mixture, ell, pressure, gravity_value, ad):
+    def compute_jacobian_V_G_ad(sd, data, mixture, ell, pressure, gravity_value, ad, dynamic_viscosity):
         """
         this is a tmp function and conceptually wrong. I momentary need  it to test the jac
         """
@@ -760,11 +716,11 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             L,
             R,
             transmissibility_internal_tpfa,
-            ad,
+            ad, dynamic_viscosity
         )
         qt_internal = qt_internal[0] + qt_internal[1]
 
-        rho_V = Hu.rho_flux_V(sd, mixture, ell, pressure, qt_internal, L, R, ad)
+        rho_V = Hu.rho_flux_V(sd, mixture, ell, pressure, qt_internal, L, R, ad, dynamic_viscosity)
 
         rho_G = Hu.rho_flux_G(
             sd,
@@ -775,7 +731,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             L,
             R,
             transmissibility_internal_tpfa,
-            ad,
+            ad, dynamic_viscosity
         )
 
         pp_div = pp.fvutils.scalar_divergence(sd)
@@ -789,7 +745,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
     @staticmethod
     def compute_jacobian_qt_complex(
-        sd, data, mixture, pressure, ell, gravity_value, ad
+        sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
     ):
         """attention: different logic wrt finite diff to add eps
         attention: here you need ell to know what is the primary variable. in ad you don't
@@ -816,7 +772,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             rho_qt = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
             rho_qt[sd.get_internal_faces()] = rho_qt_internal
@@ -851,7 +807,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             rho_qt = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
             rho_qt[sd.get_internal_faces()] = rho_qt_internal
@@ -868,7 +824,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
     @staticmethod
     def compute_jacobian_V_G_complex(
-        sd, data, mixture, pressure, ell, gravity_value, ad
+        sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
     ):
         """attention: different logic wrt finite diff to add eps"""
 
@@ -893,7 +849,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             qt = qt[0] + qt[1]
 
@@ -905,7 +861,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 qt,
                 L,
                 R,
-                ad,
+                ad, dynamic_viscosity
             )
 
             G = Hu.rho_flux_G(
@@ -917,7 +873,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
 
             F = V + G
@@ -952,11 +908,11 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             qt = qt[0] + qt[1]
 
-            V = Hu.rho_flux_V(sd, mixture, ell, pressure, qt, L, R, ad)
+            V = Hu.rho_flux_V(sd, mixture, ell, pressure, qt, L, R, ad, dynamic_viscosity)
             G = Hu.rho_flux_G(
                 sd,
                 mixture,
@@ -966,7 +922,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             F = V + G
 
@@ -982,7 +938,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
     @staticmethod
     def compute_jacobian_qt_finite_diff(
-        sd, data, mixture, pressure, ell, gravity_value, ad
+        sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
     ):
         """attention: different logic wrt complex step to add eps"""
 
@@ -1003,7 +959,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             L,
             R,
             transmissibility_internal_tpfa,
-            ad,
+            ad, dynamic_viscosity
         )
         rho_qt = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
         rho_qt[sd.get_internal_faces()] = rho_qt_internal
@@ -1022,7 +978,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             rho_qt_eps = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
             rho_qt_eps[sd.get_internal_faces()] = rho_qt_internal_eps
@@ -1055,7 +1011,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             rho_qt_eps = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
             rho_qt_eps[sd.get_internal_faces()] = rho_qt_internal_eps
@@ -1073,7 +1029,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
     @staticmethod
     def compute_jacobian_V_G_finite_diff(
-        sd, data, mixture, pressure, ell, gravity_value, ad
+        sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
     ):
         """attention: different logic wrt complex step to add eps"""
 
@@ -1094,7 +1050,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             L,
             R,
             transmissibility_internal_tpfa,
-            ad,
+            ad, dynamic_viscosity
         )
         qt = qt[0] + qt[1]
 
@@ -1106,7 +1062,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             qt,
             L,
             R,
-            ad,
+            ad, dynamic_viscosity
         )
         G = Hu.rho_flux_G(
             sd,
@@ -1117,7 +1073,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
             L,
             R,
             transmissibility_internal_tpfa,
-            ad,
+            ad, dynamic_viscosity
         )
         F = V + G
         flux_cell_no_bc = pp_div @ F
@@ -1134,7 +1090,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             qt_eps = qt_eps[0] + qt_eps[1]
 
@@ -1146,7 +1102,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 qt_eps,
                 L,
                 R,
-                ad,
+                ad, dynamic_viscosity
             )
             G_eps = Hu.rho_flux_G(
                 sd,
@@ -1157,7 +1113,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             F_eps = V_eps + G_eps
 
@@ -1189,7 +1145,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             qt_eps = qt_eps[0] + qt_eps[1]
 
@@ -1201,7 +1157,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 qt_eps,
                 L,
                 R,
-                ad,
+                ad, dynamic_viscosity
             )
             G_eps = Hu.rho_flux_G(
                 sd,
@@ -1212,7 +1168,7 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad,
+                ad, dynamic_viscosity
             )
             F_eps = V_eps + G_eps
 
@@ -1223,20 +1179,19 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
             saturation_ell_eps[i] -= eps  ### ...
             saturation_m_eps[i] += eps  ### ...
-        # mixture.get_phase(ell)._s = saturation_ell  # otherwise the last component keeps the eps
 
         return jacobian
 
     @staticmethod
     def assemble_matrix_rhs_ad(
-        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad
+        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad, dynamic_viscosity
     ):
         """this function is conceptually wrong"""
         flux_qt, jacobian_qt = Hu.compute_jacobian_qt_ad(
-            sd, data, mixture, pressure, gravity_value, ad
+            sd, data, mixture, pressure, gravity_value, ad, dynamic_viscosity
         )
         flux_V_G, jacobian_V_G = Hu.compute_jacobian_V_G_ad(
-            sd, data, mixture, ell, pressure, gravity_value, ad
+            sd, data, mixture, ell, pressure, gravity_value, ad, dynamic_viscosity
         )
 
         F = np.zeros(2 * sd.num_cells)
@@ -1253,16 +1208,15 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
     @staticmethod
     def assemble_matrix_rhs_complex(
-        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad
+        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad, dynamic_viscosity
     ):
         """ """
         jacobian_qt = Hu.compute_jacobian_qt_complex(
-            sd, data, mixture, pressure, ell, gravity_value, ad
+            sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
         )
         jacobian_V_G = Hu.compute_jacobian_V_G_complex(
-            sd, data, mixture, pressure, ell, gravity_value, ad
+            sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
         )
-        # jacobian_V_G_2 = Hu.compute_jacobian_V_G(sd, data, mixture, pressure, 1, gravity_value)
 
         assert np.sum(np.imag(jacobian_qt)) == 0
         assert np.sum(np.imag(jacobian_V_G)) == 0
@@ -1272,7 +1226,6 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
         A = np.zeros((2 * sd.num_cells, 2 * sd.num_cells))
         A[0 : sd.num_cells, 0 : 2 * sd.num_cells] = jacobian_qt
-        # A[0:sd.num_cells, 0:2*sd.num_cells] = jacobian_V_G_2
         A[sd.num_cells : 2 * sd.num_cells, 0 : 2 * sd.num_cells] = jacobian_V_G
 
         b = Hu.boundary_conditions_tmp(sd, bc_val)
@@ -1280,14 +1233,14 @@ class Hu:  # Discretization):   # it must be a class, but think "procedurally" t
 
     @staticmethod
     def assemble_matrix_rhs_tmp_finite_diff(
-        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad
+        sd, data, mixture, pressure, ell, gravity_value, bc_val, ad, dynamic_viscosity
     ):
         """ """
         jacobian_qt = Hu.compute_jacobian_qt_finite_diff(
-            sd, data, mixture, pressure, ell, gravity_value, ad
+            sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
         )
         jacobian_V_G = Hu.compute_jacobian_V_G_finite_diff(
-            sd, data, mixture, pressure, ell, gravity_value, ad
+            sd, data, mixture, pressure, ell, gravity_value, ad, dynamic_viscosity
         )
 
         assert np.sum(np.imag(jacobian_qt)) == 0
