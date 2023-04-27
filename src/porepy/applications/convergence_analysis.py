@@ -243,14 +243,32 @@ class ConvergenceAnalysis:
         list_of_txt_data: list[TxtData] = []
         # Append cell diameters
         cell_diameters = np.array([result.cell_diameter for result in list_of_results])
-        list_of_txt_data.append(TxtData(header="cell_diameter", array=cell_diameters))
+        list_of_txt_data.append(
+            TxtData(
+                header="cell_diameter",
+                array=cell_diameters,
+                format=self._set_column_data_format("cell_diameter"),
+            )
+        )
         # Append time steps (if the analysis employs a time-dependent model)
         if self._is_time_dependent:
             time_steps = np.array([result.dt for result in list_of_results])
-            list_of_txt_data.append(TxtData(header="time_step", array=time_steps))
+            list_of_txt_data.append(
+                TxtData(
+                    header="time_step",
+                    array=time_steps,
+                    format=self._set_column_data_format("time_step"),
+                )
+            )
         # Now, append the errors
         for key in errors_to_export.keys():
-            list_of_txt_data.append(TxtData(header=key, array=errors_to_export[key]))
+            list_of_txt_data.append(
+                TxtData(
+                    header=key,
+                    array=errors_to_export[key],
+                    format=self._set_column_data_format(key),
+                )
+            )
 
         # Finally, call the function to write into the txt
         export_data_to_txt(list_of_txt_data, file_name)
@@ -430,3 +448,19 @@ class ConvergenceAnalysis:
             names = variables
 
         return names
+
+    def _set_column_data_format(self, header: str) -> str:
+        """Set column data format.
+
+        Intended usage is to give the option of inheriting the class and override
+        this method to define custom data formats for a given column.
+
+        Parameters:
+            header: Name of the header.
+
+        Returns:
+            String data format. As used to instantiate a
+            :class:`~porepy.utils.txt_io.TxtData` object.
+
+        """
+        return "%2.2e"
