@@ -630,7 +630,6 @@ class FractureNetwork2d:
         )
 
     def _find_intersection_points(self, lines: np.ndarray) -> np.ndarray:
-
         frac_id = np.ravel(lines[:2, lines[2] == GmshInterfaceTags.FRACTURE.value])
         _, frac_ia, frac_count = np.unique(frac_id, True, False, True)
 
@@ -827,6 +826,8 @@ class FractureNetwork2d:
             self._decomposition["domain_boundary_points"] = np.empty(0, dtype=int)
             self._edges = e
             self._pts = p
+
+        self.fractures = [f for fi, f in enumerate(self.fractures) if fi in edges_kept]
 
         self.bounding_box_imposed = True
         return edges_kept, edges_deleted
