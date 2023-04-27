@@ -299,13 +299,13 @@ class TestInstantiationSanityCheckAndHelperMethods:
         [
             (-1, 1),
             (1, -1),
-        ]
+        ],
     )
     def test_error_raised_if_rates_smaller_than_one(
-            self,
-            spatial_rate: int,
-            temporal_rate: int,
-            stationary_mock_model,
+        self,
+        spatial_rate: int,
+        temporal_rate: int,
+        stationary_mock_model,
     ) -> None:
         """Check that error is raised when rates are smaller than one.
 
@@ -326,8 +326,8 @@ class TestInstantiationSanityCheckAndHelperMethods:
         assert msg in str(excinfo.value)
 
     def test_warning_is_raised_when_both_rates_are_one(
-            self,
-            time_dependent_mock_model,
+        self,
+        time_dependent_mock_model,
     ) -> None:
         """Check that warning is raised when both rates are equal to one.
 
@@ -346,8 +346,8 @@ class TestInstantiationSanityCheckAndHelperMethods:
         assert str(record[0].message) == msg
 
     def test_error_is_raised_when_temporal_rate_larger_than_one_for_stationary_model(
-            self,
-            stationary_mock_model,
+        self,
+        stationary_mock_model,
     ) -> None:
         """Check that error is raised when temporal rate > 1 and model is stationary.
 
@@ -454,6 +454,7 @@ def stationary_model():
     @dataclass
     class StationaryModelSaveData:
         """Data class to store errors."""
+
         error_var_0: float  # error associated with variable 0
         error_var_1: float  # error associated with variable 1
 
@@ -520,6 +521,7 @@ def time_dependent_model():
             Data class with attributes ``error_var_0`` and ``error_var_1``.
 
         """
+
         error_var_0: float  # error associated with variable 0
         error_var_1: float  # error associated with variable 1
 
