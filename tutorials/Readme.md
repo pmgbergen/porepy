@@ -28,6 +28,7 @@ It should however be noted that the appropriate order of reading may depend on t
 9. [simulation exporting](./simulation_exporting.ipynb) TODO: Either add description, or if it's combined with the above tutorial: edit above description.
 
 For the experienced user, some more specific tutorials are also available:
+
 10. [equations](./equations.ipynb) covers briefly some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
 11. [mandels problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity. 
 12. [flux_discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation. 
