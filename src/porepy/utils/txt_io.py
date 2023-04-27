@@ -84,9 +84,14 @@ def read_data_from_txt(file_name: str) -> dict[str, np.ndarray]:
     header = header.lstrip("# ")
     header = header.rstrip("\n")
 
-    # Get all variable names
+    # Get all variable names and values
     names = header.split()
-    values = np.loadtxt(fname=file_name, dtype=np.float64, unpack=True)
+    values = np.loadtxt(
+        fname=file_name,
+        dtype=np.float64,
+        skiprows=1,
+        unpack=True,
+    )
 
     # Prepare to return
     read_data: dict[str, np.ndarray] = {}
