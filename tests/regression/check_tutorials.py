@@ -39,10 +39,10 @@ def remove_plots(filename: str):
     "template" backend is a dummy backend that does nothing.
 
     """
-    with open(filename) as f:
+    with open(filename, encoding='utf-8') as f:
         content = f.readlines()
 
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding='utf-8') as f:
         f.write("import matplotlib; matplotlib.use('template')\n")
         f.writelines(content)
 
