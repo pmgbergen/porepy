@@ -17,14 +17,14 @@ class ConvergenceAnalysis:
 
     The class :class:`~ConvergenceAnalysis` takes a PorePy model and its parameter
     dictionary to run a batch of simulations with successively refined mesh sizes and
-    time steps and collect the results (i.e., the data classes containing the errors) in
-    a list using the :meth:`~run_analysis` method. Levels of refinement (in time and
+    time steps and collects the results (i.e., the data classes containing the errors)
+    in a list using the :meth:`~run_analysis` method. Refinement rates (in time and
     space) are given at instantiation.
 
     Useful methods of this class include
 
-        - :meth:`run_analysis`: Run a batch of simulations with successively refined
-          mesh size and/or time steps.
+        - :meth:`~run_analysis`: Runs a batch of simulations with successively refined
+          mesh sizes and/or time steps.
         - :meth:`~export_errors_to_txt`: Exports errors into a ``txt`` file.
         - :meth:`~order_of_convergence`: Estimates the observed order of convergence
           of a given set of variables using linear regression.
@@ -37,25 +37,27 @@ class ConvergenceAnalysis:
 
             - Static and time-dependent models.
 
-            - If the model is time-dependent, we assume that the ``TimeManager`` is
+            - If the model is time-dependent, we require the ``TimeManager`` to be
               instantiated with a constant time step.
 
     Raises:
 
         ValueError
-            If ``in_space`` and ``in_time`` are both ``False``.
+            If ``spatial_refinement_rate`` < 1.
 
         ValueError
-            If ``model_class`` is stationary and ``in_time`` is ``True``.
+            If ``temporal_refinement_rate`` < 1.
+
+        ValueError
+            For a stationary model, if ``temporal_refinement_rate`` > 1.
 
         NotImplementedError
-            If the time manager contains a non-constant time step.
+            For a time-dependent model, if the time manager contains a non-constant
+            time step.
 
         Warning
-            If ``in_space=True`` and ``spatial_refinement_rate > 1``.
+            If both refinement rates are equal to 1.
 
-        Warning
-            If ``in_time=True`` and ``temporal_refinement_rate > 1``.
 
     Parameters:
         model_class: Model class for which the analysis will be performed.
@@ -64,17 +66,10 @@ class ConvergenceAnalysis:
         levels: ``default=1``
 
             Number of refinement levels associated to the convergence analysis.
-        in_space: ``default=True``
-
-            Whether a convergence analysis in space should be performed.
-        in_time:  ``default=False``
-
-            Whether a convergence analysis in time should be performed.
         spatial_refinement_rate: ``default=1``
 
-            Rate at which the mesh size(s) should be refined. For example, use
-            ``spatial_refinement_rate=2`` for halving the mesh size(s) in-between
-             levels.
+            Rate at which the mesh size should be refined. For example, use
+            ``spatial_refinement_rate=2`` for halving the mesh size in-between levels.
         temporal_refinement_rate: ``default=1``
 
             Rate at which the time step size should be refined. For example, use
@@ -88,22 +83,29 @@ class ConvergenceAnalysis:
         model_class,
         model_params: dict,
         levels: int = 1,
-        in_space: bool = True,
-        in_time: bool = False,
         spatial_refinement_rate: int = 1,
         temporal_refinement_rate: int = 1,
     ):
         # Sanity checks
-        if not in_space and not in_time:
-            raise ValueError("At least one type of analysis should be performed.")
+        if spatial_refinement_rate < 1 or temporal_refinement_rate < 1:
+            raise ValueError("Refinement rate cannot be less than 1.")
 
-        if not in_space and spatial_refinement_rate > 1:
-            warnings.warn("'spatial_refinement_rate' is not being used.")
-            spatial_refinement_rate = 1
+        if spatial_refinement_rate == 1 and temporal_refinement_rate == 1:
+            warnings.warn("No refinement (in space or time) will be performed.")
 
-        if not in_time and temporal_refinement_rate > 1:
-            warnings.warn("'temporal_refinement_rate' is not being used.")
-            temporal_refinement_rate = 1
+        # Check if analysis in space should be performed
+        if spatial_refinement_rate == 1:
+            self._in_space: bool = False
+            """Whether a spatial analysis should be performed."""
+        else:
+            self._in_space = True
+
+        # Check if analysis in time should be performed
+        if temporal_refinement_rate == 1:
+            self._in_time: bool = False
+            """Whether a temporal analysis should be performed."""
+        else:
+            self._in_time = True
 
         self.model_class = model_class
         """Model class that should be used to run the simulations and perform the
@@ -113,12 +115,6 @@ class ConvergenceAnalysis:
 
         self.levels: int = levels
         """Number of levels of the convergence analysis."""
-
-        self.in_space: bool = in_space
-        """Whether a spatial analysis should be performed."""
-
-        self.in_time: bool = in_time
-        """Whether a temporal analysis should be performed."""
 
         self.spatial_refinement_rate: int = spatial_refinement_rate
         """Rate at which the mesh size should be refined. A value of ``2``
@@ -144,7 +140,7 @@ class ConvergenceAnalysis:
         self._is_time_dependent: bool = setup._is_time_dependent()
         """Whether the model is time-dependent."""
 
-        if not self._is_time_dependent and self.in_time:
+        if not self._is_time_dependent and self._in_time:
             raise ValueError("Analysis in time not available for stationary models.")
 
         # Retrieve list of meshing arguments
@@ -192,13 +188,11 @@ class ConvergenceAnalysis:
                 # Run stationary model
                 pp.run_stationary_model(setup, deepcopy(self.model_params[level]))
                 # Complement information in results
-                setattr(setup.results[-1], "num_dofs", setup.equation_system.num_dofs())
                 setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
             else:
                 # Run time-dependent model
                 pp.run_time_dependent_model(setup, deepcopy(self.model_params[level]))
                 # Complement information in results
-                setattr(setup.results[-1], "num_dofs", setup.equation_system.num_dofs())
                 setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
                 setattr(setup.results[-1], "dt", setup.time_manager.dt)
 
@@ -341,8 +335,7 @@ class ConvergenceAnalysis:
         for idx, name in enumerate(names):
             slope, *_ = stats.linregress(x_vals, y_vals[idx])
             ooc_name = "ooc_" + name.lstrip("error_")  # strip the prefix "error_"
-            ooc_val = slope
-            ooc_dict[ooc_name] = ooc_val
+            ooc_dict[ooc_name] = slope
 
         return ooc_dict
 
