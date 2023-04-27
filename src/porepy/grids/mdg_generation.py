@@ -662,13 +662,13 @@ def create_mdg(
         - :func:`~porepy.fracs.meshing.tensor_grid`
 
     Parameters:
-        grid_type: 
+        grid_type:
             Type of grid. Use ``simplex`` for unstructured triangular and
             tetrahedral grids, ``cartesian`` for structured, uniform Cartesian grids,
             and ``tensor_grid`` for structured, non-uniform Cartesian grids.
-        meshing_args: 
+        meshing_args:
             A dictionary with meshing keys depending on each grid_type:
-            
+
             if grid_type == "simplex":
 
             - ``'cell_size'``: ``float``:
@@ -676,86 +676,86 @@ def create_mdg(
                Overall target cell size. It is required, if one
                of [cell_size_min, cell_size_fracture, cell_size_boundary] is not
                provided.
-            - ``'cell_size_min'``: ``float``: 
-                
+            - ``'cell_size_min'``: ``float``:
+
                 Minimum cell size. If not provided,
-                cell_size will be used for completeness.                
-            - ``'cell_size_fracture'``: ``float``: 
-                
+                cell_size will be used for completeness.
+            - ``'cell_size_fracture'``: ``float``:
+
                 Target mesh size close to the fracture.
                 If not provided, cell_size will be used for completeness.
-            - ``'cell_size_boundary'``: ``float``: 
-                
+            - ``'cell_size_boundary'``: ``float``:
+
                 Target mesh size close to the external
                 boundaries (can be seen as a far-field value). If not provided,
                 cell_size will be used for completeness.
 
             if grid_type == "cartesian":
-                
-            - ``'cell_size'``: ``float``: 
-                
+
+            - ``'cell_size'``: ``float``:
+
                 Side length of the grid elements (squares in 2d
                 and cubes 3d). It is required, if one of [cell_size_x, cell_size_y
                 , cell_size_z] is not provided.
-            - ``'cell_size_x'``: ``float``: 
-                
+            - ``'cell_size_x'``: ``float``:
+
                 Size in x-direction. If cell_size_x is
                 provided, it overwrites cell_size in the x-direction.
-            - ``'cell_size_y'``: ``float``: 
-                
+            - ``'cell_size_y'``: ``float``:
+
                 Size in y-direction. If cell_size_y is
                 provided, it overwrites cell_size in the y-direction.
-            - ``'cell_size_z'``: ``float``: 
-                
+            - ``'cell_size_z'``: ``float``:
+
                 Size in z-direction. If cell_size_z is
                 provided, it overwrites cell_size in the z-direction.
-                
+
             if grid_type == "tensor_grid":
-            
-            - ``'cell_size'``: ``float``: 
-                
+
+            - ``'cell_size'``: ``float``:
+
                 Size in all directions. It is required, if one
                 of [x_pts, y_pts, z_pts] is not provided.
-            - ``'x_pts'``: ``np.ndarray``: 
-                
+            - ``'x_pts'``: ``np.ndarray``:
+
                 Points in x-direction. The points np.min(x_pts)
                 , np.max(x_pts) must be on the boundary. If x_pts is provided,
                 it overwrites the information computed from cell_size in the
                 x-direction.
-            - ``'y_pts'``: ``np.ndarray``: 
-                
+            - ``'y_pts'``: ``np.ndarray``:
+
                 Points in y-direction. The points np.min(y_pts)
                 , np.max(y_pts) must be on the boundary. If y_pts is provided,
                 it overwrites the information computed from cell_size in the
                 y-direction.
-            - ``'z_pts'``: ``np.ndarray``: 
-                
+            - ``'z_pts'``: ``np.ndarray``:
+
                 Points in z-direction. The points np.min(z_pts)
                 , np.max(z_pts) must be on the boundary. If z_pts is provided,
                 it overwrites the information computed from cell_size in the
                 z-direction.
-                
+
         fracture_network: Fracture network specification.
         **kwargs: A dictionary with extra meshing keys associated with each grid_type:
-            
-            if grid_type == "simplex": 
+
+            if grid_type == "simplex":
             See signature for the `mesh` function in:
-                - ``'constraints'``: ``np.ndarray``: 
-                    
+                - ``'constraints'``: ``np.ndarray``:
+
                     Index list of the fractures that should
                     be treated as constraints in meshing, but not added as separate
                     fracture grids (no splitting of nodes etc.). Useful to define
                     subregions of the domain (and assign e.g., sources, material
                     properties, etc.).
-                - ``'dfn'``: ``bool``: 
-                    
+                - ``'dfn'``: ``bool``:
+
                     Defaults to False. Directive for generating a DFN mesh.
                     Providing True activates the directive.
-            
+
             if grid_type == "simplex" or "tensor_grid":
-            
-                - ``'offset'``: ``float``: 
-                    
+
+                - ``'offset'``: ``float``:
+
                     Defaults to 0. Parameter that quantifies a
                     perturbation to nodes around the faces that are split.
                     NOTE: this is only for visualization purposes.
