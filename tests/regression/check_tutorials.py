@@ -1,74 +1,56 @@
 import glob
 import os
-from typing import Optional
+import sys
+
+import pytest
+
+TUTORIAL_FILENAMES = glob.glob("tutorials/*.ipynb")
 
 
-def run_all(files: Optional[list[str]] = None):
-    os.chdir("../../tutorials")
-    failed = False
-    failed_files = []
-    if files is None:
-        files = glob.glob("*.ipynb")
-    for file in files:
-        new_file = file[:-6] + ".py"
-        cmd_convert = "jupyter nbconvert --to script " + file
-        os.system(cmd_convert)
-        remove_plots(new_file)
+@pytest.mark.parametrize("tutorial_path", TUTORIAL_FILENAMES)
+def test_run_tutorials(tutorial_path: str):
+    """We run the tutorial and check that it didn't raise any error.
+    This assumes we run pytest from the porepy directory.
 
-        cmd_run = "python " + str(new_file)
-        status = os.system(cmd_run)
-        if status != 0:
-            print("\n")
-            print("*********************\n")
-            print(file + " failed\n\n")
-            print("********************\n")
-            failed = True
-            failed_files.append(file)
-        os.remove(new_file)
-    if not failed:
-        print("********************\n")
-        print("All tutorials ran. \n")
-        print("********************\n")
-    else:
-        print("********************\n")
-        print("The following tutorials failed: \n")
-        print(*failed_files, sep=", ")
-        print("********************\n")
-    assert not failed
+    Notice: the current file is now called "check_tutorials.py". Its name doesn't start
+    from "test_", so it won't be automatically run by the command "pytest ."
+
+    """
+    new_file = tutorial_path[:-6] + ".py"
+
+    # This command might fail in github actions.
+    cmd_convert = "jupyter nbconvert --to script " + tutorial_path
+    os.system(cmd_convert)
+    remove_plots(new_file)
+
+    cmd_run = "python " + str(new_file)
+    status = os.system(cmd_run)
+
+    assert status == 0
+
+    # Removing the generated source file after the assertion. If the test fails, it is
+    # useful to keep it in order to see what went wrong there.
+    os.remove(new_file)
 
 
-def remove_plots(fn):
-    with open(fn) as f:
+def remove_plots(filename: str):
+    """Matplotlib opens a new windows for each figure in the interactive mode.
+    Here, we prevent it by setting the noninteractive matplotlib backend.
+    "template" backend is a dummy backend that does nothing.
+
+    """
+    with open(filename) as f:
         content = f.readlines()
 
-    with open(fn, "w") as f:
-        for line in content:
-            if line.strip()[:9] == "plot_grid":
-                continue
-            if line.strip()[:12] == "pp.plot_grid":
-                continue
-            if line.strip()[:4] == "plt.":
-                continue
-            if line.strip()[:17] == "pp.plot_fractures":
-                continue
-            if line.strip()[:11] == "get_ipython":
-                continue
-            if line.strip()[:15] == "network_2d.plot":
-                continue
-            if line.strip()[:6] == "print(":
-                continue
-            if "vtk" in line:
-                continue
-            if "Exporter" in line:
-                continue
-            if "exporter" in line:
-                continue
-            if "write" in line:
-                continue
-            if "import plot_grid" in line:
-                continue
-            f.write(line)
+    with open(filename, "w") as f:
+        f.write("import matplotlib; matplotlib.use('template')\n")
+        f.writelines(content)
 
 
 if __name__ == "__main__":
-    run_all()
+    try:
+        filenames = [sys.argv[1]]
+    except IndexError:
+        filenames = TUTORIAL_FILENAMES
+    for tutorial_path in filenames:
+        test_run_tutorials(tutorial_path=tutorial_path)
