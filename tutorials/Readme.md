@@ -1,13 +1,13 @@
 # Tutorials
 This folder contains tutorials to demonstrate how PorePy can be utilized.
-More specifically, they cover both the basic workings of PorePy and how to use it, as well as some more specific use.
+More specifically, they cover both the basic workings of PorePy and how to use it, as well as some more specific usage.
 To follow the tutorials you can run them as Jupyter Notebooks, which is done either by downloading the individual files or by cloning the repository.
 
 The new or average user need only care about the tutorials 1.-10. that are shown below.
 Those tutorials are mainly oriented towards use of PorePy as it is. 
 In practice this means only making minor adjustments, such as modifying boundary conditions, initial conditions and similar.
 
-The tutorials' goal is to show how simulations on various different physical problems can be done using PorePy.
+The tutorials' goal is to show how simulations of various different physical problems can be done using PorePy.
 In addition to this, the user will learn about how to export files for visualization externally.
 
 Note that the lower three tutorials cover some very specific use of PorePy. 
@@ -23,13 +23,13 @@ It should however be noted that the appropriate order of reading may depend on t
 4. [meshing_of_fractures](./meshing_of_fractures.ipynb) describes the construction of mixed-dimensional grids. These grids represent a fracture network and the surrounding porous medium.
 5. [conventions](./conventions.ipynb) defines some conventions used in PorePy. Specifically this is related to signs, boundary conditions etc.
 6. [single phase flow](./single_phase_flow.ipynb) describes how to use the model class `SinglePhaseFlow`. The tutorial exposes several extensions and how to solve a mixed-dimensional problem with only a few lines of code.
-7. []() describes how to combine two single physics problems into one coupled problem. TODO: make better description and include reference when the file exists. 
+7. [poroelasticity](./poroelasticity.ipynb) covers combining the models of mass and momentum balance to obtain a model for poromechanics.
 8. [exporter](./exporter.ipynb) documents how to export data from PorePy for external visualization (e.g. ParaView). Several examples of exporting is demonstrated.
 9. [simulation exporting](./simulation_exporting.ipynb) TODO: Either add description, or if it's combined with the above tutorial: edit above description.
 
-For the experienced user, some more specific tutorials are also available:
-
-10. [equations](./equations.ipynb) covers briefly some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
-11. [mandels problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity. 
-12. [flux_discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation. 
-13. [stress_discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of 12. that arises in the stress-strain relationship of Hooke's law.
+For the more experienced user, some more specific tutorials are also available:
+10. [diagnostics](./diagnostics.ipynb) provides a description of how to use the diagnostics mixin in PorePy. The mixin allows for visualizing properties of the discretized system of equations blocks in PorePy.
+11. [equations](./equations.ipynb) covers briefly some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
+12. [mandels problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity. 
+13. [flux_discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation. 
+14. [stress_discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of 13. that arises in the stress-strain relationship of Hooke's law.
