@@ -266,7 +266,6 @@ class Mpfa(pp.FVElliptic):
                 active_bound_pressure_vector_source += (
                     face_map * loc_bound_pressure_vector_source * cell_map_vec
                 )
-        
 
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid.
@@ -597,7 +596,7 @@ class Mpfa(pp.FVElliptic):
             }
             discr.discretize(sd, d)
             matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
-       
+
             return (
                 matrix_dictionary[self.flux_matrix_key],
                 matrix_dictionary[self.bound_flux_matrix_key],
@@ -1040,7 +1039,7 @@ class Mpfa(pp.FVElliptic):
 
         vector_source = hf2f * discr_vector_source * sc2c
         bound_pressure_vector_source = area_mat * vector_source_bound * sc2c
-        
+
         return (
             flux,
             bound_flux,

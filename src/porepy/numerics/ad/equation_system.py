@@ -230,7 +230,7 @@ class EquationSystem:
         # Parsing of input arguments.
         equations = list(self._parse_equations(equation_names).keys())
         variables = self._parse_variable_type(variable_names)
-        
+
         # Check that the requested equations and variables are known to the system.
         known_equations = set(self._equations.keys())
         unknown_equations = set(equations).difference(known_equations)
@@ -1482,20 +1482,20 @@ class EquationSystem:
         # grid-related column blocks by using the transposed projection to respective
         # subspace.
         # Multiply rhs by -1 to move to the rhs.
-        
+
         column_projection = self.projection_to(variables).transpose()
-        
+
         return A * column_projection, -rhs_cat
-    
+
     def assemble_rhs(
         self,
         state: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Assemble residual vector of the whole system.
-        
+
         It is identical to :meth: `assemble`, but can be more convenient for
         certain aspects of non-linear solvers
-        
+
         See :meth: `assemble` for the in-depth documentation
 
         Parameters:
@@ -1516,10 +1516,10 @@ class EquationSystem:
     ) -> np.ndarray:
         """Assemble residual vector using a specified subset of
         equations, variables and grids.
-        
-        It is identical to :meth: `assemble_subsystem`, but can be more 
+
+        It is identical to :meth: `assemble_subsystem`, but can be more
         convenient for certain aspects of non-linear solvers
-        
+
         See :meth: `assemble_subssystem` for the in-depth documentation
 
         Parameters:

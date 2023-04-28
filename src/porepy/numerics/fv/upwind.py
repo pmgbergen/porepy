@@ -220,15 +220,15 @@ class Upwind(Discretization):
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
-        
-        # Number of componets 
+
+        # Number of componets
         num_components: int = parameter_dictionary.get("num_components", 1)
-        
+
         # Shortcut for point grids
         if sd.dim == 0:
             matrix_dictionary[self.upwind_matrix_key] = sps.csr_matrix(
                 (0, num_components)
-                )
+            )
 
             matrix_dictionary[self.bound_transport_dir_matrix_key] = sps.csr_matrix(
                 (0, 0)
@@ -301,9 +301,9 @@ class Upwind(Discretization):
 
         # Form and store discretization matrix
         # Expand the discretization matrix to more than one component
-    
+        sp_eye = sps.eye(num_components)  # Sparse identiy
         matrix_dictionary[self.upwind_matrix_key] = sps.kron(
-            upstream_mat, sps.eye(num_components)
+            upstream_mat, sp_eye
         ).tocsr()
 
         # Boundary conditions
@@ -336,10 +336,10 @@ class Upwind(Discretization):
 
         # Expand matrix to the right number of components, and store it
         matrix_dictionary[self.bound_transport_neu_matrix_key] = sps.kron(
-            bc_discr_neu, sps.eye(num_components)
+            bc_discr_neu, sp_eye
         ).tocsr()
         matrix_dictionary[self.bound_transport_dir_matrix_key] = sps.kron(
-            bc_discr_dir, sps.eye(num_components)
+            bc_discr_dir, sp_eye
         ).tocsr()
 
     def cfl(self, sd: pp.Grid, data: dict, d_name="darcy_flux"):
