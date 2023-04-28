@@ -1,3 +1,8 @@
+"""Contains classes representing two-dimensional fractures.
+
+That is, manifolds of dimension 2 embedded in 3D.
+
+"""
 from __future__ import annotations
 
 from typing import Optional, Union
