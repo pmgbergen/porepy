@@ -44,10 +44,10 @@ class PlaneFracture(Fracture):
         """Sort the points in a counter-clockwise (CCW) order.
 
         Note:
-            For now, the ordering of nodes in based on a simple angle argument.
-            This will not be robust for general point clouds, but we expect the
-            fractures to be regularly shaped in this sense. In particular, we
-            will be safe if the cell is convex.
+            For now, the ordering of nodes in based on a simple angle argument. This
+            will not be robust for general point clouds, but we expect the fractures
+            to be regularly shaped in this sense. In particular, we will be safe if
+            the cell is convex.
 
         Returns:
             An integer array with containing the sorted indices.
@@ -68,8 +68,8 @@ class PlaneFracture(Fracture):
     def local_coordinates(self) -> np.ndarray:
         """Represent the vertex coordinates in the natural 2D plane.
 
-        The plane has constant, but not necessarily zero, third coordinate. I.e., no
-        translation to the origin is made.
+        The plane has constant, but not necessarily zero, third coordinate. I.e.,
+        no translation to the origin is made.
 
         Returns:
             An array with ``shape=(2, n)`` representing the 2D coordinates of the
@@ -90,10 +90,10 @@ class PlaneFracture(Fracture):
     ) -> bool:
         """Add points to the polygon with the implemented sorting enforced.
 
-        Always run a test to check that the points are still planar.
-        By default, a check of convexity is also performed, however, this can be
-        turned off to speed up simulations (the test uses sympy, which turns
-        out to be slow in many cases).
+        Always run a test to check that the points are still planar. By default,
+        a check of convexity is also performed, however, this can be turned off to
+        speed up simulations (the test uses sympy, which turns out to be slow in many
+        cases).
 
         Parameters:
             p: ``shape=(nd, num_pts)``
@@ -210,9 +210,8 @@ class PlaneFracture(Fracture):
         z = p[2, 0]
         p = p[:2]
 
-        # Vectors from the first point to all other points. Subsequent pairs of
-        # these will span triangles which, assuming convexity, will cover the
-        # polygon.
+        # Vectors from the first point to all other points. Subsequent pairs of these
+        # will span triangles which, assuming convexity, will cover the polygon.
         v = p[:, 1:] - p[:, 0].reshape((-1, 1))
         # The cell center of the triangles spanned by the subsequent vectors
         cc = (p[:, 0].reshape((-1, 1)) + p[:, 1:-1] + p[:, 2:]) / 3
@@ -274,11 +273,10 @@ def create_elliptic_fracture(
 ) -> PlaneFracture:
     """Initialize an elliptically shaped fracture, approximated by a polygon.
 
-    The rotation of the plane is calculated using three angles. First, the
-    rotation of the major axis from the x-axis. Next, the fracture is
-    inclined by specifying the strike angle (which gives the rotation
-    axis) measured from the x-axis, and the dip angle. All angles are
-    measured in radians.
+    The rotation of the plane is calculated using three angles. First, the rotation
+    of the major axis from the x-axis. Next, the fracture is inclined by specifying
+    the strike angle (which gives the rotation axis) measured from the x-axis,
+    and the dip angle. All angles are measured in radians.
 
     Example:
         Fracture centered at ``[0, 1, 0]``, with a ratio of lengths of 2,
@@ -324,8 +322,7 @@ def create_elliptic_fracture(
 
     assert pp.geometry_property_checks.points_are_planar(ref_pts)
 
-    # Rotate reference points so that the major axis has the right
-    # orientation
+    # Rotate reference points so that the major axis has the right orientation
     major_axis_rot = pp.map_geometry.rotation_matrix(
         major_axis_angle, np.array([0, 0, 1])
     )
@@ -333,8 +330,8 @@ def create_elliptic_fracture(
 
     assert pp.geometry_property_checks.points_are_planar(rot_ref_pts)
 
-    # Then the dip
-    # Rotation matrix of the strike angle
+    # Then the dip.
+    # Rotation matrix of the strike angle.
     strike_rot = pp.map_geometry.rotation_matrix(strike_angle, np.array([0, 0, 1]))
     # Compute strike direction
     strike_dir = strike_rot.dot(np.array([1, 0, 0]))

@@ -214,14 +214,14 @@ def network_2d_from_csv(
     1. ``FID, START_X, START_Y, END_X, END_Y``.
     2. ``FID, PT_X, PT_Y``.
 
-    Format 1 is used to describe fractures consisting of a straight line.
-    ``FID`` is the fracture id, ``START_X`` and ``START_Y`` are the abscissa and
-    coordinate of the starting point, and ``END_X`` and ``END_Y`` are the abscissa and
-    coordinate of the ending point.
+    Format 1 is used to describe fractures consisting of a straight line. ``FID`` is
+    the fracture id, ``START_X`` and ``START_Y`` are the abscissa and coordinate of
+    the starting point, and ``END_X`` and ``END_Y`` are the abscissa and coordinate
+    of the ending point.
 
     Format 2 can be used to describe polyline fractures, where each row in the file
-    represents separate points, points with the same ``FID`` will be assigned to
-    the same fracture *in the order specified in the file*.
+    represents separate points, points with the same ``FID`` will be assigned to the
+    same fracture *in the order specified in the file*.
 
     To change the delimiter from the default comma, use kwargs passed to
     :obj:`numpy.genfromtxt`.
@@ -368,8 +368,8 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
 
     Parameters:
         file_name:
-            Name of gmsh *in* and *out* file. Should have extension ``.geo``
-            or ``.msh``. In the former case, gmsh will be called upon to generate the
+            Name of gmsh *in* and *out* file. Should have extension ``.geo`` or
+            ``.msh``. In the former case, gmsh will be called upon to generate the
             mesh before the mixed-dimensional mesh is constructed.
         dim:
             Dimension of the problem. Should be 2 or 3.

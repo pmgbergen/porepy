@@ -38,9 +38,9 @@ class FractureNetwork2d:
 
     Note:
         The class is mainly intended for representation and meshing of a fracture
-        network. However, it also contains some utility functions. The balance
-        between these components may change in the future, especially utility
-        functions may be removed.
+        network. However, it also contains some utility functions. The balance between
+        these components may change in the future, especially utility functions may be
+        removed.
 
     Parameters:
         fractures: ``default=None``
@@ -381,8 +381,8 @@ class FractureNetwork2d:
             Expand description of ``remove_small_fractures``.
 
         Parameters:
-            mesh_args: Arguments passed on to mesh size control.
-            It should contain at least the keyword ``mesh_size_frac``.
+            mesh_args: Arguments passed on to mesh size control. It should contain at
+                least the keyword ``mesh_size_frac``.
             tol: ``default=None``
 
                 Tolerance used for geometric computations. If not given,
@@ -447,8 +447,8 @@ class FractureNetwork2d:
             to_delete = np.where(np.isin(constraints, edges_deleted))[0]
 
             # Adjust constraint indices: Must be decreased for all deleted lines with
-            # lower index, and increased for all lines with lower index that have been
-            # split.
+            # lower index, and increased for all lines with lower index that have
+            # been split.
             adjustment = np.zeros(num_edge_orig, dtype=int)
             # Deleted edges give an index reduction of 1
             adjustment[edges_deleted] = -1
@@ -460,9 +460,10 @@ class FractureNetwork2d:
             # but the current implementation does not cover it.
             assert np.all(num_occ[constraints] < 2)
 
-            # Splitting of fractures give an increase of index corresponding to the number
-            # of repeats. The clip avoids negative values for deleted edges, these have
-            # been accounted for before. Maybe we could merge the two adjustments.
+            # Splitting of fractures give an increase of index corresponding to the
+            # number of repeats. The clip avoids negative values for deleted edges,
+            # these have been accounted for before. Maybe we could merge the two
+            # adjustments.
             adjustment += np.clip(num_occ - 1, 0, None)
 
             # Do the real adjustment
@@ -472,7 +473,7 @@ class FractureNetwork2d:
             constraints = np.delete(constraints, to_delete)
 
             # FIXME: We do not keep track of indices of fractures and constraints
-            # before and after imposing the boundary.
+            #  before and after imposing the boundary.
 
         # The fractures should also be snapped to the boundary.
         if do_snap:
@@ -517,13 +518,15 @@ class FractureNetwork2d:
             self._set_mesh_size_without_auxiliary_points(**mesh_args)
 
         # Transfer data to the format expected by the gmsh interface.
+
         # This requires some information processing and translation between data
-        # formats: In the geometry processing undertaken up to this point, it has been
-        # convenient to use numerical values for identifying the different line types
-        # (fracture, constraint, boundary). For the Gmsh processing, a string-based
-        # system is used, as this is more readable and closer to the system employed in
-        # Gmsh. In practice, this requires translating from GmshInterfaceTags values to
-        # ``names``.
+        # formats: In the geometry processing undertaken up to this point,
+        # it has been convenient to use numerical values for identifying the
+        # different line types (fracture, constraint, boundary). For the Gmsh
+        # processing, a string-based system is used, as this is more readable and
+        # closer to the system employed in Gmsh. In practice, this requires
+        # translating from GmshInterfaceTags values to ``names``.
+
         # In addition to this translation, the below code also does some interpretation
         # of the information obtained during geometry processing.
 
@@ -627,8 +630,8 @@ class FractureNetwork2d:
 
         # In some cases the fractures and boundaries impose the same constraint
         # twice, although it is not clear why. Avoid this by uniquifying the lines.
-        # This may disturb the line tags in lines[2], but we should not be
-        # dependent on those.
+        # This may disturb the line tags in lines[2], but we should not be dependent
+        # on those.
         li = np.sort(lines[:2], axis=0)
         _, new_2_old, old_2_new = pp.utils.setmembership.unique_columns_tol(
             li, tol=self.tol
@@ -773,10 +776,10 @@ class FractureNetwork2d:
     ) -> None:
         """Set the "vanilla" mesh size to points.
 
-        No attempts at automatically determine the mesh size is done and no
-        auxiliary points are inserted. Fracture points are given the
-        :attr:`mesh_size_frac` mesh size and the domain boundary is given the
-        :attr:`mesh_size_bound` mesh size. :attr:`mesh_size_min` is not used.
+        No attempts at automatically determine the mesh size is done and no auxiliary
+        points are inserted. Fracture points are given the :attr:`mesh_size_frac`
+        mesh size and the domain boundary is given the :attr:`mesh_size_bound` mesh
+        size. :attr:`mesh_size_min` is not used.
 
         Parameters:
             mesh_size_frac: ``default=None``
@@ -816,11 +819,11 @@ class FractureNetwork2d:
     ) -> tuple[np.ndarray, np.ndarray]:
         """Constrain the fracture network to lie within a domain.
 
-        Fractures outside the imposed domain will be deleted. The :attr:`domain` will be
-        added to :attr:`_pts` and :attr:`_edges`, if ``add_domain_edges=True``.
+        Fractures outside the imposed domain will be deleted. The :attr:`domain` will
+        be added to :attr:`_pts` and :attr:`_edges`, if ``add_domain_edges=True``.
 
-        The domain boundary edges can be identified from
-        :attr:`tags` using the key ``'boundary'``.
+        The domain boundary edges can be identified from :attr:`tags` using the key
+        ``'boundary'``.
 
         Parameters:
             domain: ``default=None``
@@ -882,16 +885,15 @@ class FractureNetwork2d:
         )
 
         # Special case where an edge has one point on the boundary of the domain,
-        # the other outside the domain. In this case the edge should be removed.
-        # The edge will have been cut so that the endpoints coincide. Look for
-        # such edges
+        # the other outside the domain. In this case the edge should be removed. The
+        # edge will have been cut so that the endpoints coincide. Look for such edges
         _, _, n2o = pp.utils.setmembership.uniquify_point_set(p, self.tol)
         reduced_edges = n2o[e]
         not_point_edge = np.diff(reduced_edges, axis=0).ravel() != 0
 
-        # The point involved in point edges may be superfluous in the description
-        # of the fracture network; this we will deal with later. For now, simply
-        # remove the point edge.
+        # The point involved in point edges may be superfluous in the description of
+        # the fracture network; this we will deal with later. For now, simply remove
+        # the point edge.
         e = e[:, not_point_edge]
         edges_kept = edges_kept[not_point_edge]
 
@@ -955,10 +957,10 @@ class FractureNetwork2d:
 
         The modification snaps vertexes to the closest point on the adjacent line.
         This will in general change the orientation of the fracture with the snapped
-        vertex. The alternative, to prolong the fracture along its existing orientation,
-        may result in very long fractures for almost intersecting lines. Depending on
-        how the fractures are ordered, the same point may need to be snapped to a
-        segment several times in an iterative process.
+        vertex. The alternative, to prolong the fracture along its existing
+        orientation, may result in very long fractures for almost intersecting lines.
+        Depending on how the fractures are ordered, the same point may need to be
+        snapped to a segment several times in an iterative process.
 
         The algorithm is *not* deterministic, in the sense that if the ordering of
         the fractures is permuted, the snapped fracture network will be slightly
@@ -1343,9 +1345,10 @@ class FractureNetwork2d:
             frac_index: ``default=None``
 
                 Index of the fractures for which the start point should be returned.
-                Either a numpy array, or a single integer. In case of multiple indices,
-                the points are returned in the order specified in :attr:`frac_index`.
-                If not specified, all start points will be returned.
+                Either a numpy array, or a single integer. In case of multiple
+                indices, the points are returned in the order specified in
+                :attr:`frac_index`. If not specified, all start points will be
+                returned.
 
         Returns:
             Array of ``shape=(2, num_frac)`` containing the start coordinates of the

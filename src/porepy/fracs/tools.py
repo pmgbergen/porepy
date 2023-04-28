@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """This module contains technical tools used in the treatment of fractures.
 
-This can be thought of as a module for backend utility functions, as opposed to
-the frontend functions found in :mod:`~porepy.fracs.utils`.
+This can be thought of as a module for backend utility functions, as opposed to the
+frontend functions found in :mod:`~porepy.fracs.utils`.
 
 """
 from __future__ import annotations
@@ -86,9 +84,8 @@ def determine_mesh_size(
     dist = np.linalg.norm(pts[:, pts_id[0, :]] - pts[:, pts_id[1, :]], axis=0)
     dist_pts = np.tile(np.inf, pts.shape[1])
 
-    # Loop on all the points and consider the minimum between the pairs of
-    # points lengths associated to the single point and the value input by the
-    # user
+    # Loop on all the points and consider the minimum between the pairs of points
+    # lengths associated to the single point and the value input by the user
     for i, pt_id in enumerate(pts_id.T):
         distances = np.array([dist_pts[pt_id], [dist[i]] * 2, vals[pt_id]])
         dist_pts[pt_id] = np.amin(distances, axis=0)
@@ -96,24 +93,24 @@ def determine_mesh_size(
     num_pts = pts.shape[1]
 
     # Data structures for storing information on extra points.
-    # IMPLEMENTATION NOTE, EK: These variables are gradually appended during iterations.
-    # This is somewhat costly (estimated to ~10% of the total runtime) for large
-    # sets of lines. However, there turned out to be a lot of special cases to cover,
-    # so I ended with not trying to implement the necessary changes.
+
+    # IMPLEMENTATION NOTE, EK: These variables are gradually appended during
+    # iterations. This is somewhat costly (estimated to ~10% of the total runtime)
+    # for large sets of lines. However, there turned out to be a lot of special cases
+    # to cover, so I ended with not trying to implement the necessary changes.
     pts_extra = np.empty((pts.shape[0], 0))
     dist_extra = np.empty(0)
     pts_id_extra = np.empty(0, dtype=int)
     vals_extra = np.empty(0)
 
-    # For each point we compute the distance between the point and the other
-    # pairs of points. We keep the minimum distance between the previously
-    # computed point distance and the distance among the other pairs of points.
-    # If the latter happens, we introduce a new point (useful to determine the
-    # grid size) on the corresponding pair of points with a corresponding
-    # distance.
+    # For each point we compute the distance between the point and the other pairs of
+    # points. We keep the minimum distance between the previously computed point
+    # distance and the distance among the other pairs of points. If the latter
+    # happens, we introduce a new point (useful to determine the grid size) on the
+    # corresponding pair of points with a corresponding distance.
 
-    # Find the bounding box for all lines. We only need to do close comparisons
-    # with points that are within this bounding box.
+    # Find the bounding box for all lines. We only need to do close comparisons with
+    # points that are within this bounding box.
     x_min = np.minimum(pts[0, lines[0]], pts[0, lines[1]])
     x_max = np.maximum(pts[0, lines[0]], pts[0, lines[1]])
     y_min = np.minimum(pts[1, lines[0]], pts[1, lines[1]])
@@ -140,13 +137,13 @@ def determine_mesh_size(
         # Index of lines inside the box.
         inside_lines = np.where(np.logical_not(outside_lines))[0].ravel()
 
-        # Points that are inside the bounding box: All points on lines inside the box.
-        # Note that we are careful when to add indexing on these points below.
+        # Points that are inside the bounding box: All points on lines inside the
+        # box. Note that we are careful when to add indexing on these points below.
         inside_pts = np.unique(lines[:2, inside_lines])
 
-        # Compute the distacne between this line and all points inside the box
-        # This will also include the start and endpoint of this line, but we
-        # deal with that later
+        # Compute the distance between this line and all points inside the box. This
+        # will also include the start and endpoint of this line, but we deal with
+        # that later
         dist, cp = pp.distances.points_segments(pts[:, inside_pts], start, end)
 
         # We know there is a single segment, thus the distance vector can be reduced
@@ -160,19 +157,18 @@ def determine_mesh_size(
         # Update the minimum distance found for these points
         dist_pts[inside_pts[hit]] = np.minimum(dist_pts[inside_pts[hit]], dist[hit])
 
-        # cp[hit, 0] now contains points on the main line that are closest to
-        # another point, and that sufficiently close to warrant attention.
-        # Compute the distance from cp to the start and endpoint of this
-        # line
-        # Transposes are needed here because that is how numpy works
+        # cp[hit, 0] now contains points on the main line that are closest to another
+        # point, and that sufficiently close to warrant attention. Compute the
+        # distance from cp to the start and endpoint of this line. Transposes are
+        # needed here because that is how numpy works.
         dist_start = pp.distances.point_pointset(start, cp[hit, 0].T)
         dist_end = pp.distances.point_pointset(end, cp[hit, 0].T)
 
-        # Now, the cp points are added if they are closer to another point than
-        # to the start and end point of its line, and if the distance from the
-        # start and end is not smaller than the minimum point. The latter removes
-        # lines having their own end points added, and also avoids arbitrarily
-        # small segments along the line.
+        # Now, the cp points are added if they are closer to another point than to
+        # the start and end point of its line, and if the distance from the start and
+        # end is not smaller than the minimum point. The latter removes lines having
+        # their own end points added, and also avoids arbitrarily small segments
+        # along the line.
         to_add = np.logical_and.reduce((dist[hit] < dist_start, dist[hit] < dist_end))
         if np.any(to_add):
             dist_extra = np.r_[
@@ -248,8 +244,8 @@ def determine_mesh_size(
             pts_frac_id = np.unique(pts_frac_id)
             pts_frac = pts[:, pts_frac_id]
 
-            # We will sort points on the line below, but this function requires
-            # 3D points
+            # We will sort points on the line below, but this function requires 3D
+            # points
             pts_frac_aug = np.vstack((pts_frac, np.zeros(pts_frac.shape[1])))
             pts_frac_id = pts_frac_id[
                 pp.map_geometry.sort_points_on_line(pts_frac_aug, tol)
@@ -260,9 +256,9 @@ def determine_mesh_size(
             ).T
             new_lines = np.c_[new_lines, np.vstack((pts_frac_id, other_info))]
 
-    # Consider extra points related to the input value, if the fracture is long
-    # and, because of val, needs additional points we increase the number of
-    # lines.
+    # Consider extra points related to the input value, if the fracture is long and,
+    # because of val, needs additional points we increase the number of lines.
+
     # Make bounding boxes for the new segments.
     x_min_new = np.minimum(pts[0, new_lines[0]], pts[0, new_lines[1]])
     x_max_new = np.maximum(pts[0, new_lines[0]], pts[0, new_lines[1]])
@@ -294,8 +290,8 @@ def determine_mesh_size(
             # smaller, but it may not matter too much.
             buff = 1.1 * mesh_size
 
-            # Compare the bounding boxes of the old segments with the box for this new
-            # segment.
+            # Compare the bounding boxes of the old segments with the box for this
+            # new segment.
             outside_lines = np.logical_or.reduce(
                 (
                     x_max < x_min_new[seg_ind] - buff,
@@ -316,8 +312,8 @@ def determine_mesh_size(
                 # Compute the ditsacne between the current point and all old lines
                 dist1, _ = pp.distances.points_segments(new_pt, start_old, end_old)
 
-                # Disregard points that lie on the old segment by assigning a value so high
-                # that it will not be picked up by the minimum.
+                # Disregard points that lie on the old segment by assigning a value
+                # so high that it will not be picked up by the minimum.
                 dist1[np.isclose(dist1, 0.0)] = mesh_size * 10
 
             else:
@@ -341,7 +337,7 @@ def obtain_interdim_mappings(
     lg: pp.Grid, fn: sps.spmatrix, n_per_face: int
 ) -> tuple[np.ndarray, np.ndarray]:
     """Finds mappings between faces in higher dimension and cells in the lower
-    dimension
+    dimension.
 
     Parameters:
         lg: Lower dimensional grid.
@@ -366,20 +362,19 @@ def obtain_interdim_mappings(
         cn = np.sort(cn, axis=0)
     else:
         cn = np.array([lg.global_point_ind])
-        # We also know that the higher-dimensional grid has faces
-        # of a single node. This sometimes fails, so enforce it.
+        # We also know that the higher-dimensional grid has faces of a single node.
+        # This sometimes fails, so enforce it.
         if cn.ndim == 1:
             fn = fn.ravel()
     is_mem, cell_2_face = pp.utils.setmembership.ismember_rows(
         cn.astype(np.int32), fn.astype(np.int32), sort=False
     )
-    # An element in cell_2_face gives, for all cells in the
-    # lower-dimensional grid, the index of the corresponding face
-    # in the higher-dimensional structure.
+    # An element in cell_2_face gives, for all cells in the lower-dimensional grid,
+    # the index of the corresponding face in the higher-dimensional structure.
     if not (np.all(is_mem) or np.all(~is_mem)):
         warnings.warn(
-            """Found inconsistency between cells and higher
-                      dimensional faces. Continuing, fingers crossed"""
+            """Found inconsistency between cells and higher dimensional faces.
+            Continuing, fingers crossed"""
         )
     low_dim_cell = np.where(is_mem)[0]
     return cell_2_face, low_dim_cell

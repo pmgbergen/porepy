@@ -26,16 +26,14 @@ def _cart_grid_3d(
 ) -> list[list[pp.Grid]]:
     """Creates grids for a domain with possibly intersecting fractures in 3D.
 
-    Based on rectangles describing the individual fractures, the method
-    constructs grids in 3D (the whole domain), 2D (one for each individual
-    fracture), 1D (along fracture intersections), and 0d (intersections of
-    intersections).
+    Based on rectangles describing the individual fractures, the method constructs
+    grids in 3D (the whole domain), 2D (one for each individual fracture), 1D (along
+    fracture intersections), and 0d (intersections of intersections).
 
     Parameters:
-        fracs: A list of arrays with ``shape=(3, 4)``,
-            representing vertices of the rectangle for each fracture.
-            The vertices must be sorted and aligned to the axis.
-            The fractures will snap to the closest grid faces.
+        fracs: A list of arrays with ``shape=(3, 4)``, representing vertices of the
+            rectangle for each fracture. The vertices must be sorted and aligned to
+            the axis. The fractures will snap to the closest grid faces.
         nx: ``shape=(3,)``
 
             Number of cells in each dimension.
@@ -69,9 +67,9 @@ def _tensor_grid_3d(
     """
     Create a grids for a domain with possibly intersecting fractures in 3d.
 
-    Based on lines describing the individual fractures, the method
-    constructs grids in 3d (whole domain), 2d (individual fracture),  1d, and 0d
-    (fracture intersections).
+    Based on lines describing the individual fractures, the method constructs grids
+    in 3d (whole domain), 2d (individual fracture),  1d, and 0d (fracture
+    intersections).
 
     Parameters:
         fracs: A list of arrays with ``shape=(3, 4)``, representing the vertices of the
@@ -99,9 +97,8 @@ def _cart_grid_2d(
 ) -> list[list[pp.Grid]]:
     """Creates grids for a domain with possibly intersecting fractures in 2D.
 
-    Based on lines describing the individual fractures, the method
-    constructs grids in 2D (whole domain), 1D (individual fracture), and 0D
-    (fracture intersections).
+    Based on lines describing the individual fractures, the method constructs grids
+    in 2D (whole domain), 1D (individual fracture), and 0D (fracture intersections).
 
     Parameters:
         fracs: A list of arrays with ``shape=(2, 2)``, representing the vertices of the
@@ -138,9 +135,8 @@ def _tensor_grid_2d(
 ) -> list[list[pp.Grid]]:
     """Creates a grid for a domain with possibly intersecting fractures in 2D.
 
-    Based on lines describing the individual fractures, the method
-    constructs grids in 2D (whole domain), 1D (individual fracture), and 0D
-    (fracture intersections).
+    Based on lines describing the individual fractures, the method constructs grids
+    in 2D (whole domain), 1D (individual fracture), and 0D (fracture intersections).
 
     Parameters:
         fracs: A list of arrays with ``shape=(2, 2)``, representing the vertices of the
@@ -195,15 +191,15 @@ def _create_lower_dim_grids_3d(
     g_2d: list[pp.Grid] = []
     g_1d: list[pp.Grid] = []
     g_0d: list[pp.Grid] = []
-    # We set the tolerance for finding points in a plane. This can be any
-    # small number, that is smaller than .25 of the cell sizes.
+    # We set the tolerance for finding points in a plane. This can be any small
+    # number, that is smaller than .25 of the cell sizes.
     if physdims is None:
         tol = 1e-5 / nx
     else:
         tol = 0.1 * physdims / nx
 
-    # Store a representation of the snapped fractures. This is needed for
-    # identifying fracture intersections below.
+    # Store a representation of the snapped fractures. This is needed for identifying
+    # fracture intersections below.
     snapped_fractures = []
 
     # Create 2D grids
@@ -244,18 +240,17 @@ def _create_lower_dim_grids_3d(
         else:
             flat_dim = [0]
             active_dim = [1, 2]
-        # construct normal vectors. If the rectangle is ordered
-        # clockwise we need to flip the normals so that they point
-        # outwards.
+        # construct normal vectors. If the rectangle is ordered clockwise we need to
+        # flip the normals so that they point outwards.
         sign = 2 * pp.geometry_property_checks.is_ccw_polygon(f_s[active_dim]) - 1
         tangent = f_s.take(np.arange(f_s.shape[1]) + 1, axis=1, mode="wrap") - f_s
         normal = tangent
         normal[active_dim] = tangent[active_dim[1::-1]]
         normal[active_dim[1]] = -normal[active_dim[1]]
         normal = sign * normal
-        # We find all the faces inside the convex hull defined by the
-        # rectangle. To find the faces on the fracture plane, we remove any
-        # faces that are further than tol from the snapped fracture plane.
+        # We find all the faces inside the convex hull defined by the rectangle. To
+        # find the faces on the fracture plane, we remove any faces that are further
+        # than tol from the snapped fracture plane.
         in_hull = pp.half_space.point_inside_half_space_intersection(
             normal, f_s, g_3d.face_centers
         )
@@ -275,11 +270,13 @@ def _create_lower_dim_grids_3d(
         g.frac_num = fi
         g_2d.append(g)
 
-    # Create 1D grids:
-    # Here we make use of the network class to find the intersection of
-    # fracture planes. We could maybe avoid this by doing something similar
-    # as for the 2D-case, and count the number of faces belonging to each edge,
-    # but we use the FractureNetwork class for now.
+    # Create 1D grids.
+
+    # Here we make use of the network class to find the intersection of fracture
+    # planes. We could maybe avoid this by doing something similar as for the
+    # 2D-case, and count the number of faces belonging to each edge, but we use the
+    # FractureNetwork class for now.
+
     # We need to use the snapped fractures to be sure the identified intersections are
     # resolved in the grid.
     frac_list = []
@@ -288,8 +285,8 @@ def _create_lower_dim_grids_3d(
 
     # Combine the fractures into a network
     network = FractureNetwork3d(fractures=frac_list)
-    # Impose domain boundary. For the moment, the network should be immersed in
-    # the domain, or else gmsh will complain.
+    # Impose domain boundary. For the moment, the network should be immersed in the
+    # domain, or else gmsh will complain.
     if physdims is None:
         box = {
             "xmin": np.min(g_3d.nodes[0]),
@@ -318,11 +315,12 @@ def _create_lower_dim_grids_3d(
     pts = network.decomposition["points"]
     edges = network.decomposition["edges"]
     poly = network._poly_2_segment()
-    # And tags identifying points and edges corresponding to normal
-    # fractures, domain boundaries and subdomain boundaries. Only the
-    # entities corresponding to normal fractures should actually be gridded.
+    # And tags identifying points and edges corresponding to normal fractures,
+    # domain boundaries and subdomain boundaries. Only the entities corresponding to
+    # normal fractures should actually be gridded.
 
     # TODO: Constraints have not been implemented for structured DFM grids.
+
     # Simply pass nothing for now, not sure how do deal with this, or if it at all is
     # meaningful.
     edge_tags, _, _ = network._classify_edges(poly, np.array([]))
@@ -347,8 +345,8 @@ def _create_lower_dim_grids_3d(
 
     # Loop through the edges to make 1D grids. Omit the auxiliary edges.
     for e in np.ravel(np.where(edges[2] == Tags.FRACTURE_INTERSECTION_LINE.value)):
-        # We find the start and end point of each fracture intersection (1D
-        # grid) and then the corresponding global node index.
+        # We find the start and end point of each fracture intersection (1D grid) and
+        # then the corresponding global node index.
         if np.isin(edge_tags[e], bound_and_aux):
             continue
         s_pt = pts[:, edges[0, e]]
@@ -363,8 +361,9 @@ def _create_lower_dim_grids_3d(
         g_1d.append(g)
 
     # Create 0D grids
-    # Here we also use the intersection information from the FractureNetwork
-    # class. No grids for auxiliary points.
+
+    # Here we also use the intersection information from the FractureNetwork class.
+    # No grids for auxiliary points.
     for p in intersection_points:
         if auxiliary_points[p] == Tags.DOMAIN_BOUNDARY_POINT:
             continue
@@ -463,12 +462,12 @@ def _create_embedded_2d_grid(loc_coord: np.ndarray, glob_id: np.ndarray) -> pp.G
     loc_coord_2d = rot.dot(loc_coord)
     # The points are now 2d along two of the coordinate axis, but we don't know which
     # yet. Find this by identifying the coordinate axis which is numerical zero. This
-    # requires a scaling with the fracture size to avoid numerical issues. Find the size
-    # of the fracture by first finding the bounding box of the points.
+    # requires a scaling with the fracture size to avoid numerical issues. Find the
+    # size of the fracture by first finding the bounding box of the points.
     bounding_box: dict[str, float] = pp.domain.bounding_box_of_point_cloud(loc_coord)
-    # The bounding box has keys 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'. The list
-    # comprehension below loops over the min and max values of each coordinate and finds
-    # the largest difference.
+    # The bounding box has keys 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'. The
+    # list comprehension below loops over the min and max values of each coordinate
+    # and finds the largest difference.
     fracture_size = np.max(
         [bounding_box[f"{s}max"] - bounding_box[f"{s}min"] for s in "xyz"]
     )
@@ -539,11 +538,11 @@ def _find_nodes_on_line(
         tmp = s_node
         s_node = e_node
         e_node = tmp
-    # We now find the other grid nodes. We here use the node ordering of
-    # meshgrid (which is used by the TensorGrid class).
+    # We now find the other grid nodes. We here use the node ordering of meshgrid (
+    # which is used by the TensorGrid class).
 
-    # We find the number of nodes along each dimension. From this we find the
-    # jump in node number between two consecutive nodes.
+    # We find the number of nodes along each dimension. From this we find the jump in
+    # node number between two consecutive nodes.
 
     if np.all(np.isclose(s_pt[1:], e_pt[1:])):
         # x-line:
