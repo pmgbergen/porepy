@@ -9,7 +9,7 @@ case [1].
 In particular, we have added a pressure-dependent density which obeys the following
 constitutive relationship:
 
-.. math::
+.. math:
 
     \\rho(p) = \\rho_0 \\exp{c_f (p - p_0)},
 
