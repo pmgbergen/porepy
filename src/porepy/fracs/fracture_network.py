@@ -1,5 +1,5 @@
-"""This module contains a wrapper function to generate fracture networks in 2D and 3D,
-without having to deal with dimension-specific objects and methodology.
+"""This module contains a wrapper function to generate fracture networks in 2D and
+3D, without having to deal with dimension-specific objects and methodology.
 
 """
 from __future__ import annotations
@@ -121,9 +121,9 @@ def create_fracture_network(
     if run_checks and dim != 3:
         warnings.warn("'run_checks=True' has no effect if dimension != 3.")
 
-    # Finally, create and return according to dimensionality
-    # mypy complains fervently since fracs can be either 2d or 3d. Since we created a
-    # robust dimensionality check above, it is safe to ignore the argument type
+    # Finally, create and return according to dimensionality mypy complains fervently
+    # since fracs can be either 2d or 3d. Since we created a robust dimensionality
+    # check above, it is safe to ignore the argument type
     if dim == 2:
         fracture_network_2d = FractureNetwork2d(
             fractures=fracs, domain=domain, tol=tol  # type: ignore[arg-type]

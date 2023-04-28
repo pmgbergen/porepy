@@ -1,5 +1,5 @@
 """This module contains (frontend) utility functions related to fractures and their
-meshing."""
+meshing. """
 from __future__ import annotations
 
 import logging
@@ -42,9 +42,8 @@ def uniquify_points(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Uniquify a set of points by merging almost coinciding coordinates.
 
-    Also update fractures, and remove edges that consist of a single point
-    (either after the points were merged, or because the input was a point
-    edge).
+    Also update fractures, and remove edges that consist of a single point (either
+    after the points were merged, or because the input was a point edge).
 
     Parameters:
         pts: ``shape=(nd, np)
@@ -120,11 +119,11 @@ def linefractures_to_pts_edges(
             fractures.
 
             Additional rows are optional tags of the fractures. In the standard form,
-            the third row (first row of tags) identifies the type of edges, referring to
-            the numbering system in ``GmshInterfaceTags``. The second row of tags keeps
-            track of the numbering of the edges (referring to the original order of the
-            edges) in geometry processing like intersection removal. Additional tags can
-            be assigned by the user.
+            the third row (first row of tags) identifies the type of edges, referring
+            to the numbering system in ``GmshInterfaceTags``. The second row of tags
+            keeps track of the numbering of the edges (referring to the original
+            order of the edges) in geometry processing like intersection removal.
+            Additional tags can be assigned by the user.
 
         When an empty list of fractures is passed, both arrays have shape ``(2, 0)``.
 
@@ -161,11 +160,10 @@ def linefractures_to_pts_edges(
     # -> This determines the shape of the ``edges`` array.
     max_edge_dim = max((np.shape(edge)[0] for edge in edges_list), default=2)
     # Initialize the ``edges`` array with ``-1``. This value indicates that each edge
-    # has no tags. Fill in the first two rows with the fracture start-/endpoints and the
-    # rest of the rows with tags where they exist. All other tags keep their initial
-    # value of ``-1``, which is equal to the tag not existing.
-    # This seemingly complicated procedure is done to ensure that the ``edges`` array is
-    # not ragged.
+    # has no tags. Fill in the first two rows with the fracture start-/endpoints and
+    # the rest of the rows with tags where they exist. All other tags keep their
+    # initial value of ``-1``, which is equal to the tag not existing. This seemingly
+    # complicated procedure is done to ensure that the ``edges`` array is not ragged.
     edges = np.full((max_edge_dim, len(fractures)), -1, dtype=np.int8)
     for row_index, edge in enumerate(edges_list):
         edges[: edge.shape[0], row_index] = edge
@@ -188,11 +186,11 @@ def pts_edges_to_linefractures(
             in ``pts`` may be the start- and/or endpoint of multiple fractures.
 
             Additional rows are optional tags of the fractures. In the standard form,
-            the third row (first row of tags) identifies the type of edges, referring to
-            the numbering system in ``GmshInterfaceTags``. The second row of tags keeps
-            track of the numbering of the edges (referring to the original order of the
-            edges) in geometry processing like intersection removal. Additional tags can
-            be assigned by the user.
+            the third row (first row of tags) identifies the type of edges, referring
+            to the numbering system in ``GmshInterfaceTags``. The second row of tags
+            keeps track of the numbering of the edges (referring to the original
+            order of the edges) in geometry processing like intersection removal.
+            Additional tags can be assigned by the user.
 
     Returns:
         A list of line fractures resulting from above definition of points and edges.

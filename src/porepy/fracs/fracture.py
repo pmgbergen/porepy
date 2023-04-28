@@ -15,17 +15,17 @@ class Fracture(abc.ABC):
     """Abstract base class for representing a single fracture.
 
     This base class provides general functionalities agnostic to the dimension of the
-    fracture and the ambient dimension. It contains various utility methods, mainly
-    intended for the use together with the FractureNetwork class.
+    fracture and the ambient dimension. It contains various utility methods,
+    mainly intended for the use together with the FractureNetwork class.
 
-    A fracture is defined by its ``num_points`` vertices, stored in an
-    ``nd x num_points`` numpy-array, where ``nd`` is the ambient dimension. The
+    A fracture is defined by its ``num_points`` vertices, stored in an ``nd x
+    num_points`` numpy-array, where ``nd`` is the ambient dimension. The
     order/sorting of vertices has to be implemented explicitly.
 
     Dimension-dependent routines are implemented as abstract methods.
 
-    PorePy currently only provides full support for planar, convex fractures.
-    As a work-around, the fracture can be split into convex parts.
+    PorePy currently only provides full support for planar, convex fractures. As a
+    work-around, the fracture can be split into convex parts.
 
     Parameters:
         points: ``shape=(nd, num_points)``
@@ -84,9 +84,9 @@ class Fracture(abc.ABC):
         """Index of fracture.
 
         Intended use in :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
-        and :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`. Exact use is
-        not clear (several fractures can be given same index). We thus recommend using
-        it with care.
+        and :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`. Exact use
+        is not clear (several fractures can be given same index). We thus recommend
+        using it with care.
 
         """
 
@@ -95,16 +95,15 @@ class Fracture(abc.ABC):
 
         In the standard form, the first tag identifies the type of the fracture,
         referring to the numbering system in
-        :class:`~porepy.fracs.gmsh_interface.Tags`. The second tag keeps track of
-        the numbering of the fracture (referring to the original order of the
-        fractures) in geometry processing, like intersection removal. Additional
-        tags can be assigned by the user.
+        :class:`~porepy.fracs.gmsh_interface.Tags`. The second tag keeps track of the
+        numbering of the fracture (referring to the original order of the fractures)
+        in geometry processing, like intersection removal. Additional tags can be
+        assigned by the user.
 
         A tag value of ``-1`` means that the fracture does not have the specified
-        tag. This enables e.g., the functionality for a fracture to have the
-        second tag, but not the first one. In a more extreme case,
-        ``fracture.tags==[-1, -1, -1, -1, -1]`` is equal to the fracture not
-        having any tags at all.
+        tag. This enables e.g., the functionality for a fracture to have the second
+        tag, but not the first one. In a more extreme case, ``fracture.tags==[-1, -1,
+        -1, -1, -1]`` is equal to the fracture not having any tags at all.
 
         """
         if tags is None:
@@ -234,8 +233,8 @@ class Fracture(abc.ABC):
     def local_coordinates(self) -> np.ndarray:
         """Abstract method for computing the local coordinates.
 
-        The computation is performed on the vertex coordinates in a local system and its
-        local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e.,
+        The computation is performed on the vertex coordinates in a local system and
+        its local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e.,
         the fracture has co-dimension 1.
 
         Returns:

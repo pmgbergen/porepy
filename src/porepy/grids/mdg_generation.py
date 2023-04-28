@@ -732,7 +732,7 @@ def create_mdg(
 
         Returns:
             Mixed-dimensional grid object.
-    
+
     """
 
     _validate_args(grid_type, meshing_args, fracture_network)

@@ -1,6 +1,6 @@
 """
 .. warning::
-    This is old code and not longer maintained. Thus, documentation is missing and some
+    This is old code and no longer maintained. Thus, documentation is missing and some
     functions may result in unexpected behavior.
 
 .. deprecated::
@@ -62,7 +62,7 @@ def init_global_ind(gl: list[list[list[pp.Grid]]]) -> tuple[list[pp.Grid], int]:
     """Initialize a global indexing of nodes to a set of local grids.
 
     .. warning::
-        This is old code and not longer maintained. Thus, the documentation may be
+        This is old code and no longer maintained. Thus, the documentation may be
         incomplete and this function may show unexpected behavior.
 
     .. deprecated::
@@ -82,8 +82,8 @@ def init_global_ind(gl: list[list[list[pp.Grid]]]) -> tuple[list[pp.Grid], int]:
 
     list_of_grids: list[pp.Grid] = []
 
-    # The global point index is for the moment set within each fracture
-    # (everybody start at 0). Adjust this.
+    # The global point index is for the moment set within each fracture (everybody
+    # start at 0). Adjust this.
     global_ind_offset = 0
     # Loop over fractures
     for frac_ind, f in enumerate(gl):
@@ -166,8 +166,8 @@ def process_intersections(
             g_new_1d, global_ind_offset = combine_grids(
                 g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol
             )
-            # Append the new 1d grid to the general list of grids, so that it
-            # will have its global point indices updated as we go.
+            # Append the new 1d grid to the general list of grids, so that it will
+            # have its global point indices updated as we go.
             grid_1d_list.append(g_new_1d)
     return grid_1d_list
 
@@ -298,8 +298,8 @@ def merge_1d_grids(
     g_in_full = np.arange(num_g)
     h_in_full = num_g + np.arange(num_h)
 
-    # The tolerance should not be larger than the smallest distance between
-    # two points on any of the grids.
+    # The tolerance should not be larger than the smallest distance between two
+    # points on any of the grids.
     diff_gp = np.min(pp.distances.pointset(gp, True))
     diff_hp = np.min(pp.distances.pointset(hp, True))
     min_diff = np.minimum(tol, 0.5 * np.minimum(diff_gp, diff_hp))
@@ -310,9 +310,8 @@ def merge_1d_grids(
     g_in_unique = new_2_old[g_in_full]
     h_in_unique = new_2_old[h_in_full]
 
-    # The combined nodes must be sorted along their natural line.
-    # Find the dimension with the largest spatial extension, and sort those
-    # coordinates
+    # The combined nodes must be sorted along their natural line. Find the dimension
+    # with the largest spatial extension, and sort those coordinates
     max_coord = combined_unique.max(axis=1)
     min_coord = combined_unique.min(axis=1)
     dx = max_coord - min_coord
@@ -327,8 +326,7 @@ def merge_1d_grids(
 
     num_new_grid = combined_sorted.shape[1]
 
-    # Create a new 1d grid.
-    # First use a 1d coordinate to initialize topology
+    # Create a new 1d grid. First use a 1d coordinate to initialize topology
     new_grid = pp.TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
     new_grid.nodes = pp.map_geometry.force_point_collinearity(combined_sorted)
@@ -360,8 +358,8 @@ def update_global_point_ind(
         This function is deprecated and will be removed at an unspecified point in the
         future.
 
-    The method replaces indices in the attribute global_point_ind in the grid.
-    The update is done in place.
+    The method replaces indices in the attribute global_point_ind in the grid. The
+    update is done in place.
 
     Parameters:
         grid_list: Grids to be updated.
@@ -393,9 +391,8 @@ def update_nodes(
         This function is deprecated and will be removed at an unspecified point in the
         future.
 
-    Intended use: A 1d mesh that is embedded in a 2d mesh (along a fracture)
-    has been updated / refined. This function then updates the node information
-    in the 2d grid.
+    Intended use: A 1d mesh that is embedded in a 2d mesh (along a fracture) has been
+    updated / refined. This function then updates the node information in the 2d grid.
 
     Parameters:
         g: Main grid to update. Has faces along a fracture. 2d grid.
@@ -424,8 +421,8 @@ def update_nodes(
     fn = g.face_nodes.indices.reshape((nodes_per_face, g.num_faces), order="F")
     fn_glob = np.sort(g.global_point_ind[fn], axis=0)
 
-    # Mappings between faces in 2d grid and cells in 1d
-    # 2d faces along the 1d grid will be deleted.
+    # Mappings between faces in 2d grid and cells in 1d 2d faces along the 1d grid
+    # will be deleted.
     delete_faces, cell_1d = fractools.obtain_interdim_mappings(
         g_1d, fn_glob, nodes_per_face
     )
@@ -433,8 +430,7 @@ def update_nodes(
     # All 1d cells should be identified with 2d faces
     assert (
         cell_1d.size == g_1d.num_cells
-    ), """ Failed to find mapping between
-        1d cells and 2d faces"""
+    ), """Failed to find mapping between 1d cells and 2d faces """
 
     # The nodes of identified faces on the 2d grid will be deleted
     delete_nodes = np.unique(fn[:, delete_faces])
@@ -446,9 +442,9 @@ def update_nodes(
     # Define indices of new nodes.
     new_nodes = num_nodes_orig - delete_nodes.size + np.arange(new_grid_1d.num_nodes)
 
-    # Adjust node indices in the face-node relation
-    # First, map nodes between 1d and 2d grids. Use sort_ind here to map
-    # indices of g_1d to the same order as the new grid
+    # Adjust node indices in the face-node relation. First, map nodes between 1d and
+    # 2d grids. Use sort_ind here to map indices of g_1d to the same order as the new
+    # grid
     _, node_map_1d_2d = ismember_rows(
         g.global_point_ind[delete_nodes], g_1d.global_point_ind
     )
@@ -456,11 +452,10 @@ def update_nodes(
     adjustment = np.zeros_like(tmp)
     adjustment[delete_nodes] = 1
     node_adjustment = tmp - np.cumsum(adjustment)
-    # Nodes along the 1d grid are deleted and inserted again. Let the
-    # adjutsment point to the restored nodes.
-    # node_map_1d_2d maps from ordering in delete_nodes to ordering of 1d
-    # points (old_grid). this_in_combined then maps further to the ordering of
-    # the new 1d grid
+    # Nodes along the 1d grid are deleted and inserted again. Let the adjutsment
+    # point to the restored nodes. node_map_1d_2d maps from ordering in delete_nodes
+    # to ordering of 1d points (old_grid). this_in_combined then maps further to the
+    # ordering of the new 1d grid
     node_adjustment[delete_nodes] = (
         g.num_nodes - num_delete_nodes + this_in_combined[node_map_1d_2d]
     )
@@ -476,9 +471,9 @@ def update_nodes(
     # Global index of deleted points
     old_global_pts = g.global_point_ind[delete_nodes]
 
-    # Update any occurences of the old points in other grids. When sewing
-    # together a DFN grid, this may involve more and more updates as common
-    # nodes are found along intersections.
+    # Update any occurences of the old points in other grids. When sewing together a
+    # DFN grid, this may involve more and more updates as common nodes are found
+    # along intersections.
 
     # The new grid should also be added to the list, if it is not there before
     if new_grid_1d not in list_of_grids:
@@ -545,7 +540,7 @@ def update_face_nodes(
     # Number of new faces in mesh
     ind_new_face = g.num_faces - delete_faces.size + np.arange(num_new_faces)
 
-    # Modify face-node map
+    # Modify face-node map.
     # First obtain face-node relation as a matrix. Thankfully, we know the
     # number of nodes per face.
     fn = g.face_nodes.indices.reshape((nodes_per_face, g.num_faces), order="F")
@@ -662,18 +657,18 @@ def update_cell_faces(
     # intersection, and should be replaced
     hit = np.where(np.in1d(cf, delete_faces))[0]
 
-    # Mapping from cell_face of 2d grid to cells in 1d grid. Can be combined
-    # with deleted_2_new_faces to match new and old faces
-    # Safeguarding (or stupidity?): Only faces along 1d grid have non-negative
-    # index, but we should never hit any of the other elements
+    # Mapping from cell_face of 2d grid to cells in 1d grid. Can be combined with
+    # deleted_2_new_faces to match new and old faces Safeguarding (or stupidity?):
+    # Only faces along 1d grid have non-negative index, but we should never hit any
+    # of the other elements
     cf_2_f = -np.ones(delete_faces.max() + 1, dtype=int)
     cf_2_f[delete_faces] = np.arange(delete_faces.size)
 
     # Map from faces, as stored in cell_faces,to the corresponding cells
     face_2_cell = pp.matrix_operations.rldecode(np.arange(indptr.size), np.diff(indptr))
 
-    # The cell-face map will go from 3 faces per cell to an arbitrary number.
-    # Split mapping into list of arrays to prepare for this
+    # The cell-face map will go from 3 faces per cell to an arbitrary number. Split
+    # mapping into list of arrays to prepare for this
     new_cf = [cf[indptr[i] : indptr[i + 1]] for i in range(g.num_cells)]
     # Similar treatment of direction of normal vectors
     new_sgn = [g.cell_faces.data[indptr[i] : indptr[i + 1]] for i in range(g.num_cells)]
@@ -691,36 +686,33 @@ def update_cell_faces(
     hit_cell = []
 
     for i in hit:
-        # The loop variable refers to indices in the face-cell map. Get cell
-        # number.
+        # The loop variable refers to indices in the face-cell map. Get cell number.
         cell = face_2_cell[i]
         hit_cell.append(cell)
-        # For this cell, find where in the cell-face map the fracture face is
-        # placed.
+        # For this cell, find where in the cell-face map the fracture face is placed.
         tr_array = np.where(new_cf[cell] == cf[i])[0]
         # There should be only one face on the fracture
         assert tr_array.size == 1
         tr = tr_array[0]
 
-        # Implementation note: If we ever get negative indices here, something
-        # has gone wrong related to cf_2_f, see above.
-        # Digestion of loop: i (in hit) refers to elements in cell-face
-        # cf[i] is specific face
-        # cf_2_f[cf[i]] maps to deleted face along fracture
-        # outermost is one-to-many map from deleted to new faces.
+        # Implementation note: If we ever get negative indices here, something has
+        # gone wrong related to cf_2_f, see above. Digestion of loop: i (in hit)
+        # refers to elements in cell-face cf[i] is specific face cf_2_f[cf[i]] maps
+        # to deleted face along fracture outermost is one-to-many map from deleted to
+        # new faces.
         new_faces_loc = deleted_2_new_faces[cf_2_f[cf[i]]]
 
         # Index of the replaced face
         ci = cf[i]
 
-        # We need to sort the new face-cell relation so that the edges defined
-        # by cell-face-> face_nodes form a closed, non-intersecting loop. If
-        # this is not the case, geometry computation will go wrong.
-        # By assumption, the new faces are defined so that their nodes are
-        # contiguous along the line of the old face.
+        # We need to sort the new face-cell relation so that the edges defined by
+        # cell-face-> face_nodes form a closed, non-intersecting loop. If this is not
+        # the case, geometry computation will go wrong. By assumption, the new faces
+        # are defined so that their nodes are contiguous along the line of the old
+        # face.
 
-        # Coordinates of the nodes of the replaced face.
-        # Note use of original coordinates here.
+        # Coordinates of the nodes of the replaced face. Note use of original
+        # coordinates here.
         ci_coord = node_coord_orig[:, fn_orig[:, ci]]
         # Coordinates of the nodes of the first new face
         fi_coord = g.nodes[:, fn[:, new_faces_loc[0]]]
@@ -729,15 +721,14 @@ def update_cell_faces(
         dist = pp.distances.point_pointset(ci_coord[:, 0], fi_coord)
         # Length of the old face.
         length_face = pp.distances.point_pointset(ci_coord[:, 0], ci_coord[:, 1])[0]
-        # If the minimum distance is larger than a (scaled) tolerance, the new
-        # faces were defined from the second to the first node. Switch order.
-        # This will create trouble if one of the new faces are very small.
+        # If the minimum distance is larger than a (scaled) tolerance, the new faces
+        # were defined from the second to the first node. Switch order. This will
+        # create trouble if one of the new faces are very small.
         if dist.min() > length_face * tol:
             new_faces_loc = new_faces_loc[::-1]
 
-        # Replace the cell-face relation for this cell.
-        # At the same time (stupid!) also adjust indices of the surviving
-        # faces.
+        # Replace the cell-face relation for this cell. At the same time (stupid!)
+        # also adjust indices of the surviving faces.
         new_cf[cell] = np.hstack(
             (
                 face_adjustment[new_cf[cell][:tr].ravel()],
@@ -795,10 +786,10 @@ def update_face_tags(
         new_faces: For each item in ``delete_faces``, a list of new replacement faces.
 
     TODO: Are the types correct? I followed the previous documentation and function
-        references.
+     references.
 
     TODO: Is everything here correct? The values of the inner lists of ``new_faces`` are
-    never accessed. See the ``test_update_tag_two_to_many_wrong_values`` test.
+     never accessed. See the ``test_update_tag_two_to_many_wrong_values`` test.
     """
     keys = tags.standard_face_tags()
     for key in keys:

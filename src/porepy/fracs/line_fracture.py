@@ -16,8 +16,7 @@ class LineFracture(Fracture):
     def sort_points(self) -> np.ndarray:
         """Sort the vertices.
 
-        For a linear fracture defined by a two-vertex line segment, sorting is
-        trivial.
+        For a linear fracture defined by a two-vertex line segment, sorting is trivial.
 
         Returns:
             The sorted vertex indices in an integer array.

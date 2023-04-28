@@ -1,8 +1,7 @@
 """This is the main module for grid generation in fractured domains in 2D and 3D.
 
-The module serves as the only necessary entry point to create a grid. It
-will therefore wrap interface to different mesh generators, pass options to the
-generators etc.
+The module serves as the only necessary entry point to create a grid. It will thus
+wrap interface to different mesh generators, pass options to the generators etc.
 
 """
 from __future__ import annotations
@@ -32,14 +31,13 @@ def subdomains_to_mdg(
 ) -> pp.MixedDimensionalGrid:
     """Convert a list of grids to a full mixed-dimensional grid.
 
-    The list can come from several mesh constructors, both simplex and
-    structured approaches uses this in 2D and 3D.
+    The list can come from several mesh constructors, both simplex and structured
+    approaches uses this in 2D and 3D.
 
-    The function can not be used on an arbitrary set of grids. They should
-    contain information to glue grids together. This will be included for grids
-    created by the standard mixed-dimensional grid constructors. Essentially,
-    do not directly use this function unless you are knowledgeable about how it
-    works.
+    The function can not be used on an arbitrary set of grids. They should contain
+    information to glue grids together. This will be included for grids created by
+    the standard mixed-dimensional grid constructors. Essentially, do not directly
+    use this function unless you are knowledgeable about how it works.
 
     Parameters:
         subdomains: Nested lists of subdomains to enter into the mixed-dimensional grid.
@@ -61,8 +59,8 @@ def subdomains_to_mdg(
     logger.info("Assemble mdg")
     tm_mdg = time.time()
 
-    # Assemble the list of subdomain grids into a mixed-dimensional grid.
-    # This will also identify pairs of neighboring grids (one dimension apart).
+    # Assemble the list of subdomain grids into a mixed-dimensional grid. This will
+    # also identify pairs of neighboring grids (one dimension apart).
     mdg, sd_pair_to_face_cell_map = _assemble_mdg(subdomains)
     logger.info("Done. Elapsed time " + str(time.time() - tm_mdg))
 
@@ -80,8 +78,8 @@ def subdomains_to_mdg(
     )
     logger.info("Done. Elapsed time " + str(time.time() - tm_split))
 
-    # Now that neighboring subdomains are identified, faces and nodes are split, we
-    # are ready to create mortar grids on the interface between subdomains. These
+    # Now that neighboring subdomains are identified, faces and nodes are split,
+    # we are ready to create mortar grids on the interface between subdomains. These
     # will be added to the mixed-dimensional grid.
     create_interfaces(mdg, node_pairs)
 
@@ -100,12 +98,12 @@ def cart_grid(
 
     Parameters:
         fracs: One list item for each fracture.
-            Each item consists of an array of shape
-            ``(nd, num_points)`` describing fracture vertices,
-            where ``num_points`` is 2 for 2D domains, 4 for 3D domains.
-            The fractures have to be rectangles (3D) or
-            straight lines (2D) that align with the axis. The fractures may be
-            intersecting. The fractures will snap to the closest grid faces.
+
+            Each item consists of an array of shape ``(nd, num_points)`` describing
+            fracture vertices, where ``num_points`` is 2 for 2D domains, 4 for 3D
+            domains. The fractures have to be rectangles (3D) or straight lines (2D)
+            that align with the axis. The fractures may be intersecting. The
+            fractures will snap to the closest grid faces.
         nx: Number of cells in each direction. Should be 2D or 3D.
         **kwargs: Available keyword arguments are
 
@@ -185,9 +183,9 @@ def tensor_grid(
 
     Returns:
         A mixed-dimensional grid where all fractures are represented as
-        lower-dimensional grids. The higher-dimensional fracture faces are split in two,
-        and the mapping from lower-dimensional cells to higher-dimensional faces are
-        stored as ``face_cells``.
+        lower-dimensional grids. The higher-dimensional fracture faces are split in
+        two, and the mapping from lower-dimensional cells to higher-dimensional faces
+        are stored as ``face_cells``.
 
         Each face is given boolean tags depending on the type.
 
@@ -244,9 +242,9 @@ def _tag_faces(grids, check_highest_dim=True):
         domain_boundary_tags[bnd_faces] = True
         g_h.tags["domain_boundary_faces"] = domain_boundary_tags
 
-        # Pick out the face-node relation for the highest dimensional grid, restricted
-        # to the faces on the domain boundary. This will be of use for identifying
-        # tip faces for 2d grids below.
+        # Pick out the face-node relation for the highest dimensional grid,
+        # restricted to the faces on the domain boundary. This will be of use for
+        # identifying tip faces for 2d grids below.
         fn_h = g_h.face_nodes[:, bnd_faces].tocsr()
 
         # Nodes on the boundary
@@ -262,9 +260,9 @@ def _tag_faces(grids, check_highest_dim=True):
         # like tips from individual fractures).
 
         # IMPLEMENTATION NOTE: To account for cases where not all global nodes are
-        # present in g_h (e.g. for DFN-type grids), and avoid issues relating to nodes
-        # in lower-dimensional grids that are not present in g_h, we store node numbers
-        # instead of using booleans arrays on the nodes in g_h.
+        # present in g_h (e.g. for DFN-type grids), and avoid issues relating to
+        # nodes in lower-dimensional grids that are not present in g_h, we store node
+        # numbers instead of using booleans arrays on the nodes in g_h.
 
         # Keep track of nodes in g_h that correspond to tip nodes of a fracture.
         global_node_as_fracture_tip = np.array([], dtype=int)
@@ -286,10 +284,10 @@ def _tag_faces(grids, check_highest_dim=True):
                     nodes_glb, bnd_nodes_glb, invert=True
                 )
 
-                # We reshape the nodes such that each column equals the nodes of
-                # one face. If a face only contains global boundary nodes, the
-                # local face is also a boundary face. Otherwise, we add a TIP tag.
-                # Note that we only consider boundary faces, hence any is okay.
+                # We reshape the nodes such that each column equals the nodes of one
+                # face. If a face only contains global boundary nodes, the local face
+                # is also a boundary face. Otherwise, we add a TIP tag. Note that we
+                # only consider boundary faces, hence any is okay.
                 n_per_face = _nodes_per_face(g)
                 is_tip_face = np.any(
                     node_on_tip_not_global_bnd.reshape(
@@ -301,8 +299,8 @@ def _tag_faces(grids, check_highest_dim=True):
                 # Special case: In 2d, there may be fractures that are so close to a
                 # corner of the domain that it has faces with nodes on different
                 # surfaces of the global boundary. These are identified by the two
-                # nodes (there will be 2 in 2d) not having any faces in the coarse grid
-                # in common.
+                # nodes (there will be 2 in 2d) not having any faces in the coarse
+                # grid in common.
                 if g.dim == 2:
                     assert n_per_face == 2
                     not_tip = np.where(np.logical_not(is_tip_face))[0]
@@ -324,13 +322,13 @@ def _tag_faces(grids, check_highest_dim=True):
                 g.tags["tip_nodes"] = is_tip_node
 
                 if g.dim == g_h.dim - 1:
-                    # For co-dimension 1, we also register those nodes in the host grid
-                    # which correspond to the tip of a fracture. We use a slightly wider
-                    # definition of a fracture tip in this context: Nodes that are on
-                    # the domain boundary, but also part of a tip face (on the fracture)
-                    # which extends into the domain are also considered to be tip nodes.
-                    # Filtering away these will be simple, using the
-                    # domain_boundary_nodes tag, if necessary.
+                    # For co-dimension 1, we also register those nodes in the host
+                    # grid which correspond to the tip of a fracture. We use a
+                    # slightly wider definition of a fracture tip in this context:
+                    # Nodes that are on the domain boundary, but also part of a tip
+                    # face (on the fracture) which extends into the domain are also
+                    # considered to be tip nodes. Filtering away these will be
+                    # simple, using the domain_boundary_nodes tag, if necessary.
                     nodes_on_fracture_tip = np.unique(
                         nodes_glb.reshape((n_per_face, bnd_faces_l.size), order="F")[
                             :, is_tip_face
@@ -365,8 +363,8 @@ def _tag_faces(grids, check_highest_dim=True):
         )
         tip_of_a_fracture = np.zeros_like(tip_tag)
         tip_of_a_fracture[local_any_tip] = True
-        # Tag nodes that are on the tip of a fracture, independent of whether they are
-        # actually tips of a fracture.
+        # Tag nodes that are on the tip of a fracture, independent of whether they
+        # are actually tips of a fracture.
         g_h.tags["node_is_tip_of_some_fracture"] = tip_of_a_fracture
 
 
@@ -395,12 +393,13 @@ def _assemble_mdg(
     """Create a :class:~`porepy.MixedDimensionalGrid` from a list of grids.
 
     Parameters:
-        subdomains: A list of lists of grids. Each element in the list is a
-            list of all grids of a the same dimension. It is assumed that the
-            grids are sorted from high dimensional grids to low dimensional
-            grids. All grids must also have the mapping g.global_point_ind
-            which maps the local nodes of the grid to the nodes of the highest
-            dimensional grid.
+        subdomains:
+
+            A list of lists of grids. Each element in the list is a list of all grids
+            of the same dimension. It is assumed that the grids are sorted from high
+            dimensional grids to low dimensional grids. All grids must also have the
+            mapping g.global_point_ind which maps the local nodes of the grid to the
+            nodes of the highest dimensional grid.
 
     Returns:
         mdg: A mixed-dimensional grid, where the mapping ``face_cells`` are given to
@@ -426,18 +425,18 @@ def _assemble_mdg(
             continue
 
         # Loop over all grids of the higher dimension, look for lower-dimensional
-        # grids where the cell of the lower-dimensional grid shares nodes with
-        # the faces of the higher-dimensional grid. If this face-cell intersection
-        # is non-empty, there is a coupling will be made between the higher and
+        # grids where the cell of the lower-dimensional grid shares nodes with the
+        # faces of the higher-dimensional grid. If this face-cell intersection is
+        # non-empty, there is a coupling will be made between the higher and
         # lower-dimensional grid, and the face-to-cell relation will be saved.
         for hsd in subdomains[dim]:
 
-            # We have to specify the number of nodes per face to generate a
-            # matrix of the nodes of each face.
+            # We have to specify the number of nodes per face to generate a matrix of
+            # the nodes of each face.
             n_per_face = _nodes_per_face(hsd)
 
-            # Get the face-node relation for the higher-dimensional grid,
-            # stored with one column per face
+            # Get the face-node relation for the higher-dimensional grid, stored with
+            # one column per face
             fn_loc = hsd.face_nodes.indices.reshape(
                 (n_per_face, hsd.num_faces), order="F"
             )
@@ -445,22 +444,20 @@ def _assemble_mdg(
             fn = hsd.global_point_ind[fn_loc]
             fn = np.sort(fn, axis=0)
 
-            # Get a cell-node relation for the lower-dimensional grids.
-            # It turns out that to do the intersection between the node groups
-            # is costly (mainly because the call to ismember_rows below does
-            # a unique over all faces-nodes in the higher-dimensional grid).
-            # To save a lot of time, we first group cell-nodes for all lower-
-            # dimensional grids, do the intersection once, and then process
-            # the results.
+            # Get a cell-node relation for the lower-dimensional grids. It turns out
+            # that to do the intersection between the node groups is costly (mainly
+            # because the call to ismember_rows below does a unique over all
+            # faces-nodes in the higher-dimensional grid). To save a lot of time,
+            # we first group cell-nodes for all lower- dimensional grids,
+            # do the intersection once, and then process the results.
 
-            # The treatmnet of the lower-dimensional grids is a bit special
-            # for point grids (else below)
+            # The treatment of the lower-dimensional grids is a bit special for point
+            # grids (else below)
             if hsd.dim > 1:
                 # Data structure for cell-nodes
                 cn = []
-                # Number of cells per grid. Will be used to define offsets
-                # for cell-node relations for each grid, hence initialize with
-                # zero.
+                # Number of cells per grid. Will be used to define offsets for
+                # cell-node relations for each grid, hence initialize with zero.
                 num_cn = [0]
                 for lg in subdomains[dim + 1]:
                     # Local cell-node relation
@@ -474,8 +471,8 @@ def _assemble_mdg(
                 cn_all = np.hstack([c for c in cn])
                 cell_node_offsets = np.cumsum(num_cn)
             else:
-                # 0d grid is much easier, although getting hold of the single
-                # point index is a bit technical
+                # 0d grid is much easier, although getting hold of the single point
+                # index is a bit technical
                 cn_all = np.array(
                     [
                         np.atleast_1d(lg.global_point_ind)[0]
@@ -486,8 +483,8 @@ def _assemble_mdg(
                 # Ensure that face-node relation is 1d in this case
                 fn = fn.ravel()
 
-            # Find intersection between cell-node and face-nodes.
-            # Node nede to sort along 0-axis, we know we've done that above.
+            # Find intersection between cell-node and face-nodes. Node nede to sort
+            # along 0-axis, we know we've done that above.
             is_mem, cell_2_face = pp.utils.setmembership.ismember_rows(
                 cn_all, fn, sort=False
             )
@@ -559,14 +556,14 @@ def create_interfaces(
 
         sd_h, sd_l = sd_pair
 
-        # face_cells.indices gives mappings into the lower dimensional
-        # cells. Count the number of occurrences for each cell.
+        # face_cells.indices gives mappings into the lower dimensional cells. Count
+        # the number of occurrences for each cell.
         num_sides = np.bincount(face_cells.indices)
 
         if np.max(num_sides) > 2:
-            # Each cell should be found either twice (think a regular fracture
-            # that splits a higher dimensional mesh), or once (the lower end of
-            # a T-intersection, or both ends of an L-intersection).
+            # Each cell should be found either twice (think a regular fracture that
+            # splits a higher dimensional mesh), or once (the lower end of a
+            # T-intersection, or both ends of an L-intersection).
             raise ValueError(
                 """Found low-dimensional cell which corresponds to
                     too many high-dimensional faces."""
