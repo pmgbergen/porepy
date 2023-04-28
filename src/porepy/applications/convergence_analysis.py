@@ -93,20 +93,6 @@ class ConvergenceAnalysis:
         if spatial_refinement_rate == 1 and temporal_refinement_rate == 1:
             warnings.warn("No refinement (in space or time) will be performed.")
 
-        # Check if analysis in space should be performed
-        if spatial_refinement_rate == 1:
-            self._in_space: bool = False
-            """Whether a spatial analysis should be performed."""
-        else:
-            self._in_space = True
-
-        # Check if analysis in time should be performed
-        if temporal_refinement_rate == 1:
-            self._in_time: bool = False
-            """Whether a temporal analysis should be performed."""
-        else:
-            self._in_time = True
-
         self.model_class = model_class
         """Model class that should be used to run the simulations and perform the
         convergence analysis.
@@ -140,7 +126,7 @@ class ConvergenceAnalysis:
         self._is_time_dependent: bool = setup._is_time_dependent()
         """Whether the model is time-dependent."""
 
-        if not self._is_time_dependent and self._in_time:
+        if not self._is_time_dependent and self.temporal_refinement_rate > 1:
             raise ValueError("Analysis in time not available for stationary models.")
 
         # Retrieve list of meshing arguments
