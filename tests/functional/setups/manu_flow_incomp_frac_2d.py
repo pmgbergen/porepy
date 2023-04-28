@@ -15,13 +15,14 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sym
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -104,7 +105,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
     """
 
-    exact_sol: ManuIncompExactSolution
+    exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
     interface_darcy_flux: Callable[
@@ -139,7 +140,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         sd_matrix: pp.Grid = self.mdg.subdomains()[0]
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
-        exact_sol: ManuIncompExactSolution = self.exact_sol
+        exact_sol: ManuIncompExactSolution2d = self.exact_sol
 
         # Collect data
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
@@ -220,7 +221,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
 
 # -----> Exact solution
-class ManuIncompExactSolution:
+class ManuIncompExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self):
@@ -341,11 +342,27 @@ class ManuIncompExactSolution:
             for q in self.q_matrix
         ]
 
-        # Face-centered Darcy fluxes
+        # Computation of the fluxes in the middle region results in NaN on faces that
+        # are outside the middle region. We therefore need to first evaluate the middle
+        # region and then the other regions, so that NaN faces outside the middle
+        # region can be overwritten accordingly.
         fn = sd_matrix.face_normals
         q_fc = np.zeros(sd_matrix.num_faces)
-        for q, idx in zip(q_fun, face_idx):
-            q_fc += (q[0](fc[0], fc[1]) * fn[0] + q[1](fc[0], fc[1]) * fn[1]) * idx
+
+        q_fun_sorted = q_fun.copy()
+        q_fun_sorted.pop(1)
+        q_fun_sorted.insert(0, q_fun[1])
+
+        face_idx_sorted = face_idx.copy()
+        face_idx_sorted.pop(1)
+        face_idx_sorted.insert(0, face_idx[1])
+
+        # Perform evaluations using the sorted list of exact Darcy velocities
+        for q, idx in zip(q_fun_sorted, face_idx_sorted):
+            q_fc[idx] = (
+                q[0](fc[0][idx], fc[1][idx]) * fn[0][idx]
+                + q[1](fc[0][idx], fc[1][idx]) * fn[1][idx]
+            )
 
         # We need to correct the values of the exact Darcy fluxes at the internal
         # boundaries since they evaluate to NaN due to a division by zero.
@@ -607,48 +624,50 @@ class ManuIncompUtils(VerificationUtils):
 
 
 # -----> Geometry
-class SingleEmbeddedVerticalFracture(pp.ModelGeometry):
+class SingleEmbeddedVerticalLineFracture:
     """Generate fracture network and mixed-dimensional grid."""
 
     params: dict
-    """Simulation model parameters"""
+    """Simulation model parameters."""
 
-    fracture_network: pp.FractureNetwork2d
-    """Fracture network. Set in :meth:`set_fracture_network`."""
+    grid_type: Callable[[], Literal["cartesian", "simplex", "tensor_grid"]]
+    """Type of grid."""
 
     def set_fractures(self) -> None:
-        """Create fracture network.
+        """Declare set of fractures.
 
         Note:
-            Two horizontal fractures at :math:`y = 0.25` and :math:`y = 0.75` are
-            included in the fracture network to force the grid to conform to certain
-            regions of the domain. Note, however, that these fractures will not be
-            part of the mixed-dimensional grid.
+            For simplicial grids, two horizontal fractures at :math:`y = 0.25` and
+            :math:`y = 0.75` are included in the fracture network to force the grid
+            to conform to certain regions of the domain. Note, however, that these
+            fractures will not be part of the mixed-dimensional grid.
 
         """
-        self._fractures = [
-            pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]])),
-            pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]])),
-            pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]])),
-        ]
+        physical_frac_0 = pp.LineFracture(np.array([[0.50, 0.50], [0.25, 0.75]]))
+
+        if self.grid_type() == "simplex":
+            ghost_frac_0 = pp.LineFracture(np.array([[0.00, 1.00], [0.25, 0.25]]))
+            ghost_frac_1 = pp.LineFracture(np.array([[0.00, 1.00], [0.75, 0.75]]))
+            self._fractures = [physical_frac_0, ghost_frac_0, ghost_frac_1]
+        elif self.grid_type() == "cartesian":
+            self._fractures = [physical_frac_0]
+        else:
+            raise NotImplementedError()
 
     def set_domain(self) -> None:
         """Set domain."""
-        self._domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+        self._domain = nd_cube_domain(2, 1.0)
 
-    def meshing_arguments(self) -> dict:
+    def meshing_arguments(self) -> dict[str, float]:
         """Define mesh arguments for meshing."""
-        return self.params.get("mesh_arguments", {"cell_size": 0.1})
+        return self.params.get("meshing_arguments", {"cell_size": 0.125})
 
     def meshing_kwargs(self) -> dict:
-        """Create mixed-dimensional grid. Ignore fractures 1 and 2."""
-        kw_args = super().meshing_kwargs()
-        kw_args.update({"constraints": np.array([1, 2])})
+        """Declare meshing constraints. Ignore fractures 1 and 2."""
+        kw_args = {}
+        if self.grid_type() == "simplex":
+            kw_args = {"constraints": np.array([1, 2])}
         return kw_args
-
-    def grid_type(self) -> str:
-        """Return grid type."""
-        return "simplex"
 
 
 # -----> Boundary conditions
@@ -658,12 +677,15 @@ class ManuIncompBoundaryConditions:
     domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
     """Utility function to access the domain boundary sides."""
 
-    exact_sol: ManuIncompExactSolution
+    exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition type."""
-        if sd.dim == 2:  # Dirichlet for the matrix
+        if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
@@ -676,7 +698,7 @@ class ManuIncompBoundaryConditions:
         for sd in subdomains:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             val_loc = np.zeros(sd.num_faces)
-            if sd.dim == 2:
+            if sd.dim == self.mdg.dim_max():
                 exact_bc = self.exact_sol.boundary_values(sd_matrix=sd)
                 val_loc[boundary_faces] = exact_bc[boundary_faces]
             values.append(val_loc)
@@ -687,7 +709,7 @@ class ManuIncompBoundaryConditions:
 class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
-    exact_sol: ManuIncompExactSolution
+    exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -706,7 +728,7 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         # Retrieve external (integrated) sources from the exact solution.
         values = []
         for sd in subdomains:
-            if sd.dim == 2:
+            if sd.dim == self.mdg.dim_max():
                 values.append(self.exact_sol.matrix_source(sd_matrix=sd))
             else:
                 values.append(self.exact_sol.fracture_source(sd_frac=sd))
@@ -720,13 +742,15 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
 
 
 # -----> Solution strategy
-class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+class ManuIncompSolutionStrategy2d(
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
+):
     """Modified solution strategy for the verification setup."""
 
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    exact_sol: ManuIncompExactSolution
+    exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
     fluid: pp.FluidConstants
@@ -749,7 +773,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
         super().__init__(params)
 
-        self.exact_sol: ManuIncompExactSolution
+        self.exact_sol: ManuIncompExactSolution2d
         """Exact solution object."""
 
         self.results: list[ManuIncompSaveData] = []
@@ -768,7 +792,7 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
         assert self.solid.normal_permeability() == 0.5
 
         # Instantiate exact solution object after materials have been set
-        self.exact_sol = ManuIncompExactSolution()
+        self.exact_sol = ManuIncompExactSolution2d()
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
@@ -785,16 +809,15 @@ class ManuIncompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePha
 
 
 # -----> Mixer
-class ManuIncompFlowSetup(  # type: ignore[misc]
-    SingleEmbeddedVerticalFracture,
+class ManuIncompFlowSetup2d(  # type: ignore[misc]
+    SingleEmbeddedVerticalLineFracture,
     ManuIncompBalanceEquation,
     ManuIncompBoundaryConditions,
-    ManuIncompSolutionStrategy,
+    ManuIncompSolutionStrategy2d,
     ManuIncompUtils,
     ManuIncompDataSaving,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
-    Mixer class for the incompressible flow with a single fracture verification setup.
-
+    Mixer class for the 2d incompressible flow setup with a single fracture.
     """
