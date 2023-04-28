@@ -52,8 +52,8 @@ class OneVerticalWell:
         """Assign well network class."""
         points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1]])
         self.well_network = pp.WellNetwork3d(
-            wells=[pp.Well(points)],
             domain=self.domain,
+            wells=[pp.Well(points)],
             parameters={"mesh_size": 1 / 10 / self.units.m},
         )
 
