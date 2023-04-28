@@ -21,7 +21,7 @@ def test_run_tutorials(tutorial_path: str):
     # This command might fail in github actions.
     cmd_convert = "jupyter nbconvert --to script " + tutorial_path
     os.system(cmd_convert)
-    remove_plots(new_file)
+    edit_imports(new_file)
 
     cmd_run = "python " + str(new_file)
     status = os.system(cmd_run)
@@ -33,16 +33,18 @@ def test_run_tutorials(tutorial_path: str):
     os.remove(new_file)
 
 
-def remove_plots(filename: str):
-    """Matplotlib opens a new windows for each figure in the interactive mode.
+def edit_imports(filename: str):
+    """Matplotlib opens a new window for each figure in the interactive mode.
     Here, we prevent it by setting the noninteractive matplotlib backend.
     "template" backend is a dummy backend that does nothing.
+    Also, we cd to the tutorials directory.
 
     """
-    with open(filename, encoding='utf-8') as f:
+    with open(filename, encoding="utf-8") as f:
         content = f.readlines()
 
-    with open(filename, "w", encoding='utf-8') as f:
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write("import os; os.chdir('./tutorials')\n")
         f.write("import matplotlib; matplotlib.use('template')\n")
         f.writelines(content)
 
@@ -52,5 +54,5 @@ if __name__ == "__main__":
         filenames = [sys.argv[1]]
     except IndexError:
         filenames = TUTORIAL_FILENAMES
-    for tutorial_path in filenames:
-        test_run_tutorials(tutorial_path=tutorial_path)
+    for tut_path in filenames:
+        test_run_tutorials(tutorial_path=tut_path)
