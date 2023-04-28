@@ -5,6 +5,7 @@ different lower-level mdg generation.
 from __future__ import annotations
 
 import inspect
+import warnings
 from typing import Callable, Literal, Optional, Union, get_args
 
 import numpy as np
@@ -395,6 +396,26 @@ def _validate_args(
             "fracture_network without a domain is only supported for unstructured simplex"
             " meshes, not for %r" % grid_type
         )
+    elif grid_type != "simplex":
+        dim: int = _infer_dimension_from_network(fracture_network)
+        domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
+        if dim == 2:
+            assert isinstance(fracture_network, FractureNetwork2d)
+            _, edges_deleted = fracture_network.impose_external_boundary(domain)
+            sz = edges_deleted.size
+        elif dim == 3:
+            assert isinstance(fracture_network, FractureNetwork3d)
+            fractures_deleted = fracture_network.impose_external_boundary(domain)
+            # Take note of deleted fractures
+            sz = fractures_deleted.size
+        if sz > 0:
+            # It seems most likely that this is an undesired effect (for a
+            # Cartesian geomtetry it should be possible to make sure the
+            # fractures are within the domain), but we cannot rule out that the
+            # user on purpose use the domain to get rid of some fractures.
+            # Giving a warning seems like a fair compromise between raising an
+            # error and doing nothing.
+            warnings.warn(f"Found {sz} fractures outside the domain boundary")
 
     if grid_type == "simplex":
         _validate_simplex_meshing_args_values(meshing_args)
@@ -711,7 +732,7 @@ def create_mdg(
 
         Returns:
             Mixed-dimensional grid object.
-
+    
     """
 
     _validate_args(grid_type, meshing_args, fracture_network)
@@ -719,9 +740,8 @@ def create_mdg(
     mdg: pp.MixedDimensionalGrid
 
     # Unstructured cases
+    dim: int = _infer_dimension_from_network(fracture_network)
     if grid_type == "simplex":
-        dim: int = _infer_dimension_from_network(fracture_network)
-
         # Elegant solutions can be implemented to made this part more compact.
         # However while running mypy on this file, large type hints for
         # FractureNetwork2d.mesh and FractureNetwork3d.mesh are need.
@@ -741,20 +761,31 @@ def create_mdg(
             # perform the actual meshing
             mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
 
+    # Structured cases
     domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
     if domain is not None:
-        # Structured cases
+        fractures = [f.pts for f in fracture_network.fractures]
+        if dim == 3:
+            # In 3d the bounding polygons for the fractures are added to the set of
+            # fractures in the network. Since we will feed only the fractures, not
+            # the fracture network, into the structured mesh generator, we need to
+            # filter out those fractures that are tagged as being part of the
+            # boundary.
+            fractures = [
+                f.pts
+                for (fi, f) in enumerate(fracture_network.fractures)
+                if not fracture_network.tags["boundary"][fi]
+            ]
+
         if grid_type == "cartesian":
             (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
                 domain, meshing_args, kwargs
             )
-            fractures = [f.pts for f in fracture_network.fractures]
             mdg = pp.meshing.cart_grid(
                 fracs=fractures, nx=nx_cells, physdims=phys_dims, **kwargs
             )
 
         if grid_type == "tensor_grid":
-            fractures = [f.pts for f in fracture_network.fractures]
             (xs, ys, zs, kwargs) = _preprocess_tensor_grid_args(
                 domain, meshing_args, kwargs
             )
