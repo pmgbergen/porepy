@@ -508,7 +508,6 @@ class BoundaryProjection(Operator):
     def __init__(
         self, mdg: pp.MixedDimensionalGrid, subdomains: list[pp.Grid], dim: int = 1
     ) -> None:
-
         _, face_projections = _subgrid_projections(subdomains, dim)
 
         # Size for the matrix, used for 0d subdomains.
@@ -518,8 +517,9 @@ class BoundaryProjection(Operator):
         for sd in subdomains:
             if sd.dim > 0:
                 bg = mdg.subdomain_to_boundary_grid(sd)
-                mat_loc = sps.kron(bg.projection, sps.eye(dim))
-                mat_loc = mat_loc * face_projections[sd].T
+                if bg is not None:
+                    mat_loc = sps.kron(bg.projection, sps.eye(dim))
+                    mat_loc = mat_loc * face_projections[sd].T
             else:
                 # The subdomain has no faces, so the projection does not exist.
                 mat_loc = sps.csr_matrix((0, tot_num_faces))
@@ -580,7 +580,6 @@ class Trace(Operator):
         if len(subdomains) > 0:
             for sd in subdomains:
                 if self._is_scalar:
-
                     # TEMPORARY CONSTRUCT: Use the divergence operator as a trace.
                     # It would be better to define a dedicated function for this,
                     # perhaps in the grid itself.
@@ -729,7 +728,6 @@ def _subgrid_projections(
     cell_offset = 0
 
     for sd in subdomains:
-
         cell_ind = cell_offset + pp.fvutils.expand_indices_nd(
             np.arange(sd.num_cells), dim
         )

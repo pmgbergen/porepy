@@ -34,10 +34,11 @@ def setup() -> PoromechanicsWithDiagnostics:
 def test_diagnostics_mixin_basic(_, setup: PoromechanicsWithDiagnostics) -> None:
     """Tests basic functionality."""
     diagnostics_data = setup.run_diagnostics(
-        is_plotting_condition_number=True, is_plotting_max=True, grouping=None
+        default_handlers=("max", "cond"),
+        grouping=None,
     )
-    assert "Block condition number" in diagnostics_data[0, 0]
-    assert "Absolute maximum value" in diagnostics_data[0, 0]
+    assert "max" in diagnostics_data[0, 0]
+    assert "cond" in diagnostics_data[0, 0]
 
 
 @patch("matplotlib.pyplot.show")
@@ -54,8 +55,6 @@ def test_diagnostics_mixin_custom_handler(
         return 0
 
     diagnostics_data = setup.run_diagnostics(
-        is_plotting_condition_number=False,
-        is_plotting_max=False,
         grouping="dense",
         additional_handlers={"custom_handler": custom_handler},
     )
@@ -81,8 +80,6 @@ def test_diagnostics_mixin_grouping(_, setup: PoromechanicsWithDiagnostics) -> N
 
     grouping = [setup.mdg.interfaces()]
     diagnostics_data = setup.run_diagnostics(
-        is_plotting_condition_number=False,
-        is_plotting_max=False,
         grouping=grouping,
         additional_handlers={"is_interface_block": is_interface_block},
     )
@@ -92,8 +89,6 @@ def test_diagnostics_mixin_grouping(_, setup: PoromechanicsWithDiagnostics) -> N
 
     # And checking that keyword "interfaces" will prodice the same result.
     diagnostics_data_new = setup.run_diagnostics(
-        is_plotting_condition_number=False,
-        is_plotting_max=False,
         grouping="interfaces",
         additional_handlers={"is_interface_block": is_interface_block},
     )

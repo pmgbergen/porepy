@@ -196,6 +196,39 @@ class Well:
         t = self.tags.copy()
         return Well(p, tags=t)
 
+    def __str__(self) -> str:
+        """Return a string representation of the well.
+
+        Returns:
+            A string representation of the well.
+        """
+        s = f"Well consisting of {self.num_segments()} segments.\n"
+        s += f"Well index: {self.index}"
+        return s
+
+    def __repr__(self) -> str:
+        """Get a string representation of the well properties.
+
+        Returns:
+            A string representation of the well properties.
+
+        """
+        s = f"Well consisting of {self.num_segments()} segments.\n"
+        s += f"Well index: {self.index}\n"
+
+        # If the well consists of only a few segments (5 here is somewhat randomly
+        # chosen), list all the coordinates. If not, we limit the representation to
+        # (effectively) the bounding box, which usually coincides with well endpoints.
+        if self.num_points() < 5:
+            s += "Coorditates of well points (x, y, z):\n"
+            for i in range(self.num_points()):
+                s += f"({self.pts[0, i]}, {self.pts[1, i]}, {self.pts[2, i]})\n"
+        else:
+            s += f"Maximum coordinates: {self.pts.max(axis=1)}\n"
+            s += f"Minimum coordinates: {self.pts.min(axis=1)}\n"
+
+        return s
+
 
 class WellNetwork3d:
     """Collection of :class:`~Well` classes with geometrical information.
@@ -232,9 +265,10 @@ class WellNetwork3d:
         tol: float = 1e-8,
         parameters: Optional[dict] = None,
     ) -> None:
-
+    
         self.well_dim: int = 1
         """All polyline wells have dimension 1."""
+        
         self.wells: list[Well] = wells if wells is not None else []
         """List of wells in the network."""
 
@@ -461,6 +495,19 @@ class WellNetwork3d:
                 endp_frac_tags = np.array([1, 0], dtype=bool)
         for t in ["domain_boundary", "tip", "fracture"]:
             pp.utils.tags.add_node_tags_from_face_tags(mdg, t)
+
+    def __repr__(self) -> str:
+        """Return a string representation of the well network.
+
+        Returns:
+            A string representation of the well network.
+
+        """
+        # At the moment, it is unclear what more information should be included in the
+        # string representation. We therefore implement only __repr__ (calls to __str__
+        # will be forwarded to __repr__).
+        s = f"Well network consisting of {len(self.wells)} wells.\n"
+        return s
 
 
 def compute_well_fracture_intersections(
