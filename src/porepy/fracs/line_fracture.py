@@ -1,3 +1,7 @@
+"""Contains classes representing one-dimensional fractures.
+
+That is, manifolds of dimension 1 embedded in 2Dd
+"""
 from __future__ import annotations
 
 import numpy as np
