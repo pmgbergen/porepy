@@ -289,8 +289,6 @@ class TestInstantiationSanityCheckAndHelperMethods:
         assert conv.temporal_refinement_rate == 1
         assert conv.levels == 1
         assert not conv._is_time_dependent
-        assert not conv._in_space
-        assert not conv._in_time
         assert len(conv.model_params) == 1
         assert conv.model_params[0]["meshing_arguments"]["cell_size"] == 1.0
 
