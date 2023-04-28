@@ -15,18 +15,18 @@ from porepy.utils.txt_io import TxtData, export_data_to_txt
 class ConvergenceAnalysis:
     """Perform spatio-temporal convergence analysis on a given model.
 
-    The class :class:`~ConvergenceAnalysis` takes a PorePy model and its parameter
+    The class :class:`ConvergenceAnalysis` takes a PorePy model and its parameter
     dictionary to run a batch of simulations with successively refined mesh sizes and
     time steps and collects the results (i.e., the data classes containing the errors)
-    in a list using the :meth:`~run_analysis` method. Refinement rates (in time and
+    in a list using the :meth:`run_analysis` method. Refinement rates (in time and
     space) are given at instantiation.
 
     Useful methods of this class include
 
-        - :meth:`~run_analysis`: Runs a batch of simulations with successively refined
+        - :meth:`run_analysis`: Runs a batch of simulations with successively refined
           mesh sizes and/or time steps.
-        - :meth:`~export_errors_to_txt`: Exports errors into a ``txt`` file.
-        - :meth:`~order_of_convergence`: Estimates the observed order of convergence
+        - :meth:`export_errors_to_txt`: Exports errors into a ``txt`` file.
+        - :meth:`order_of_convergence`: Estimates the observed order of convergence
           of a given set of variables using linear regression.
 
     Note:
@@ -216,7 +216,7 @@ class ConvergenceAnalysis:
 
         Parameters:
             list_of_results: List containing the results of the convergence analysis.
-                Typically, the output of :meth:`~run_analysis`.
+                Typically, the output of :meth:`run_analysis`.
             variables_to_export: names of the variables for which the TXT file will be
                 generated. If ``variables`` is not given, all the variables present
                 in the txt file will be collected.
@@ -293,7 +293,7 @@ class ConvergenceAnalysis:
 
         Parameters:
             list_of_results: List containing the results of the convergence analysis.
-                Typically, the output of :meth:`~run_analysis`.
+                Typically, the output of :meth:`run_analysis`.
             variables: ``default=None``
 
                 Names of the variables for which the OOC should be computed. The
@@ -426,7 +426,7 @@ class ConvergenceAnalysis:
 
         Parameters:
             list_of_results: List containing the results of the convergence analysis.
-                Typically, the output of :meth:`~run_analysis`.
+                Typically, the output of :meth:`run_analysis`.
             variables: List of strings containing the variables that should be
                 filtered from the list of results. If ``None``, all variables with
                 the prefix "error_" will be filtered.
