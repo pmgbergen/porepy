@@ -114,7 +114,7 @@ class WellGeometryMixin:
         ]
         parameters = {"mesh_size": 0.2}
         self.well_network = pp.WellNetwork3d(
-            wells[:num_wells], domain=self.domain, parameters=parameters
+            self.domain, wells[:num_wells], parameters=parameters
         )
 
 

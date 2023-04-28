@@ -48,7 +48,7 @@ def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
         np.array([[0.5, 0.6], [0.7, 0.8], [1, 0.2]]),
     ]
     wells = [pp.Well(well_coords[i]) for i in well_indices]
-    well_network = pp.WellNetwork3d(wells, unit_domain(3), parameters={"mesh_size": 1})
+    well_network = pp.WellNetwork3d(unit_domain(3), wells, parameters={"mesh_size": 1})
 
     mdg = fracture_network.mesh({"mesh_size_frac": 1, "mesh_size_min": 1})
 

@@ -236,19 +236,12 @@ class WellNetwork3d:
     Facilitates meshing of all wells in the network and their addition to a
     mixed-dimensional grid, see e.g., :meth:`~mesh` method.
 
-    Todo:
-        The attribute ``domain`` is not properly implemented in the constructor.
-        If the respective input argument is ``None``, the attribute is not assigned
-        and can cause errors subsequently.
-
     Parameters:
+        domain: Domain specification.
         wells: ``default=None``
 
             List of wells in the network. If not empty, the constructor assigns indices
             to the wells corresponding to the order in this list.
-        domain: ``default=None``
-
-            Domain specification.
         tol: ``default=1e-8``
 
             Geometric tolerance used in computations.
@@ -260,11 +253,14 @@ class WellNetwork3d:
 
     def __init__(
         self,
+        domain: pp.Domain,
         wells: Optional[list[Well]] = None,
-        domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
         parameters: Optional[dict] = None,
     ) -> None:
+
+        self.domain: pp.Domain = domain
+        """Domain specification."""
 
         self.well_dim: int = 1
         """All polyline wells have dimension 1."""
@@ -280,10 +276,6 @@ class WellNetwork3d:
         instantiation. """
         if parameters is not None:
             self.parameters = parameters
-
-        if domain is not None:
-            self.domain: pp.Domain = domain
-            """Domain specification."""
 
         self.tol: float = tol
         """Geometric tolerance used in computations."""

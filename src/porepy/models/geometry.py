@@ -98,7 +98,7 @@ class ModelGeometry:
 
     def set_well_network(self) -> None:
         """Assign well network class."""
-        self.well_network = pp.WellNetwork3d()
+        self.well_network = pp.WellNetwork3d(domain=self._domain)
 
     def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
