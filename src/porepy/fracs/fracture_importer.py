@@ -235,7 +235,7 @@ def network_2d_from_csv(
 
             Column index where fracture tags are stored. 0-offset. Defaults to no
             columns.
-        tol: ``default=1e-10``
+        tol: ``default=1e-8``
 
             Tolerance for merging points with almost equal coordinates.
         max_num_fracs: ``default=None``
@@ -350,7 +350,7 @@ def network_2d_from_csv(
 
     fractures = pts_edges_to_linefractures(pts, edges)
     network = pp.create_fracture_network(fractures, domain, tol=tol)
-    assert isinstance(network, FractureNetwork2d)
+    assert isinstance(network, FractureNetwork2d)  # for mypy
 
     if return_frac_id:
         edges_frac_id = np.delete(edges_frac_id, to_remove)

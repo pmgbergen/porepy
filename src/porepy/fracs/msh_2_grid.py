@@ -1,5 +1,4 @@
-"""A module containing functionality for converting gmsh output file to PorePy's grid
-structure.
+"""Module with functionality for converting gmsh output file to PorePy's grid structure.
 
 Todo:
     Elaborate more arguments ``cell_info`` and ``phys_names``
@@ -57,21 +56,10 @@ def create_2d_grids(
     """Create 2D grids for lines of a specified type from a gmsh tesselation.
 
     Only surfaces that were defined as 'physical' in the gmsh sense may have a grid
-    created, but then only if the physical name matches the specified ``line_tag``.
+    created, but then only if the physical name matches the specified ``surface_tag``.
 
-    Todo:
-
-        1. What exactly is the ``line_tag``? This variable is only mentioned in the
-           documentation, but does not appear in the code.
-           Should this say ``surface_tag`` instead?
-           -> The ``plane_type`` is checked against the ``surface_tag``
-           If this needs to be changed, also change this in the ``constraints``
-           parameter doc.
-        2. Check that the typing changes for ``phys_names`` and ``cell_info`` were
-           correct.
-
-    It is assumed that the mesh is read by meshio.
-    See module :mod:`~porepy.fracs.simplex` for how to do this.
+    It is assumed that the mesh is read by meshio. See module
+    :mod:`~porepy.fracs.simplex` for how to do this.
 
     Parameters:
         pts: ``shape=(num_points, 3)``
@@ -100,7 +88,7 @@ def create_2d_grids(
         constraints: ``default=None``
 
             Array with lists of lines that should not become grids. The array
-            items should match the ``INDEX`` in ``line_tag``, see above.
+            items should match the ``INDEX`` in ``surface_tag``, see above.
 
     Returns:
         List of 2D grids for all physical surfaces that matched with the specified
@@ -448,7 +436,7 @@ def create_embedded_line_grid(
 ) -> pp.Grid:
     """Create a 1d grid embedded in a higher dimensional space.
 
-    Args:
+    Parameters:
         loc_coord: Coordinates of points to be used in the grid.
         glob_id : Global indexes of the points. Typically refers to a global
             mesh, where the points of this grid is a subset.

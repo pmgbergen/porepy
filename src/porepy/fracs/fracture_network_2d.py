@@ -24,16 +24,17 @@ logger = logging.getLogger(__name__)
 class FractureNetwork2d:
     """Representation of a set of line fractures in a 2D domain.
 
-    The fractures are represented by line fracture objects
-    (see :class:`~porepy.fracs.line_fracture.LineFracture` ).
+    The fractures are represented by line fracture objects (see
+    :class:`~porepy.fracs.line_fracture.LineFracture`).
 
     Polyline fractures are currently not supported.
 
-    There is no requirement or guarantee that the fractures
-    are contained within the specified domain. The fractures can be cut to a given
-    domain by the method :meth:`constrain_to_domain`.
-    The domain can be a general non-convex polygon
-    (see :class:`~porepy.geometry.domain.Domain` ).
+    There is no requirement or guarantee that the fractures are contained within the
+    specified domain. The fractures can be cut to a given domain by the method
+    :meth:`constrain_to_domain`.
+
+    The domain can be a general non-convex polygon (see
+    :class:`~porepy.geometry.domain.Domain`).
 
     Note:
         The class is mainly intended for representation and meshing of a fracture

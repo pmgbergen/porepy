@@ -27,27 +27,6 @@ def split_fractures(
     Note:
         This function modifies the input arguments since they are passed by reference.
 
-    Todo:
-        Check if ``sd_pairs`` and the second, returned object are properly documented.
-
-    Example:
-
-        .. code:: python3
-
-            import numpy as np
-            from gridding.fractured import meshing, split_grid
-            from viz.exporter import export_vtk
-
-            f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
-            f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
-            f_set = [f_1, f_2]
-            domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax': 2}
-            mdg = meshing.create_grid(f_set, domain)
-            [g.compute_geometry() for g,_ in mdg]
-
-            split_grid.split_fractures(mdg, offset=0.1)
-            export_vtk(mdg, "grid")
-
     Parameters:
         mdg: A mixed-dimensional grid.
         sd_pairs: A map between subdomain pairs and a face-to-cell map, mapping the
@@ -55,10 +34,9 @@ def split_fractures(
             lower-dimensional grid.
         **kwargs: Supported keyword arguments include
 
-            - ``'offset'``: A float FLOAT to perturb the nodes around the
-              faces that are split. Note that this is only for visualization e.g.,
-              the face centers are not perturbed.
-              If not given, the value 0 is used.
+            - ``'offset'``: A float to perturb the nodes around the faces that are
+              split. Note that this is only for visualization e.g., the face centers
+              are not perturbed. If not given, the value 0 is used.
 
     Returns:
         A 2-tuple containing the modified mixed-dimensional grid where the faces are
