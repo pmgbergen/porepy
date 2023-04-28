@@ -96,15 +96,7 @@ def subdomains_to_mdg(
 def cart_grid(
     fracs: list[np.ndarray], nx: np.ndarray, **kwargs
 ) -> pp.MixedDimensionalGrid:
-    """Create a cartesian, fractured mixed-dimensional grid in 2 or 3
-    dimensions.
-
-    Examples:
-
-        >>> frac1 = np.array([[1, 4], [2, 2]])
-        >>> frac2 = np.array([[2, 2], [1, 4]])
-        >>> fracs = [frac1, frac2]
-        >>> mdg = cart_grid(fracs, [5, 5])
+    """Create a cartesian, fractured mixed-dimensional grid in 2 or 3 dimensions.
 
     Parameters:
         fracs: One list item for each fracture.
@@ -173,13 +165,6 @@ def tensor_grid(
     Note:
         If only the ``x`` coordinate is passed, an error will be raised, as fractured
         tensor grids are not implemented in 1D.
-
-    Examples:
-
-        >>> frac1 = np.array([[1, 4], [2, 2]])
-        >>> frac2 = np.array([[2, 2], [1, 4]])
-        >>> fracs = [frac1, frac2]
-        >>> mdg = cart_grid(fracs, [5, 5])
 
     Parameters:
         fracs: One list item for each fracture.

@@ -31,7 +31,7 @@ class Well:
     """Class representing a single well as a polyline embedded in 3D space.
 
     The fracture is defined by its vertices. It contains various utility
-    methods, mainly intended for use together with the :class:`~WellNetwork3d` class.
+    methods, mainly intended for use together with the :class:`WellNetwork3d` class.
 
     Parameters:
         points: ``shape=(3, num_points)``

@@ -31,13 +31,6 @@ def _cart_grid_3d(
     fracture), 1D (along fracture intersections), and 0d (intersections of
     intersections).
 
-    Example:
-
-        >>> frac1 = np.array([[1, 1, 4, 4], [1, 4, 4, 1], [2, 2, 2, 2]])
-        >>> frac2 = np.array([[2, 2, 2, 2], [1, 1, 4, 4], [1, 4, 4, 1]])
-        >>> fracs = [frac1, frac2]
-        >>> grid_list = _cart_grid_3d(fracs, [5, 5, 5])
-
     Parameters:
         fracs: A list of arrays with ``shape=(3, 4)``,
             representing vertices of the rectangle for each fracture.
@@ -80,13 +73,6 @@ def _tensor_grid_3d(
     constructs grids in 3d (whole domain), 2d (individual fracture),  1d, and 0d
     (fracture intersections).
 
-    Example:
-
-        >>> frac1 = np.array([[1, 4, 4, 1], [2, 2, 2, 2], [0, 0, 5, 5]])
-        >>> frac2 = np.array([[2, 2, 2, 2], [1, 4, 4, 1], [0, 0, 5, 5]])
-        >>> fracs = [frac1, frac2]
-        >>> mdg = _tensor_grid_3d(fracs, np.arange(5), np.arange(5), np.arange(5))
-
     Parameters:
         fracs: A list of arrays with ``shape=(3, 4)``, representing the vertices of the
             fractures for each fracture.
@@ -116,13 +102,6 @@ def _cart_grid_2d(
     Based on lines describing the individual fractures, the method
     constructs grids in 2D (whole domain), 1D (individual fracture), and 0D
     (fracture intersections).
-
-    Example:
-
-        >>> frac1 = np.array([[1, 4], [2, 2]])
-        >>> frac2 = np.array([[2, 2], [1, 4]])
-        >>> fracs = [frac1, frac2]
-        >>> mdg = cart_grid_2d(fracs, [5, 5])
 
     Parameters:
         fracs: A list of arrays with ``shape=(2, 2)``, representing the vertices of the
@@ -162,13 +141,6 @@ def _tensor_grid_2d(
     Based on lines describing the individual fractures, the method
     constructs grids in 2D (whole domain), 1D (individual fracture), and 0D
     (fracture intersections).
-
-    Example:
-
-        >>> frac1 = np.array([[1, 4], [2, 2]])
-        >>> frac2 = np.array([[2, 2], [1, 4]])
-        >>> fracs = [frac1, frac2]
-        >>> mdg = _tensor_grid_2d(fracs, np.arange(5), np.arange(5))
 
     Parameters:
         fracs: A list of arrays with ``shape=(2, 2)``, representing the vertices of the
