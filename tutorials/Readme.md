@@ -10,8 +10,8 @@ In practice this means only making minor adjustments, such as modifying boundary
 The tutorials' goal is to show how simulations of various different physical problems can be done using PorePy.
 In addition to this, the user will learn about how to export files for visualization externally.
 
-Note that the lower three tutorials cover some very specific use of PorePy. 
-In other words, they are not needed for most users' everyday PorePy use.
+Note that the last four tutorials cover some very specific use of PorePy. 
+In other words, they are not needed for most users' everyday use of PorePy, and might therefore be skipped.
 # Overview
 The PorePy tutorials are designed as stand-alone documentation of different components and capabilities. 
 Below we provide a general suggestion of in which order to read the tutorials.
@@ -25,7 +25,7 @@ It should however be noted that the appropriate order of reading may depend on t
 6. [single phase flow](./single_phase_flow.ipynb) describes how to use the model class `SinglePhaseFlow`. The tutorial exposes several extensions and how to solve a mixed-dimensional problem with only a few lines of code.
 7. [poromechanics](./poromechanics.ipynb) covers combining the models of mass and momentum balance to obtain a model for poromechanics.
 8. [exporter](./exporter.ipynb) documents how to export data from PorePy for external visualization (e.g. ParaView). Several examples of exporting is demonstrated.
-9. [simulation exporting](./simulation_exporting.ipynb) TODO: Either add description, or if it's combined with the above tutorial: edit above description.
+9. [simulation exporting](./simulation_exporting.ipynb) shows how one can export data for visualization in PorePy model-based simulations.
 
 For the more experienced user, some more specific tutorials are also available:
 
