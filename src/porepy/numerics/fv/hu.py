@@ -12,7 +12,7 @@ def myprint(var):
     print("\n" + var + " = ", eval(var))
 
 
-class Hu:  
+class Hu:
     """
     procedurally paradigm is adopted
     """
@@ -77,7 +77,7 @@ class Hu:
 
         return left_restriction, right_restriction
 
-    @staticmethod  
+    @staticmethod
     def density_internal_faces(
         saturation, density, left_restriction, right_restriction
     ):
@@ -104,13 +104,13 @@ class Hu:
         return g_faces
 
     @staticmethod
-    def compute_transmissibility_tpfa(sd, data, keyword="flow"): 
+    def compute_transmissibility_tpfa(sd, data, keyword="flow"):
         """ """
         discr = pp.Tpfa(keyword)
         discr.discretize(sd, data)
 
-    @staticmethod  
-    def get_transmissibility_tpfa(sd, data, keyword="flow"):  
+    @staticmethod
+    def get_transmissibility_tpfa(sd, data, keyword="flow"):
         """ """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         div_transmissibility = matrix_dictionary["flux"]  # TODO: "flux"
@@ -119,7 +119,7 @@ class Hu:
 
         # TODO: you can always use the matrix, so do it. remark: for mpfa you can only use the matrix...
 
-        return transmissibility, transmissibility_internal  
+        return transmissibility, transmissibility_internal
 
     @staticmethod
     def var_upwinded_faces(var, upwind_directions, left_restriction, right_restriction):
@@ -132,7 +132,7 @@ class Hu:
         var_right = right_restriction @ var
 
         if isinstance(upwind_directions, pp.ad.AdArray):
-            upwind_directions = upwind_directions.val  
+            upwind_directions = upwind_directions.val
 
         upwind_left = np.maximum(
             0, np.heaviside(np.real(upwind_directions), 1)
@@ -141,17 +141,14 @@ class Hu:
             np.ones(upwind_directions.shape) - upwind_left
         )  # what's not left is right (here!)
 
-        upwind_left_matrix = sp.sparse.diags(
-            upwind_left
-        )  
+        upwind_left_matrix = sp.sparse.diags(upwind_left)
         upwind_right_matrix = sp.sparse.diags(upwind_right)
 
         var_upwinded = upwind_left_matrix @ var_left + upwind_right_matrix @ var_right
 
         return var_upwinded
 
-
-    @staticmethod  
+    @staticmethod
     def total_flux(
         sd: pp.Grid,
         mixture,
@@ -161,9 +158,8 @@ class Hu:
         right_restriction,
         transmissibility_internal_tpfa,
         ad,
-        dynamic_viscosity
+        dynamic_viscosity,
     ):
-
         def gamma_value():
             """ """
             alpha = 1  # as in the paper 2022
@@ -261,7 +257,7 @@ class Hu:
             )  # added epsilon to avoid division by zero
 
             if ad:
-                tmp = -pp.ad.functions.maximum(-tmp, -1e6)  
+                tmp = -pp.ad.functions.maximum(-tmp, -1e6)
                 beta_faces = 0.5 + 1 / np.pi * pp.ad.functions.arctan(
                     tmp * delta_pot_faces
                 )
@@ -284,13 +280,13 @@ class Hu:
         # total flux computation:
         z = -sd.cell_centers[
             sd.dim - 1
-        ]  # TODO: this is wrong, works only in 2D ### zed is reversed to conform to the notation in paper 2022 
+        ]  # TODO: this is wrong, works only in 2D ### zed is reversed to conform to the notation in paper 2022
         g_ref_faces = g_ref_faces(
             mixture, pressure, z, gravity_value, left_restriction, right_restriction
-        )  
+        )
         gamma_val = gamma_value()
 
-        total_flux = [None]*mixture.num_phases
+        total_flux = [None] * mixture.num_phases
 
         for m in np.arange(mixture.num_phases):
             saturation_m = mixture.get_phase(m).saturation
@@ -325,7 +321,7 @@ class Hu:
 
             total_flux[m] = (
                 lam_WA_faces * delta_pot_faces
-            ) * transmissibility_internal_tpfa  
+            ) * transmissibility_internal_tpfa
 
         return total_flux
 
@@ -338,7 +334,8 @@ class Hu:
         left_restriction,
         right_restriction,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     ):
         """ """
         qt = Hu.total_flux(
@@ -349,7 +346,8 @@ class Hu:
             left_restriction,
             right_restriction,
             transmissibility_internal_tpfa,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
 
         rho_qt = [None, None]
@@ -365,14 +363,25 @@ class Hu:
         rho_qt = rho_qt[0] + rho_qt[1]
         return rho_qt
 
-    @staticmethod  
+    @staticmethod
     def flux_V(
-        sd, mixture, ell, total_flux_internal, left_restriction, right_restriction, ad, dynamic_viscosity
-    ):  
+        sd,
+        mixture,
+        ell,
+        total_flux_internal,
+        left_restriction,
+        right_restriction,
+        ad,
+        dynamic_viscosity,
+    ):
         """ """
 
         def mobility_V_faces(
-            saturation, total_flux_internal, left_restriction, right_restriction, dynamic_viscosity
+            saturation,
+            total_flux_internal,
+            left_restriction,
+            right_restriction,
+            dynamic_viscosity,
         ):
             """ """
 
@@ -408,7 +417,8 @@ class Hu:
                     saturation_list[m],
                     total_flux_internal,
                     left_restriction,
-                    right_restriction, dynamic_viscosity
+                    right_restriction,
+                    dynamic_viscosity,
                 )
             return mobility_tot
 
@@ -421,8 +431,9 @@ class Hu:
             saturation_list[ell],
             total_flux_internal,
             left_restriction,
-            right_restriction, dynamic_viscosity
-        )  
+            right_restriction,
+            dynamic_viscosity,
+        )
         mob_tot_V = mobility_tot_V_faces(
             saturation_list,
             total_flux_internal,
@@ -443,7 +454,8 @@ class Hu:
         total_flux_internal,
         left_restriction,
         right_restriction,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     ):
         """ """
         V = Hu.flux_V(
@@ -453,7 +465,8 @@ class Hu:
             total_flux_internal,
             left_restriction,
             right_restriction,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
         density = mixture.get_phase(ell).mass_density(pressure)
         rho_upwinded = Hu.var_upwinded_faces(
@@ -466,7 +479,7 @@ class Hu:
 
         return rho_V
 
-    @staticmethod  
+    @staticmethod
     def flux_G(
         sd,
         mixture,
@@ -476,7 +489,8 @@ class Hu:
         left_restriction,
         right_restriction,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     ):
         """
         TODO: consider the idea to move omega outside the flux_G, if you don't see why => it is already in the right place.
@@ -492,7 +506,7 @@ class Hu:
                 omega_ell = pp.ad.AdArray(
                     np.zeros(left_restriction.shape[0]),
                     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-                ) # TODO: find a better way to initialize arrays
+                )  # TODO: find a better way to initialize arrays
 
                 for m in np.arange(num_phases):
                     omega_ell += (
@@ -513,7 +527,13 @@ class Hu:
 
             return omega_ell
 
-        def mobility_G_faces(saturation, omega_ell, left_restriction, right_restriction, dynamic_viscosity):
+        def mobility_G_faces(
+            saturation,
+            omega_ell,
+            left_restriction,
+            right_restriction,
+            dynamic_viscosity,
+        ):
             """ """
             mobility_upwinded = Hu.var_upwinded_faces(
                 pp.mobility(saturation, dynamic_viscosity),
@@ -521,7 +541,7 @@ class Hu:
                 left_restriction,
                 right_restriction,
             )
-            return mobility_upwinded  
+            return mobility_upwinded
 
         def mobility_tot_G_faces(
             num_phases,
@@ -534,18 +554,20 @@ class Hu:
             if ad:
                 mobility_tot_G = pp.ad.AdArray(
                     np.zeros(left_restriction.shape[0]),
-                    0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells))
+                    0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
+                )
             else:
                 mobility_tot_G = np.zeros(
-                    left_restriction.shape[0], dtype=np.complex128)
-
+                    left_restriction.shape[0], dtype=np.complex128
+                )
 
             for m in np.arange(num_phases):  # m = phase_id
                 mobility_tot_G += mobility_G_faces(
                     saturation_list[m],
                     omega_ell,
                     left_restriction,
-                    right_restriction,dynamic_viscosity
+                    right_restriction,
+                    dynamic_viscosity,
                 )
 
             return mobility_tot_G
@@ -606,13 +628,15 @@ class Hu:
                 saturation_list[ell],
                 omega_list[ell],
                 left_restriction,
-                right_restriction, dynamic_viscosity
+                right_restriction,
+                dynamic_viscosity,
             )  # yes, you can move it outside the loop
             mob_G_m = mobility_G_faces(
                 saturation_list[m],
                 omega_list[m],
                 left_restriction,
-                right_restriction, dynamic_viscosity
+                right_restriction,
+                dynamic_viscosity,
             )
             G_internal += mob_G_ell * mob_G_m / mob_tot_G * (g_list[m] - g_list[ell])
 
@@ -629,7 +653,8 @@ class Hu:
         left_restriction,
         right_restriction,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     ):
         """ """
         G = Hu.flux_G(
@@ -641,7 +666,8 @@ class Hu:
             left_restriction,
             right_restriction,
             transmissibility_internal_tpfa,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
         density = mixture.get_phase(ell).mass_density(pressure)
         rho_upwinded = Hu.var_upwinded_faces(
@@ -654,14 +680,14 @@ class Hu:
 
         return rho_G
 
-    @staticmethod  
+    @staticmethod
     def boundary_conditions_tmp(sd: pp.Grid, bc_val):
         """
         TODO: bc for pressure eq and for mass flux. For now, flux = 0, so I use this method for both
 
         TODO: bc_val is outwards flux wrt domain, not integrated. => if bc_val negative => entering mass
             change it(?) in according to pp convention
-        
+
             TODO: not 100% sure about the sign, check it
 
             returns the rhs, in the right size and div included
@@ -670,7 +696,9 @@ class Hu:
         return -abs(sd.cell_faces).T @ (sd.face_areas * bc_val)
 
     @staticmethod
-    def compute_jacobian_qt_ad(sd, data, mixture, pressure, gravity_value, ad, dynamic_viscosity):
+    def compute_jacobian_qt_ad(
+        sd, data, mixture, pressure, gravity_value, ad, dynamic_viscosity
+    ):
         """
         attention: here you don't need ell bcs the primary variable has been identified before computing the flux.
                     for the other jac computation you need ell
@@ -687,7 +715,8 @@ class Hu:
             L,
             R,
             transmissibility_internal_tpfa,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
 
         pp_div = pp.fvutils.scalar_divergence(sd)
@@ -700,7 +729,9 @@ class Hu:
         return flux_cell_no_bc.val, flux_cell_no_bc.jac.A
 
     @staticmethod
-    def compute_jacobian_V_G_ad(sd, data, mixture, ell, pressure, gravity_value, ad, dynamic_viscosity):
+    def compute_jacobian_V_G_ad(
+        sd, data, mixture, ell, pressure, gravity_value, ad, dynamic_viscosity
+    ):
         """
         this is a tmp function and conceptually wrong. I momentary need  it to test the jac
         """
@@ -716,11 +747,14 @@ class Hu:
             L,
             R,
             transmissibility_internal_tpfa,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
         qt_internal = qt_internal[0] + qt_internal[1]
 
-        rho_V = Hu.rho_flux_V(sd, mixture, ell, pressure, qt_internal, L, R, ad, dynamic_viscosity)
+        rho_V = Hu.rho_flux_V(
+            sd, mixture, ell, pressure, qt_internal, L, R, ad, dynamic_viscosity
+        )
 
         rho_G = Hu.rho_flux_G(
             sd,
@@ -731,7 +765,8 @@ class Hu:
             L,
             R,
             transmissibility_internal_tpfa,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
 
         pp_div = pp.fvutils.scalar_divergence(sd)
@@ -772,7 +807,8 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             rho_qt = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
             rho_qt[sd.get_internal_faces()] = rho_qt_internal
@@ -807,7 +843,8 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             rho_qt = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
             rho_qt[sd.get_internal_faces()] = rho_qt_internal
@@ -849,19 +886,13 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             qt = qt[0] + qt[1]
 
             V = Hu.rho_flux_V(
-                sd,
-                mixture,
-                ell,
-                pressure_eps,
-                qt,
-                L,
-                R,
-                ad, dynamic_viscosity
+                sd, mixture, ell, pressure_eps, qt, L, R, ad, dynamic_viscosity
             )
 
             G = Hu.rho_flux_G(
@@ -873,7 +904,8 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
 
             F = V + G
@@ -908,11 +940,14 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             qt = qt[0] + qt[1]
 
-            V = Hu.rho_flux_V(sd, mixture, ell, pressure, qt, L, R, ad, dynamic_viscosity)
+            V = Hu.rho_flux_V(
+                sd, mixture, ell, pressure, qt, L, R, ad, dynamic_viscosity
+            )
             G = Hu.rho_flux_G(
                 sd,
                 mixture,
@@ -922,7 +957,8 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             F = V + G
 
@@ -959,7 +995,8 @@ class Hu:
             L,
             R,
             transmissibility_internal_tpfa,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
         rho_qt = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
         rho_qt[sd.get_internal_faces()] = rho_qt_internal
@@ -978,7 +1015,8 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             rho_qt_eps = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
             rho_qt_eps[sd.get_internal_faces()] = rho_qt_internal_eps
@@ -1011,7 +1049,8 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             rho_qt_eps = np.zeros(sd.num_faces, dtype=np.complex128)  ### ...
             rho_qt_eps[sd.get_internal_faces()] = rho_qt_internal_eps
@@ -1050,20 +1089,12 @@ class Hu:
             L,
             R,
             transmissibility_internal_tpfa,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
         qt = qt[0] + qt[1]
 
-        V = Hu.rho_flux_V(
-            sd,
-            mixture,
-            ell,
-            pressure,
-            qt,
-            L,
-            R,
-            ad, dynamic_viscosity
-        )
+        V = Hu.rho_flux_V(sd, mixture, ell, pressure, qt, L, R, ad, dynamic_viscosity)
         G = Hu.rho_flux_G(
             sd,
             mixture,
@@ -1073,7 +1104,8 @@ class Hu:
             L,
             R,
             transmissibility_internal_tpfa,
-            ad, dynamic_viscosity
+            ad,
+            dynamic_viscosity,
         )
         F = V + G
         flux_cell_no_bc = pp_div @ F
@@ -1090,19 +1122,13 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             qt_eps = qt_eps[0] + qt_eps[1]
 
             V_eps = Hu.rho_flux_V(
-                sd,
-                mixture,
-                ell,
-                pressure_eps,
-                qt_eps,
-                L,
-                R,
-                ad, dynamic_viscosity
+                sd, mixture, ell, pressure_eps, qt_eps, L, R, ad, dynamic_viscosity
             )
             G_eps = Hu.rho_flux_G(
                 sd,
@@ -1113,7 +1139,8 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             F_eps = V_eps + G_eps
 
@@ -1145,19 +1172,13 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             qt_eps = qt_eps[0] + qt_eps[1]
 
             V_eps = Hu.rho_flux_V(
-                sd,
-                mixture,
-                ell,
-                pressure,
-                qt_eps,
-                L,
-                R,
-                ad, dynamic_viscosity
+                sd, mixture, ell, pressure, qt_eps, L, R, ad, dynamic_viscosity
             )
             G_eps = Hu.rho_flux_G(
                 sd,
@@ -1168,7 +1189,8 @@ class Hu:
                 L,
                 R,
                 transmissibility_internal_tpfa,
-                ad, dynamic_viscosity
+                ad,
+                dynamic_viscosity,
             )
             F_eps = V_eps + G_eps
 

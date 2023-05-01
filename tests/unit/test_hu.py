@@ -121,7 +121,15 @@ def test_total_flux_no_gravity(ad):
     dynamic_viscosity = 1
 
     qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad, dynamic_viscosity
+        sd,
+        mixture,
+        pressure,
+        gravity_value,
+        L,
+        R,
+        transmissibility_internal_tpfa,
+        ad,
+        dynamic_viscosity,
     )
     qt_internal = qt_internal[0] + qt_internal[1]
 
@@ -179,7 +187,15 @@ def test_total_flux_no_pressure(ad):
 
     dynamic_viscosity = 1
     qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad, dynamic_viscosity
+        sd,
+        mixture,
+        pressure,
+        gravity_value,
+        L,
+        R,
+        transmissibility_internal_tpfa,
+        ad,
+        dynamic_viscosity,
     )
     qt_internal = qt_internal[0] + qt_internal[1]
 
@@ -239,7 +255,15 @@ def test_total_flux_null(ad):
     dynamic_viscosity = 1
 
     qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad, dynamic_viscosity
+        sd,
+        mixture,
+        pressure,
+        gravity_value,
+        L,
+        R,
+        transmissibility_internal_tpfa,
+        ad,
+        dynamic_viscosity,
     )
     qt_internal = qt_internal[0] + qt_internal[1]
 
@@ -397,21 +421,22 @@ def test_flux_V():
     dynamic_viscosity = 1
 
     qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad, dynamic_viscosity
+        sd,
+        mixture,
+        pressure,
+        gravity_value,
+        L,
+        R,
+        transmissibility_internal_tpfa,
+        ad,
+        dynamic_viscosity,
     )
     qt_internal = qt_internal[0] + qt_internal[1]
 
     ell = 0
 
     rho_V = hu.rho_flux_V(
-        sd,
-        mixture,
-        ell,
-        pressure,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
+        sd, mixture, ell, pressure, qt_internal, L, R, ad, dynamic_viscosity
     )
 
     assert np.all(rho_V.val == np.array([0, 0, 0, 0, 0, 1, 0]))
@@ -468,7 +493,8 @@ def test_flux_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
     assert np.all(rho_G.val == np.array([0, 0, 0, 0, 0, 0, 0]))
 
@@ -477,7 +503,6 @@ def test_flux_V_G():
     """
     TODO
     """
-
 
 
 def test_upwind_direction_V_G():
@@ -522,54 +547,22 @@ def test_upwind_direction_V_G():
     qt_internal = np.array([1])
 
     ell = 0
-    V = hu.flux_V(
-        sd,
-        mixture,
-        ell,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
-    )
+    V = hu.flux_V(sd, mixture, ell, qt_internal, L, R, ad, dynamic_viscosity)
 
     assert V.val == np.array([0])
 
     ell = 1
-    V = hu.flux_V(
-        sd,
-        mixture,
-        ell,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
-    )
+    V = hu.flux_V(sd, mixture, ell, qt_internal, L, R, ad, dynamic_viscosity)
     assert V.val == np.array([1])
 
     qt_internal = np.array([-1])
 
     ell = 0
-    V = hu.flux_V(
-        sd,
-        mixture,
-        ell,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
-    )
+    V = hu.flux_V(sd, mixture, ell, qt_internal, L, R, ad, dynamic_viscosity)
     assert V.val == np.array([-1])
 
     ell = 1
-    V = hu.flux_V(
-        sd,
-        mixture,
-        ell,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
-    )
+    V = hu.flux_V(sd, mixture, ell, qt_internal, L, R, ad, dynamic_viscosity)
     assert V.val == np.array([0])
 
     # G: ----------------------------------------------------------
@@ -586,7 +579,8 @@ def test_upwind_direction_V_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
 
     assert G.val == np.array([0])
@@ -601,7 +595,8 @@ def test_upwind_direction_V_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
 
     assert G.val == np.array([0])
@@ -617,7 +612,8 @@ def test_upwind_direction_V_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
 
     assert np.isclose(
@@ -634,7 +630,8 @@ def test_upwind_direction_V_G():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
 
     assert np.isclose(
@@ -703,54 +700,22 @@ def test_upwind_direction_V_G_3x3():
     qt_internal = np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1])
 
     ell = 0
-    V = hu.flux_V(
-        sd,
-        mixture,
-        ell,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
-    )
+    V = hu.flux_V(sd, mixture, ell, qt_internal, L, R, ad, dynamic_viscosity)
 
     assert np.all(V.val == np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1]))
 
     ell = 1
-    V = hu.flux_V(
-        sd,
-        mixture,
-        ell,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
-    )
+    V = hu.flux_V(sd, mixture, ell, qt_internal, L, R, ad, dynamic_viscosity)
     assert np.all(V.val == np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0]))
 
     qt_internal = np.array([0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1])
 
     ell = 0
-    V = hu.flux_V(
-        sd,
-        mixture,
-        ell,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
-    )
+    V = hu.flux_V(sd, mixture, ell, qt_internal, L, R, ad, dynamic_viscosity)
     assert np.all(V.val == np.array([0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1]))
 
     ell = 1
-    V = hu.flux_V(
-        sd,
-        mixture,
-        ell,
-        qt_internal,
-        L,
-        R,
-        ad, dynamic_viscosity
-    )
+    V = hu.flux_V(sd, mixture, ell, qt_internal, L, R, ad, dynamic_viscosity)
     assert np.all(V.val == np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
 
     # G: ----------------------------------------------------------
@@ -767,7 +732,8 @@ def test_upwind_direction_V_G_3x3():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
 
     assert np.all(G.val == np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
@@ -782,7 +748,8 @@ def test_upwind_direction_V_G_3x3():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
 
     assert np.all(G.val == np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
@@ -798,7 +765,8 @@ def test_upwind_direction_V_G_3x3():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
 
     assert np.all(
@@ -817,7 +785,8 @@ def test_upwind_direction_V_G_3x3():
         L,
         R,
         transmissibility_internal_tpfa,
-        ad, dynamic_viscosity
+        ad,
+        dynamic_viscosity,
     )
 
     assert np.all(
@@ -825,7 +794,6 @@ def test_upwind_direction_V_G_3x3():
             G.val, np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0]), rtol=0, atol=1e-9
         )
     )  # pay attention: G is the volumetric flux, not the mass flux, thus np.array([1])
-
 
 
 def test_full_jacobian():
@@ -904,7 +872,6 @@ def test_full_jacobian():
     assert np.all(np.isclose(A_finite_diff, A_exact, rtol=0, atol=1e-5))
 
 
-
 ad = True
 test_expansion_matrix()
 test_restriction_matrices()
@@ -931,6 +898,90 @@ the sign of tmp isnt goes unnoticed
 """
 
 
+###################################################################################################################
+# mass and energy model:
+###################################################################################################################
+"""
+model = pp.mass_and_energy_balance.MassAndEnergyBalance()
+params = {}
+pp.run_time_dependent_model(model, params)
+
+for i in dir(model):
+    print(i)
+
+pdb.set_trace()
+
+
+mass_bal = pp.fluid_mass_balance.MassBalanceEquations
+
+
+class EquationsFluidMassAndEnergy(
+    pressure_eq.EnergyBalanceEquations,
+    mass_bal.MassBalanceEquations,
+):
+    def set_equations(self):
+        pressure_eq.EnergyBalanceEquations.set_equations(self)
+
+        mass_bal.MassBalanceEquations.set_equations(self)
+
+
+# TODO: ---------------------------------
+class VariablesFluidMassAndEnergy(
+    energy.VariablesEnergyBalance,
+    mass.VariablesSinglePhaseFlow,
+):
+    def create_variables(self) -> None:
+        energy.VariablesEnergyBalance.create_variables(self)
+        mass.VariablesSinglePhaseFlow.create_variables(self)
+
+
+class ConstitutiveLawFluidMassAndEnergy(
+    pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
+    pp.constitutive_laws.ConstantSolidDensity,
+    pp.constitutive_laws.EnthalpyFromTemperature,
+    pp.constitutive_laws.FouriersLaw,
+    pp.constitutive_laws.ThermalConductivityLTE,
+    pp.constitutive_laws.DimensionReduction,
+    pp.constitutive_laws.AdvectiveFlux,
+    pp.constitutive_laws.DarcysLaw,
+    pp.constitutive_laws.PeacemanWellFlux,
+    pp.constitutive_laws.FluidMobility,
+    pp.constitutive_laws.ConstantPorosity,
+    pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.ConstantViscosity,
+):
+    pass
+
+
+class BoundaryConditionsFluidMassAndEnergy(
+    energy.BoundaryConditionsEnergyBalance,
+    mass.BoundaryConditionsSinglePhaseFlow,
+):
+    pass
+
+
+class SolutionStrategyFluidMassAndEnergy(
+    energy.SolutionStrategyEnergyBalance,
+    mass.SolutionStrategySinglePhaseFlow,
+):
+    pass
+
+
+class MassAndEnergyBalance(
+    EquationsFluidMassAndEnergy,
+    VariablesFluidMassAndEnergy,
+    ConstitutiveLawFluidMassAndEnergy,
+    BoundaryConditionsFluidMassAndEnergy,
+    SolutionStrategyFluidMassAndEnergy,
+    pp.ModelGeometry,
+    pp.DataSavingMixin,
+):
+    pass
+"""
+
+###################################################################################################################
+#
+###################################################################################################################
 #
 #
 #
@@ -939,7 +990,7 @@ the sign of tmp isnt goes unnoticed
 #
 # solve one iteration: ---------------------------------------------------------------------
 
-do_this_section = True
+do_this_section = False
 
 
 np.set_printoptions(precision=2, linewidth=150)
@@ -952,7 +1003,7 @@ def unstationary_term(
     ell,
     porosity,
 ):
-    """ tmp
+    """tmp
     TODO: find a better name
     """
     volumes = sd.cell_volumes
@@ -964,7 +1015,17 @@ def unstationary_term(
     return lack_of_a_better_name
 
 
-def newton_tmp(sd, data, mixture, ell, gravity_value, bc_val, initial_guess, timestep, dynamic_viscosity):
+def newton_tmp(
+    sd,
+    data,
+    mixture,
+    ell,
+    gravity_value,
+    bc_val,
+    initial_guess,
+    timestep,
+    dynamic_viscosity,
+):
     """
     - Strongly hardcoded
     - null bc
@@ -1017,7 +1078,15 @@ def newton_tmp(sd, data, mixture, ell, gravity_value, bc_val, initial_guess, tim
         # print("mixture.get_phase(m)._s = ", mixture.get_phase(m)._s.val)
 
         F, JF, _ = hu.assemble_matrix_rhs_ad(
-            sd, data, mixture, pressure, ell, gravity_value, bc_val, ad, dynamic_viscosity
+            sd,
+            data,
+            mixture,
+            pressure,
+            ell,
+            gravity_value,
+            bc_val,
+            ad,
+            dynamic_viscosity,
         )
 
         # unstationary term pressure eq:
@@ -1121,7 +1190,15 @@ if do_this_section:
     time_list = np.arange(0, 20, step=timestep)
     for time in time_list:
         sol = newton_tmp(
-            sd, data, mixture, ell, gravity_value, bc_val, initial_guess, timestep, dynamic_viscosity
+            sd,
+            data,
+            mixture,
+            ell,
+            gravity_value,
+            bc_val,
+            initial_guess,
+            timestep,
+            dynamic_viscosity,
         )
 
         if np.mod(time, 0.5) == 0:
