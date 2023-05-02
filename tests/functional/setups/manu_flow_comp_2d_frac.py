@@ -7,13 +7,13 @@ The exact solution was obtained by extending the solution from the incompressibl
 case [1].
 
 In particular, we have added a pressure-dependent density which obeys the following
-consitutive relationship:
+constitutive relationship:
 
 .. math:
 
-    \rho(p) = \rho_0 \exp{c_f (p - p_0)},
+    \\rho(p) = \\rho_0 \\exp{c_f (p - p_0)},
 
-where :math:`\rho` and :math:`p` are the density and pressure, :math:`\rho_0` and
+where :math:`\\rho` and :math:`p` are the density and pressure, :math:`\\rho_0` and
 :math:`p_0` are the density and pressure at reference states, and :math:`c_f` is the
 fluid compressibility.
 
@@ -27,19 +27,18 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 import sympy as sym
 
 import porepy as pp
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
-from tests.functional.setups.manu_flow_incomp_frac import (
+from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompSaveData,
     ManuIncompUtils,
-    SingleEmbeddedVerticalFracture,
+    SingleEmbeddedVerticalLineFracture,
 )
-
 
 # PorePy typings
 number = pp.number
@@ -80,7 +79,7 @@ class ManuCompDataSaving(VerificationDataSaving):
 
     """
 
-    exact_sol: ManuCompExactSolution
+    exact_sol: ManuCompExactSolution2d
     """Exact solution object."""
 
     interface_darcy_flux: Callable[
@@ -116,7 +115,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         sd_matrix: pp.Grid = self.mdg.subdomains()[0]
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
-        exact_sol: ManuCompExactSolution = self.exact_sol
+        exact_sol: ManuCompExactSolution2d = self.exact_sol
         t: number = self.time_manager.time
 
         # Collect data
@@ -199,7 +198,7 @@ class ManuCompDataSaving(VerificationDataSaving):
 
 
 # -----> Exact solution
-class ManuCompExactSolution:
+class ManuCompExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
@@ -371,13 +370,27 @@ class ManuCompExactSolution:
             for q in self.q_matrix
         ]
 
-        # Face-centered Darcy fluxes
+        # Computation of the fluxes in the middle region results in NaN on faces that
+        # are outside the middle region. We therefore need to first evaluate the middle
+        # region and then the other regions, so that NaN faces outside the middle
+        # region can be overwritten accordingly.
         fn = sd_matrix.face_normals
         q_fc = np.zeros(sd_matrix.num_faces)
-        for q, idx in zip(q_fun, face_idx):
-            q_fc += (
-                q[0](fc[0], fc[1], time) * fn[0] + q[1](fc[0], fc[1], time) * fn[1]
-            ) * idx
+
+        q_fun_sorted = q_fun.copy()
+        q_fun_sorted.pop(1)
+        q_fun_sorted.insert(0, q_fun[1])
+
+        face_idx_sorted = face_idx.copy()
+        face_idx_sorted.pop(1)
+        face_idx_sorted.insert(0, face_idx[1])
+
+        # Perform evaluations using the sorted list of exact Darcy velocities
+        for q, idx in zip(q_fun_sorted, face_idx_sorted):
+            q_fc[idx] = (
+                q[0](fc[0][idx], fc[1][idx], time) * fn[0][idx]
+                + q[1](fc[0][idx], fc[1][idx], time) * fn[1][idx]
+            )
 
         # We need to correct the values of the exact Darcy fluxes at the internal
         # boundaries since they evaluate to NaN due to a division by zero (this
@@ -633,7 +646,7 @@ class ManuCompBoundaryConditions:
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition types for the elliptic discretization."""
-        if sd.dim == 2:  # Dirichlet for the matrix
+        if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
@@ -642,7 +655,7 @@ class ManuCompBoundaryConditions:
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition types for the upwind discretization."""
-        if sd.dim == 2:  # Dirichlet for the matrix
+        if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         else:  # Neumann for the fracture tips
@@ -690,7 +703,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
 
 
 # -----> Solution strategy
-class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
     """Modified solution strategy for the verification setup."""
 
     mdg: pp.MixedDimensionalGrid
@@ -702,7 +715,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
     """
 
-    exact_sol: ManuCompExactSolution
+    exact_sol: ManuCompExactSolution2d
     """Exact solution object."""
 
     fluid: pp.FluidConstants
@@ -724,7 +737,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         """Constructor of the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuCompExactSolution
+        self.exact_sol: ManuCompExactSolution2d
         """Exact solution object."""
 
         self.results: list[ManuCompSaveData] = []
@@ -744,7 +757,7 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
         assert self.solid.normal_permeability() == 0.5
 
         # Instantiate exact solution object
-        self.exact_sol = ManuCompExactSolution(self)
+        self.exact_sol = ManuCompExactSolution2d(self)
 
     def before_nonlinear_loop(self) -> None:
         """Update values of external sources and boundary conditions."""
@@ -819,16 +832,15 @@ class ManuCompSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
 
 # -----> Mixer
-class ManuCompFlowSetup(  # type: ignore[misc]
-    SingleEmbeddedVerticalFracture,
+class ManuCompFlowSetup2d(  # type: ignore[misc]
+    SingleEmbeddedVerticalLineFracture,
     ManuCompBalanceEquation,
     ManuCompBoundaryConditions,
-    ManuCompSolutionStrategy,
+    ManuCompSolutionStrategy2d,
     ManuIncompUtils,
     ManuCompDataSaving,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
-    Mixer class for the compressible flow with a single fracture verification setup.
-
+    Mixer class for the 2d compressible flow setup with a single fracture.
     """

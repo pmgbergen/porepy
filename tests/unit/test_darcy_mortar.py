@@ -7,6 +7,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.fracs.utils import pts_edges_to_linefractures
+from porepy.grids.standard_grids.utils import unit_domain
 from tests import test_utils
 
 
@@ -459,8 +460,6 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         alpha_2d=None,
     ):
 
-        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
-
         if num_fracs == 0:
             p = np.zeros((2, 0))
             e = np.zeros((2, 0))
@@ -471,12 +470,12 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             e = np.array([[0], [1]])
             fractures = pts_edges_to_linefractures(p, e)
 
-        #            p = [np.array([[0.5, 0.5], [0, 1]])]
+        # p = [np.array([[0.5, 0.5], [0, 1]])]
         elif num_fracs == 2:
             raise ValueError("Not implemented")
 
         mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
-        network = pp.FractureNetwork2d(fractures, domain)
+        network = pp.create_fracture_network(fractures, unit_domain(2))
         mdg = network.mesh(mesh_size)
 
         gmap = {}
@@ -701,45 +700,30 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 class TestMortar3D(unittest.TestCase):
     def setup(self, num_fracs=1, remove_tags=False):
 
-        bbox = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        domain = pp.Domain(bbox)
+        fracture_1 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+        )
+        fracture_2 = pp.PlaneFracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        )
+        fracture_3 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
+        )
 
         if num_fracs == 0:
-            fl = []
-
+            fractures = []
         elif num_fracs == 1:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                )
-            ]
+            fractures = [fracture_1]
         elif num_fracs == 2:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-                ),
-            ]
-
+            fractures = [fracture_1, fracture_2]
         elif num_fracs == 3:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
-                ),
-            ]
+            fractures = [fracture_1, fracture_2, fracture_3]
+        else:
+            raise NotImplementedError()
 
-        network = pp.FractureNetwork3d(fl, domain)
+        network = pp.create_fracture_network(fractures, unit_domain(3))
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
         mdg = network.mesh(mesh_args)
-
         self.set_params(mdg)
 
         return mdg

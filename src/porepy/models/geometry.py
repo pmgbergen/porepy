@@ -11,6 +11,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
 class ModelGeometry:
@@ -18,7 +19,7 @@ class ModelGeometry:
     model."""
 
     # Define attributes to be assigned later
-    fracture_network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d]
+    fracture_network: pp.fracture_network
     """Representation of fracture network including intersections."""
     well_network: pp.WellNetwork3d
     """Well network."""
@@ -58,8 +59,8 @@ class ModelGeometry:
 
         self.set_well_network()
         if len(self.well_network.wells) > 0:
-            # Compute intersections.
-            assert isinstance(self.fracture_network, pp.FractureNetwork3d)
+            # Compute intersections
+            assert isinstance(self.fracture_network, FractureNetwork3d)
             pp.compute_well_fracture_intersections(
                 self.well_network, self.fracture_network
             )
@@ -97,7 +98,7 @@ class ModelGeometry:
 
     def set_well_network(self) -> None:
         """Assign well network class."""
-        self.well_network = pp.WellNetwork3d()
+        self.well_network = pp.WellNetwork3d(domain=self._domain)
 
     def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
@@ -125,8 +126,8 @@ class ModelGeometry:
         """
         return self.params.get("grid_type", "cartesian")
 
-    def meshing_arguments(self) -> dict:
-        """Meshing arguments for md-grid creation.
+    def meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for mixed-dimensional grid generation.
 
         Returns:
             Meshing arguments compatible with
@@ -134,8 +135,8 @@ class ModelGeometry:
 
         """
         # Default value of 1/2, scaled by the length unit.
-        mesh_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
-        return mesh_args
+        default_meshing_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
+        return self.params.get("meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
         """Keyword arguments for md-grid creation.

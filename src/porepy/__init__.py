@@ -112,8 +112,6 @@ from porepy.utils.tangential_normal_projection import (
 # Fractures
 from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
 from porepy.fracs.line_fracture import LineFracture
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network import create_fracture_network
 
 

@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Literal
 
 import porepy as pp
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 from . import domains, fracture_sets
 
@@ -19,7 +21,7 @@ def square_with_orthogonal_fractures(
     fracture_indices: list[int],
     size: pp.number,
     **meshing_kwargs,
-) -> tuple[pp.MixedDimensionalGrid, pp.FractureNetwork2d]:
+) -> tuple[pp.MixedDimensionalGrid, FractureNetwork2d]:
     """Create a mixed-dimensional grid for a square domain with up to two
     orthogonal fractures.
 
@@ -44,7 +46,7 @@ def square_with_orthogonal_fractures(
     fractures = [all_fractures[i] for i in fracture_indices]
     domain = domains.nd_cube_domain(2, size)
     fracture_network = pp.create_fracture_network(fractures, domain)
-    assert isinstance(fracture_network, pp.FractureNetwork2d)  # for mypy
+    assert isinstance(fracture_network, FractureNetwork2d)  # for mypy
     mdg = pp.create_mdg(grid_type, meshing_args, fracture_network, **meshing_kwargs)
     return mdg, fracture_network
 
@@ -55,7 +57,7 @@ def cube_with_orthogonal_fractures(
     fracture_indices: list[int],
     size: pp.number,
     **meshing_kwargs,
-) -> tuple[pp.MixedDimensionalGrid, pp.FractureNetwork3d]:
+) -> tuple[pp.MixedDimensionalGrid, FractureNetwork3d]:
     """Create a mixed-dimensional grid for a cube domain with up to three
     orthogonal fractures.
 
@@ -81,6 +83,6 @@ def cube_with_orthogonal_fractures(
     fractures = [all_fractures[i] for i in fracture_indices]
     domain = domains.nd_cube_domain(3, size)
     fracture_network = pp.create_fracture_network(fractures, domain)
-    assert isinstance(fracture_network, pp.FractureNetwork3d)  # for mypy
+    assert isinstance(fracture_network, FractureNetwork3d)  # for mypy
     mdg = pp.create_mdg(grid_type, meshing_args, fracture_network, **meshing_kwargs)
     return mdg, fracture_network
