@@ -2,9 +2,9 @@
 This folder contains tutorials to demonstrate how PorePy can be utilized.
 To follow the tutorials you can run them as Jupyter Notebooks, which is done either by downloading the individual files or by cloning the repository.
 
-The tutorials are divided into two sections, where the first section is oriented towards usage of PorePy as it is. In practice, this means running the existing simulation models making only minor adjustments, such as modifying boundary conditions, sources, initial conditions, material parameters, etc. We recommend new users to familiarize themselves with this section.
-
-
+The tutorials are divided into two sections, where the first section is oriented towards usage of PorePy as it is. 
+In practice, this means running the existing simulation models and making only minor adjustments, such as modifying boundary conditions, sources, initial conditions, material parameters, etc. 
+We recommend new users to familiarize themselves with this section.
 
 The second section includes more specific tutorials and is recommended to those who aim to use PorePy in a more advanced way or contribute to it. New users may skip this section.
 
