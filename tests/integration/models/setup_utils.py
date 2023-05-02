@@ -7,6 +7,7 @@ from typing import Any, Callable
 import numpy as np
 
 import porepy as pp
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
 
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
@@ -113,7 +114,7 @@ class WellGeometryMixin:
         ]
         parameters = {"mesh_size": 0.2}
         self.well_network = pp.WellNetwork3d(
-            wells[:num_wells], domain=self.domain, parameters=parameters
+            self.domain, wells[:num_wells], parameters=parameters
         )
 
 

@@ -641,7 +641,7 @@ def test_fracture_network_2d(setup):
     e = np.array([[0, 2, 3], [1, 3, 4]])
     fractures = pts_edges_to_linefractures(p, e)
     domain = pp.Domain({"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3})
-    network_2d = pp.FractureNetwork2d(fractures, domain)
+    network_2d = pp.create_fracture_network(fractures, domain)
 
     # Define data
     dummy_scalar = np.ones(network_2d.num_frac())
@@ -673,8 +673,8 @@ def test_fracture_network_3d(setup):
     f_2 = pp.PlaneFracture(
         np.array([[0.5, 0.5, 0.5, 0.5], [-1, 2, 2, -1], [-1, -1, 2, 2]])
     )
-    domain = {"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3, "zmin": -3, "zmax": 3}
-    network_3d = pp.FractureNetwork3d([f_1, f_2], domain=domain)
+    bbox = {"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3, "zmin": -3, "zmax": 3}
+    network_3d = pp.create_fracture_network([f_1, f_2], domain=pp.Domain(bbox))
 
     # Define data
     num_frac = len(network_3d.fractures)
