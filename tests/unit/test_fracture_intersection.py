@@ -8,6 +8,7 @@ import unittest
 import numpy as np
 
 import porepy as pp
+from porepy.grids.standard_grids.utils import unit_domain
 from tests import test_utils
 
 
@@ -303,9 +304,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]),
             check_convexity=False,
         )
-        self.domain = pp.Domain(
-            {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        )
+        self.domain = unit_domain(3)
 
     def _a_in_b(self, a, b, tol=1e-5):
         for i in range(a.shape[1]):
@@ -320,7 +319,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         self.setup()
         f = self.f_1
         f.pts[0] -= 2
-        network = pp.FractureNetwork3d([f])
+        network = pp.create_fracture_network([f])
         network.impose_external_boundary(self.domain)
         self.assertTrue(len(network.fractures) == (0 + 6))
 
@@ -329,7 +328,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f = self.f_1
         f.pts[0] -= 0.5
         f.pts[2] -= 1.5
-        network = pp.FractureNetwork3d([f])
+        network = pp.create_fracture_network([f])
         network.impose_external_boundary(self.domain)
         self.assertTrue(len(network.fractures) == (0 + 6))
 
@@ -338,7 +337,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f = self.f_1
         f.pts[0] -= 0.5
         f.pts[2, :] = [0.2, 0.2, 0.8, 0.8]
-        network = pp.FractureNetwork3d([f])
+        network = pp.create_fracture_network([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
             [[0.0, 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
@@ -352,7 +351,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f = self.f_1
         f.pts[0, :] = [-0.5, 1.5, 1.5, -0.5]
         f.pts[2, :] = [0.2, 0.2, 0.8, 0.8]
-        network = pp.FractureNetwork3d([f])
+        network = pp.create_fracture_network([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array([[0.0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
         self.assertTrue(len(network.fractures) == (1 + 6))
@@ -364,7 +363,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f = self.f_1
         f.pts[0] -= 0.5
         f.pts[2, :] = [0, -0.5, 0.5, 1]
-        network = pp.FractureNetwork3d([f])
+        network = pp.create_fracture_network([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
             [[0.0, 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.0, 0.0, 0.5, 0.75]]
@@ -377,7 +376,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         self.setup()
         p = np.array([[-0.5, 0.5, 0.5, -0.5], [0.5, 0.5, 1.5, 1.5], [-0.5, -0.5, 1, 1]])
         f = pp.PlaneFracture(p, check_convexity=False)
-        network = pp.FractureNetwork3d([f])
+        network = pp.create_fracture_network([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
             [[0.0, 0.5, 0.5, 0], [5.0 / 6, 5.0 / 6, 1, 1], [0.0, 0.0, 0.25, 0.25]]

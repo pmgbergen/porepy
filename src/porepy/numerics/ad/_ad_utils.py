@@ -270,9 +270,9 @@ class MergedOperator(operators.Operator):
             else:
                 data = mdg.subdomain_data(g)
 
-            mat_dict: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
-                self.mat_dict_key
-            ]
+            mat_dict: dict[str, sps.spmatrix] = data[  # type: ignore
+                pp.DISCRETIZATION_MATRICES
+            ][self.mat_dict_key]
 
             # Get the submatrix for the right discretization
             key = self.key
