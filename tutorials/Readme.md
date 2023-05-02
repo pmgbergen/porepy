@@ -1,36 +1,32 @@
 # Tutorials
 This folder contains tutorials to demonstrate how PorePy can be utilized.
-More specifically, they cover both the basic workings of PorePy and how to use it, as well as some more specific usage.
 To follow the tutorials you can run them as Jupyter Notebooks, which is done either by downloading the individual files or by cloning the repository.
 
-The new or average user need only care about the tutorials 1.-10. that are shown below.
-Those tutorials are mainly oriented towards use of PorePy as it is. 
-In practice this means only making minor adjustments, such as modifying boundary conditions, initial conditions and similar.
+The tutorials are divided into two sections, where the first section is oriented towards usage of PorePy as it is. In practice, this means running the existing simulation models making only minor adjustments, such as modifying boundary conditions, sources, initial conditions, material parameters, etc. We recommend new users to familiarize themselves with this section.
 
-The tutorials' goal is to show how simulations of various different physical problems can be done using PorePy.
-In addition to this, the user will learn about how to export files for visualization externally.
 
-Note that the last four tutorials cover some very specific use of PorePy. 
-In other words, they are not needed for most users' everyday use of PorePy, and might therefore be skipped.
+
+The second section includes more specific tutorials and is recommended to those who aim to use PorePy in a more advanced way or contribute to it. New users may skip this section.
+
 # Overview
 The PorePy tutorials are designed as stand-alone documentation of different components and capabilities. 
 Below we provide a general suggestion of in which order to read the tutorials.
 It should however be noted that the appropriate order of reading may depend on the reader's background and ambitions.
 
-1. [introduction](./introduction.ipynb) describes the overarching conceptual framework and its high-level implementation. It also lists some problems which may be solved using PorePy.
-2. [grids](./grids.ipynb) describes the structure of individual grids and demonstrates construction of different types of grids. It also dives into the data structure, and shows how to access and manipulate grid quantities.
-3. [grid topology](./grid_topology.ipynb) covers how to access various topological properties of grids in PorePy. This includes the relation between cells, faces and nodes, as well as the direction of the face normal vectors.
-4. [meshing_of_fractures](./meshing_of_fractures.ipynb) describes the construction of mixed-dimensional grids. These grids represent a fracture network and the surrounding porous medium.
-5. [conventions](./conventions.ipynb) defines some conventions used in PorePy. Specifically this is related to signs, boundary conditions etc.
-6. [single phase flow](./single_phase_flow.ipynb) describes how to use the model class `SinglePhaseFlow`. The tutorial exposes several extensions and how to solve a mixed-dimensional problem with only a few lines of code.
-7. [poromechanics](./poromechanics.ipynb) covers combining the models of mass and momentum balance to obtain a model for poromechanics.
-8. [exporter](./exporter.ipynb) documents how to export data from PorePy for external visualization (e.g. ParaView). Several examples of exporting is demonstrated.
-9. [simulation exporting](./simulation_exporting.ipynb) shows how one can export data for visualization in PorePy model-based simulations.
+1. [Introduction](./introduction.ipynb) describes the overarching conceptual framework and its high-level implementation. It also lists some problems which may be solved using PorePy.
+2. [Grids](./grids.ipynb) describes the structure of individual grids and demonstrates construction of different types of grids. It also shows how to access and manipulate grid quantities.
+3. [Grid topology](./grid_topology.ipynb) covers how to access various topological properties of grids in PorePy. This includes the relation between cells, faces and nodes, as well as the direction of the face normal vectors.
+4. [Meshing of fractures](./meshing_of_fractures.ipynb) describes the construction of mixed-dimensional grids. These grids represent a fracture network and the surrounding porous medium.
+5. [Conventions](./conventions.ipynb) defines some conventions used in PorePy. Specifically this is related to signs, boundary conditions etc.
+6. [Single phase flow](./single_phase_flow.ipynb) is where we introduce PorePy model classes and show how to run a simulation. It also covers how to do minor adjustments in a model.
+7. [Poromechanics](./poromechanics.ipynb) covers the concept of setting up a multiphysics simulation by reusing single physics model classes.
 
 For the more experienced user, some more specific tutorials are also available:
 
-10. [diagnostics](./diagnostics.ipynb) provides a description of how to use the diagnostics mixin in PorePy. The mixin allows for visualizing properties of the discretized system of equations blocks in PorePy.
-11. [equations](./equations.ipynb) covers briefly some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
-12. [mandels problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity. 
-13. [flux_discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation. 
-14. [stress_discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of 13. that arises in the stress-strain relationship of Hooke's law.
+8. [Exporter](./exporter.ipynb) documents how to export data from PorePy for external visualization (e.g. ParaView). Several examples of exporting is demonstrated.
+9. [Exporting in models](./exporting_models.ipynb) shows how one can export data for visualization in PorePy model-based simulations.
+10. [Diagnostics](./diagnostics.ipynb) provides a description of how to use the diagnostics mixin in PorePy. The mixin allows for visualizing properties of the discretized system of equations in PorePy.
+11. [Equations](./equations.ipynb) briefly covers some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
+12. [Mandels problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity. 
+13. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation. 
+14. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of 13. that arises in the stress-strain relationship of Hooke's law.
