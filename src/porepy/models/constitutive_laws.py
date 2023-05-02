@@ -2513,7 +2513,7 @@ class FrictionBound:
             subdomains
         )
         bound: pp.ad.Operator = (
-            Scalar(-1.0) * self.friction_coefficient(subdomains) @ t_n
+            Scalar(-1.0) * self.friction_coefficient(subdomains) * t_n
         )
         bound.set_name("friction_bound")
         return bound

@@ -18,6 +18,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.grids.standard_grids.utils import unit_domain
 from tests import test_utils
 
 
@@ -500,46 +501,31 @@ class TestMixedDimGravity(unittest.TestCase):
     # --3d section. See analogous methods/tests above for documentation --#
 
     def set_grids_3d(self, num_fracs=1):
-        domain = pp.Domain(
-            {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+
+        f1 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+        )
+        f2 = pp.PlaneFracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        )
+        f3 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
         )
 
         if num_fracs == 0:
-            fl = []
-
+            fractures = []
         elif num_fracs == 1:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                )
-            ]
+            fractures = [f1]
         elif num_fracs == 2:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-                ),
-            ]
-
+            fractures = [f1, f2]
         elif num_fracs == 3:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
-                ),
-            ]
+            fractures = [f1, f2, f3]
+        else:
+            raise NotImplementedError()
 
-        network = pp.FractureNetwork3d(fl, domain)
+        network = pp.create_fracture_network(fractures, unit_domain(3))
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
         mdg = network.mesh(mesh_args)
-
         self.mdg = mdg
 
     def test_one_fracture_no_flow_neumann(self):

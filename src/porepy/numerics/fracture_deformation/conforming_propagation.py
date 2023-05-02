@@ -76,7 +76,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         # Declear variable for keeping track of whether a propagating fracture has_
         # been found. In practice, this is modified by self.evaluate_propagation()
-        self.propagated_fracture: bool = False
+        self.propagated_fracture: bool = False  # type: ignore
 
     def has_propagated(self) -> bool:
         if not hasattr(self, "propagated_fracture"):
