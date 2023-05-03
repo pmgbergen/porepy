@@ -6,6 +6,7 @@ The provided geometries are:
         Simple unit square geometries
     single_horizontal: Single horizontal plane at z=0.5
 """
+from __future__ import annotations
 
 import numpy as np
 
@@ -15,6 +16,10 @@ import porepy.grids.standard_grids.utils as utils
 
 def single_horizontal(mesh_args=None, x_coords=None, y_coords=None, simplex=True):
     """Mixed-dimensional grid for a domain with a horizontal rectangular fracture at z=0.5.
+
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
 
     Args:
         mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
@@ -43,9 +48,11 @@ def single_horizontal(mesh_args=None, x_coords=None, y_coords=None, simplex=True
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2, "mesh_size_min": 0.2}
-        network = pp.FractureNetwork3d([pp.PlaneFracture(fracture)], domain=domain)
+        network = pp.create_fracture_network([pp.PlaneFracture(fracture)], domain)
         mdg = network.mesh(mesh_args)
 
     else:
+        if mesh_args is None:
+            mesh_args = np.array([5, 5, 5])
         mdg = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(3))
     return mdg, domain
