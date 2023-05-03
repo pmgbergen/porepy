@@ -12,9 +12,6 @@ def test_run_tutorials(tutorial_path: str):
     """We run the tutorial and check that it didn't raise any error.
     This assumes we run pytest from the porepy directory.
 
-    Notice: the current file is now called "check_tutorials.py". Its name doesn't start
-    from "test_", so it won't be automatically run by the command "pytest ."
-
     """
     new_file = tutorial_path[:-6] + ".py"
 
