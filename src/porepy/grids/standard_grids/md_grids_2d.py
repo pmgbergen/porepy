@@ -39,6 +39,10 @@ def single_horizontal(
     """
     Create a grid bucket for a domain containing a single horizontal fracture at y=0.5.
 
+    .. deprecated::
+        This function is deprecated and will be removed at an unspecified point in the
+        future.
+
     Args:
         mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
                         the optional values of "mesh_size_bound" and "mesh_size_min" are
@@ -81,6 +85,10 @@ def single_vertical(
 ):
     """
     Create a grid bucket for a domain containing a single vertical fracture at x=0.5.
+
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
 
     Args:
         mesh_args:
@@ -130,6 +138,10 @@ def two_intersecting(
     """
     Create a grid bucket for a domain containing fractures, one horizontal and one vertical
     at y=0.5 and x=0.5 respectively.
+
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
 
     Args:
         mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
@@ -188,6 +200,10 @@ def seven_fractures_one_L_intersection(mesh_args: dict):
     Berge et al. 2019: Finite volume discretization for poroelastic media with fractures
     modeled by contact mechanics.
 
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
+
     Args:
         mesh_args: Dictionary containing at least "mesh_size_frac". If the optional
             values of "mesh_size_bound" and "mesh_size_min" are not provided, these are
@@ -224,6 +240,10 @@ def benchmark_regular(mesh_args: dict, is_coarse: bool = False):
     """
     Create a grid bucket for a domain containing the network introduced as example 2 of
     Berre et al. 2018: Benchmarks for single-phase flow in fractured porous media.
+
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
 
     Args:
         mesh_args: Dictionary containing at least "mesh_size_frac". If the optional
