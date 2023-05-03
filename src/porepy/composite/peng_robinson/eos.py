@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 def root_smoother(
-    Z_L: pp.ad.Ad_array, Z_I: pp.ad.Ad_array, Z_G: pp.ad.Ad_array, s: float
-) -> tuple[pp.ad.Ad_array, pp.ad.Ad_array]:
+    Z_L: pp.ad.AdArray, Z_I: pp.ad.AdArray, Z_G: pp.ad.AdArray, s: float
+) -> tuple[pp.ad.AdArray, pp.ad.AdArray]:
     """Smoothing procedure on boundaries of three-root-region.
 
     Smooths the value and Jacobian rows of the liquid and gas root close to
@@ -51,7 +51,7 @@ def root_smoother(
     # If close to 0, intermediate root is close to liquid root.
     # values bound by [0,1]
     proximity = (Z_I - Z_L) / (Z_G - Z_L)
-    if isinstance(proximity, pp.ad.Ad_array):
+    if isinstance(proximity, pp.ad.AdArray):
         proximity = proximity.val
 
     # average intermediate and gas root for gas root smoothing
@@ -881,7 +881,7 @@ class PengRobinsonEoS(AbstractEoS):
         n_b = None
 
         # Avoid sparse efficiency warnings and make indexable
-        if isinstance(A, pp.ad.Ad_array):
+        if isinstance(A, pp.ad.AdArray):
             shape = A.jac.shape
             n_a = len(A.val)
             A.jac = A.jac.tolil()
@@ -890,7 +890,7 @@ class PengRobinsonEoS(AbstractEoS):
             n_a = 1
         else:
             n_a = len(A)
-        if isinstance(B, pp.ad.Ad_array):
+        if isinstance(B, pp.ad.AdArray):
             shape = B.jac.shape
             n_b = len(B.val)
             B.jac = B.jac.tolil()
@@ -915,8 +915,8 @@ class PengRobinsonEoS(AbstractEoS):
         delta = pp.ad.power(q, 2) / 4 + pp.ad.power(r, 3) / 27
 
         if shape:
-            Z_L = pp.ad.Ad_array(np.zeros(n), sps.lil_matrix(shape))
-            Z_G = pp.ad.Ad_array(np.zeros(n), sps.lil_matrix(shape))
+            Z_L = pp.ad.AdArray(np.zeros(n), sps.lil_matrix(shape))
+            Z_G = pp.ad.AdArray(np.zeros(n), sps.lil_matrix(shape))
         else:
             Z_L = np.zeros(n)
             Z_G = np.zeros(n)
@@ -1133,9 +1133,9 @@ class PengRobinsonEoS(AbstractEoS):
         ), "Liquid root violates upper physical bound given by gas root."
 
         # convert Jacobians to csr
-        if isinstance(Z_L, pp.ad.Ad_array):
+        if isinstance(Z_L, pp.ad.AdArray):
             Z_L.jac = Z_L.jac.tocsr()
-        if isinstance(Z_G, pp.ad.Ad_array):
+        if isinstance(Z_G, pp.ad.AdArray):
             Z_G.jac = Z_G.jac.tocsr()
 
         if self.gaslike:

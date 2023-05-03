@@ -28,7 +28,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
     fluid: pp.FluidConstants
     """Fluid object."""
 
-    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """
 
         Parameters:
@@ -67,7 +67,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
         # Define Dirichlet conditions on the left and right boundaries
         return pp.BoundaryCondition(sd, east + west, "dir")
 
-    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary values for the enthalpy.
 
         Parameters:
@@ -94,7 +94,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
             # Append to list of boundary values
             values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
+        # Concatenate to single array and wrap as ad.DenseArray
         bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_enthalpy")
         return bc_values
 
@@ -162,7 +162,9 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         # Check that the temperature is linear.
         for sd in setup.mdg.subdomains():
             var = setup.equation_system.get_variables(["temperature"], [sd])
-            vals = setup.equation_system.get_variable_values(var)
+            vals = setup.equation_system.get_variable_values(
+                variables=var, time_step_index=0
+            )
             assert np.allclose(
                 vals,
                 1 - sd.cell_centers[0] / setup.domain.bounding_box["xmax"],
@@ -183,8 +185,13 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
 
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
+        sds = setup.mdg.subdomains(dim=2)
         total_energy = (
-            setup.total_internal_energy(setup.mdg.subdomains(dim=2))
+            setup.volume_integral(
+                setup.total_internal_energy(sds),
+                sds,
+                dim=1,
+            )
             .evaluate(setup.equation_system)
             .val
         )
@@ -206,7 +213,7 @@ def test_unit_conversion(units):
             :class:`~pp.models.material_constants.MaterialConstants`.
 
     """
-    params = {"suppress_export": True, "num_fracs": 2, "cartesian": True}
+    params = {"suppress_export": True, "fracture_indices": [0, 1], "cartesian": True}
     # Create model and run simulation
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"

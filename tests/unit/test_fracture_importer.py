@@ -89,16 +89,16 @@ class TestImport2dCsv(unittest.TestCase):
         f = np.hstack((0, p))
         file_name = "frac.csv"
         np.savetxt(file_name, f, delimiter=",")
-        domain = {"xmin": -1, "xmax": 0, "ymin": -2, "ymax": 2}
+        domain = pp.Domain({"xmin": -1, "xmax": 0, "ymin": -2, "ymax": 2})
 
         network = pp.fracture_importer.network_2d_from_csv(
             file_name, skip_header=0, domain=domain
         )
 
-        self.assertTrue(network.domain["xmin"] == -1)
-        self.assertTrue(network.domain["ymin"] == -2)
-        self.assertTrue(network.domain["xmax"] == 0)
-        self.assertTrue(network.domain["ymax"] == 2)
+        self.assertTrue(network.domain.bounding_box["xmin"] == -1)
+        self.assertTrue(network.domain.bounding_box["ymin"] == -2)
+        self.assertTrue(network.domain.bounding_box["xmax"] == 0)
+        self.assertTrue(network.domain.bounding_box["ymax"] == 2)
 
         test_utils.delete_file(file_name)
 

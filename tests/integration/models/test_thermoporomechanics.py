@@ -76,11 +76,15 @@ def get_variables(setup):
     t_var = setup.equation_system.get_variables(
         [setup.temperature_variable], setup.mdg.subdomains()
     )
-    t_vals = setup.equation_system.get_variable_values(t_var)
+    t_vals = setup.equation_system.get_variable_values(
+        variables=t_var, time_step_index=0
+    )
     t_var = setup.equation_system.get_variables(
         [setup.temperature_variable], setup.mdg.subdomains(dim=setup.nd - 1)
     )
-    t_frac = setup.equation_system.get_variable_values(t_var)
+    t_frac = setup.equation_system.get_variable_values(
+        variables=t_var, time_step_index=0
+    )
     return u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac
 
 
@@ -114,7 +118,6 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
     bottom = sd.cell_centers[1] < 0.5
     tol = 1e-10
     if np.isclose(uy_north, 0.0):
-
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
         assert np.allclose(u_vals[0, top], 0)
@@ -201,7 +204,6 @@ def test_pull_north_positive_opening():
 
 
 def test_pull_south_positive_opening():
-
     setup = create_fractured_setup({}, {}, {"uy_south": -0.001})
     pp.run_time_dependent_model(setup, {})
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
@@ -224,7 +226,6 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-
     setup = create_fractured_setup({}, {}, {"uy_north": -0.001})
     pp.run_time_dependent_model(setup, {})
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
@@ -241,7 +242,6 @@ def test_push_north_zero_opening():
 
 
 def test_positive_p_frac_positive_opening():
-
     setup = create_fractured_setup({}, {}, {"fracture_source_value": 0.001})
     pp.run_time_dependent_model(setup, {})
     _, _, p_frac, jump, traction, _, t_frac = get_variables(setup)
@@ -280,7 +280,7 @@ def test_unit_conversion(units):
 
     params = {
         "suppress_export": True,  # Suppress output for tests
-        "num_fracs": 1,
+        "fracture_indices": [0],
         "cartesian": True,
         "uy_north": -0.1,
     }

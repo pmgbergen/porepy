@@ -16,6 +16,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.grids.standard_grids.utils import unit_domain
 from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
@@ -1231,9 +1232,7 @@ class RobinBoundTest(unittest.TestCase):
         self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
 
     def test_unstruct_tetrahedron(self):
-        box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        domain = pp.Domain(box)
-        network = pp.FractureNetwork3d([], domain=domain)
+        network = pp.create_fracture_network([], unit_domain(3))
         mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
         mdg = network.mesh(mesh_args)
         sd = mdg.subdomains(dim=3)[0]

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List
 
 import numpy as np
 
 import porepy as pp
 
 logger = logging.getLogger(__name__)
-GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 def grid_error(
@@ -19,26 +18,21 @@ def grid_error(
 ) -> dict:
     """Compute grid errors a grid bucket and refined reference grid bucket
 
-    Assumes that the coarse grid bucket has a property
-    'coarse_fine_cell_mapping' assigned on each subdomain, which
-    maps from coarse to fine cells according to the method
-    'coarse_fine_cell_mapping(...)'.
+    Assumes that the coarse grid bucket has a property 'coarse_fine_cell_mapping'
+    assigned on each subdomain, which maps from coarse to fine cells according to the
+    method 'coarse_fine_cell_mapping(...)'.
 
-    Parameters
-    ----------
-    mdg, mdg_ref : pp.MixedDimensionalGrid
-        Coarse and fine grid buckets, respectively
-    variable : List[str]
-        which variables to compute error over
-    variable_dof : List[int]
-        Degrees of freedom for each variable in the list 'variable'.
+    Parameters:
+        mdg: "Coarse" mixed-dimensional grid.
+        mdg_ref: "Fine" mixed-dimensional grid.
+        variable: List defining which variables to compute error over.
+        variable_dof: List specifying the number of degrees of freedom for each variable
+            in the list 'variable'.
 
-    Returns
-    -------
-    errors : dict
-        Dictionary with top level keys as node_number,
-        within which for each variable, the error is
-        reported.
+    Returns:
+        errors: Dictionary with top level keys as node_number, within which for each
+            variable, the error is reported.
+
     """
     assert len(variable) == len(variable_dof), (
         "Each variable must have associated " "with it a number of degrees of freedom."
@@ -55,12 +49,11 @@ def grid_error(
         g, g_ref = grids[i], grids_ref[i]
         mapping = mdg.subdomain_data(g)["coarse_fine_cell_mapping"]
 
-        # Get states
+        # Get time step solutions
         data = mdg.subdomain_data(g)
         data_ref = mdg_ref.subdomain_data(g_ref)
-        states = data[pp.STATE]
-        states_ref = data_ref[pp.STATE]
-
+        solutions = data[pp.TIME_STEP_SOLUTIONS]
+        solutions_ref = data_ref[pp.TIME_STEP_SOLUTIONS]
         node_number = data["node_number"]
 
         # Initialize errors
@@ -71,9 +64,9 @@ def grid_error(
             var_dof = variable_dof[var_idx]
 
             # Check if the variable exists on both the grid and reference grid
-            state_keys = set(states.keys())
-            state_ref_keys = set(states_ref.keys())
-            check_keys = state_keys.intersection(state_ref_keys)
+            solution_keys = set(solutions.keys())
+            solution_ref_keys = set(solutions_ref.keys())
+            check_keys = solution_keys.intersection(solution_ref_keys)
             if var not in check_keys:
                 logger.info(
                     f"{var} not present on grid number "
@@ -86,11 +79,11 @@ def grid_error(
             # TODO: If scaling is used, consider that - or use the export-ready variables,
             #   'u_exp', 'p_exp', etc.
             sol = (
-                states[var].reshape((var_dof, -1), order="F").T
+                solutions[var][0].reshape((var_dof, -1), order="F").T
             )  # (num_cells x var_dof)
             mapped_sol: np.ndarray = mapping.dot(sol)  # (num_cells x variable_dof)
             sol_ref = (
-                states_ref[var].reshape((var_dof, -1), order="F").T
+                solutions_ref[var][0].reshape((var_dof, -1), order="F").T
             )  # (num_cells x var_dof)
 
             # axis=0 gives component-wise norm.
@@ -100,7 +93,7 @@ def grid_error(
             if np.any(norm_ref < 1e-10):
                 logger.info(
                     f"Relative error not reportable. "
-                    f"Norm of reference solution is {norm_ref}. "
+                    f"Norm of reference state is {norm_ref}. "
                     f"Reporting absolute error"
                 )
                 error = absolute_error
@@ -117,7 +110,7 @@ def grid_error(
     return errors
 
 
-def interpolate(g: GridLike, fun: Callable):
+def interpolate(g: pp.GridLike, fun: Callable):
     """
     Interpolate a scalar or vector function on the cell centers of the grid.
 
@@ -149,7 +142,7 @@ def interpolate(g: GridLike, fun: Callable):
     return np.array([fun(pt) for pt in g.cell_centers.T]).T
 
 
-def norm_L2(g: GridLike, val: np.ndarray):
+def norm_L2(g: pp.GridLike, val: np.ndarray):
     """
     Compute the L2 norm of a scalar or vector field.
 
@@ -181,7 +174,9 @@ def norm_L2(g: GridLike, val: np.ndarray):
     return np.sqrt(np.sum([norm_sq(v) for v in val]))
 
 
-def error_L2(g: GridLike, val: np.ndarray, val_ex: np.ndarray, relative: bool = True):
+def error_L2(
+    g: pp.GridLike, val: np.ndarray, val_ex: np.ndarray, relative: bool = True
+):
     """
     Compute the L2 error of a scalar or vector field with respect to a reference
     field. It is possible to compute the relative error (default) or the

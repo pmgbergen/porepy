@@ -12,6 +12,8 @@ time step is indeed adapted (based on iterations or recomputation criteria) and 
 (based on minimum and maximum allowable time steps or to satisfy required scheduled times).
 """
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -188,8 +190,8 @@ class TestParameterInputs:
         larger than the upper endpoint of the optimal iteration range."""
         iter_optimal_range = (3, 2)
         msg = (
-            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration range "
-            f"cannot be larger than upper endpoint '{iter_optimal_range[1]}'."
+            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration "
+            f"range cannot be larger than upper endpoint '{iter_optimal_range[1]}'."
         )
         with pytest.raises(ValueError) as excinfo:
             pp.TimeManager(
@@ -206,8 +208,9 @@ class TestParameterInputs:
         iter_optimal_range = (2, 6)
         iter_max = 5
         msg = (
-            f"Upper endpoint '{iter_optimal_range[1]}' of optimal iteration range "
-            f"cannot be larger than maximum number of iterations '{iter_max}'."
+            f"Upper endpoint '{iter_optimal_range[1]}' of optimal iteration "
+            f"range cannot be larger than maximum number of iterations "
+            f"'{iter_max}'."
         )
         with pytest.raises(ValueError) as excinfo:
             pp.TimeManager(
@@ -222,8 +225,8 @@ class TestParameterInputs:
         """An error should be raised if the lower iteration range is less than zero."""
         iter_optimal_range = (-1, 2)
         msg = (
-            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration range "
-            "cannot be negative."
+            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration "
+            "range cannot be negative."
         )
         with pytest.raises(ValueError) as excinfo:
             pp.TimeManager(
@@ -278,8 +281,8 @@ class TestParameterInputs:
         """An error should be raised if dt_min * over_relax_factor > dt_max."""
         msg_dtmin_over = "Encountered dt_min * over_relax_factor > dt_max. "
         msg_osc = (
-            "The algorithm will behave erratically for such a combination of parameters. "
-            "See documentation of `dt_min_max` or `iter_relax_factors`."
+            "The algorithm will behave erratically for such a combination of "
+            "parameters. See documentation of `dt_min_max` or `iter_relax_factors`."
         )
         msg = msg_dtmin_over + msg_osc
         with pytest.raises(ValueError) as excinfo:
@@ -294,8 +297,8 @@ class TestParameterInputs:
         """An error should be raised if dt_max * under_relax_factor < dt_min."""
         msg_dtmax_under = "Encountered dt_max * under_relax_factor < dt_min. "
         msg_osc = (
-            "The algorithm will behave erratically for such a combination of parameters. "
-            "See documentation of `dt_min_max` or `iter_relax_factors`."
+            "The algorithm will behave erratically for such a combination of "
+            "parameters. See documentation of `dt_min_max` or `iter_relax_factors`."
         )
         msg = msg_dtmax_under + msg_osc
         with pytest.raises(ValueError) as excinfo:
@@ -394,7 +397,9 @@ class TestTimeControl:
         """A warning should be raised if iterations is given and time step is constant"""
         time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10, constant_dt=True)
         iterations = 1
-        msg = f"iterations '{iterations}' has no effect if time step is constant."
+        msg = (
+            f"iterations '{iterations}' has no effect if time step is constant."
+        )
         with pytest.warns() as record:
             time_manager.compute_time_step(iterations=iterations)
         assert str(record[0].message) == msg
@@ -441,7 +446,8 @@ class TestTimeControl:
 
     def test_recomputed_solutions(self):
         """Test behaviour of the algorithm when the solution should be recomputed. Note
-        that this should be independent of the number of iterations that the user passes"""
+        that this should be independent of the number of iterations that the user passes
+        """
         time_manager = pp.TimeManager([0, 100], 2, recomp_factor=0.5)
         time_manager.time = 5
         time_manager.time_index = 13
@@ -462,7 +468,8 @@ class TestTimeControl:
 
     def test_recomputed_solution_with_calculated_dt_less_than_dt_min(self):
         """Test when a solution is recomputed and the calculated time step is less than
-        the minimum allowable time step, the time step is indeed the minimum time step"""
+        the minimum allowable time step, the time step is indeed the minimum time step
+        """
         time_manager = pp.TimeManager([0, 100], 0.15, recomp_factor=0.5)
         # Emulate the scenario where the solution must be recomputed
         time_manager.time = 5
@@ -486,12 +493,13 @@ class TestTimeControl:
         """An error should be raised when adaption based on recomputation is attempted with
         dt = dt_min"""
         time_manager = pp.TimeManager(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
-        # For these parameters, we have time_manager.dt = time_manager.dt_init = time_manager.dt_min_max[0]
-        # Attempting a recomputation should raise an error
+
+        # For these parameters, we have time_manager.dt = time_manager.dt_init =
+        # time_manager.dt_min_max[0] Attempting a recomputation should raise an error
         with pytest.raises(ValueError) as excinfo:
             msg = (
-                "Recomputation will not have any effect since the time step achieved its"
-                f"minimum admissible value -> dt = dt_min = {time_manager.dt}."
+                "Recomputation will not have any effect since the time step "
+                f"achieved its minimum admissible value -> dt = dt_min = {time_manager.dt}."
             )
             time_manager.compute_time_step(iterations=5, recompute_solution=True)
         assert time_manager._recomp_sol and (msg in str(excinfo.value))
@@ -508,13 +516,13 @@ class TestTimeControl:
 
     @pytest.mark.parametrize("iterations", [11, 100])
     def test_warning_iteration_is_greater_than_max_iter(self, iterations):
-        """Test if a warning is raised when the number of iterations passed to the method is
-        greater than max_iter and the solution is not recomputed"""
+        """Test if a warning is raised when the number of iterations passed to the
+        method is greater than max_iter and the solution is not recomputed"""
         time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10)
         warn_msg = (
             f"The given number of iterations '{iterations}' is larger than the maximum "
-            f"number of iterations '{time_manager.iter_max}'. This usually means that the solver "
-            f"did not converge, but since recompute_solution = False was given, the "
+            f"number of iterations '{time_manager.iter_max}'. This usually means that the "
+            f"solver did not converge, but since recompute_solution = False was given, the "
             f"algorithm will adapt the time step anyways."
         )
         with pytest.warns() as record:
@@ -525,8 +533,10 @@ class TestTimeControl:
 
     @pytest.mark.parametrize("iterations", [1, 3, 5])
     def test_decreasing_time_step(self, iterations):
-        """Test if the time step decreases after the number of iterations is less or equal
-        than the lower endpoint of the optimal iteration range by its corresponding factor"""
+        """Test if the time step decreases after the number of iterations is less or
+        equal than the lower endpoint of the optimal iteration range by its
+        corresponding factor.
+        """
         time_manager = pp.TimeManager(
             [0, 100],
             2,
@@ -539,9 +549,9 @@ class TestTimeControl:
 
     @pytest.mark.parametrize("iterations", [9, 11, 13])
     def test_increasing_time_step(self, iterations):
-        """Test if the time step is restricted after the number of iterations is greater or
-        equal than the upper endpoint of the optimal iteration range by its corresponding
-        factor"""
+        """Test if the time step is restricted after the number of iterations is greater
+        or equal than the upper endpoint of the optimal iteration range by its
+        corresponding factor."""
         time_manager = pp.TimeManager(
             [0, 100],
             2,
@@ -635,3 +645,52 @@ class TestTimeControl:
         time_manager.time_index = time_index
         time_manager.increase_time_index()
         assert time_manager.time_index == (time_index + 1)
+
+    def test_io_time_information(self):
+        """Check I/O functionality. Checks if writing and loading of time information
+        in the form of the evolution of time and dt is performed correctly. Also test
+        whether a single time and dt is picked correctly from loaded histories and the
+        latter are cut-off accordingly.
+
+        """
+        # Imitate a time manager iterating through some consecutive time steps.
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1, constant_dt=True)
+        for i in range(10):
+            time_manager.write_time_information("times.json")
+            time_manager.increase_time_index()
+            time_manager.increase_time()
+
+        # Check if the history is generated correctly.
+        assert np.all(np.isclose(time_manager.time_history, np.linspace(0, 0.9, 10)))
+        assert np.all(np.isclose(time_manager.dt_history, 10 * [0.1]))
+
+        # Check if entirely fetched history of time and dt is loaded correctly.
+        new_time_manager = pp.TimeManager(
+            schedule=[0, 1], dt_init=0.1, constant_dt=True
+        )
+        new_time_manager.load_time_information("times.json")
+        assert np.all(
+            np.isclose(new_time_manager.time_history, np.linspace(0, 0.9, 10))
+        )
+        assert np.all(np.isclose(new_time_manager.dt_history, 10 * [0.1]))
+
+        # Check if single-chosen time and dt are picked correctly.
+        new_time_manager.set_from_history(5)
+        assert np.isclose(new_time_manager.time, 0.5)
+        assert np.isclose(new_time_manager.dt, 0.1)
+
+        # Check if history has been cut-off correctly.
+        assert np.all(
+            np.isclose(
+                np.array(new_time_manager.time_history),
+                np.array([0, 0.1, 0.2, 0.3, 0.4]),
+            )
+        )
+        assert np.all(
+            np.isclose(
+                np.array(new_time_manager.dt_history),
+                np.array([0.1, 0.1, 0.1, 0.1, 0.1]),
+            )
+        )
+        # Remove temporary file.
+        Path("times.json").unlink()

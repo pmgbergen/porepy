@@ -20,22 +20,12 @@ from . import setup_utils
 
 geometry_list = [
     setup_utils.RectangularDomainThreeFractures,
-    setup_utils.OrthogonalFractures3d,
+    setup_utils._add_mixin(
+        setup_utils.OrthogonalFractures3d, pp.models.geometry.ModelGeometry
+    ),
 ]
 
 num_fracs_list = [0, 1, 2, 3]
-
-
-@pytest.mark.parametrize("geometry_class", geometry_list)
-@pytest.mark.parametrize("num_fracs", num_fracs_list)
-def test_set_fracture_network(geometry_class, num_fracs):
-    """Test the method set_fracture_network."""
-    geometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
-    geometry.units = pp.Units()
-    geometry.num_fracs = num_fracs
-    geometry.set_fracture_network()
-    assert getattr(geometry, "num_fracs", 0) == geometry.fracture_network.num_frac()
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
@@ -43,21 +33,25 @@ def test_set_geometry(geometry_class):
     """Test the method set_geometry."""
     geometry = geometry_class()
     # Testing with a single fracture should be sufficient here.
-    geometry.params = {"num_fracs": 1}
+    geometry.params = {"fracture_indices": [0]}
     geometry.units = pp.Units()
     geometry.set_geometry()
-    for attr in ["mdg", "domain", "nd", "fracture_network"]:
+    for attr in [
+        "mdg",
+        "domain",
+        "nd",
+        "fracture_network",
+        "well_network",
+        "fractures",
+    ]:
         assert hasattr(geometry, attr)
-    # For now, the default is not to assign a well network. Assert to remind ourselves
-    # to add testing if default is changed.
-    assert not hasattr(geometry, "well_network")
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", num_fracs_list)
 def test_boundary_sides(geometry_class, num_fracs):
     geometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
 
@@ -98,7 +92,7 @@ def test_wrap_grid_attributes(
 
     """
     geometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
     nd: int = geometry.nd
@@ -125,17 +119,19 @@ def test_wrap_grid_attributes(
     # Test that an error is raised if the grid does not have such an attribute
     with pytest.raises(ValueError):
         geometry.wrap_grid_attribute(
-            top_subdomain, "no_such_attribute", dim=1, inverse=False
+            top_subdomain, "no_such_attribute", dim=1  # type: ignore[call-arg]
         )
+
     # Test that the an error is raised if we try to wrap a field which is not an
     # ndarray.
     with pytest.raises(ValueError):
         # This will return a string
-        geometry.wrap_grid_attribute(top_subdomain, "name", dim=1, inverse=False)
+        geometry.wrap_grid_attribute(
+            top_subdomain, "name", dim=1  # type: ignore[call-arg]
+        )
 
     # One loop for both subdomains and interfaces.
     for grids in test_subdomains + test_interfaces:
-
         # Which attributes to test depends on whether the grids are subdomains or
         # interfaces.
         if len(grids) == 0 or isinstance(grids[0], pp.MortarGrid):
@@ -157,30 +153,20 @@ def test_wrap_grid_attributes(
 
         # Loop over attributes and corresponding dimensions.
         for attr, dim in zip(attr_list, dim_list):
-            # Get hold of the wrapped attribute and the wrapping with inverse=True
+            # Get hold of the wrapped attribute and the wrapping.
             wrapped_value = geometry.wrap_grid_attribute(
-                grids, attr, dim=dim, inverse=False
-            ).evaluate(eq_system)
-            wrapped_value_inverse = geometry.wrap_grid_attribute(
-                grids, attr, dim=dim, inverse=True
+                grids, attr, dim=dim  # type: ignore[call-args]
             ).evaluate(eq_system)
 
             # Check that the wrapped attribute is a matrix
-            assert isinstance(wrapped_value, sps.spmatrix)
-            assert isinstance(wrapped_value_inverse, sps.spmatrix)
+            assert isinstance(wrapped_value, np.ndarray)
 
             # Check that the matrix have the expected size, which depends on the type
             # of attribute wrapped (cell or face) and the dimension of the field.
             size_key = "num_cells" if "cell" in attr else "num_faces"
             tot_size = sum([getattr(sd, size_key) for sd in grids])
 
-            assert wrapped_value.shape == (tot_size * dim, tot_size * dim)
-            assert wrapped_value_inverse.shape == (tot_size * dim, tot_size * dim)
-
-            # Get hold of the actual attribute values; we know these reside on the
-            # main diagonal.
-            values = wrapped_value.diagonal()
-            values_inverse = wrapped_value_inverse.diagonal()
+            assert wrapped_value.shape == (tot_size * dim,)
 
             # Counter for the current position in the wrapped attribute
             ind_cc = 0
@@ -194,12 +180,8 @@ def test_wrap_grid_attributes(
                 actual_value = np.atleast_2d(getattr(grid, attr))
                 # Compare values with the wrapped attribute, both usual and inverse.
                 assert np.allclose(
-                    values[ind_cc : ind_cc + size * dim],
+                    wrapped_value[ind_cc : ind_cc + size * dim],
                     actual_value[:dim].ravel("F"),
-                )
-                assert np.allclose(
-                    values_inverse[ind_cc : ind_cc + size * dim],
-                    1 / actual_value[:dim].ravel("F"),
                 )
                 # Move to the new position in the wrapped attribute
                 ind_cc += size * dim
@@ -215,7 +197,8 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
     """
     geometry = geometry_class()
     # Use two fractures, that should be enough to test the methods.
-    geometry.params = {"num_fracs": 2}
+    geometry.params = {"fracture_indices": [i for i in range(2)]}
+
     geometry.units = pp.Units()
     geometry.set_geometry()
     all_subdomains = geometry.mdg.subdomains()
@@ -255,7 +238,7 @@ def test_internal_boundary_normal_to_outwards(
 ) -> None:
     # Define the geometry
     geometry: pp.ModelGeometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
     dim = geometry.nd
@@ -333,7 +316,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     """
     # Define the geometry
     geometry: pp.ModelGeometry = geometry_class()
-    geometry.params = {"num_fracs": num_fracs}  # type: ignore
+    geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
     dim = geometry.nd
@@ -346,21 +329,17 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     normal_op = geometry.outwards_internal_boundary_normals(interfaces, unitary=True)
     normals = normal_op.evaluate(eq_sys)
 
-    # The result should be a sparse matrix
-    assert isinstance(normals, sps.spmatrix)
+    # The result should be a dense array
+    assert isinstance(normals, np.ndarray)
 
     if len(interfaces) == 0:
         # We have checked that the method can handle empty lists (parsable operator).
         # Check the entry and exit.
-        assert np.allclose(normals.A, 0)
+        assert np.allclose(normals, 0)
         return
 
-    diag = normals.diagonal()
-    # Check that all off-diagonal entries are zero
-    assert np.allclose(np.diag(diag) - normals, 0)
-
     # Convert the normals into a nd x num_faces array
-    normals_reshaped = np.reshape(diag, (dim, -1), order="F")
+    normals_reshaped = np.reshape(normals, (dim, -1), order="F")
 
     # Check that the normals are unit vectors
     assert np.allclose(np.linalg.norm(normals_reshaped, axis=0), 1)
@@ -371,8 +350,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
         interfaces, unitary=False
     )
     normals_not_unitary = normal_op_not_unitary.evaluate(eq_sys)
-    diag_not_unitary = normals_not_unitary.diagonal()
-    normals_reshaped_not_unitary = np.reshape(diag_not_unitary, (dim, -1), order="F")
+    normals_reshaped_not_unitary = np.reshape(normals_not_unitary, (dim, -1), order="F")
 
     volumes = np.hstack([intf.cell_volumes for intf in interfaces])
     assert np.allclose(np.linalg.norm(normals_reshaped_not_unitary, axis=0), volumes)
@@ -406,7 +384,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     # Left multiply with dim-vector defined on the interface. This should give a vector
     # of length dim*num_intf_cells.
     size = dim * sum([intf.num_cells for intf in interfaces])
-    dim_vec = pp.ad.Array(np.ones(size))
+    dim_vec = pp.ad.DenseArray(np.ones(size))
 
     # Left multiply with the normal operator; in essense this extracts the normal vector
     # (in the geometric sense) as a vector (in the algebraic sense).
@@ -426,7 +404,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     # in the model classes to expand scalars to vectors (e.g., pressure as a potential
     # to pressure as a force).
     basis = geometry.basis(interfaces, dim)
-    nd_to_scalar_sum = sum([e.T for e in basis])
+    nd_to_scalar_sum = pp.ad.sum_operator_list([e.T for e in basis])
     inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
 
     # The two operations should give the same result
@@ -446,7 +424,7 @@ def test_basis_normal_tangential_components(
     """
     geometry = geometry_class()
     # Use two fractures, that should be sufficient to test the method
-    geometry.params = {"num_fracs": 2}
+    geometry.params = {"fracture_indices": [i for i in range(2)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
     geometry.set_geometry()

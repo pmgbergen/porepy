@@ -7,6 +7,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.fracs.utils import pts_edges_to_linefractures
+from porepy.grids.standard_grids.utils import unit_domain
 from tests import test_utils
 
 
@@ -111,16 +112,22 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             p_n = np.zeros(sum([g.num_cells for g in mdg.subdomains()]))
             for g, d in mdg.subdomains(return_data=True):
                 if g.dim == 2:
-                    p_n[: g2d.num_cells] = d[pp.STATE]["pressure"][g.num_faces :]
+                    p_n[: g2d.num_cells] = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
+                        g.num_faces :
+                    ]
                 else:
-                    p_n[g2d.num_cells :] = d[pp.STATE]["pressure"][g.num_faces :]
-                d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
+                    p_n[g2d.num_cells :] = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
+                        g.num_faces :
+                    ]
+                d[pp.TIME_STEP_SOLUTIONS]["pressure"][0] = d[pp.TIME_STEP_SOLUTIONS][
+                    "pressure"
+                ][0][g.num_faces :]
             p = p_n
         return p
 
     def verify_cv(self, mdg):
         for g, d in mdg.subdomains(return_data=True):
-            p = d[pp.STATE]["pressure"]
+            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
     def test_tpfa_matching_grids_no_flow(self):
@@ -453,8 +460,6 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         alpha_2d=None,
     ):
 
-        domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
-
         if num_fracs == 0:
             p = np.zeros((2, 0))
             e = np.zeros((2, 0))
@@ -465,12 +470,12 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             e = np.array([[0], [1]])
             fractures = pts_edges_to_linefractures(p, e)
 
-        #            p = [np.array([[0.5, 0.5], [0, 1]])]
+        # p = [np.array([[0.5, 0.5], [0, 1]])]
         elif num_fracs == 2:
             raise ValueError("Not implemented")
 
         mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
-        network = pp.FractureNetwork2d(fractures, domain)
+        network = pp.create_fracture_network(fractures, unit_domain(2))
         mdg = network.mesh(mesh_size)
 
         gmap = {}
@@ -560,7 +565,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
         for g, d in mdg.subdomains(return_data=True):
-            p = d[pp.STATE]["pressure"]
+            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def run_mpfa(self, mdg):
@@ -581,7 +586,9 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
         for g, d in mdg.subdomains(return_data=True):
-            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
+            d[pp.TIME_STEP_SOLUTIONS]["pressure"][0] = d[pp.TIME_STEP_SOLUTIONS][
+                "pressure"
+            ][0][g.num_faces :]
 
     def test_mpfa_one_frac(self):
         mdg = self.setup(num_fracs=1)
@@ -693,45 +700,30 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 class TestMortar3D(unittest.TestCase):
     def setup(self, num_fracs=1, remove_tags=False):
 
-        bbox = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        domain = pp.Domain(bbox)
+        fracture_1 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+        )
+        fracture_2 = pp.PlaneFracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        )
+        fracture_3 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
+        )
 
         if num_fracs == 0:
-            fl = []
-
+            fractures = []
         elif num_fracs == 1:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                )
-            ]
+            fractures = [fracture_1]
         elif num_fracs == 2:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-                ),
-            ]
-
+            fractures = [fracture_1, fracture_2]
         elif num_fracs == 3:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
-                ),
-            ]
+            fractures = [fracture_1, fracture_2, fracture_3]
+        else:
+            raise NotImplementedError()
 
-        network = pp.FractureNetwork3d(fl, domain)
+        network = pp.create_fracture_network(fractures, unit_domain(3))
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
         mdg = network.mesh(mesh_args)
-
         self.set_params(mdg)
 
         return mdg
@@ -772,7 +764,7 @@ class TestMortar3D(unittest.TestCase):
 
     def verify_cv(self, mdg):
         for g, d in mdg.subdomains(return_data=True):
-            p = d[pp.STATE]["pressure"]
+            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
     def run_mpfa(self, mdg):
@@ -969,7 +961,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
         for g, d in mdg.subdomains(return_data=True):
-            p = d[pp.STATE]["pressure"]
+            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def _solve(self, mdg, method, key):
@@ -989,16 +981,24 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         method = pp.MVEM(key)
         self._solve(mdg, method, key)
         for g, d in mdg.subdomains(return_data=True):
-            d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
-            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
+            d[pp.TIME_STEP_SOLUTIONS]["darcy_flux"] = d[pp.TIME_STEP_SOLUTIONS][
+                "pressure"
+            ][0][: g.num_faces]
+            d[pp.TIME_STEP_SOLUTIONS]["pressure"][0] = d[pp.TIME_STEP_SOLUTIONS][
+                "pressure"
+            ][0][g.num_faces :]
 
     def run_RT0(self, mdg):
         key = "flow"
         method = pp.RT0(key)
         self._solve(mdg, method, key)
         for g, d in mdg.subdomains(return_data=True):
-            d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
-            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
+            d[pp.TIME_STEP_SOLUTIONS]["darcy_flux"] = d[pp.TIME_STEP_SOLUTIONS][
+                "pressure"
+            ][0][: g.num_faces]
+            d[pp.TIME_STEP_SOLUTIONS]["pressure"][0] = d[pp.TIME_STEP_SOLUTIONS][
+                "pressure"
+            ][0][g.num_faces :]
 
     def test_mpfa(self):
         mdg = self.setup(False)

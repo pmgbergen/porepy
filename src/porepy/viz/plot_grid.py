@@ -264,10 +264,12 @@ def plot_mdg(
             extr_value = np.array([np.inf, -np.inf])
             for _, sd_data in mdg.subdomains(return_data=True):
                 extr_value[0] = min(
-                    np.amin(sd_data[pp.STATE][cell_value]), extr_value[0]
+                    np.amin(sd_data[pp.TIME_STEP_SOLUTIONS][cell_value][0]),
+                    extr_value[0],
                 )
                 extr_value[1] = max(
-                    np.amax(sd_data[pp.STATE][cell_value]), extr_value[1]
+                    np.amax(sd_data[pp.TIME_STEP_SOLUTIONS][cell_value][0]),
+                    extr_value[1],
                 )
         kwargs["color_map"] = _color_map(extr_value)
 
@@ -277,7 +279,9 @@ def plot_mdg(
         kwargs["rgb"] = np.divide(kwargs.get("rgb", [1, 0, 0]), sd.id + 1)
         # Plot the subdomain and data
 
-        vector_value_array = sd_data.get(pp.STATE, {}).get(vector_value, None)
+        vector_value_array = (
+            sd_data.get(pp.TIME_STEP_SOLUTIONS, {}).get(vector_value, {}).get(0, None)
+        )
         if vector_value_array is not None:
             # The further algorithm requires the vector_value array of shape (3 x n).
             # Now, we have a 1D array.
@@ -295,7 +299,7 @@ def plot_mdg(
             )
         _plot_sd_xd(
             sd,
-            sd_data.get(pp.STATE, {}).get(cell_value, None),
+            sd_data.get(pp.TIME_STEP_SOLUTIONS, {}).get(cell_value, {}).get(0, None),
             vector_value_array,
             ax,
             **kwargs,

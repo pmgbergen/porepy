@@ -71,7 +71,7 @@ FlashSystemDict = dict[
 """
 
 
-def _process(q: pp.ad.Ad_array, as_ad: bool, projection: sps.spmatrix) -> NumericType:
+def _process(q: pp.ad.AdArray, as_ad: bool, projection: sps.spmatrix) -> NumericType:
     """Auxiliary function to process Ad-arrays."""
     if as_ad:
         if projection:
@@ -138,18 +138,18 @@ class ThermodynamicState:
 
     def values(self) -> ThermodynamicState:
         """Returns a derivative-free state in case any state function is stored as
-        an :class:`~porepy.numerics.ad.forward_mode.Ad_array`."""
+        an :class:`~porepy.numerics.ad.forward_mode.AdArray`."""
 
-        p = self.p.val if isinstance(self.p, pp.ad.Ad_array) else self.p
-        T = self.T.val if isinstance(self.T, pp.ad.Ad_array) else self.T
-        h = self.h.val if isinstance(self.h, pp.ad.Ad_array) else self.h
-        v = self.v.val if isinstance(self.v, pp.ad.Ad_array) else self.v
-        rho = self.rho.val if isinstance(self.rho, pp.ad.Ad_array) else self.rho
-        z = [z.val if isinstance(z, pp.ad.Ad_array) else z for z in self.z]
-        y = [y.val if isinstance(y, pp.ad.Ad_array) else y for y in self.y]
-        s = [s.val if isinstance(s, pp.ad.Ad_array) else s for s in self.s]
+        p = self.p.val if isinstance(self.p, pp.ad.AdArray) else self.p
+        T = self.T.val if isinstance(self.T, pp.ad.AdArray) else self.T
+        h = self.h.val if isinstance(self.h, pp.ad.AdArray) else self.h
+        v = self.v.val if isinstance(self.v, pp.ad.AdArray) else self.v
+        rho = self.rho.val if isinstance(self.rho, pp.ad.AdArray) else self.rho
+        z = [z.val if isinstance(z, pp.ad.AdArray) else z for z in self.z]
+        y = [y.val if isinstance(y, pp.ad.AdArray) else y for y in self.y]
+        s = [s.val if isinstance(s, pp.ad.AdArray) else s for s in self.s]
         X = [
-            [x.val if isinstance(x, pp.ad.Ad_array) else x for x in x_j]
+            [x.val if isinstance(x, pp.ad.AdArray) else x for x in x_j]
             for x_j in self.X
         ]
 
@@ -210,7 +210,7 @@ class ThermodynamicState:
             as_ad: ``default=False``
 
                 If True, the values are initialized as
-                :class:`~porepy.numerics.ad.forward_mode.Ad_array` instances, with
+                :class:`~porepy.numerics.ad.forward_mode.AdArray` instances, with
                 proper derivatives in csr format.
 
                 If False, the values are initialized as numpy arrays with length
@@ -316,11 +316,11 @@ class ThermodynamicState:
 
             # reference phase fraction is dependent by unity
             if len(y_jacs) > 0:
-                y = [pp.ad.Ad_array(y[0], -1 * safe_sum(y_jacs))] + [
-                    pp.ad.Ad_array(y[j + 1], y_jacs[j]) for j in range(indp)
+                y = [pp.ad.AdArray(y[0], -1 * safe_sum(y_jacs))] + [
+                    pp.ad.AdArray(y[j + 1], y_jacs[j]) for j in range(indp)
                 ]
             X = [
-                [pp.ad.Ad_array(X[j][i], X_jacs[j][i]) for i in range(num_comp)]
+                [pp.ad.AdArray(X[j][i], X_jacs[j][i]) for i in range(num_comp)]
                 for j in range(num_phases)
             ]
 
@@ -353,7 +353,7 @@ class ThermodynamicState:
                 if indp > 0:
                     y[0].jac = sps.hstack([pre_block, y[0].jac])
                 else:
-                    y[0] = pp.ad.Ad_array(y[0], pre_block.copy())
+                    y[0] = pp.ad.AdArray(y[0], pre_block.copy())
 
                 # update derivatives of phase compositions
                 for j in range(num_phases):
@@ -369,7 +369,7 @@ class ThermodynamicState:
                 if "y_r" in is_independent and not indp:
                     jac_y_r = jac_glob.copy()
                     jac_y_r[:, -(occupied + num_vals) : -occupied] = id_block
-                    y[0] = pp.ad.Ad_array(y[0], jac_y_r)
+                    y[0] = pp.ad.AdArray(y[0], jac_y_r)
                     occupied += num_vals  # update occupied
 
                 # construct derivatives w.r.t to saturations of independent phases
@@ -380,30 +380,30 @@ class ThermodynamicState:
                         jac_s_i = jac_glob.copy()
                         jac_s_i[:, -(occupied + num_vals) : -occupied] = id_block
                         jac_s_0_dep = jac_s_0_dep - jac_s_i
-                        s[num_phases - j] = pp.ad.Ad_array(s[num_phases - j], jac_s_i)
+                        s[num_phases - j] = pp.ad.AdArray(s[num_phases - j], jac_s_i)
                         occupied += num_vals  # update occupied
                 if "s_r" in is_independent and not indp:
                     jac_s_0 = jac_glob.copy()
                     jac_s_0[:, -(occupied + num_vals) : -occupied] = id_block
-                    s[0] = pp.ad.Ad_array(s[0], jac_s_i)
+                    s[0] = pp.ad.AdArray(s[0], jac_s_i)
                     occupied += num_vals  # update occupied
                 # eliminate reference saturation by unity
                 elif jac_s_0_dep:
-                    s[0] = pp.ad.Ad_array(s[0], -1 * safe_sum([s_.jac for s_ in s[1:]]))
+                    s[0] = pp.ad.AdArray(s[0], -1 * safe_sum([s_.jac for s_ in s[1:]]))
 
                 # construct derivatives w.r.t. feed fractions
                 if "z_i" in is_independent:
                     for i in range(num_comp - 1):
                         jac_z_i = jac_glob.copy()
                         jac_z_i[:, -(occupied + num_vals) : -occupied] = id_block
-                        z[num_comp - i] = pp.ad.Ad_array(z[num_comp - i], jac_z_i)
+                        z[num_comp - i] = pp.ad.AdArray(z[num_comp - i], jac_z_i)
                         occupied += num_vals
 
                 # construct derivative w.r.t. reference feed fraction
                 if "z_r" in is_independent:
                     jac_z_r = jac_glob.copy()
                     jac_z_r[:, -(occupied + num_vals) : -occupied] = id_block
-                    z[0] = pp.ad.Ad_array(z[0], jac_z_r)
+                    z[0] = pp.ad.AdArray(z[0], jac_z_r)
                     occupied += num_vals
 
                 # construct derivatives for states which are not given as list
@@ -414,7 +414,7 @@ class ThermodynamicState:
                     if key in is_independent:
                         jac_q = jac_glob.copy()
                         jac_q[:, -(occupied + num_vals) : -occupied] = id_block
-                        quantity = pp.ad.Ad_array(quantity, jac_q)
+                        quantity = pp.ad.AdArray(quantity, jac_q)
                         occupied += num_vals
                     modified_quantities.append(quantity)
                 v, h, T, p = modified_quantities
@@ -1127,7 +1127,7 @@ class BasicMixture:
             as_ad: ``default=False``
 
                 If ``True``, the variables are returned as
-                :class:`~porepy.numerics.ad.forward_mode.Ad_array` containing
+                :class:`~porepy.numerics.ad.forward_mode.AdArray` containing
                 the global derivatives, as assigned by the AD framework.
 
                 If ``False``, only the values in form of numpy arrays are returned.

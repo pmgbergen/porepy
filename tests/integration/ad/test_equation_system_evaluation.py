@@ -4,7 +4,7 @@ EquationSystem.
 TODO: We may repurpose this module to a test of parsing of Ad Operators in general.
 
 Contents:
-    
+
 
 """
 import numpy as np
@@ -25,8 +25,13 @@ def setup():
     eq_system.create_variables(var_name, subdomains=[g_1, g_2])
 
     for sd, d in mdg.subdomains(return_data=True):
-        d[pp.STATE] = {var_name: np.ones([sd.num_cells])}
-        d[pp.STATE][pp.ITERATE] = {var_name: 2 * np.ones([sd.num_cells])}
+        vals_sol = np.ones([sd.num_cells])
+        vals_it = 2 * np.ones([sd.num_cells])
+
+        pp.set_solution_values(
+            name=var_name, values=vals_sol, data=d, time_step_index=0
+        )
+        pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=0)
 
     return eq_system
 
@@ -50,30 +55,29 @@ def test_evaluate_variables():
     # In the below checks, the anticipated value of the variables is based on the
     # values assigned in the setup method.
     for var in [single_variable, md_variable]:
-
         # First evaluate the variable. This should give the iterate value.
         val = var.evaluate(eq_system)
-        assert isinstance(val, pp.ad.Ad_array)
+        assert isinstance(val, pp.ad.AdArray)
         assert np.allclose(val.val, 2)
 
         # Now create the variable at the previous iterate. This should also give the
-        # value in pp.ITERATE, but it should not yield an Ad_array.
+        # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
         var_prev_iter = var.previous_iteration()
         val_prev_iter = var_prev_iter.evaluate(eq_system)
         assert isinstance(val_prev_iter, np.ndarray)
         assert np.allclose(val_prev_iter, 2)
 
-        # Create the variable at the previous time step. This should give the value in
-        # pp.STATE.
+        # Create the variable at the previous time step. This should give the most
+        # recent value in pp.TIME_STEP_SOLUTIONS.
         var_prev_timestep = var.previous_timestep()
         val_prev_timestep = var_prev_timestep.evaluate(eq_system)
         assert isinstance(val_prev_timestep, np.ndarray)
         assert np.allclose(val_prev_timestep, 1)
 
         # Use the ad machinery to define the difference between the current and
-        # previous time step. This should give an Ad_array with the same value as that
+        # previous time step. This should give an AdArray with the same value as that
         # obtained by subtracting the evaluated variables.
         var_increment = pp.ad.time_increment(var)
         val_increment = var_increment.evaluate(eq_system)
-        assert isinstance(val_increment, pp.ad.Ad_array)
+        assert isinstance(val_increment, pp.ad.AdArray)
         assert np.allclose(val_increment.val, val.val - val_prev_timestep)

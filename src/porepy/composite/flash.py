@@ -34,13 +34,13 @@ logger.addHandler(log_handler)
 
 def _pos(var: NumericType) -> NumericType:
     """Returns a numeric value where the negative parts have been set to zero."""
-    if isinstance(var, pp.ad.Ad_array):
+    if isinstance(var, pp.ad.AdArray):
         eliminate = var.val < 0.0
         out_val = np.copy(var.val)
         out_val[eliminate] = 0
         out_jac = var.jac.tolil()
         out_jac[eliminate] = 0
-        return pp.ad.Ad_array(out_val, out_jac.tocsr())
+        return pp.ad.AdArray(out_val, out_jac.tocsr())
     elif isinstance(var, np.ndarray):
         eliminate = var < 0.0
         out = np.copy(var)
@@ -57,13 +57,13 @@ def _pos(var: NumericType) -> NumericType:
 
 def _neg(var: NumericType) -> NumericType:
     """Returns a numeric value where the positive parts have been set to zero."""
-    if isinstance(var, pp.ad.Ad_array):
+    if isinstance(var, pp.ad.AdArray):
         eliminate = var.val > 0.0
         out_val = np.copy(var.val)
         out_val[eliminate] = 0
         out_jac = var.jac.tolil()
         out_jac[eliminate] = 0
-        return pp.ad.Ad_array(out_val, out_jac.tocsr())
+        return pp.ad.AdArray(out_val, out_jac.tocsr())
     elif isinstance(var, np.ndarray):
         eliminate = var > 0.0
         out = np.copy(var)
@@ -176,7 +176,7 @@ class FlashSystemNR(ThermodynamicState):
                 [y_ * (1 - safe_sum(self.X[j])) for j, y_ in enumerate(self.y)]
             )  # type: ignore
             val_nu = val_nu.val / self._num_phases
-            self._nu = pp.ad.Ad_array(val_nu, jac_nu.tocsr())
+            self._nu = pp.ad.AdArray(val_nu, jac_nu.tocsr())
 
             # Adding zero-block to independent variables and convert to csr
             empty_block = sps.lil_matrix((self._num_vals, self._num_vals))
@@ -272,15 +272,15 @@ class FlashSystemNR(ThermodynamicState):
         # if the the linearized system is to be assembled, get the stored Jacobians.
         if with_derivatives:
             if self._p_unknown:
-                p = pp.ad.Ad_array(p, self.p.jac)
+                p = pp.ad.AdArray(p, self.p.jac)
                 for j in range(self._num_phases):
-                    s[j] = pp.ad.Ad_array(s[j], self.s[j].jac)
+                    s[j] = pp.ad.AdArray(s[j], self.s[j].jac)
             if self._T_unknown:
-                T = pp.ad.Ad_array(T, self.T.jac)
+                T = pp.ad.AdArray(T, self.T.jac)
             for j in range(self._num_phases):
-                y[j] = pp.ad.Ad_array(y[j], self.y[j].jac)
+                y[j] = pp.ad.AdArray(y[j], self.y[j].jac)
                 for i in range(self._num_comp):
-                    X[j][i] = pp.ad.Ad_array(X[j][i], self.X[j][i].jac)
+                    X[j][i] = pp.ad.AdArray(X[j][i], self.X[j][i].jac)
 
         # computing properties necessary to assemble the system
         phase_props: list[PhaseProperties] = self.mixture.compute_properties(
@@ -366,7 +366,7 @@ class FlashSystemNR(ThermodynamicState):
             for equ in equations:
                 vals.append(equ.val)
                 jacs.append(equ.jac)
-            return pp.ad.Ad_array(np.hstack(vals), sps.vstack(jacs, format='csr'))
+            return pp.ad.AdArray(np.hstack(vals), sps.vstack(jacs, format='csr'))
         else:
             return np.hstack(equations)
 
@@ -499,8 +499,8 @@ class FlashSystemNR(ThermodynamicState):
         if self._num_phases == 1:
             self.s[0] = np.ones(self._num_vals)
         else:
-            p = self.p.val if isinstance(self.p, pp.ad.Ad_array) else self.p
-            T = self.T.val if isinstance(self.T, pp.ad.Ad_array) else self.T
+            p = self.p.val if isinstance(self.p, pp.ad.AdArray) else self.p
+            T = self.T.val if isinstance(self.T, pp.ad.AdArray) else self.T
             X = [
                 [self.X[j][i].val for i in range(self._num_comp)]
                 for j in range(self._num_phases)
@@ -517,10 +517,10 @@ class FlashSystemNR(ThermodynamicState):
                 rho_1, rho_2 = densities
                 y_1, y_2 = self.y
                 
-                s_1 = pp.ad.Ad_array(
+                s_1 = pp.ad.AdArray(
                     np.zeros(y_1.val.shape), sps.lil_matrix(y_1.jac.shape)
                 )
-                s_2 = pp.ad.Ad_array(
+                s_2 = pp.ad.AdArray(
                     np.zeros(y_2.val.shape), sps.lil_matrix(y_2.jac.shape)
                 )
 
@@ -638,7 +638,7 @@ class FlashSystemNR(ThermodynamicState):
                 # distribute results to the saturation variables
                 for j in range(self._num_phases):
                     vals = saturations[j * self._num_vals : (j + 1) * self._num_vals]
-                    if isinstance(self.s[j], pp.ad.Ad_array):
+                    if isinstance(self.s[j], pp.ad.AdArray):
                         self.s[j] = vals
                     else:
                         self.s[j] = vals
@@ -1086,9 +1086,9 @@ class FlashNR:
 
             parsed_state = [var.evaluate(self.mixture.system) for var in parsed_state]
 
-        # if any state is an Ad_array, take only val
+        # if any state is an AdArray, take only val
         parsed_state = [
-            val.val if isinstance(val, pp.ad.Ad_array) else val for val in parsed_state
+            val.val if isinstance(val, pp.ad.AdArray) else val for val in parsed_state
         ]
         # if any state is a number, convert to vector
         parsed_state = [

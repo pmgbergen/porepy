@@ -15,8 +15,8 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.forward_mode import AdArray
 
-from .forward_mode import Ad_array
 from .operators import Operator, Tree
 
 __all__ = [
@@ -26,9 +26,6 @@ __all__ = [
     "DiagonalJacobianFunction",
     "InterpolatedFunction",
     "SemiSmoothMin",
-    "SemiSmoothNegative",
-    "SemiSmoothPositive",
-    "ScalarProduct",
 ]
 
 ### BASE CLASSES -----------------------------------------------------------------------
@@ -63,7 +60,7 @@ class AbstractFunction(Operator):
             formatted output. If false, the function will be evaluated element-wise
             (scalar input). Defaults to False.
         ad_compatible (Optional): If true, the callable ``func`` will be called using
-            the porepy.ad.Ad_array.
+            the porepy.ad.AdArray.
 
             Note that as of now, this will effectively bypass the abstract methods
             for generating values and the Jacobian, assuming both will be provided
@@ -88,17 +85,14 @@ class AbstractFunction(Operator):
         self.array_compatible: bool = array_compatible
         """Indicator whether the callable can process arrays."""
 
-        self.ad_compatible: bool = ad_compatible
-        """Indicator whether the callable can process AD arrays."""
-
         ### PRIVATE
-        self._operation: Operator.Operations = Operator.Operations.evaluate
+        self._operation: Operator.Operations = Operator.Operations.approximate
 
         self._name: str = name if name is not None else ""
 
         self._set_tree()
 
-    def __call__(self, *args: Operator | Ad_array) -> Operator:
+    def __call__(self, *args: pp.ad.Operator | AdArray) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Parameters:
@@ -161,7 +155,7 @@ class AbstractFunction(Operator):
         return self
 
     @abc.abstractmethod
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         """Abstract method for evaluating the callable passed at instantiation.
 
         This method will be called during the operator parsing.
@@ -172,7 +166,7 @@ class AbstractFunction(Operator):
         this instance.
 
         Parameters:
-            *args: Ad_array representation of the operators passed during the call to this
+            *args: AdArray representation of the operators passed during the call to this
                 instance
 
         Returns:
@@ -182,7 +176,7 @@ class AbstractFunction(Operator):
         pass
 
     @abc.abstractmethod
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         """
         Abstract method for evaluating the Jacobian of the callable passed at instantiation.
 
@@ -195,10 +189,10 @@ class AbstractFunction(Operator):
 
         Note:
             The necessary dimensions for the jacobian can be extracted from the dimensions
-            of the Jacobians of passed Ad_array instances.
+            of the Jacobians of passed AdArray instances.
 
         Parameters:
-            *args: Ad_array representation of the operators passed during the call to this
+            *args: AdArray representation of the operators passed during the call to this
                 instance
 
         Returns:
@@ -216,14 +210,14 @@ class AbstractJacobianFunction(AbstractFunction):
 
     """
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         """
         Returns:
             The direct evaluation of the callable using ``val`` of passed AD arrays.
 
         """
-        # get values of argument Ad_arrays.
-        vals = (arg.val if isinstance(arg, Ad_array) else arg for arg in args)
+        # get values of argument AdArrays.
+        vals = (arg.val for arg in args)
 
         # if the callable is flagged as conform for vector operations, feed vectors
         if self.array_compatible:
@@ -245,13 +239,12 @@ class AbstractJacobianFunction(AbstractFunction):
 
 class Function(AbstractFunction):
     """Ad representation of an analytically given function,
-    where it is expected that passing Ad_arrays directly to ``func`` will
+    where it is expected that passing AdArrays directly to ``func`` will
     return the proper result.
 
     Here the values **and** the Jacobian are obtained exactly by the AD framework.
 
-    The intended use is as a wrapper for operations on instances of
-    :class:`~porepy.numerics.ad.forward_mode.Ad_array``,
+    The intended use is as a wrapper for operations on pp.ad.AdArray objects,
     in forms which are not directly or easily expressed by the rest of the Ad
     framework.
 
@@ -268,11 +261,11 @@ class Function(AbstractFunction):
         self._operation = Operator.Operations.evaluate
         self.ad_compatible = True
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         result = self.func(*args)
         return result.val
 
-    def get_jacobian(self, *args: Ad_array) -> np.ndarray:
+    def get_jacobian(self, *args: AdArray) -> np.ndarray:
         result = self.func(*args)
         return result.jac
 
@@ -296,7 +289,7 @@ class ConstantFunction(AbstractFunction):
         super().__init__(func, name)
         self._values = values
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         """
         Returns:
             The values passed at instantiation.
@@ -304,7 +297,7 @@ class ConstantFunction(AbstractFunction):
         """
         return self._values
 
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         """
         Note:
             The return value is not a sparse matrix as imposed by the parent method signature,
@@ -345,20 +338,20 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
         else:
             self._multipliers = [float(multipliers)]
 
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         """The approximate Jacobian consists of identity blocks times scalar multiplier
         per every function dependency.
 
         """
         # the Jacobian of a (Merged) Variable is already a properly sized block identity
-        jac = args[0].jac * self._multipliers[0] if isinstance(args[0], Ad_array) else 0
+        jac = args[0].jac * self._multipliers[0] if isinstance(args[0], AdArray) else 0
 
         # summing identity blocks for each dependency
         if len(args) > 1:
             # TODO think about exception handling in case not enough
             # L-values were provided initially
             for arg, L in zip(args[1:], self._multipliers[1:]):
-                jac += arg.jac * L if isinstance(arg, Ad_array) else 0
+                jac += arg.jac * L if isinstance(arg, AdArray) else 0
 
         return jac
 
@@ -424,12 +417,12 @@ class InterpolatedFunction(AbstractFunction):
                 f"Interpolation of order {self.order} not implemented."
             )
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         # stacking argument values vertically for interpolation
         X = np.vstack([x.val for x in args])
         return self._table.interpolate(X)
 
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         # get points at which to evaluate the differentiation
         X = np.vstack([x.val for x in args])
         # allocate zero matrix for Jacobian with correct dimensions and in CSR format
@@ -481,7 +474,7 @@ class SemiSmoothMin(AbstractFunction):
 
         super().__init__(func, name, False, False)
 
-    def get_values(self, *args: Ad_array) -> np.ndarray:
+    def get_values(self, *args: AdArray) -> np.ndarray:
         # this will throw an error if more than two arguments were passed
         op1, op2 = args
         # active set choice
@@ -492,7 +485,7 @@ class SemiSmoothMin(AbstractFunction):
         vals[active_set] = op2.val[active_set]
         return vals
 
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
         # this will throw an error if more than two arguments were passed
         op1, op2 = args
         # active set choice
@@ -504,118 +497,9 @@ class SemiSmoothMin(AbstractFunction):
         return jac.tocsr()
 
 
-class SemiSmoothNegative(AbstractFunction):
-    """Semi-smooth representation of ``min(a, 0)``,
-    where the rows of the Jacobian corresponding to the criterion are set to zero."""
-
-    def __init__(self):
-        name = f"semi-smooth NEG operator"
-
-        def dummy(x, *args):
-            return x if x < 0 else 0
-
-        super().__init__(dummy, name, False, False)
-
-    def get_values(self, *args: Ad_array) -> np.ndarray:
-        # consider only first operator
-        op = args[0]
-
-        eliminate = op.val > 0.0
-
-        vals = op.val.copy()
-        vals[eliminate] = 0.0
-
-        return vals
-
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
-        # consider only first operator
-        op = args[0]
-        # strict inequality is important to not eliminate the derivative
-        # for valid values at zero
-        eliminate = op.val > 0.0
-
-        jac = op.jac.tolil().copy()
-        jac[eliminate] = 0.0
-        jac = jac.tocsr()
-        jac.eliminate_zeros()
-
-        return jac
-
-
-class SemiSmoothPositive(AbstractFunction):
-    """Semi-smooth representation of ``max(a, 0)``,
-    where the rows of the Jacobian corresponding to the criterion are set to zero."""
-
-    def __init__(self):
-        name = f"semi-smooth POS operator"
-
-        def dummy(x, *args):
-            return x if x < 0 else 0
-
-        super().__init__(dummy, name, False, False)
-
-    def get_values(self, *args: Ad_array) -> np.ndarray:
-        # consider only first operator
-        op = args[0]
-
-        eliminate = op.val < 0.0
-
-        vals = op.val.copy()
-        vals[eliminate] = 0.0
-
-        return vals
-
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
-        # consider only first operator
-        op = args[0]
-        # strict inequality is important to not eliminate the derivative
-        # for valid values at zero
-        eliminate = op.val < 0.0
-
-        jac = op.jac.tolil().copy()
-        jac[eliminate] = 0.0
-        jac = jac.tocsr()
-        jac.eliminate_zeros()
-
-        return jac
-
-
-class ScalarProduct(AbstractFunction):
-    """AD representation of the scalar product ``<a,b>``.
-
-    Note that this function collapses the AD array into having a scalar val and a
-    single-row Jacobian."""
-
-    def __init__(self):
-        name = f"scalar product"
-
-        def dummy(x, y):
-            return np.dot(x, y)
-
-        super().__init__(dummy, name, False, False)
-
-    def get_values(self, *args: Ad_array) -> np.ndarray:
-        # Will throw an error if more than two operators
-        op1, op2 = args
-
-        return np.dot(op1.val, op2.val)
-
-    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
-        # consider only first operator
-        op1, op2 = args
-        # op1 * dop2 + op2 * dop1
-        jac = op2.jac.multiply(op1.val[:, np.newaxis]) + op1.jac.multiply(
-            op2.val[:, np.newaxis]
-        )
-        # sum per column
-        jac = jac.sum(axis=0)
-
-        return sps.csr_matrix(jac)
-
-
 ### FUNCTION DECORATOR -----------------------------------------------------------------
 
-NumericType = Union[numbers.Real, np.ndarray, Ad_array]
+NumericType = Union[numbers.Real, np.ndarray, AdArray]
 
 
 def admethod(
@@ -705,9 +589,9 @@ def admethod(
         :class:`Function`.
 
         We can compute cheap partial derivatives w.r.t. ``y``, if we let ``y`` be an
-        :class:`~porepy.numerics.ad.forward_mode.Ad_array` and ``x`` some other
+        :class:`~porepy.numerics.ad.forward_mode.AdArray` and ``x`` some other
         numeric format.
-        ``y`` can either be a simple ``Ad_array`` with ``val=...`` and
+        ``y`` can either be a simple ``AdArray`` with ``val=...`` and
         ``jac=numpy.array([0, 1])``,
         or a :class:`~porepy.numerics.ad.operators.Variable`,
         which wrapps above construction.
@@ -717,7 +601,7 @@ def admethod(
         >>> dy = multiply(x, y).evaluate(...)
 
         ``dy`` will in effectively be an expression multiplying the constant value of
-        ``x`` with the ``Ad_array`` representing ``y``, hence a partial derivative.
+        ``x`` with the ``AdArray`` representing ``y``, hence a partial derivative.
 
         .. rubric:: Example 4
 
@@ -752,7 +636,7 @@ def admethod(
         the possibly large operator tree and expensive recursion in the evaluation.
 
         This function aims for feeding the heuristic law directly with instances of
-        :class:`~porepy.numerics.ad.forward.Ad_array`, using the framework provided
+        :class:`~porepy.numerics.ad.forward.AdArray`, using the framework provided
         by AD operator functions. It reduces the heuristic law to a single evaluation
         process in the final operator tree.
 
@@ -812,12 +696,12 @@ class ADMethod:
 
     - real numbers ,
     - :obj:`~numpy.ndarray` or
-    - :class:`~porepy.numerics.ad.forward_mode.Ad_array`,
+    - :class:`~porepy.numerics.ad.forward_mode.AdArray`,
 
     and return one of above.
 
     Note:
-        In this context, instances of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
+        In this context, instances of :class:`~porepy.numerics.ad.forward_mode.AdArray`
         are treated as *numerical* values, whereas instances of
         :class:`~porepy.numerics.ad.operator.Operator` are treated as AD operators.
 
@@ -1074,7 +958,7 @@ class ADMethod:
 
         Raises:
             TypeError: If any argument is not a real number, a :obj:`~numpy.ndarray` or
-                :class:`~porepy.numerics.ad.forward_mode.Ad_array`,
+                :class:`~porepy.numerics.ad.forward_mode.AdArray`,
                 besides AD Operators.
 
         Returns:
@@ -1093,7 +977,7 @@ class ADMethod:
         # TODO VL: The check for faulty arguments can be removed it wrapping is not
         # necessary. See comment about discussion with EK in _wrap_into_ad
         for arg in arguments:
-            if isinstance(arg, (numbers.Real, np.ndarray, Ad_array)):
+            if isinstance(arg, (numbers.Real, np.ndarray, AdArray)):
                 pass  # acceptable arguments
             elif isinstance(arg, Operator):
                 has_ad_argument = True  # flag call as AD
@@ -1101,7 +985,7 @@ class ADMethod:
                 faulty_args.append(arg)
 
         for kw, arg in kwarguments.items():
-            if isinstance(arg, (numbers.Real, np.ndarray, Ad_array)):
+            if isinstance(arg, (numbers.Real, np.ndarray, AdArray)):
                 pass  # acceptable arguments
             elif isinstance(arg, Operator):
                 has_ad_argument = True  # flag call as AD
@@ -1129,7 +1013,7 @@ class ADMethod:
         :meth:`~porepy.numerics.ad.operators.Operator.parse` defined.
 
         Note:
-            Instances of :class:`~porepy.numerics.ad.forward_mode.Ad_array` and
+            Instances of :class:`~porepy.numerics.ad.forward_mode.AdArray` and
             :class:`~porepy.numerics.ad.operators.Operator` need no wrapping and are
             not processed.
 
@@ -1147,7 +1031,7 @@ class ADMethod:
         wrapped_call_kwargs = dict()
 
         # TODO VL: This wrapping is NOT necessary if we change Operator.evaluate
-        # s.t. it returns Ad_array with jac=0 for scalars and numpy arrays for instance.
+        # s.t. it returns AdArray with jac=0 for scalars and numpy arrays for instance.
         # Discuss with EK
 
         for arg in call_args:
@@ -1157,8 +1041,8 @@ class ADMethod:
             # wrap np arrays into AD arrays
             elif isinstance(arg, np.ndarray):
                 wrapped_call_args.append(pp.ad.Array(arg))
-            # custom Ad_array and operator instances are left as is
-            elif isinstance(arg, (Ad_array, Operator)):
+            # custom AdArray and operator instances are left as is
+            elif isinstance(arg, (AdArray, Operator)):
                 wrapped_call_args.append(arg)
             # anything else will raise an error, but this should not happen
             # due to the previous call to _check_if_arguments_ad
@@ -1172,8 +1056,8 @@ class ADMethod:
             # wrap np arrays into AD arrays
             elif isinstance(arg, np.ndarray):
                 wrapped_call_kwargs.update({kw: pp.ad.Array(arg)})
-            # custom Ad_array and operator instances are left as is
-            elif isinstance(arg, (Ad_array, Operator)):
+            # custom AdArray and operator instances are left as is
+            elif isinstance(arg, (AdArray, Operator)):
                 wrapped_call_kwargs.update({kw: arg})
             # anything else will raise an error, but this should not happen
             # due to the previous call to _check_if_arguments_ad

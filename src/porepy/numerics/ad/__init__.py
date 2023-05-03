@@ -2,7 +2,7 @@
 
 They should all be accessible through a calling
    >>> import porepy as pp
-   >>> pp.ad.Matrix???
+   >>> pp.ad.SparseArray
 etc.
 
 """
