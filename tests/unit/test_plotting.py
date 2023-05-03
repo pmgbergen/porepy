@@ -110,7 +110,7 @@ def _initialize_mdg(mdg_):
             vals_vect_cell = np.ones((mdg_.dim_max(), sd.num_cells)).ravel(order="F")
             vals_vect_face = np.ones((mdg_.dim_max(), sd.num_faces)).ravel(order="F")
 
-            values = np.array([vals_scalar, vals_vect_cell, vals_vect_face])
+            values = [vals_scalar, vals_vect_cell, vals_vect_face]
 
             for i in range(len(variables)):
                 pp.set_solution_values(
