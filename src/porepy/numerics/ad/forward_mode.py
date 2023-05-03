@@ -35,6 +35,24 @@ class Ad_array:
         s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size} elements"
         return s
 
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            key_val = key[0]
+        else:
+            key_val = key
+        return Ad_array(self.val[key_val], self.jac[key])
+    
+    def __setitem__(self, key, val):
+        if isinstance(key, tuple):
+            key_val = key[0]
+        else:
+            key_val = key
+        if isinstance(val, Ad_array):
+            self.val[key_val] = val.val
+            self.jac[key] = val.jac
+        else:
+            self.val[key_val] = val
+
     def __add__(self, other):
         b = _cast(other)
         c = Ad_array()

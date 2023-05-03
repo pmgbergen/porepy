@@ -37,18 +37,18 @@ while t < T:
 
     for i in range(1, max_iter + 1):
         model.before_newton_iteration()
-        dx = model.assemble_and_solve_linear_system(tol)
+        DX = model.assemble_and_solve_linear_system(tol)
         if model.converged:
             print(f"Success flow after iteration {i - 1}.")
-            model.after_newton_convergence(dx, tol, i - 1)
+            model.after_newton_convergence(DX, tol, i - 1)
             break
         print(f".. .. flow iteration {i}.")
-        model.after_newton_iteration(dx, i)
+        model.after_newton_iteration(DX, i)
 
     if not model.converged:
         print(f"FAILURE: flow at time {t} after {max_iter} iterations.")
         # model.print_x("Flow convergence failure")
-        model.after_newton_failure(dx, tol, max_iter)
+        model.after_newton_failure(DX, tol, max_iter)
         model.dt = model.dt / 2
         print(f"Halving timestep to {model.dt}")
         if model.dt < 0.001:

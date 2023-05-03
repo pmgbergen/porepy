@@ -6,6 +6,8 @@ Changes here should be done with much care.
 """
 from __future__ import annotations
 
+import numpy as np
+
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
@@ -187,10 +189,10 @@ def rachford_rice_equation(
         j: Index of phase. Used to access values in ``y`` and ``K``.
         z: ``len=n_c``
 
-            List of overall component fractions
+            List of overall component fractions.
         y: ``len=(n_p-1)``
 
-            List of phase fractions, excluding the reference phase fraction
+            List of phase fractions, excluding the reference phase fraction.
         K: ``shape=(n_p, n_c)``
 
             A matrix-like structure or nested list, containing the K-value for component
@@ -226,10 +228,10 @@ def rachford_rice_potential(
     Parameters:
         z: ``len=n_c``
 
-            List of overall component fractions
+            List of overall component fractions.
         y: ``len=(n_p-1)``
 
-            List of phase fractions, excluding the reference phase fraction
+            List of phase fractions, excluding the reference phase fraction.
         K: ``shape=(n_p, n_c)``
 
             A matrix-like structure or nested list, containing the K-value for component
@@ -241,3 +243,94 @@ def rachford_rice_potential(
     """
     F = [-z[i] * pp.ad.log(pp.ad.abs(_rr_pole(i, y, K))) for i in range(len(z))]
     return safe_sum(F)
+
+
+def rachford_rice_vle_inversion(
+    z: list[NumericType], K: list[NumericType]
+) -> NumericType:
+    """Computes the inversion of the Rachford-Rice equation for vapor-liquid equilibria.
+
+    The solution obtained is the vapor fraction.
+
+    .. math::
+
+        f_j(y) = \\sum\\limits_{i=1}^{n_c}
+        \\frac{(1-K_{ij})z_i}{1 - \\sum\\limits_{j\\neq R}(1 - K_{ij})y_j}
+
+        y = \\frac{(n_c -1)\\sum_i (1-K_i)z_i}{\\sum_i \\sum_{j\\neq i} (1-K_i)z_i K_j}
+
+
+    With ``i,j = 1 .. n_c`` being component indices.
+
+    Parameters:
+        z: ``len=n_c``
+
+            List of overall component fractions.
+        K: ``len=n_c``
+
+            K-values for the VLE-equilibrium.
+
+    Returns:
+        The vapor fraction ``y`` according to above formula.
+
+    """
+    # number of components
+    nc = len(z)
+    # numerator
+    n = (nc - 1) * safe_sum([(1 - K[i]) * z[i] for i in range(nc)])
+    # denominator
+    d = safe_sum(
+        [
+            (1 - K[i]) * z[i] * safe_sum([K[j] for j in range(nc) if j != i])
+            for i in range(nc)
+        ]
+    )
+    return n / d
+
+
+def rachford_rice_feasible_region(
+    z: list[NumericType], y: list[NumericType], K: list[list[NumericType]]
+) -> np.ndarray:
+    """Checks the feasibility of computed y in terms of poles in the domain for the
+    Rachford-Rice Equations.
+
+    For more details see eq. 10 in [1].
+
+    References:
+        [1] `Okuno and Sepehrnoori (2010) <https://doi.org/10.2118/117752-PA>`_
+
+    Parameters:
+        z: ``len=n_c``
+
+            List of overall component fractions.
+        y: ``len=(n_p-1)``
+
+            List of phase fractions, excluding the reference phase fraction.
+        K: ``shape=(n_p, n_c)``
+
+            A matrix-like structure or nested list, containing the K-value for component
+            ``i`` in phase ``j`` by ``K[j][i]``.
+
+    """
+    # # alternative implementation by Omar
+    # t_vals = 1 + Y * (np.array(K) - 1.0)
+    # cond_1 = np.array([t - z_c[i].val for i, t in enumerate(t_vals)]) > 0
+    # cond_2 = (
+    #     np.array([t - K[i] * z_c[i].val for i, t in enumerate(t_vals)]) > 0
+    # )
+    # return np.all(np.logical_and(cond_1, cond_2), axis=0)
+
+    nc = len(z)
+    nph = len(y)
+    all_conditions = list()
+
+    for i in range(nc):
+        t = 1 - safe_sum([(1 - K[j][i]) * y[j] for j in range(nph)])
+        cond_1 = t - z[i] >= 0
+        cond_2 = list()
+        for j in range(nph):
+            cond_2.append(t - K[j][i] >= 0)
+        cond_2 = np.all(np.array(cond_2), axis=0)
+        all_conditions.append(np.logical_and(cond_1, cond_2))
+
+    return np.all(np.array(all_conditions), axis=0)

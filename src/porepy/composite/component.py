@@ -1,30 +1,30 @@
 """This module contains the abstract base class for all components
 (species/ pure substances) used in this framework.
 
-Components are models for chemical species inside a mixture.
-They are either genuine components (with relevant fractional variables) or
-pseudo-components, which act as parameters in compounds.
+Components are models for phase-changing chemical species inside a mixture.
+They are either pure components (with relevant fractional variables) or
+compounds, where other, present species act as parameters.
 
 The hierarchy is as follows:
 
-1. :class:`PseudoComponent`:
-   A representation of a species involving some physical constants
-2. :class:`Component`:
-   Additionally to above, this class represents a variable quantity in the equilibrium
+1. :class:`Component`:
+   A phase-changing representation of a species involving some physical constants
+   Additionally, this class represents a variable quantity in the equilibrium
    problem. It can appear in multiple phases.
-   It also has a thermodynamic property, the ideal specific enthalpy, which needs to be
+   It also has abstract thermodynamic properties, which need to be
    implemented for each component based on some experimental data.
-3. :class:`Compound`:
-   Additionally to being a variable quantity, this class has :class:`PseudoComponent`
+2. :class:`Compound`:
+   Additionally to being a variable quantity, this class has other species
    with related solute fractions functioning as parameters for thermodynamic
    properties. The solute fractions are **not** variables of the equilibrium problem.
-   They might nevertheless be transportable by a coupled flow problem f.e.
+   They might nevertheless be transportable by f.e. a coupled flow problem.
 
 """
 
 from __future__ import annotations
 
 import abc
+from dataclasses import asdict
 from typing import Generator
 
 import numpy as np
@@ -34,171 +34,75 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS
-from .composite_utils import CompositionalSingleton
+from .chem_species import ChemicalSpeciesData, FluidSpeciesData
+
+__all__ = [
+    "Component",
+    "Compound",
+]
 
 
-class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
-    """Abstract base class for instances inside a mixture, which represent a chemical
-    species.
-
-    Pseudo-components are identified by their name and have a molar mass,
-    critical pressure and critical temperature.
-
-    They are used as a starting point for all genuine components
-    (species inside a mixture which change phases),
-    but also as simplified surrogate models (parts of a compound),
-    which sufficiently enough approximate reality.
-
-    Example:
-        A surrogate model would be salt, which influences the phase
-        behavior of a compound 'brine' with its concentration,
-        but for which it is **not** meaningful to model salt alone as a component
-        in vapor and liquid phase.
-
-        The alternative to the surrogate model is the rigorous model,
-        where salt is split into the genuine components Sodium and Chlorine,
-        which switch phases (dissolution, precipitation and vaporization)
-
-    Note:
-        When pairing the equilibrium problem with a flow problem,
-        the pseudo-component might need nevertheless a transport equation!
-        Take above example.
-        If the amount of salt entering the system is unequal to the amount leaving it,
-        one needs to formulate the respective transport.
-        If that is not the case, i.e. the amount of salt is constant at all times,
-        this is not necessary.
-
-        Keep this in mind when formulating a model, its equations and variables.
-        See :class:`Compound` for more information.
-
-    Parameters:
-        ad_system: AD system in which this pseudo-component is present.
-
-    """
-
-    def __init__(self, ad_system: pp.ad.EquationSystem) -> None:
-
-        super().__init__()
-
-        self.ad_system: pp.ad.EquationSystem = ad_system
-        """The AD system passed at instantiation."""
-
-    @property
-    def name(self) -> str:
-        """
-        Returns:
-            Name of the class, used as a unique identifier in the composite framework.
-
-        """
-        return str(self.__class__.__name__)
-
-    @staticmethod
-    @abc.abstractmethod
-    def molar_mass() -> float:
-        """This is a constant value, hence to be a static function.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [kg / mol]
-
-        Returns:
-            Molar mass.
-
-        """
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def critical_pressure() -> float:
-        """This is a constant value, hence to be a static function.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [MPa]
-
-        Returns:
-            Critical pressure of this pseudo-component.
-
-        """
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def critical_temperature() -> float:
-        """This is a constant value, hence to be a static function.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [K]
-
-        Returns:
-            Critical temperature of this pseudo-component.
-
-        """
-        pass
-
-
-class Component(PseudoComponent):
+class Component(abc.ABC, FluidSpeciesData):
     """Abstract base class for components modelled inside a mixture.
-
-    Provides a variable representing the molar fraction of this component
-    (feed fraction), cell-wise in a computational domain.
 
     Components are chemical species which possibly go through phase transitions and
     appear in multiple phases.
     They represent a genuine component in the flash problem.
 
+    Provides a variable representing the molar fraction of this component
+    (feed fraction), cell-wise in a computational domain.
+
     Note:
-        The component is a Singleton per AD system,
-        using the class name as a unique identifier.
-        A component class with name ``X`` can only be present once in a system.
-        Ambiguities must be avoided due to central storage of the fractional values
-        in the grid data dictionaries.
+        Rather than instantiating a component directly, it is easier to use the
+        class factory based on loaded species data (see :meth:`from_species`).
 
     Parameters:
-        ad_system: AD system in which this component is present cell-wise in each
-            subdomain.
+        **kwargs: See parent (data-) class and its attributes.
 
     """
 
-    def __init__(self, ad_system: pp.ad.EquationSystem) -> None:
+    def __init__(self, **kwargs) -> None:
 
-        super().__init__(ad_system=ad_system)
-
-        # creating the overall molar fraction variable
-        self._fraction: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            f"{COMPOSITIONAL_VARIABLE_SYMBOLS['component_fraction']}_{self.name}",
-            subdomains=ad_system.mdg.subdomains(),
+        super().__init__(
+            **kwargs
+            # **{
+            # k: v for k, v in kwargs.items()
+            # if k in FluidSpeciesData.__match_args__
+            # }  # Python 3.10
         )
 
-    @property
-    def fraction(self) -> pp.ad.MixedDimensionalVariable:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [%] fractional
+        # creating the overall molar fraction variable
+        self.fraction: pp.ad.Operator
+        """Overall fraction, or feed fraction, for this component.
 
-        The name of this variable is composed of the general symbol and the component
-        class' :meth:`name`
-        (see :data:`~porepy.composite._composite_utils.VARIABLE_SYMBOLS`).
+        It indicates how many of the total moles belong to this component (cell-wise).
+
+        - Math. Dimension:        scalar
+        - Phys. Dimension:        [%] fractional
+
+        The overall fraction is always considered constant in the flash problem,
+        but possible a primary variable in other physics.
+
+        This attribute is assigned by a mixture instance, when this component is added.
+
+        If the component is assigned as the reference component, this is a dependent
+        operator. Otherwise it is a variable.
+
+        """
+
+    @classmethod
+    def from_species(cls, species: FluidSpeciesData) -> Component:
+        """An instance factory creating an instance of this class based on a load
+        fluid species represented by respective data class.
+
+        Parameters:
+            species: Chemical species with loaded data.
 
         Returns:
-            Feed fraction of this component,
-            a primary variable on the whole domain (cell-wise).
-            Indicates how many of the total moles belong to this component.
+            A genuine mixture component.
 
         """
-        return self._fraction
-
-    @property
-    @abc.abstractmethod
-    def acentric_factor(self) -> float:
-        """This is a constant value, hence to be a static function.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-]
-
-        Returns:
-            Acentric factor.
-
-        """
-        pass
+        return cls(**asdict(species))
 
     @abc.abstractmethod
     def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
@@ -207,8 +111,8 @@ class Component(PseudoComponent):
 
         This function depends on experimental data and heuristic laws.
 
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-]
+        - Math. Dimension:        scalar
+        - Phys. Dimension:        [-]
 
         Parameters:
             p: The pressure of the mixture.
@@ -222,27 +126,27 @@ class Component(PseudoComponent):
 
 
 class Compound(Component):  # TODO fix molality to make it an ad.Function call
-    """Abstract base class for all compounds in a mixture.
+    """Abstract base class for compounds in a mixture.
 
-    A compound is a simplified, but meaningfully generalized component inside a mixture,
-    for which it makes sense to treat it as a single component.
+    A compound is a simplified, but meaningfully generalized set of components inside a
+    mixture, for which it makes sense to treat it as a single component.
 
-    It has one pseudo-component declared as the solvent, and arbitrary many other
-    pseudo-components declared as solutes.
+    It is represented by one component declared as the solvent, and arbitrary many other
+    species declared as solutes.
 
     A compound can appear in multiple phases and its thermodynamic properties are
     influenced by the presence of solutes.
 
     Note:
-        Due to the generalization,
-        the solvent and solutes are not considered as genuine components which
-        can transition into various phases,
+        Due to the generalization, the solvent and solutes alone are not considered as
+        genuine components which can transition into various phases,
         but rather as parameters in the flash problem.
         Only the compound as a whole splits into various phases. Fractions in phases
         are associated with the compound.
 
     This class provides variables representing fractions of solutes.
-    The solute fractions are formulated with respect to the component fraction.
+    The solute fractions are formulated with respect to the component
+    :attr:`~Component.fraction`.
     Solute fractions are secondary variables in the flash problem,
     but primary (transportable) in the flow problem.
 
@@ -251,9 +155,7 @@ class Compound(Component):  # TODO fix molality to make it an ad.Function call
         The solvent fraction is always expressed by unity through the solute fractions.
 
     Example:
-        See :class:`PseudoComponent`:
-
-        Brine with a pseudo-components salt and water as solute and solvent, where it is
+        Brines with species salt and water as solute and solvent, where it is
         sufficient to calculate how much brine is in vapor or liquid form,
         and the information about how the salt distributes across phases is irrelevant.
         The salt in this case is a **transportable** quantity,
@@ -269,16 +171,10 @@ class Compound(Component):  # TODO fix molality to make it an ad.Function call
 
     """
 
-    def __init__(
-        self, ad_system: pp.ad.EquationSystem, solvent: PseudoComponent
-    ) -> None:
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
 
-        super().__init__(ad_system=ad_system)
-
-        self._solvent: PseudoComponent = solvent
-        """The solvent passed at instantiation."""
-
-        self._solutes: list[PseudoComponent] = list()
+        self._solutes: list[ChemicalSpeciesData] = list()
         """A list containing present solutes."""
 
         self._solute_fractions: dict[

@@ -8,10 +8,12 @@ import abc
 from typing import Any
 
 import porepy as pp
+from porepy.numerics.ad.operator_functions import NumericType
 
 __all__ = [
     "safe_sum",
     "CompositionalSingleton",
+    "AdProperty",
 ]
 
 
@@ -85,3 +87,17 @@ class CompositionalSingleton(abc.ABCMeta):
         CompositionalSingleton.__ad_singletons[ad_system].update({name: new_instance})
         # return new instance
         return new_instance
+
+
+class AdProperty(pp.ad.Operator):
+    """A leaf-operator returning an assigned value whenever it is parsed."""
+
+    def __init__(self, name: str = "") -> None:
+        super().__init__(name=name)
+
+        self.value: NumericType = 0.0
+        """The numerical value of this operator."""
+
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> NumericType:
+        """Returns the value assigned to this operator."""
+        return self.value

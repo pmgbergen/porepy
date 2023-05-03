@@ -1,78 +1,40 @@
 import numpy as np
-
 import porepy as pp
 
-MIX = pp.composite.PengRobinsonMixture(nc = 1)
-ads = MIX.AD.system
-nc = ads.mdg.num_subdomain_cells()
+chems = ["H2O", "CO2"]
 
-h2o = pp.composite.H2O(ads)
-co2 = pp.composite.CO2(ads)
-LIQ = pp.composite.PR_Phase(ads, False, name="L")
-GAS = pp.composite.PR_Phase(ads, True, name="G")
+z = [np.array([0.99]), np.array([0.01])]
+p = np.array([0.1])
+T = np.array([400])
 
-MIX.add([h2o, co2], [LIQ, GAS])
+species = pp.composite.load_fluid_species(chems)
 
-temperature = 442.8571428571429
-pressure = 18375510.204081632 * 1e-6
+comps = [
+    pp.composite.peng_robinson.H2O.from_species(species[0]),
+    pp.composite.peng_robinson.CO2.from_species(species[1]),
+]
 
-# temperature = 588.8888888888889
-# pressure = 177410.61109663505 * 1e-6
+phases = [
+    pp.composite.Phase(pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name='L'),
+    pp.composite.Phase(pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name='G'),
+]
 
-co2_fraction = 0.01
-h2o_fraction = 0.99
-vec = np.ones(nc)
+mix = pp.composite.NonReactiveMixture(comps, phases)
 
-ads.set_variable_values(
-    h2o_fraction * vec, variables=[h2o.fraction.name], to_iterate=True, to_state=True
-)
-ads.set_variable_values(
-    co2_fraction * vec, variables=[co2.fraction.name], to_iterate=True, to_state=True
-)
+mix.set_up()
 
-MIX.AD.set_up()
+yr = mix.reference_phase.fraction.evaluate(mix.system)
 
-ads.set_variable_values(
-    temperature * vec, variables=[MIX.AD.T.name], to_iterate=True, to_state=True
-)
-ads.set_variable_values(
-    pressure * vec, variables=[MIX.AD.p.name], to_iterate=True, to_state=True
-)
-ads.set_variable_values(
-    0 * vec, variables=[MIX.AD.h.name], to_iterate=True, to_state=True
+flash = pp.composite.FlashNR(mix)
+flash.use_armijo = True
+flash.armijo_parameters["rho"] = 0.99
+flash.armijo_parameters["j_max"] = 50
+flash.armijo_parameters["return_max"] = True
+flash.newton_update_chop = 1.0
+flash.tolerance = 1e-8
+flash.max_iter = 140
+
+success, results = flash.flash(
+    state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True}
 )
 
-FLASH = pp.composite.Flash(MIX, auxiliary_npipm=False)
-FLASH.use_armijo = True
-FLASH.armijo_parameters["rho"] = 0.99
-FLASH.armijo_parameters["j_max"] = 50
-FLASH.armijo_parameters["return_max"] = True
-FLASH.newton_update_chop = 1.0
-FLASH.flash_tolerance = 1e-8
-FLASH.max_iter_flash = 140
-
-FLASH.flash("pT", "npipm", "rachford_rice", True, True)
-MIX.precompute(apply_smoother=False)
-# evaluate enthalpy after pT flash
-FLASH.post_process_fractions(True)
-FLASH.evaluate_specific_enthalpy(True)
-# print thermodynamic state stored as STATE in AD
-FLASH.print_state()
-print("Z LIQ: ", MIX._phases[0].eos.Z.val)
-print("Z GAS: ", MIX._phases[1].eos.Z.val)
-print("---")
-print("PHI LIQ: ", [phi.val for phi in MIX._phases[0].eos.phi.values()])
-print("PHI GAS: ", [phi.val for phi in MIX._phases[1].eos.phi.values()])
-
-# # modifying enthalpy for isenthalpic flash
-# h = adsys.get_variable_values(variables=[M.h_name]) * 1.25
-# adsys.set_variable_values(h, variables=[M.h_name], to_iterate=True, to_state=False)
-
-# # isenthalpic procedure, storing only as ITERATE
-# FLASH.use_armijo = False
-# FLASH.flash("isenthalpic", "npipm", "iterate", False, True)
-# FLASH.evaluate_saturations(False)
-# # print thermodynamic state stored as ITERATE in ad
-# FLASH.print_state(True)
-
-print("DONE")

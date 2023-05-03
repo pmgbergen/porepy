@@ -1,11 +1,12 @@
-"""The ``composite`` sub=package in PorePy contains classes representing various
-mixtures and implementations of the unified flash procedure in p-T and p-h.
+"""The ``composite`` sub-package in PorePy contains classes representing
+mixtures and mixture components, as well as an implementations of the unified flash
+procedure.
 
 The unified flash is largely based on the work listed below.
 
 Compositions/mixtures are intended to be part of a flow model, i.e. they use PorePy's AD
 framework to represent variables and equations.
-The p-h and p-T subsystems can naturally be extended by the respective flow model.
+The subsystems can naturally be extended by the respective flow model.
 
 The composite module works (for now) with the following units as base units:
 
@@ -16,9 +17,10 @@ The composite module works (for now) with the following units as base units:
 - Volume:       [m^3] (Cubic Meter)
 
 For the reference state, an ideal tri-atomic gas (like water),
-with internal energy at the triple point of water set to zero, was chosen.
+with internal energy at the triple point of water set to zero, was chosen (as per
+IAPWS standard).
 
-All modelled phases, components and thermodynamic properties are to be modelled with
+All phases, components and thermodynamic properties are to be modelled with
 respect to this reference state.
 
 References:
@@ -30,13 +32,28 @@ References:
 
 __all__ = []
 
-from . import composite_utils, flash, mixture, peng_robinson
+from . import (
+    chem_interface,
+    chem_species,
+    component,
+    composite_utils,
+    flash,
+    mixture,
+    peng_robinson,
+    phase,
+)
+from .chem_interface import *
+from .chem_species import *
+from .component import *
 from .composite_utils import *
 from .flash import *
 from .mixture import *
-from .peng_robinson import *
+from .phase import *
 
+__all__.extend(chem_interface.__all__)
+__all__.extend(chem_species.__all__)
+__all__.extend(component.__all__)
 __all__.extend(composite_utils.__all__)
-__all__.extend(mixture.__all__)
 __all__.extend(flash.__all__)
-__all__.extend(peng_robinson.__all__)
+__all__.extend(mixture.__all__)
+__all__.extend(phase.__all__)

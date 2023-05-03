@@ -167,7 +167,7 @@ def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
 
 def get_flash_setup(
     num_cells: int,
-) -> tuple[pp.composite.Mixture, pp.ad.EquationSystem, pp.composite.Flash]:
+) -> tuple[pp.composite.NonReactiveMixture, pp.ad.EquationSystem, pp.composite.FlashNR]:
     """Returns instances of the modelled mixture, respective AD system and flash from
     PorePy's framework, in that order.
 
@@ -183,7 +183,7 @@ def get_flash_setup(
     h2o_frac = FEED["water"]
     co2_frac = FEED["CO2"]
 
-    MIX = pp.composite.PengRobinsonMixture(nc=num_cells)
+    MIX = pp.composite.NonReactiveMixture(nc=num_cells)
     ADS = MIX.AD.system
 
     # components
@@ -193,7 +193,7 @@ def get_flash_setup(
     LIQ = pp.composite.PR_Phase(ADS, False, name="L")
     GAS = pp.composite.PR_Phase(ADS, True, name="G")
 
-    MIX.add([H2O, CO2], [LIQ, GAS])
+    MIX.set([H2O, CO2], [LIQ, GAS])
 
     # setting feed fractions
     ADS.set_variable_values(
@@ -212,15 +212,15 @@ def get_flash_setup(
     MIX.AD.set_up()
 
     # instantiating Flasher, without auxiliary variables V and W
-    FLASH = pp.composite.Flash(MIX, auxiliary_npipm=False)
+    FLASH = pp.composite.FlashNR(MIX, auxiliary_npipm=False)
     FLASH.use_armijo = True
     FLASH.armijo_parameters["rho"] = 0.99
     FLASH.armijo_parameters["j_max"] = 55  # cap the number of Armijo iterations
     FLASH.armijo_parameters[
         "return_max"
     ] = True  # return max Armijo iter, even if not min
-    FLASH.flash_tolerance = 1e-8
-    FLASH.max_iter_flash = 140
+    FLASH.tolerance = 1e-8
+    FLASH.max_iter = 140
 
     return MIX, ADS, FLASH
 
@@ -296,8 +296,8 @@ def parallel_pT_flash(ipT):
             flash_type="pT",
             method="npipm",
             initial_guess="rachford_rice",
-            copy_to_state=True,  # don't overwrite the state, store as iterate
-            do_logging=False,
+            to_state=True,  # don't overwrite the state, store as iterate
+            verbosity=False,
         )
     except Exception as err:  # if Flasher fails, flag as failed
         print(f"\nParallel flash: failed at {ipT}\n{str(err)}\n", flush=True)
@@ -305,7 +305,7 @@ def parallel_pT_flash(ipT):
 
     if success_:
         try:
-            MIX.precompute(apply_smoother=False)
+            MIX.AD.compute_properties_from_state(apply_smoother=False)
             FLASH.evaluate_specific_enthalpy(True)
         except Exception:
             # if the flash failed, the root computation can fail too
@@ -340,7 +340,7 @@ def parallel_pT_flash(ipT):
         x_co2_L_arr[i] = LIQ.fraction_of_component(CO2).evaluate(ADS).val[0]
         x_co2_G_arr[i] = GAS.fraction_of_component(CO2).evaluate(ADS).val[0]
 
-        num_iter_arr[i] = FLASH.flash_history[-1]["iterations"]
+        num_iter_arr[i] = FLASH.history[-1]["iterations"]
         cond_start_arr[i] = FLASH.cond_start
         cond_end_arr[i] = FLASH.cond_end
 
@@ -440,21 +440,21 @@ def parallel_ph_flash(iph):
             flash_type="ph",
             method="npipm",
             initial_guess="rachford_rice",
-            copy_to_state=True,  # don't overwrite the state, store as iterate
-            do_logging=False,
+            to_state=True,  # don't overwrite the state, store as iterate
+            verbosity=False,
         )
     except Exception as err:  # if Flasher fails, flag as failed
         print(f"\nParallel flash: failed at {iph}\n{str(err)}\n", flush=True)
         success_ = False
 
     # always available
-    num_iter_arr[i] = FLASH.flash_history[-1]["iterations"]
+    num_iter_arr[i] = FLASH.history[-1]["iterations"]
     cond_start_arr[i] = FLASH.cond_start
     cond_end_arr[i] = FLASH.cond_end
 
     if success_:
         try:
-            MIX.precompute(apply_smoother=False)
+            MIX.AD.compute_properties_from_state(apply_smoother=False)
             FLASH.evaluate_specific_enthalpy(True)
         except Exception:
             # if the flash failed, the root computation can fail too
@@ -554,15 +554,15 @@ def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str
                 flash_type="pT",
                 method="npipm",
                 initial_guess="rachford_rice",
-                copy_to_state=False,  # don't overwrite the state, store as iterate
-                do_logging=False,
+                to_state=False,  # don't overwrite the state, store as iterate
+                verbosity=False,
             )
         except Exception as err:  # if Flasher fails, flag as failed
             print(f"\rPoint-wise flash: failed at {i}\n{str(err)}", flush=True)
             success_ = False
 
         try:
-            MIX.precompute(apply_smoother=False)
+            MIX.AD.compute_properties_from_state(apply_smoother=False)
             FLASH.evaluate_specific_enthalpy(True)
         except Exception as err:
             print(
@@ -599,7 +599,7 @@ def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str
         x_co2_L.append(LIQ.fraction_of_component(CO2).evaluate(ADS).val[0])
         x_h2o_G.append(GAS.fraction_of_component(H2O).evaluate(ADS).val[0])
         x_co2_G.append(GAS.fraction_of_component(CO2).evaluate(ADS).val[0])
-        num_iter.append(FLASH.flash_history[-1]["iterations"])
+        num_iter.append(FLASH.history[-1]["iterations"])
         cond_start.append(FLASH.cond_start)
         cond_end.append(FLASH.cond_end)
 
