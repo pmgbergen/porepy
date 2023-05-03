@@ -4,44 +4,7 @@ from __future__ import annotations
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .composite_utils import safe_sum
-
-
-def pseudocritical_temperature(
-    z: list[NumericType], T_c: list[NumericType]
-) -> NumericType:
-    """Calculates an approximation of the critical temperature of a mixture of an
-    arbitrary number of components.
-
-    The values in ``z_i`` and ``T_ci`` arr assumed to be properly ordered, i.e.
-    ``z[i]`` and ``T_c[i]`` belong to component ``i``.
-
-    Parameters:
-        z: A list of fractional values.
-        T_c: A list of critical temperatures.
-
-    Returns:
-        The sum of critical temperatures weighed with the fractional values.
-
-    """
-    return safe_sum([z_i * T_i for z_i, T_i in zip(z, T_c)])
-
-
-def pseudocritical_pressute(
-    z: list[NumericType], p_c: list[NumericType]
-) -> NumericType:
-    """Calculates an approximation of the critical pressure of a mixture analogous to
-    :func:`pseudocritical_temperature`.
-
-    Parameters:
-        z: A list of fractional values.
-        p_c: A list of critical pressures.
-
-    Returns:
-        The sum of critical pressures weighed with the fractional values.
-
-    """
-    return safe_sum([z_i * p_i for z_i, p_i in zip(z, p_c)])
+__all__ = ["K_val_Wilson"]
 
 
 def K_val_Wilson(

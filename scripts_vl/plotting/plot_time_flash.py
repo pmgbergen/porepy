@@ -26,7 +26,7 @@ h2o_fraction = 0.99
 
 for nc in cells:
     print(f"Calculating for nc={nc}", flush=True)
-    M = pp.composite.PengRobinsonMixture(nc=nc)
+    M = pp.composite.NonReactiveMixture(nc=nc)
     ads = M.AD.system
     vec = np.ones(nc)
 
@@ -35,7 +35,7 @@ for nc in cells:
     LIQ = pp.composite.PR_Phase(ads, False, name="L")
     GAS = pp.composite.PR_Phase(ads, True, name="G")
 
-    M.add([h2o, co2], [LIQ, GAS])
+    M.set([h2o, co2], [LIQ, GAS])
 
     ads.set_variable_values(
         h2o_fraction * vec,
@@ -62,14 +62,14 @@ for nc in cells:
         0 * vec, variables=[M.AD.h.name], to_iterate=True, to_state=True
     )
 
-    FLASH = pp.composite.Flash(M, auxiliary_npipm=False)
+    FLASH = pp.composite.FlashNR(M, auxiliary_npipm=False)
     FLASH.use_armijo = True
     FLASH.armijo_parameters["rho"] = 0.99
     FLASH.armijo_parameters["j_max"] = 50
     FLASH.armijo_parameters["return_max"] = True
     FLASH.newton_update_chop = 1.0
-    FLASH.flash_tolerance = 1e-7
-    FLASH.max_iter_flash = 50
+    FLASH.tolerance = 1e-7
+    FLASH.max_iter = 50
 
     start = time.time()
     FLASH.flash("pT", "npipm", "rachford_rice", True, False)

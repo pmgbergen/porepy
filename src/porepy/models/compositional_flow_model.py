@@ -161,8 +161,8 @@ class CompositionalFlowModel:
         self.advective_upwind_energy_bc: pp.ad.BoundaryCondition
 
         ### COMPOSITION SETUP
-        self.composition: pp.composite.Mixture
-        self.flash: pp.composite.Flash
+        self.composition: pp.composite.NonReactiveMixture
+        self.flash: pp.composite.FlashNR
 
         ### PRIVATE
 
@@ -248,12 +248,12 @@ class CompositionalFlowModel:
 
         """
         ## creating composition
-        self.composition = pp.composite.PengRobinsonMixture(self.ad_system)
+        self.composition = pp.composite.NonReactiveMixture(self.ad_system)
         h2o = pp.composite.H2O(self.ad_system)
         co2 = pp.composite.CO2(self.ad_system)
         LIQ = pp.composite.PR_Phase(self.ad_system, gas_like=False, name='L')
         GAS = pp.composite.PR_Phase(self.ad_system, gas_like=True, name='G')
-        self.composition.add([h2o, co2], [LIQ, GAS])
+        self.composition.set([h2o, co2], [LIQ, GAS])
 
         ## setting thermodynamic state in terms of p-T-z
         nc = self.mdg.num_subdomain_cells()
@@ -288,14 +288,14 @@ class CompositionalFlowModel:
         ## initialize and construct flasher
         print("Computing initial, domain-wide equilibrium ...")
         self.composition.initialize()
-        self.flash = pp.composite.Flash(self.composition)
+        self.flash = pp.composite.FlashNR(self.composition)
         self.flash.use_armijo = True
         self.flash.armijo_parameters["rho"] = 0.99
         self.flash.armijo_parameters["j_max"] = 50
         self.flash.armijo_parameters["return_max"] = True
         self.flash.newton_update_chop = 1.0
-        self.flash.flash_tolerance = 5e-6
-        self.flash.max_iter_flash = 140
+        self.flash.tolerance = 5e-6
+        self.flash.max_iter = 140
         self.flash.flash("pT", "npipm", "rachford_rice", True, False)
         self.flash.post_process_fractions(True)
         self.flash.evaluate_specific_enthalpy(True)
@@ -310,13 +310,13 @@ class CompositionalFlowModel:
 
         ## INFLOW BOUNDARY
         nc = 1
-        C = pp.composite.PengRobinsonMixture(nc=nc)
+        C = pp.composite.NonReactiveMixture(nc=nc)
         adsys = C.ad_system
         h2o = pp.composite.H2O(adsys)
         co2 = pp.composite.CO2(adsys)
         LIQ = pp.composite.PR_Phase(adsys, gas_like=False, name='L')
         GAS = pp.composite.PR_Phase(adsys, gas_like=True, name='G')
-        C.add([h2o, co2], [LIQ, GAS])
+        C.set([h2o, co2], [LIQ, GAS])
 
         # setting thermodynamic state at boundary
         vec = np.ones(nc)
@@ -348,18 +348,18 @@ class CompositionalFlowModel:
 
         print("Computing inflow boundary equilibrium ...")
         C.initialize()
-        F = pp.composite.Flash(C)
+        F = pp.composite.FlashNR(C)
         F.use_armijo = True
         F.armijo_parameters["rho"] = 0.99
         F.armijo_parameters["j_max"] = 50
         F.armijo_parameters["return_max"] = True
         F.newton_update_chop = 1.0
-        F.flash_tolerance = 1e-8
-        F.max_iter_flash = 140
+        F.tolerance = 1e-8
+        F.max_iter = 140
         F.flash("pT", "npipm", "rachford_rice", True, False)
         F.post_process_fractions(True)
         F.evaluate_specific_enthalpy(True)
-        C.precompute(apply_smoother=False)
+        C.AD.compute_properties_from_state(apply_smoother=False)
 
         # computing mass entering the system through boundary
         self.inflow_boundary_advective_component = dict()
@@ -367,9 +367,9 @@ class CompositionalFlowModel:
 
             advective_scalar = sum(
                 [
-                    phase.density(C.p, C.T)
+                    phase.density
                     * phase.saturation
-                    * phase.normalized_fraction_of_component(component)
+                    * phase.normalized_fraction_of[component]
                     for phase in C.phases
                 ]
             ).evaluate(adsys).val[0]
@@ -1099,7 +1099,7 @@ class CompositionalFlowModel:
                 k_re = self.rel_perm(phase.saturation)
 
             scalar_part = (
-                phase.density(cp.p, cp.T) * k_re / phase.dynamic_viscosity(cp.p, cp.T)
+                phase.density * k_re / phase.viscosity
             )
             advection_scalar.append(scalar_part)
         # sum over all phases
@@ -1167,10 +1167,10 @@ class CompositionalFlowModel:
                     k_re = self.rel_perm(phase.saturation)
 
                 scalar_part = (
-                    phase.density(cp.p, cp.T)
-                    * phase.normalized_fraction_of_component(component)
+                    phase.density
+                    * phase.normalized_fraction_of[component]
                     * k_re
-                    / phase.dynamic_viscosity(cp.p, cp.T)
+                    / phase.viscosity
                 )
 
                 advection_scalar.append(scalar_part)
@@ -1227,14 +1227,10 @@ class CompositionalFlowModel:
                 k_re = self.rel_perm(phase.saturation)
 
             scalar_part = (
-                phase.density(cp.p, cp.T)
-                * phase.specific_enthalpy(
-                    cp.p,
-                    cp.T,
-                    *[phase.normalized_fraction_of_component(comp) for comp in phase]
-                )
+                phase.density
+                * phase.enthalpy
                 * k_re
-                / phase.dynamic_viscosity(cp.p, cp.T)
+                / phase.viscosity
             )
             advective_scalar.append(scalar_part)
         # sum over all phases
@@ -1259,7 +1255,7 @@ class CompositionalFlowModel:
             else:
                 s_e = phase.saturation
 
-            scalar_part = s_e * phase.thermal_conductivity(cp.p, cp.T)
+            scalar_part = s_e * phase.conductivity
             conductive_scalar.append(scalar_part)
         # sum over all phases
         conductive_scalar = porosity * sum(conductive_scalar)

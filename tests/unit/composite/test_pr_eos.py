@@ -73,7 +73,7 @@ class TestPREoS(unittest.TestCase):
         A = tested_formats_1(0.2)
         B = tested_formats_1(0.1)
 
-        EOS = pp.composite.PR_EoS(True)  # flag does not change results
+        EOS = pp.composite.PengRobinsonEoS(True)  # flag does not change results
 
         for A_i, B_i in product(A, B):
 
@@ -133,8 +133,8 @@ class TestPREoS(unittest.TestCase):
         all_A = np.linspace(0, pp.composite.A_CRIT, self.Z_refinement + 2)[1:-1]
         all_B = np.linspace(0, pp.composite.B_CRIT, self.Z_refinement + 2)[1:-1]
 
-        GAS = pp.composite.PR_EoS(True)
-        LIQ = pp.composite.PR_EoS(False)
+        GAS = pp.composite.PengRobinsonEoS(True)
+        LIQ = pp.composite.PengRobinsonEoS(False)
 
         liquid_residuals = list()
         gas_residuals = list()

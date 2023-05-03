@@ -2,6 +2,25 @@
 
 The work here is largely based on below references.
 
+This subpackage implements the standard Peng-Robinson equation of state,
+including some mixing rules and model components.
+
+It provides an intermediate abstraction for model components
+:class:`~porepy.composite.peng_robinson.pr_components.Component_PR`,
+such that custom implementations for some physical and chemical quantities can be done.
+
+The core of the module is its EoS class
+:class:`~porepy.composite.peng_robinson.eos.PengRobinsonEoS`,
+which implements the calculation of physical properties.
+
+It provides furthermore an interface to load binary interaction parameters from the
+package ``thermo``, as well as some mixing rules to obtain a mixture's cohesion and
+covolume, such as
+:class:`~porepy.composite.peng_robinson.mixing.VanDerWaals`.
+
+The mixing rules are independent of the EoS and can in theory be used for any other
+cubic EoS.
+
 References:
     [1]: `Peng, Robinson (1976) <https://doi.org/10.1021/i160057a011>`_
     [2]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
@@ -13,17 +32,13 @@ References:
 
 __all__ = []
 
-from . import pr_bip, pr_eos, pr_mixture, pr_model_components, pr_utils
+from . import eos, mixing, pr_bip, pr_components
+from .eos import *
+from .mixing import *
 from .pr_bip import *
-from .pr_eos import *
-from .pr_mixture import *
-from .pr_model_components import *
-from .pr_phase import PR_Phase
-from .pr_utils import *
+from .pr_components import *
 
-__all__.extend(pr_mixture.__all__)
+__all__.extend(eos.__all__)
+__all__.extend(mixing.__all__)
 __all__.extend(pr_bip.__all__)
-__all__.extend(pr_eos.__all__)
-__all__.extend(pr_model_components.__all__)
-__all__.extend(["PR_Phase"])
-__all__.extend(pr_utils.__all__)
+__all__.extend(pr_components.__all__)

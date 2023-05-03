@@ -613,7 +613,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         phi_co2_L_result = np.zeros(nc)
         phi_co2_G_result = np.zeros(nc)
 
-        MIX = pp.composite.PengRobinsonMixture(nc=nc_test)
+        MIX = pp.composite.NonReactiveMixture(nc=nc_test)
         ads = MIX.AD.system
 
         phase_L = pp.composite.PR_Phase(ads, False, name="L")
@@ -622,7 +622,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
         h2o = pp.composite.H2O(ads)
         co2 = pp.composite.CO2(ads)
 
-        MIX.add([h2o, co2], [phase_L, phase_G])
+        MIX.set([h2o, co2], [phase_L, phase_G])
 
         # setting overall fractions
         ads.set_variable_values(
@@ -639,14 +639,14 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
             np.zeros(nc_test), [MIX.AD.h.name], True, True, False
         )
 
-        flash = pp.composite.Flash(MIX, auxiliary_npipm=False)
+        flash = pp.composite.FlashNR(MIX, auxiliary_npipm=False)
         flash.use_armijo = True
         flash.armijo_parameters["rho"] = 0.99
         flash.armijo_parameters["j_max"] = 50
         flash.armijo_parameters["return_max"] = True
         flash.newton_update_chop = 1.0
-        flash.flash_tolerance = 1e-8
-        flash.max_iter_flash = 70
+        flash.tolerance = 1e-8
+        flash.max_iter = 70
 
         flash_erro_msg = dict()
 
@@ -662,7 +662,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
             # compute values with obtained fractions
             flash.post_process_fractions(False)
-            MIX.precompute(apply_smoother=False)
+            MIX.AD.compute_properties_from_state(apply_smoother=False)
 
             # extract values for l2 error check
             y_result = phase_G.fraction.evaluate(ads).val
@@ -698,7 +698,7 @@ class Test_CO2_H2O_pT_flash(unittest.TestCase):
 
                 # compute values with obtained fractions
                 flash.post_process_fractions(False)
-                MIX.precompute(apply_smoother=False)
+                MIX.AD.compute_properties_from_state(apply_smoother=False)
 
                 y_result[i] = phase_G.fraction.evaluate(ads).val
 

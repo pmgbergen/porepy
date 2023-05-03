@@ -7,100 +7,409 @@ methods for thermodynamic properties used in the unified formulation.
 from __future__ import annotations
 
 import abc
-from typing import Generator
+from dataclasses import dataclass
+from typing import Generator, Literal, overload
 
 import numpy as np
 
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS
 from .component import Component
-from .composite_utils import CompositionalSingleton, safe_sum
+from .composite_utils import AdProperty, safe_sum
+
+__all__ = ["PhaseProperties", "AbstractEoS", "Phase"]
 
 
-class Phase(abc.ABC, metaclass=CompositionalSingleton):
-    """Abstract base class for phases in a multiphase multicomponent mixture.
+@dataclass(frozen=True)
+class PhaseProperties:
+    """Basic data class for general phase properties, relevant for this framework.
+
+    Use this dataclass to extend the list of relevant phase properties for a specific
+    equation of state.
+
+    """
+
+    rho: NumericType
+    """Molar density ``[mol / m^3]``."""
+
+    rho_mass: NumericType
+    """Mass density ``[kg / m^3]``."""
+
+    v: NumericType
+    """Molar volume ``[m^3 / mol]``."""
+
+    h_ideal: NumericType
+    """Specific ideal enthalpy ``[kJ / mol / K]``, which is a sum of ideal enthalpies of
+    components weighed with their fraction. """
+
+    h_dep: NumericType
+    """Specific departure enthalpy ``[kJ / mol / K]``."""
+
+    h: NumericType
+    """Specific enthalpy ``[kJ / mol / K]``, a sum of :attr:`h_ideal` and :attr:`h_dep`.
+    """
+
+    phis: list[NumericType]
+    """Fugacity coefficients per component, ordered as compositional fractions."""
+
+    kappa: NumericType
+    """Thermal conductivity ``[W / m / K]``."""
+
+    mu: NumericType
+    """Dynamic molar viscosity ``[mol / m / s]``."""
+
+
+class AbstractEoS(abc.ABC):
+    """Abstract class representing an equation of state.
+
+    Child classes have to implement the method :meth:`compute` which must return
+    relevant :class:`PhaseProperties` using a specific EoS.
+
+    The purpose of this class is the abstraction of the property computations, as well
+    as providing the necessary information about the supercritical state and the
+    extended state in the unified setting.
+
+    Parameters:
+        gaslike: A bool indicating if the EoS is represents a gas-like state.
+
+            Since in general there can only be one gas-phase, this flag must be
+            provided.
+        *args: In case of inheritance.
+        **kwargs: In case of inheritance.
+
+    """
+
+    def __init__(self, gaslike: bool, *args, **kwargs) -> None:
+
+        super().__init__()
+
+        self._components: list[Component] = list()
+        """Private container for components with species data. See :meth:`components`.
+        """
+
+        self.is_supercritical: np.ndarray = np.array([], dtype=bool)
+        """A boolean array flagging if the mixture became super-critical.
+
+        In vectorized computations, the results are stored component-wise.
+
+        Important:
+            It is unclear, what the meaning of super-critical phases is using this EoS
+            and values in this phase region should be used with suspicion.
+
+        """
+
+        self.is_extended: np.ndarray = np.array([], dtype=bool)
+        """A boolean array flagging if an extended state is computed in the unified
+        setting.
+
+        In vectorized computations, the results are stored component-wise.
+
+        Important:
+            Extended states are un-physical in general.
+
+        """
+
+        self.gaslike: bool = bool(gaslike)
+        """Flag passed at instantiation indicating if gas state or not."""
+
+    @property
+    def components(self) -> list[Component]:
+        """A list of (compatible) components, which hold relevant chemical data.
+
+        A setter is provided, which concrete EoS can overwrite to perform one-time
+        computations, if any.
+
+        Important:
+            This attribute is set by a the setter of :meth:`Phase.components`,
+            and should not be meddled with.
+
+            The order in this list is crucial for computations involving fractions.
+
+            Order of passed fractions must coincide with the order of components
+            passed here.
+
+            **This is a design choice**.
+            Alternatively, component-related parameters and
+            functions can be passed during instantiation, which would render the
+            signature of the constructor quite hideous.
+
+        Parameters:
+            components: A list of component for the EoS containing species data.
+
+        """
+        return self._components
+
+    @components.setter
+    def components(self, components: list[Component]) -> None:
+        # deep copy
+        self._components = [c for c in components]
+
+    @abc.abstractmethod
+    def compute(
+        self,
+        p: NumericType,
+        T: NumericType,
+        X: list[NumericType],
+        **kwargs,
+    ) -> PhaseProperties:
+        """Abstract method for computing all thermodynamic properties based on the
+        passed, thermodynamic state.
+
+        Warning:
+            ``p``, ``T``, ``*X`` have a union type, meaning the results will be of
+            the same. When mixing numpy arrays, porepy's Ad arrays and numbers,
+            the user must make sure there will be no compatibility issues.
+
+            This method is not supposed to be used with AD Operator instances.
+
+        Important:
+            This method must update :attr:`is_supercritical` and :attr:`is_extended`.
+
+        Parameters:
+            p: Pressure
+            T: Temperature
+            X: ``len=num_components``
+
+                (Normalized) Fractions to be used in the computation.
+            **kwargs: Any options necessary for specific computations can be passed as
+                keyword arguments.
+
+        Returns:
+            A dataclass containing the basic phase properties. The basic properties
+            include those, which are required for the reminder of the framework to
+            function as intended.
+
+        """
+        raise NotImplementedError("Call to abstract method.")
+
+    def get_h_ideal(
+        self, p: NumericType, T: NumericType, X: list[NumericType]
+    ) -> NumericType:
+        """
+        Parameters:
+            p: Pressure.
+            T: Temperature.
+            X: ``len=num_components``
+
+                Fraction per component to be used in the computation,
+                ordered as in :attr:`components`.
+
+        Returns:
+            The ideal part of the enthalpy, which is a sum of ideal component enthalpies
+            weighed with their fraction.
+
+        """
+        return safe_sum([x * comp.h_ideal(p, T) for x, comp in zip(X, self.components)])
+
+    def get_rho_mass(self, rho_mol: NumericType, X: list[NumericType]) -> NumericType:
+        """
+        Parameters:
+            rho_mol: Molar density resulting from :meth:`compute`.
+            X: ``len=num_components``
+
+                Fraction per component to be used in the computation,
+                ordered as in :attr:`components`.
+
+        Returns:
+            The mass density, which is the molar density multiplied with the sum of
+            fractions weighed with component molar masses.
+
+        """
+        return rho_mol * safe_sum(
+            [x * comp.molar_mass for x, comp in zip(X, self.components)]
+        )
+
+
+class Phase:
+    """Base class for phases in a multiphase multicomponent mixture.
 
     The term 'phase' includes both, states of matter and general fields.
     A phase is identified by the (time-dependent) region/volume it occupies (saturation)
     and the (molar) fraction of mass belonging to this phase.
 
-    Phases have physical properties,
-    dependent on the thermodynamic state and the composition.
-    The composition variables (molar fractions of present components)
-    can be accessed by internal reference (see overload of ``__iter__``).
+    Phases have physical properties, dependent on pressure, temperature and component
+    fractions.
+    Modelled components can be accessed by iterating over a phase.
 
-    Important:
-        Due to the user being able to access component fractions in this phase by
-        reference, the signature of all thermodynamic properties contains **optional**
-        arguments ``*X`` representing the phase composition.
+    Thermodynamic phase properties relevant for flow and flash problems are stored as
+    AD-compatible objects, whose values can be written and accessed directly.
+    To compute the values based on the passed equation of state, use
+    :meth:`compute_properties`.
+    These properties are:
 
-        I.e., when implementing custom Phases using a specific EoS, **always** include
-        computations for the case when specific fractions are passed as ``*X``.
+    - :attr:`density`
+    - :attr:`enthalpy`
+    - :attr:`viscosity`
+    - :attr:`conductivity`
+    - :attr:`fugacities_of`
 
-    The Phase is a Singleton per AD system,
-    using the **given** name as a unique identifier.
-    A Phase class with name ``X`` can only be present once in a system.
-    Ambiguities must be avoided due to central storage of the fractional values in the
-    grid data dictionaries.
+    The variables representing the molar fraction and saturation are assigned by
+    a mixture instance, and are only available when the phase was put into context
+    through this way.
 
     Note:
-        The variables representing saturation and molar fraction of a phase are created
-        and their value is set to zero.
+        Dependent on whether this phase is assigned as the reference phase or not,
+        the operator representing the fraction or saturation might either be a genuine
+        variable (:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`)
+        or a dependent :class:`~porepy.numerics.ad.operators.Operator`,
+        where the fraction and saturation were eliminated by unity respectively.
+
+    Also, variables and operators representing phase compositions (per component) and
+    normalized fractions respectively, are also assigned by a mixture.
+
+    Note:
+        All compositional fractions in :attr:`fraction_of` are genuine variables in the
+        flash (:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`).
+
+        All normalized fractions in :attr:`normalized_fractions_of` are dependent
+        :class:`~porepy.numerics.ad.operators.Operator` -instances,
+        created by normalization of fractions in :attr:`fraction_of`.
+
+    Important:
+        The mixture class is the only class supposed to use the setter of
+        :meth:`components`.
 
     Parameters:
-        ad_system: AD system in which this phase is present cell-wise in each subdomain.
-        name: ``default=''``
-
-            Given name for this phase. Used as an unique identifier for singletons.
+        eos: An equation of state providing computations for properties.
+        name: Given name for this phase. Used as an unique identifier and for naming
+            various variables.
 
     """
 
-    def __init__(self, ad_system: pp.ad.EquationSystem, name: str = "") -> None:
-        super().__init__()
+    def __init__(
+        self,
+        eos: AbstractEoS,
+        name: str,
+    ) -> None:
 
-        ### PUBLIC
-
-        self.ad_system: pp.ad.EquationSystem = ad_system
-        """The AD system passed at instantiation."""
-
-        #### PRIVATE
-        self._name = name
+        self._name: str = name
         """Name given to the phase at instantiation."""
 
         self._components: list[Component] = []
+        """Private list of present components (see :meth:`components`)."""
 
-        self._composition: dict[Component, pp.ad.MixedDimensionalVariable] = dict()
-        """A dictionary containing the composition variable for each
-        added/modelled component in this phase."""
+        ### PUBLIC
 
-        self._s: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_saturation']}_{self.name}",
-            subdomains=ad_system.mdg.subdomains(),
-        )
-        """Saturation Variable in AD form."""
+        self.eos: AbstractEoS = eos
+        """The equation of state passed at instantiation."""
 
-        self._fraction: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
-            f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_fraction']}_{self.name}",
-            subdomains=ad_system.mdg.subdomains(),
-        )
-        """Molar fraction variable in AD form."""
+        self.density: AdProperty = AdProperty(f"phase-density-{self.name}")
+        """Molar density of this phase.
 
-        # Set values for fractions of phase
-        nc = ad_system.mdg.num_subdomain_cells()
-        ad_system.set_variable_values(
-            np.zeros(nc),
-            variables=[self.saturation.name],
-            to_state=True,
-            to_iterate=True,
-        )
-        ad_system.set_variable_values(
-            np.zeros(nc),
-            variables=[self.fraction.name],
-            to_state=True,
-            to_iterate=True,
-        )
+        - Math. Dimension:        scalar
+        - Phys. Dimension:        [mol / m^3]
+
+
+        This is an AD-compatible representation, whose value is computed using
+        :meth:`compute_properties`.
+
+        """
+
+        self.volume: AdProperty = AdProperty(f"phase-volume-{self.name}")
+        """Molar volume of this phase.
+
+        - Math. Dimension:        scalar
+        - Phys. Dimension:        [m^3 / mol]
+
+
+        This is an AD-compatible representation, whose value is computed using
+        :meth:`compute_properties`.
+
+        """
+
+        self.enthalpy: AdProperty = AdProperty(f"phase-enthalpy-{self.name}")
+        """Specific molar enthalpy of this phase.
+
+        - Math. Dimension:        scalar
+        - Phys.Dimension:         [kJ / mol / K]
+
+        This is an AD-compatible representation, whose value is computed using
+        :meth:`compute_properties`.
+
+        """
+
+        self.viscosity: AdProperty = AdProperty(f"phase-viscosity-{self.name}")
+        """Dynamic molar viscosity of this phase.
+
+        - Math. Dimension:        scalar
+        - Phys. Dimension:        [mol / m / s]
+
+        This is an AD-compatible representation, whose value is computed using
+        :meth:`compute_properties`.
+
+        """
+
+        self.conductivity: AdProperty = AdProperty(f"phase-conductivity-{self.name}")
+        """Thermal conductivity of this phase.
+
+        - Math. Dimension:    2nd-order tensor
+        - Phys. Dimension:    [W / m / K]
+
+        This is an AD-compatible representation, whose value is computed using
+        :meth:`compute_properties`.
+
+        """
+
+        self.fugacity_of: dict[Component, AdProperty] = dict()
+        """A map of fugacity coefficients for each present component (key).
+
+        - Math. Dimension:    scalar
+        - Phys. Dimension:    [Pa]
+
+        The properties are set, once the components are set for this phase using
+        :meth:`components`.
+
+        This is an AD-compatible representation, whose values are computed using
+        :meth:`compute_properties`.
+
+        """
+
+        self.fraction: pp.ad.Operator
+        """Molar phase fraction, a primary variable on the whole domain.
+
+        Indicates how many of the total moles belong to this phase per cell.
+
+        - Math. Dimension:        scalar
+        - Phys. Dimension:        [-] fractional
+
+        This attribute is assigned by a mixture instance, when this phase is added.
+
+        If the phase is assigned as the reference phase, this is a dependent operator.
+        Otherwise it is a variable.
+
+        """
+
+        self.saturation: pp.ad.Operator
+        """Saturation (volumetric fraction), a secondary variable on the whole domain.
+
+        Indicates how much of the (local) volume is occupied by this phase per cell.
+
+        - Math. Dimension:        scalar
+        - Phys. Dimension:        [-] fractional
+
+        This attribute is assigned by a mixture instance, when this phase is added.
+
+        If the phase is assigned as the reference phase, this is a dependent operator.
+        Otherwise it is a variable.
+
+        """
+
+        self.fraction_of: dict[Component, pp.ad.MixedDimensionalVariable] = dict()
+        """A dictionary containing the composition variable for each component (key).
+
+        The fractions are created by a mixture instance, when this phase is added.
+
+        """
+
+        self.normalized_fraction_of: dict[Component, pp.ad.Operator] = dict()
+        """A dictionary containing operators representing normalized fractions per
+        component (key) based on variables in :attr:`fraction_of`.
+
+        The operators are created, once the components are set for this phase using
+        :meth:`components`.
+
+        """
 
     def __iter__(self) -> Generator[Component, None, None]:
         """Generator over components present in this phase.
@@ -124,112 +433,14 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return self._name
 
     @property
+    def gaslike(self) -> bool:
+        """Flag passed to the EoS, declaring the phase as gas-like or liquid-like."""
+        return self.eos.gaslike
+
+    @property
     def num_components(self) -> int:
         """Number of added components."""
-        return len(self._composition)
-
-    @property
-    def saturation(self) -> pp.ad.MixedDimensionalVariable:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-] fractional
-
-        The name of this variable is composed of the general symbol and the name
-        assigned to this phase at instantiation
-        (see :data:`~porepy.composite._composite_utils.VARIABLE_SYMBOLS`).
-
-        Returns:
-            Saturation (volumetric fraction), a secondary variable on the whole domain.
-            Indicates how much of the (local) volume is occupied by this phase per cell.
-
-        """
-        return self._s
-
-    @property
-    def fraction(self) -> pp.ad.MixedDimensionalVariable:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-] fractional
-
-        The name of this variable is composed of the general symbol and the name
-        assigned to this phase at instantiation
-        (see :data:`~porepy.composite._composite_utils.VARIABLE_SYMBOLS`).
-
-        Returns:
-            Molar phase fraction, a primary variable on the whole domain.
-            Indicates how many of the total moles belong to this phase per cell.
-
-        """
-        return self._fraction
-
-    def fraction_of_component(
-        self, component: Component
-    ) -> pp.ad.MixedDimensionalVariable | pp.ad.Scalar:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-] fractional
-
-        If a phase is present (phase fraction is strictly positive),
-        the component fraction (this one) has physical meaning.
-
-        If a phase vanishes (phase fraction is zero),
-        the extended fractions represent non-physical values at equilibrium.
-        The extended phase composition does not fulfill unity if a phase is not present.
-
-        In the case of a vanished phase, the regular phase composition is obtained by
-        re-normalizing the extended phase composition,
-        see :meth:`normalized_fraction_of_component`.
-
-        Parameters:
-            component: A component present in this phase.
-
-        Returns:
-            Extended molar fraction of a component in this phase,
-            a primary variable on the whole domain (cell-wise).
-            Indicates how many of the moles in this phase belong to the component.
-
-            Returns always zero if a component is not modelled (added) to this phase.
-
-        """
-        if component in self._composition:
-            return self._composition[component]
-        else:
-            return pp.ad.Scalar(0.0)
-
-    def normalized_fraction_of_component(
-        self, component: Component
-    ) -> pp.ad.Operator | pp.ad.Scalar:
-        """Performs a normalization of the component fraction by dividing it through
-        the sum of the phase composition.
-
-        If a phase is present (phase fraction is strictly positive),
-        the normalized component fraction coincides with the component fraction due to
-        the sum of the phase composition fulfilling unity.
-
-        If a phase vanishes (phase fraction is zero), the normalized fraction has
-        no physical meaning but fulfils unity, contrary to the (extended) fraction.
-
-        Parameters:
-            component: A component present in this phase.
-
-        Returns:
-            Normalized molar fraction of a component in this phase in AD operator form.
-
-            Returns always zero (wrapped in AD) if a component is not modelled
-            (added) to this phase.
-
-        """
-        if component in self._composition:
-            # normalization by division through fraction sum
-            norm_frac = self.fraction_of_component(component) / safe_sum(
-                [self.fraction_of_component(comp) for comp in self]
-            )
-            norm_frac.set_name(
-                f"{self.fraction_of_component(component).name}_normalized"
-            )
-            return norm_frac
-        else:
-            return pp.ad.Scalar(0.0)
+        return len(self._components)
 
     @property
     def components(self) -> list[Component]:
@@ -243,200 +454,100 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         are created or overwritten with zero.
 
         Warning:
+            Components in a phase should only be set once!
+
             There is a lose end in the framework, variables once created can not be
             deleted and are for always in the global DOF order.
-
-            Abstain from overwriting the components in a phase once set.
 
         Parameters:
             components: List of components to be modelled in this phase.
 
         """
         # deep copy list
-        return [c for c in self]
+        return [c for c in self._components]
 
     @components.setter
     def components(self, components: list[Component]) -> None:
-        self._composition = dict()
         self._components = list()
         # to avoid double setting
         added_components = list()
         for comp in components:
-            # sanity check when using the AD framework
-            if self.ad_system != comp.ad_system:
-                raise ValueError(
-                    f"Component '{comp.name}' instantiated with a different AD system."
-                )
-
             # check if already added
             if comp.name in added_components:
                 continue
-            else:
-                added_components.append(comp.name)
 
-            # create compositional variables for the component in this phase
-            fname = f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_composition']}"
-            fname += f"_{comp.name}_{self.name}"
-            comp_fraction = self.ad_system.create_variables(
-                fname,
-                subdomains=self.ad_system.mdg.subdomains(),
-            )
-
-            # set fractional values to zero
-            nc = self.ad_system.mdg.num_subdomain_cells()
-            self.ad_system.set_variable_values(
-                np.zeros(nc),
-                variables=[comp_fraction.name],
-                to_state=True,
-                to_iterate=True,
-            )
-
-            # store the compositional variable and component
-            self._composition.update({comp: comp_fraction})
+            added_components.append(comp.name)
             self._components.append(comp)
 
-    ### Physical properties ------------------------------------------------------------
+            # create fugacity operatpr
+            fug_i = AdProperty(f"fugacity-of-{comp.name}-in-{self.name}")
+            self.fugacity_of.update({comp: fug_i})
 
-    def mass_density(
-        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
-    ) -> NumericType | pp.ad.Operator:
-        """Uses the mass of this phase in combination with the molar masses and
-        fractions of present components, to compute the mass density of the phase.
+        self.eos.components = self.components
 
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [kg / REV]
-
-        Note:
-            A call to :meth:`density` is performed using the input.
-            If ``*X`` is not provided, the normalized phase compositions are evaluated
-            and passed as *X to :meth:`density`.
-
-        Parameters:
-            p: Pressure.
-            T: Temperature.
-            *X: (Normalized) Component fractions in this phase.
-
-        Returns:
-            The mass density of this phase in AD compatible form.
-
-        """
-        # add the mass-weighted fraction for each present substance.
-        # if no components are present, the weight is zero!
-        weight = 0.0
-        if X:
-            assert len(X) == len(
-                self._components
-            ), f"Mismatch fractions: Need {len(self._components)} got {len(X)}"
-            for i, component in enumerate(self._components):
-                weight += component.molar_mass() * X[i]
-            return weight * self.density(p, T, *X)
-        else:
-            X_ = [
-                self.fraction_of_component(comp).evaluate(self.ad_system)
-                for comp in self
-            ]
-            normalization = safe_sum(X_)
-            X_ = tuple([x / normalization for x in X_])
-            for component in self._composition:
-                weight += component.molar_mass() * X_[component]
-            return weight * self.density(p, T, *X_)
-
-    @abc.abstractmethod
-    def density(
-        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
-    ) -> NumericType:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [mol / REV]
-
-        Parameters:
-            p: Pressure.
-            T: Temperature.
-            *X: (Normalized) Component fractions in this phase.
-
-        Returns:
-            The molar density of this phase in AD compatible form.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def specific_enthalpy(
-        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
-    ) -> NumericType:
-        """
-        | Math. Dimension:        scalar
-        | Phys.Dimension:         [kJ / mol / K]
-
-        Parameters:
-            p: Pressure.
-            T: Temperature.
-            *X: (Normalized) Component fractions in this phase.
-
-        Returns:
-            The specific molar enthalpy of this phase in AD compatible form.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def dynamic_viscosity(
-        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
-    ) -> NumericType:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [mol / m / s]
-
-        Parameters:
-            p: Pressure.
-            T: Temperature.
-            *X: (Normalized) Component fractions in this phase.
-
-        Returns:
-            The dynamic viscosity of this phase in AD compatible form.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def thermal_conductivity(
-        self, p: NumericType, T: NumericType, *X: tuple[NumericType]
-    ) -> NumericType:
-        """
-        | Math. Dimension:    2nd-order tensor
-        | Phys. Dimension:    [W / m / K]
-
-        Parameters:
-            p: Pressure.
-            T: Temperature.
-            *X: (Normalized) Component fractions in this phase.
-
-        Returns:
-            The thermal conductivity of this phase in AD compatible form.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def fugacity_of(
+    @overload
+    def compute_properties(
         self,
-        component: Component,
         p: NumericType,
         T: NumericType,
-        *X: tuple[NumericType],
-    ) -> NumericType:
-        """
-        | Math. Dimension:    scalar
-        | Phys. Dimension:    [Pa]
+        X: list[NumericType],
+        store: Literal[True] = True,
+        **kwargs,
+    ) -> None:
+        # Typing overload for default return value: None, properties are stored
+        ...
+
+    @overload
+    def compute_properties(
+        self,
+        p: NumericType,
+        T: NumericType,
+        X: list[NumericType],
+        store: Literal[False] = False,
+        **kwargs,
+    ) -> PhaseProperties:
+        # Typing overload for default return value: Properties are returned
+        ...
+
+    def compute_properties(
+        self,
+        p: NumericType,
+        T: NumericType,
+        X: list[NumericType],
+        store: bool = True,
+        **kwargs,
+    ) -> None | PhaseProperties:
+        """Abstract method for computing thermodynamic properties of this phase.
+
+        This is a wrapper for :meth:`AbstractEoS.compute`, where the results are stored
+        in this class' thermodynamic properties.
 
         Parameters:
-            component: A component present in this mixture.
             p: Pressure.
             T: Temperature.
-            *X: (Normalized) Component fractions in this phase.
+            X: ``len=num_components``
+
+                (Normalized) Component fractions in this phase.
+            store: ``default=True``
+
+                A flag to store the computed values in the respective attributes
+                representing thermodynamic properties.
+            **kwargs: Keyword arguments for :meth:`AbstractEoS.compute`.
 
         Returns:
-            The fugacity of ``component`` in this phase in AD compatible form.
+            If ``store=False``, returns the computed properties.
 
         """
-        pass
+        props = self.eos.compute(p, T, X, **kwargs)
+
+        if store:
+            self.density.value = props.rho
+            self.volume.value = props.v
+            self.viscosity.value = props.mu
+            self.conductivity.value = props.kappa
+            self.enthalpy.value = props.h
+
+            for i, comp in enumerate(self):
+                self.fugacity_of[comp].value = props.phis[i]
+        else:
+            return props

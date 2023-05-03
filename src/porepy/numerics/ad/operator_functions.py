@@ -972,6 +972,9 @@ class ADMethod:
                 + str(self._bound_to)
             )
 
+        # TODO: As of now, this decorator will NEVER turn functions without arguments
+        # into AD operators, necessitating some additional work for that.
+
         # If any argument is an AD operator,
         # wrap the decorated method into an AD operator function
         # and perform a call to it.
